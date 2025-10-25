@@ -1,9 +1,4 @@
 import type { NextAuthConfig } from "next-auth";
-import Credentials from "next-auth/providers/credentials";
-import { verifyPassword } from "@/lib/db/crypto-edge";
-import { createGuestUser, getUser } from "@/lib/db/queries";
-import { generateDummyPassword } from "@/lib/db/utils";
-import type { UserType } from "./auth";
 
 export const authConfig = {
   pages: {
@@ -11,44 +6,8 @@ export const authConfig = {
     newUser: "/",
   },
   providers: [
-    Credentials({
-      credentials: {},
-      async authorize({ email, password }: any) {
-        const users = await getUser(email);
-
-        if (users.length === 0) {
-          // Timing attack prevention: run dummy password check
-          const dummyPassword = await generateDummyPassword();
-          await verifyPassword(password, dummyPassword);
-          return null;
-        }
-
-        const [user] = users;
-
-        if (!user.password) {
-          // Timing attack prevention: run dummy password check
-          const dummyPassword = await generateDummyPassword();
-          await verifyPassword(password, dummyPassword);
-          return null;
-        }
-
-        const passwordsMatch = await verifyPassword(password, user.password);
-
-        if (!passwordsMatch) {
-          return null;
-        }
-
-        return { ...user, type: "regular" as UserType };
-      },
-    }),
-    Credentials({
-      id: "guest",
-      credentials: {},
-      async authorize() {
-        const [guestUser] = await createGuestUser();
-        return { ...guestUser, type: "guest" as UserType };
-      },
-    }),
+    // Providers are added in auth.ts since they require database access
+    // which is only available in Node.js runtime (not Edge)
   ],
   callbacks: {
     jwt({ token, user }) {
