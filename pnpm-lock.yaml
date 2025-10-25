@@ -74,9 +74,6 @@ importers:
       ai:
         specifier: 5.0.26
         version: 5.0.26(zod@3.25.76)
-      bcrypt-ts:
-        specifier: ^5.0.2
-        version: 5.0.3
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -2464,10 +2461,6 @@ packages:
 
   bail@2.0.2:
     resolution: {integrity: sha512-0xO6mYd7JB2YesxDKplafRpsiOzPt9V02ddPCLbY1xYGPOX24NTyN50qnUxgCPcSoYMhKpAuBTjQoRZCAkUDRw==}
-
-  bcrypt-ts@5.0.3:
-    resolution: {integrity: sha512-2FcgD12xPbwCoe5i9/HK0jJ1xA1m+QfC1e6htG9Bl/hNOnLyaFmQSlqLKcfe3QdnoMPKpKEGFCbESBTg+SJNOw==}
-    engines: {node: '>=18'}
 
   buffer-from@1.1.2:
     resolution: {integrity: sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ==}
@@ -6321,8 +6314,6 @@ snapshots:
       retry: 0.13.1
 
   bail@2.0.2: {}
-
-  bcrypt-ts@5.0.3: {}
 
   buffer-from@1.1.2: {}
 
