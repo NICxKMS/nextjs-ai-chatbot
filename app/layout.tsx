@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 
@@ -72,15 +73,17 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          disableTransitionOnChange
-          enableSystem
-        >
-          <Toaster position="top-center" />
-          <SessionProvider>{children}</SessionProvider>
-        </ThemeProvider>
+        <Suspense>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            disableTransitionOnChange
+            enableSystem
+          >
+            <Toaster position="top-center" />
+            <SessionProvider>{children}</SessionProvider>
+          </ThemeProvider>
+        </Suspense>
       </body>
     </html>
   );
