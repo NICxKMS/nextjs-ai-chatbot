@@ -130,8 +130,6 @@ function PureMultimodalInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);
 
-  const models = availableModels;
-
   const submitForm = useCallback(() => {
     window.history.replaceState({}, "", `/chat/${chatId}`);
 
@@ -324,7 +322,7 @@ function PureMultimodalInput({
               status={status}
             />
             <ModelSelectorCompact
-              availableModels={models}
+              availableModels={availableModels}
               onModelChange={onModelChange}
               selectedModelId={selectedModelId}
             />
@@ -402,11 +400,11 @@ const AttachmentsButton = memo(PureAttachmentsButton);
 function PureModelSelectorCompact({
   selectedModelId,
   onModelChange,
-  availableModels,
+  availableModels = [],
 }: {
   selectedModelId: string;
   onModelChange?: (modelId: string) => void;
-  availableModels: ModelMetadata[];
+  availableModels?: ModelMetadata[];
 }) {
   const [optimisticModelId, setOptimisticModelId] = useState(selectedModelId);
 

@@ -1,14 +1,10 @@
-import {
-  extractReasoningMiddleware,
-  wrapLanguageModel,
-} from "ai";
+import { extractReasoningMiddleware, wrapLanguageModel } from "ai";
 import { isTestEnvironment } from "../constants";
-import {
-  getLanguageModel,
-  getReasoningModel,
-} from "./model-registry";
+import { getLanguageModel, getReasoningModel } from "./model-registry";
+import { DEFAULT_ARTIFACT_MODEL } from "./models";
 
 const reasoningModel = getReasoningModel();
+const artifactModelId = DEFAULT_ARTIFACT_MODEL;
 
 export const myProvider = isTestEnvironment
   ? (() => {
@@ -37,7 +33,8 @@ export const myProvider = isTestEnvironment
     })()
   : {
       languageModel(id: string) {
-        const model = getLanguageModel(id);
+        const resolvedId = id === "artifact-model" ? artifactModelId : id;
+        const model = getLanguageModel(resolvedId);
         if (id === reasoningModel.id) {
           return wrapLanguageModel({
             model,

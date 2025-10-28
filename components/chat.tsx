@@ -3,7 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
 import { ChatHeader } from "@/components/chat-header";
@@ -67,6 +67,28 @@ export function Chat({
   const [currentModelId, setCurrentModelId] = useState(initialChatModel);
   const currentModelIdRef = useRef(currentModelId);
 
+  const getCurrentModel = useCallback(
+    () =>
+      availableModels.find((model) => model.id === currentModelIdRef.current),
+    [availableModels]
+  );
+
+  const isVercelGatewayModel = useCallback(
+    (modelId: string | undefined) => {
+      if (!modelId) {
+        return false;
+      }
+      if (modelId.startsWith("vercel-gateway:")) {
+        return true;
+      }
+      const matchingModel = availableModels.find(
+        (model) => model.id === modelId
+      );
+      return matchingModel?.providerId === "vercel-gateway";
+    },
+    [availableModels]
+  );
+
   useEffect(() => {
     currentModelIdRef.current = currentModelId;
   }, [currentModelId]);
@@ -110,18 +132,53 @@ export function Chat({
     },
     onError: (error) => {
       if (error instanceof ChatSDKError) {
-        // Check if it's a credit card error
-        if (
-          error.message?.includes("AI Gateway requires a valid credit card")
-        ) {
-          setShowCreditCardAlert(true);
-        } else {
+        const isGatewayCreditCardError = error.message?.includes(
+          "AI Gateway requires a valid credit card"
+        );
+
+        if (isGatewayCreditCardError) {
+          if (isVercelGatewayModel(currentModelIdRef.current)) {
+            setShowCreditCardAlert(true);
+            return;
+          }
+
+          const currentModel = getCurrentModel();
+          const providerName = currentModel?.providerName ?? "Model provider";
+
+          console.error("Model invocation rejected", {
+            modelId: currentModelIdRef.current,
+            providerName,
+            reason: error.message,
+            cause: error.cause,
+          });
+
           toast({
             type: "error",
-            description: error.message,
+            description: `${providerName} rejected the request due to billing requirements. Please verify your credentials or billing status with ${providerName}.`,
           });
+          return;
         }
+
+        console.error("Chat model error", {
+          modelId: currentModelIdRef.current,
+          providerName: getCurrentModel()?.providerName,
+          code: error.code,
+          message: error.message,
+          cause: error.cause,
+        });
+
+        toast({
+          type: "error",
+          description: `${error.message}${error.cause ? ` — ${error.cause}` : ""}${error.code ? ` (code: ${error.code})` : ""}`,
+        });
+        return;
       }
+
+      console.error("Unexpected chat error", error);
+      toast({
+        type: "error",
+        description: `Unexpected error while contacting the model provider.${error instanceof Error ? ` ${error.message}` : ""}`,
+      });
     },
   });
 

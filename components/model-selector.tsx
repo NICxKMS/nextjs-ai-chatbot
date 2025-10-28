@@ -13,10 +13,7 @@ import type {
   ModelMetadata,
   ProviderCatalog,
 } from "@/lib/ai/model-catalog-types";
-import {
-  forceRefreshModelCatalog,
-  listChatModels,
-} from "@/lib/ai/model-registry";
+import { forceRefreshModelCatalog } from "@/lib/ai/model-registry";
 import { cn } from "@/lib/utils";
 import { CheckCircleFillIcon, ChevronDownIcon } from "./icons";
 
@@ -139,15 +136,20 @@ function groupModelsByProvider(models: ModelMetadata[]): ProviderCatalog[] {
 export function ModelSelector({
   selectedModelId,
   className,
+  availableModels,
 }: {
   selectedModelId: string;
+  availableModels?: ModelMetadata[];
 } & React.ComponentProps<typeof Button>) {
   const [open, setOpen] = useState(false);
   const [optimisticModelId, setOptimisticModelId] =
     useOptimistic(selectedModelId);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const availableChatModels = useMemo(() => listChatModels(), []);
+  const availableChatModels = useMemo(
+    () => availableModels ?? [],
+    [availableModels]
+  );
 
   const groupedCatalog = useMemo(
     () => groupModelsByProvider(availableChatModels),

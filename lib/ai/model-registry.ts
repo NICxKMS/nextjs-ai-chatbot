@@ -33,6 +33,10 @@ const CLOUDFLARE_AI_GATEWAY_API_KEY =
 const baseProviders: Record<string, ProviderV2> = {};
 const additionalProviderIds = new Set<string>();
 
+const hasVercelGatewayAuth = Boolean(
+  process.env.AI_GATEWAY_API_KEY ?? process.env.VERCEL_OIDC_TOKEN
+);
+
 const registerProvider = (id: string, provider: ProviderV2 | undefined) => {
   if (provider) {
     baseProviders[id] = provider;
@@ -43,15 +47,17 @@ const registerProvider = (id: string, provider: ProviderV2 | undefined) => {
 };
 
 const logProviderState = () => {
-  const providerIds = Object.keys(baseProviders);
-  console.log("[model-registry] active providers:", providerIds);
-  console.log(
-    "[model-registry] curated models available:",
-    curatedModels.map((model) => model.id)
-  );
+  //   const providerIds = Object.keys(baseProviders);
+  //   console.log("[model-registry] active providers:", providerIds);
+  //   console.log(
+  //     "[model-registry] curated models available:",
+  //     curatedModels.map((model) => model.id)
+  //   );
 };
 
-registerProvider("vercel-gateway", gateway as unknown as ProviderV2);
+if (hasVercelGatewayAuth) {
+  registerProvider("vercel-gateway", gateway as unknown as ProviderV2);
+}
 
 if (OPENAI_API_KEY) {
   registerProvider(
@@ -211,10 +217,10 @@ export const listChatModels = () => {
     model.capabilities.includes("chat")
   );
 
-  console.log(
-    "[model-registry] listChatModels =>",
-    models.map((model) => model.id)
-  );
+  //   console.log(
+  //     "[model-registry] listChatModels =>",
+  //     models.map((model) => model.id)
+  //   );
 
   return models;
 };
