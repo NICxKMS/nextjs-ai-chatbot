@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, type Page } from "@playwright/test";
-import { chatModels } from "@/lib/ai/models";
+import { listChatModels } from "@/lib/ai/model-registry";
 
 const CHAT_ID_REGEX =
   /^http:\/\/localhost:3000\/chat\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -107,7 +107,7 @@ export class ChatPage {
   }
 
   async chooseModelFromSelector(chatModelId: string) {
-    const chatModel = chatModels.find(
+    const chatModel = listChatModels().find(
       (currentChatModel) => currentChatModel.id === chatModelId
     );
 
@@ -261,5 +261,9 @@ export class ChatPage {
     await this.scrollContainer.evaluate((element) => {
       element.scrollTop = 0;
     });
+  }
+
+  async selectReasoningModel() {
+    await this.chooseModelFromSelector("openai:gpt-4.1");
   }
 }

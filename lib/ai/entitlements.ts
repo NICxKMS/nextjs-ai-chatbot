@@ -1,10 +1,12 @@
 import type { UserType } from "@/app/(auth)/auth";
-import type { ChatModel } from "./models";
+import { listChatModels } from "./model-registry";
 
 type Entitlements = {
   maxMessagesPerDay: number;
-  availableChatModelIds: ChatModel["id"][];
+  availableChatModelIds: string[];
 };
+
+const getAllModelIds = () => listChatModels().map((model) => model.id);
 
 export const entitlementsByUserType: Record<UserType, Entitlements> = {
   /*
@@ -12,7 +14,7 @@ export const entitlementsByUserType: Record<UserType, Entitlements> = {
    */
   guest: {
     maxMessagesPerDay: 20,
-    availableChatModelIds: ["chat-model", "chat-model-reasoning"],
+    availableChatModelIds: getAllModelIds(),
   },
 
   /*
@@ -20,7 +22,7 @@ export const entitlementsByUserType: Record<UserType, Entitlements> = {
    */
   regular: {
     maxMessagesPerDay: 100,
-    availableChatModelIds: ["chat-model", "chat-model-reasoning"],
+    availableChatModelIds: getAllModelIds(),
   },
 
   /*

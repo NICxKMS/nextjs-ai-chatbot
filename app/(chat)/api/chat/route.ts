@@ -19,7 +19,8 @@ import { getUsage } from "tokenlens/helpers";
 import { auth, type UserType } from "@/app/(auth)/auth";
 import type { VisibilityType } from "@/components/visibility-selector";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
-import type { ChatModel } from "@/lib/ai/models";
+import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
+import { getModelById } from "@/lib/ai/model-registry";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import { myProvider } from "@/lib/ai/providers";
 import { createDocument } from "@/lib/ai/tools/create-document";
@@ -43,6 +44,33 @@ import type { AppUsage } from "@/lib/usage";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
+
+const TOOL_IDS = [
+  "getWeather",
+  "createDocument",
+  "updateDocument",
+  "requestSuggestions",
+] as const;
+
+type ToolId = (typeof TOOL_IDS)[number];
+
+type ToolIdList = ToolId[];
+
+const getEnabledTools = (model: ModelMetadata | undefined): ToolIdList => {
+  if (!model) {
+    return [];
+  }
+
+  if (model.capabilities.includes("reasoning")) {
+    return [];
+  }
+
+  if (model.capabilities.includes("tooling") || model.isCurated) {
+    return [...TOOL_IDS];
+  }
+
+  return [];
+};
 
 export const maxDuration = 60;
 
@@ -103,7 +131,7 @@ export async function POST(request: Request) {
     }: {
       id: string;
       message: ChatMessage;
-      selectedChatModel: ChatModel["id"];
+      selectedChatModel: string;
       selectedVisibilityType: VisibilityType;
     } = requestBody;
 
@@ -175,20 +203,17 @@ export async function POST(request: Request) {
 
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
+        const selectedModel = getModelById(selectedChatModel);
         const result = streamText({
           model: myProvider.languageModel(selectedChatModel),
-          system: systemPrompt({ selectedChatModel, requestHints }),
+          system: systemPrompt({
+            selectedChatModel,
+            requestHints,
+            selectedModel,
+          }),
           messages: convertToModelMessages(uiMessages),
           stopWhen: stepCountIs(5),
-          experimental_activeTools:
-            selectedChatModel === "chat-model-reasoning"
-              ? []
-              : [
-                  "getWeather",
-                  "createDocument",
-                  "updateDocument",
-                  "requestSuggestions",
-                ],
+          experimental_activeTools: getEnabledTools(selectedModel),
           experimental_transform: smoothStream({ chunking: "word" }),
           tools: {
             getWeather,

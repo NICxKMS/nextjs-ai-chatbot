@@ -20,8 +20,7 @@ import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import { saveChatModelAsCookie } from "@/app/(chat)/actions";
 import { SelectItem } from "@/components/ui/select";
-import { chatModels } from "@/lib/ai/models";
-import { myProvider } from "@/lib/ai/providers";
+import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
 import { cn } from "@/lib/utils";
@@ -63,6 +62,7 @@ function PureMultimodalInput({
   selectedModelId,
   onModelChange,
   usage,
+  availableModels = [],
 }: {
   chatId: string;
   input: string;
@@ -79,6 +79,7 @@ function PureMultimodalInput({
   selectedModelId: string;
   onModelChange?: (modelId: string) => void;
   usage?: AppUsage;
+  availableModels?: ModelMetadata[];
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
@@ -128,6 +129,8 @@ function PureMultimodalInput({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);
+
+  const models = availableModels;
 
   const submitForm = useCallback(() => {
     window.history.replaceState({}, "", `/chat/${chatId}`);
@@ -195,9 +198,9 @@ function PureMultimodalInput({
     }
   }, []);
 
-  const _modelResolver = useMemo(() => {
-    return myProvider.languageModel(selectedModelId);
-  }, [selectedModelId]);
+  // const _modelResolver = useMemo(() => {
+  //   return myProvider.languageModel(selectedModelId);
+  // }, [selectedModelId]);
 
   const contextProps = useMemo(
     () => ({
@@ -321,6 +324,7 @@ function PureMultimodalInput({
               status={status}
             />
             <ModelSelectorCompact
+              availableModels={models}
               onModelChange={onModelChange}
               selectedModelId={selectedModelId}
             />
@@ -398,9 +402,11 @@ const AttachmentsButton = memo(PureAttachmentsButton);
 function PureModelSelectorCompact({
   selectedModelId,
   onModelChange,
+  availableModels,
 }: {
   selectedModelId: string;
   onModelChange?: (modelId: string) => void;
+  availableModels: ModelMetadata[];
 }) {
   const [optimisticModelId, setOptimisticModelId] = useState(selectedModelId);
 
@@ -408,14 +414,14 @@ function PureModelSelectorCompact({
     setOptimisticModelId(selectedModelId);
   }, [selectedModelId]);
 
-  const selectedModel = chatModels.find(
+  const selectedModel = availableModels.find(
     (model) => model.id === optimisticModelId
   );
 
   return (
     <PromptInputModelSelect
       onValueChange={(modelName) => {
-        const model = chatModels.find((m) => m.name === modelName);
+        const model = availableModels.find((m) => m.name === modelName);
         if (model) {
           setOptimisticModelId(model.id);
           onModelChange?.(model.id);
@@ -438,7 +444,7 @@ function PureModelSelectorCompact({
       </Trigger>
       <PromptInputModelSelectContent className="min-w-[260px] p-0">
         <div className="flex flex-col gap-px">
-          {chatModels.map((model) => (
+          {availableModels.map((model) => (
             <SelectItem key={model.id} value={model.name}>
               <div className="truncate font-medium text-xs">{model.name}</div>
               <div className="mt-px truncate text-[10px] text-muted-foreground leading-tight">
