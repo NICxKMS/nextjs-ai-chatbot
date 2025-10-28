@@ -1,8 +1,18 @@
 import { getMessageByErrorCode } from "@/lib/errors";
 import { expect, test } from "../fixtures";
+import type { Page } from "@playwright/test";
 import { generateRandomTestUser } from "../helpers";
 import { AuthPage } from "../pages/auth";
 import { ChatPage } from "../pages/chat";
+
+const asGlobalRequest = (request: import("@playwright/test").Request): Request => {
+  return request as unknown as Request;
+};
+
+const waitForChatRequest = async (page: Page): Promise<Request> => {
+  const playwrightRequest = await page.waitForRequest("**/api/chat");
+  return playwrightRequest as unknown as Request;
+};
 
 test.describe
   .serial("Guest Session", () => {

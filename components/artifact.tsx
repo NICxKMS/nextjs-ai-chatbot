@@ -17,6 +17,7 @@ import { imageArtifact } from "@/artifacts/image/client";
 import { sheetArtifact } from "@/artifacts/sheet/client";
 import { textArtifact } from "@/artifacts/text/client";
 import { useArtifact } from "@/hooks/use-artifact";
+import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 import type { Document, Vote } from "@/lib/db/schema";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { fetcher } from "@/lib/utils";
@@ -68,6 +69,7 @@ function PureArtifact({
   isReadonly,
   selectedVisibilityType,
   selectedModelId,
+  availableModels,
 }: {
   chatId: string;
   input: string;
@@ -84,6 +86,7 @@ function PureArtifact({
   isReadonly: boolean;
   selectedVisibilityType: VisibilityType;
   selectedModelId: string;
+  availableModels: ModelMetadata[];
 }) {
   const { artifact, setArtifact, metadata, setMetadata } = useArtifact();
 
@@ -321,6 +324,7 @@ function PureArtifact({
               <div className="flex h-full flex-col items-center justify-between">
                 <ArtifactMessages
                   artifactStatus={artifact.status}
+                  availableModels={availableModels}
                   chatId={chatId}
                   isReadonly={isReadonly}
                   messages={messages}
@@ -333,6 +337,7 @@ function PureArtifact({
                 <div className="relative flex w-full flex-row items-end gap-2 px-4 pb-4">
                   <MultimodalInput
                     attachments={attachments}
+                    availableModels={availableModels}
                     chatId={chatId}
                     className="bg-background dark:bg-muted"
                     input={input}

@@ -1,6 +1,13 @@
 import { motion } from "framer-motion";
+import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 
-export const Greeting = () => {
+type GreetingProps = {
+  availableModels?: ModelMetadata[];
+};
+
+export const Greeting = ({ availableModels }: GreetingProps) => {
+  const modelCount = availableModels?.length ?? 0;
+
   return (
     <div
       className="mx-auto mt-4 flex size-full max-w-3xl flex-col justify-center px-4 md:mt-16 md:px-8"
@@ -22,7 +29,9 @@ export const Greeting = () => {
         initial={{ opacity: 0, y: 10 }}
         transition={{ delay: 0.6 }}
       >
-        How can I help you today?
+        {modelCount > 0
+          ? `How can I help you today? You have access to ${modelCount} models.`
+          : "How can I help you today?"}
       </motion.div>
     </div>
   );

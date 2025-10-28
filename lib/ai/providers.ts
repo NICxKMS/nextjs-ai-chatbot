@@ -1,36 +1,49 @@
-import { gateway } from "@ai-sdk/gateway";
 import {
-  customProvider,
   extractReasoningMiddleware,
   wrapLanguageModel,
 } from "ai";
 import { isTestEnvironment } from "../constants";
+import {
+  getLanguageModel,
+  getReasoningModel,
+} from "./model-registry";
+
+const reasoningModel = getReasoningModel();
 
 export const myProvider = isTestEnvironment
   ? (() => {
       const {
         artifactModel,
         chatModel,
-        reasoningModel,
+        reasoningModel: mockReasoningModel,
         titleModel,
       } = require("./models.mock");
-      return customProvider({
-        languageModels: {
-          "chat-model": chatModel,
-          "chat-model-reasoning": reasoningModel,
-          "title-model": titleModel,
-          "artifact-model": artifactModel,
+      return {
+        languageModel(id: string) {
+          switch (id) {
+            case "chat-model":
+              return chatModel;
+            case "chat-model-reasoning":
+              return mockReasoningModel;
+            case "title-model":
+              return titleModel;
+            case "artifact-model":
+              return artifactModel;
+            default:
+              throw new Error(`Unknown mock model id: ${id}`);
+          }
         },
-      });
+      };
     })()
-  : customProvider({
-      languageModels: {
-        "chat-model": gateway.languageModel("xai/grok-2-vision-1212"),
-        "chat-model-reasoning": wrapLanguageModel({
-          model: gateway.languageModel("xai/grok-3-mini"),
-          middleware: extractReasoningMiddleware({ tagName: "think" }),
-        }),
-        "title-model": gateway.languageModel("xai/grok-2-1212"),
-        "artifact-model": gateway.languageModel("xai/grok-2-1212"),
+  : {
+      languageModel(id: string) {
+        const model = getLanguageModel(id);
+        if (id === reasoningModel.id) {
+          return wrapLanguageModel({
+            model,
+            middleware: extractReasoningMiddleware({ tagName: "think" }),
+          });
+        }
+        return model;
       },
-    });
+    };

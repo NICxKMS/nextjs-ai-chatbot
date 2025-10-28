@@ -1,6 +1,5 @@
 "use client";
 
-import type { Session } from "next-auth";
 import { startTransition, useMemo, useOptimistic, useState } from "react";
 import { saveChatModelAsCookie } from "@/app/(chat)/actions";
 import { Button } from "@/components/ui/button";
@@ -10,28 +9,149 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { entitlementsByUserType } from "@/lib/ai/entitlements";
-import { chatModels } from "@/lib/ai/models";
+import type {
+  ModelMetadata,
+  ProviderCatalog,
+} from "@/lib/ai/model-catalog-types";
+import {
+  forceRefreshModelCatalog,
+  listChatModels,
+} from "@/lib/ai/model-registry";
 import { cn } from "@/lib/utils";
 import { CheckCircleFillIcon, ChevronDownIcon } from "./icons";
 
+const getBadge = (model: ModelMetadata) => {
+  if (model.isCurated) {
+    return "Featured";
+  }
+
+  if (model.source === "discovered") {
+    return "Live";
+  }
+
+  return null;
+};
+
+const capabilityLabels: Record<string, string> = {
+  reasoning: "Reasoning",
+  vision: "Vision",
+  audio: "Audio",
+  multimodal: "Multimodal",
+  code: "Code",
+  tooling: "Tools",
+};
+
+function renderModelRow({
+  model,
+  optimisticModelId,
+  onSelect,
+  disabled,
+}: {
+  model: ModelMetadata;
+  optimisticModelId: string;
+  onSelect: (modelId: string) => void;
+  disabled: boolean;
+}) {
+  const badge = getBadge(model);
+
+  return (
+    <DropdownMenuItem
+      asChild
+      data-active={model.id === optimisticModelId}
+      data-testid={`model-selector-item-${model.id}`}
+      disabled={disabled}
+      key={model.id}
+      onSelect={() => onSelect(model.id)}
+    >
+      <button className="group/item flex w-full flex-col gap-2" type="button">
+        <div className="flex w-full flex-row items-center justify-between">
+          <div className="flex flex-col items-start gap-1 text-left">
+            <span className="font-medium text-sm sm:text-base">
+              {model.name}
+            </span>
+            {model.description && (
+              <span className="line-clamp-2 text-muted-foreground text-xs">
+                {model.description}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {badge ? (
+              <span className="rounded-full bg-primary/10 px-2 py-1 text-primary text-xs">
+                {badge}
+              </span>
+            ) : null}
+
+            <div className="text-foreground opacity-0 group-data-[active=true]/item:opacity-100">
+              <CheckCircleFillIcon />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
+          <span>{model.providerName}</span>
+
+          {model.release ? <span>• Released {model.release}</span> : null}
+
+          {model.contextWindow ? (
+            <span>• Context {model.contextWindow.toLocaleString()} tokens</span>
+          ) : null}
+
+          {model.capabilities
+            .filter((capability) => capabilityLabels[capability])
+            .map((capability) => (
+              <span className="rounded bg-muted px-2 py-0.5" key={capability}>
+                {capabilityLabels[capability] ?? capability}
+              </span>
+            ))}
+
+          {model.price ? <span>• {model.price}</span> : null}
+        </div>
+      </button>
+    </DropdownMenuItem>
+  );
+}
+
+function groupModelsByProvider(models: ModelMetadata[]): ProviderCatalog[] {
+  const grouped = models.reduce<Record<string, ProviderCatalog>>(
+    (acc, model) => {
+      if (!acc[model.providerId]) {
+        acc[model.providerId] = {
+          providerId: model.providerId,
+          displayName: model.providerName,
+          models: [],
+          fetchedAt: "",
+        };
+      }
+
+      acc[model.providerId].models.push(model);
+      return acc;
+    },
+    {}
+  );
+
+  return Object.values(grouped).sort((a, b) =>
+    a.displayName.localeCompare(b.displayName)
+  );
+}
+
 export function ModelSelector({
-  session,
   selectedModelId,
   className,
 }: {
-  session: Session;
   selectedModelId: string;
 } & React.ComponentProps<typeof Button>) {
   const [open, setOpen] = useState(false);
   const [optimisticModelId, setOptimisticModelId] =
     useOptimistic(selectedModelId);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const userType = session.user.type;
-  const { availableChatModelIds } = entitlementsByUserType[userType];
+  const availableChatModels = useMemo(() => listChatModels(), []);
 
-  const availableChatModels = chatModels.filter((chatModel) =>
-    availableChatModelIds.includes(chatModel.id)
+  const groupedCatalog = useMemo(
+    () => groupModelsByProvider(availableChatModels),
+    [availableChatModels]
   );
 
   const selectedChatModel = useMemo(
@@ -62,42 +182,58 @@ export function ModelSelector({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
-        className="min-w-[280px] max-w-[90vw] sm:min-w-[300px]"
+        className="max-h-[420px] min-w-[360px] max-w-[93vw] overflow-y-auto sm:min-w-[420px]"
       >
-        {availableChatModels.map((chatModel) => {
-          const { id } = chatModel;
+        <div className="flex items-center justify-between px-2 pt-1 pb-2 text-muted-foreground text-xs">
+          <div>Choose a model (based on your organization’s entitlements)</div>
+          <Button
+            disabled={isRefreshing}
+            onClick={() => {
+              setIsRefreshing(true);
+              forceRefreshModelCatalog()
+                .catch((error) => {
+                  console.error("Model catalog refresh failed", error);
+                })
+                .finally(() => setIsRefreshing(false));
+            }}
+            size="sm"
+            variant="ghost"
+          >
+            {isRefreshing ? "Refreshing…" : "Refresh"}
+          </Button>
+        </div>
 
+        {groupedCatalog.map((providerCatalog) => {
           return (
-            <DropdownMenuItem
-              asChild
-              data-active={id === optimisticModelId}
-              data-testid={`model-selector-item-${id}`}
-              key={id}
-              onSelect={() => {
-                setOpen(false);
-
-                startTransition(() => {
-                  setOptimisticModelId(id);
-                  saveChatModelAsCookie(id);
-                });
-              }}
+            <div
+              className="border-border/70 border-t px-2 py-2"
+              key={providerCatalog.providerId}
             >
-              <button
-                className="group/item flex w-full flex-row items-center justify-between gap-2 sm:gap-4"
-                type="button"
-              >
-                <div className="flex flex-col items-start gap-1">
-                  <div className="text-sm sm:text-base">{chatModel.name}</div>
-                  <div className="line-clamp-2 text-muted-foreground text-xs">
-                    {chatModel.description}
-                  </div>
-                </div>
+              <div className="mb-1 flex items-center justify-between font-medium text-sm">
+                <span>{providerCatalog.displayName}</span>
+                <span className="text-muted-foreground text-xs">
+                  {providerCatalog.models.length} models
+                </span>
+              </div>
 
-                <div className="shrink-0 text-foreground opacity-0 group-data-[active=true]/item:opacity-100 dark:text-foreground">
-                  <CheckCircleFillIcon />
-                </div>
-              </button>
-            </DropdownMenuItem>
+              <div className="flex flex-col gap-1.5">
+                {providerCatalog.models.map((model) =>
+                  renderModelRow({
+                    model,
+                    optimisticModelId,
+                    disabled: false,
+                    onSelect: (id) => {
+                      setOpen(false);
+
+                      startTransition(() => {
+                        setOptimisticModelId(id);
+                        saveChatModelAsCookie(id);
+                      });
+                    },
+                  })
+                )}
+              </div>
+            </div>
           );
         })}
       </DropdownMenuContent>

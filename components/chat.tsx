@@ -20,6 +20,7 @@ import {
 import { useArtifactSelector } from "@/hooks/use-artifact";
 import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
+import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 import type { Vote } from "@/lib/db/schema";
 import { ChatSDKError } from "@/lib/errors";
 import type { Attachment, ChatMessage } from "@/lib/types";
@@ -41,6 +42,7 @@ export function Chat({
   isReadonly,
   autoResume,
   initialLastContext,
+  availableModels = [],
 }: {
   id: string;
   initialMessages: ChatMessage[];
@@ -49,6 +51,7 @@ export function Chat({
   isReadonly: boolean;
   autoResume: boolean;
   initialLastContext?: AppUsage;
+  availableModels?: ModelMetadata[];
 }) {
   const { visibilityType } = useChatVisibility({
     chatId: id,
@@ -169,7 +172,7 @@ export function Chat({
           isReadonly={isReadonly}
           messages={messages}
           regenerate={regenerate}
-          selectedModelId={initialChatModel}
+          selectedModelId={currentModelId}
           setMessages={setMessages}
           status={status}
           votes={votes}
@@ -179,6 +182,7 @@ export function Chat({
           {!isReadonly && (
             <MultimodalInput
               attachments={attachments}
+              availableModels={availableModels}
               chatId={id}
               input={input}
               messages={messages}
@@ -199,6 +203,7 @@ export function Chat({
 
       <Artifact
         attachments={attachments}
+        availableModels={availableModels}
         chatId={id}
         input={input}
         isReadonly={isReadonly}

@@ -3,6 +3,7 @@ import equal from "fast-deep-equal";
 import { AnimatePresence, motion } from "framer-motion";
 import { memo } from "react";
 import { useMessages } from "@/hooks/use-messages";
+import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
 import type { UIArtifact } from "./artifact";
@@ -17,6 +18,7 @@ type ArtifactMessagesProps = {
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
   isReadonly: boolean;
   artifactStatus: UIArtifact["status"];
+  availableModels?: ModelMetadata[];
 };
 
 function PureArtifactMessages({
@@ -98,6 +100,9 @@ function areEqual(
     return false;
   }
   if (!equal(prevProps.votes, nextProps.votes)) {
+    return false;
+  }
+  if (!equal(prevProps.availableModels, nextProps.availableModels)) {
     return false;
   }
 
