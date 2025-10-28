@@ -1,11 +1,13 @@
+import type { Page } from "@playwright/test";
 import { getMessageByErrorCode } from "@/lib/errors";
 import { expect, test } from "../fixtures";
-import type { Page } from "@playwright/test";
 import { generateRandomTestUser } from "../helpers";
 import { AuthPage } from "../pages/auth";
 import { ChatPage } from "../pages/chat";
 
-const asGlobalRequest = (request: import("@playwright/test").Request): Request => {
+const asGlobalRequest = (
+  request: import("@playwright/test").Request
+): Request => {
   return request as unknown as Request;
 };
 

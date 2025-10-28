@@ -114,6 +114,7 @@ export function getStreamContext() {
 
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
+  let selectedModelId = "";
 
   try {
     const json = await request.json();
@@ -134,6 +135,8 @@ export async function POST(request: Request) {
       selectedChatModel: string;
       selectedVisibilityType: VisibilityType;
     } = requestBody;
+
+    selectedModelId = selectedChatModel;
 
     const session = await auth();
 
@@ -312,6 +315,7 @@ export async function POST(request: Request) {
     return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
   } catch (error) {
     const vercelId = request.headers.get("x-vercel-id");
+    const isVercelGatewayModel = selectedModelId.startsWith("vercel-gateway:");
 
     if (error instanceof ChatSDKError) {
       return error.toResponse();
@@ -324,10 +328,23 @@ export async function POST(request: Request) {
         "AI Gateway requires a valid credit card on file to service requests"
       )
     ) {
-      return new ChatSDKError("bad_request:activate_gateway").toResponse();
+      if (isVercelGatewayModel) {
+        return new ChatSDKError("bad_request:activate_gateway").toResponse();
+      }
+
+      console.error("Gateway credit card error for non-Vercel model", {
+        selectedModelId,
+        vercelId,
+        message: error.message,
+      });
+
+      return new ChatSDKError("bad_request:api", error.message).toResponse();
     }
 
-    console.error("Unhandled error in chat API:", error, { vercelId });
+    console.error("Unhandled error in chat API:", error, {
+      vercelId,
+      selectedModelId,
+    });
     return new ChatSDKError("offline:chat").toResponse();
   }
 }
