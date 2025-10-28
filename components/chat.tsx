@@ -131,6 +131,14 @@ export function Chat({
       if (dataPart.type === "data-usage") {
         setUsage(dataPart.data);
       }
+      if (dataPart.type === "data-appendMessage") {
+        try {
+          const message = JSON.parse((dataPart as any).data);
+          setMessages((prev) => [...prev, message]);
+        } catch {
+          // ignore malformed payloads
+        }
+      }
     },
     onFinish: () => {
       mutate(unstable_serialize(getChatHistoryPaginationKey));

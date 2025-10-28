@@ -96,6 +96,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.2",
+    "@google/genai": "^1.27.0",
     "@playwright/test": "^1.50.1",
     "@tailwindcss/postcss": "^4.1.13",
     "@tailwindcss/typography": "^0.5.15",
