@@ -248,7 +248,8 @@ export async function POST(request: Request) {
                 // Thinking config for Gemini models with thinking mode support
                 thinkingConfig: {
                   type: "enabled",
-                  budgetTokens: selectedModel.thinkingBudget ?? 10_000,
+                  includeThoughts: true,
+                  budgetTokens: selectedModel.thinkingBudget ?? 1024,
                 },
               };
               break;
@@ -388,15 +389,15 @@ export async function POST(request: Request) {
       },
     });
 
-    // const streamContext = getStreamContext();
+    const streamContext = getStreamContext();
 
-    // if (streamContext) {
-    //   return new Response(
-    //     await streamContext.resumableStream(streamId, () =>
-    //       stream.pipeThrough(new JsonToSseTransformStream())
-    //     )
-    //   );
-    // }
+    if (streamContext) {
+      return new Response(
+        await streamContext.resumableStream(streamId, () =>
+          stream.pipeThrough(new JsonToSseTransformStream())
+        )
+      );
+    }
 
     return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
   } catch (error) {
