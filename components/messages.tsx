@@ -6,6 +6,7 @@ import { memo, useEffect } from "react";
 import { useMessages } from "@/hooks/use-messages";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
+import { useSettingsSnapshot } from "@/lib/ui/settings-store";
 import { useDataStream } from "./data-stream-provider";
 import { Conversation, ConversationContent } from "./elements/conversation";
 import { Greeting } from "./greeting";
@@ -43,9 +44,10 @@ function PureMessages({
   });
 
   useDataStream();
+  const { autoScroll } = useSettingsSnapshot();
 
   useEffect(() => {
-    if (status === "submitted") {
+    if (status === "submitted" && autoScroll) {
       requestAnimationFrame(() => {
         const container = messagesContainerRef.current;
         if (container) {
@@ -56,7 +58,7 @@ function PureMessages({
         }
       });
     }
-  }, [status, messagesContainerRef]);
+  }, [status, autoScroll, messagesContainerRef]);
 
   return (
     <div

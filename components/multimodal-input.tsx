@@ -22,6 +22,7 @@ import { saveChatModelAsCookie } from "@/app/(chat)/actions";
 import { SelectItem } from "@/components/ui/select";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 import type { Attachment, ChatMessage } from "@/lib/types";
+import { useSettingsSnapshot } from "@/lib/ui/settings-store";
 import type { AppUsage } from "@/lib/usage";
 import { cn } from "@/lib/utils";
 import { Context } from "./elements/context";
@@ -200,11 +201,16 @@ function PureMultimodalInput({
   //   return myProvider.languageModel(selectedModelId);
   // }, [selectedModelId]);
 
+  const userSettings = useSettingsSnapshot();
+
   const contextProps = useMemo(
     () => ({
       usage,
+      sampling: userSettings.sampling,
+      systemPrompt: userSettings.systemPrompt,
+      enableReasoning: userSettings.enableReasoning,
     }),
-    [usage]
+    [usage, userSettings]
   );
 
   const handleFileChange = useCallback(
@@ -246,6 +252,7 @@ function PureMultimodalInput({
         )}
 
       <input
+        aria-label="Upload attachments"
         className="-top-4 -left-4 pointer-events-none fixed size-0.5 opacity-0"
         multiple
         onChange={handleFileChange}

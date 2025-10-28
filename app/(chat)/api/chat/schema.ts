@@ -23,6 +23,19 @@ export const postRequestBodySchema = z.object({
   }),
   selectedChatModel: z.string().min(1),
   selectedVisibilityType: z.enum(["public", "private"]),
+  settings: z
+    .object({
+      sampling: z.object({
+        temperature: z.number().min(0).max(2),
+        topP: z.number().min(0).max(1),
+        maxOutputTokens: z.number().min(256).max(1_000_000),
+      }),
+      systemPrompt: z.string().max(8192),
+      enableReasoning: z.boolean(),
+      streamArtifacts: z.boolean(),
+      autoScroll: z.boolean(),
+    })
+    .optional(),
 });
 
 export type PostRequestBody = z.infer<typeof postRequestBodySchema>;

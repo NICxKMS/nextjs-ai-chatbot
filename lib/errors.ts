@@ -137,5 +137,3 @@ function getStatusCodeByType(type: ErrorType) {
       return 500;
   }
 }
-
-export type { ErrorCode };

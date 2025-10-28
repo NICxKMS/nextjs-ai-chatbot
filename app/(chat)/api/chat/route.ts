@@ -151,7 +151,12 @@ export async function POST(request: Request) {
       differenceInHours: 24,
     });
 
-    if (messageCount > entitlementsByUserType[userType].maxMessagesPerDay) {
+    const userEntitlements =
+      entitlementsByUserType[userType as keyof typeof entitlementsByUserType];
+    if (
+      !userEntitlements ||
+      (messageCount as number) > userEntitlements.maxMessagesPerDay
+    ) {
       return new ChatSDKError("rate_limit:chat").toResponse();
     }
 
@@ -207,12 +212,78 @@ export async function POST(request: Request) {
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
         const selectedModel = getModelById(selectedChatModel);
-        const result = streamText({
+
+        // Build provider-specific options for reasoning models
+        // Reference: https://sdk.vercel.ai/docs/reference/reasoning
+        const providerOptions: Record<string, Record<string, unknown>> = {};
+
+        if (
+          selectedModel?.reasoningType &&
+          selectedModel.reasoningType !== "none"
+        ) {
+          switch (selectedModel.reasoningType) {
+            case "openai-thinking":
+              // OpenAI o1/o3 models - configure thinking parameters
+              // Note: Thinking budget is automatically managed by OpenAI
+              providerOptions.openai = {
+                // Extended thinking is enabled by default for o1/o3 models
+                // You can configure additional parameters as needed
+                reasoningEffort: "high", // "low", "medium", or "high"
+              };
+              break;
+
+            case "anthropic-thinking":
+              // Anthropic Claude extended thinking mode
+              // Reference: https://docs.anthropic.com/en/docs/build-a-chat-bot
+              providerOptions.anthropic = {
+                // Budget in tokens for thinking process (1-10000)
+                thinkingBudget: selectedModel.thinkingBudget ?? 8000,
+              };
+              break;
+
+            case "gemini-thinking":
+              // Google Gemini thinking models
+              // Reference: https://ai.google.dev/gemini-api/docs/thinking
+              providerOptions.google = {
+                // Thinking config for Gemini models with thinking mode support
+                thinkingConfig: {
+                  type: "enabled",
+                  budgetTokens: selectedModel.thinkingBudget ?? 10_000,
+                },
+              };
+              break;
+
+            case "deepseek-thinking":
+              // DeepSeek R1 - native chain-of-thought
+              providerOptions.deepseek = {
+                // DeepSeek handles thinking natively
+                // Consider budget tokens for reasoning
+                reasoningLevel: "high",
+              };
+              break;
+
+            case "internal-thinking":
+              // Generic reasoning models (Grok, Qwen, etc.)
+              // These typically handle reasoning internally
+              providerOptions.reasoning = {
+                enabled: true,
+                budget: selectedModel.thinkingBudget ?? 6000,
+              };
+              break;
+
+            default:
+              // No additional options needed
+              break;
+          }
+        }
+
+        const streamTextOptions = {
           model: myProvider.languageModel(selectedChatModel),
           system: systemPrompt({
             selectedChatModel,
             requestHints,
             selectedModel,
+            userSystemPrompt: requestBody.settings?.systemPrompt,
           }),
           messages: convertToModelMessages(uiMessages),
           stopWhen: stepCountIs(5),
@@ -231,8 +302,21 @@ export async function POST(request: Request) {
             isEnabled: isProductionEnvironment,
             functionId: "stream-text",
           },
-          onFinish: async ({ usage }) => {
+          temperature: requestBody.settings?.sampling.temperature,
+          topP: requestBody.settings?.sampling.topP,
+          maxOutputTokens: requestBody.settings?.sampling.maxOutputTokens,
+          ...(Object.keys(providerOptions).length > 0
+            ? {
+                providerOptions: providerOptions as Record<
+                  string,
+                  Record<string, string | number | boolean>
+                >,
+              }
+            : {}),
+          onFinish: async (callResult: any) => {
+            let usage: any;
             try {
+              usage = callResult.usage;
               const providers = await getTokenlensCatalog();
               const modelId =
                 myProvider.languageModel(selectedChatModel).modelId;
@@ -263,7 +347,9 @@ export async function POST(request: Request) {
               dataStream.write({ type: "data-usage", data: finalMergedUsage });
             }
           },
-        });
+        };
+
+        const result = streamText(streamTextOptions);
 
         result.consumeStream();
 
