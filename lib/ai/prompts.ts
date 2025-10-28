@@ -56,21 +56,30 @@ export const systemPrompt = ({
   selectedChatModel,
   requestHints,
   selectedModel,
+  userSystemPrompt,
 }: {
   selectedChatModel: string;
   requestHints: RequestHints;
   selectedModel?: ModelMetadata;
+  userSystemPrompt?: string;
 }) => {
   const requestPrompt = getRequestPromptFromHints(requestHints);
 
-  if (
+  const baseSegments = [regularPrompt, requestPrompt];
+  const shouldIncludeArtifacts = !(
     selectedChatModel === REASONING_MODEL_ID ||
     selectedModel?.capabilities.includes("reasoning")
-  ) {
-    return `${regularPrompt}\n\n${requestPrompt}`;
+  );
+
+  if (userSystemPrompt) {
+    baseSegments.splice(1, 0, userSystemPrompt);
   }
 
-  return `${regularPrompt}\n\n${requestPrompt}\n\n${artifactsPrompt}`;
+  if (shouldIncludeArtifacts) {
+    baseSegments.push(artifactsPrompt);
+  }
+
+  return baseSegments.join("\n\n");
 };
 
 export const codePrompt = `

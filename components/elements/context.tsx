@@ -14,6 +14,13 @@ import { cn } from "@/lib/utils";
 export type ContextProps = ComponentProps<"button"> & {
   /** Optional full usage payload to enable breakdown view */
   usage?: AppUsage;
+  sampling?: {
+    temperature: number;
+    topP: number;
+    maxOutputTokens: number;
+  };
+  enableReasoning?: boolean;
+  systemPrompt?: string;
 };
 
 const _THOUSAND = 1000;
@@ -99,7 +106,14 @@ function InfoRow({
   );
 }
 
-export const Context = ({ className, usage, ...props }: ContextProps) => {
+export const Context = ({
+  className,
+  usage,
+  sampling,
+  enableReasoning,
+  systemPrompt,
+  ...props
+}: ContextProps) => {
   const used = usage?.totalTokens ?? 0;
   const max =
     usage?.context?.totalMax ??
@@ -136,6 +150,49 @@ export const Context = ({ className, usage, ...props }: ContextProps) => {
           <div className="space-y-2">
             <Progress className="h-2 bg-muted" value={usedPercent} />
           </div>
+          {sampling || enableReasoning !== undefined || systemPrompt ? (
+            <div className="rounded-md border bg-muted/30 p-2 text-xs">
+              <div className="mb-1 font-semibold text-[10px] text-muted-foreground uppercase tracking-wide">
+                Runtime settings
+              </div>
+              {sampling ? (
+                <dl className="grid grid-cols-2 gap-x-2 gap-y-1">
+                  <dt className="text-muted-foreground">Temperature</dt>
+                  <dd className="text-right font-medium">
+                    {sampling.temperature.toFixed(2)}
+                  </dd>
+                  <dt className="text-muted-foreground">Top P</dt>
+                  <dd className="text-right font-medium">
+                    {sampling.topP.toFixed(2)}
+                  </dd>
+                  <dt className="text-muted-foreground">Max tokens</dt>
+                  <dd className="text-right font-medium">
+                    {sampling.maxOutputTokens.toLocaleString()}
+                  </dd>
+                </dl>
+              ) : null}
+
+              {enableReasoning !== undefined ? (
+                <div className="mt-2 flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Reasoning</span>
+                  <span className="font-medium">
+                    {enableReasoning ? "Enabled" : "Disabled"}
+                  </span>
+                </div>
+              ) : null}
+
+              {systemPrompt ? (
+                <div className="mt-2">
+                  <div className="text-muted-foreground text-xs">
+                    System prompt
+                  </div>
+                  <p className="mt-1 line-clamp-3 whitespace-pre-wrap font-medium text-xs">
+                    {systemPrompt}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <div className="mt-1 space-y-1">
             {usage?.cachedInputTokens && usage.cachedInputTokens > 0 && (
               <InfoRow
