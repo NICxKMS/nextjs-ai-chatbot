@@ -139,8 +139,12 @@ export const Context = ({
           <ContextIcon percent={usedPercent} />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-fit p-3" side="top">
-        <div className="min-w-[240px] space-y-2">
+      <DropdownMenuContent
+        align="end"
+        className="w-fit max-w-[90vw] p-3"
+        side="top"
+      >
+        <div className="min-w-[240px] max-w-md space-y-2">
           <div className="flex items-start justify-between text-sm">
             <span>{usedPercent.toFixed(1)}%</span>
             <span className="text-muted-foreground">
@@ -186,7 +190,7 @@ export const Context = ({
                   <div className="text-muted-foreground text-xs">
                     System prompt
                   </div>
-                  <p className="mt-1 line-clamp-3 whitespace-pre-wrap font-medium text-xs">
+                  <p className="mt-1 line-clamp-3 overflow-hidden whitespace-pre-wrap break-words font-medium text-xs">
                     {systemPrompt}
                   </p>
                 </div>
