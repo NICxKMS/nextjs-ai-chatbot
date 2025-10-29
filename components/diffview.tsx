@@ -1,50 +1,94 @@
-import OrderedMap from "orderedmap";
-import {
-  DOMParser,
-  type MarkSpec,
-  type Node as ProsemirrorNode,
-  Schema,
-} from "prosemirror-model";
-import { schema } from "prosemirror-schema-basic";
-import { addListNodes } from "prosemirror-schema-list";
-import { EditorState } from "prosemirror-state";
-import { EditorView } from "prosemirror-view";
-import { useEffect, useRef } from "react";
-import { renderToString } from "react-dom/server";
-import { Streamdown } from "streamdown";
+"use client";
+
+import { Editor, Extension, Mark as TiptapMark } from "@tiptap/core";
+import { Table } from "@tiptap/extension-table";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { TableRow } from "@tiptap/extension-table-row";
+import { Markdown } from "@tiptap/markdown";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { DecorationSet } from "@tiptap/pm/view";
+import { EditorContent, useEditor } from "@tiptap/react";
+import { StarterKit } from "@tiptap/starter-kit";
+import { useEffect, useMemo } from "react";
 
 import { DiffType, diffEditor } from "@/lib/editor/diff";
 
-const diffSchema = new Schema({
-  nodes: addListNodes(schema.spec.nodes, "paragraph block*", "block"),
-  marks: OrderedMap.from({
-    ...schema.spec.marks.toObject(),
-    diffMark: {
-      attrs: { type: { default: "" } },
-      toDOM(mark) {
-        let className = "";
+// Create a custom mark for diff highlighting
+const DiffMark = TiptapMark.create({
+  name: "diffMark",
 
-        switch (mark.attrs.type) {
-          case DiffType.Inserted:
-            className =
-              "bg-green-100 text-green-700 dark:bg-green-500/70 dark:text-green-300";
-            break;
-          case DiffType.Deleted:
-            className =
-              "bg-red-100 line-through text-red-600 dark:bg-red-500/70 dark:text-red-300";
-            break;
-          default:
-            className = "";
-        }
-        return ["span", { class: className }, 0];
+  addAttributes() {
+    return {
+      type: {
+        default: "",
       },
-    } as MarkSpec,
-  }),
+    };
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: "span[data-diff-type]",
+        getAttrs: (node: string | HTMLElement) => {
+          if (typeof node === "string") {
+            return {};
+          }
+          const type = node.getAttribute("data-diff-type");
+          return { type };
+        },
+      },
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }: { HTMLAttributes: Record<string, any> }) {
+    const type = HTMLAttributes.type;
+    let className = "";
+
+    switch (type) {
+      case DiffType.Inserted:
+        className =
+          "bg-green-100 text-green-700 dark:bg-green-500/70 dark:text-green-300";
+        break;
+      case DiffType.Deleted:
+        className =
+          "bg-red-100 line-through text-red-600 dark:bg-red-500/70 dark:text-red-300";
+        break;
+      default:
+        className = "";
+    }
+
+    return [
+      "span",
+      {
+        class: className,
+        "data-diff-type": type,
+      },
+      0,
+    ];
+  },
 });
 
-function computeDiff(oldDoc: ProsemirrorNode, newDoc: ProsemirrorNode) {
-  return diffEditor(diffSchema, oldDoc.toJSON(), newDoc.toJSON());
-}
+// Create extension to apply diff on content
+const DiffExtension = Extension.create({
+  name: "diff",
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey("diff"),
+        state: {
+          init() {
+            return DecorationSet.empty;
+          },
+          apply(tr, decorations) {
+            return decorations.map(tr.mapping, tr.doc);
+          },
+        },
+      }),
+    ];
+  },
+});
 
 type DiffEditorProps = {
   oldContent: string;
@@ -52,49 +96,84 @@ type DiffEditorProps = {
 };
 
 export const DiffView = ({ oldContent, newContent }: DiffEditorProps) => {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const viewRef = useRef<EditorView | null>(null);
+  // Compute diff content using useMemo to avoid recalculation
+  const diffContent = useMemo(() => {
+    // Create temporary editors to parse markdown
+    const oldEditor = new Editor({
+      extensions: [
+        StarterKit,
+        Markdown,
+        Table.configure({ resizable: true }),
+        TableRow,
+        TableHeader,
+        TableCell,
+        DiffMark,
+      ],
+      content: oldContent,
+      contentType: "markdown",
+    });
 
-  useEffect(() => {
-    if (editorRef.current && !viewRef.current) {
-      const parser = DOMParser.fromSchema(diffSchema);
+    const newEditor = new Editor({
+      extensions: [
+        StarterKit,
+        Markdown,
+        Table.configure({ resizable: true }),
+        TableRow,
+        TableHeader,
+        TableCell,
+        DiffMark,
+      ],
+      content: newContent,
+      contentType: "markdown",
+    });
 
-      const oldHtmlContent = renderToString(
-        <Streamdown>{oldContent}</Streamdown>
-      );
-      const newHtmlContent = renderToString(
-        <Streamdown>{newContent}</Streamdown>
-      );
+    const oldDoc = oldEditor.state.doc;
+    const newDoc = newEditor.state.doc;
 
-      const oldContainer = document.createElement("div");
-      oldContainer.innerHTML = oldHtmlContent;
+    // Compute diff
+    const diffedDoc = diffEditor(
+      oldEditor.schema,
+      oldDoc.toJSON(),
+      newDoc.toJSON()
+    );
 
-      const newContainer = document.createElement("div");
-      newContainer.innerHTML = newHtmlContent;
+    // Cleanup temporary editors
+    oldEditor.destroy();
+    newEditor.destroy();
 
-      const oldDoc = parser.parse(oldContainer);
-      const newDoc = parser.parse(newContainer);
-
-      const diffedDoc = computeDiff(oldDoc, newDoc);
-
-      const state = EditorState.create({
-        doc: diffedDoc,
-        plugins: [],
-      });
-
-      viewRef.current = new EditorView(editorRef.current, {
-        state,
-        editable: () => false,
-      });
-    }
-
-    return () => {
-      if (viewRef.current) {
-        viewRef.current.destroy();
-        viewRef.current = null;
-      }
-    };
+    return diffedDoc.toJSON();
   }, [oldContent, newContent]);
 
-  return <div className="diff-editor" ref={editorRef} />;
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Markdown,
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      DiffMark,
+      DiffExtension,
+    ],
+    content: diffContent,
+    editable: false,
+    immediatelyRender: false,
+    editorProps: {
+      attributes: {
+        class: "prose dark:prose-invert max-w-none focus:outline-none",
+      },
+    },
+  });
+
+  useEffect(() => {
+    if (editor && diffContent) {
+      editor.commands.setContent(diffContent);
+    }
+  }, [editor, diffContent]);
+
+  return (
+    <div className="w-full rounded-lg border border-border bg-background p-4">
+      <EditorContent editor={editor} />
+    </div>
+  );
 };

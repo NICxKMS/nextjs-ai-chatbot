@@ -1,10 +1,9 @@
-import type { Node } from "prosemirror-model";
-import { Plugin, PluginKey } from "prosemirror-state";
-import {
-  type Decoration,
-  DecorationSet,
-  type EditorView,
-} from "prosemirror-view";
+"use client";
+
+import { Extension } from "@tiptap/core";
+import type { Node } from "@tiptap/pm/model";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
 import { createRoot } from "react-dom/client";
 import type { ArtifactKind } from "@/components/artifact";
 import { Suggestion as PreviewSuggestion } from "@/components/suggestion";
@@ -131,28 +130,76 @@ export function createSuggestionWidget(
   };
 }
 
-export const suggestionsPluginKey = new PluginKey("suggestions");
-export const suggestionsPlugin = new Plugin({
-  key: suggestionsPluginKey,
-  state: {
-    init() {
-      return { decorations: DecorationSet.empty, selected: null };
-    },
-    apply(tr, state) {
-      const newDecorations = tr.getMeta(suggestionsPluginKey);
-      if (newDecorations) {
-        return newDecorations;
-      }
+export const createDecorations = (
+  suggestions: UISuggestion[],
+  view: EditorView
+) => {
+  const decorations: Decoration[] = [];
 
-      return {
-        decorations: state.decorations.map(tr.mapping, tr.doc),
-        selected: state.selected,
-      };
-    },
-  },
-  props: {
-    decorations(state) {
-      return this.getState(state)?.decorations ?? DecorationSet.empty;
-    },
+  for (const suggestion of suggestions) {
+    decorations.push(
+      Decoration.inline(
+        suggestion.selectionStart,
+        suggestion.selectionEnd,
+        {
+          class: "suggestion-highlight",
+        },
+        {
+          suggestionId: suggestion.id,
+          type: "highlight",
+        }
+      )
+    );
+
+    decorations.push(
+      Decoration.widget(
+        suggestion.selectionStart,
+        (currentView) => {
+          const { dom } = createSuggestionWidget(suggestion, currentView);
+          return dom;
+        },
+        {
+          suggestionId: suggestion.id,
+          type: "widget",
+        }
+      )
+    );
+  }
+
+  return DecorationSet.create(view.state.doc, decorations);
+};
+
+export const suggestionsPluginKey = new PluginKey("suggestions");
+
+export const SuggestionsExtension = Extension.create({
+  name: "suggestions",
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: suggestionsPluginKey,
+        state: {
+          init() {
+            return { decorations: DecorationSet.empty, selected: null };
+          },
+          apply(tr, state) {
+            const newDecorations = tr.getMeta(suggestionsPluginKey);
+            if (newDecorations) {
+              return newDecorations;
+            }
+
+            return {
+              decorations: state.decorations.map(tr.mapping, tr.doc),
+              selected: state.selected,
+            };
+          },
+        },
+        props: {
+          decorations(state) {
+            return this.getState(state)?.decorations ?? DecorationSet.empty;
+          },
+        },
+      }),
+    ];
   },
 });
