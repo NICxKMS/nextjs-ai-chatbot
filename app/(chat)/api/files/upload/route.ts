@@ -35,7 +35,10 @@ export async function POST(request: Request) {
   }
 
   if (request.body === null) {
-    return NextResponse.json({ error: "Request body is empty" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Request body is empty" },
+      { status: 400 }
+    );
   }
 
   let formData: FormData;
@@ -43,7 +46,10 @@ export async function POST(request: Request) {
   try {
     formData = await request.formData();
   } catch (_error) {
-    return NextResponse.json({ error: "Invalid form payload" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid form payload" },
+      { status: 400 }
+    );
   }
 
   const upload = formData.get("file");
@@ -69,9 +75,10 @@ export async function POST(request: Request) {
   }
 
   const hasName = typeof (upload as File).name === "string";
-  const filename = hasName && (upload as File).name
-    ? (upload as File).name
-    : `upload-${Date.now()}`;
+  const filename =
+    hasName && (upload as File).name
+      ? (upload as File).name
+      : `upload-${Date.now()}`;
   const contentType = upload.type || "application/octet-stream";
 
   try {

@@ -30,8 +30,9 @@ export const ATTACHMENT_ALLOWED_TYPE_PREFIXES = [
   "video/",
 ] as const;
 
-export const getAllowedAttachmentMimeTypes = () =>
-  [...ATTACHMENT_ALLOWED_MIME_TYPE_VALUES];
+export const getAllowedAttachmentMimeTypes = () => [
+  ...ATTACHMENT_ALLOWED_MIME_TYPE_VALUES,
+];
 
 export const isAllowedAttachmentMimeType = (
   mimeType: string | undefined | null

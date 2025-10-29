@@ -14,11 +14,9 @@ const allowedMimeTypes = getAllowedAttachmentMimeTypes();
 
 const filePartSchema = z.object({
   type: z.enum(["file"]),
-  mediaType: z
-    .string()
-    .refine(isAllowedAttachmentMimeType, {
-      message: `Unsupported file type. Allowed: ${allowedMimeTypes.join(", " )}`,
-    }),
+  mediaType: z.string().refine(isAllowedAttachmentMimeType, {
+    message: `Unsupported file type. Allowed: ${allowedMimeTypes.join(", ")}`,
+  }),
   name: z.string().min(1).max(100),
   url: z.string().url(),
 });

@@ -25,6 +25,7 @@ export async function generateTitleFromUserMessage({
     try {
       return myProvider.languageModel("title-model");
     } catch (error) {
+      console.warn("Falling back to default title model:", error);
       return myProvider.languageModel(DEFAULT_TITLE_MODEL);
     }
   })();
