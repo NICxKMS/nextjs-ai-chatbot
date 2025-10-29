@@ -1,13 +1,24 @@
 import { z } from "zod";
 
+import {
+  getAllowedAttachmentMimeTypes,
+  isAllowedAttachmentMimeType,
+} from "@/lib/files";
+
 const textPartSchema = z.object({
   type: z.enum(["text"]),
   text: z.string().min(1).max(2000),
 });
 
+const allowedMimeTypes = getAllowedAttachmentMimeTypes();
+
 const filePartSchema = z.object({
   type: z.enum(["file"]),
-  mediaType: z.enum(["image/jpeg", "image/png"]),
+  mediaType: z
+    .string()
+    .refine(isAllowedAttachmentMimeType, {
+      message: `Unsupported file type. Allowed: ${allowedMimeTypes.join(", " )}`,
+    }),
   name: z.string().min(1).max(100),
   url: z.string().url(),
 });
