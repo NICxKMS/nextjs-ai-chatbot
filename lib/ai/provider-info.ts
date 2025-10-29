@@ -4,7 +4,7 @@ export type ProviderId =
   | "openrouter"
   | "vercel-gateway"
   | "cloudflare-workers"
-  | "cloudflare-gateway";
+  | "cloudflare-ai-gateway";
 
 export const PROVIDER_DISPLAY_NAMES: Record<ProviderId, string> = {
   openai: "OpenAI",
@@ -12,5 +12,5 @@ export const PROVIDER_DISPLAY_NAMES: Record<ProviderId, string> = {
   openrouter: "OpenRouter",
   "vercel-gateway": "Vercel AI Gateway",
   "cloudflare-workers": "Cloudflare Workers AI",
-  "cloudflare-gateway": "Cloudflare AI Gateway",
+  "cloudflare-ai-gateway": "Cloudflare AI Gateway",
 };

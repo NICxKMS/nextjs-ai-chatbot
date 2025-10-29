@@ -19,16 +19,14 @@ const GOOGLE_GENERATIVE_AI_API_KEY =
   process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? process.env.GEMINI_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const CLOUDFLARE_ACCOUNT_ID =
-  process.env.CLOUDFLARE_ACCOUNT_ID ?? process.env.CF_AIG_ACCOUNT_ID;
-const CLOUDFLARE_API_KEY =
-  process.env.CLOUDFLARE_API_KEY ?? process.env.CF_AIG_API_KEY;
-const CLOUDFLARE_AI_GATEWAY_ACCOUNT_ID =
-  process.env.CLOUDFLARE_AI_GATEWAY_ACCOUNT_ID ?? process.env.CF_AIG_ACCOUNT_ID;
-const CLOUDFLARE_AI_GATEWAY_GATEWAY =
-  process.env.CLOUDFLARE_AI_GATEWAY_GATEWAY ?? process.env.CF_AIG_GATEWAY_ID;
+const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
+const CLOUDFLARE_API_KEY = process.env.CLOUDFLARE_API_KEY;
+const CLOUDFLARE_WORKER_AI = process.env.CLOUDFLARE_WORKER_AI;
+const CLOUDFLARE_AI_GATEWAY_NAME = process.env.CLOUDFLARE_AI_GATEWAY_NAME;
 const CLOUDFLARE_AI_GATEWAY_API_KEY =
-  process.env.CLOUDFLARE_AI_GATEWAY_API_KEY ?? process.env.CF_AIG_API_KEY;
+  process.env.CLOUDFLARE_AI_GATEWAY_API_KEY ??
+  process.env.CLOUDFLARE_AI_GATEWAY_TOKEN ??
+  process.env.CLOUDFLARE_API_KEY;
 
 const baseProviders: Record<string, ProviderV2> = {};
 const additionalProviderIds = new Set<string>();
@@ -46,14 +44,14 @@ const registerProvider = (id: string, provider: ProviderV2 | undefined) => {
   }
 };
 
-const logProviderState = () => {
-  //   const providerIds = Object.keys(baseProviders);
-  //   console.log("[model-registry] active providers:", providerIds);
-  //   console.log(
-  //     "[model-registry] curated models available:",
-  //     curatedModels.map((model) => model.id)
-  //   );
-};
+// const logProviderState = () => {
+//   //   const providerIds = Object.keys(baseProviders);
+//   //   console.log("[model-registry] active providers:", providerIds);
+//   //   console.log(
+//   //     "[model-registry] curated models available:",
+//   //     curatedModels.map((model) => model.id)
+//   //   );
+// };
 
 if (hasVercelGatewayAuth) {
   registerProvider("vercel-gateway", gateway as unknown as ProviderV2);
@@ -82,7 +80,7 @@ if (OPENROUTER_API_KEY) {
   );
 }
 
-if (CLOUDFLARE_ACCOUNT_ID && (CLOUDFLARE_API_KEY || process.env.CF_WORKER_AI)) {
+if (CLOUDFLARE_ACCOUNT_ID && (CLOUDFLARE_API_KEY || CLOUDFLARE_WORKER_AI)) {
   const workersSettings = CLOUDFLARE_API_KEY
     ? { accountId: CLOUDFLARE_ACCOUNT_ID, apiKey: CLOUDFLARE_API_KEY }
     : { accountId: CLOUDFLARE_ACCOUNT_ID };
@@ -95,18 +93,61 @@ if (CLOUDFLARE_ACCOUNT_ID && (CLOUDFLARE_API_KEY || process.env.CF_WORKER_AI)) {
   );
 }
 
-if (CLOUDFLARE_AI_GATEWAY_ACCOUNT_ID && CLOUDFLARE_AI_GATEWAY_GATEWAY) {
+// Cloudflare AI Gateway provider that composes Workers AI primary with Gemini fallback
+if (
+  CLOUDFLARE_ACCOUNT_ID &&
+  CLOUDFLARE_AI_GATEWAY_NAME &&
+  CLOUDFLARE_AI_GATEWAY_API_KEY
+) {
+  const workersProvider = createWorkersAI({
+    accountId: CLOUDFLARE_ACCOUNT_ID,
+    apiKey: CLOUDFLARE_API_KEY,
+  } as WorkersAISettings);
+
+  const googleProvider = GOOGLE_GENERATIVE_AI_API_KEY
+    ? createGoogleGenerativeAI({ apiKey: GOOGLE_GENERATIVE_AI_API_KEY })
+    : undefined;
+
+  const aigateway = createAiGateway({
+    accountId: CLOUDFLARE_ACCOUNT_ID,
+    gateway: CLOUDFLARE_AI_GATEWAY_NAME,
+    apiKey: CLOUDFLARE_AI_GATEWAY_API_KEY,
+  });
+
+  const cloudflareAiGatewayProvider = {
+    languageModel(id: string) {
+      // Handle Google Gemini models via Cloudflare AI Gateway
+      if (id === "gemini-2.5-flash" || id === "gemini-2.5-pro") {
+        if (!googleProvider) {
+          throw new Error(
+            "Google provider is not configured for Cloudflare AI Gateway Gemini models"
+          );
+        }
+        const primaryGemini = googleProvider(id);
+        const fallbackLite = googleProvider("gemini-2.5-flash-lite");
+        return aigateway([
+          primaryGemini,
+          fallbackLite,
+        ]) as unknown as LanguageModelV2;
+      }
+
+      // Handle Cloudflare Workers AI models with Gemini fallback
+      const primary = workersProvider(id);
+      if (!googleProvider) {
+        return aigateway([primary]) as unknown as LanguageModelV2;
+      }
+      const fallbackLite = googleProvider("gemini-2.5-flash-lite");
+      return aigateway([primary, fallbackLite]) as unknown as LanguageModelV2;
+    },
+  };
+
   registerProvider(
-    "cloudflare-gateway",
-    createAiGateway({
-      accountId: CLOUDFLARE_AI_GATEWAY_ACCOUNT_ID,
-      gateway: CLOUDFLARE_AI_GATEWAY_GATEWAY,
-      apiKey: CLOUDFLARE_AI_GATEWAY_API_KEY,
-    }) as unknown as ProviderV2
+    "cloudflare-ai-gateway",
+    cloudflareAiGatewayProvider as unknown as ProviderV2
   );
 }
 
-logProviderState();
+// logProviderState();
 
 const providerRegistry = createProviderRegistry(baseProviders);
 const availableProviderIds = new Set(Object.keys(baseProviders));
