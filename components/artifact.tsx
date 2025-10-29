@@ -107,6 +107,13 @@ function PureArtifact({
 
   const { open: isSidebarOpen } = useSidebar();
 
+  // Automatically switch to edit mode when streaming starts
+  useEffect(() => {
+    if (artifact.status === "streaming") {
+      setMode("edit");
+    }
+  }, [artifact.status]);
+
   useEffect(() => {
     if (documents && documents.length > 0) {
       const mostRecentDocument = documents.at(-1);

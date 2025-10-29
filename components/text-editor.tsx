@@ -1,27 +1,21 @@
 "use client";
 
-import { exampleSetup } from "prosemirror-example-setup";
-import { inputRules } from "prosemirror-inputrules";
-import { EditorState } from "prosemirror-state";
-import { EditorView } from "prosemirror-view";
+import { Table } from "@tiptap/extension-table";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { TableRow } from "@tiptap/extension-table-row";
+import { Markdown } from "@tiptap/markdown";
+import { EditorContent, useEditor } from "@tiptap/react";
+import { StarterKit } from "@tiptap/starter-kit";
 import { memo, useEffect, useRef } from "react";
 
 import type { Suggestion } from "@/lib/db/schema";
 import {
-  documentSchema,
-  handleTransaction,
-  headingRule,
-} from "@/lib/editor/config";
-import {
-  buildContentFromDocument,
-  buildDocumentFromContent,
   createDecorations,
-} from "@/lib/editor/functions";
-import {
   projectWithPositions,
-  suggestionsPlugin,
+  SuggestionsExtension,
   suggestionsPluginKey,
-} from "@/lib/editor/suggestions";
+} from "@/lib/editor/suggestions-extension";
 
 type EditorProps = {
   content: string;
@@ -38,116 +32,91 @@ function PureEditor({
   suggestions,
   status,
 }: EditorProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const editorRef = useRef<EditorView | null>(null);
+  const isUpdatingRef = useRef(false);
+  const previousContentRef = useRef<string>(content);
 
-  useEffect(() => {
-    if (containerRef.current && !editorRef.current) {
-      const state = EditorState.create({
-        doc: buildDocumentFromContent(content),
-        plugins: [
-          ...exampleSetup({ schema: documentSchema, menuBar: false }),
-          inputRules({
-            rules: [
-              headingRule(1),
-              headingRule(2),
-              headingRule(3),
-              headingRule(4),
-              headingRule(5),
-              headingRule(6),
-            ],
-          }),
-          suggestionsPlugin,
-        ],
-      });
-
-      editorRef.current = new EditorView(containerRef.current, {
-        state,
-      });
-    }
-
-    return () => {
-      if (editorRef.current) {
-        editorRef.current.destroy();
-        editorRef.current = null;
-      }
-    };
-    // NOTE: we only want to run this effect once
-    // eslint-disable-next-line
-  }, [content]);
-
-  useEffect(() => {
-    if (editorRef.current) {
-      editorRef.current.setProps({
-        dispatchTransaction: (transaction) => {
-          handleTransaction({
-            transaction,
-            editorRef,
-            onSaveContent,
-          });
-        },
-      });
-    }
-  }, [onSaveContent]);
-
-  useEffect(() => {
-    if (editorRef.current && content) {
-      const currentContent = buildContentFromDocument(
-        editorRef.current.state.doc
-      );
-
-      if (status === "streaming") {
-        const newDocument = buildDocumentFromContent(content);
-
-        const transaction = editorRef.current.state.tr.replaceWith(
-          0,
-          editorRef.current.state.doc.content.size,
-          newDocument.content
-        );
-
-        transaction.setMeta("no-save", true);
-        editorRef.current.dispatch(transaction);
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Markdown,
+      Table.configure({
+        resizable: true,
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      SuggestionsExtension,
+    ],
+    content,
+    contentType: "markdown",
+    immediatelyRender: false,
+    editorProps: {
+      attributes: {
+        class: "prose dark:prose-invert relative focus:outline-none",
+      },
+    },
+    onUpdate: ({ editor: currentEditor, transaction }) => {
+      if (isUpdatingRef.current || transaction.getMeta("no-save")) {
         return;
       }
 
-      if (currentContent !== content) {
-        const newDocument = buildDocumentFromContent(content);
+      const markdown = currentEditor.getMarkdown();
+      const shouldDebounce = !transaction.getMeta("no-debounce");
+      onSaveContent(markdown, shouldDebounce);
+    },
+  });
 
-        const transaction = editorRef.current.state.tr.replaceWith(
-          0,
-          editorRef.current.state.doc.content.size,
-          newDocument.content
-        );
-
-        transaction.setMeta("no-save", true);
-        editorRef.current.dispatch(transaction);
-      }
-    }
-  }, [content, status]);
-
+  // Update content when streaming or content changes externally
   useEffect(() => {
-    if (editorRef.current?.state.doc && content) {
-      const projectedSuggestions = projectWithPositions(
-        editorRef.current.state.doc,
-        suggestions
-      ).filter(
-        (suggestion) => suggestion.selectionStart && suggestion.selectionEnd
-      );
-
-      const decorations = createDecorations(
-        projectedSuggestions,
-        editorRef.current
-      );
-
-      const transaction = editorRef.current.state.tr;
-      transaction.setMeta(suggestionsPluginKey, { decorations });
-      editorRef.current.dispatch(transaction);
+    if (!editor || !content) {
+      return;
     }
-  }, [suggestions, content]);
 
-  return (
-    <div className="prose dark:prose-invert relative" ref={containerRef} />
-  );
+    const currentMarkdown = editor.getMarkdown();
+
+    if (status === "streaming") {
+      isUpdatingRef.current = true;
+      editor.commands.setContent(content, {
+        emitUpdate: false,
+        contentType: "markdown",
+      });
+      previousContentRef.current = content;
+      isUpdatingRef.current = false;
+      return;
+    }
+
+    if (currentMarkdown !== content && previousContentRef.current !== content) {
+      isUpdatingRef.current = true;
+      editor.commands.setContent(content, {
+        emitUpdate: false,
+        contentType: "markdown",
+      });
+      previousContentRef.current = content;
+      isUpdatingRef.current = false;
+    }
+  }, [content, status, editor]);
+
+  // Update suggestions decorations
+  useEffect(() => {
+    if (!editor?.state.doc || !content) {
+      return;
+    }
+
+    const projectedSuggestions = projectWithPositions(
+      editor.state.doc,
+      suggestions
+    ).filter(
+      (suggestion) => suggestion.selectionStart && suggestion.selectionEnd
+    );
+
+    const decorations = createDecorations(projectedSuggestions, editor.view);
+
+    const transaction = editor.state.tr;
+    transaction.setMeta(suggestionsPluginKey, { decorations });
+    editor.view.dispatch(transaction);
+  }, [suggestions, content, editor]);
+
+  return <EditorContent editor={editor} />;
 }
 
 function areEqual(prevProps: EditorProps, nextProps: EditorProps) {
