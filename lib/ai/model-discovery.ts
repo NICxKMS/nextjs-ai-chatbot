@@ -321,63 +321,6 @@ const discoverCloudflareWorkers = (
   );
 };
 
-const discoverCloudflareGateway = (
-  options?: DiscoveryOptions
-): Promise<ProviderCatalog> => {
-  const accountId = process.env.CLOUDFLARE_AI_GATEWAY_ACCOUNT_ID;
-  const gatewayName = process.env.CLOUDFLARE_AI_GATEWAY_GATEWAY;
-  const apiKey = process.env.CLOUDFLARE_AI_GATEWAY_API_KEY;
-
-  if (!accountId || !gatewayName) {
-    throw new Error("Cloudflare AI Gateway credentials are not configured");
-  }
-
-  return withCache(
-    "cloudflare-gateway",
-    async () => {
-      type GatewayModel = {
-        id: string;
-        name?: string;
-        description?: string;
-      };
-
-      const url = new URL(
-        `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/gateways/${gatewayName}/models`
-      );
-
-      const headers: Record<string, string> = {
-        ...defaultHeaders,
-      };
-
-      if (apiKey) {
-        headers.Authorization = `Bearer ${apiKey}`;
-      }
-
-      const data = await fetchJson<{ result: GatewayModel[] }>(url.toString(), {
-        headers,
-        signal: options?.signal,
-      });
-
-      const models = data.result.map((model) =>
-        mapModel("cloudflare-gateway", {
-          id: `cloudflare-gateway:${model.id}`,
-          modelId: model.id,
-          name: model.name ?? model.id,
-          description: model.description ?? "",
-        })
-      );
-
-      return {
-        providerId: "cloudflare-gateway",
-        displayName: PROVIDER_DISPLAY_NAMES["cloudflare-gateway"],
-        models,
-        fetchedAt: getTimestamp(),
-      } satisfies ProviderCatalog;
-    },
-    options
-  );
-};
-
 export type DiscoveryResult = {
   catalogs: ProviderCatalog[];
   errors: Record<ProviderId, Error>;
@@ -399,10 +342,6 @@ export const discoverProviders = async (
     {
       providerId: "cloudflare-workers",
       run: () => discoverCloudflareWorkers(options),
-    },
-    {
-      providerId: "cloudflare-gateway",
-      run: () => discoverCloudflareGateway(options),
     },
   ];
 

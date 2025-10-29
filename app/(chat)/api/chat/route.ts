@@ -61,7 +61,11 @@ const getEnabledTools = (model: ModelMetadata | undefined): ToolIdList => {
     return [];
   }
 
-  if (model.capabilities.includes("reasoning")) {
+  // Disable tools only for pure reasoning models without other capabilities
+  if (
+    model.capabilities.includes("reasoning") &&
+    model.capabilities.length === 1
+  ) {
     return [];
   }
 
@@ -289,7 +293,10 @@ export async function POST(request: Request) {
           messages: convertToModelMessages(uiMessages),
           stopWhen: stepCountIs(5),
           experimental_activeTools: getEnabledTools(selectedModel),
-          experimental_transform: smoothStream({ chunking: "word" }),
+          experimental_transform: smoothStream({
+            delayInMs: 2,
+            chunking: "word",
+          }),
           tools: {
             getWeather,
             createDocument: createDocument({ session, dataStream }),
