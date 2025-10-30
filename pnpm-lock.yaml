@@ -68,6 +68,9 @@ importers:
       '@tiptap/core':
         specifier: 3.9.0
         version: 3.9.0(@tiptap/pm@3.9.0)
+      '@tiptap/extension-mathematics':
+        specifier: 3.9.0
+        version: 3.9.0(@tiptap/core@3.9.0(@tiptap/pm@3.9.0))(@tiptap/pm@3.9.0)(katex@0.16.22)
       '@tiptap/extension-table':
         specifier: 3.9.0
         version: 3.9.0(@tiptap/core@3.9.0(@tiptap/pm@3.9.0))(@tiptap/pm@3.9.0)
@@ -197,6 +200,12 @@ importers:
       redis:
         specifier: ^5.0.0
         version: 5.0.0
+      rehype-katex:
+        specifier: ^7.0.1
+        version: 7.0.1
+      remark-math:
+        specifier: ^6.0.0
+        version: 6.0.0
       resumable-stream:
         specifier: ^2.0.0
         version: 2.0.0
@@ -2482,6 +2491,13 @@ packages:
     peerDependencies:
       '@tiptap/core': ^3.9.0
       '@tiptap/pm': ^3.9.0
+
+  '@tiptap/extension-mathematics@3.9.0':
+    resolution: {integrity: sha512-NNqeD66CD7DTnew0GVnfwVP/L+sq0ckgn+7IhPyw7qqK0k3OpunpZ+Qh+/5rDWnRzGUQLjxcvaaOY1JDjHgWSg==}
+    peerDependencies:
+      '@tiptap/core': ^3.9.0
+      '@tiptap/pm': ^3.9.0
+      katex: ^0.16.4
 
   '@tiptap/extension-ordered-list@3.9.0':
     resolution: {integrity: sha512-yc0pAeZ1RGVof0/aDZW34v8UjpQ4ui7hXJRsWZZJM6cTz+Li5hQwuvuOeh9Db2XeUxTJGQLiVDroF78Mh9pqRw==}
@@ -6881,6 +6897,12 @@ snapshots:
     dependencies:
       '@tiptap/core': 3.9.0(@tiptap/pm@3.9.0)
       '@tiptap/pm': 3.9.0
+
+  '@tiptap/extension-mathematics@3.9.0(@tiptap/core@3.9.0(@tiptap/pm@3.9.0))(@tiptap/pm@3.9.0)(katex@0.16.22)':
+    dependencies:
+      '@tiptap/core': 3.9.0(@tiptap/pm@3.9.0)
+      '@tiptap/pm': 3.9.0
+      katex: 0.16.22
 
   '@tiptap/extension-ordered-list@3.9.0(@tiptap/extension-list@3.9.0(@tiptap/core@3.9.0(@tiptap/pm@3.9.0))(@tiptap/pm@3.9.0))':
     dependencies:
