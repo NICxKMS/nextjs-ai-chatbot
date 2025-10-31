@@ -1,3 +1,4 @@
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
@@ -9,8 +10,8 @@ import { SessionProvider } from "next-auth/react";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://chat.vercel.ai"),
-  title: "Next.js Chatbot Template",
-  description: "Next.js chatbot template using the AI SDK.",
+  title: "Ai Assistant",
+  description: "Ai Assistant using the AI SDK.",
 };
 
 export const viewport = {
@@ -73,6 +74,7 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
+        <SpeedInsights />
         <Suspense>
           <ThemeProvider
             attribute="class"
