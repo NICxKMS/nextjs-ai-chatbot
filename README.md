@@ -1,70 +1,132 @@
-<a href="https://chat.vercel.ai/">
-  <img alt="Next.js 14 and App Router-ready AI chatbot." src="app/(chat)/opengraph-image.png">
-  <h1 align="center">Chat SDK</h1>
-</a>
-
 <p align="center">
-    Chat SDK is a free, open-source template built with Next.js and the AI SDK that helps you quickly build powerful chatbot applications.
+  <img alt="AI Assistant" src="app/(chat)/opengraph-image.png" />
+  <h1 align="center">Next.js AI Assistant</h1>
+  <p align="center">Conversational AI with multimodal inputs, artifacts, and real‑time streaming — production‑ready and accessible.</p>
+  <p align="center">
+    <a href="https://ai.nicx.me"><img alt="Live Demo" src="https://img.shields.io/badge/Live%20Demo-ai.nicx.me-000?logo=vercel" /></a>
+    <a href="https://github.com/nicxkms/nextjs-ai-chatbot"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-nicxkms-181717?logo=github" /></a>
+    <a href="#license"><img alt="License" src="https://img.shields.io/badge/License-MIT-00b894" /></a>
+  </p>
+  <p align="center">
+    <a href="#features"><strong>Features</strong></a> ·
+    <a href="#tech-stack"><strong>Tech Stack</strong></a> ·
+    <a href="#architecture"><strong>Architecture</strong></a> ·
+    <a href="#screenshots"><strong>Screenshots</strong></a> ·
+    <a href="#live-demo"><strong>Live Demo</strong></a> ·
+    <a href="#getting-started"><strong>Getting Started</strong></a> ·
+    <a href="#deployment"><strong>Deployment</strong></a> ·
+    <a href="#author"><strong>Author</strong></a>
+  </p>
 </p>
 
-<p align="center">
-  <a href="https://chat-sdk.dev"><strong>Read Docs</strong></a> ·
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#model-providers"><strong>Model Providers</strong></a> ·
-  <a href="#deploy-your-own"><strong>Deploy Your Own</strong></a> ·
-  <a href="#running-locally"><strong>Running locally</strong></a>
-</p>
-<br/>
+> Robust AI Assistant using Next.js App Router and AI SDK, with model routing, authentication, and artifact generation.
 
 ## Features
 
-- [Next.js](https://nextjs.org) App Router
-  - Advanced routing for seamless navigation and performance
-  - React Server Components (RSCs) and Server Actions for server-side rendering and increased performance
-- [AI SDK](https://ai-sdk.dev/docs/introduction)
-  - Unified API for generating text, structured objects, and tool calls with LLMs
-  - Hooks for building dynamic chat and generative user interfaces
-  - Supports xAI (default), OpenAI, Fireworks, and other model providers
-- [shadcn/ui](https://ui.shadcn.com)
-  - Styling with [Tailwind CSS](https://tailwindcss.com)
-  - Component primitives from [Radix UI](https://radix-ui.com) for accessibility and flexibility
-- Data Persistence
-  - [Neon Serverless Postgres](https://vercel.com/marketplace/neon) for saving chat history and user data
-  - [Vercel Blob](https://vercel.com/storage/blob) for efficient file storage
-- [Auth.js](https://authjs.dev)
-  - Simple and secure authentication
+- ✨ **Real‑time streaming**: Fast, incremental responses with tool calling
+- 🔐 **Auth & history**: Secure sessions with persistent conversations
+- 🖼️ **Multimodal input**: Text, files, images, and code blocks
+- 🧩 **Artifacts**: Generate code, text, images, and sheets with previews
+- 🧠 **Model routing**: Switch providers through a unified API
+- ♿ **Accessible UI**: Built on shadcn/ui and Radix primitives
+- 📱 **Responsive**: Mobile‑friendly, keyboard‑first interaction
 
-## Model Providers
+## Tech Stack
 
-This template uses the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) to access multiple AI models through a unified interface. The default configuration includes [xAI](https://x.ai) models (`grok-2-vision-1212`, `grok-3-mini`) routed through the gateway.
+| Layer     | Technologies                                      |
+| --------- | ------------------------------------------------- |
+| Framework | Next.js (App Router, RSC, Server Actions)         |
+| Language  | TypeScript                                        |
+| Styling   | Tailwind CSS, shadcn/ui, Radix UI                 |
+| AI        | AI SDK (providers via unified interface)          |
+| Auth      | Auth.js                                           |
+| Data      | Drizzle ORM, SQL migrations (`lib/db/migrations`) |
+| Hosting   | Vercel (Edge & Serverless)                        |
 
-### AI Gateway Authentication
+## Architecture
 
-**For Vercel deployments**: Authentication is handled automatically via OIDC tokens.
-
-**For non-Vercel deployments**: You need to provide an AI Gateway API key by setting the `AI_GATEWAY_API_KEY` environment variable in your `.env.local` file.
-
-With the [AI SDK](https://ai-sdk.dev/docs/introduction), you can also switch to direct LLM providers like [OpenAI](https://openai.com), [Anthropic](https://anthropic.com), [Cohere](https://cohere.com/), and [many more](https://ai-sdk.dev/providers/ai-sdk-providers) with just a few lines of code.
-
-## Deploy Your Own
-
-You can deploy your own version of the Next.js AI Chatbot to Vercel with one click:
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/templates/next.js/nextjs-ai-chatbot)
-
-## Running locally
-
-You will need to use the environment variables [defined in `.env.example`](.env.example) to run Next.js AI Chatbot. It's recommended you use [Vercel Environment Variables](https://vercel.com/docs/projects/environment-variables) for this, but a `.env` file is all that is necessary.
-
-> Note: You should not commit your `.env` file or it will expose secrets that will allow others to control access to your various AI and authentication provider accounts.
-
-1. Install Vercel CLI: `npm i -g vercel`
-2. Link local instance with Vercel and GitHub accounts (creates `.vercel` directory): `vercel link`
-3. Download your environment variables: `vercel env pull`
-
-```bash
-pnpm install
-pnpm dev
+```mermaid
+flowchart LR
+  U[User] -- UI events --> C[Next.js App (RSC + Client)]
+  C -- Server Actions --> A[Chat API Routes]
+  A -- Model Calls --> M[AI SDK / Providers]
+  A -- Queries --> D[(Database via Drizzle)]
+  C -- Uploads/Previews --> F[Artifacts & Storage]
 ```
 
-Your app template should now be running on [localhost:3000](http://localhost:3000).
+- `app/(auth)` – authentication routes, config, and pages
+- `app/(chat)` – chat pages, API routes, and layout
+- `components/` – modular UI (chat, editors, artifacts, primitives)
+- `lib/ai/` – model registry, discovery, prompts, provider tooling
+- `lib/db/` – schema, migrations, queries using Drizzle
+- `artifacts/` – server and client handlers for generated artifacts
+- `hooks/` – reusable React hooks for chat state and UI behavior
+
+## Screenshots
+
+<p align="center">
+  <img alt="Chat UI" src="app/(chat)/twitter-image.png" width="720" />
+</p>
+
+## Live Demo
+
+Visit: [ai.nicx.me](https://ai.nicx.me)
+
+<p align="center">
+  <a href="https://ai.nicx.me">
+    <img alt="Open Demo" src="https://img.shields.io/badge/Open%20Demo-ai.nicx.me-000?logo=vercel" />
+  </a>
+</p>
+
+## Getting Started
+
+1. Clone the repository
+   ```bash
+   git clone https://github.com/nicxkms/nextjs-ai-chatbot.git
+   cd nextjs-ai-chatbot
+   ```
+2. Install dependencies
+   ```bash
+   pnpm install
+   ```
+3. Configure environment
+   - Copy `.env.example` to `.env.local` (or `.env`) and populate required keys
+   - For secrets, prefer Vercel Project Environment Variables
+4. Run locally
+   ```bash
+   pnpm dev
+   ```
+   App runs at [http://localhost:3000](http://localhost:3000)
+
+### Useful Scripts
+
+- `pnpm dev` – start the development server
+- `pnpm build` – build for production
+- `pnpm start` – run the production server
+- `pnpm lint` – lint and format code
+
+## Deployment
+
+- Deployed on Vercel: [ai.nicx.me](https://ai.nicx.me)
+- Set environment variables in your Vercel project settings
+- Connect the GitHub repository for CI/CD
+
+<p align="center">
+  <a href="https://vercel.com/new"><img alt="Deploy to Vercel" src="https://img.shields.io/badge/Deploy%20to%20Vercel-000?logo=vercel" /></a>
+</p>
+
+## Acknowledgements
+
+- Built with Next.js and the AI SDK
+- UI powered by shadcn/ui and Radix UI
+
+## Author
+
+**Nikhil Kumar**
+
+- GitHub: [@nicxkms](https://github.com/nicxkms)
+- LinkedIn: [@nicx](https://www.linkedin.com/in/nicx)
+
+## License
+
+See `LICENSE` for details.
