@@ -111,6 +111,10 @@ export async function DELETE(request: Request) {
 
   const documents = await getDocumentsById({ id });
 
+  if (documents.length === 0) {
+    return new ChatSDKError("not_found:document").toResponse();
+  }
+
   const [document] = documents;
 
   if (document.userId !== session.user.id) {

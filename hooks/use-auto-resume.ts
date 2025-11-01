@@ -46,8 +46,18 @@ export function useAutoResume({
     const dataPart = dataStream[0];
 
     if (dataPart.type === "data-appendMessage") {
-      const message = JSON.parse(dataPart.data);
-      setMessages([...initialMessages, message]);
+      try {
+        const message = JSON.parse(dataPart.data);
+        setMessages((currentMessages) => {
+          if (currentMessages.some((existing) => existing.id === message.id)) {
+            return currentMessages;
+          }
+
+          return [...currentMessages, message];
+        });
+      } catch (error) {
+        console.warn("Failed to parse streamed message", error);
+      }
     }
-  }, [dataStream, initialMessages, setMessages]);
+  }, [dataStream, setMessages]);
 }

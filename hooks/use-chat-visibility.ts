@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
+import { toast } from "sonner";
 import { updateChatVisibility } from "@/app/(chat)/actions";
 import {
   type ChatHistory,
@@ -40,12 +41,20 @@ export function useChatVisibility({
   }, [history, chatId, localVisibility]);
 
   const setVisibilityType = (updatedVisibilityType: VisibilityType) => {
+    const previousVisibility = visibilityType ?? initialVisibilityType;
+    const historyKey = unstable_serialize(getChatHistoryPaginationKey);
+
     setLocalVisibility(updatedVisibilityType);
-    mutate(unstable_serialize(getChatHistoryPaginationKey));
+    mutate(historyKey);
 
     updateChatVisibility({
       chatId,
       visibility: updatedVisibilityType,
+    }).catch((error) => {
+      console.error("Failed to update chat visibility", error);
+      setLocalVisibility(previousVisibility);
+      mutate(historyKey);
+      toast.error("We couldn't change the visibility. Please try again.");
     });
   };
 

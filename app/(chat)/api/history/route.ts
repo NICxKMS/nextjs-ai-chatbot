@@ -3,10 +3,16 @@ import { auth } from "@/app/(auth)/auth";
 import { getChatsByUserId, deleteAllChatsByUserId } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
 
+const DEFAULT_HISTORY_PAGE_SIZE = 20;
+const MAX_HISTORY_PAGE_SIZE = 100;
+
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
 
-  const limit = Number.parseInt(searchParams.get("limit") || "10", 10);
+  const requestedLimit = Number.parseInt(searchParams.get("limit") ?? "", 10);
+  const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
+    ? Math.min(requestedLimit, MAX_HISTORY_PAGE_SIZE)
+    : DEFAULT_HISTORY_PAGE_SIZE;
   const startingAfter = searchParams.get("starting_after");
   const endingBefore = searchParams.get("ending_before");
 
