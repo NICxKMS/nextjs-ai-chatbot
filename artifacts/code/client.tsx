@@ -16,6 +16,87 @@ import {
 } from "@/components/icons";
 import { generateUUID } from "@/lib/utils";
 
+const PYODIDE_INDEX_URL = "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/";
+
+type PyodideLoader = (options: { indexURL: string }) => Promise<any>;
+
+function getPyodideLoader(): PyodideLoader | undefined {
+  return (globalThis as typeof globalThis & { loadPyodide?: PyodideLoader })
+    .loadPyodide;
+}
+
+let loadPyodideScriptPromise: Promise<void> | null = null;
+let pyodideInstancePromise: Promise<any> | null = null;
+
+async function ensurePyodideReady() {
+  if (typeof window === "undefined") {
+    throw new Error("Pyodide can only be initialised in the browser");
+  }
+
+  if (typeof getPyodideLoader() !== "function") {
+    if (!loadPyodideScriptPromise) {
+      loadPyodideScriptPromise = new Promise<void>((resolve, reject) => {
+        const existingScript = document.querySelector<HTMLScriptElement>(
+          'script[data-pyodide-runtime="true"]'
+        );
+
+        if (existingScript) {
+          if (
+            existingScript.dataset.pyodideReady === "true" ||
+            typeof getPyodideLoader() === "function"
+          ) {
+            resolve();
+            return;
+          }
+
+          existingScript.addEventListener("load", () => resolve(), {
+            once: true,
+          });
+          existingScript.addEventListener("error", (event) => {
+            reject(event instanceof ErrorEvent ? event.error : event);
+          });
+          return;
+        }
+
+        const script = document.createElement("script");
+        script.src = `${PYODIDE_INDEX_URL}pyodide.js`;
+        script.async = true;
+        script.dataset.pyodideRuntime = "true";
+        script.addEventListener(
+          "load",
+          () => {
+            script.dataset.pyodideReady = "true";
+            resolve();
+          },
+          { once: true }
+        );
+        script.addEventListener("error", (event) => {
+          reject(event instanceof ErrorEvent ? event.error : event);
+        });
+        document.head.appendChild(script);
+      });
+    }
+
+    await loadPyodideScriptPromise;
+  }
+
+  if (!pyodideInstancePromise) {
+    const loader = getPyodideLoader();
+
+    if (!loader) {
+      throw new Error("Pyodide loader is unavailable after script load");
+    }
+
+    pyodideInstancePromise = loader({ indexURL: PYODIDE_INDEX_URL })
+      .catch((error: unknown) => {
+        pyodideInstancePromise = null;
+        throw error;
+      });
+  }
+
+  return pyodideInstancePromise;
+}
+
 const OUTPUT_HANDLERS = {
   matplotlib: `
     import io
@@ -133,10 +214,7 @@ export const codeArtifact = new Artifact<"code", Metadata>({
         }));
 
         try {
-          // @ts-expect-error - loadPyodide is not defined
-          const currentPyodideInstance = await globalThis.loadPyodide({
-            indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/",
-          });
+          const currentPyodideInstance = await ensurePyodideReady();
 
           currentPyodideInstance.setStdout({
             batched: (output: string) => {

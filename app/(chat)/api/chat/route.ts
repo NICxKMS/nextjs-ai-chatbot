@@ -78,8 +78,6 @@ const getEnabledTools = (model: ModelMetadata | undefined): ToolIdList => {
 
 export const maxDuration = 60;
 
-let globalStreamContext: ResumableStreamContext | null = null;
-
 const getTokenlensCatalog = cache(
   async (): Promise<ModelCatalog | undefined> => {
     try {
@@ -97,23 +95,18 @@ const getTokenlensCatalog = cache(
 );
 
 export function getStreamContext() {
-  if (!globalStreamContext) {
-    try {
-      globalStreamContext = createResumableStreamContext({
-        waitUntil: after,
-      });
-    } catch (error: any) {
-      if (error.message.includes("REDIS_URL")) {
-        console.log(
-          " > Resumable streams are disabled due to missing REDIS_URL"
-        );
-      } else {
-        console.error(error);
-      }
+  try {
+    return createResumableStreamContext({
+      waitUntil: after,
+    });
+  } catch (error: any) {
+    if (error.message?.includes("REDIS_URL")) {
+      console.log(" > Resumable streams are disabled due to missing REDIS_URL");
+    } else {
+      console.error(error);
     }
+    return null;
   }
-
-  return globalStreamContext;
 }
 
 export async function POST(request: Request) {

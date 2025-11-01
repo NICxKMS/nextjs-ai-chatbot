@@ -13,6 +13,7 @@ export function DataStreamHandler() {
 
   useEffect(() => {
     if (!dataStream?.length) {
+      lastProcessedIndex.current = -1;
       return;
     }
 

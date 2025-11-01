@@ -126,7 +126,7 @@ export function Chat({
     }),
     onData: (dataPart) => {
       if (settings.streamArtifacts) {
-        setDataStream((ds) => (ds ? [...ds, dataPart] : []));
+        setDataStream((ds) => [...ds, dataPart]);
       }
       if (dataPart.type === "data-usage") {
         setUsage(dataPart.data);
@@ -142,8 +142,14 @@ export function Chat({
     },
     onFinish: () => {
       mutate(unstable_serialize(getChatHistoryPaginationKey));
+      if (settings.streamArtifacts) {
+        setDataStream([]);
+      }
     },
     onError: (error) => {
+      if (settings.streamArtifacts) {
+        setDataStream([]);
+      }
       if (error instanceof ChatSDKError) {
         const isGatewayCreditCardError = error.message?.includes(
           "AI Gateway requires a valid credit card"

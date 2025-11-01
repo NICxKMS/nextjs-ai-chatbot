@@ -7,7 +7,6 @@ import { useMessages } from "@/hooks/use-messages";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
 import { useSettingsSnapshot } from "@/lib/ui/settings-store";
-import { useDataStream } from "./data-stream-provider";
 import { Conversation, ConversationContent } from "./elements/conversation";
 import { Greeting } from "./greeting";
 import { PreviewMessage, ThinkingMessage } from "./message";
@@ -43,7 +42,6 @@ function PureMessages({
     status,
   });
 
-  useDataStream();
   const { autoScroll } = useSettingsSnapshot();
 
   useEffect(() => {
@@ -118,6 +116,10 @@ function PureMessages({
 }
 
 export const Messages = memo(PureMessages, (prevProps, nextProps) => {
+  if (prevProps.isArtifactVisible !== nextProps.isArtifactVisible) {
+    return false;
+  }
+
   if (prevProps.isArtifactVisible && nextProps.isArtifactVisible) {
     return true;
   }
@@ -125,18 +127,22 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
   if (prevProps.status !== nextProps.status) {
     return false;
   }
+
   if (prevProps.selectedModelId !== nextProps.selectedModelId) {
     return false;
   }
+
   if (prevProps.messages.length !== nextProps.messages.length) {
     return false;
   }
+
   if (!equal(prevProps.messages, nextProps.messages)) {
     return false;
   }
+
   if (!equal(prevProps.votes, nextProps.votes)) {
     return false;
   }
 
-  return false;
+  return true;
 });

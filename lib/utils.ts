@@ -19,8 +19,11 @@ export const fetcher = async (url: string) => {
   const response = await fetch(url);
 
   if (!response.ok) {
-    const { code, cause } = await response.json();
-    throw new ChatSDKError(code as ErrorCode, cause);
+    const { code, cause, message } = await parseErrorResponse(response);
+    throw new ChatSDKError(
+      (code as ErrorCode) ?? "bad_request:api",
+      cause ?? message ?? response.statusText
+    );
   }
 
   return response.json();
@@ -34,8 +37,11 @@ export async function fetchWithErrorHandlers(
     const response = await fetch(input, init);
 
     if (!response.ok) {
-      const { code, cause } = await response.json();
-      throw new ChatSDKError(code as ErrorCode, cause);
+      const { code, cause, message } = await parseErrorResponse(response);
+      throw new ChatSDKError(
+        (code as ErrorCode) ?? "bad_request:api",
+        cause ?? message ?? response.statusText
+      );
     }
 
     return response;
@@ -46,6 +52,29 @@ export async function fetchWithErrorHandlers(
 
     throw error;
   }
+}
+
+async function parseErrorResponse(response: Response) {
+  const contentType = response.headers.get('content-type') ?? '';
+
+  if (contentType.includes('application/json')) {
+    try {
+      return await response.json();
+    } catch (error) {
+      console.warn('Failed to parse JSON error response', error);
+    }
+  }
+
+  try {
+    const text = await response.text();
+    if (text) {
+      return { message: text };
+    }
+  } catch (error) {
+    console.warn('Failed to read error response body', error);
+  }
+
+  return {} as { code?: string; cause?: string; message?: string };
 }
 
 export function getLocalStorage(key: string) {
