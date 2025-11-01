@@ -271,6 +271,7 @@ export const getModelById = (id: string) =>
   filterByAvailableProviders(curatedModels).find((model) => model.id === id);
 
 const defaultModelOrder = [
+  "google:gemini-2.5-flash-lite",
   "vercel-gateway:openai/gpt-4o",
   "openai:gpt-4o",
   "google:gemini-2.5-flash",

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { AuthForm } from "@/components/auth-form";
 import { SubmitButton } from "@/components/submit-button";
 import { toast } from "@/components/toast";
@@ -19,32 +19,64 @@ export default function Page() {
     register,
     {
       status: "idle",
+      message: undefined,
+      fieldErrors: undefined,
     }
   );
 
   const { update: updateSession } = useSession();
 
+  const lastHandledKey = useRef<string>(
+    `${state.status}|${state.message ?? ""}`
+  );
+
   useEffect(() => {
+    const statusKey = `${state.status}|${state.message ?? ""}`;
+
+    if (statusKey === lastHandledKey.current) {
+      return;
+    }
+
+    lastHandledKey.current = statusKey;
+
     if (state.status === "user_exists") {
-      toast({ type: "error", description: "Account already exists!" });
+      toast({
+        type: "error",
+        description:
+          state.message ?? "Account already exists! Try signing in instead.",
+      });
     } else if (state.status === "failed") {
-      toast({ type: "error", description: "Failed to create account!" });
+      toast({
+        type: "error",
+        description:
+          state.message ?? "Failed to create account! Please try again.",
+      });
     } else if (state.status === "invalid_data") {
       toast({
         type: "error",
-        description: "Failed validating your submission!",
+        description: state.message ?? "Failed validating your submission!",
       });
     } else if (state.status === "success") {
-      toast({ type: "success", description: "Account created successfully!" });
+      toast({
+        type: "success",
+        description: state.message ?? "Account created successfully!",
+      });
 
       setIsSuccessful(true);
-      updateSession();
+      updateSession().catch(() => {
+        /* no-op */
+      });
       router.refresh();
     }
-  }, [router, state.status, updateSession]);
+  }, [router, state.message, state.status, updateSession]);
 
   const handleSubmit = (formData: FormData) => {
-    setEmail(formData.get("email") as string);
+    const submittedEmail = (formData.get("email") as string | null) ?? "";
+    const normalizedEmail = submittedEmail.trim();
+    setEmail(normalizedEmail);
+    if (normalizedEmail !== submittedEmail) {
+      formData.set("email", normalizedEmail);
+    }
     formAction(formData);
   };
 
@@ -57,7 +89,11 @@ export default function Page() {
             Create an account with your email and password
           </p>
         </div>
-        <AuthForm action={handleSubmit} defaultEmail={email}>
+        <AuthForm
+          action={handleSubmit}
+          defaultEmail={email}
+          errors={state.fieldErrors}
+        >
           <SubmitButton isSuccessful={isSuccessful}>Sign Up</SubmitButton>
           <p className="mt-4 text-center text-gray-600 text-sm dark:text-zinc-400">
             {"Already have an account? "}

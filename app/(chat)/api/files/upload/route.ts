@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { auth } from "@/app/(auth)/auth";
+import { logger } from "@/lib/logger";
 import {
   ATTACHMENT_MAX_FILE_SIZE,
   getAllowedAttachmentMimeTypes,
@@ -95,7 +96,7 @@ export async function POST(request: Request) {
       filename,
     });
   } catch (error) {
-    console.error("File upload failed", error);
+    logger.error("File upload failed", error);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }

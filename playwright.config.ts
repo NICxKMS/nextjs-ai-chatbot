@@ -65,6 +65,17 @@ export default defineConfig({
         ...devices["Desktop Chrome"],
       },
     },
+    {
+      name: "unit",
+      testMatch: /unit\/.*.test.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+      },
+      // Unit tests run in Node.js context, ensure test environment is detected
+      env: {
+        PLAYWRIGHT: "True",
+      },
+    },
 
     // {
     //   name: 'firefox',
@@ -103,5 +114,10 @@ export default defineConfig({
     url: `${baseURL}/ping`,
     timeout: 120 * 1000,
     reuseExistingServer: !process.env.CI,
+    env: {
+      ...process.env,
+      PLAYWRIGHT: "True",
+      PLAYWRIGHT_TEST_BASE_URL: baseURL,
+    },
   },
 });
