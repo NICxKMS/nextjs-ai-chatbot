@@ -54,7 +54,7 @@ export async function getUser(email: string): Promise<User[]> {
 }
 
 export async function createUser(email: string, password: string) {
-  const hashedPassword = generateHashedPassword(password);
+  const hashedPassword = await generateHashedPassword(password);
 
   try {
     return await db.insert(user).values({ email, password: hashedPassword });
@@ -65,7 +65,7 @@ export async function createUser(email: string, password: string) {
 
 export async function createGuestUser() {
   const email = `guest-${Date.now()}`;
-  const password = generateHashedPassword(generateUUID());
+  const password = await generateHashedPassword(generateUUID());
 
   try {
     return await db.insert(user).values({ email, password }).returning({
@@ -134,7 +134,7 @@ export async function deleteAllChatsByUserId({ userId }: { userId: string }) {
       return { deletedCount: 0 };
     }
 
-    const chatIds = userChats.map(c => c.id);
+    const chatIds = userChats.map((c) => c.id);
 
     await db.delete(vote).where(inArray(vote.chatId, chatIds));
     await db.delete(message).where(inArray(message.chatId, chatIds));

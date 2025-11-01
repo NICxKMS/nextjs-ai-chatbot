@@ -26,6 +26,7 @@
   - **Losses if ignored**: Artifact view keeps re-rendering during every chat tick, which is expensive and worsens UI responsiveness.
 
 - [x] **Reset accumulated `dataStream` buffer** (`components/chat.tsx#Chat`)
+
   - **What**: `setDataStream` appends every `dataPart` to state without ever trimming or resetting after `data-finish`.
   - **Why**: The array grows indefinitely while `DataStreamHandler` reprocesses larger slices, increasing work per render.
   - **Gains**: Clearing the buffer after each completion bounds memory usage and keeps per-message processing constant.
@@ -41,6 +42,7 @@
   - **Losses if ignored**: Mobile and low-bandwidth users pay the Pyodide cost upfront, making the app feel sluggish before any chat appears.
 
 - [x] **Harden fetch error parsing** (`lib/utils.ts#fetcher`, `fetchWithErrorHandlers`)
+
   - **What**: Both helpers assume error responses are JSON with `{ code, cause }`; HTML or empty bodies throw `SyntaxError`, masking original HTTP status.
   - **Why**: Upstream providers or proxies often return plain text or HTML, and the current implementation turns those into unrelated parsing errors.
   - **Gains**: Defensive parsing keeps the original status / message observable, simplifying debugging and improving DX for API failures.
@@ -50,28 +52,28 @@
 
 ### High Priority
 
-- [ ] **Restore upload route logger dependency** (`app/(chat)/api/files/upload/route.ts#POST`)
+- [x] **Restore upload route logger dependency** (`app/(chat)/api/files/upload/route.ts#POST`)
 
   - **What**: The route imports `@/lib/logger`, but no such module exists in the repo, causing the file to fail at load time and making every upload request respond with a 500.
   - **Why**: The missing dependency suggests a refactor removed the logger without adjusting consumers, leaving the file upload entrypoint broken.
   - **Gains**: Reintroducing a logger (or swapping to `console`) restores the ability to upload attachments and surfaces storage errors cleanly.
   - **Losses if ignored**: Users cannot attach files; Next.js logs module resolution errors on every cold start, masking real runtime issues.
 
-- [ ] **Handle missing documents in DELETE** (`app/(chat)/api/document/route.ts#DELETE`)
+- [x] **Handle missing documents in DELETE** (`app/(chat)/api/document/route.ts#DELETE`)
 
   - **What**: Accesses `document.userId` before verifying that `getDocumentsById` returned any rows, so unknown IDs throw and return a 500 rather than a 404.
   - **Why**: The code assumes documents exist; once records expire or IDs are tampered with, the dereference crashes the handler.
   - **Gains**: Guarding the lookup keeps error contracts accurate (404/403) and avoids noisy exception logs.
   - **Losses if ignored**: Automated cleanup or client retries hit 500s, breaking artifact deletion and complicating monitoring.
 
-- [ ] **Null-guard trailing message deletion** (`app/(chat)/actions.ts#deleteTrailingMessages`)
+- [x] **Null-guard trailing message deletion** (`app/(chat)/actions.ts#deleteTrailingMessages`)
 
   - **What**: Takes `[message] = await getMessageById({ id })` and immediately dereferences `message.chatId`; missing rows cause the server action to throw.
   - **Why**: Edited or purged messages leave no DB row, yet the UI still calls this action when users retry; the absence should be treated as a no-op.
   - **Gains**: Adding an early return avoids crashing message edits and keeps the UI responsive after history cleanup.
   - **Losses if ignored**: Message editing intermittently fails with opaque 500s whenever the record has already been deleted.
 
-- [ ] **Cap chat history page size** (`app/(chat)/api/history/route.ts#GET`)
+- [x] **Cap chat history page size** (`app/(chat)/api/history/route.ts#GET`)
 
   - **What**: Accepts arbitrary `limit` values, so a single request can stream the entire chat table and repeat the work in loops.
   - **Why**: Without server-side validation, clients can accidentally or maliciously request unbounded pages, stressing Postgres and the edge runtime.
@@ -80,16 +82,71 @@
 
 ### Medium Priority
 
-- [ ] **Preserve live messages when resuming** (`hooks/use-auto-resume.ts#useAutoResume`)
+- [x] **Preserve live messages when resuming** (`hooks/use-auto-resume.ts#useAutoResume`)
 
   - **What**: Uses `setMessages([...initialMessages, message])`, which overwrites any client-side messages added after hydration when streams resume.
   - **Why**: The stale snapshot ignores updates from in-flight renders; the updater should merge with current state instead of cloning the initial array.
   - **Gains**: Switching to the functional setter keeps the UI consistent and prevents dropped assistant messages during reconnects.
   - **Losses if ignored**: Conversations can “rewind” after resume, confusing users and leading to duplicated regeneration attempts.
 
-- [ ] **Surface visibility update failures** (`hooks/use-chat-visibility.ts#useChatVisibility`)
+- [x] **Surface visibility update failures** (`hooks/use-chat-visibility.ts#useChatVisibility`)
 
   - **What**: Optimistically updates SWR cache but never awaits `updateChatVisibility`; errors leave the UI showing “public” while the DB stays “private.”
   - **Why**: Fire-and-forget server actions hide authorization or persistence failures; clients continue operating on incorrect assumptions.
   - **Gains**: Handling promise rejection allows a rollback toast and keeps sidebar state aligned with server truth.
   - **Losses if ignored**: Users think visibility toggled, but subsequent sessions revert, eroding trust in sharing controls.
+
+## Third Pass
+
+### High Priority
+
+- [ ] **Keep model catalog logic on the server** (`components/model-selector.tsx#ModelSelector`)
+
+  - **What**: This client component imports `forceRefreshModelCatalog` from `lib/ai/model-registry`, a server-centric module that eagerly registers every provider SDK and pulls in credential plumbing.
+  - **Why**: Bundling that module bloats the browser payload with Node-only adapters (OpenAI, Google, Workers AI) and can crash when secrets are absent, defeating Client Component constraints.
+  - **Gains**: Moving the refresh into a server action/API route keeps bundles lean and avoids runtime errors when users hit “Refresh.”
+  - **Losses if ignored**: UI ship size balloons by hundreds of KB and refreshes break in production due to missing server environment.
+
+- [ ] **Enforce model entitlements at the chat API boundary** (`app/(chat)/api/chat/route.ts#POST`)
+
+  - **What**: The handler reads `selectedChatModel` and never verifies it appears in `entitlementsByUserType`, so callers can force premium or gateway-only models by spoofing the id.
+  - **Why**: Entitlements are meant to govern provider access; without a server-side guard, quota limits are bypassed and paid endpoints become publicly exposed.
+  - **Gains**: Validating the requested model against the caller’s allow list keeps billing in check and enforces product tiers.
+  - **Losses if ignored**: Abuse shifts costly usage to unqualified users and risks surprise invoices or provider suspensions.
+
+- [ ] **Validate uploads beyond client-supplied MIME types** (`app/(chat)/api/files/upload/route.ts#POST`)
+
+  - **What**: The route trusts `file.type` (or even a missing type) before persisting blobs publicly, with no server-side sniffing or extension validation.
+  - **Why**: Browsers let attackers fake MIME headers, so the allow-list can be bypassed to host arbitrary binaries or HTML that target other users.
+  - **Gains**: Rechecking content type (e.g., via magic numbers) and storing privately prevents hosting of malicious payloads and aligns with storage best practices.
+  - **Losses if ignored**: Blob storage becomes an open file drop, exposing end users to malware and the app to abuse complaints.
+
+- [ ] **Guarantee unique user emails** (`lib/db/schema.ts#user`, `lib/db/queries.ts#createUser`)
+
+  - **What**: The `User` table lacks a `UNIQUE` constraint on `email`, and `createUser` does an out-of-transaction existence check, so concurrent sign-ups can insert duplicates.
+  - **Why**: Without atomic enforcement, race conditions produce conflicting accounts that share credentials, breaking login flows and downstream foreign-key relations.
+  - **Gains**: Adding a DB-level uniqueness guarantee (and handling constraint violations) hardens authentication and simplifies future data maintenance.
+  - **Losses if ignored**: Duplicate identities proliferate, causing confusing login behavior and costly manual cleanup.
+
+### Medium Priority
+
+- [ ] **Use cryptographically strong IDs for chats and streams** (`lib/utils.ts#generateUUID`)
+
+  - **What**: `generateUUID` relies on `Math.random()` to craft v4-like tokens that guard chat IDs, document IDs, and resumable stream handles.
+  - **Why**: `Math.random()` is predictable across serverless instances, letting determined actors guess IDs and access other users’ history.
+  - **Gains**: Switching to `crypto.randomUUID()` or secure random bytes eliminates predictability and protects private conversations.
+  - **Losses if ignored**: Attackers can enumerate IDs to scrape chat data or hijack resumable streams.
+
+- [ ] **Trim heavy animation dependencies from the sidebar** (`components/sidebar-history.tsx#SidebarHistory`)
+
+  - **What**: Imports `framer-motion` solely for an empty `<motion.div>` sentinel used to trigger pagination, pulling ~80 KB (min+gzip) into the shell bundle.
+  - **Why**: IntersectionObserver can provide the same viewport detection without the animation library, so the cost is pure overhead.
+  - **Gains**: Replacing the sentinel with a lightweight observer keeps the navigation sidebar snappy, especially on mobile data.
+  - **Losses if ignored**: Bundle size stays inflated, lengthening first interaction time and hurting Core Web Vitals.
+
+- [ ] **Hash passwords asynchronously** (`lib/db/utils.ts#generateHashedPassword`, `lib/db/queries.ts#createUser`)
+
+  - **What**: Uses `genSaltSync/hashSync`, blocking the event loop during sign-up and other password operations.
+  - **Why**: Synchronous bcrypt stalls concurrent requests on shared lambdas, leading to slow responses or timeouts under bursts.
+  - **Gains**: Adopting `genSalt`/`hash` keeps the server responsive while preserving the cost factor.
+  - **Losses if ignored**: Throughput tanks during registration spikes, degrading user experience and wasting compute.

@@ -11,6 +11,10 @@ import type { DBMessage, Document } from '@/lib/db/schema';
 import { ChatSDKError, type ErrorCode } from './errors';
 import type { ChatMessage, ChatTools, CustomUIDataTypes } from './types';
 
+const BYTE_TO_HEX = Array.from({ length: 256 }, (_, index) =>
+  index.toString(16).padStart(2, '0'),
+);
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -85,6 +89,44 @@ export function getLocalStorage(key: string) {
 }
 
 export function generateUUID(): string {
+  const cryptoObj =
+    typeof globalThis.crypto !== 'undefined'
+      ? globalThis.crypto
+      : undefined;
+
+  if (cryptoObj?.getRandomValues) {
+    const bytes = new Uint8Array(16);
+    cryptoObj.getRandomValues(bytes);
+
+    // Per RFC4122 v4
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+    return (
+      BYTE_TO_HEX[bytes[0]] +
+      BYTE_TO_HEX[bytes[1]] +
+      BYTE_TO_HEX[bytes[2]] +
+      BYTE_TO_HEX[bytes[3]] +
+      '-' +
+      BYTE_TO_HEX[bytes[4]] +
+      BYTE_TO_HEX[bytes[5]] +
+      '-' +
+      BYTE_TO_HEX[bytes[6]] +
+      BYTE_TO_HEX[bytes[7]] +
+      '-' +
+      BYTE_TO_HEX[bytes[8]] +
+      BYTE_TO_HEX[bytes[9]] +
+      '-' +
+      BYTE_TO_HEX[bytes[10]] +
+      BYTE_TO_HEX[bytes[11]] +
+      BYTE_TO_HEX[bytes[12]] +
+      BYTE_TO_HEX[bytes[13]] +
+      BYTE_TO_HEX[bytes[14]] +
+      BYTE_TO_HEX[bytes[15]]
+    );
+  }
+
+  // Fallback to non-cryptographic generation if no secure RNG is available.
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;

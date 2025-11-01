@@ -1,7 +1,11 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { startTransition, useMemo, useOptimistic, useState } from "react";
-import { saveChatModelAsCookie } from "@/app/(chat)/actions";
+import {
+  refreshModelCatalog,
+  saveChatModelAsCookie,
+} from "@/app/(chat)/actions";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,7 +17,6 @@ import type {
   ModelMetadata,
   ProviderCatalog,
 } from "@/lib/ai/model-catalog-types";
-import { forceRefreshModelCatalog } from "@/lib/ai/model-registry";
 import { cn } from "@/lib/utils";
 import { CheckCircleFillIcon, ChevronDownIcon } from "./icons";
 
@@ -141,6 +144,7 @@ export function ModelSelector({
   selectedModelId: string;
   availableModels?: ModelMetadata[];
 } & React.ComponentProps<typeof Button>) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [optimisticModelId, setOptimisticModelId] =
     useOptimistic(selectedModelId);
@@ -192,7 +196,10 @@ export function ModelSelector({
             disabled={isRefreshing}
             onClick={() => {
               setIsRefreshing(true);
-              forceRefreshModelCatalog()
+              refreshModelCatalog()
+                .then(() => {
+                  router.refresh();
+                })
                 .catch((error) => {
                   console.error("Model catalog refresh failed", error);
                 })

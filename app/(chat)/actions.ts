@@ -3,6 +3,7 @@
 import { generateText, type UIMessage } from "ai";
 import { cookies } from "next/headers";
 import type { VisibilityType } from "@/components/visibility-selector";
+import { forceRefreshModelCatalog } from "@/lib/ai/model-registry";
 import { DEFAULT_TITLE_MODEL } from "@/lib/ai/models";
 import { myProvider } from "@/lib/ai/providers";
 import {
@@ -14,6 +15,10 @@ import {
 export async function saveChatModelAsCookie(model: string) {
   const cookieStore = await cookies();
   cookieStore.set("chat-model", model);
+}
+
+export async function refreshModelCatalog() {
+  await forceRefreshModelCatalog();
 }
 
 export async function generateTitleFromUserMessage({

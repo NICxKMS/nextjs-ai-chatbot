@@ -38,7 +38,7 @@ export const isAllowedAttachmentMimeType = (
   mimeType: string | undefined | null
 ): boolean => {
   if (!mimeType) {
-    return true;
+    return false;
   }
 
   if (ATTACHMENT_ALLOWED_MIME_TYPES.has(mimeType)) {

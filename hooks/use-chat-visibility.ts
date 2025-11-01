@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
+import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
-import { toast } from "sonner";
 import { updateChatVisibility } from "@/app/(chat)/actions";
 import {
   type ChatHistory,

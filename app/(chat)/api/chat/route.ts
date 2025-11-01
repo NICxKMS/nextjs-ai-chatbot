@@ -9,10 +9,7 @@ import {
 } from "ai";
 import { unstable_cache as cache } from "next/cache";
 import { after } from "next/server";
-import {
-  createResumableStreamContext,
-  type ResumableStreamContext,
-} from "resumable-stream";
+import { createResumableStreamContext } from "resumable-stream";
 import type { ModelCatalog } from "tokenlens/core";
 import { fetchModels } from "tokenlens/fetch";
 import { getUsage } from "tokenlens/helpers";
@@ -155,6 +152,10 @@ export async function POST(request: Request) {
       (messageCount as number) > userEntitlements.maxMessagesPerDay
     ) {
       return new ChatSDKError("rate_limit:chat").toResponse();
+    }
+
+    if (!userEntitlements.availableChatModelIds.includes(selectedChatModel)) {
+      return new ChatSDKError("forbidden:chat").toResponse();
     }
 
     const chat = await getChatById({ id });
