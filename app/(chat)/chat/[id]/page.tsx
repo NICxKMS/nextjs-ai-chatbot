@@ -13,13 +13,12 @@ import { convertToUIMessages } from "@/lib/utils";
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const { id } = params;
-  const chat = await getChatById({ id });
+
+  const [chat, session] = await Promise.all([getChatById({ id }), auth()]);
 
   if (!chat) {
     notFound();
   }
-
-  const session = await auth();
 
   if (!session) {
     redirect("/api/auth/guest");
@@ -35,14 +34,15 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     }
   }
 
-  const messagesFromDb = await getMessagesByChatId({
-    id,
-  });
+  const [messagesFromDb, cookieStore] = await Promise.all([
+    getMessagesByChatId({
+      id,
+    }),
+    cookies(),
+  ]);
 
   const uiMessages = convertToUIMessages(messagesFromDb);
   const availableModels = listChatModels();
-
-  const cookieStore = await cookies();
   const chatModelFromCookie = cookieStore.get("chat-model");
 
   if (!chatModelFromCookie) {

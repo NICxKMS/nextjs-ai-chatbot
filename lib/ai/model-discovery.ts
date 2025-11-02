@@ -345,12 +345,23 @@ export const discoverProviders = async (
     },
   ];
 
-  for (const discoverer of discoverers) {
-    try {
-      const catalog = await discoverer.run();
-      results.push(catalog);
-    } catch (error) {
-      errors[discoverer.providerId] = error as Error;
+  const discoveryPromises = discoverers.map(async ({ providerId, run }) =>
+    run()
+      .then((catalog) => ({ status: "fulfilled" as const, providerId, catalog }))
+      .catch((error) => ({
+        status: "rejected" as const,
+        providerId,
+        error: error as Error,
+      }))
+  );
+
+  const discoveryResults = await Promise.all(discoveryPromises);
+
+  for (const result of discoveryResults) {
+    if (result.status === "fulfilled") {
+      results.push(result.catalog);
+    } else {
+      errors[result.providerId] = result.error;
     }
   }
 

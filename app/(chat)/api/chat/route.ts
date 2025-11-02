@@ -201,26 +201,24 @@ export async function POST(request: Request) {
 
     const userType: UserType = session.user.type;
 
-    const [messageCount, chat, recentMessagesFromDb] = await Promise.all([
-      getMessageCountByUserId({
-        id: session.user.id,
-        differenceInHours: 24,
-      }),
+    const messageCount = await getMessageCountByUserId({
+      id: session.user.id,
+      differenceInHours: 24,
+    });
+
+    const userEntitlements =
+      entitlementsByUserType[userType as keyof typeof entitlementsByUserType];
+    if (!userEntitlements || messageCount > userEntitlements.maxMessagesPerDay) {
+      return new ChatSDKError("rate_limit:chat").toResponse();
+    }
+
+    const [chat, recentMessagesFromDb] = await Promise.all([
       getChatById({ id }),
       getRecentMessagesByChatId({
         id,
         limit: MAX_RECENT_MESSAGES_FETCH,
       }),
     ]);
-
-    const userEntitlements =
-      entitlementsByUserType[userType as keyof typeof entitlementsByUserType];
-    if (
-      !userEntitlements ||
-      (messageCount as number) > userEntitlements.maxMessagesPerDay
-    ) {
-      return new ChatSDKError("rate_limit:chat").toResponse();
-    }
 
     let provisionalChatTitle = DEFAULT_CHAT_TITLE;
     let titleGenerationTask: Promise<string> | null = null;
@@ -232,15 +230,18 @@ export async function POST(request: Request) {
       provisionalChatTitle = chat.title ?? DEFAULT_CHAT_TITLE;
     } else {
       provisionalChatTitle = getInitialChatTitle(message);
-      titleGenerationTask = generateTitleFromUserMessage({
-        message,
-      }).catch((error) => {
-        console.warn("Unable to generate chat title", {
-          chatId: id,
-          error,
+
+      if (provisionalChatTitle !== DEFAULT_CHAT_TITLE) {
+        titleGenerationTask = generateTitleFromUserMessage({
+          message,
+        }).catch((error) => {
+          console.warn("Unable to generate chat title", {
+            chatId: id,
+            error,
+          });
+          return provisionalChatTitle;
         });
-        return provisionalChatTitle;
-      });
+      }
 
       await saveChat({
         id,
@@ -280,10 +281,14 @@ export async function POST(request: Request) {
       });
     });
 
-    const streamId = generateUUID();
-    after(async () => {
-      await createStreamId({ streamId, chatId: id });
-    });
+    const streamContext = getStreamContext();
+    const streamId = streamContext ? generateUUID() : null;
+
+    if (streamContext && streamId) {
+      after(async () => {
+        await createStreamId({ streamId, chatId: id });
+      });
+    }
 
     if (titleGenerationTask) {
       after(async () => {
@@ -416,6 +421,9 @@ export async function POST(request: Request) {
             let usage: any;
             try {
               usage = callResult.usage;
+              if (!usage) {
+                return;
+              }
               const providers = await getTokenlensCatalog();
               const modelId =
                 myProvider.languageModel(selectedChatModel).modelId;
@@ -460,26 +468,36 @@ export async function POST(request: Request) {
       },
       generateId: generateUUID,
       onFinish: async ({ messages }) => {
-        await saveMessages({
-          messages: messages.map((currentMessage) => ({
-            id: currentMessage.id,
-            role: currentMessage.role,
-            parts: currentMessage.parts,
-            createdAt: new Date(),
-            attachments: [],
-            chatId: id,
-          })),
-        });
+        const persistenceTasks: Promise<unknown>[] = [];
+
+        if (messages.length > 0) {
+          persistenceTasks.push(
+            saveMessages({
+              messages: messages.map((currentMessage) => ({
+                id: currentMessage.id,
+                role: currentMessage.role,
+                parts: currentMessage.parts,
+                createdAt: new Date(),
+                attachments: [],
+                chatId: id,
+              })),
+            })
+          );
+        }
 
         if (finalMergedUsage) {
-          try {
-            await updateChatLastContextById({
+          persistenceTasks.push(
+            updateChatLastContextById({
               chatId: id,
               context: finalMergedUsage,
-            });
-          } catch (err) {
-            console.warn("Unable to persist last usage for chat", id, err);
-          }
+            }).catch((err) => {
+              console.warn("Unable to persist last usage for chat", id, err);
+            })
+          );
+        }
+
+        if (persistenceTasks.length > 0) {
+          await Promise.all(persistenceTasks);
         }
       },
       onError: () => {
@@ -487,9 +505,7 @@ export async function POST(request: Request) {
       },
     });
 
-    const streamContext = getStreamContext();
-
-    if (streamContext) {
+    if (streamContext && streamId) {
       return new Response(
         await streamContext.resumableStream(streamId, () =>
           stream.pipeThrough(new JsonToSseTransformStream())

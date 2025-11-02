@@ -18,13 +18,14 @@ export async function GET(request: Request) {
     ).toResponse();
   }
 
-  const session = await auth();
+  const [session, documents] = await Promise.all([
+    auth(),
+    getDocumentsById({ id }),
+  ]);
 
   if (!session?.user) {
     return new ChatSDKError("unauthorized:document").toResponse();
   }
-
-  const documents = await getDocumentsById({ id });
 
   const [document] = documents;
 
@@ -50,20 +51,22 @@ export async function POST(request: Request) {
     ).toResponse();
   }
 
-  const session = await auth();
+  const bodyPromise = request.json() as Promise<{
+    content: string;
+    title: string;
+    kind: ArtifactKind;
+  }>;
+  const [session, body, documents] = await Promise.all([
+    auth(),
+    bodyPromise,
+    getDocumentsById({ id }),
+  ]);
 
   if (!session?.user) {
     return new ChatSDKError("not_found:document").toResponse();
   }
 
-  const {
-    content,
-    title,
-    kind,
-  }: { content: string; title: string; kind: ArtifactKind } =
-    await request.json();
-
-  const documents = await getDocumentsById({ id });
+  const { content, title, kind } = body;
 
   if (documents.length > 0) {
     const [doc] = documents;
@@ -103,15 +106,20 @@ export async function DELETE(request: Request) {
     ).toResponse();
   }
 
-  const session = await auth();
+  const [session, documents] = await Promise.all([
+    auth(),
+    getDocumentsById({ id }),
+  ]);
 
   if (!session?.user) {
     return new ChatSDKError("unauthorized:document").toResponse();
   }
 
-  const documents = await getDocumentsById({ id });
-
   const [document] = documents;
+
+  if (!document) {
+    return new ChatSDKError("not_found:document").toResponse();
+  }
 
   if (document.userId !== session.user.id) {
     return new ChatSDKError("forbidden:document").toResponse();
