@@ -16,6 +16,8 @@ import {
 } from "@/components/icons";
 import { generateUUID } from "@/lib/utils";
 
+const PYODIDE_URL = "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js";
+
 const OUTPUT_HANDLERS = {
   matplotlib: `
     import io
@@ -65,6 +67,81 @@ function detectRequiredHandlers(code: string): string[] {
 type Metadata = {
   outputs: ConsoleOutput[];
 };
+
+type LoadPyodideFn = (options: { indexURL: string }) => Promise<any>;
+
+let pyodideLoader: Promise<LoadPyodideFn> | null = null;
+
+async function ensurePyodide(): Promise<LoadPyodideFn> {
+  if (typeof window === "undefined") {
+    throw new Error("Pyodide is only available in the browser environment");
+  }
+
+  const existingLoader = (globalThis as typeof globalThis & {
+    loadPyodide?: LoadPyodideFn;
+  }).loadPyodide;
+
+  if (typeof existingLoader === "function") {
+    return existingLoader;
+  }
+
+  if (!pyodideLoader) {
+    pyodideLoader = new Promise<LoadPyodideFn>((resolve, reject) => {
+      const existingScript = document.querySelector<HTMLScriptElement>(
+        'script[data-pyodide="true"]'
+      );
+
+      if (existingScript) {
+        existingScript.addEventListener(
+          "load",
+          () => {
+            const loader = (globalThis as typeof globalThis & {
+              loadPyodide?: LoadPyodideFn;
+            }).loadPyodide;
+
+            if (typeof loader === "function") {
+              resolve(loader);
+            } else {
+              reject(new Error("Pyodide script loaded without exposing loadPyodide"));
+            }
+          },
+          { once: true }
+        );
+        existingScript.addEventListener(
+          "error",
+          () => {
+            reject(new Error("Failed to load Pyodide script"));
+          },
+          { once: true }
+        );
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = PYODIDE_URL;
+      script.async = true;
+      script.dataset.pyodide = "true";
+      script.addEventListener("load", () => {
+        const loader = (globalThis as typeof globalThis & {
+          loadPyodide?: LoadPyodideFn;
+        }).loadPyodide;
+
+        if (typeof loader === "function") {
+          resolve(loader);
+        } else {
+          reject(new Error("Pyodide script loaded without exposing loadPyodide"));
+        }
+      });
+      script.addEventListener("error", () => {
+        reject(new Error("Failed to load Pyodide script"));
+      });
+
+      document.head.appendChild(script);
+    });
+  }
+
+  return await pyodideLoader;
+}
 
 export const codeArtifact = new Artifact<"code", Metadata>({
   kind: "code",
@@ -133,8 +210,8 @@ export const codeArtifact = new Artifact<"code", Metadata>({
         }));
 
         try {
-          // @ts-expect-error - loadPyodide is not defined
-          const currentPyodideInstance = await globalThis.loadPyodide({
+          const loadPyodide = await ensurePyodide();
+          const currentPyodideInstance = await loadPyodide({
             indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/",
           });
 

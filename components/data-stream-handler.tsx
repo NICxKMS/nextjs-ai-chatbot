@@ -6,13 +6,22 @@ import { artifactDefinitions } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
 
 export function DataStreamHandler() {
-  const { dataStream } = useDataStream();
+  const { getDataStream, version } = useDataStream();
 
   const { artifact, setArtifact, setMetadata } = useArtifact();
   const lastProcessedIndex = useRef(-1);
+  const lastProcessedVersion = useRef(-1);
 
   useEffect(() => {
-    if (!dataStream?.length) {
+    if (version === lastProcessedVersion.current) {
+      return;
+    }
+    lastProcessedVersion.current = version;
+
+    const dataStream = getDataStream();
+
+    if (!dataStream.length) {
+      lastProcessedIndex.current = -1;
       return;
     }
 
@@ -78,7 +87,7 @@ export function DataStreamHandler() {
         }
       });
     }
-  }, [dataStream, setArtifact, setMetadata, artifact]);
+  }, [getDataStream, version, setArtifact, setMetadata, artifact]);
 
   return null;
 }

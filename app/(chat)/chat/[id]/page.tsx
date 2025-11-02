@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/app/(auth)/auth";
 import { Chat } from "@/components/chat";
 import { DataStreamHandler } from "@/components/data-stream-handler";
+import { DataStreamProvider } from "@/components/data-stream-provider";
 import { listChatModels } from "@/lib/ai/model-registry";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { getChatById, getMessagesByChatId } from "@/lib/db/queries";
@@ -46,7 +47,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 
   if (!chatModelFromCookie) {
     return (
-      <>
+      <DataStreamProvider>
         <Chat
           autoResume={true}
           availableModels={availableModels}
@@ -58,12 +59,12 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
           isReadonly={session?.user?.id !== chat.userId}
         />
         <DataStreamHandler />
-      </>
+      </DataStreamProvider>
     );
   }
 
   return (
-    <>
+    <DataStreamProvider>
       <Chat
         autoResume={true}
         availableModels={availableModels}
@@ -75,6 +76,6 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
         isReadonly={session?.user?.id !== chat.userId}
       />
       <DataStreamHandler />
-    </>
+    </DataStreamProvider>
   );
 }

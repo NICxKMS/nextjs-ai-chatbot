@@ -60,7 +60,7 @@ export function Chat({
   });
 
   const { mutate } = useSWRConfig();
-  const { setDataStream } = useDataStream();
+  const { appendDataPart, resetDataStream } = useDataStream();
   const settings = useSettingsSnapshot();
 
   const [input, setInput] = useState<string>("");
@@ -126,7 +126,7 @@ export function Chat({
     }),
     onData: (dataPart) => {
       if (settings.streamArtifacts) {
-        setDataStream((ds) => (ds ? [...ds, dataPart] : []));
+        appendDataPart(dataPart);
       }
       if (dataPart.type === "data-usage") {
         setUsage(dataPart.data);
@@ -197,6 +197,15 @@ export function Chat({
 
   const searchParams = useSearchParams();
   const query = searchParams.get("query");
+
+  useEffect(() => {
+    if (!settings.streamArtifacts) {
+      return;
+    }
+    if (status === "submitted") {
+      resetDataStream();
+    }
+  }, [status, settings.streamArtifacts, resetDataStream]);
 
   const [hasAppendedQuery, setHasAppendedQuery] = useState(false);
 

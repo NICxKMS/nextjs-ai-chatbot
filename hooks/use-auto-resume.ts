@@ -1,7 +1,7 @@
 "use client";
 
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useDataStream } from "@/components/data-stream-provider";
 import type { ChatMessage } from "@/lib/types";
 
@@ -18,7 +18,9 @@ export function useAutoResume({
   resumeStream,
   setMessages,
 }: UseAutoResumeParams) {
-  const { dataStream } = useDataStream();
+  const { getDataStream, version } = useDataStream();
+  const lastHandledVersion = useRef(-1);
+  const lastProcessedIndex = useRef(-1);
 
   useEffect(() => {
     if (!autoResume) {
@@ -36,18 +38,36 @@ export function useAutoResume({
   }, [autoResume, initialMessages.at, resumeStream]);
 
   useEffect(() => {
-    if (!dataStream) {
+    if (version === lastHandledVersion.current) {
       return;
     }
+    lastHandledVersion.current = version;
+
+    const dataStream = getDataStream();
+
     if (dataStream.length === 0) {
+      lastProcessedIndex.current = -1;
       return;
     }
 
-    const dataPart = dataStream[0];
+    const newParts = dataStream.slice(lastProcessedIndex.current + 1);
+    lastProcessedIndex.current = dataStream.length - 1;
 
-    if (dataPart.type === "data-appendMessage") {
-      const message = JSON.parse(dataPart.data);
-      setMessages([...initialMessages, message]);
+    for (const part of newParts) {
+      if (part.type === "data-appendMessage") {
+        const message = JSON.parse(part.data);
+        setMessages((currentMessages) => {
+          const alreadyExists = currentMessages.some(
+            (existingMessage) => existingMessage.id === message.id
+          );
+
+          if (alreadyExists) {
+            return currentMessages;
+          }
+
+          return [...currentMessages, message];
+        });
+      }
     }
-  }, [dataStream, initialMessages, setMessages]);
+  }, [getDataStream, version, setMessages]);
 }

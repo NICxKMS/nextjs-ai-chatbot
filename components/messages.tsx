@@ -7,7 +7,6 @@ import { useMessages } from "@/hooks/use-messages";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
 import { useSettingsSnapshot } from "@/lib/ui/settings-store";
-import { useDataStream } from "./data-stream-provider";
 import { Conversation, ConversationContent } from "./elements/conversation";
 import { Greeting } from "./greeting";
 import { PreviewMessage, ThinkingMessage } from "./message";
@@ -43,7 +42,6 @@ function PureMessages({
     status,
   });
 
-  useDataStream();
   const { autoScroll } = useSettingsSnapshot();
 
   useEffect(() => {
@@ -63,8 +61,8 @@ function PureMessages({
   return (
     <div
       className="overscroll-behavior-contain -webkit-overflow-scrolling-touch flex-1 touch-pan-y overflow-y-scroll"
+      data-overflow-anchor="none"
       ref={messagesContainerRef}
-      style={{ overflowAnchor: "none" }}
     >
       <Conversation className="mx-auto flex min-w-0 max-w-4xl flex-col gap-4 md:gap-6">
         <ConversationContent className="flex flex-col gap-4 px-2 py-4 md:gap-6 md:px-4">

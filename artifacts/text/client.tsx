@@ -10,13 +10,21 @@ import {
   RedoIcon,
   UndoIcon,
 } from "@/components/icons";
-import { Editor } from "@/components/text-editor";
+import dynamic from "next/dynamic";
 import type { Suggestion } from "@/lib/db/schema";
 import { getSuggestions } from "../actions";
 
 type TextArtifactMetadata = {
   suggestions: Suggestion[];
 };
+
+const Editor = dynamic(async () => {
+  const module = await import("@/components/text-editor");
+  return module.Editor;
+}, {
+  ssr: false,
+  loading: () => <DocumentSkeleton artifactKind="text" />, 
+});
 
 export const textArtifact = new Artifact<"text", TextArtifactMetadata>({
   kind: "text",

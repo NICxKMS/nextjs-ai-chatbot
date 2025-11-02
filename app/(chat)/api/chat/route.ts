@@ -76,6 +76,40 @@ const getEnabledTools = (model: ModelMetadata | undefined): ToolIdList => {
   return [];
 };
 
+const MAX_MODEL_MESSAGES = 30;
+const MAX_MODEL_CHARACTERS = 12_000;
+
+function estimateMessageCharacters(message: ChatMessage) {
+  return (
+    message.parts?.reduce((total, part) => {
+      if (part.type === "text" && part.text) {
+        return total + part.text.length;
+      }
+      return total;
+    }, 0) ?? 0
+  );
+}
+
+function windowMessages(messages: ChatMessage[]) {
+  let totalCharacters = 0;
+  const bounded: ChatMessage[] = [];
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const current = messages[index];
+    totalCharacters += estimateMessageCharacters(current);
+    bounded.push(current);
+
+    if (
+      bounded.length >= MAX_MODEL_MESSAGES ||
+      totalCharacters >= MAX_MODEL_CHARACTERS
+    ) {
+      break;
+    }
+  }
+
+  return bounded.reverse();
+}
+
 export const maxDuration = 60;
 
 let globalStreamContext: ResumableStreamContext | null = null;
@@ -150,10 +184,14 @@ export async function POST(request: Request) {
 
     const userType: UserType = session.user.type;
 
-    const messageCount = await getMessageCountByUserId({
-      id: session.user.id,
-      differenceInHours: 24,
-    });
+    const [messageCount, chat, messagesFromDb] = await Promise.all([
+      getMessageCountByUserId({
+        id: session.user.id,
+        differenceInHours: 24,
+      }),
+      getChatById({ id }),
+      getMessagesByChatId({ id }),
+    ]);
 
     const userEntitlements =
       entitlementsByUserType[userType as keyof typeof entitlementsByUserType];
@@ -163,8 +201,6 @@ export async function POST(request: Request) {
     ) {
       return new ChatSDKError("rate_limit:chat").toResponse();
     }
-
-    const chat = await getChatById({ id });
 
     if (chat) {
       if (chat.userId !== session.user.id) {
@@ -183,8 +219,11 @@ export async function POST(request: Request) {
       });
     }
 
-    const messagesFromDb = await getMessagesByChatId({ id });
-    const uiMessages = [...convertToUIMessages(messagesFromDb), message];
+    const uiMessages = [
+      ...convertToUIMessages(messagesFromDb),
+      message,
+    ];
+    const boundedUIMessages = windowMessages(uiMessages);
 
     const { longitude, latitude, city, country } = geolocation(request);
 
@@ -195,21 +234,25 @@ export async function POST(request: Request) {
       country,
     };
 
-    await saveMessages({
-      messages: [
-        {
-          chatId: id,
-          id: message.id,
-          role: "user",
-          parts: message.parts,
-          attachments: [],
-          createdAt: new Date(),
-        },
-      ],
+    after(async () => {
+      await saveMessages({
+        messages: [
+          {
+            chatId: id,
+            id: message.id,
+            role: "user",
+            parts: message.parts,
+            attachments: [],
+            createdAt: new Date(),
+          },
+        ],
+      });
     });
 
     const streamId = generateUUID();
-    await createStreamId({ streamId, chatId: id });
+    after(async () => {
+      await createStreamId({ streamId, chatId: id });
+    });
 
     let finalMergedUsage: AppUsage | undefined;
 
@@ -290,7 +333,7 @@ export async function POST(request: Request) {
             selectedModel,
             userSystemPrompt: requestBody.settings?.systemPrompt,
           }),
-          messages: convertToModelMessages(uiMessages),
+          messages: convertToModelMessages(boundedUIMessages),
           stopWhen: stepCountIs(5),
           experimental_activeTools: getEnabledTools(selectedModel),
           experimental_transform: smoothStream({

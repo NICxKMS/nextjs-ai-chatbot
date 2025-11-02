@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Chat } from "@/components/chat";
 import { DataStreamHandler } from "@/components/data-stream-handler";
+import { DataStreamProvider } from "@/components/data-stream-provider";
 import { listChatModels } from "@/lib/ai/model-registry";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { generateUUID } from "@/lib/utils";
@@ -22,7 +23,7 @@ export default async function Page() {
 
   if (!modelIdFromCookie) {
     return (
-      <>
+      <DataStreamProvider>
         <Chat
           autoResume={false}
           availableModels={availableModels}
@@ -34,12 +35,12 @@ export default async function Page() {
           key={id}
         />
         <DataStreamHandler />
-      </>
+      </DataStreamProvider>
     );
   }
 
   return (
-    <>
+    <DataStreamProvider>
       <Chat
         autoResume={false}
         availableModels={availableModels}
@@ -51,6 +52,6 @@ export default async function Page() {
         key={id}
       />
       <DataStreamHandler />
-    </>
+    </DataStreamProvider>
   );
 }
