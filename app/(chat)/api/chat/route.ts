@@ -33,15 +33,20 @@ import {
   deleteChatById,
   getChatById,
   getMessageCountByUserId,
-  getMessagesByChatId,
+  getRecentMessagesByChatId,
   saveChat,
   saveMessages,
   updateChatLastContextById,
+  updateChatTitleById,
 } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
-import { convertToUIMessages, generateUUID } from "@/lib/utils";
+import {
+  convertToUIMessages,
+  generateUUID,
+  getTextFromMessage,
+} from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
@@ -78,11 +83,23 @@ const getEnabledTools = (model: ModelMetadata | undefined): ToolIdList => {
 
 const MAX_MODEL_MESSAGES = 30;
 const MAX_MODEL_CHARACTERS = 12_000;
+const MAX_RECENT_MESSAGES_FETCH = MAX_MODEL_MESSAGES * 4;
+const DEFAULT_CHAT_TITLE = "New chat";
+
+const getInitialChatTitle = (message: ChatMessage) => {
+  const normalized = getTextFromMessage(message).replace(/\s+/g, " ").trim();
+
+  if (!normalized) {
+    return DEFAULT_CHAT_TITLE;
+  }
+
+  return normalized.length > 80 ? `${normalized.slice(0, 77)}...` : normalized;
+};
 
 function estimateMessageCharacters(message: ChatMessage) {
   return (
     message.parts?.reduce((total, part) => {
-      if (part.type === "text" && part.text) {
+      if (part.type === "text" && "text" in part && part.text) {
         return total + part.text.length;
       }
       return total;
@@ -130,11 +147,11 @@ const getTokenlensCatalog = cache(
   { revalidate: 24 * 60 * 60 } // 24 hours
 );
 
-export function getStreamContext() {
+export function getStreamContext(waitUntil?: typeof after) {
   if (!globalStreamContext) {
     try {
       globalStreamContext = createResumableStreamContext({
-        waitUntil: after,
+        waitUntil: waitUntil ?? after,
       });
     } catch (error: any) {
       if (error.message.includes("REDIS_URL")) {
@@ -184,13 +201,16 @@ export async function POST(request: Request) {
 
     const userType: UserType = session.user.type;
 
-    const [messageCount, chat, messagesFromDb] = await Promise.all([
+    const [messageCount, chat, recentMessagesFromDb] = await Promise.all([
       getMessageCountByUserId({
         id: session.user.id,
         differenceInHours: 24,
       }),
       getChatById({ id }),
-      getMessagesByChatId({ id }),
+      getRecentMessagesByChatId({
+        id,
+        limit: MAX_RECENT_MESSAGES_FETCH,
+      }),
     ]);
 
     const userEntitlements =
@@ -202,25 +222,36 @@ export async function POST(request: Request) {
       return new ChatSDKError("rate_limit:chat").toResponse();
     }
 
+    let provisionalChatTitle = DEFAULT_CHAT_TITLE;
+    let titleGenerationTask: Promise<string> | null = null;
+
     if (chat) {
       if (chat.userId !== session.user.id) {
         return new ChatSDKError("forbidden:chat").toResponse();
       }
+      provisionalChatTitle = chat.title ?? DEFAULT_CHAT_TITLE;
     } else {
-      const title = await generateTitleFromUserMessage({
+      provisionalChatTitle = getInitialChatTitle(message);
+      titleGenerationTask = generateTitleFromUserMessage({
         message,
+      }).catch((error) => {
+        console.warn("Unable to generate chat title", {
+          chatId: id,
+          error,
+        });
+        return provisionalChatTitle;
       });
 
       await saveChat({
         id,
         userId: session.user.id,
-        title,
+        title: provisionalChatTitle,
         visibility: selectedVisibilityType,
       });
     }
 
     const uiMessages = [
-      ...convertToUIMessages(messagesFromDb),
+      ...convertToUIMessages(recentMessagesFromDb),
       message,
     ];
     const boundedUIMessages = windowMessages(uiMessages);
@@ -253,6 +284,23 @@ export async function POST(request: Request) {
     after(async () => {
       await createStreamId({ streamId, chatId: id });
     });
+
+    if (titleGenerationTask) {
+      after(async () => {
+        try {
+          const resolvedTitle = await titleGenerationTask;
+
+          if (resolvedTitle && resolvedTitle !== provisionalChatTitle) {
+            await updateChatTitleById({ chatId: id, title: resolvedTitle });
+          }
+        } catch (error) {
+          console.warn("Unable to update generated chat title", {
+            chatId: id,
+            error,
+          });
+        }
+      });
+    }
 
     let finalMergedUsage: AppUsage | undefined;
 

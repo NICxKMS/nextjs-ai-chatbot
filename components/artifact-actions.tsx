@@ -1,7 +1,19 @@
-import { type Dispatch, memo, type SetStateAction, useState } from "react";
+import {
+  type Dispatch,
+  memo,
+  type SetStateAction,
+  useEffect,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { artifactDefinitions, type UIArtifact } from "./artifact";
+import type { UIArtifact } from "./artifact";
+import {
+  getArtifactDefinition,
+  loadArtifactDefinition,
+  type ArtifactDefinition,
+  type ArtifactKind,
+} from "./artifact-registry";
 import type { ArtifactActionContext } from "./create-artifact";
 import { Button } from "./ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
@@ -26,13 +38,41 @@ function PureArtifactActions({
   setMetadata,
 }: ArtifactActionsProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [artifactDefinition, setArtifactDefinition] = useState<
+    ArtifactDefinition | null
+  >(() => getArtifactDefinition(artifact.kind as ArtifactKind) ?? null);
 
-  const artifactDefinition = artifactDefinitions.find(
-    (definition) => definition.kind === artifact.kind
-  );
+  useEffect(() => {
+    let isMounted = true;
+
+    const cachedDefinition = getArtifactDefinition(artifact.kind as ArtifactKind);
+    if (cachedDefinition) {
+      setArtifactDefinition(cachedDefinition);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    loadArtifactDefinition(artifact.kind as ArtifactKind)
+      .then((definition) => {
+        if (isMounted) {
+          setArtifactDefinition(definition);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load artifact definition", {
+          kind: artifact.kind,
+          error,
+        });
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [artifact.kind]);
 
   if (!artifactDefinition) {
-    throw new Error("Artifact definition not found!");
+    return null;
   }
 
   const actionContext: ArtifactActionContext = {

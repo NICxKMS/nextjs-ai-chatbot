@@ -25,7 +25,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { ChatMessage } from "@/lib/types";
-import { type ArtifactKind, artifactDefinitions } from "./artifact";
+import {
+  getArtifactDefinition,
+  loadArtifactDefinition,
+  type ArtifactDefinition,
+  type ArtifactKind,
+} from "./artifact-registry";
 import type { ArtifactToolbarItem } from "./create-artifact";
 import { ArrowUpIcon, StopIcon, SummarizeIcon } from "./icons";
 
@@ -323,6 +328,9 @@ const PureToolbar = ({
 
   const [selectedTool, setSelectedTool] = useState<string | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [artifactDefinition, setArtifactDefinition] = useState<
+    ArtifactDefinition | null
+  >(() => getArtifactDefinition(artifactKind) ?? null);
 
   useOnClickOutside(toolbarRef, () => {
     setIsToolbarVisible(false);
@@ -360,12 +368,37 @@ const PureToolbar = ({
     }
   }, [status, setIsToolbarVisible]);
 
-  const artifactDefinition = artifactDefinitions.find(
-    (definition) => definition.kind === artifactKind
-  );
+  useEffect(() => {
+    let isMounted = true;
+
+    const cachedDefinition = getArtifactDefinition(artifactKind);
+    if (cachedDefinition) {
+      setArtifactDefinition(cachedDefinition);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    loadArtifactDefinition(artifactKind)
+      .then((definition) => {
+        if (isMounted) {
+          setArtifactDefinition(definition);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load artifact definition", {
+          kind: artifactKind,
+          error,
+        });
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [artifactKind]);
 
   if (!artifactDefinition) {
-    throw new Error("Artifact definition not found!");
+    return null;
   }
 
   const toolsByArtifactKind = artifactDefinition.toolbar;

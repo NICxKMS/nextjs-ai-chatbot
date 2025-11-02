@@ -266,6 +266,56 @@ export async function getMessagesByChatId({ id }: { id: string }) {
   }
 }
 
+export async function getRecentMessagesByChatId({
+  id,
+  limit,
+}: {
+  id: string;
+  limit: number;
+}) {
+  try {
+    if (limit <= 0) {
+      return [];
+    }
+
+    const recentMessages = await db
+      .select()
+      .from(message)
+      .where(eq(message.chatId, id))
+      .orderBy(desc(message.createdAt))
+      .limit(limit);
+
+    return recentMessages.reverse();
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to get recent messages by chat id"
+    );
+  }
+}
+
+export async function getLatestAssistantMessageByChatId({
+  id,
+}: {
+  id: string;
+}) {
+  try {
+    const [latestAssistantMessage] = await db
+      .select()
+      .from(message)
+      .where(and(eq(message.chatId, id), eq(message.role, "assistant")))
+      .orderBy(desc(message.createdAt))
+      .limit(1);
+
+    return latestAssistantMessage ?? null;
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to get latest assistant message by chat id"
+    );
+  }
+}
+
 export async function voteMessage({
   chatId,
   messageId,
@@ -485,12 +535,39 @@ export async function deleteMessagesByChatIdAfterTimestamp({
   }
 }
 
+export async function updateChatVisibility({
+  chatId,
+  visibility,
+}: {
+  chatId: string;
+  visibility: VisibilityType;
+}) {
+  await updateChatVisiblityById({ chatId, visibility });
+}
+
+export async function updateChatTitleById({
+  chatId,
+  title,
+}: {
+  chatId: string;
+  title: string;
+}) {
+  try {
+    await db.update(chat).set({ title }).where(eq(chat.id, chatId));
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to update chat title"
+    );
+  }
+}
+
 export async function updateChatVisiblityById({
   chatId,
   visibility,
 }: {
   chatId: string;
-  visibility: "private" | "public";
+  visibility: VisibilityType;
 }) {
   try {
     return await db.update(chat).set({ visibility }).where(eq(chat.id, chatId));

@@ -1,12 +1,13 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, type DataUIPart } from "ai";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
 import { ChatHeader } from "@/components/chat-header";
+import type { UseChatHelpers } from "@ai-sdk/react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +24,7 @@ import { useChatVisibility } from "@/hooks/use-chat-visibility";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 import type { Vote } from "@/lib/db/schema";
 import { ChatSDKError } from "@/lib/errors";
-import type { Attachment, ChatMessage } from "@/lib/types";
+import type { Attachment, ChatMessage, CustomUIDataTypes } from "@/lib/types";
 import { useSettingsSnapshot } from "@/lib/ui/settings-store";
 import type { AppUsage } from "@/lib/usage";
 import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
@@ -68,6 +69,9 @@ export function Chat({
   const [showCreditCardAlert, setShowCreditCardAlert] = useState(false);
   const [currentModelId, setCurrentModelId] = useState(initialChatModel);
   const currentModelIdRef = useRef(currentModelId);
+  const setMessagesRef = useRef<
+    UseChatHelpers<ChatMessage>["setMessages"]
+  >();
 
   const getCurrentModel = useCallback(
     () =>
@@ -95,55 +99,62 @@ export function Chat({
     currentModelIdRef.current = currentModelId;
   }, [currentModelId]);
 
-  const {
-    messages,
-    setMessages,
-    sendMessage,
-    status,
-    stop,
-    regenerate,
-    resumeStream,
-  } = useChat<ChatMessage>({
-    id,
-    messages: initialMessages,
-    experimental_throttle: 100,
-    generateId: generateUUID,
-    transport: new DefaultChatTransport({
-      api: "/api/chat",
-      fetch: fetchWithErrorHandlers,
-      prepareSendMessagesRequest(request) {
-        return {
-          body: {
-            id: request.id,
-            message: request.messages.at(-1),
-            selectedChatModel: currentModelIdRef.current,
-            selectedVisibilityType: visibilityType,
-            settings,
-            ...request.body,
-          },
-        };
+  const prepareSendMessagesRequest = useCallback(
+    (request: {
+      id: string;
+      messages: ChatMessage[];
+      body?: Record<string, unknown>;
+    }) => ({
+      body: {
+        id: request.id,
+        message: request.messages.at(-1),
+        selectedChatModel: currentModelIdRef.current,
+        selectedVisibilityType: visibilityType,
+        settings,
+        ...request.body,
       },
     }),
-    onData: (dataPart) => {
+    [visibilityType, settings]
+  );
+
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: "/api/chat",
+        fetch: fetchWithErrorHandlers,
+        prepareSendMessagesRequest,
+      }),
+    [prepareSendMessagesRequest]
+  );
+
+  const handleData = useCallback(
+    (dataPart: DataUIPart<CustomUIDataTypes>) => {
       if (settings.streamArtifacts) {
         appendDataPart(dataPart);
       }
+
       if (dataPart.type === "data-usage") {
         setUsage(dataPart.data);
       }
+
       if (dataPart.type === "data-appendMessage") {
         try {
-          const message = JSON.parse((dataPart as any).data);
-          setMessages((prev) => [...prev, message]);
+          const message = JSON.parse((dataPart as unknown as { data: string }).data);
+          setMessagesRef.current?.((prev) => [...prev, message]);
         } catch {
           // ignore malformed payloads
         }
       }
     },
-    onFinish: () => {
-      mutate(unstable_serialize(getChatHistoryPaginationKey));
-    },
-    onError: (error) => {
+    [appendDataPart, settings.streamArtifacts]
+  );
+
+  const handleFinish = useCallback(() => {
+    mutate(unstable_serialize(getChatHistoryPaginationKey));
+  }, [mutate]);
+
+  const handleError = useCallback(
+    (error: unknown) => {
       if (error instanceof ChatSDKError) {
         const isGatewayCreditCardError = error.message?.includes(
           "AI Gateway requires a valid credit card"
@@ -190,10 +201,34 @@ export function Chat({
       console.error("Unexpected chat error", error);
       toast({
         type: "error",
-        description: `Unexpected error while contacting the model provider.${error instanceof Error ? ` ${error.message}` : ""}`,
+        description: `Unexpected error while contacting the model provider.${
+          error instanceof Error ? ` ${error.message}` : ""
+        }`,
       });
     },
+    [getCurrentModel, isVercelGatewayModel]
+  );
+
+  const {
+    messages,
+    setMessages,
+    sendMessage,
+    status,
+    stop,
+    regenerate,
+    resumeStream,
+  } = useChat<ChatMessage>({
+    id,
+    messages: initialMessages,
+    experimental_throttle: 100,
+    generateId: generateUUID,
+    transport,
+    onData: handleData,
+    onFinish: handleFinish,
+    onError: handleError,
   });
+
+  setMessagesRef.current = setMessages;
 
   const searchParams = useSearchParams();
   const query = searchParams.get("query");

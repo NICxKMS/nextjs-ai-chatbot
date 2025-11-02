@@ -2,7 +2,7 @@ import { extractReasoningMiddleware, wrapLanguageModel } from "ai";
 import { isTestEnvironment } from "../constants";
 import type { ReasoningType } from "./model-catalog-types";
 import { getLanguageModel, getModelById } from "./model-registry";
-import { DEFAULT_ARTIFACT_MODEL } from "./models";
+import { DEFAULT_ARTIFACT_MODEL, DEFAULT_TITLE_MODEL } from "./models";
 
 const artifactModelId = DEFAULT_ARTIFACT_MODEL;
 
@@ -62,7 +62,15 @@ export const myProvider = isTestEnvironment
     })()
   : {
       languageModel(id: string) {
-        const resolvedId = id === "artifact-model" ? artifactModelId : id;
+        const resolvedId = (() => {
+          if (id === "artifact-model") {
+            return artifactModelId;
+          }
+          if (id === "title-model") {
+            return DEFAULT_TITLE_MODEL;
+          }
+          return id;
+        })();
         const model = getLanguageModel(resolvedId);
 
         // Check if this model is a reasoning model

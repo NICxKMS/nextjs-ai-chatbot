@@ -1,93 +1,106 @@
-## bundle-size
+# Optimization Opportunities
 
-- [x] **File:** /app/(chat)/layout.tsx (Layout)
-  - Category: bundle-size
-  - Severity: critical
-  - Description:
-      1) Loads the full Pyodide runtime for every visit via a `beforeInteractive` script, adding several megabytes to the initial payload @app/(chat)/layout.tsx#14-30.
-      2) Gate the script behind feature detection or lazy loading so only sessions that actually execute Pyodide fetch it.
-      3) Reduces baseline JS/download cost while keeping artifact execution intact.
-  - Sources (if applicable, from web): <https://nextjs.org/docs/app/building-your-application/optimizing/scripts>
+## Streaming
 
-- [x] **File:** /components/text-editor.tsx (Editor)
-  - Category: bundle-size
+- [X] **File:** /app/(chat)/api/chat/route.ts (POST)
+  - Category: streaming
   - Severity: high
   - Description:
-      1) Statically imports the full TipTap + math/table toolchain into the primary client bundle, even when the editor is not rendered @components/text-editor.tsx#1-88.
-      2) Load the editor subtree with `next/dynamic` (and defer math/table extensions) so it downloads only when an artifact editor is opened.
-      3) Shrinks the default interactive bundle and improves first-load interactivity without removing editor capabilities.
-  - Sources (if applicable, from web): <https://nextjs.org/docs/app/building-your-application/optimizing/lazy-loading>
-
-## render-efficiency
-
-- [x] **File:** /components/data-stream-provider.tsx (DataStreamProvider)
-  - Category: render-efficiency
-  - Severity: high
-  - Description:
-      1) Provider state lives at the layout level, so every SSE delta rebuilds the provider value and forces the entire chat shell (sidebar, header, etc.) to re-render @components/data-stream-provider.tsx#22-33.
-      2) Constrain the provider to the chat surface or switch to a ref/event-emitter pattern that isolates streaming updates from global layout state.
-      3) Keeps sidebar/navigation stable during streaming, reducing unnecessary React work.
-
-- [x] **File:** /components/messages.tsx (Messages)
-  - Category: render-efficiency
-  - Severity: high
-  - Description:
-      1) The component subscribes to the data-stream context but never reads its value, so each streaming chunk still retriggers a full message list render @components/messages.tsx#46-118.
-      2) Remove the unused subscription or introduce a selector hook so only consumers that need stream data update.
-      3) Preserves message rendering while cutting redundant reconciliation during long generations.
-
-- [x] **File:** /components/sidebar-history.tsx (SidebarHistory)
-  - Category: render-efficiency
-  - Severity: medium
-  - Description:
-      1) On every render it flattens and re-groups the entire paginated history array, which grows linearly with chat count @components/sidebar-history.tsx#208-322.
-      2) Memoize the grouping step (or virtualize the list) so unchanged history pages do not trigger repeated O(n) work.
-      3) Improves sidebar responsiveness for heavy users without altering UX.
-
-## performance
-
-- [x] **File:** /components/chat.tsx (Chat)
-  - Category: performance
-  - Severity: high
-  - Description:
-      1) Appends each streaming delta by cloning the entire data array (`[...ds, dataPart]`), producing O(n²) copying and GC pressure for long responses @components/chat.tsx#126-133.
-      2) Persist stream parts in a ref or incremental buffer so new chunks do not require copying the full history.
-      3) Keeps UI streaming smooth under large outputs while maintaining current behavior.
-
-- [x] **File:** /hooks/use-auto-resume.ts (useAutoResume)
-  - Category: performance
-  - Severity: medium
-  - Description:
-      1) When the resumable stream fires it rebuilds message state via `[...initialMessages, message]`, repeatedly cloning the static history and risking duplicate inserts @hooks/use-auto-resume.ts#21-52.
-      2) Track resumed messages incrementally (e.g., functional updates keyed by message id) so resuming avoids large array copies.
-      3) Reduces work when recovering long conversations while preserving auto-resume UX.
-
-## data-fetching
-
-- [x] **File:** /app/(chat)/api/chat/route.ts (POST handler)
-  - Category: data-fetching
-  - Severity: high
-  - Description:
-      1) Entitlement checks, chat lookup, and message history fetch run sequentially even though they hit independent tables/services, elongating the request before the model call starts @app/(chat)/api/chat/route.ts#153-212.
-      2) Parallelize independent queries (e.g., via `Promise.all`) and defer non-blocking writes with `after()` so the model request begins sooner.
-      3) Cuts server latency per prompt without changing rate limits or persistence semantics.
-
-## model-calls
-
-- [x] **File:** /app/(chat)/api/chat/route.ts (streamText invocation)
-  - Category: model-calls
-  - Severity: high
-  - Description:
-      1) Converts and forwards the full chat history to the model for every turn, allowing conversations to grow unbounded in token size and latency @app/(chat)/api/chat/route.ts#186-295.
-      2) Introduce history windowing (summaries, truncation, or selective replay) to keep prompts within a manageable context envelope.
-      3) Preserves answer quality while containing token usage, response time, and Gateway costs.
-
-## streaming
-
-- [x] **File:** /app/(chat)/api/chat/route.ts (stream id persistence)
+    1) Creating a new chat awaits `generateTitleFromUserMessage` before starting the main response, forcing an extra model call that delays first-token streaming. @app/(chat)/api/chat/route.ts#205-220 @app/(chat)/actions.ts#19-44
+    2) Defer title generation off the critical path (e.g., run after the assistant response begins or finalize in the background) so the chat stream can start immediately.
+    3) This keeps UX intact while cutting perceived latency for first messages.
+- [X] **File:** /app/(chat)/api/chat/route.ts (POST)
   - Category: streaming
   - Severity: medium
   - Description:
-      1) Writes the stream identifier to the database on the critical path before starting the SSE flow, adding an extra round trip before any bytes flush @app/(chat)/api/chat/route.ts#198-213.
-      2) Defer the write with `after()` or batch it with other completion tasks so streaming can begin immediately.
-      3) Improves perceived latency while retaining resumable stream support.
+    1) `onFinish` waits for TokenLens enrichment and re-resolves the model before completing the stream, extending tail latency and SSE teardown time. @app/(chat)/api/chat/route.ts#367-399
+    2) Parallelize or defer usage enrichment so the stream can close promptly, emitting the usage payload via follow-up update when ready.
+    3) Reduces end-of-stream stalls while preserving the same telemetry data for the UI.
+
+## Data-Fetching
+
+- [X] **File:** /app/(chat)/api/chat/route.ts (POST)
+  - Category: data-fetching
+  - Severity: high
+  - Description:
+    1) Every request loads the entire chat transcript from the database and only then trims it in application code, amplifying I/O for large histories. @app/(chat)/api/chat/route.ts#187-227 @app/(chat)/api/chat/route.ts#93-111 @lib/db/queries.ts#254-266
+    2) Push the windowing logic into the SQL query (e.g., limit & order) or maintain a lightweight recent-history view to avoid over-fetching.
+    3) Cuts database read volume and lowers request CPU while keeping model context identical.
+- [X] **File:** /app/(chat)/api/chat/[id]/stream/route.ts (GET)
+  - Category: data-fetching
+  - Severity: medium
+  - Description:
+    1) Resume logic fetches the full message list just to inspect the last assistant reply when a resumable stream is missing, adding unnecessary load on long chats. @app/(chat)/api/chat/[id]/stream/route.ts#79-108 @lib/db/queries.ts#254-266
+    2) Query only the most recent assistant message (or cache the last message metadata) before deciding whether to replay it.
+    3) Lowers database pressure and speeds up reconnection without changing the restoration behavior.
+
+## Render-Efficiency
+
+- [X] **File:** /components/data-stream-provider.tsx (DataStreamProvider)
+  - Category: render-efficiency
+  - Severity: high
+  - Description:
+    1) Each streamed chunk increments `version`, forcing the entire provider subtree to re-render even when consumers only need append-only access. @components/data-stream-provider.tsx#29-56
+    2) Decouple mutation tracking from React state (e.g., event emitters or batched markers) so consumers can read the ref without whole-tree renders per token.
+    3) Dramatically reduces client render thrash during long generations while keeping the streaming API intact.
+- [X] **File:** /components/chat.tsx (Chat)
+  - Category: render-efficiency
+  - Severity: medium
+  - Description:
+    1) The component re-creates the transport, tool callbacks, and several closures on every render, and then passes them deep into memoized children, undermining memoization benefits. @components/chat.tsx#98-198
+    2) Stabilize these dependencies (memoize transports/callbacks or lift them out) to prevent avoidable re-render cascades in Messages, Artifact, and input areas.
+    3) Improves responsiveness on client devices without altering chat behavior or API usage.
+
+## Bundle-Size
+
+- [X] **File:** /components/artifact.tsx (Artifact)
+  - Category: bundle-size
+  - Severity: high
+  - Description:
+    1) The component eagerly imports all artifact client bundles (code editors, sheet tooling, etc.), pulling large editor libraries into the initial chat chunk even when artifacts are never opened. @components/artifact.tsx#15-38
+    2) Switch to dynamic imports or provider-specific code-splitting so heavy editors load only when the artifact pane becomes visible.
+    3) Shrinks the primary chat bundle and speeds up hydration while preserving artifact capabilities.
+- [X] **File:** /components/chat.tsx (Chat)
+  - Category: bundle-size
+  - Severity: medium
+  - Description:
+    1) `Chat` statically imports the Artifact drawer and its dependencies, ensuring they ship with the main chat route despite being optional UI. @components/chat.tsx#30-34 @components/chat.tsx#283-301
+    2) Lazy-load the Artifact shell (and other rarely used panels) so the core chat experience hydrates with minimal JavaScript.
+    3) Keeps artifact functionality reachable while cutting default route payload size.
+
+## Model-Calls
+
+- [X] **File:** /app/(chat)/api/chat/route.ts (POST)
+  - Category: model-calls
+  - Severity: medium
+  - Description:
+    1) The handler re-resolves `myProvider.languageModel(selectedChatModel)` multiple times per request, re-wrapping reasoning middleware and repeating provider auth work. @app/(chat)/api/chat/route.ts#329-374 @lib/ai/providers.ts#38-84
+    2) Cache the resolved model instance per request so downstream logic shares the same wrapper and metadata.
+    3) Decreases per-call overhead—especially for reasoning models—without altering model outputs.
+- [X] **File:** /app/(chat)/api/chat/route.ts (POST)
+  - Category: model-calls
+  - Severity: medium
+  - Description:
+    1) Tool factories (`createDocument`, `updateDocument`, etc.) run eagerly for every request, even when the selected model has no tool capability, doing redundant setup work. @app/(chat)/api/chat/route.ts#338-351 @app/(chat)/api/chat/route.ts#60-77
+    2) Instantiate tool handlers only when `getEnabledTools` elects to expose them.
+    3) Reduces server work and cold-start cost while preserving tool behavior for capable models.
+
+## Performance
+
+- [X] **File:** /components/multimodal-input.tsx (MultimodalInput)
+  - Category: performance
+  - Severity: medium
+  - Description:
+    1) The local input mirror writes to `localStorage` on every keystroke, introducing synchronous storage I/O that can lag low-end devices. @components/multimodal-input.tsx#106-126
+    2) Buffer or debounce persistence (or move to sessionStorage with batching) instead of committing on each input event.
+    3) Maintains draft recovery while smoothing typing performance.
+
+## Architecture
+
+- [X] **File:** /components/data-stream-provider.tsx (DataStreamProvider)
+  - Category: architecture
+  - Severity: medium
+  - Description:
+    1) Stream parts accumulate indefinitely in a ref with no eviction, so long chat sessions can retain every SSE payload on the client. @components/data-stream-provider.tsx#29-55
+    2) Introduce retention policies (size/time caps or on-consume pruning) to bound client memory without breaking resumable replay.
+    3) Prevents runaway memory growth during marathon conversations while keeping recovery semantics the same.

@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import type { DataUIPart } from "ai";
 import { initialArtifactData, useArtifact } from "@/hooks/use-artifact";
-import { artifactDefinitions } from "./artifact";
+import {
+  getArtifactDefinition,
+  loadArtifactDefinition,
+  type ArtifactKind,
+} from "./artifact-registry";
 import { useDataStream } from "./data-stream-provider";
+import type { CustomUIDataTypes } from "@/lib/types";
 
 export function DataStreamHandler() {
   const { getDataStream, version } = useDataStream();
@@ -11,6 +17,9 @@ export function DataStreamHandler() {
   const { artifact, setArtifact, setMetadata } = useArtifact();
   const lastProcessedIndex = useRef(-1);
   const lastProcessedVersion = useRef(-1);
+  const pendingDeltasRef = useRef<
+    Map<ArtifactKind, DataUIPart<CustomUIDataTypes>[]>
+  >(new Map());
 
   useEffect(() => {
     if (version === lastProcessedVersion.current) {
@@ -29,10 +38,8 @@ export function DataStreamHandler() {
     lastProcessedIndex.current = dataStream.length - 1;
 
     for (const delta of newDeltas) {
-      const artifactDefinition = artifactDefinitions.find(
-        (currentArtifactDefinition) =>
-          currentArtifactDefinition.kind === artifact.kind
-      );
+      const artifactKind = artifact.kind as ArtifactKind;
+      const artifactDefinition = getArtifactDefinition(artifactKind);
 
       if (artifactDefinition?.onStreamPart) {
         artifactDefinition.onStreamPart({
@@ -40,6 +47,32 @@ export function DataStreamHandler() {
           setArtifact,
           setMetadata,
         });
+      } else {
+        const pending = pendingDeltasRef.current.get(artifactKind) ?? [];
+        pending.push(delta as DataUIPart<CustomUIDataTypes>);
+        pendingDeltasRef.current.set(artifactKind, pending);
+
+        loadArtifactDefinition(artifactKind)
+          .then((definition) => {
+            const queued = pendingDeltasRef.current.get(artifactKind);
+            if (!queued) {
+              return;
+            }
+            for (const queuedDelta of queued) {
+              definition.onStreamPart({
+                streamPart: queuedDelta,
+                setArtifact,
+                setMetadata,
+              });
+            }
+            pendingDeltasRef.current.delete(artifactKind);
+          })
+          .catch((error) => {
+            console.error("Failed to load artifact definition during stream", {
+              kind: artifactKind,
+              error,
+            });
+          });
       }
 
       setArtifact((draftArtifact) => {

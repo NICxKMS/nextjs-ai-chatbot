@@ -17,7 +17,7 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
-import { useLocalStorage, useWindowSize } from "usehooks-ts";
+import { useDebounceCallback, useLocalStorage, useWindowSize } from "usehooks-ts";
 import { saveChatModelAsCookie } from "@/app/(chat)/actions";
 import { SelectItem } from "@/components/ui/select";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
@@ -107,6 +107,7 @@ function PureMultimodalInput({
     "input",
     ""
   );
+  const debouncedPersistInput = useDebounceCallback(setLocalStorageInput, 150);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -121,8 +122,8 @@ function PureMultimodalInput({
   }, [adjustHeight, localStorageInput, setInput]);
 
   useEffect(() => {
-    setLocalStorageInput(input);
-  }, [input, setLocalStorageInput]);
+    debouncedPersistInput(input);
+  }, [input, debouncedPersistInput]);
 
   const handleInput = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(event.target.value);
