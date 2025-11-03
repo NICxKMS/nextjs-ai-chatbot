@@ -147,6 +147,88 @@ const getTokenlensCatalog = cache(
   { revalidate: 24 * 60 * 60 } // 24 hours
 );
 
+let tokenlensCatalogPromise: Promise<ModelCatalog | undefined> | null = null;
+
+const resolveTokenlensCatalog = () => {
+  if (!tokenlensCatalogPromise) {
+    tokenlensCatalogPromise = getTokenlensCatalog().catch((error) => {
+      tokenlensCatalogPromise = null;
+      throw error;
+    });
+  }
+
+  return tokenlensCatalogPromise;
+};
+
+const reasoningProviderOptionsCache = new Map<
+  string,
+  Record<string, Record<string, unknown>>
+>();
+const MAX_REASONING_PROVIDER_OPTIONS_CACHE = 50;
+
+const getReasoningProviderOptions = (model: ModelMetadata | undefined) => {
+  if (!model?.reasoningType || model.reasoningType === "none") {
+    return {} as Record<string, Record<string, unknown>>;
+  }
+
+  const cacheKey = `${model.id ?? "unknown"}:${model.reasoningType}:$${
+    model.thinkingBudget ?? ""
+  }`;
+  const cached = reasoningProviderOptionsCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const providerOptions: Record<string, Record<string, unknown>> = {};
+
+  switch (model.reasoningType) {
+    case "openai-thinking":
+      providerOptions.openai = {
+        reasoningEffort: "high",
+      };
+      break;
+    case "anthropic-thinking":
+      providerOptions.anthropic = {
+        thinkingBudget: model.thinkingBudget ?? 8000,
+      };
+      break;
+    case "gemini-thinking":
+      providerOptions.google = {
+        thinkingConfig: {
+          type: "enabled",
+          includeThoughts: true,
+          budgetTokens: model.thinkingBudget ?? 1024,
+        },
+      };
+      break;
+    case "deepseek-thinking":
+      providerOptions.deepseek = {
+        reasoningLevel: "high",
+      };
+      break;
+    case "internal-thinking":
+      providerOptions.reasoning = {
+        enabled: true,
+        budget: model.thinkingBudget ?? 6000,
+      };
+      break;
+    default:
+      break;
+  }
+
+  if (reasoningProviderOptionsCache.size >= MAX_REASONING_PROVIDER_OPTIONS_CACHE) {
+    const [firstKey] = reasoningProviderOptionsCache.keys();
+    if (firstKey) {
+      reasoningProviderOptionsCache.delete(firstKey);
+    }
+  }
+
+  const frozenOptions = Object.freeze(providerOptions);
+  reasoningProviderOptionsCache.set(cacheKey, frozenOptions);
+
+  return frozenOptions;
+};
+
 export function getStreamContext(waitUntil?: typeof after) {
   if (!globalStreamContext) {
     try {
@@ -266,19 +348,46 @@ export async function POST(request: Request) {
       country,
     };
 
+    const userMessageRecord = {
+      chatId: id,
+      id: message.id,
+      role: "user" as const,
+      parts: message.parts,
+      attachments: [] as never[],
+      createdAt: new Date(),
+    };
+
+    let userMessagePersisted = false;
+
+    const persistMessagesWithUser = async (
+      additionalMessages: {
+        id: string;
+        role: "assistant" | "system" | "user";
+        parts: ChatMessage["parts"];
+        attachments: never[];
+        createdAt: Date;
+        chatId: string;
+      }[]
+    ) => {
+      const messagesToPersist = userMessagePersisted
+        ? additionalMessages
+        : [userMessageRecord, ...additionalMessages];
+
+      if (messagesToPersist.length === 0) {
+        return;
+      }
+
+      await saveMessages({ messages: messagesToPersist });
+
+      if (!userMessagePersisted) {
+        userMessagePersisted = true;
+      }
+    };
+
     after(async () => {
-      await saveMessages({
-        messages: [
-          {
-            chatId: id,
-            id: message.id,
-            role: "user",
-            parts: message.parts,
-            attachments: [],
-            createdAt: new Date(),
-          },
-        ],
-      });
+      if (!userMessagePersisted) {
+        await persistMessagesWithUser([]);
+      }
     });
 
     const streamContext = getStreamContext();
@@ -313,70 +422,7 @@ export async function POST(request: Request) {
       execute: ({ writer: dataStream }) => {
         const selectedModel = getModelById(selectedChatModel);
 
-        // Build provider-specific options for reasoning models
-        // Reference: https://sdk.vercel.ai/docs/reference/reasoning
-        const providerOptions: Record<string, Record<string, unknown>> = {};
-
-        if (
-          selectedModel?.reasoningType &&
-          selectedModel.reasoningType !== "none"
-        ) {
-          switch (selectedModel.reasoningType) {
-            case "openai-thinking":
-              // OpenAI o1/o3 models - configure thinking parameters
-              // Note: Thinking budget is automatically managed by OpenAI
-              providerOptions.openai = {
-                // Extended thinking is enabled by default for o1/o3 models
-                // You can configure additional parameters as needed
-                reasoningEffort: "high", // "low", "medium", or "high"
-              };
-              break;
-
-            case "anthropic-thinking":
-              // Anthropic Claude extended thinking mode
-              // Reference: https://docs.anthropic.com/en/docs/build-a-chat-bot
-              providerOptions.anthropic = {
-                // Budget in tokens for thinking process (1-10000)
-                thinkingBudget: selectedModel.thinkingBudget ?? 8000,
-              };
-              break;
-
-            case "gemini-thinking":
-              // Google Gemini thinking models
-              // Reference: https://ai.google.dev/gemini-api/docs/thinking
-              providerOptions.google = {
-                // Thinking config for Gemini models with thinking mode support
-                thinkingConfig: {
-                  type: "enabled",
-                  includeThoughts: true,
-                  budgetTokens: selectedModel.thinkingBudget ?? 1024,
-                },
-              };
-              break;
-
-            case "deepseek-thinking":
-              // DeepSeek R1 - native chain-of-thought
-              providerOptions.deepseek = {
-                // DeepSeek handles thinking natively
-                // Consider budget tokens for reasoning
-                reasoningLevel: "high",
-              };
-              break;
-
-            case "internal-thinking":
-              // Generic reasoning models (Grok, Qwen, etc.)
-              // These typically handle reasoning internally
-              providerOptions.reasoning = {
-                enabled: true,
-                budget: selectedModel.thinkingBudget ?? 6000,
-              };
-              break;
-
-            default:
-              // No additional options needed
-              break;
-          }
-        }
+        const providerOptions = getReasoningProviderOptions(selectedModel);
 
         const streamTextOptions = {
           model: myProvider.languageModel(selectedChatModel),
@@ -424,7 +470,7 @@ export async function POST(request: Request) {
               if (!usage) {
                 return;
               }
-              const providers = await getTokenlensCatalog();
+              const providers = await resolveTokenlensCatalog();
               const modelId =
                 myProvider.languageModel(selectedChatModel).modelId;
               if (!modelId) {
@@ -471,18 +517,18 @@ export async function POST(request: Request) {
         const persistenceTasks: Promise<unknown>[] = [];
 
         if (messages.length > 0) {
-          persistenceTasks.push(
-            saveMessages({
-              messages: messages.map((currentMessage) => ({
-                id: currentMessage.id,
-                role: currentMessage.role,
-                parts: currentMessage.parts,
-                createdAt: new Date(),
-                attachments: [],
-                chatId: id,
-              })),
-            })
-          );
+          const assistantMessages = messages.map((currentMessage) => ({
+            id: currentMessage.id,
+            role: currentMessage.role,
+            parts: currentMessage.parts as ChatMessage["parts"],
+            createdAt: new Date(),
+            attachments: [] as never[],
+            chatId: id,
+          }));
+
+          persistenceTasks.push(persistMessagesWithUser(assistantMessages));
+        } else if (!userMessagePersisted) {
+          persistenceTasks.push(persistMessagesWithUser([]));
         }
 
         if (finalMergedUsage) {

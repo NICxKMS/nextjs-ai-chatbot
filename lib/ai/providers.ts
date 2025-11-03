@@ -1,3 +1,4 @@
+import type { LanguageModelV2 } from "@ai-sdk/provider";
 import { extractReasoningMiddleware, wrapLanguageModel } from "ai";
 import { isTestEnvironment } from "../constants";
 import type { ReasoningType } from "./model-catalog-types";
@@ -35,6 +36,8 @@ const getReasoningTagName = (reasoningType?: ReasoningType): string => {
   }
 };
 
+const modelCache = new Map<string, LanguageModelV2>();
+
 export const myProvider = isTestEnvironment
   ? (() => {
       const {
@@ -71,22 +74,36 @@ export const myProvider = isTestEnvironment
           }
           return id;
         })();
-        const model = getLanguageModel(resolvedId);
+        const cacheKey = resolvedId;
 
-        // Check if this model is a reasoning model
-        const modelMetadata = getModelById(resolvedId);
-        const isReasoningModel =
-          modelMetadata?.capabilities.includes("reasoning");
+        const getAndCacheModel = () => {
+          const baseModel = getLanguageModel(resolvedId);
 
-        if (isReasoningModel && modelMetadata?.reasoningType !== "none") {
-          // Wrap the model with reasoning middleware for chain-of-thought extraction
-          const tagName = getReasoningTagName(modelMetadata?.reasoningType);
-          return wrapLanguageModel({
-            model,
-            middleware: extractReasoningMiddleware({ tagName }),
-          });
+          const modelMetadata = getModelById(resolvedId);
+          const isReasoningModel =
+            modelMetadata?.capabilities.includes("reasoning");
+
+          if (isReasoningModel && modelMetadata?.reasoningType !== "none") {
+            const tagName = getReasoningTagName(modelMetadata?.reasoningType);
+            return wrapLanguageModel({
+              model: baseModel,
+              middleware: extractReasoningMiddleware({ tagName }),
+            });
+          }
+
+          return baseModel;
+        };
+
+        if (!modelCache.has(cacheKey)) {
+          modelCache.set(cacheKey, getAndCacheModel());
         }
 
-        return model;
+        const cachedModel = modelCache.get(cacheKey);
+
+        if (!cachedModel) {
+          throw new Error(`Model cache miss for ${cacheKey}`);
+        }
+
+        return cachedModel;
       },
     };

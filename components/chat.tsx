@@ -33,6 +33,7 @@ import { useDataStream } from "./data-stream-provider";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
 import { getChatHistoryPaginationKey } from "./sidebar-history";
+import { useSidebar } from "./ui/sidebar";
 import { toast } from "./toast";
 import type { VisibilityType } from "./visibility-selector";
 
@@ -45,6 +46,7 @@ export function Chat({
   autoResume,
   initialLastContext,
   availableModels = [],
+  uploadsEnabled,
 }: {
   id: string;
   initialMessages: ChatMessage[];
@@ -54,6 +56,7 @@ export function Chat({
   autoResume: boolean;
   initialLastContext?: AppUsage;
   availableModels?: ModelMetadata[];
+  uploadsEnabled: boolean;
 }) {
   const { visibilityType } = useChatVisibility({
     chatId: id,
@@ -63,6 +66,10 @@ export function Chat({
   const { mutate } = useSWRConfig();
   const { appendDataPart, resetDataStream } = useDataStream();
   const settings = useSettingsSnapshot();
+  const { open: isSidebarOpen, openMobile: isSidebarMobileOpen } = useSidebar();
+  const isNewChat = initialMessages.length === 0;
+  const shouldRefreshHistory = (isSidebarOpen || isSidebarMobileOpen) && isNewChat;
+  const hasSyncedHistoryRef = useRef(false);
 
   const [input, setInput] = useState<string>("");
   const [usage, setUsage] = useState<AppUsage | undefined>(initialLastContext);
@@ -150,8 +157,13 @@ export function Chat({
   );
 
   const handleFinish = useCallback(() => {
+    if (!shouldRefreshHistory || hasSyncedHistoryRef.current) {
+      return;
+    }
+
     mutate(unstable_serialize(getChatHistoryPaginationKey));
-  }, [mutate]);
+    hasSyncedHistoryRef.current = true;
+  }, [mutate, shouldRefreshHistory]);
 
   const handleError = useCallback(
     (error: unknown) => {
@@ -256,9 +268,16 @@ export function Chat({
     }
   }, [query, sendMessage, hasAppendedQuery, id]);
 
+  const shouldFetchVotes = !isReadonly && messages.length >= 2;
+
   const { data: votes } = useSWR<Vote[]>(
-    messages.length >= 2 ? `/api/vote?chatId=${id}` : null,
-    fetcher
+    shouldFetchVotes ? `/api/vote?chatId=${id}` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateIfStale: false,
+      revalidateOnReconnect: false,
+    }
   );
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -309,6 +328,7 @@ export function Chat({
               setMessages={setMessages}
               status={status}
               stop={stop}
+              uploadsEnabled={uploadsEnabled}
               usage={usage}
             />
           )}
@@ -331,6 +351,7 @@ export function Chat({
         setMessages={setMessages}
         status={status}
         stop={stop}
+        uploadsEnabled={uploadsEnabled}
         votes={votes}
       />
 

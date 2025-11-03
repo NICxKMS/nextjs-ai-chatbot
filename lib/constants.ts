@@ -8,6 +8,10 @@ export const isTestEnvironment = Boolean(
     process.env.CI_PLAYWRIGHT
 );
 
+export const isBlobStorageConfigured = Boolean(
+  process.env.BLOB_READ_WRITE_TOKEN
+);
+
 export const guestRegex = /^guest-\d+$/;
 
 export const DUMMY_PASSWORD = generateDummyPassword();

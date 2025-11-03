@@ -12,12 +12,6 @@ import {
 } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { useDebounceCallback, useWindowSize } from "usehooks-ts";
-import {
-  getArtifactDefinition,
-  loadArtifactDefinition,
-  type ArtifactDefinition,
-  type ArtifactKind,
-} from "./artifact-registry";
 import { useArtifact } from "@/hooks/use-artifact";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 import type { Document, Vote } from "@/lib/db/schema";
@@ -26,6 +20,12 @@ import { fetcher } from "@/lib/utils";
 import { ArtifactActions } from "./artifact-actions";
 import { ArtifactCloseButton } from "./artifact-close-button";
 import { ArtifactMessages } from "./artifact-messages";
+import {
+  type ArtifactDefinition,
+  type ArtifactKind,
+  getArtifactDefinition,
+  loadArtifactDefinition,
+} from "./artifact-registry";
 import { MultimodalInput } from "./multimodal-input";
 import { Toolbar } from "./toolbar";
 import { useSidebar } from "./ui/sidebar";
@@ -66,6 +66,7 @@ function PureArtifact({
   selectedVisibilityType,
   selectedModelId,
   availableModels,
+  uploadsEnabled,
 }: {
   chatId: string;
   input: string;
@@ -83,6 +84,7 @@ function PureArtifact({
   selectedVisibilityType: VisibilityType;
   selectedModelId: string;
   availableModels: ModelMetadata[];
+  uploadsEnabled: boolean;
 }) {
   const { artifact, setArtifact, metadata, setMetadata } = useArtifact();
 
@@ -126,8 +128,23 @@ function PureArtifact({
   }, [documents, setArtifact]);
 
   useEffect(() => {
+    if (
+      artifact.documentId === "init" ||
+      artifact.status === "streaming" ||
+      isDocumentsFetching ||
+      (documents && documents.length > 0)
+    ) {
+      return;
+    }
+
     mutateDocuments();
-  }, [mutateDocuments]);
+  }, [
+    artifact.documentId,
+    artifact.status,
+    documents,
+    isDocumentsFetching,
+    mutateDocuments,
+  ]);
 
   const { mutate } = useSWRConfig();
   const [isContentDirty, setIsContentDirty] = useState(false);
@@ -187,17 +204,34 @@ function PureArtifact({
 
   const saveContent = useCallback(
     (updatedContent: string, debounce: boolean) => {
-      if (document && updatedContent !== document.content) {
-        setIsContentDirty(true);
+      if (!document) {
+        return;
+      }
 
-        if (debounce) {
-          debouncedHandleContentChange(updatedContent);
-        } else {
-          handleContentChange(updatedContent);
-        }
+      const latestDocumentContent = document.content ?? "";
+      const currentArtifactContent = artifact.content ?? "";
+
+      if (
+        updatedContent === latestDocumentContent ||
+        updatedContent === currentArtifactContent
+      ) {
+        return;
+      }
+
+      setIsContentDirty(true);
+
+      if (debounce) {
+        debouncedHandleContentChange(updatedContent);
+      } else {
+        handleContentChange(updatedContent);
       }
     },
-    [document, debouncedHandleContentChange, handleContentChange]
+    [
+      artifact.content,
+      document,
+      debouncedHandleContentChange,
+      handleContentChange,
+    ]
   );
 
   function getDocumentContentById(index: number) {
@@ -249,14 +283,17 @@ function PureArtifact({
   const { width: windowWidth, height: windowHeight } = useWindowSize();
   const isMobile = windowWidth ? windowWidth < 768 : false;
 
-  const [artifactDefinition, setArtifactDefinition] = useState<
-    ArtifactDefinition | null
-  >(() => getArtifactDefinition(artifact.kind as ArtifactKind) ?? null);
+  const [artifactDefinition, setArtifactDefinition] =
+    useState<ArtifactDefinition | null>(
+      () => getArtifactDefinition(artifact.kind as ArtifactKind) ?? null
+    );
 
   useEffect(() => {
     let isMounted = true;
 
-    const cachedDefinition = getArtifactDefinition(artifact.kind as ArtifactKind);
+    const cachedDefinition = getArtifactDefinition(
+      artifact.kind as ArtifactKind
+    );
     if (cachedDefinition) {
       setArtifactDefinition(cachedDefinition);
       return () => {
@@ -305,7 +342,9 @@ function PureArtifact({
             exit={{ opacity: 0, transition: { delay: 0.2 } }}
             initial={{ opacity: 0 }}
           >
-            <div className="text-muted-foreground text-sm">Loading artifact…</div>
+            <div className="text-muted-foreground text-sm">
+              Loading artifact…
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -399,6 +438,7 @@ function PureArtifact({
                     setMessages={setMessages}
                     status={status}
                     stop={stop}
+                    uploadsEnabled={uploadsEnabled}
                   />
                 </div>
               </div>
@@ -576,6 +616,9 @@ export const Artifact = memo(PureArtifact, (prevProps, nextProps) => {
     return false;
   }
   if (prevProps.selectedVisibilityType !== nextProps.selectedVisibilityType) {
+    return false;
+  }
+  if (prevProps.uploadsEnabled !== nextProps.uploadsEnabled) {
     return false;
   }
 

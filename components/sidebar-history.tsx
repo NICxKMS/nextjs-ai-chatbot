@@ -4,7 +4,7 @@ import { isToday, isYesterday, subMonths, subWeeks } from "date-fns";
 import { motion } from "framer-motion";
 import { useParams, useRouter } from "next/navigation";
 import type { User } from "next-auth";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import useSWRInfinite from "swr/infinite";
 import {
@@ -98,8 +98,21 @@ export function getChatHistoryPaginationKey(
 }
 
 export function SidebarHistory({ user }: { user: User | undefined }) {
-  const { setOpenMobile } = useSidebar();
+  const { open, openMobile, setOpenMobile } = useSidebar();
   const { id } = useParams();
+
+  const shouldFetchHistory = open || openMobile;
+
+  const getHistoryKey = useCallback(
+    (pageIndex: number, previousPageData: ChatHistory) => {
+      if (!shouldFetchHistory) {
+        return null;
+      }
+
+      return getChatHistoryPaginationKey(pageIndex, previousPageData);
+    },
+    [shouldFetchHistory]
+  );
 
   const {
     data: paginatedChatHistories,
@@ -107,8 +120,11 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
     isValidating,
     isLoading,
     mutate,
-  } = useSWRInfinite<ChatHistory>(getChatHistoryPaginationKey, fetcher, {
+  } = useSWRInfinite<ChatHistory>(getHistoryKey, fetcher, {
     fallbackData: [],
+    revalidateOnFocus: false,
+    revalidateIfStale: false,
+    revalidateOnReconnect: false,
   });
 
   const router = useRouter();
@@ -124,6 +140,10 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
     : false;
 
   const chatsFromHistory = useMemo(() => {
+    if (!shouldFetchHistory) {
+      return [] as Chat[];
+    }
+
     if (!paginatedChatHistories) {
       return [] as Chat[];
     }
@@ -131,7 +151,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
     return paginatedChatHistories.flatMap(
       (paginatedChatHistory) => paginatedChatHistory.chats
     );
-  }, [paginatedChatHistories]);
+  }, [paginatedChatHistories, shouldFetchHistory]);
 
   const groupedChats = useMemo(() => {
     return groupChatsByDate(chatsFromHistory);
@@ -176,6 +196,10 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
         </SidebarGroupContent>
       </SidebarGroup>
     );
+  }
+
+  if (!shouldFetchHistory) {
+    return null;
   }
 
   if (isLoading) {

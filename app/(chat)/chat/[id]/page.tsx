@@ -7,6 +7,7 @@ import { DataStreamHandler } from "@/components/data-stream-handler";
 import { DataStreamProvider } from "@/components/data-stream-provider";
 import { listChatModels } from "@/lib/ai/model-registry";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+import { isBlobStorageConfigured } from "@/lib/constants";
 import { getChatById, getMessagesByChatId } from "@/lib/db/queries";
 import { convertToUIMessages } from "@/lib/utils";
 
@@ -57,6 +58,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
           initialMessages={uiMessages}
           initialVisibilityType={chat.visibility}
           isReadonly={session?.user?.id !== chat.userId}
+          uploadsEnabled={isBlobStorageConfigured}
         />
         <DataStreamHandler />
       </DataStreamProvider>
@@ -74,6 +76,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
         initialMessages={uiMessages}
         initialVisibilityType={chat.visibility}
         isReadonly={session?.user?.id !== chat.userId}
+        uploadsEnabled={isBlobStorageConfigured}
       />
       <DataStreamHandler />
     </DataStreamProvider>

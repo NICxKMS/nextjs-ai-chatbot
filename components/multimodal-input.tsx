@@ -21,6 +21,7 @@ import { useDebounceCallback, useLocalStorage, useWindowSize } from "usehooks-ts
 import { saveChatModelAsCookie } from "@/app/(chat)/actions";
 import { SelectItem } from "@/components/ui/select";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
+import { isBlobStorageConfigured } from "@/lib/constants";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { useSettingsSnapshot } from "@/lib/ui/settings-store";
 import type { AppUsage } from "@/lib/usage";
@@ -64,6 +65,7 @@ function PureMultimodalInput({
   onModelChange,
   usage,
   availableModels = [],
+  uploadsEnabled = isBlobStorageConfigured,
 }: {
   chatId: string;
   input: string;
@@ -81,6 +83,7 @@ function PureMultimodalInput({
   onModelChange?: (modelId: string) => void;
   usage?: AppUsage;
   availableModels?: ModelMetadata[];
+  uploadsEnabled?: boolean;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
@@ -216,6 +219,15 @@ function PureMultimodalInput({
 
   const handleFileChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
+      if (!uploadsEnabled) {
+        toast.error("File uploads are not available in this deployment.");
+        setUploadQueue([]);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        return;
+      }
+
       const files = Array.from(event.target.files || []);
 
       setUploadQueue(files.map((file) => file.name));
@@ -237,8 +249,18 @@ function PureMultimodalInput({
         setUploadQueue([]);
       }
     },
-    [setAttachments, uploadFile]
+    [uploadsEnabled, setAttachments, uploadFile]
   );
+
+  useEffect(() => {
+    if (!uploadsEnabled) {
+      setAttachments([]);
+      setUploadQueue([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  }, [uploadsEnabled, setAttachments]);
 
   return (
     <div className={cn("relative flex w-full flex-col gap-4", className)}>
@@ -255,6 +277,7 @@ function PureMultimodalInput({
       <input
         aria-label="Upload attachments"
         className="-top-4 -left-4 pointer-events-none fixed size-0.5 opacity-0"
+        disabled={!uploadsEnabled}
         multiple
         onChange={handleFileChange}
         ref={fileInputRef}
@@ -328,6 +351,7 @@ function PureMultimodalInput({
               fileInputRef={fileInputRef}
               selectedModelId={selectedModelId}
               status={status}
+              uploadsEnabled={uploadsEnabled}
             />
             <ModelSelectorCompact
               availableModels={availableModels}
@@ -371,6 +395,9 @@ export const MultimodalInput = memo(
     if (prevProps.selectedModelId !== nextProps.selectedModelId) {
       return false;
     }
+    if (prevProps.uploadsEnabled !== nextProps.uploadsEnabled) {
+      return false;
+    }
 
     return true;
   }
@@ -380,10 +407,12 @@ function PureAttachmentsButton({
   fileInputRef,
   status,
   selectedModelId,
+  uploadsEnabled,
 }: {
   fileInputRef: React.MutableRefObject<HTMLInputElement | null>;
   status: UseChatHelpers<ChatMessage>["status"];
   selectedModelId: string;
+  uploadsEnabled: boolean;
 }) {
   const isReasoningModel = selectedModelId === "chat-model-reasoning";
 
@@ -391,7 +420,7 @@ function PureAttachmentsButton({
     <Button
       className="aspect-square h-8 rounded-lg p-1 transition-colors hover:bg-accent"
       data-testid="attachments-button"
-      disabled={status !== "ready" || isReasoningModel}
+      disabled={status !== "ready" || isReasoningModel || !uploadsEnabled}
       onClick={(event) => {
         event.preventDefault();
         fileInputRef.current?.click();

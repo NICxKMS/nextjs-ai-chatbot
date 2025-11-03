@@ -3,7 +3,7 @@ import { differenceInSeconds } from "date-fns";
 import { auth } from "@/app/(auth)/auth";
 import {
   getChatById,
-  getMessagesByChatId,
+  getLatestAssistantMessageByChatId,
   getStreamIdsByChatId,
 } from "@/lib/db/queries";
 import type { Chat } from "@/lib/db/schema";
@@ -76,14 +76,11 @@ export async function GET(
    * but the resumable stream has concluded at this point.
    */
   if (!stream) {
-    const messages = await getMessagesByChatId({ id: chatId });
-    const mostRecentMessage = messages.at(-1);
+    const mostRecentMessage = await getLatestAssistantMessageByChatId({
+      id: chatId,
+    });
 
     if (!mostRecentMessage) {
-      return new Response(emptyDataStream, { status: 200 });
-    }
-
-    if (mostRecentMessage.role !== "assistant") {
       return new Response(emptyDataStream, { status: 200 });
     }
 

@@ -63,9 +63,14 @@ export const Reasoning = memo(
 
     const [hasAutoClosedRef, setHasAutoClosedRef] = useState(false);
     const [startTime, setStartTime] = useState<number | null>(null);
+    const isDurationControlled = durationProp !== undefined;
 
     // Track duration when streaming starts and ends
     useEffect(() => {
+      if (isDurationControlled) {
+        return;
+      }
+
       if (isStreaming) {
         if (startTime === null) {
           setStartTime(Date.now());
@@ -74,7 +79,7 @@ export const Reasoning = memo(
         setDuration(Math.round((Date.now() - startTime) / MS_IN_S));
         setStartTime(null);
       }
-    }, [isStreaming, startTime, setDuration]);
+    }, [isDurationControlled, isStreaming, startTime, setDuration]);
 
     // Auto-open when streaming starts, auto-close when streaming ends (once only)
     useEffect(() => {
@@ -115,6 +120,7 @@ export type ReasoningTriggerProps = ComponentProps<typeof CollapsibleTrigger>;
 export const ReasoningTrigger = memo(
   ({ className, children, ...props }: ReasoningTriggerProps) => {
     const { isStreaming, isOpen, duration } = useReasoning();
+    const durationLabel = duration > 0 ? `${duration}s` : "<1s";
 
     return (
       <CollapsibleTrigger
@@ -127,10 +133,10 @@ export const ReasoningTrigger = memo(
         {children ?? (
           <>
             <BrainIcon className="size-4" />
-            {isStreaming || duration === 0 ? (
+            {isStreaming ? (
               <p>Thinking...</p>
             ) : (
-              <p>Thought for {duration}s</p>
+              <p>Thought for {durationLabel}</p>
             )}
             <ChevronDownIcon
               className={cn(

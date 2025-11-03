@@ -6,6 +6,7 @@ import { memo, useState } from "react";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
+import type { ArtifactKind } from "./artifact";
 import { DocumentToolResult } from "./document";
 import { DocumentPreview } from "./document-preview";
 import { MessageContent } from "./elements/message";
@@ -23,6 +24,35 @@ import { MessageEditor } from "./message-editor";
 import { MessageReasoning } from "./message-reasoning";
 import { PreviewAttachment } from "./preview-attachment";
 import { Weather } from "./weather";
+
+type RequestSuggestionsErrorOutput = { error: unknown };
+
+type RequestSuggestionsSuccessOutput = {
+  id: string;
+  title: string;
+  kind: ArtifactKind;
+};
+
+const isRequestSuggestionsErrorOutput = (
+  output: unknown
+): output is RequestSuggestionsErrorOutput =>
+  typeof output === "object" && output !== null && "error" in output;
+
+const isRequestSuggestionsSuccessOutput = (
+  output: unknown
+): output is RequestSuggestionsSuccessOutput => {
+  if (typeof output !== "object" || output === null) {
+    return false;
+  }
+
+  const candidate = output as Partial<RequestSuggestionsSuccessOutput>;
+
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.title === "string" &&
+    typeof candidate.kind === "string"
+  );
+};
 
 const PurePreviewMessage = ({
   chatId,
@@ -233,6 +263,29 @@ const PurePreviewMessage = ({
 
             if (type === "tool-requestSuggestions") {
               const { toolCallId, state } = part;
+              const requestSuggestionsOutput = (() => {
+                const output = part.output;
+
+                if (isRequestSuggestionsErrorOutput(output)) {
+                  return (
+                    <div className="rounded border p-2 text-red-500">
+                      Error: {String(output.error)}
+                    </div>
+                  );
+                }
+
+                if (isRequestSuggestionsSuccessOutput(output)) {
+                  return (
+                    <DocumentToolResult
+                      isReadonly={isReadonly}
+                      result={output}
+                      type="request-suggestions"
+                    />
+                  );
+                }
+
+                return null;
+              })();
 
               return (
                 <Tool defaultOpen={true} key={toolCallId}>
@@ -244,19 +297,7 @@ const PurePreviewMessage = ({
                     {state === "output-available" && (
                       <ToolOutput
                         errorText={undefined}
-                        output={
-                          "error" in part.output ? (
-                            <div className="rounded border p-2 text-red-500">
-                              Error: {String(part.output.error)}
-                            </div>
-                          ) : (
-                            <DocumentToolResult
-                              isReadonly={isReadonly}
-                              result={part.output}
-                              type="request-suggestions"
-                            />
-                          )
-                        }
+                        output={requestSuggestionsOutput}
                       />
                     )}
                   </ToolContent>

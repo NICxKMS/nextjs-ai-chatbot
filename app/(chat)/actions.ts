@@ -21,6 +21,13 @@ export async function generateTitleFromUserMessage({
 }: {
   message: UIMessage;
 }) {
+  const serializedMessage = JSON.stringify(message);
+
+  const cached = titleGenerationCache.get(serializedMessage);
+  if (cached) {
+    return cached;
+  }
+
   const titleModel = (() => {
     try {
       return myProvider.languageModel("title-model");
@@ -30,15 +37,21 @@ export async function generateTitleFromUserMessage({
     }
   })();
 
-  const { text: title } = await generateText({
+  const titlePromise = generateText({
     model: titleModel,
-    system: `\n
+    system: `
     - you will generate a short title based on the first message a user begins a conversation with
     - ensure it is not more than 80 characters long
     - the title should be a summary of the user's message
     - do not use quotes or colons`,
     prompt: JSON.stringify(message),
-  });
+  }).then(({ text }) => text);
+
+  titleGenerationCache.set(serializedMessage, titlePromise);
+
+  const title = await titlePromise;
+
+  trimTitleCache();
 
   return title;
 }
@@ -60,4 +73,18 @@ export async function updateChatVisibility({
   visibility: VisibilityType;
 }) {
   await updateChatVisiblityById({ chatId, visibility });
+}
+
+const titleGenerationCache = new Map<string, Promise<string>>();
+const MAX_TITLE_CACHE_ENTRIES = 50;
+
+function trimTitleCache() {
+  if (titleGenerationCache.size <= MAX_TITLE_CACHE_ENTRIES) {
+    return;
+  }
+
+  const keys = Array.from(titleGenerationCache.keys());
+  for (const key of keys.slice(0, titleGenerationCache.size - MAX_TITLE_CACHE_ENTRIES)) {
+    titleGenerationCache.delete(key);
+  }
 }

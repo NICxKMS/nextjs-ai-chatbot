@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { memo } from "react";
 import { useWindowSize } from "usehooks-ts";
 import { SidebarToggle } from "@/components/sidebar-toggle";
@@ -21,6 +21,7 @@ function PureChatHeader({
 }) {
   const router = useRouter();
   const { open } = useSidebar();
+  const pathname = usePathname();
 
   const { width: windowWidth } = useWindowSize();
 
@@ -32,8 +33,11 @@ function PureChatHeader({
         <Button
           className="order-2 ml-auto h-8 px-2 md:order-1 md:ml-0 md:h-fit md:px-2"
           onClick={() => {
-            router.push("/");
-            router.refresh();
+            if (pathname === "/") {
+              router.refresh();
+            } else {
+              router.push("/");
+            }
           }}
           variant="outline"
         >
@@ -51,7 +55,6 @@ function PureChatHeader({
       )}
 
       <SettingsButton className="order-3 ml-auto md:order-3" />
-
     </header>
   );
 }

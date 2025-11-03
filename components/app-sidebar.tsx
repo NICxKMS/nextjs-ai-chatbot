@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { User } from "next-auth";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -36,6 +36,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 export function AppSidebar({ user }: { user: User | undefined }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { setOpenMobile } = useSidebar();
   const { mutate } = useSWRConfig();
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
@@ -98,8 +99,11 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                       className="h-8 p-1 md:h-fit md:p-2"
                       onClick={() => {
                         setOpenMobile(false);
-                        router.push("/");
-                        router.refresh();
+                        if (pathname === "/") {
+                          router.refresh();
+                        } else {
+                          router.push("/");
+                        }
                       }}
                       type="button"
                       variant="ghost"
