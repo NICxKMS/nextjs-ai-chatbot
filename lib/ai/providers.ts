@@ -15,95 +15,100 @@ const artifactModelId = DEFAULT_ARTIFACT_MODEL;
  * Reference: https://sdk.vercel.ai/docs/reference/reasoning
  */
 const getReasoningTagName = (reasoningType?: ReasoningType): string => {
-  switch (reasoningType) {
-    case "openai-thinking":
-      // OpenAI o1/o3 models use <think> tags in their response
-      return "think";
-    case "anthropic-thinking":
-      // Claude with extended thinking mode uses <thinking> tags
-      return "thinking";
-    case "gemini-thinking":
-      // Google Gemini thinking models use <think> tags
-      return "think";
-    case "deepseek-thinking":
-      // DeepSeek R1 uses <think> tags
-      return "think";
-    case "internal-thinking":
-      // Generic internal thinking extraction
-      return "think";
-    default:
-      return "think"; // Fallback to generic tag
-  }
+	switch (reasoningType) {
+		case "openai-thinking":
+			// OpenAI o1/o3 models use <think> tags in their response
+			return "think";
+		case "anthropic-thinking":
+			// Claude with extended thinking mode uses <thinking> tags
+			return "thinking";
+		case "gemini-thinking":
+			// Google Gemini thinking models use <think> tags
+			return "think";
+		case "deepseek-thinking":
+			// DeepSeek R1 uses <think> tags
+			return "think";
+		case "internal-thinking":
+			// Generic internal thinking extraction
+			return "think";
+		default:
+			return "think"; // Fallback to generic tag
+	}
 };
 
 const modelCache = new Map<string, LanguageModelV2>();
 
 export const myProvider = isTestEnvironment
-  ? (() => {
-      const {
-        artifactModel,
-        chatModel,
-        reasoningModel: mockReasoningModel,
-        titleModel,
-      } = require("./models.mock");
-      return {
-        languageModel(id: string) {
-          switch (id) {
-            case "chat-model":
-              return chatModel;
-            case "chat-model-reasoning":
-              return mockReasoningModel;
-            case "title-model":
-              return titleModel;
-            case "artifact-model":
-              return artifactModel;
-            default:
-              throw new Error(`Unknown mock model id: ${id}`);
-          }
-        },
-      };
-    })()
-  : {
-      languageModel(id: string) {
-        const resolvedId = (() => {
-          if (id === "artifact-model") {
-            return artifactModelId;
-          }
-          if (id === "title-model") {
-            return DEFAULT_TITLE_MODEL;
-          }
-          return id;
-        })();
-        const cacheKey = resolvedId;
+	? (() => {
+			const {
+				artifactModel,
+				chatModel,
+				reasoningModel: mockReasoningModel,
+				titleModel,
+			} = require("./models.mock");
+			return {
+				languageModel(id: string) {
+					switch (id) {
+						case "chat-model":
+							return chatModel;
+						case "chat-model-reasoning":
+							return mockReasoningModel;
+						case "title-model":
+							return titleModel;
+						case "artifact-model":
+							return artifactModel;
+						default:
+							throw new Error(`Unknown mock model id: ${id}`);
+					}
+				},
+			};
+		})()
+	: {
+			languageModel(id: string) {
+				const resolvedId = (() => {
+					if (id === "artifact-model") {
+						return artifactModelId;
+					}
+					if (id === "title-model") {
+						return DEFAULT_TITLE_MODEL;
+					}
+					return id;
+				})();
+				const cacheKey = resolvedId;
 
-        const getAndCacheModel = () => {
-          const baseModel = getLanguageModel(resolvedId);
+				const getAndCacheModel = () => {
+					const baseModel = getLanguageModel(resolvedId);
 
-          const modelMetadata = getModelById(resolvedId);
-          const isReasoningModel =
-            modelMetadata?.capabilities.includes("reasoning");
+					const modelMetadata = getModelById(resolvedId);
+					const isReasoningModel =
+						modelMetadata?.capabilities.includes("reasoning");
 
-          if (isReasoningModel && modelMetadata?.reasoningType !== "none") {
-            const tagName = getReasoningTagName(modelMetadata?.reasoningType);
-            return wrapLanguageModel({
-              model: baseModel,
-              middleware: extractReasoningMiddleware({ tagName }),
-            });
-          }
+					if (
+						isReasoningModel &&
+						modelMetadata?.reasoningType !== "none"
+					) {
+						const tagName = getReasoningTagName(
+							modelMetadata?.reasoningType
+						);
+						return wrapLanguageModel({
+							model: baseModel,
+							middleware: extractReasoningMiddleware({ tagName }),
+						});
+					}
 
-          return baseModel;
-        };
+					return baseModel;
+				};
 
-        if (!modelCache.has(cacheKey)) {
-          modelCache.set(cacheKey, getAndCacheModel());
-        }
+				if (!modelCache.has(cacheKey)) {
+					modelCache.set(cacheKey, getAndCacheModel());
+				}
 
-        const cachedModel = modelCache.get(cacheKey);
+				const cachedModel = modelCache.get(cacheKey);
 
-        if (!cachedModel) {
-          throw new Error(`Model cache miss for ${cacheKey}`);
-        }
+				if (!cachedModel) {
+					throw new Error(`Model cache miss for ${cacheKey}`);
+				}
 
-        return cachedModel;
-      },
-    };
+				return cachedModel;
+			},
+		};
