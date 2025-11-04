@@ -35,19 +35,19 @@ Do not update document right after creating it. Wait for user feedback or reques
 `;
 
 export const regularPrompt = [
-  "You are a confident, collaborative ai assistant.",
-  "Respond with clear, skimmable writing—short paragraphs or tight bullet lists when they improve readability.",
-  "Answer questions directly when a tool is unnecessary, and only mention tool limits when they truly prevent a correct result.",
-  "Invoke tools when they materially improve accuracy, personalization, or interactivity; otherwise keep the flow in chat.",
-  "Match the user's tone while staying respectful, acknowledge uncertainty instead of guessing, and correct mistakes promptly.",
-  "Ask precise follow-up questions when key details are missing, and briefly recap decisions before moving on to a new task.",
+	"You are a confident, collaborative ai assistant.",
+	"Respond with clear, skimmable writing—short paragraphs or tight bullet lists when they improve readability.",
+	"Answer questions directly when a tool is unnecessary, and only mention tool limits when they truly prevent a correct result.",
+	"Invoke tools when they materially improve accuracy, personalization, or interactivity; otherwise keep the flow in chat.",
+	"Match the user's tone while staying respectful, acknowledge uncertainty instead of guessing, and correct mistakes promptly.",
+	"Ask precise follow-up questions when key details are missing, and briefly recap decisions before moving on to a new task.",
 ].join("\n");
 
 export type RequestHints = {
-  latitude: Geo["latitude"];
-  longitude: Geo["longitude"];
-  city: Geo["city"];
-  country: Geo["country"];
+	latitude: Geo["latitude"];
+	longitude: Geo["longitude"];
+	city: Geo["city"];
+	country: Geo["country"];
 };
 
 export const getRequestPromptFromHints = (requestHints: RequestHints) => `\
@@ -59,33 +59,33 @@ About the origin of user's request:
 `;
 
 export const systemPrompt = ({
-  selectedChatModel,
-  requestHints,
-  selectedModel,
-  userSystemPrompt,
+	selectedChatModel,
+	requestHints,
+	selectedModel,
+	userSystemPrompt,
 }: {
-  selectedChatModel: string;
-  requestHints: RequestHints;
-  selectedModel?: ModelMetadata;
-  userSystemPrompt?: string;
+	selectedChatModel: string;
+	requestHints: RequestHints;
+	selectedModel?: ModelMetadata;
+	userSystemPrompt?: string;
 }) => {
-  const requestPrompt = getRequestPromptFromHints(requestHints);
+	const requestPrompt = getRequestPromptFromHints(requestHints);
 
-  const baseSegments = [regularPrompt, requestPrompt];
-  const shouldIncludeArtifacts = !(
-    selectedChatModel === REASONING_MODEL_ID ||
-    selectedModel?.capabilities.includes("reasoning")
-  );
+	const baseSegments = [regularPrompt, requestPrompt];
+	const shouldIncludeArtifacts = !(
+		selectedChatModel === REASONING_MODEL_ID ||
+		selectedModel?.capabilities.includes("reasoning")
+	);
 
-  if (userSystemPrompt) {
-    baseSegments.splice(1, 0, userSystemPrompt);
-  }
+	if (userSystemPrompt) {
+		baseSegments.splice(1, 0, userSystemPrompt);
+	}
 
-  if (shouldIncludeArtifacts) {
-    baseSegments.push(artifactsPrompt);
-  }
+	if (shouldIncludeArtifacts) {
+		baseSegments.push(artifactsPrompt);
+	}
 
-  return baseSegments.join("\n\n");
+	return baseSegments.join("\n\n");
 };
 
 export const codePrompt = `
@@ -119,18 +119,18 @@ You are a spreadsheet creation assistant. Create a spreadsheet in csv format bas
 `;
 
 export const updateDocumentPrompt = (
-  currentContent: string | null,
-  type: ArtifactKind
+	currentContent: string | null,
+	type: ArtifactKind
 ) => {
-  let mediaType = "document";
+	let mediaType = "document";
 
-  if (type === "code") {
-    mediaType = "code snippet";
-  } else if (type === "sheet") {
-    mediaType = "spreadsheet";
-  }
+	if (type === "code") {
+		mediaType = "code snippet";
+	} else if (type === "sheet") {
+		mediaType = "spreadsheet";
+	}
 
-  return `Improve the following contents of the ${mediaType} based on the given prompt.
+	return `Improve the following contents of the ${mediaType} based on the given prompt.
 
 ${currentContent}`;
 };
