@@ -1,4 +1,4 @@
-import { cacheLife, cacheTag, revalidateTag } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { auth } from "@/app/(auth)/auth";
 import type { ArtifactKind } from "@/components/artifact";
 import {
@@ -7,17 +7,6 @@ import {
 	saveDocument,
 } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
-
-async function getCachedDocumentsById({
-	id,
-}: Parameters<typeof getDocumentsById>[0]) {
-	"use cache";
-
-	cacheLife("hours");
-	cacheTag(`document:${id}`);
-
-	return await getDocumentsById({ id });
-}
 
 export async function GET(request: Request) {
 	const { searchParams } = new URL(request.url);
@@ -36,7 +25,7 @@ export async function GET(request: Request) {
 		return new ChatSDKError("unauthorized:document").toResponse();
 	}
 
-	const documents = await getCachedDocumentsById({ id });
+	const documents = await getDocumentsById({ id });
 
 	const [document] = documents;
 
