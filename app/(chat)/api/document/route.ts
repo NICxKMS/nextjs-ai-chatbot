@@ -1,4 +1,4 @@
-import { unstable_cache as cache, revalidateTag } from "next/cache";
+import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 import { auth } from "@/app/(auth)/auth";
 import type { ArtifactKind } from "@/components/artifact";
 import {
@@ -7,6 +7,17 @@ import {
 	saveDocument,
 } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
+
+async function getCachedDocumentsById({
+	id,
+}: Parameters<typeof getDocumentsById>[0]) {
+	"use cache";
+
+	cacheLife("hours");
+	cacheTag(`document:${id}`);
+
+	return await getDocumentsById({ id });
+}
 
 export async function GET(request: Request) {
 	const { searchParams } = new URL(request.url);
@@ -25,13 +36,7 @@ export async function GET(request: Request) {
 		return new ChatSDKError("unauthorized:document").toResponse();
 	}
 
-	const documents = await cache(
-		() => getDocumentsById({ id }),
-		["document", id],
-		{
-			tags: [`document:${id}`],
-		}
-	)();
+	const documents = await getCachedDocumentsById({ id });
 
 	const [document] = documents;
 
@@ -89,8 +94,8 @@ export async function POST(request: Request) {
 		userId: session.user.id,
 	});
 
-	revalidateTag(`document:${id}`, { expire: 0 });
-	revalidateTag(`suggestions:document:${id}`, { expire: 0 });
+	revalidateTag(`document:${id}`, "minutes");
+	revalidateTag(`suggestions:document:${id}`, "minutes");
 
 	return Response.json(document, { status: 200 });
 }
@@ -137,8 +142,8 @@ export async function DELETE(request: Request) {
 		timestamp: new Date(timestamp),
 	});
 
-	revalidateTag(`document:${id}`, { expire: 0 });
-	revalidateTag(`suggestions:document:${id}`, { expire: 0 });
+	revalidateTag(`document:${id}`, "minutes");
+	revalidateTag(`suggestions:document:${id}`, "minutes");
 
 	return Response.json(documentsDeleted, { status: 200 });
 }

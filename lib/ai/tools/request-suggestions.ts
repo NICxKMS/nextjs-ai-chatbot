@@ -1,5 +1,5 @@
 import { streamObject, tool, type UIMessageStreamWriter } from "ai";
-import { revalidateTag } from "next/cache";
+import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 import type { Session } from "next-auth";
 import { z } from "zod";
 import { getDocumentById, saveSuggestions } from "@/lib/db/queries";
@@ -14,6 +14,17 @@ type RequestSuggestionsProps = {
 };
 
 const activeSuggestionRequests = new Map<string, Promise<unknown>>();
+
+async function getCachedDocumentForSuggestions({
+	id,
+}: Parameters<typeof getDocumentById>[0]) {
+	"use cache";
+
+	cacheLife("minutes");
+	cacheTag(`document:${id}`);
+
+	return await getDocumentById({ id });
+}
 
 export const requestSuggestions = ({
 	session,
@@ -33,7 +44,9 @@ export const requestSuggestions = ({
 			}
 
 			const execution = (async () => {
-				const document = await getDocumentById({ id: documentId });
+				const document = await getCachedDocumentForSuggestions({
+					id: documentId,
+				});
 
 				if (!document || !document.content) {
 					return {
@@ -96,9 +109,10 @@ export const requestSuggestions = ({
 						})),
 					});
 
-					revalidateTag(`suggestions:document:${documentId}`, {
-						expire: 0,
-					});
+					revalidateTag(
+						`suggestions:document:${documentId}`,
+						"seconds"
+					);
 				}
 
 				return {

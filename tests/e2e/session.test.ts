@@ -5,13 +5,13 @@ import { generateRandomTestUser } from "../helpers";
 import { AuthPage } from "../pages/auth";
 import { ChatPage } from "../pages/chat";
 
-const asGlobalRequest = (
+const _asGlobalRequest = (
 	request: import("@playwright/test").Request
 ): Request => {
 	return request as unknown as Request;
 };
 
-const waitForChatRequest = async (page: Page): Promise<Request> => {
+const _waitForChatRequest = async (page: Page): Promise<Request> => {
 	const playwrightRequest = await page.waitForRequest("**/api/chat");
 	return playwrightRequest as unknown as Request;
 };

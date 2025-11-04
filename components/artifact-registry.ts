@@ -63,5 +63,5 @@ export function preloadAllArtifactDefinitions() {
 		(Object.keys(artifactLoaders) as ArtifactKind[]).map((kind) =>
 			loadArtifactDefinition(kind)
 		)
-	).then(() => {});
+	);
 }

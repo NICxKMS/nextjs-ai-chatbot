@@ -1,7 +1,18 @@
-import { unstable_cache as cache, revalidateTag } from "next/cache";
+import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 import { auth } from "@/app/(auth)/auth";
 import { getChatById, getVotesByChatId, voteMessage } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
+
+async function getCachedVotesByChatId({
+	id,
+}: Parameters<typeof getVotesByChatId>[0]) {
+	"use cache";
+
+	cacheLife("seconds");
+	cacheTag(`votes:chat:${id}`);
+
+	return await getVotesByChatId({ id });
+}
 
 export async function GET(request: Request) {
 	const { searchParams } = new URL(request.url);
@@ -30,13 +41,7 @@ export async function GET(request: Request) {
 		return new ChatSDKError("forbidden:vote").toResponse();
 	}
 
-	const votes = await cache(
-		() => getVotesByChatId({ id: chatId }),
-		["votes", chatId],
-		{
-			tags: [`votes:chat:${chatId}`],
-		}
-	)();
+	const votes = await getCachedVotesByChatId({ id: chatId });
 
 	return Response.json(votes, { status: 200 });
 }
@@ -78,7 +83,7 @@ export async function PATCH(request: Request) {
 		type,
 	});
 
-	revalidateTag(`votes:chat:${chatId}`, { expire: 0 });
+	revalidateTag(`votes:chat:${chatId}`, "seconds");
 
 	return new Response("Message voted", { status: 200 });
 }

@@ -1,7 +1,18 @@
-import { unstable_cache as cache } from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 import { auth } from "@/app/(auth)/auth";
 import { getSuggestionsByDocumentId } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
+
+async function getCachedSuggestionsByDocumentId({
+	documentId,
+}: Parameters<typeof getSuggestionsByDocumentId>[0]) {
+	"use cache";
+
+	cacheLife("hours");
+	cacheTag(`suggestions:document:${documentId}`);
+
+	return await getSuggestionsByDocumentId({ documentId });
+}
 
 export async function GET(request: Request) {
 	const { searchParams } = new URL(request.url);
@@ -20,16 +31,9 @@ export async function GET(request: Request) {
 		return new ChatSDKError("unauthorized:suggestions").toResponse();
 	}
 
-	const suggestions = await cache(
-		() =>
-			getSuggestionsByDocumentId({
-				documentId,
-			}),
-		["suggestions", documentId],
-		{
-			tags: [`suggestions:document:${documentId}`],
-		}
-	)();
+	const suggestions = await getCachedSuggestionsByDocumentId({
+		documentId,
+	});
 
 	const [suggestion] = suggestions;
 

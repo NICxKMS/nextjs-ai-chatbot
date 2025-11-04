@@ -1,8 +1,27 @@
-import { unstable_cache as cache, revalidateTag } from "next/cache";
+import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 import type { NextRequest } from "next/server";
 import { auth } from "@/app/(auth)/auth";
 import { deleteAllChatsByUserId, getChatsByUserId } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
+
+async function getCachedChatsByUserId({
+	id,
+	limit,
+	startingAfter,
+	endingBefore,
+}: Parameters<typeof getChatsByUserId>[0]) {
+	"use cache";
+
+	cacheLife("minutes");
+	cacheTag(`history:user:${id}`);
+
+	return await getChatsByUserId({
+		id,
+		limit,
+		startingAfter,
+		endingBefore,
+	});
+}
 
 export async function GET(request: NextRequest) {
 	const { searchParams } = request.nextUrl;
@@ -24,25 +43,12 @@ export async function GET(request: NextRequest) {
 		return new ChatSDKError("unauthorized:chat").toResponse();
 	}
 
-	const cachedChats = await cache(
-		() =>
-			getChatsByUserId({
-				id: session.user.id,
-				limit,
-				startingAfter,
-				endingBefore,
-			}),
-		[
-			"chat-history",
-			session.user.id,
-			String(limit),
-			startingAfter ?? "null",
-			endingBefore ?? "null",
-		],
-		{
-			tags: [`history:user:${session.user.id}`],
-		}
-	)();
+	const cachedChats = await getCachedChatsByUserId({
+		id: session.user.id,
+		limit,
+		startingAfter,
+		endingBefore,
+	});
 
 	return Response.json(cachedChats);
 }
@@ -56,7 +62,7 @@ export async function DELETE() {
 
 	const result = await deleteAllChatsByUserId({ userId: session.user.id });
 
-	revalidateTag(`history:user:${session.user.id}`, { expire: 0 });
+	revalidateTag(`history:user:${session.user.id}`, "minutes");
 
 	return Response.json(result, { status: 200 });
 }

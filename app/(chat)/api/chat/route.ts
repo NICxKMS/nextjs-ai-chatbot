@@ -7,7 +7,7 @@ import {
 	stepCountIs,
 	streamText,
 } from "ai";
-import { unstable_cache as cache, revalidateTag } from "next/cache";
+import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 import { after } from "next/server";
 import {
 	createResumableStreamContext,
@@ -133,57 +133,39 @@ export const maxDuration = 60;
 
 let globalStreamContext: ResumableStreamContext | null = null;
 
-const getTokenlensCatalog = cache(
-	async (): Promise<ModelCatalog | undefined> => {
-		try {
-			return await fetchModels();
-		} catch (err) {
-			console.warn(
-				"TokenLens: catalog fetch failed, using default catalog",
-				err
-			);
-			return; // tokenlens helpers will fall back to defaultCatalog
-		}
-	},
-	["tokenlens-catalog"],
-	{ revalidate: 24 * 60 * 60 } // 24 hours
-);
+async function getTokenlensCatalog(): Promise<ModelCatalog | undefined> {
+	"use cache";
 
-let tokenlensCatalogPromise: Promise<ModelCatalog | undefined> | null = null;
+	cacheLife("days");
+	cacheTag("tokenlens-catalog");
 
-const resolveTokenlensCatalog = () => {
-	if (!tokenlensCatalogPromise) {
-		tokenlensCatalogPromise = getTokenlensCatalog().catch((error) => {
-			tokenlensCatalogPromise = null;
-			throw error;
-		});
+	try {
+		return await fetchModels();
+	} catch (err) {
+		console.warn(
+			"TokenLens: catalog fetch failed, using default catalog",
+			err
+		);
+		return; // tokenlens helpers will fall back to defaultCatalog
 	}
+}
 
-	return tokenlensCatalogPromise;
-};
+const resolveTokenlensCatalog = () => getTokenlensCatalog();
 
-const reasoningProviderOptionsCache = new Map<
-	string,
-	Record<string, Record<string, unknown>>
->();
-const MAX_REASONING_PROVIDER_OPTIONS_CACHE = 50;
+async function getCachedReasoningProviderOptions({
+	reasoningType,
+	thinkingBudget,
+}: {
+	reasoningType: ModelMetadata["reasoningType"];
+	thinkingBudget?: number | null;
+}) {
+	"use cache";
 
-const getReasoningProviderOptions = (model: ModelMetadata | undefined) => {
-	if (!model?.reasoningType || model.reasoningType === "none") {
-		return {} as Record<string, Record<string, unknown>>;
-	}
-
-	const cacheKey = `${model.id ?? "unknown"}:${model.reasoningType}:$${
-		model.thinkingBudget ?? ""
-	}`;
-	const cached = reasoningProviderOptionsCache.get(cacheKey);
-	if (cached) {
-		return cached;
-	}
+	cacheLife("hours");
 
 	const providerOptions: Record<string, Record<string, unknown>> = {};
 
-	switch (model.reasoningType) {
+	switch (reasoningType) {
 		case "openai-thinking":
 			providerOptions.openai = {
 				reasoningEffort: "high",
@@ -191,7 +173,7 @@ const getReasoningProviderOptions = (model: ModelMetadata | undefined) => {
 			break;
 		case "anthropic-thinking":
 			providerOptions.anthropic = {
-				thinkingBudget: model.thinkingBudget ?? 8000,
+				thinkingBudget: thinkingBudget ?? 8000,
 			};
 			break;
 		case "gemini-thinking":
@@ -199,7 +181,7 @@ const getReasoningProviderOptions = (model: ModelMetadata | undefined) => {
 				thinkingConfig: {
 					type: "enabled",
 					includeThoughts: true,
-					budgetTokens: model.thinkingBudget ?? 1024,
+					budgetTokens: thinkingBudget ?? 1024,
 				},
 			};
 			break;
@@ -211,27 +193,25 @@ const getReasoningProviderOptions = (model: ModelMetadata | undefined) => {
 		case "internal-thinking":
 			providerOptions.reasoning = {
 				enabled: true,
-				budget: model.thinkingBudget ?? 6000,
+				budget: thinkingBudget ?? 6000,
 			};
 			break;
 		default:
 			break;
 	}
 
-	if (
-		reasoningProviderOptionsCache.size >=
-		MAX_REASONING_PROVIDER_OPTIONS_CACHE
-	) {
-		const [firstKey] = reasoningProviderOptionsCache.keys();
-		if (firstKey) {
-			reasoningProviderOptionsCache.delete(firstKey);
-		}
+	return await Promise.resolve(Object.freeze(providerOptions));
+}
+
+const getReasoningProviderOptions = (model: ModelMetadata | undefined) => {
+	if (!model?.reasoningType || model.reasoningType === "none") {
+		return {} as Record<string, Record<string, unknown>>;
 	}
 
-	const frozenOptions = Object.freeze(providerOptions);
-	reasoningProviderOptionsCache.set(cacheKey, frozenOptions);
-
-	return frozenOptions;
+	return getCachedReasoningProviderOptions({
+		reasoningType: model.reasoningType,
+		thinkingBudget: model.thinkingBudget,
+	});
 };
 
 export function getStreamContext(waitUntil?: typeof after) {
@@ -455,7 +435,7 @@ export async function POST(request: Request) {
 					stopWhen: stepCountIs(5),
 					experimental_activeTools: getEnabledTools(selectedModel),
 					experimental_transform: smoothStream({
-						delayInMs: 2,
+						delayInMs: 5,
 						chunking: "word",
 					}),
 					tools: {
