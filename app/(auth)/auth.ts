@@ -51,12 +51,15 @@ export const {
 
 				const [user] = users;
 
-				if (!user.password) {
+				if (!user.passwordHash) {
 					await compare(password, DUMMY_PASSWORD);
 					return null;
 				}
 
-				const passwordsMatch = await compare(password, user.password);
+				const passwordsMatch = await compare(
+					password,
+					user.passwordHash
+				);
 
 				if (!passwordsMatch) {
 					return null;

@@ -22,6 +22,8 @@ import { ImageEditor } from "./image-editor";
 import { SpreadsheetEditor } from "./sheet-editor";
 import { Editor } from "./text-editor";
 
+type DocumentLike = Pick<Document, "title" | "kind" | "content">;
+
 type DocumentPreviewProps = {
 	isReadonly: boolean;
 	result?: any;
@@ -88,16 +90,13 @@ export function DocumentPreview({
 		return <LoadingSkeleton artifactKind={result.kind ?? args.kind} />;
 	}
 
-	const document: Document | null = previewDocument
+	const document: DocumentLike | null = previewDocument
 		? previewDocument
 		: artifact.status === "streaming"
 			? {
 					title: artifact.title,
 					kind: artifact.kind,
 					content: artifact.content,
-					id: artifact.documentId,
-					createdAt: new Date(),
-					userId: "noop",
 				}
 			: null;
 
@@ -248,7 +247,7 @@ const DocumentHeader = memo(PureDocumentHeader, (prevProps, nextProps) => {
 	return true;
 });
 
-const DocumentContent = ({ document }: { document: Document }) => {
+const DocumentContent = ({ document }: { document: DocumentLike }) => {
 	const { artifact } = useArtifact();
 
 	const containerClassName = cn(

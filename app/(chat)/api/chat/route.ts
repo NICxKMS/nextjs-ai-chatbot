@@ -37,6 +37,7 @@ import {
 	saveChat,
 	saveMessages,
 	updateChatLastContextById,
+	updateChatTitleById,
 } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
@@ -150,10 +151,14 @@ export async function POST(request: Request) {
 
 		const userType: UserType = session.user.type;
 
-		const messageCount = await getMessageCountByUserId({
-			id: session.user.id,
-			differenceInHours: 24,
-		});
+		const [messageCount, chat, messagesFromDb] = await Promise.all([
+			getMessageCountByUserId({
+				id: session.user.id,
+				differenceInHours: 24,
+			}),
+			getChatById({ id }),
+			getMessagesByChatId({ id }),
+		]);
 
 		const userEntitlements =
 			entitlementsByUserType[
@@ -166,26 +171,36 @@ export async function POST(request: Request) {
 			return new ChatSDKError("rate_limit:chat").toResponse();
 		}
 
-		const chat = await getChatById({ id });
-
 		if (chat) {
 			if (chat.userId !== session.user.id) {
 				return new ChatSDKError("forbidden:chat").toResponse();
 			}
 		} else {
-			const title = await generateTitleFromUserMessage({
-				message,
-			});
+			const placeholderTitle = (() => {
+				try {
+					const textPart = (message.parts as any[])?.find(
+						(p: any) =>
+							p?.type === "text" && typeof p.text === "string"
+					);
+					const base = (textPart?.text || "").trim();
+					const trimmed =
+						base.length > 0 ? base.slice(0, 80) : "New Chat";
+					return trimmed;
+				} catch {
+					return "New Chat";
+				}
+			})();
 
 			await saveChat({
 				id,
 				userId: session.user.id,
-				title,
+				title: placeholderTitle,
 				visibility: selectedVisibilityType,
 			});
 		}
 
-		const messagesFromDb = await getMessagesByChatId({ id });
+		const isNewChat = !chat;
+
 		const uiMessages = [...convertToUIMessages(messagesFromDb), message];
 
 		const { longitude, latitude, city, country } = geolocation(request);
@@ -197,30 +212,55 @@ export async function POST(request: Request) {
 			country,
 		};
 
-		await saveMessages({
-			messages: [
-				{
-					chatId: id,
-					id: message.id,
-					role: "user",
-					parts: message.parts,
-					attachments: [],
-					createdAt: new Date(),
-				},
-			],
-		});
-
 		const streamId = generateUUID();
-		await createStreamId({ streamId, chatId: id });
+		await Promise.all([
+			saveMessages({
+				messages: [
+					{
+						chatId: id,
+						id: message.id,
+						role: "user",
+						parts: message.parts,
+						attachments: [],
+						createdAt: new Date(),
+					},
+				],
+			}),
+			createStreamId({ streamId, chatId: id }),
+		]);
 
 		let finalMergedUsage: AppUsage | undefined;
+		const tokenlensCatalogPromise = getTokenlensCatalog();
 
 		const stream = createUIMessageStream({
 			execute: ({ writer: dataStream }) => {
 				const selectedModel = getModelById(selectedChatModel);
 
-				// Build provider-specific options for reasoning models
-				// Reference: https://sdk.vercel.ai/docs/reference/reasoning
+				if (isNewChat) {
+					(async () => {
+						try {
+							const generatedTitle =
+								await generateTitleFromUserMessage({
+									message,
+								});
+							await updateChatTitleById({
+								chatId: id,
+								title: generatedTitle,
+							});
+							dataStream.write({
+								type: "data-chatTitle",
+								data: generatedTitle,
+								transient: true,
+							});
+						} catch (err) {
+							console.warn(
+								"Background title generation failed",
+								err
+							);
+						}
+					})();
+				}
+
 				const providerOptions: Record<
 					string,
 					Record<string, unknown>
@@ -232,30 +272,20 @@ export async function POST(request: Request) {
 				) {
 					switch (selectedModel.reasoningType) {
 						case "openai-thinking":
-							// OpenAI o1/o3 models - configure thinking parameters
-							// Note: Thinking budget is automatically managed by OpenAI
 							providerOptions.openai = {
-								// Extended thinking is enabled by default for o1/o3 models
-								// You can configure additional parameters as needed
-								reasoningEffort: "high", // "low", "medium", or "high"
+								reasoningEffort: "high",
 							};
 							break;
 
 						case "anthropic-thinking":
-							// Anthropic Claude extended thinking mode
-							// Reference: https://docs.anthropic.com/en/docs/build-a-chat-bot
 							providerOptions.anthropic = {
-								// Budget in tokens for thinking process (1-10000)
 								thinkingBudget:
 									selectedModel.thinkingBudget ?? 8000,
 							};
 							break;
 
 						case "gemini-thinking":
-							// Google Gemini thinking models
-							// Reference: https://ai.google.dev/gemini-api/docs/thinking
 							providerOptions.google = {
-								// Thinking config for Gemini models with thinking mode support
 								thinkingConfig: {
 									type: "enabled",
 									includeThoughts: true,
@@ -266,17 +296,12 @@ export async function POST(request: Request) {
 							break;
 
 						case "deepseek-thinking":
-							// DeepSeek R1 - native chain-of-thought
 							providerOptions.deepseek = {
-								// DeepSeek handles thinking natively
-								// Consider budget tokens for reasoning
 								reasoningLevel: "high",
 							};
 							break;
 
 						case "internal-thinking":
-							// Generic reasoning models (Grok, Qwen, etc.)
-							// These typically handle reasoning internally
 							providerOptions.reasoning = {
 								enabled: true,
 								budget: selectedModel.thinkingBudget ?? 6000,
@@ -284,7 +309,6 @@ export async function POST(request: Request) {
 							break;
 
 						default:
-							// No additional options needed
 							break;
 					}
 				}
@@ -306,7 +330,11 @@ export async function POST(request: Request) {
 					}),
 					tools: {
 						getWeather,
-						createDocument: createDocument({ session, dataStream }),
+						createDocument: createDocument({
+							session,
+							dataStream,
+							chatId: id,
+						}),
 						updateDocument: updateDocument({ session, dataStream }),
 						requestSuggestions: requestSuggestions({
 							session,
@@ -333,7 +361,7 @@ export async function POST(request: Request) {
 						let usage: any;
 						try {
 							usage = callResult.usage;
-							const providers = await getTokenlensCatalog();
+							const providers = await tokenlensCatalogPromise;
 							const modelId =
 								myProvider.languageModel(
 									selectedChatModel
@@ -393,31 +421,40 @@ export async function POST(request: Request) {
 			},
 			generateId: generateUUID,
 			onFinish: async ({ messages }) => {
-				await saveMessages({
-					messages: messages.map((currentMessage) => ({
-						id: currentMessage.id,
-						role: currentMessage.role,
-						parts: currentMessage.parts,
-						createdAt: new Date(),
-						attachments: [],
-						chatId: id,
-					})),
-				});
-
-				if (finalMergedUsage) {
-					try {
-						await updateChatLastContextById({
-							chatId: id,
-							context: finalMergedUsage,
-						});
-					} catch (err) {
-						console.warn(
-							"Unable to persist last usage for chat",
-							id,
-							err
-						);
-					}
-				}
+				await Promise.all([
+					saveMessages({
+						messages: messages.map((currentMessage) => {
+							const base = {
+								id: currentMessage.id,
+								role: currentMessage.role as
+									| "user"
+									| "assistant"
+									| "system",
+								parts: currentMessage.parts,
+								createdAt: new Date(),
+								attachments: [],
+								chatId: id,
+							};
+							return base as any;
+						}),
+					}),
+					(async () => {
+						if (finalMergedUsage) {
+							try {
+								await updateChatLastContextById({
+									chatId: id,
+									context: finalMergedUsage,
+								});
+							} catch (err) {
+								console.warn(
+									"Unable to persist last usage for chat",
+									id,
+									err
+								);
+							}
+						}
+					})(),
+				]);
 			},
 			onError: () => {
 				return "Oops, an error occurred!";
@@ -485,13 +522,14 @@ export async function DELETE(request: Request) {
 		return new ChatSDKError("bad_request:api").toResponse();
 	}
 
+	const chatPromise = getChatById({ id });
 	const session = await auth();
 
 	if (!session?.user) {
 		return new ChatSDKError("unauthorized:chat").toResponse();
 	}
 
-	const chat = await getChatById({ id });
+	const chat = await chatPromise;
 
 	if (chat?.userId !== session.user.id) {
 		return new ChatSDKError("forbidden:chat").toResponse();

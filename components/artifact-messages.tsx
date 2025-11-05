@@ -4,15 +4,14 @@ import { AnimatePresence, motion } from "framer-motion";
 import { memo } from "react";
 import { useMessages } from "@/hooks/use-messages";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
-import type { Vote } from "@/lib/db/schema";
-import type { ChatMessage } from "@/lib/types";
+import type { ChatMessage, UserVote } from "@/lib/types";
 import type { UIArtifact } from "./artifact";
 import { PreviewMessage, ThinkingMessage } from "./message";
 
 type ArtifactMessagesProps = {
 	chatId: string;
 	status: UseChatHelpers<ChatMessage>["status"];
-	votes: Vote[] | undefined;
+	votes: UserVote[] | undefined;
 	messages: ChatMessage[];
 	setMessages: UseChatHelpers<ChatMessage>["setMessages"];
 	regenerate: UseChatHelpers<ChatMessage>["regenerate"];

@@ -5,9 +5,8 @@ import type {
   UIMessagePart,
 } from 'ai';
 import { type ClassValue, clsx } from 'clsx';
-import { formatISO } from 'date-fns';
 import { twMerge } from 'tailwind-merge';
-import type { DBMessage, Document } from '@/lib/db/schema';
+import type { Document, MessageRow } from '@/lib/db/schema';
 import { ChatSDKError, type ErrorCode } from './errors';
 import type { ChatMessage, ChatTools, CustomUIDataTypes } from './types';
 
@@ -97,15 +96,18 @@ export function sanitizeText(text: string) {
   return text.replace('<has_function_call>', '');
 }
 
-export function convertToUIMessages(messages: DBMessage[]): ChatMessage[] {
-  return messages.map((message) => ({
-    id: message.id,
-    role: message.role as 'user' | 'assistant' | 'system',
-    parts: message.parts as UIMessagePart<CustomUIDataTypes, ChatTools>[],
-    metadata: {
-      createdAt: formatISO(message.createdAt),
-    },
-  }));
+export function convertToUIMessages(messages: MessageRow[]): ChatMessage[] {
+  return messages.map((message) => {
+    if (!message.id) {
+      throw new ChatSDKError('bad_request:database', 'Message is missing id');
+    }
+
+    return {
+      id: message.id,
+      role: message.role as 'user' | 'assistant' | 'system',
+      parts: message.parts as UIMessagePart<CustomUIDataTypes, ChatTools>[],
+    } satisfies ChatMessage;
+  });
 }
 
 export function getTextFromMessage(message: ChatMessage): string {

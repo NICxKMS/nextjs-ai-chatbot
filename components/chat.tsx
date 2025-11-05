@@ -21,9 +21,8 @@ import { useArtifactSelector } from "@/hooks/use-artifact";
 import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
-import type { Vote } from "@/lib/db/schema";
 import { ChatSDKError } from "@/lib/errors";
-import type { Attachment, ChatMessage } from "@/lib/types";
+import type { Attachment, ChatMessage, UserVote } from "@/lib/types";
 import { useSettingsSnapshot } from "@/lib/ui/settings-store";
 import type { AppUsage } from "@/lib/usage";
 import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
@@ -135,6 +134,9 @@ export function Chat({
 			if (dataPart.type === "data-usage") {
 				setUsage(dataPart.data);
 			}
+			if (dataPart.type === "data-chatTitle") {
+				mutate(unstable_serialize(getChatHistoryPaginationKey));
+			}
 			if (dataPart.type === "data-appendMessage") {
 				try {
 					const message = JSON.parse((dataPart as any).data);
@@ -217,7 +219,7 @@ export function Chat({
 		}
 	}, [query, sendMessage, hasAppendedQuery, id]);
 
-	const { data: votes } = useSWR<Vote[]>(
+	const { data: votes } = useSWR<UserVote[]>(
 		messages.length >= 2 ? `/api/vote?chatId=${id}` : null,
 		fetcher
 	);

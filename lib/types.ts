@@ -39,6 +39,7 @@ export type CustomUIDataTypes = {
 	appendMessage: string;
 	id: string;
 	title: string;
+	chatTitle: string;
 	kind: ArtifactKind;
 	clear: null;
 	finish: null;
@@ -55,4 +56,12 @@ export type Attachment = {
 	name: string;
 	url: string;
 	contentType: string;
+};
+
+// UI-level vote type; only the current user's vote is ever fetched by the UI
+export type UserVote = {
+	userId?: string;
+	chatId: string;
+	messageId: string;
+	isUpvoted: boolean;
 };
