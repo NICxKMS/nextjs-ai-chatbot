@@ -34,6 +34,8 @@ export async function GET(
 		return new ChatSDKError("unauthorized:chat").toResponse();
 	}
 
+	const streamIdsPromise = getStreamIdsByChatId({ chatId });
+
 	let chat: Chat | null;
 
 	try {
@@ -50,7 +52,7 @@ export async function GET(
 		return new ChatSDKError("forbidden:chat").toResponse();
 	}
 
-	const streamIds = await getStreamIdsByChatId({ chatId });
+	const streamIds = await streamIdsPromise;
 
 	if (!streamIds.length) {
 		return new ChatSDKError("not_found:stream").toResponse();

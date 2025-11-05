@@ -18,13 +18,14 @@ export async function GET(request: Request) {
 		).toResponse();
 	}
 
+	const documentsPromise = getDocumentsById({ id });
 	const session = await auth();
 
 	if (!session?.user) {
 		return new ChatSDKError("unauthorized:document").toResponse();
 	}
 
-	const documents = await getDocumentsById({ id });
+	const documents = await documentsPromise;
 
 	const [document] = documents;
 
@@ -50,27 +51,41 @@ export async function POST(request: Request) {
 		).toResponse();
 	}
 
-	const session = await auth();
+	const sessionPromise = auth();
+	const bodyPromise = request.json();
+	const documentsPromise = getDocumentsById({ id });
 
-	if (!session?.user) {
-		return new ChatSDKError("not_found:document").toResponse();
-	}
-
+	const session = await sessionPromise;
 	const {
 		content,
 		title,
 		kind,
 	}: { content: string; title: string; kind: ArtifactKind } =
-		await request.json();
+		await bodyPromise;
+	const documents = await documentsPromise;
 
-	const documents = await getDocumentsById({ id });
+	if (!session?.user) {
+		return new ChatSDKError("not_found:document").toResponse();
+	}
+
+	let chatId: string | null = null;
 
 	if (documents.length > 0) {
-		const [doc] = documents;
+		const mostRecent = documents.at(-1);
+		if (!mostRecent) {
+			return new ChatSDKError("not_found:document").toResponse();
+		}
 
-		if (doc.userId !== session.user.id) {
+		if (mostRecent.userId !== session.user.id) {
 			return new ChatSDKError("forbidden:document").toResponse();
 		}
+
+		chatId = mostRecent.chatId;
+	} else {
+		return new ChatSDKError(
+			"bad_request:document",
+			"Cannot save document without existing chat context"
+		).toResponse();
 	}
 
 	const document = await saveDocument({
@@ -79,6 +94,7 @@ export async function POST(request: Request) {
 		title,
 		kind,
 		userId: session.user.id,
+		chatId,
 	});
 
 	return Response.json(document, { status: 200 });

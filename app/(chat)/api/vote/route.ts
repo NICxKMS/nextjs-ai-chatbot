@@ -1,5 +1,9 @@
 import { auth } from "@/app/(auth)/auth";
-import { getChatById, getVotesByChatId, voteMessage } from "@/lib/db/queries";
+import {
+	getChatById,
+	getVotesByChatIdAndUserId,
+	voteMessage,
+} from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
 
 export async function GET(request: Request) {
@@ -13,13 +17,14 @@ export async function GET(request: Request) {
 		).toResponse();
 	}
 
+	const chatPromise = getChatById({ id: chatId });
 	const session = await auth();
 
 	if (!session?.user) {
 		return new ChatSDKError("unauthorized:vote").toResponse();
 	}
 
-	const chat = await getChatById({ id: chatId });
+	const chat = await chatPromise;
 
 	if (!chat) {
 		return new ChatSDKError("not_found:chat").toResponse();
@@ -29,18 +34,29 @@ export async function GET(request: Request) {
 		return new ChatSDKError("forbidden:vote").toResponse();
 	}
 
-	const votes = await getVotesByChatId({ id: chatId });
+	const votes = await getVotesByChatIdAndUserId({
+		chatId,
+		userId: session.user.id,
+	});
 
-	return Response.json(votes, { status: 200 });
+	// Return minimal UI shape
+	const uiVotes = votes.map((v) => ({
+		chatId: v.chatId,
+		messageId: v.messageId,
+		isUpvoted: v.isUpvoted,
+	}));
+
+	return Response.json(uiVotes, { status: 200 });
 }
 
 export async function PATCH(request: Request) {
-	const {
-		chatId,
-		messageId,
-		type,
-	}: { chatId: string; messageId: string; type: "up" | "down" } =
-		await request.json();
+	const bodyPromise: Promise<{
+		chatId: string;
+		messageId: string;
+		type: "up" | "down";
+	}> = request.json();
+	const sessionPromise = auth();
+	const { chatId, messageId, type } = await bodyPromise;
 
 	if (!chatId || !messageId || !type) {
 		return new ChatSDKError(
@@ -49,13 +65,14 @@ export async function PATCH(request: Request) {
 		).toResponse();
 	}
 
-	const session = await auth();
+	const [session, chat] = await Promise.all([
+		sessionPromise,
+		getChatById({ id: chatId }),
+	]);
 
 	if (!session?.user) {
 		return new ChatSDKError("unauthorized:vote").toResponse();
 	}
-
-	const chat = await getChatById({ id: chatId });
 
 	if (!chat) {
 		return new ChatSDKError("not_found:vote").toResponse();
@@ -69,6 +86,7 @@ export async function PATCH(request: Request) {
 		chatId,
 		messageId,
 		type,
+		userId: session.user.id,
 	});
 
 	return new Response("Message voted", { status: 200 });

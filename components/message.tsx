@@ -3,8 +3,7 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import equal from "fast-deep-equal";
 import { motion } from "framer-motion";
 import { memo, useState } from "react";
-import type { Vote } from "@/lib/db/schema";
-import type { ChatMessage } from "@/lib/types";
+import type { ChatMessage, UserVote } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
 import { useDataStream } from "./data-stream-provider";
 import { DocumentToolResult } from "./document";
@@ -37,7 +36,7 @@ const PurePreviewMessage = ({
 }: {
 	chatId: string;
 	message: ChatMessage;
-	vote: Vote | undefined;
+	vote: UserVote | undefined;
 	isLoading: boolean;
 	setMessages: UseChatHelpers<ChatMessage>["setMessages"];
 	regenerate: UseChatHelpers<ChatMessage>["regenerate"];
@@ -98,7 +97,7 @@ const PurePreviewMessage = ({
 							{attachmentsFromMessage.map((attachment) => (
 								<PreviewAttachment
 									attachment={{
-										name: attachment.filename ?? "file",
+										name: (attachment as any).name ?? (attachment as any).filename ?? "file",
 										contentType: attachment.mediaType,
 										url: attachment.url,
 									}}

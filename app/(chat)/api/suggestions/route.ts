@@ -13,15 +13,17 @@ export async function GET(request: Request) {
 		).toResponse();
 	}
 
+	const suggestionsPromise = getSuggestionsByDocumentId({
+		documentId,
+	});
+
 	const session = await auth();
 
 	if (!session?.user) {
 		return new ChatSDKError("unauthorized:suggestions").toResponse();
 	}
 
-	const suggestions = await getSuggestionsByDocumentId({
-		documentId,
-	});
+	const suggestions = await suggestionsPromise;
 
 	const [suggestion] = suggestions;
 

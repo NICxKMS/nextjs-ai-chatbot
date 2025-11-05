@@ -44,7 +44,10 @@ const db = drizzle(client);
 
 export async function getUser(email: string): Promise<User[]> {
 	try {
-		return await db.select().from(user).where(eq(user.email, email));
+		return await db
+			.select()
+			.from(user)
+			.where(eq(user.email, email.toLowerCase()));
 	} catch (_error) {
 		throw new ChatSDKError(
 			"bad_request:database",
@@ -54,12 +57,12 @@ export async function getUser(email: string): Promise<User[]> {
 }
 
 export async function createUser(email: string, password: string) {
-	const hashedPassword = generateHashedPassword(password);
+	const passwordHash = generateHashedPassword(password);
 
 	try {
 		return await db
 			.insert(user)
-			.values({ email, password: hashedPassword });
+			.values({ email: email.toLowerCase(), passwordHash });
 	} catch (_error) {
 		throw new ChatSDKError("bad_request:database", "Failed to create user");
 	}
@@ -67,13 +70,16 @@ export async function createUser(email: string, password: string) {
 
 export async function createGuestUser() {
 	const email = `guest-${Date.now()}`;
-	const password = generateHashedPassword(generateUUID());
+	const passwordHash = generateHashedPassword(generateUUID());
 
 	try {
-		return await db.insert(user).values({ email, password }).returning({
-			id: user.id,
-			email: user.email,
-		});
+		return await db
+			.insert(user)
+			.values({ email: email.toLowerCase(), passwordHash })
+			.returning({
+				id: user.id,
+				email: user.email,
+			});
 	} catch (_error) {
 		throw new ChatSDKError(
 			"bad_request:database",
@@ -257,7 +263,10 @@ export async function getChatById({ id }: { id: string }) {
 
 export async function saveMessages({ messages }: { messages: DBMessage[] }) {
 	try {
-		return await db.insert(message).values(messages);
+		return await db
+			.insert(message)
+			.values(messages)
+			.onConflictDoNothing({ target: message.id });
 	} catch (_error) {
 		throw new ChatSDKError(
 			"bad_request:database",
@@ -285,28 +294,41 @@ export async function voteMessage({
 	chatId,
 	messageId,
 	type,
+	userId,
 }: {
 	chatId: string;
 	messageId: string;
 	type: "up" | "down";
+	userId: string;
 }) {
 	try {
 		const [existingVote] = await db
 			.select()
 			.from(vote)
-			.where(and(eq(vote.messageId, messageId)));
+			.where(
+				and(
+					eq(vote.chatId, chatId),
+					eq(vote.messageId, messageId),
+					eq(vote.userId, userId)
+				)
+			);
 
 		if (existingVote) {
 			return await db
 				.update(vote)
 				.set({ isUpvoted: type === "up" })
 				.where(
-					and(eq(vote.messageId, messageId), eq(vote.chatId, chatId))
+					and(
+						eq(vote.chatId, chatId),
+						eq(vote.messageId, messageId),
+						eq(vote.userId, userId)
+					)
 				);
 		}
 		return await db.insert(vote).values({
 			chatId,
 			messageId,
+			userId,
 			isUpvoted: type === "up",
 		});
 	} catch (_error) {
@@ -328,14 +350,36 @@ export async function getVotesByChatId({ id }: { id: string }) {
 	}
 }
 
+export async function getVotesByChatIdAndUserId({
+	chatId,
+	userId,
+}: {
+	chatId: string;
+	userId: string;
+}) {
+	try {
+		return await db
+			.select()
+			.from(vote)
+			.where(and(eq(vote.chatId, chatId), eq(vote.userId, userId)));
+	} catch (_error) {
+		throw new ChatSDKError(
+			"bad_request:database",
+			"Failed to get votes by chat id and user id"
+		);
+	}
+}
+
 export async function saveDocument({
 	id,
+	chatId,
 	title,
 	kind,
 	content,
 	userId,
 }: {
 	id: string;
+	chatId: string;
 	title: string;
 	kind: ArtifactKind;
 	content: string;
@@ -346,6 +390,7 @@ export async function saveDocument({
 			.insert(document)
 			.values({
 				id,
+				chatId,
 				title,
 				kind,
 				content,
@@ -527,12 +572,32 @@ export async function updateChatVisiblityById({
 	try {
 		return await db
 			.update(chat)
-			.set({ visibility })
+			.set({ visibility, updatedAt: new Date() })
 			.where(eq(chat.id, chatId));
 	} catch (_error) {
 		throw new ChatSDKError(
 			"bad_request:database",
 			"Failed to update chat visibility by id"
+		);
+	}
+}
+
+export async function updateChatTitleById({
+	chatId,
+	title,
+}: {
+	chatId: string;
+	title: string;
+}) {
+	try {
+		return await db
+			.update(chat)
+			.set({ title, updatedAt: new Date() })
+			.where(eq(chat.id, chatId));
+	} catch (_error) {
+		throw new ChatSDKError(
+			"bad_request:database",
+			"Failed to update chat title by id"
 		);
 	}
 }
@@ -548,7 +613,7 @@ export async function updateChatLastContextById({
 	try {
 		return await db
 			.update(chat)
-			.set({ lastContext: context })
+			.set({ lastContext: context, updatedAt: new Date() })
 			.where(eq(chat.id, chatId));
 	} catch (error) {
 		console.warn("Failed to update lastContext for chat", chatId, error);

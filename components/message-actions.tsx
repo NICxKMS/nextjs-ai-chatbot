@@ -3,8 +3,7 @@ import { memo } from "react";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
 import { useCopyToClipboard } from "usehooks-ts";
-import type { Vote } from "@/lib/db/schema";
-import type { ChatMessage } from "@/lib/types";
+import type { ChatMessage, UserVote } from "@/lib/types";
 import { Action, Actions } from "./elements/actions";
 import { CopyIcon, PencilEditIcon, ThumbDownIcon, ThumbUpIcon } from "./icons";
 
@@ -17,7 +16,7 @@ export function PureMessageActions({
 }: {
 	chatId: string;
 	message: ChatMessage;
-	vote: Vote | undefined;
+	vote: UserVote | undefined;
 	isLoading: boolean;
 	setMode?: (mode: "view" | "edit") => void;
 }) {
@@ -88,11 +87,11 @@ export function PureMessageActions({
 					toast.promise(upvote, {
 						loading: "Upvoting Response...",
 						success: () => {
-							mutate<Vote[]>(
+							mutate<UserVote[]>(
 								`/api/vote?chatId=${chatId}`,
-								(currentVotes) => {
+								(currentVotes: UserVote[] | undefined) => {
 									if (!currentVotes) {
-										return [];
+										return [] as UserVote[];
 									}
 
 									const votesWithoutCurrent =
@@ -108,12 +107,11 @@ export function PureMessageActions({
 											chatId,
 											messageId: message.id,
 											isUpvoted: true,
-										},
+										} as UserVote,
 									];
 								},
 								{ revalidate: false }
 							);
-
 							return "Upvoted Response!";
 						},
 						error: "Failed to upvote response.",
@@ -140,11 +138,11 @@ export function PureMessageActions({
 					toast.promise(downvote, {
 						loading: "Downvoting Response...",
 						success: () => {
-							mutate<Vote[]>(
+							mutate<UserVote[]>(
 								`/api/vote?chatId=${chatId}`,
-								(currentVotes) => {
+								(currentVotes: UserVote[] | undefined) => {
 									if (!currentVotes) {
-										return [];
+										return [] as UserVote[];
 									}
 
 									const votesWithoutCurrent =
@@ -160,12 +158,11 @@ export function PureMessageActions({
 											chatId,
 											messageId: message.id,
 											isUpvoted: false,
-										},
+										} as UserVote,
 									];
 								},
 								{ revalidate: false }
 							);
-
 							return "Downvoted Response!";
 						},
 						error: "Failed to downvote response.",
