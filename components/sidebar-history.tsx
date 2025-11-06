@@ -4,7 +4,7 @@ import { isToday, isYesterday, subMonths, subWeeks } from "date-fns";
 import { motion } from "framer-motion";
 import { useParams, useRouter } from "next/navigation";
 import type { User } from "next-auth";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import useSWRInfinite from "swr/infinite";
 import {
@@ -23,6 +23,7 @@ import {
 	SidebarMenu,
 	useSidebar,
 } from "@/components/ui/sidebar";
+import { useOptimisticChats } from "@/hooks/use-optimistic-chats";
 import type { Chat } from "@/lib/db/schema";
 import { fetcher } from "@/lib/utils";
 import { LoaderIcon } from "./icons";
@@ -100,6 +101,7 @@ export function getChatHistoryPaginationKey(
 export function SidebarHistory({ user }: { user: User | undefined }) {
 	const { setOpenMobile } = useSidebar();
 	const { id } = useParams();
+	const { optimisticChats, removeOptimisticChat } = useOptimisticChats();
 
 	const {
 		data: paginatedChatHistories,
@@ -115,6 +117,20 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 	const router = useRouter();
 	const [deleteId, setDeleteId] = useState<string | null>(null);
 	const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+	// Remove optimistic chats once real chats are loaded
+	useEffect(() => {
+		if (paginatedChatHistories && paginatedChatHistories.length > 0) {
+			const allChatIds = paginatedChatHistories.flatMap((page) =>
+				page.chats.map((chat) => chat.id)
+			);
+			for (const optimisticChat of optimisticChats) {
+				if (allChatIds.includes(optimisticChat.id)) {
+					removeOptimisticChat(optimisticChat.id);
+				}
+			}
+		}
+	}, [paginatedChatHistories, optimisticChats, removeOptimisticChat]);
 
 	const hasReachedEnd = paginatedChatHistories
 		? paginatedChatHistories.some((page) => page.hasMore === false)
@@ -227,11 +243,28 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
 								return (
 									<div className="flex flex-col gap-6">
-										{groupedChats.today.length > 0 && (
+										{(groupedChats.today.length > 0 ||
+											optimisticChats.length > 0) && (
 											<div>
 												<div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
 													Today
 												</div>
+												{optimisticChats.map((chat) => (
+													<ChatItem
+														chat={chat as Chat}
+														isActive={
+															chat.id === id
+														}
+														isOptimistic
+														key={`optimistic-${chat.id}`}
+														onDelete={() => {
+															// Optimistic chats can't be deleted
+														}}
+														setOpenMobile={
+															setOpenMobile
+														}
+													/>
+												))}
 												{groupedChats.today.map(
 													(chat) => (
 														<ChatItem

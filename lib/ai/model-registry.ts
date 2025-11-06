@@ -255,7 +255,10 @@ export const listProviderCatalogs = (): ProviderCatalog[] => {
 			};
 		}
 
-		acc[model.providerId].models.push(model);
+		const providerGroup = acc[model.providerId];
+		if (providerGroup) {
+			providerGroup.models.push(model);
+		}
 		return acc;
 	}, {});
 
@@ -281,12 +284,12 @@ export const getModelById = (id: string) =>
 
 const defaultModelOrder = [
 	"google:gemini-2.5-flash-lite",
-	"vercel-gateway:openai/gpt-4o",
-	"openai:gpt-4o",
 	"google:gemini-2.5-flash",
+	"vercel-gateway:openai/gpt-4o",
+	"google:gemini-2.5-pro",
+	"openai:gpt-4o",
 	"openai:gpt-4o-mini",
 	"google:gemini-2.0-flash",
-	"google:gemini-1.5-pro",
 ];
 
 export const getDefaultChatModel = () => {

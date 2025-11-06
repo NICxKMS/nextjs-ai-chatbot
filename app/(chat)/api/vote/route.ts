@@ -6,6 +6,9 @@ import {
 } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
 
+// Optimize for Vercel Fluid Compute
+export const maxDuration = 10;
+
 export async function GET(request: Request) {
 	const { searchParams } = new URL(request.url);
 	const chatId = searchParams.get("chatId");
@@ -22,6 +25,14 @@ export async function GET(request: Request) {
 
 	if (!session?.user) {
 		return new ChatSDKError("unauthorized:vote").toResponse();
+	}
+
+	// Guest users cannot vote (requires database persistence)
+	if (session.user.type === "guest") {
+		return new ChatSDKError(
+			"forbidden:vote",
+			"Guest users cannot vote on messages"
+		).toResponse();
 	}
 
 	const chat = await chatPromise;
@@ -72,6 +83,14 @@ export async function PATCH(request: Request) {
 
 	if (!session?.user) {
 		return new ChatSDKError("unauthorized:vote").toResponse();
+	}
+
+	// Guest users cannot vote (requires database persistence)
+	if (session.user.type === "guest") {
+		return new ChatSDKError(
+			"forbidden:vote",
+			"Guest users cannot vote on messages"
+		).toResponse();
 	}
 
 	if (!chat) {

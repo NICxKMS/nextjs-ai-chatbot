@@ -9,6 +9,9 @@ import {
 	isAllowedAttachmentMimeType,
 } from "@/lib/files";
 
+// Optimize for Vercel Fluid Compute
+export const maxDuration = 30;
+
 const FileSchema = z.object({
 	file: z
 		.instanceof(Blob)

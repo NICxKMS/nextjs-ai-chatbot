@@ -62,11 +62,13 @@ export default function RootLayout({
 			// `next-themes` injects an extra classname to the body element to avoid
 			// visual flicker before hydration. Hence the `suppressHydrationWarning`
 			// prop is necessary to avoid the React hydration mismatch warning.
-			// https://github.com/pacocoursey/next-themes?tab=readme-ov-file#with-app
 			lang="en"
 			suppressHydrationWarning
 		>
 			<head>
+				{/* Resource hints for better CDN performance */}
+				<link href="https://cdn.jsdelivr.net" rel="preconnect" />
+				<link href="https://cdn.jsdelivr.net" rel="dns-prefetch" />
 				<script
 					// biome-ignore lint/security/noDangerouslySetInnerHtml: "Required"
 					dangerouslySetInnerHTML={{
@@ -91,7 +93,7 @@ export default function RootLayout({
 								revalidateOnReconnect: false,
 								refreshWhenHidden: false,
 								refreshWhenOffline: false,
-								revalidateIfStale: false,
+								revalidateIfStale: true,
 								// revalidateOnMount: false,
 							}}
 						>

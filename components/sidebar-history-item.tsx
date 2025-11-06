@@ -31,16 +31,39 @@ const PureChatItem = ({
 	isActive,
 	onDelete,
 	setOpenMobile,
+	isOptimistic = false,
 }: {
 	chat: Chat;
 	isActive: boolean;
 	onDelete: (chatId: string) => void;
 	setOpenMobile: (open: boolean) => void;
+	isOptimistic?: boolean;
 }) => {
 	const { visibilityType, setVisibilityType } = useChatVisibility({
 		chatId: chat.id,
 		initialVisibilityType: chat.visibility,
 	});
+
+	// Render skeleton for optimistic chats
+	if (isOptimistic) {
+		return (
+			<SidebarMenuItem>
+				<SidebarMenuButton asChild isActive={isActive}>
+					<Link
+						href={`/chat/${chat.id}`}
+						onClick={() => setOpenMobile(false)}
+					>
+						<span className="flex items-center gap-2">
+							<span className="inline-block size-1 animate-pulse rounded-full bg-current" />
+							<span className="animate-pulse text-muted-foreground">
+								{chat.title}
+							</span>
+						</span>
+					</Link>
+				</SidebarMenuButton>
+			</SidebarMenuItem>
+		);
+	}
 
 	return (
 		<SidebarMenuItem>

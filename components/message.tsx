@@ -340,7 +340,8 @@ export const PreviewMessage = memo(
 			return false;
 		}
 
-		return false;
+		// No changes detected - skip render (memoize)
+		return true;
 	}
 );
 

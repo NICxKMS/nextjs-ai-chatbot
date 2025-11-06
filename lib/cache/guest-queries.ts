@@ -91,6 +91,60 @@ export async function saveGuestMessages({
 	await Promise.all(cachePromises);
 }
 
+/**
+ * Optimized version that batches messages and context update in a single cache operation
+ */
+export async function saveGuestMessagesAndContext({
+	messages,
+	userId,
+	chatId,
+	lastContext,
+	isNewChat,
+	title,
+	visibility,
+}: {
+	messages: DBMessage[];
+	userId: string;
+	chatId: string;
+	lastContext?: any;
+	isNewChat?: boolean;
+	title?: string;
+	visibility?: VisibilityType;
+}) {
+	// Convert messages to cached format
+	const cachedMessages: CachedMessage[] = messages.map((msg) => ({
+		id: msg.id || "",
+		chatId: msg.chatId,
+		role: msg.role,
+		parts: msg.parts as any,
+		attachments: (msg.attachments || []) as any[],
+		createdAt: msg.createdAt ? msg.createdAt.toISOString() : new Date().toISOString(),
+	}));
+
+	if (isNewChat && title && visibility) {
+		// For new chats, create with messages in one operation
+		const { createOrUpdateChatWithMessages } = await import("./batch-operations");
+		await createOrUpdateChatWithMessages({
+			chatId,
+			userId,
+			title,
+			visibility,
+			messages: cachedMessages,
+			lastContext,
+		});
+	} else {
+		// For existing chats, use batch update
+		const { batchUpdateChatCache } = await import("./batch-operations");
+		await batchUpdateChatCache({
+			chatId,
+			userId,
+			messages: cachedMessages,
+			lastContext,
+			title,
+		});
+	}
+}
+
 export async function getGuestChatById({
 	id,
 	userId,
@@ -180,4 +234,87 @@ export async function deleteGuestChatById({
 	userId: string;
 }) {
 	await deleteChatFromCache(id, userId);
+}
+
+export async function getGuestChatsByUserId({
+	id,
+	limit,
+	startingAfter: _startingAfter,
+	endingBefore: _endingBefore,
+}: {
+	id: string;
+	limit: number;
+	startingAfter: string | null;
+	endingBefore: string | null;
+}) {
+	const { getUserChatsFromCache } = await import("./operations");
+	
+	// TODO: Implement cursor-based pagination using _startingAfter/_endingBefore
+	// For now, simple offset-based pagination
+	const offset = 0;
+	const extendedLimit = limit + 1;
+	
+	const chatList = await getUserChatsFromCache(id, extendedLimit, offset);
+	
+	// OPTIMIZATION: Batch fetch with MGET instead of N+1 pattern
+	const { getRedisClient } = await import("./redis");
+	const { CacheKeys } = await import("./types");
+	const redis = getRedisClient();
+	
+	if (!redis || chatList.length === 0) {
+		return { chats: [], hasMore: false };
+	}
+	
+	// Batch fetch all chats in single MGET operation
+	const cacheKeys = chatList.map(item => CacheKeys.chat(item.chatId, id));
+	const cachedChats = await redis.mget<any[]>(...cacheKeys);
+	
+	// Convert to full chat objects
+	const chats = cachedChats
+		.map((cached) => {
+			if (!cached) {
+				return null;
+			}
+			
+			return {
+				id: cached.id,
+				userId: cached.userId,
+				title: cached.title,
+				visibility: cached.visibility,
+				createdAt: new Date(cached.createdAt),
+				updatedAt: new Date(cached.updatedAt),
+				lastContext: cached.lastContext,
+			};
+		})
+		.filter((c): c is NonNullable<typeof c> => {
+			return c !== null;
+		});
+	
+	const validChats = chats.filter((c) => c !== null);
+	const hasMore = validChats.length > limit;
+	
+	return {
+		chats: hasMore ? validChats.slice(0, limit) : validChats,
+		hasMore,
+	};
+}
+
+export async function deleteAllGuestChatsByUserId({
+	userId,
+}: {
+	userId: string;
+}) {
+	const { getUserChatsFromCache } = await import("./operations");
+	
+	// Get all chats for this user (use large limit to get all)
+	const chatList = await getUserChatsFromCache(userId, 1000, 0);
+	
+	// Delete each chat from cache
+	const deletePromises = chatList.map((item) =>
+		deleteChatFromCache(item.chatId, userId)
+	);
+	
+	await Promise.all(deletePromises);
+	
+	return { deletedCount: chatList.length };
 }

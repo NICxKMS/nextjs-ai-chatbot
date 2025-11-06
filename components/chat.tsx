@@ -3,7 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
 import { ChatHeader } from "@/components/chat-header";
@@ -20,6 +20,7 @@ import {
 import { useArtifactSelector } from "@/hooks/use-artifact";
 import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
+import { useOptimisticChats } from "@/hooks/use-optimistic-chats";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 import { ChatSDKError } from "@/lib/errors";
 import type { Attachment, ChatMessage, UserVote } from "@/lib/types";
@@ -61,6 +62,7 @@ export function Chat({
 	const { mutate } = useSWRConfig();
 	const { setDataStream } = useDataStream();
 	const settings = useSettingsSnapshot();
+	const { addOptimisticChat, removeOptimisticChat } = useOptimisticChats();
 
 	const [input, setInput] = useState<string>("");
 	const [usage, setUsage] = useState<AppUsage | undefined>(
@@ -98,6 +100,20 @@ export function Chat({
 		currentModelIdRef.current = currentModelId;
 	}, [currentModelId]);
 
+	// Adaptive throttle based on connection speed (memoized)
+	const optimalThrottle = useMemo(() => {
+		if (typeof navigator !== "undefined" && "connection" in navigator) {
+			const conn = (navigator as any).connection;
+			if (conn?.effectiveType === "4g" || conn?.effectiveType === "5g") {
+				return 50; // Faster for good connections
+			}
+			if (conn?.effectiveType === "3g") {
+				return 150; // Slower for 3G
+			}
+		}
+		return 100; // Default
+	}, []);
+
 	const {
 		messages,
 		setMessages,
@@ -109,7 +125,7 @@ export function Chat({
 	} = useChat<ChatMessage>({
 		id,
 		messages: initialMessages,
-		experimental_throttle: 100,
+		experimental_throttle: optimalThrottle,
 		generateId: generateUUID,
 		transport: new DefaultChatTransport({
 			api: "/api/chat",
@@ -135,18 +151,42 @@ export function Chat({
 				setUsage(dataPart.data);
 			}
 			if (dataPart.type === "data-chatTitle") {
+				// Remove optimistic chat and trigger refetch when title is ready
+				removeOptimisticChat(id);
 				mutate(unstable_serialize(getChatHistoryPaginationKey));
 			}
 			if (dataPart.type === "data-appendMessage") {
-				try {
-					const message = JSON.parse((dataPart as any).data);
-					setMessages((prev) => [...prev, message]);
-				} catch {
-					// ignore malformed payloads
+				const data = (dataPart as any).data;
+				// Validate before parsing to reduce exception overhead
+				if (typeof data === "string") {
+					try {
+						const message = JSON.parse(data);
+						// Basic validation to ensure it's a valid message
+						if (message?.id && message?.role) {
+							setMessages((prev) => [...prev, message]);
+						}
+					} catch (error) {
+						if (process.env.NODE_ENV !== "production") {
+							console.warn(
+								"Failed to parse data-appendMessage:",
+								error
+							);
+						}
+					}
+				} else if (
+					typeof data === "object" &&
+					data !== null &&
+					data?.id &&
+					data?.role
+				) {
+					// Already parsed object with valid structure
+					setMessages((prev) => [...prev, data]);
 				}
 			}
 		},
 		onError: (error) => {
+			// Remove optimistic chat on error
+			removeOptimisticChat(id);
 			if (error instanceof ChatSDKError) {
 				const isGatewayCreditCardError = error.message?.includes(
 					"AI Gateway requires a valid credit card"
@@ -198,6 +238,23 @@ export function Chat({
 			});
 		},
 	});
+
+	// Add optimistic chat when user sends first message
+	useEffect(() => {
+		if (
+			status === "submitted" &&
+			initialMessages.length === 0 &&
+			messages.length === 1
+		) {
+			addOptimisticChat(id);
+		}
+	}, [
+		status,
+		messages.length,
+		initialMessages.length,
+		id,
+		addOptimisticChat,
+	]);
 
 	const searchParams = useSearchParams();
 	const query = searchParams.get("query");

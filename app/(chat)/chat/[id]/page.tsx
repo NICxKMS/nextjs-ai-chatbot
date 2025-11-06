@@ -11,16 +11,17 @@ import { convertToUIMessages } from "@/lib/utils";
 export default async function Page(props: { params: Promise<{ id: string }> }) {
 	const params = await props.params;
 	const { id } = params;
-	const chat = await getChatById({ id });
-
-	if (!chat) {
-		notFound();
-	}
-
 	const session = await auth();
 
 	if (!session) {
 		redirect("/api/auth/guest");
+	}
+
+	// Pass userId to enable cache lookup for both guest and authenticated users
+	const chat = await getChatById({ id, userId: session.user?.id });
+
+	if (!chat) {
+		notFound();
 	}
 
 	if (chat.visibility === "private") {
@@ -33,8 +34,10 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 		}
 	}
 
+	// Pass userId to enable cache lookup for messages
 	const messagesFromDb = await getMessagesByChatId({
 		id,
+		userId: session.user?.id,
 	});
 
 	const uiMessages = convertToUIMessages(messagesFromDb);

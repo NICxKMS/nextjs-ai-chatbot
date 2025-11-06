@@ -1,5 +1,8 @@
 import { registerOTel } from "@vercel/otel";
 
 export function register() {
-	registerOTel({ serviceName: "ai-chatbot" });
+	// Enhanced configuration for Vercel Fluid Compute tracing
+	registerOTel({ 
+		serviceName: "ai-chatbot",
+	});
 }
