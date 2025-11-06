@@ -146,9 +146,6 @@ export function Chat({
 				}
 			}
 		},
-		onFinish: () => {
-			mutate(unstable_serialize(getChatHistoryPaginationKey));
-		},
 		onError: (error) => {
 			if (error instanceof ChatSDKError) {
 				const isGatewayCreditCardError = error.message?.includes(

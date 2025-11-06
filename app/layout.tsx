@@ -4,10 +4,10 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import { Toaster } from "sonner";
 import { SWRConfig } from "swr";
+import { SessionWrapper } from "@/components/session-wrapper";
 import { ThemeProvider } from "@/components/theme-provider";
 
 import "./globals.css";
-import { SessionProvider } from "next-auth/react";
 
 export const metadata: Metadata = {
 	metadataBase: new URL("https://chat.vercel.ai"),
@@ -84,22 +84,19 @@ export default function RootLayout({
 						enableSystem
 					>
 						<Toaster position="top-center" />
-						<SessionProvider>
-							{/* 🟢 SWR Global Config goes here */}
-							<SWRConfig
-								value={{
-									dedupingInterval: 10_000,
-									revalidateOnFocus: false,
-									revalidateOnReconnect: false,
-									refreshWhenHidden: false,
-									refreshWhenOffline: false,
-									revalidateIfStale: false,
-									// revalidateOnMount: false,
-								}}
-							>
-								{children}
-							</SWRConfig>
-						</SessionProvider>
+						<SWRConfig
+							value={{
+								dedupingInterval: 10_000,
+								revalidateOnFocus: false,
+								revalidateOnReconnect: false,
+								refreshWhenHidden: false,
+								refreshWhenOffline: false,
+								revalidateIfStale: false,
+								// revalidateOnMount: false,
+							}}
+						>
+							<SessionWrapper>{children}</SessionWrapper>
+						</SWRConfig>
 					</ThemeProvider>
 				</Suspense>
 			</body>

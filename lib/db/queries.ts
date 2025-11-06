@@ -16,6 +16,22 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import type { ArtifactKind } from "@/components/artifact";
 import type { VisibilityType } from "@/components/visibility-selector";
+import {
+	appendDocumentVersionToCache,
+	appendMessagesToCache,
+	chatToCache,
+	deleteChatFromCache,
+	getChatFromCache,
+	getDocumentFromCache,
+	setChatInCache,
+	updateChatLastContextInCache,
+	updateChatTitleInCache,
+	updateChatVisibilityInCache,
+	warmChatCache,
+	warmDocumentCache,
+} from "../cache/operations";
+import { isRedisAvailable } from "../cache/redis";
+import type { CachedMessage } from "../cache/types";
 import { ChatSDKError } from "../errors";
 import type { AppUsage } from "../usage";
 import { generateUUID } from "../utils";
@@ -26,7 +42,6 @@ import {
 	document,
 	message,
 	type Suggestion,
-	stream,
 	suggestion,
 	type User,
 	user,
@@ -100,13 +115,26 @@ export async function saveChat({
 	visibility: VisibilityType;
 }) {
 	try {
-		return await db.insert(chat).values({
+		const now = new Date();
+		const chatData = {
 			id,
-			createdAt: new Date(),
+			createdAt: now,
 			userId,
 			title,
 			visibility,
-		});
+			updatedAt: now,
+			lastContext: null,
+		};
+
+		// Write to both DB and cache in parallel
+		const dbPromise = db.insert(chat).values(chatData);
+
+		const cachePromise = isRedisAvailable()
+			? setChatInCache(id, userId, chatToCache(chatData as Chat, []))
+			: Promise.resolve();
+
+		await Promise.all([dbPromise, cachePromise]);
+		return;
 	} catch (_error) {
 		throw new ChatSDKError("bad_request:database", "Failed to save chat");
 	}
@@ -114,15 +142,22 @@ export async function saveChat({
 
 export async function deleteChatById({ id }: { id: string }) {
 	try {
+		// Get chat first to get userId for cache deletion
+		const selectedChat = await getChatById({ id });
+
 		await db.delete(vote).where(eq(vote.chatId, id));
 		await db.delete(message).where(eq(message.chatId, id));
-		await db.delete(stream).where(eq(stream.chatId, id));
 
-		const [chatsDeleted] = await db
-			.delete(chat)
-			.where(eq(chat.id, id))
-			.returning();
-		return chatsDeleted;
+		const dbPromise = db.delete(chat).where(eq(chat.id, id)).returning();
+
+		// Delete from cache in parallel
+		const cachePromise =
+			isRedisAvailable() && selectedChat
+				? deleteChatFromCache(id, selectedChat.userId)
+				: Promise.resolve();
+
+		const [result] = await Promise.all([dbPromise, cachePromise]);
+		return result[0];
 	} catch (_error) {
 		throw new ChatSDKError(
 			"bad_request:database",
@@ -146,7 +181,6 @@ export async function deleteAllChatsByUserId({ userId }: { userId: string }) {
 
 		await db.delete(vote).where(inArray(vote.chatId, chatIds));
 		await db.delete(message).where(inArray(message.chatId, chatIds));
-		await db.delete(stream).where(inArray(stream.chatId, chatIds));
 
 		const deletedChats = await db
 			.delete(chat)
@@ -242,14 +276,53 @@ export async function getChatsByUserId({
 	}
 }
 
-export async function getChatById({ id }: { id: string }) {
+export async function getChatById({
+	id,
+	userId,
+}: {
+	id: string;
+	userId?: string;
+}) {
 	try {
+		// Try cache first if userId is provided
+		if (userId && isRedisAvailable()) {
+			const cached = await getChatFromCache(id, userId);
+			if (cached) {
+				// Return chat metadata (without messages)
+				return {
+					id: cached.id,
+					userId: cached.userId,
+					title: cached.title,
+					visibility: cached.visibility,
+					createdAt: new Date(cached.createdAt),
+					updatedAt: new Date(cached.updatedAt),
+					lastContext: cached.lastContext,
+				} as Chat;
+			}
+		}
+
+		// Cache miss - fetch from database
 		const [selectedChat] = await db
 			.select()
 			.from(chat)
 			.where(eq(chat.id, id));
 		if (!selectedChat) {
 			return null;
+		}
+
+		// Warm cache in background if userId provided
+		if (userId && isRedisAvailable() && selectedChat.userId === userId) {
+			// Fetch messages for cache warming (don't block)
+			getMessagesByChatId({ id })
+				.then((messages) => {
+					warmChatCache(
+						id,
+						userId,
+						selectedChat,
+						messages as DBMessage[]
+					);
+				})
+				.catch((err) => console.error("Cache warming failed:", err));
 		}
 
 		return selectedChat;
@@ -263,10 +336,52 @@ export async function getChatById({ id }: { id: string }) {
 
 export async function saveMessages({ messages }: { messages: DBMessage[] }) {
 	try {
-		return await db
+		const dbPromise = db
 			.insert(message)
 			.values(messages)
 			.onConflictDoNothing({ target: message.id });
+
+		// Update cache in parallel - use bulk operation
+		const cachePromises: Promise<void>[] = [];
+		if (isRedisAvailable() && messages.length > 0) {
+			// Group messages by chatId
+			const messagesByChatId = new Map<string, { userId: string; messages: CachedMessage[] }>();
+			
+			for (const msg of messages) {
+				if (!msg.chatId) {
+					continue;
+				}
+				
+				if (!messagesByChatId.has(msg.chatId)) {
+					// Get chat to find userId
+					const selectedChat = await getChatById({ id: msg.chatId });
+					if (!selectedChat) {
+						continue;
+					}
+					messagesByChatId.set(msg.chatId, { userId: selectedChat.userId, messages: [] });
+				}
+				
+				const chatData = messagesByChatId.get(msg.chatId);
+				if (chatData) {
+					chatData.messages.push({
+						id: msg.id || "",
+						chatId: msg.chatId,
+						role: msg.role,
+						parts: msg.parts as any,
+						attachments: (msg.attachments || []) as any[],
+						createdAt: msg.createdAt ? msg.createdAt.toISOString() : new Date().toISOString(),
+					});
+				}
+			}
+			
+			// Bulk append for each chat
+			for (const [chatId, data] of messagesByChatId.entries()) {
+				cachePromises.push(appendMessagesToCache(chatId, data.userId, data.messages));
+			}
+		}
+
+		await Promise.all([dbPromise, ...cachePromises]);
+		return;
 	} catch (_error) {
 		throw new ChatSDKError(
 			"bad_request:database",
@@ -275,8 +390,31 @@ export async function saveMessages({ messages }: { messages: DBMessage[] }) {
 	}
 }
 
-export async function getMessagesByChatId({ id }: { id: string }) {
+export async function getMessagesByChatId({
+	id,
+	userId,
+}: {
+	id: string;
+	userId?: string;
+}) {
 	try {
+		// Try cache first if userId provided
+		if (userId && isRedisAvailable()) {
+			const cached = await getChatFromCache(id, userId);
+			if (cached) {
+				// Return messages from cached denormalized structure
+				return cached.messages.map((msg) => ({
+					id: msg.id,
+					chatId: msg.chatId,
+					role: msg.role,
+					parts: msg.parts,
+					attachments: msg.attachments,
+					createdAt: new Date(msg.createdAt),
+				}));
+			}
+		}
+
+		// Cache miss - fetch from database
 		return await db
 			.select()
 			.from(message)
@@ -386,7 +524,8 @@ export async function saveDocument({
 	userId: string;
 }) {
 	try {
-		return await db
+		const createdAt = new Date();
+		const dbPromise = db
 			.insert(document)
 			.values({
 				id,
@@ -395,9 +534,38 @@ export async function saveDocument({
 				kind,
 				content,
 				userId,
-				createdAt: new Date(),
+				createdAt,
 			})
 			.returning();
+
+		// Update cache in parallel
+		const cachePromise = isRedisAvailable()
+			? appendDocumentVersionToCache(
+					id,
+					userId,
+					{
+						title,
+						content,
+						kind,
+						createdAt: createdAt.toISOString(),
+						updatedAt: createdAt.toISOString(),
+					},
+					{ chatId }
+				)
+			: Promise.resolve();
+
+		const [dbResult] = await Promise.allSettled([
+			dbPromise,
+			cachePromise,
+		]);
+
+		if (dbResult.status === "rejected") {
+			console.warn("saveDocument: DB write failed, cache updated", dbResult.reason);
+			// Graceful degradation: return undefined to avoid tool failure
+			return undefined as any;
+		}
+
+		return dbResult.value;
 	} catch (_error) {
 		throw new ChatSDKError(
 			"bad_request:database",
@@ -406,13 +574,42 @@ export async function saveDocument({
 	}
 }
 
-export async function getDocumentsById({ id }: { id: string }) {
+export async function getDocumentsById({
+	id,
+	userId,
+}: {
+	id: string;
+	userId?: string;
+}) {
 	try {
+		// Try cache first if userId provided
+		if (userId && isRedisAvailable()) {
+			const cached = await getDocumentFromCache(id, userId);
+			if (cached && cached.versions.length > 0) {
+				return cached.versions.map((v) => ({
+					id: cached.id,
+					userId: cached.userId,
+					chatId: cached.chatId,
+					title: v.title,
+					content: v.content,
+					kind: v.kind,
+					createdAt: new Date(v.createdAt),
+				}));
+			}
+		}
+
 		const documents = await db
 			.select()
 			.from(document)
 			.where(eq(document.id, id))
 			.orderBy(asc(document.createdAt));
+
+		// Warm cache in background
+		if (userId && isRedisAvailable() && documents.length > 0) {
+			warmDocumentCache(id, userId, documents as any).catch(
+				console.error
+			);
+		}
 
 		return documents;
 	} catch (_error) {
@@ -423,13 +620,49 @@ export async function getDocumentsById({ id }: { id: string }) {
 	}
 }
 
-export async function getDocumentById({ id }: { id: string }) {
+export async function getDocumentById({
+	id,
+	userId,
+}: {
+	id: string;
+	userId?: string;
+}) {
 	try {
+		// Try cache first if userId provided
+		if (userId && isRedisAvailable()) {
+			const cached = await getDocumentFromCache(id, userId);
+			if (cached && cached.versions.length > 0) {
+				const latestVersion = cached.versions.at(-1);
+				if (latestVersion) {
+					return {
+						id: cached.id,
+						userId: cached.userId,
+						chatId: cached.chatId,
+						title: latestVersion.title,
+						content: latestVersion.content,
+						kind: latestVersion.kind,
+						createdAt: new Date(latestVersion.createdAt),
+						updatedAt: new Date(latestVersion.updatedAt),
+					};
+				}
+			}
+		}
+
 		const [selectedDocument] = await db
 			.select()
 			.from(document)
 			.where(eq(document.id, id))
 			.orderBy(desc(document.createdAt));
+
+		// Warm cache in background
+		if (userId && isRedisAvailable() && selectedDocument) {
+			db.select()
+				.from(document)
+				.where(eq(document.id, id))
+				.orderBy(asc(document.createdAt))
+				.then((docs) => warmDocumentCache(id, userId, docs as any))
+				.catch(console.error);
+		}
 
 		return selectedDocument;
 	} catch (_error) {
@@ -570,10 +803,27 @@ export async function updateChatVisiblityById({
 	visibility: "private" | "public";
 }) {
 	try {
-		return await db
+		const dbPromise = db
 			.update(chat)
 			.set({ visibility, updatedAt: new Date() })
 			.where(eq(chat.id, chatId));
+
+		// Update cache in parallel
+		const cachePromise = isRedisAvailable()
+			? getChatById({ id: chatId }).then((selectedChat) => {
+					if (selectedChat) {
+						return updateChatVisibilityInCache(
+							chatId,
+							selectedChat.userId,
+							visibility
+						);
+					}
+					return Promise.resolve();
+				})
+			: Promise.resolve();
+
+		await Promise.all([dbPromise, cachePromise]);
+		return;
 	} catch (_error) {
 		throw new ChatSDKError(
 			"bad_request:database",
@@ -590,10 +840,27 @@ export async function updateChatTitleById({
 	title: string;
 }) {
 	try {
-		return await db
+		const dbPromise = db
 			.update(chat)
 			.set({ title, updatedAt: new Date() })
 			.where(eq(chat.id, chatId));
+
+		// Update cache in parallel
+		const cachePromise = isRedisAvailable()
+			? getChatById({ id: chatId }).then((selectedChat) => {
+					if (selectedChat) {
+						return updateChatTitleInCache(
+							chatId,
+							selectedChat.userId,
+							title
+						);
+					}
+					return Promise.resolve();
+				})
+			: Promise.resolve();
+
+		await Promise.all([dbPromise, cachePromise]);
+		return;
 	} catch (_error) {
 		throw new ChatSDKError(
 			"bad_request:database",
@@ -611,10 +878,27 @@ export async function updateChatLastContextById({
 	context: AppUsage;
 }) {
 	try {
-		return await db
+		const dbPromise = db
 			.update(chat)
 			.set({ lastContext: context, updatedAt: new Date() })
 			.where(eq(chat.id, chatId));
+
+		// Update cache in parallel
+		const cachePromise = isRedisAvailable()
+			? getChatById({ id: chatId }).then((selectedChat) => {
+					if (selectedChat) {
+						return updateChatLastContextInCache(
+							chatId,
+							selectedChat.userId,
+							context
+						);
+					}
+					return Promise.resolve();
+				})
+			: Promise.resolve();
+
+		await Promise.all([dbPromise, cachePromise]);
+		return;
 	} catch (error) {
 		console.warn("Failed to update lastContext for chat", chatId, error);
 		return;
@@ -651,43 +935,6 @@ export async function getMessageCountByUserId({
 		throw new ChatSDKError(
 			"bad_request:database",
 			"Failed to get message count by user id"
-		);
-	}
-}
-
-export async function createStreamId({
-	streamId,
-	chatId,
-}: {
-	streamId: string;
-	chatId: string;
-}) {
-	try {
-		await db
-			.insert(stream)
-			.values({ id: streamId, chatId, createdAt: new Date() });
-	} catch (_error) {
-		throw new ChatSDKError(
-			"bad_request:database",
-			"Failed to create stream id"
-		);
-	}
-}
-
-export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
-	try {
-		const streamIds = await db
-			.select({ id: stream.id })
-			.from(stream)
-			.where(eq(stream.chatId, chatId))
-			.orderBy(asc(stream.createdAt))
-			.execute();
-
-		return streamIds.map(({ id }) => id);
-	} catch (_error) {
-		throw new ChatSDKError(
-			"bad_request:database",
-			"Failed to get stream ids by chat id"
 		);
 	}
 }

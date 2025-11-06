@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { User } from "next-auth";
+import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
@@ -34,10 +34,12 @@ import {
 } from "./ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
-export function AppSidebar({ user }: { user: User | undefined }) {
+export function AppSidebar() {
 	const router = useRouter();
 	const { setOpenMobile } = useSidebar();
 	const { mutate } = useSWRConfig();
+	const { data: session } = useSession();
+	const user = session?.user;
 	const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
 
 	const handleDeleteAll = () => {

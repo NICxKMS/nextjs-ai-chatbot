@@ -4,6 +4,7 @@ import { codeDocumentHandler } from "@/artifacts/code/server";
 import { sheetDocumentHandler } from "@/artifacts/sheet/server";
 import { textDocumentHandler } from "@/artifacts/text/server";
 import type { ArtifactKind } from "@/components/artifact";
+import { appendDocumentVersionToCache } from "../cache/operations";
 import { saveDocument } from "../db/queries";
 import type { Document } from "../db/schema";
 import type { ChatMessage } from "../types";
@@ -14,7 +15,7 @@ export type SaveDocumentProps = {
 	kind: ArtifactKind;
 	content: string;
 	userId: string;
-    chatId: string;
+	chatId: string;
 };
 
 export type CreateDocumentCallbackProps = {
@@ -22,7 +23,7 @@ export type CreateDocumentCallbackProps = {
 	title: string;
 	dataStream: UIMessageStreamWriter<ChatMessage>;
 	session: Session;
-    chatId: string;
+	chatId: string;
 };
 
 export type UpdateDocumentCallbackProps = {
@@ -51,18 +52,33 @@ export function createDocumentHandler<T extends ArtifactKind>(config: {
 				title: args.title,
 				dataStream: args.dataStream,
 				session: args.session,
-                chatId: args.chatId,
+				chatId: args.chatId,
 			});
 
 			if (args.session?.user?.id) {
-				await saveDocument({
-					id: args.id,
-					title: args.title,
-					content: draftContent,
-					kind: config.kind,
-					userId: args.session.user.id,
-                    chatId: args.chatId,
-				});
+				if (args.session.user.type === "guest") {
+					await appendDocumentVersionToCache(
+						args.id,
+						args.session.user.id,
+						{
+							title: args.title,
+							content: draftContent,
+							kind: config.kind,
+							createdAt: new Date().toISOString(),
+							updatedAt: new Date().toISOString(),
+						},
+						{ chatId: args.chatId }
+					);
+				} else {
+					await saveDocument({
+						id: args.id,
+						title: args.title,
+						content: draftContent,
+						kind: config.kind,
+						userId: args.session.user.id,
+						chatId: args.chatId,
+					});
+				}
 			}
 
 			return;
@@ -76,14 +92,29 @@ export function createDocumentHandler<T extends ArtifactKind>(config: {
 			});
 
 			if (args.session?.user?.id) {
-				await saveDocument({
-					id: args.document.id,
-					title: args.document.title,
-					content: draftContent,
-					kind: config.kind,
-					userId: args.session.user.id,
-                    chatId: args.document.chatId,
-				});
+				if (args.session.user.type === "guest") {
+					await appendDocumentVersionToCache(
+						args.document.id,
+						args.session.user.id,
+						{
+							title: args.document.title,
+							content: draftContent,
+							kind: config.kind,
+							createdAt: new Date().toISOString(),
+							updatedAt: new Date().toISOString(),
+						},
+						{ chatId: args.document.chatId }
+					);
+				} else {
+					await saveDocument({
+						id: args.document.id,
+						title: args.document.title,
+						content: draftContent,
+						kind: config.kind,
+						userId: args.session.user.id,
+						chatId: args.document.chatId,
+					});
+				}
 			}
 
 			return;

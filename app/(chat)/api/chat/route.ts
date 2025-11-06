@@ -8,11 +8,6 @@ import {
 	streamText,
 } from "ai";
 import { unstable_cache as cache } from "next/cache";
-import { after } from "next/server";
-import {
-	createResumableStreamContext,
-	type ResumableStreamContext,
-} from "resumable-stream";
 import type { ModelCatalog } from "tokenlens/core";
 import { fetchModels } from "tokenlens/fetch";
 import { getUsage } from "tokenlens/helpers";
@@ -27,9 +22,17 @@ import { createDocument } from "@/lib/ai/tools/create-document";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
+import {
+	getGuestChatById,
+	getGuestMessagesByChatId,
+	saveGuestChat,
+	saveGuestMessages,
+	updateGuestChatLastContextById,
+	updateGuestChatTitleById,
+} from "@/lib/cache/guest-queries";
+import { isRedisAvailable } from "@/lib/cache/redis";
 import { isProductionEnvironment } from "@/lib/constants";
 import {
-	createStreamId,
 	deleteChatById,
 	getChatById,
 	getMessageCountByUserId,
@@ -79,8 +82,6 @@ const getEnabledTools = (model: ModelMetadata | undefined): ToolIdList => {
 
 export const maxDuration = 60;
 
-let globalStreamContext: ResumableStreamContext | null = null;
-
 const getTokenlensCatalog = cache(
 	async (): Promise<ModelCatalog | undefined> => {
 		try {
@@ -96,26 +97,6 @@ const getTokenlensCatalog = cache(
 	["tokenlens-catalog"],
 	{ revalidate: 24 * 60 * 60 } // 24 hours
 );
-
-export function getStreamContext() {
-	if (!globalStreamContext) {
-		try {
-			globalStreamContext = createResumableStreamContext({
-				waitUntil: after,
-			});
-		} catch (error: any) {
-			if (error.message.includes("REDIS_URL")) {
-				console.log(
-					" > Resumable streams are disabled due to missing REDIS_URL"
-				);
-			} else {
-				console.error(error);
-			}
-		}
-	}
-
-	return globalStreamContext;
-}
 
 export async function POST(request: Request) {
 	let requestBody: PostRequestBody;
@@ -150,14 +131,27 @@ export async function POST(request: Request) {
 		}
 
 		const userType: UserType = session.user.type;
+		const isGuest = userType === "guest";
+
+		// For guest users, require Redis to be available
+		if (isGuest && !isRedisAvailable()) {
+			return new ChatSDKError(
+				"bad_request:api",
+				"Guest sessions require cache to be enabled"
+			).toResponse();
+		}
 
 		const [messageCount, chat, messagesFromDb] = await Promise.all([
 			getMessageCountByUserId({
 				id: session.user.id,
 				differenceInHours: 24,
 			}),
-			getChatById({ id }),
-			getMessagesByChatId({ id }),
+			isGuest
+				? getGuestChatById({ id, userId: session.user.id })
+				: getChatById({ id, userId: session.user.id }),
+			isGuest
+				? getGuestMessagesByChatId({ id, userId: session.user.id })
+				: getMessagesByChatId({ id, userId: session.user.id }),
 		]);
 
 		const userEntitlements =
@@ -191,12 +185,21 @@ export async function POST(request: Request) {
 				}
 			})();
 
-			await saveChat({
-				id,
-				userId: session.user.id,
-				title: placeholderTitle,
-				visibility: selectedVisibilityType,
-			});
+			if (isGuest) {
+				await saveGuestChat({
+					id,
+					userId: session.user.id,
+					title: placeholderTitle,
+					visibility: selectedVisibilityType,
+				});
+			} else {
+				await saveChat({
+					id,
+					userId: session.user.id,
+					title: placeholderTitle,
+					visibility: selectedVisibilityType,
+				});
+			}
 		}
 
 		const isNewChat = !chat;
@@ -212,23 +215,7 @@ export async function POST(request: Request) {
 			country,
 		};
 
-		const streamId = generateUUID();
-		await Promise.all([
-			saveMessages({
-				messages: [
-					{
-						chatId: id,
-						id: message.id,
-						role: "user",
-						parts: message.parts,
-						attachments: [],
-						createdAt: new Date(),
-					},
-				],
-			}),
-			createStreamId({ streamId, chatId: id }),
-		]);
-
+		// Don't save user message here - will be saved in onFinish with assistant response
 		let finalMergedUsage: AppUsage | undefined;
 		const tokenlensCatalogPromise = getTokenlensCatalog();
 
@@ -243,10 +230,18 @@ export async function POST(request: Request) {
 								await generateTitleFromUserMessage({
 									message,
 								});
-							await updateChatTitleById({
-								chatId: id,
-								title: generatedTitle,
-							});
+							if (isGuest) {
+								await updateGuestChatTitleById({
+									chatId: id,
+									userId: session.user.id,
+									title: generatedTitle,
+								});
+							} else {
+								await updateChatTitleById({
+									chatId: id,
+									title: generatedTitle,
+								});
+							}
 							dataStream.write({
 								type: "data-chatTitle",
 								data: generatedTitle,
@@ -421,55 +416,71 @@ export async function POST(request: Request) {
 			},
 			generateId: generateUUID,
 			onFinish: async ({ messages }) => {
-				await Promise.all([
-					saveMessages({
-						messages: messages.map((currentMessage) => {
-							const base = {
-								id: currentMessage.id,
-								role: currentMessage.role as
-									| "user"
-									| "assistant"
-									| "system",
-								parts: currentMessage.parts,
-								createdAt: new Date(),
-								attachments: [],
-								chatId: id,
-							};
-							return base as any;
+				const messagesToSave = messages.map((currentMessage) => {
+					const base = {
+						id: currentMessage.id,
+						role: currentMessage.role as
+							| "user"
+							| "assistant"
+							| "system",
+						parts: currentMessage.parts,
+						createdAt: new Date(),
+						attachments: [],
+						chatId: id,
+					};
+					return base as any;
+				});
+
+				if (isGuest) {
+					await Promise.all([
+						saveGuestMessages({
+							messages: messagesToSave,
+							userId: session.user.id,
 						}),
-					}),
-					(async () => {
-						if (finalMergedUsage) {
-							try {
-								await updateChatLastContextById({
-									chatId: id,
-									context: finalMergedUsage,
-								});
-							} catch (err) {
-								console.warn(
-									"Unable to persist last usage for chat",
-									id,
-									err
-								);
+						(async () => {
+							if (finalMergedUsage) {
+								try {
+									await updateGuestChatLastContextById({
+										chatId: id,
+										userId: session.user.id,
+										context: finalMergedUsage,
+									});
+								} catch (err) {
+									console.warn(
+										"Unable to persist last usage for guest chat",
+										id,
+										err
+									);
+								}
 							}
-						}
-					})(),
-				]);
+						})(),
+					]);
+				} else {
+					await Promise.all([
+						saveMessages({ messages: messagesToSave }),
+						(async () => {
+							if (finalMergedUsage) {
+								try {
+									await updateChatLastContextById({
+										chatId: id,
+										context: finalMergedUsage,
+									});
+								} catch (err) {
+									console.warn(
+										"Unable to persist last usage for chat",
+										id,
+										err
+									);
+								}
+							}
+						})(),
+					]);
+				}
 			},
 			onError: () => {
 				return "Oops, an error occurred!";
 			},
 		});
-
-		const streamContext = getStreamContext();
-
-		if (streamContext) {
-			return new Response(
-				await streamContext.resumableStream(streamId, () =>
-					stream.pipeThrough(new JsonToSseTransformStream())
-				)
-			);
-		}
 
 		return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
 	} catch (error) {
