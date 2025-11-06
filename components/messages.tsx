@@ -143,5 +143,6 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
 		return false;
 	}
 
-	return false;
+	// No changes detected - skip render (memoize)
+	return true;
 });

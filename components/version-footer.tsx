@@ -70,7 +70,7 @@ export const VersionFooter = ({
 								optimisticData: documents
 									? [
 											...documents.filter((document) =>
-												isAfter(
+												!isAfter(
 													new Date(
 														document.createdAt
 													),

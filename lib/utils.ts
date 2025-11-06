@@ -55,6 +55,13 @@ export function getLocalStorage(key: string) {
 }
 
 export function generateUUID(): string {
+  // Use native crypto API (Node 16+, all modern browsers)
+  // 2-5x faster and cryptographically secure
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  
+  // Fallback for legacy environments (unlikely to be needed)
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
@@ -77,7 +84,8 @@ export function getDocumentTimestampByIndex(
   if (!documents) { return new Date(); }
   if (index > documents.length) { return new Date(); }
 
-  return documents[index].createdAt;
+  const document = documents[index];
+  return document ? document.createdAt : new Date();
 }
 
 export function getTrailingMessageId({

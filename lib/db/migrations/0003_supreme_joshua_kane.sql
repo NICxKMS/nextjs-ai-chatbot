@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS "message_chat_created_role_idx" ON "Message_v2" USING btree ("chat_id","created_at","role");

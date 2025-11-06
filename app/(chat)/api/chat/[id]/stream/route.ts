@@ -1,10 +1,7 @@
 import { createUIMessageStream, JsonToSseTransformStream } from "ai";
 import { differenceInSeconds } from "date-fns";
 import { auth } from "@/app/(auth)/auth";
-import {
-	getChatById,
-	getMessagesByChatId,
-} from "@/lib/db/queries";
+import { getChatById, getMessagesByChatId } from "@/lib/db/queries";
 import type { Chat } from "@/lib/db/schema";
 import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
@@ -42,7 +39,10 @@ export async function GET(
 	}
 
 	// Since resumable streams are removed, we just return the most recent message if it's recent
-	const messages = await getMessagesByChatId({ id: chatId, userId: session.user.id });
+	const messages = await getMessagesByChatId({
+		id: chatId,
+		userId: session.user.id,
+	});
 	const mostRecentMessage = messages.at(-1);
 
 	const emptyDataStream = createUIMessageStream<ChatMessage>({
@@ -51,18 +51,27 @@ export async function GET(
 	});
 
 	if (!mostRecentMessage) {
-		return new Response(emptyDataStream.pipeThrough(new JsonToSseTransformStream()), { status: 200 });
+		return new Response(
+			emptyDataStream.pipeThrough(new JsonToSseTransformStream()),
+			{ status: 200 }
+		);
 	}
 
 	if (mostRecentMessage.role !== "assistant") {
-		return new Response(emptyDataStream.pipeThrough(new JsonToSseTransformStream()), { status: 200 });
+		return new Response(
+			emptyDataStream.pipeThrough(new JsonToSseTransformStream()),
+			{ status: 200 }
+		);
 	}
 
 	const messageCreatedAt = new Date(mostRecentMessage.createdAt);
 	const resumeRequestedAt = new Date();
 
 	if (differenceInSeconds(resumeRequestedAt, messageCreatedAt) > 15) {
-		return new Response(emptyDataStream.pipeThrough(new JsonToSseTransformStream()), { status: 200 });
+		return new Response(
+			emptyDataStream.pipeThrough(new JsonToSseTransformStream()),
+			{ status: 200 }
+		);
 	}
 
 	const restoredStream = createUIMessageStream<ChatMessage>({

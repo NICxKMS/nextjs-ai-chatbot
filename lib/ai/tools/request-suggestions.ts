@@ -24,7 +24,8 @@ export const requestSuggestions = ({
 				.describe("The ID of the document to request edits"),
 		}),
 		execute: async ({ documentId }) => {
-			const document = await getDocumentById({ id: documentId });
+			const isGuest = session.user.type === "guest";
+			const document = await getDocumentById({ id: documentId, userId: session.user.id, isGuest });
 
 			if (!document || !document.content) {
 				return {
@@ -75,7 +76,9 @@ export const requestSuggestions = ({
 				suggestions.push(suggestion);
 			}
 
-			if (session.user?.id) {
+			// Only save suggestions to database for authenticated users
+			// Guest users cannot persist suggestions (cache-only constraint)
+			if (session.user?.id && !isGuest) {
 				const userId = session.user.id;
 
 				await saveSuggestions({

@@ -5,7 +5,9 @@ import {
 	listChatModels,
 } from "./model-registry";
 
-export const DEFAULT_CHAT_MODEL: string = getDefaultChatModel().id;
+const defaultChatModel = getDefaultChatModel();
+export const DEFAULT_CHAT_MODEL: string =
+	defaultChatModel?.id ?? "google:gemini-2.5-flash-lite";
 export const DEFAULT_TITLE_MODEL =
 	getModelById("google:gemini-2.5-flash-lite")?.id ?? DEFAULT_CHAT_MODEL;
 export const DEFAULT_ARTIFACT_MODEL =
@@ -25,4 +27,4 @@ export const chatModels: ChatModel[] = listChatModels().map((model) => ({
 	description: model.description,
 }));
 
-export const REASONING_MODEL_ID = reasoning.id;
+export const REASONING_MODEL_ID = reasoning?.id ?? "google:gemini-2.5-flash";

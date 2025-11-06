@@ -279,6 +279,10 @@ export const Tools = ({
 }) => {
 	const [primaryTool, ...secondaryTools] = tools;
 
+	if (!primaryTool) {
+		return null;
+	}
+
 	return (
 		<motion.div
 			animate={{ opacity: 1, scale: 1 }}

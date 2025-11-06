@@ -7,6 +7,9 @@ import {
 } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
 
+// Optimize for Vercel Fluid Compute
+export const maxDuration = 10;
+
 export async function GET(request: Request) {
 	const { searchParams } = new URL(request.url);
 	const id = searchParams.get("id");
@@ -24,7 +27,8 @@ export async function GET(request: Request) {
 		return new ChatSDKError("unauthorized:document").toResponse();
 	}
 
-	const documents = await getDocumentsById({ id, userId: session.user.id });
+	const isGuest = session.user.type === "guest";
+	const documents = await getDocumentsById({ id, userId: session.user.id, isGuest });
 
 	const [document] = documents;
 
@@ -59,6 +63,8 @@ export async function POST(request: Request) {
 		return new ChatSDKError("unauthorized:document").toResponse();
 	}
 
+	const isGuest = session.user.type === "guest";
+
 	const {
 		content,
 		title,
@@ -66,7 +72,7 @@ export async function POST(request: Request) {
 	}: { content: string; title: string; kind: ArtifactKind } =
 		await bodyPromise;
 	
-	const documents = await getDocumentsById({ id, userId: session.user.id });
+	const documents = await getDocumentsById({ id, userId: session.user.id, isGuest });
 
 	let chatId: string | null = null;
 
@@ -95,6 +101,7 @@ export async function POST(request: Request) {
 		kind,
 		userId: session.user.id,
 		chatId,
+		isGuest,
 	});
 
 	return Response.json(document, { status: 200 });
@@ -125,9 +132,14 @@ export async function DELETE(request: Request) {
 		return new ChatSDKError("unauthorized:document").toResponse();
 	}
 
-	const documents = await getDocumentsById({ id, userId: session.user.id });
+	const isGuest = session.user.type === "guest";
+	const documents = await getDocumentsById({ id, userId: session.user.id, isGuest });
 
 	const [document] = documents;
+
+	if (!document) {
+		return new ChatSDKError("not_found:document").toResponse();
+	}
 
 	if (document.userId !== session.user.id) {
 		return new ChatSDKError("forbidden:document").toResponse();
@@ -136,6 +148,8 @@ export async function DELETE(request: Request) {
 	const documentsDeleted = await deleteDocumentsByIdAfterTimestamp({
 		id,
 		timestamp: new Date(timestamp),
+		userId: session.user.id,
+		isGuest,
 	});
 
 	return Response.json(documentsDeleted, { status: 200 });

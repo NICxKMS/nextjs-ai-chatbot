@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useActionState, useEffect, useState } from "react";
 
@@ -11,8 +10,6 @@ import { toast } from "@/components/toast";
 import { type LoginActionState, login } from "../actions";
 
 export default function Page() {
-	const router = useRouter();
-
 	const [email, setEmail] = useState("");
 	const [isSuccessful, setIsSuccessful] = useState(false);
 
@@ -39,10 +36,11 @@ export default function Page() {
 		} else if (state.status === "success") {
 			setIsSuccessful(true);
 			updateSession().then(() => {
-				router.push("/");
+				// Force full navigation to ensure session is properly loaded
+				window.location.href = "/";
 			});
 		}
-	}, [router, state.status, updateSession]);
+	}, [state.status, updateSession]);
 
 	const handleSubmit = (formData: FormData) => {
 		setEmail(formData.get("email") as string);

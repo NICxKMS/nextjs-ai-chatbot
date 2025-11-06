@@ -309,10 +309,15 @@ export function Weather({
 		...weatherAtLocation.hourly.temperature_2m.slice(0, 24)
 	);
 
-	const isDay = isWithinInterval(new Date(weatherAtLocation.current.time), {
-		start: new Date(weatherAtLocation.daily.sunrise[0]),
-		end: new Date(weatherAtLocation.daily.sunset[0]),
-	});
+	const sunrise = weatherAtLocation.daily.sunrise[0];
+	const sunset = weatherAtLocation.daily.sunset[0];
+	const isDay =
+		sunrise && sunset
+			? isWithinInterval(new Date(weatherAtLocation.current.time), {
+					start: new Date(sunrise),
+					end: new Date(sunset),
+				})
+			: true;
 
 	const [isMobile, setIsMobile] = useState(false);
 
@@ -443,7 +448,7 @@ export function Weather({
 									</div>
 
 									<div className="font-medium text-sm text-white">
-										{n(displayTemperatures[index])}°
+										{displayTemperatures[index] !== undefined ? n(displayTemperatures[index]) : "--"}°
 									</div>
 								</div>
 							);
@@ -454,17 +459,11 @@ export function Weather({
 				<div className="mt-4 flex justify-between text-white/60 text-xs">
 					<div>
 						Sunrise:{" "}
-						{format(
-							new Date(weatherAtLocation.daily.sunrise[0]),
-							"h:mm a"
-						)}
+						{sunrise ? format(new Date(sunrise), "h:mm a") : "--"}
 					</div>
 					<div>
 						Sunset:{" "}
-						{format(
-							new Date(weatherAtLocation.daily.sunset[0]),
-							"h:mm a"
-						)}
+						{sunset ? format(new Date(sunset), "h:mm a") : "--"}
 					</div>
 				</div>
 			</div>

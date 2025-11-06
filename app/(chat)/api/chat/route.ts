@@ -23,12 +23,10 @@ import { getWeather } from "@/lib/ai/tools/get-weather";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
 import {
+	deleteGuestChatById,
 	getGuestChatById,
 	getGuestMessagesByChatId,
-	saveGuestChat,
-	saveGuestMessages,
-	updateGuestChatLastContextById,
-	updateGuestChatTitleById,
+	saveGuestMessagesAndContext,
 } from "@/lib/cache/guest-queries";
 import { isRedisAvailable } from "@/lib/cache/redis";
 import { isProductionEnvironment } from "@/lib/constants";
@@ -38,9 +36,7 @@ import {
 	getMessageCountByUserId,
 	getMessagesByChatId,
 	saveChat,
-	saveMessages,
-	updateChatLastContextById,
-	updateChatTitleById,
+	saveMessagesAndContext,
 } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
@@ -165,12 +161,15 @@ export async function POST(request: Request) {
 			return new ChatSDKError("rate_limit:chat").toResponse();
 		}
 
+		let chatCreatedAt: Date | undefined;
+		let placeholderTitle: string | undefined;
+
 		if (chat) {
 			if (chat.userId !== session.user.id) {
 				return new ChatSDKError("forbidden:chat").toResponse();
 			}
 		} else {
-			const placeholderTitle = (() => {
+			placeholderTitle = (() => {
 				try {
 					const textPart = (message.parts as any[])?.find(
 						(p: any) =>
@@ -185,21 +184,18 @@ export async function POST(request: Request) {
 				}
 			})();
 
-			if (isGuest) {
-				await saveGuestChat({
+			if (!isGuest) {
+				// For authenticated users, save to DB only (skip cache, will be created with messages)
+				const savedChat = await saveChat({
 					id,
 					userId: session.user.id,
-					title: placeholderTitle,
+					title: placeholderTitle || "New Chat",
 					visibility: selectedVisibilityType,
+					skipCache: true,
 				});
-			} else {
-				await saveChat({
-					id,
-					userId: session.user.id,
-					title: placeholderTitle,
-					visibility: selectedVisibilityType,
-				});
+				chatCreatedAt = savedChat.createdAt;
 			}
+			// For guests, skip saveGuestChat entirely (will be created with messages)
 		}
 
 		const isNewChat = !chat;
@@ -215,45 +211,30 @@ export async function POST(request: Request) {
 			country,
 		};
 
-		// Don't save user message here - will be saved in onFinish with assistant response
 		let finalMergedUsage: AppUsage | undefined;
+		let generatedTitlePromise: Promise<string> | null = null;
 		const tokenlensCatalogPromise = getTokenlensCatalog();
 
 		const stream = createUIMessageStream({
 			execute: ({ writer: dataStream }) => {
 				const selectedModel = getModelById(selectedChatModel);
 
+				// Start title generation early (non-blocking)
 				if (isNewChat) {
-					(async () => {
-						try {
-							const generatedTitle =
-								await generateTitleFromUserMessage({
-									message,
-								});
-							if (isGuest) {
-								await updateGuestChatTitleById({
-									chatId: id,
-									userId: session.user.id,
-									title: generatedTitle,
-								});
-							} else {
-								await updateChatTitleById({
-									chatId: id,
-									title: generatedTitle,
-								});
-							}
+					generatedTitlePromise = generateTitleFromUserMessage({ message })
+						.then((title) => {
+							// Send title to client immediately when ready
 							dataStream.write({
 								type: "data-chatTitle",
-								data: generatedTitle,
+								data: title,
 								transient: true,
 							});
-						} catch (err) {
-							console.warn(
-								"Background title generation failed",
-								err
-							);
-						}
-					})();
+							return title;
+						})
+						.catch((err) => {
+							console.warn("Background title generation failed", err);
+							return placeholderTitle || "New Chat";
+						});
 				}
 
 				const providerOptions: Record<
@@ -425,69 +406,92 @@ export async function POST(request: Request) {
 			},
 			generateId: generateUUID,
 			onFinish: async ({ messages }) => {
-				const messagesToSave = messages.map((currentMessage) => {
-					const partsWithModel = [
-						...currentMessage.parts,
-						{ type: "model", id: selectedModelId },
-					];
-					const base = {
-						id: currentMessage.id,
-						role: currentMessage.role as
-							| "user"
-							| "assistant"
-							| "system",
-						parts: partsWithModel,
-						createdAt: new Date(),
-						attachments: [],
-						chatId: id,
-					};
-					return base as any;
-				});
+				// Try to get generated title if ready (with short timeout to avoid blocking)
+				let finalTitle = placeholderTitle;
+				if (isNewChat && generatedTitlePromise) {
+					try {
+						// Race between title generation and 500ms timeout
+						finalTitle = await Promise.race([
+							generatedTitlePromise,
+							new Promise<string>((resolve) =>
+								setTimeout(() => resolve(placeholderTitle || "New Chat"), 500)
+							),
+						]);
+					} catch {
+						// Use placeholder if title generation failed
+						finalTitle = placeholderTitle;
+					}
+				}
+
+				// Include the user message that was sent (not in messages from AI SDK)
+				const userMessage = {
+					id: message.id,
+					role: "user" as const,
+					parts: [...message.parts, { type: "model", id: selectedModelId }],
+					createdAt: new Date(),
+					attachments: [],
+					chatId: id,
+				};
+
+				const messagesToSave = [
+					userMessage,
+					...messages.map((currentMessage) => {
+						const partsWithModel = [
+							...currentMessage.parts,
+							{ type: "model", id: selectedModelId },
+						];
+						const base = {
+							id: currentMessage.id,
+							role: currentMessage.role as
+								| "user"
+								| "assistant"
+								| "system",
+							parts: partsWithModel,
+							createdAt: new Date(),
+							attachments: [],
+							chatId: id,
+						};
+						return base as any;
+					}),
+				];
 
 				if (isGuest) {
-					await Promise.all([
-						saveGuestMessages({
+					try {
+						await saveGuestMessagesAndContext({
 							messages: messagesToSave,
 							userId: session.user.id,
-						}),
-						(async () => {
-							if (finalMergedUsage) {
-								try {
-									await updateGuestChatLastContextById({
-										chatId: id,
-										userId: session.user.id,
-										context: finalMergedUsage,
-									});
-								} catch (err) {
-									console.warn(
-										"Unable to persist last usage for guest chat",
-										id,
-										err
-									);
-								}
-							}
-						})(),
-					]);
+							chatId: id,
+							lastContext: finalMergedUsage,
+							isNewChat,
+							title: finalTitle,
+							visibility: selectedVisibilityType,
+						});
+					} catch (err) {
+						console.warn(
+							"Unable to persist messages and context for guest chat",
+							id,
+							err
+						);
+					}
 				} else {
-					await Promise.all([
-						saveMessages({ messages: messagesToSave }),
-						(async () => {
-							if (finalMergedUsage) {
-								try {
-									await updateChatLastContextById({
-										chatId: id,
-										context: finalMergedUsage,
-									});
-								} catch (err) {
-									console.warn(
-										"Unable to persist last usage for chat",
-										id,
-										err
-									);
-								}
-							}
-						})(),
-					]);
+					try {
+						await saveMessagesAndContext({
+							messages: messagesToSave,
+							userId: session.user.id,
+							chatId: id,
+							lastContext: finalMergedUsage,
+							isNewChat,
+							title: finalTitle,
+							visibility: selectedVisibilityType,
+							createdAt: chatCreatedAt,
+						});
+					} catch (err) {
+						console.warn(
+							"Unable to persist messages and context for chat",
+							id,
+							err
+						);
+					}
 				}
 			},
 			onError: () => {
@@ -546,12 +550,18 @@ export async function DELETE(request: Request) {
 		return new ChatSDKError("bad_request:api").toResponse();
 	}
 
-	const chatPromise = getChatById({ id });
 	const session = await auth();
 
 	if (!session?.user) {
 		return new ChatSDKError("unauthorized:chat").toResponse();
 	}
+
+	const isGuest = session.user.type === "guest";
+
+	// Fetch chat based on user type
+	const chatPromise = isGuest
+		? getGuestChatById({ id, userId: session.user.id })
+		: getChatById({ id });
 
 	const chat = await chatPromise;
 
@@ -559,7 +569,10 @@ export async function DELETE(request: Request) {
 		return new ChatSDKError("forbidden:chat").toResponse();
 	}
 
-	const deletedChat = await deleteChatById({ id });
+	// Delete based on user type
+	const deletedChat = isGuest
+		? await deleteGuestChatById({ id, userId: session.user.id })
+		: await deleteChatById({ id });
 
 	return Response.json(deletedChat, { status: 200 });
 }

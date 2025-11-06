@@ -2,6 +2,9 @@ import { auth } from "@/app/(auth)/auth";
 import { getSuggestionsByDocumentId } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
 
+// Optimize for Vercel Fluid Compute
+export const maxDuration = 10;
+
 export async function GET(request: Request) {
 	const { searchParams } = new URL(request.url);
 	const documentId = searchParams.get("documentId");
@@ -21,6 +24,11 @@ export async function GET(request: Request) {
 
 	if (!session?.user) {
 		return new ChatSDKError("unauthorized:suggestions").toResponse();
+	}
+
+	// Guest users cannot retrieve suggestions (not persisted in database)
+	if (session.user.type === "guest") {
+		return Response.json([], { status: 200 });
 	}
 
 	const suggestions = await suggestionsPromise;

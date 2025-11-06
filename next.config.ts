@@ -3,6 +3,17 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
 	cacheComponents: true,
 	reactCompiler: true,
+	experimental: {
+		optimizePackageImports: [
+			"lucide-react",
+			"date-fns",
+			"@radix-ui/react-icons",
+			"framer-motion",
+			"@tiptap/react",
+			"react-syntax-highlighter",
+			"@ai-sdk/react",
+		],
+	},
 	images: {
 		remotePatterns: [
 			{
@@ -13,6 +24,8 @@ const nextConfig: NextConfig = {
 				hostname: "*.blob.vercel-storage.com",
 			},
 		],
+		formats: ["image/avif", "image/webp"],
+		minimumCacheTTL: 60,
 	},
 };
 

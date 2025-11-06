@@ -21,6 +21,8 @@ import {
 	appendMessagesToCache,
 	chatToCache,
 	deleteChatFromCache,
+	deleteDocumentVersionsFromCacheAfterTimestamp,
+	deleteMessagesFromCacheAfterTimestamp,
 	getChatFromCache,
 	getDocumentFromCache,
 	setChatInCache,
@@ -53,8 +55,34 @@ import { generateHashedPassword } from "./utils";
 // use the Drizzle adapter for Auth.js / NextAuth
 // https://authjs.dev/reference/adapter/drizzle
 
-// biome-ignore lint: Forbidden non-null assertion.
-const client = postgres(process.env.POSTGRES_URL!);
+// Environment-aware PostgreSQL pool configuration
+if (!process.env.POSTGRES_URL) {
+	throw new Error("POSTGRES_URL environment variable is not set");
+}
+
+// Optimize pool size based on deployment environment
+const getPoolConfig = () => {
+	const isProduction = process.env.NODE_ENV === 'production';
+	const isVercelFluid = process.env.VERCEL_FLUID === '1';
+	
+	if (isVercelFluid) {
+		// Vercel Fluid Compute: optimize for rapid scaling
+		return { max: 5, idle_timeout: 10 };
+	}
+	if (isProduction) {
+		// Traditional serverless: moderate pooling
+		return { max: 10, idle_timeout: 20 };
+	}
+	// Development: minimal pooling
+	return { max: 3, idle_timeout: 30 };
+};
+
+const poolConfig = getPoolConfig();
+const client = postgres(process.env.POSTGRES_URL, {
+	...poolConfig,
+	connect_timeout: 10,
+	prepare: false, // Better for serverless environments
+});
 const db = drizzle(client);
 
 export async function getUser(email: string): Promise<User[]> {
@@ -108,11 +136,13 @@ export async function saveChat({
 	userId,
 	title,
 	visibility,
+	skipCache = false,
 }: {
 	id: string;
 	userId: string;
 	title: string;
 	visibility: VisibilityType;
+	skipCache?: boolean;
 }) {
 	try {
 		const now = new Date();
@@ -126,15 +156,17 @@ export async function saveChat({
 			lastContext: null,
 		};
 
-		// Write to both DB and cache in parallel
+		// Write to DB
 		const dbPromise = db.insert(chat).values(chatData);
 
-		const cachePromise = isRedisAvailable()
-			? setChatInCache(id, userId, chatToCache(chatData as Chat, []))
-			: Promise.resolve();
+		// Optionally skip cache (will be created later with messages)
+		const cachePromise =
+			!skipCache && isRedisAvailable()
+				? setChatInCache(id, userId, chatToCache(chatData as Chat, []))
+				: Promise.resolve();
 
 		await Promise.all([dbPromise, cachePromise]);
-		return;
+		return chatData;
 	} catch (_error) {
 		throw new ChatSDKError("bad_request:database", "Failed to save chat");
 	}
@@ -344,7 +376,25 @@ export async function saveMessages({ messages }: { messages: DBMessage[] }) {
 		// Update cache in parallel - use bulk operation
 		const cachePromises: Promise<void>[] = [];
 		if (isRedisAvailable() && messages.length > 0) {
-			// Group messages by chatId
+			// OPTIMIZATION: Batch fetch all unique chats before processing messages
+			// Eliminates N+1 query pattern (was O(n) sequential queries, now 1 parallel batch)
+			const uniqueChatIds = [...new Set(messages.map(m => m.chatId).filter(Boolean))];
+			
+			// Fetch all chats in parallel
+			const chatResults = await Promise.all(
+				uniqueChatIds.map(chatId => getChatById({ id: chatId }))
+			);
+			
+			// Build lookup map for O(1) access
+			const chatsMap = new Map<string, { userId: string }>();
+			uniqueChatIds.forEach((chatId, index) => {
+				const fetchedChat = chatResults[index];
+				if (fetchedChat) {
+					chatsMap.set(chatId, { userId: fetchedChat.userId });
+				}
+			});
+			
+			// Group messages by chatId using pre-fetched chat data
 			const messagesByChatId = new Map<string, { userId: string; messages: CachedMessage[] }>();
 			
 			for (const msg of messages) {
@@ -352,18 +402,18 @@ export async function saveMessages({ messages }: { messages: DBMessage[] }) {
 					continue;
 				}
 				
-				if (!messagesByChatId.has(msg.chatId)) {
-					// Get chat to find userId
-					const selectedChat = await getChatById({ id: msg.chatId });
-					if (!selectedChat) {
-						continue;
-					}
-					messagesByChatId.set(msg.chatId, { userId: selectedChat.userId, messages: [] });
+				const chatData = chatsMap.get(msg.chatId);
+				if (!chatData) {
+					continue;
 				}
 				
-				const chatData = messagesByChatId.get(msg.chatId);
-				if (chatData) {
-					chatData.messages.push({
+				if (!messagesByChatId.has(msg.chatId)) {
+					messagesByChatId.set(msg.chatId, { userId: chatData.userId, messages: [] });
+				}
+				
+				const msgGroup = messagesByChatId.get(msg.chatId);
+				if (msgGroup) {
+					msgGroup.messages.push({
 						id: msg.id || "",
 						chatId: msg.chatId,
 						role: msg.role,
@@ -386,6 +436,102 @@ export async function saveMessages({ messages }: { messages: DBMessage[] }) {
 		throw new ChatSDKError(
 			"bad_request:database",
 			"Failed to save messages"
+		);
+	}
+}
+
+/**
+ * Optimized version that batches messages and context update in a single cache operation
+ * Reduces cache operations from ~6 to ~2 (GET + SET)
+ */
+export async function saveMessagesAndContext({
+	messages,
+	userId,
+	chatId,
+	lastContext,
+	isNewChat,
+	title,
+	visibility,
+	createdAt,
+}: {
+	messages: DBMessage[];
+	userId: string;
+	chatId: string;
+	lastContext?: AppUsage;
+	isNewChat?: boolean;
+	title?: string;
+	visibility?: VisibilityType;
+	createdAt?: Date;
+}) {
+	try {
+		// Save messages to DB
+		const dbPromises: Promise<any>[] = [
+			db
+				.insert(message)
+				.values(messages)
+				.onConflictDoNothing({ target: message.id }),
+		];
+
+		// Update context in DB if provided
+		if (lastContext) {
+			dbPromises.push(
+				db
+					.update(chat)
+					.set({ lastContext, updatedAt: new Date() })
+					.where(eq(chat.id, chatId))
+			);
+		}
+
+		// Optimized cache update
+		const cachePromise = isRedisAvailable()
+			? (async () => {
+					const cachedMessages: CachedMessage[] = messages.map((msg) => ({
+						id: msg.id || "",
+						chatId: msg.chatId,
+						role: msg.role,
+						parts: msg.parts as any,
+						attachments: (msg.attachments || []) as any[],
+						createdAt: msg.createdAt
+							? msg.createdAt.toISOString()
+							: new Date().toISOString(),
+					}));
+
+					if (isNewChat && title && visibility) {
+						// For new chats, create with messages in one operation
+						const { createOrUpdateChatWithMessages } = await import(
+							"../cache/batch-operations"
+						);
+						await createOrUpdateChatWithMessages({
+							chatId,
+							userId,
+							title,
+							visibility,
+							messages: cachedMessages,
+							lastContext,
+							createdAt,
+						});
+					} else {
+						// For existing chats, use batch update
+						const { batchUpdateChatCache } = await import(
+							"../cache/batch-operations"
+						);
+						await batchUpdateChatCache({
+							chatId,
+							userId,
+							messages: cachedMessages,
+							lastContext,
+							title,
+						});
+					}
+				})()
+			: Promise.resolve();
+
+		await Promise.all([...dbPromises, cachePromise]);
+		return;
+	} catch (_error) {
+		throw new ChatSDKError(
+			"bad_request:database",
+			"Failed to save messages and context"
 		);
 	}
 }
@@ -515,6 +661,7 @@ export async function saveDocument({
 	kind,
 	content,
 	userId,
+	isGuest = false,
 }: {
 	id: string;
 	chatId: string;
@@ -522,9 +669,41 @@ export async function saveDocument({
 	kind: ArtifactKind;
 	content: string;
 	userId: string;
+	isGuest?: boolean;
 }) {
 	try {
 		const createdAt = new Date();
+
+		if (isGuest) {
+			// Guest users: cache-only, no database write
+			if (isRedisAvailable()) {
+				await appendDocumentVersionToCache(
+					id,
+					userId,
+					{
+						title,
+						content,
+						kind,
+						createdAt: createdAt.toISOString(),
+						updatedAt: createdAt.toISOString(),
+					},
+					{ chatId }
+				);
+			}
+			
+			// Return mock document object for guest
+			return [{
+				id,
+				chatId,
+				title,
+				kind,
+				content,
+				userId,
+				createdAt,
+			}];
+		}
+
+		// Authenticated users: save to both DB and cache
 		const dbPromise = db
 			.insert(document)
 			.values({
@@ -577,15 +756,18 @@ export async function saveDocument({
 export async function getDocumentsById({
 	id,
 	userId,
+	isGuest = false,
 }: {
 	id: string;
 	userId?: string;
+	isGuest?: boolean;
 }) {
 	try {
 		// Try cache first if userId provided
 		if (userId && isRedisAvailable()) {
 			const cached = await getDocumentFromCache(id, userId);
 			if (cached && cached.versions.length > 0) {
+				// Return cached data (for both guests and authenticated users)
 				return cached.versions.map((v) => ({
 					id: cached.id,
 					userId: cached.userId,
@@ -598,6 +780,12 @@ export async function getDocumentsById({
 			}
 		}
 
+		// Guest users: cache-only, return empty if not in cache
+		if (isGuest) {
+			return [];
+		}
+
+		// Authenticated users: fallback to database
 		const documents = await db
 			.select()
 			.from(document)
@@ -623,9 +811,11 @@ export async function getDocumentsById({
 export async function getDocumentById({
 	id,
 	userId,
+	isGuest = false,
 }: {
 	id: string;
 	userId?: string;
+	isGuest?: boolean;
 }) {
 	try {
 		// Try cache first if userId provided
@@ -634,6 +824,7 @@ export async function getDocumentById({
 			if (cached && cached.versions.length > 0) {
 				const latestVersion = cached.versions.at(-1);
 				if (latestVersion) {
+					// Return cached data (for both guests and authenticated users)
 					return {
 						id: cached.id,
 						userId: cached.userId,
@@ -648,6 +839,12 @@ export async function getDocumentById({
 			}
 		}
 
+		// Guest users: cache-only, return null if not in cache
+		if (isGuest) {
+			return null;
+		}
+
+		// Authenticated users: fallback to database
 		const [selectedDocument] = await db
 			.select()
 			.from(document)
@@ -676,11 +873,25 @@ export async function getDocumentById({
 export async function deleteDocumentsByIdAfterTimestamp({
 	id,
 	timestamp,
+	userId,
+	isGuest = false,
 }: {
 	id: string;
 	timestamp: Date;
+	userId?: string;
+	isGuest?: boolean;
 }) {
 	try {
+		if (isGuest) {
+			// Guest users: cache-only deletion, no database
+			if (userId && isRedisAvailable()) {
+				await deleteDocumentVersionsFromCacheAfterTimestamp(id, userId, timestamp);
+			}
+			// Return empty array (no DB records to return for guests)
+			return [];
+		}
+
+		// Authenticated users: delete from both DB and cache
 		await db
 			.delete(suggestion)
 			.where(
@@ -690,10 +901,17 @@ export async function deleteDocumentsByIdAfterTimestamp({
 				)
 			);
 
-		return await db
+		const result = await db
 			.delete(document)
 			.where(and(eq(document.id, id), gt(document.createdAt, timestamp)))
 			.returning();
+
+		// Also delete from cache if userId provided
+		if (userId && isRedisAvailable()) {
+			await deleteDocumentVersionsFromCacheAfterTimestamp(id, userId, timestamp);
+		}
+
+		return result;
 	} catch (_error) {
 		throw new ChatSDKError(
 			"bad_request:database",
@@ -749,9 +967,11 @@ export async function getMessageById({ id }: { id: string }) {
 export async function deleteMessagesByChatIdAfterTimestamp({
 	chatId,
 	timestamp,
+	userId,
 }: {
 	chatId: string;
 	timestamp: Date;
+	userId?: string;
 }) {
 	try {
 		const messagesToDelete = await db
@@ -778,7 +998,7 @@ export async function deleteMessagesByChatIdAfterTimestamp({
 					)
 				);
 
-			return await db
+			const result = await db
 				.delete(message)
 				.where(
 					and(
@@ -786,6 +1006,13 @@ export async function deleteMessagesByChatIdAfterTimestamp({
 						inArray(message.id, messageIds)
 					)
 				);
+
+			// Also delete from cache if userId provided
+			if (userId && isRedisAvailable()) {
+				await deleteMessagesFromCacheAfterTimestamp(chatId, userId, timestamp);
+			}
+
+			return result;
 		}
 	} catch (_error) {
 		throw new ChatSDKError(
@@ -809,17 +1036,23 @@ export async function updateChatVisiblityById({
 			.where(eq(chat.id, chatId));
 
 		// Update cache in parallel
+		// Optimized: only fetch userId field instead of full chat object
 		const cachePromise = isRedisAvailable()
-			? getChatById({ id: chatId }).then((selectedChat) => {
-					if (selectedChat) {
+			? (async () => {
+					const [chatUser] = await db
+						.select({ userId: chat.userId })
+						.from(chat)
+						.where(eq(chat.id, chatId))
+						.limit(1);
+					
+					if (chatUser) {
 						return updateChatVisibilityInCache(
 							chatId,
-							selectedChat.userId,
+							chatUser.userId,
 							visibility
 						);
 					}
-					return Promise.resolve();
-				})
+				})()
 			: Promise.resolve();
 
 		await Promise.all([dbPromise, cachePromise]);
@@ -846,17 +1079,23 @@ export async function updateChatTitleById({
 			.where(eq(chat.id, chatId));
 
 		// Update cache in parallel
+		// Optimized: only fetch userId field instead of full chat object
 		const cachePromise = isRedisAvailable()
-			? getChatById({ id: chatId }).then((selectedChat) => {
-					if (selectedChat) {
+			? (async () => {
+					const [chatUser] = await db
+						.select({ userId: chat.userId })
+						.from(chat)
+						.where(eq(chat.id, chatId))
+						.limit(1);
+					
+					if (chatUser) {
 						return updateChatTitleInCache(
 							chatId,
-							selectedChat.userId,
+							chatUser.userId,
 							title
 						);
 					}
-					return Promise.resolve();
-				})
+				})()
 			: Promise.resolve();
 
 		await Promise.all([dbPromise, cachePromise]);

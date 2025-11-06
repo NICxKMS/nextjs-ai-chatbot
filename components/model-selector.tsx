@@ -132,7 +132,10 @@ function groupModelsByProvider(models: ModelMetadata[]): ProviderCatalog[] {
 				};
 			}
 
-			acc[model.providerId].models.push(model);
+			const providerGroup = acc[model.providerId];
+			if (providerGroup) {
+				providerGroup.models.push(model);
+			}
 			return acc;
 		},
 		{}

@@ -81,6 +81,13 @@ export const message = pgTable(
 			t.chatId,
 			t.createdAt
 		),
+		// Composite index for rate limiting query (getMessageCountByUserId)
+		// Optimizes queries that filter by chatId, createdAt, and role
+		chatCreatedRoleIdx: index("message_chat_created_role_idx").on(
+			t.chatId,
+			t.createdAt,
+			t.role
+		),
 	})
 );
 
