@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/app/(auth)/auth";
@@ -41,26 +40,8 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 	const uiMessages = convertToUIMessages(messagesFromDb);
 	const availableModels = listChatModels();
 
-	const cookieStore = await cookies();
-	const chatModelFromCookie = cookieStore.get("chat-model");
-
-	if (!chatModelFromCookie) {
-		return (
-			<>
-				<Chat
-					autoResume={true}
-					availableModels={availableModels}
-					id={chat.id}
-					initialChatModel={DEFAULT_CHAT_MODEL}
-					initialLastContext={chat.lastContext ?? undefined}
-					initialMessages={uiMessages}
-					initialVisibilityType={chat.visibility}
-					isReadonly={session?.user?.id !== chat.userId}
-				/>
-				<DataStreamHandler />
-			</>
-		);
-	}
+	const initialChatModel =
+		chat.lastContext?.modelId || DEFAULT_CHAT_MODEL;
 
 	return (
 		<>
@@ -68,7 +49,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 				autoResume={true}
 				availableModels={availableModels}
 				id={chat.id}
-				initialChatModel={chatModelFromCookie.value}
+				initialChatModel={initialChatModel}
 				initialLastContext={chat.lastContext ?? undefined}
 				initialMessages={uiMessages}
 				initialVisibilityType={chat.visibility}

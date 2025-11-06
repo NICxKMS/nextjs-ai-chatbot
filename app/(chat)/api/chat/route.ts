@@ -362,7 +362,10 @@ export async function POST(request: Request) {
 									selectedChatModel
 								).modelId;
 							if (!modelId) {
-								finalMergedUsage = usage;
+								finalMergedUsage = {
+									...usage,
+									modelId: selectedChatModel,
+								};
 								dataStream.write({
 									type: "data-usage",
 									data: finalMergedUsage,
@@ -371,7 +374,10 @@ export async function POST(request: Request) {
 							}
 
 							if (!providers) {
-								finalMergedUsage = usage;
+								finalMergedUsage = {
+									...usage,
+									modelId: selectedChatModel,
+								};
 								dataStream.write({
 									type: "data-usage",
 									data: finalMergedUsage,
@@ -387,7 +393,7 @@ export async function POST(request: Request) {
 							finalMergedUsage = {
 								...usage,
 								...summary,
-								modelId,
+								modelId: selectedChatModel,
 							} as AppUsage;
 							dataStream.write({
 								type: "data-usage",
@@ -395,7 +401,10 @@ export async function POST(request: Request) {
 							});
 						} catch (err) {
 							console.warn("TokenLens enrichment failed", err);
-							finalMergedUsage = usage;
+							finalMergedUsage = {
+								...usage,
+								modelId: selectedChatModel,
+							};
 							dataStream.write({
 								type: "data-usage",
 								data: finalMergedUsage,
@@ -417,13 +426,17 @@ export async function POST(request: Request) {
 			generateId: generateUUID,
 			onFinish: async ({ messages }) => {
 				const messagesToSave = messages.map((currentMessage) => {
+					const partsWithModel = [
+						...currentMessage.parts,
+						{ type: "model", id: selectedModelId },
+					];
 					const base = {
 						id: currentMessage.id,
 						role: currentMessage.role as
 							| "user"
 							| "assistant"
 							| "system",
-						parts: currentMessage.parts,
+						parts: partsWithModel,
 						createdAt: new Date(),
 						attachments: [],
 						chatId: id,
