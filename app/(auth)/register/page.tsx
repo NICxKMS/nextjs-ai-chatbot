@@ -41,8 +41,9 @@ export default function Page() {
 			});
 
 			setIsSuccessful(true);
-			updateSession();
-			router.refresh();
+			updateSession().then(() => {
+				router.push("/");
+			});
 		}
 	}, [router, state.status, updateSession]);
 

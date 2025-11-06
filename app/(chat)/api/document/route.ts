@@ -18,14 +18,13 @@ export async function GET(request: Request) {
 		).toResponse();
 	}
 
-	const documentsPromise = getDocumentsById({ id });
 	const session = await auth();
 
 	if (!session?.user) {
 		return new ChatSDKError("unauthorized:document").toResponse();
 	}
 
-	const documents = await documentsPromise;
+	const documents = await getDocumentsById({ id, userId: session.user.id });
 
 	const [document] = documents;
 
@@ -53,20 +52,21 @@ export async function POST(request: Request) {
 
 	const sessionPromise = auth();
 	const bodyPromise = request.json();
-	const documentsPromise = getDocumentsById({ id });
 
 	const session = await sessionPromise;
+
+	if (!session?.user) {
+		return new ChatSDKError("unauthorized:document").toResponse();
+	}
+
 	const {
 		content,
 		title,
 		kind,
 	}: { content: string; title: string; kind: ArtifactKind } =
 		await bodyPromise;
-	const documents = await documentsPromise;
-
-	if (!session?.user) {
-		return new ChatSDKError("not_found:document").toResponse();
-	}
+	
+	const documents = await getDocumentsById({ id, userId: session.user.id });
 
 	let chatId: string | null = null;
 
@@ -125,7 +125,7 @@ export async function DELETE(request: Request) {
 		return new ChatSDKError("unauthorized:document").toResponse();
 	}
 
-	const documents = await getDocumentsById({ id });
+	const documents = await getDocumentsById({ id, userId: session.user.id });
 
 	const [document] = documents;
 

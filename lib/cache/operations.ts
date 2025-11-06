@@ -1,0 +1,437 @@
+import "server-only";
+
+import type { VisibilityType } from "@/components/visibility-selector";
+import type { Chat, DBMessage, Document } from "../db/schema";
+import type { AppUsage } from "../usage";
+import { getRedisClient, isRedisAvailable } from "./redis";
+import {
+	type CachedChat,
+	type CachedDocument,
+	type CachedMessage,
+	CacheKeys,
+	type DocumentVersion,
+} from "./types";
+
+/**
+ * CHAT OPERATIONS
+ */
+
+// Get chat from cache (cache hit returns full denormalized structure)
+export async function getChatFromCache(
+	chatId: string,
+	userId: string
+): Promise<CachedChat | null> {
+	const redis = getRedisClient();
+	if (!redis) {
+		return null;
+	}
+
+	try {
+		const cached = await redis.get<CachedChat>(
+			CacheKeys.chat(chatId, userId)
+		);
+		return cached;
+	} catch (error) {
+		console.error("Redis getChatFromCache error:", error);
+		return null;
+	}
+}
+
+// Set chat in cache with messages
+export async function setChatInCache(
+	chatId: string,
+	userId: string,
+	chat: CachedChat
+): Promise<void> {
+	const redis = getRedisClient();
+	if (!redis) {
+		return;
+	}
+
+	try {
+		await Promise.all([
+			// Store denormalized chat
+			redis.set(CacheKeys.chat(chatId, userId), chat),
+			// Update user's chat list ZSET
+			redis.zadd(CacheKeys.userChats(userId), {
+				score: Date.parse(chat.updatedAt),
+				member: chatId,
+			}),
+		]);
+	} catch (error) {
+		console.error("Redis setChatInCache error:", error);
+	}
+}
+
+// Append new message to cached chat
+export async function appendMessageToCache(
+	chatId: string,
+	userId: string,
+	message: CachedMessage
+): Promise<void> {
+	const redis = getRedisClient();
+	if (!redis) {
+		return;
+	}
+
+	try {
+		const cached = await getChatFromCache(chatId, userId);
+		if (!cached) {
+			return;
+		}
+
+		// Append message to array
+		cached.messages.push(message);
+		cached.updatedAt = new Date().toISOString();
+		cached.version += 1;
+
+		await setChatInCache(chatId, userId, cached);
+	} catch (error) {
+		console.error("Redis appendMessageToCache error:", error);
+	}
+}
+
+// Bulk append multiple messages to cached chat (single cache operation)
+export async function appendMessagesToCache(
+	chatId: string,
+	userId: string,
+	messages: CachedMessage[]
+): Promise<void> {
+	const redis = getRedisClient();
+	if (!redis || messages.length === 0) {
+		return;
+	}
+
+	try {
+		const cached = await getChatFromCache(chatId, userId);
+		if (!cached) {
+			return;
+		}
+
+		// Append all messages at once
+		cached.messages.push(...messages);
+		cached.updatedAt = new Date().toISOString();
+		cached.version += 1;
+
+		await setChatInCache(chatId, userId, cached);
+	} catch (error) {
+		console.error("Redis appendMessagesToCache error:", error);
+	}
+}
+
+// Update chat title in cache
+export async function updateChatTitleInCache(
+	chatId: string,
+	userId: string,
+	title: string
+): Promise<void> {
+	const redis = getRedisClient();
+	if (!redis) {
+		return;
+	}
+
+	try {
+		const cached = await getChatFromCache(chatId, userId);
+		if (!cached) {
+			return;
+		}
+
+		cached.title = title;
+		cached.updatedAt = new Date().toISOString();
+		cached.version += 1;
+
+		await setChatInCache(chatId, userId, cached);
+	} catch (error) {
+		console.error("Redis updateChatTitleInCache error:", error);
+	}
+}
+
+// Update chat last context in cache
+export async function updateChatLastContextInCache(
+	chatId: string,
+	userId: string,
+	context: AppUsage
+): Promise<void> {
+	const redis = getRedisClient();
+	if (!redis) {
+		return;
+	}
+
+	try {
+		const cached = await getChatFromCache(chatId, userId);
+		if (!cached) {
+			return;
+		}
+
+		cached.lastContext = context;
+		cached.updatedAt = new Date().toISOString();
+		cached.version += 1;
+
+		await setChatInCache(chatId, userId, cached);
+	} catch (error) {
+		console.error("Redis updateChatLastContextInCache error:", error);
+	}
+}
+
+// Update chat visibility in cache
+export async function updateChatVisibilityInCache(
+	chatId: string,
+	userId: string,
+	visibility: VisibilityType
+): Promise<void> {
+	const redis = getRedisClient();
+	if (!redis) {
+		return;
+	}
+
+	try {
+		const cached = await getChatFromCache(chatId, userId);
+		if (!cached) {
+			return;
+		}
+
+		cached.visibility = visibility;
+		cached.updatedAt = new Date().toISOString();
+		cached.version += 1;
+
+		await setChatInCache(chatId, userId, cached);
+	} catch (error) {
+		console.error("Redis updateChatVisibilityInCache error:", error);
+	}
+}
+
+// Delete chat from cache
+export async function deleteChatFromCache(
+	chatId: string,
+	userId: string
+): Promise<void> {
+	const redis = getRedisClient();
+	if (!redis) {
+		return;
+	}
+
+	try {
+		await Promise.all([
+			redis.del(CacheKeys.chat(chatId, userId)),
+			// Remove by chatId member (new format)
+			redis.zrem(CacheKeys.userChats(userId), chatId),
+		]);
+	} catch (error) {
+		console.error("Redis deleteChatFromCache error:", error);
+	}
+}
+
+// Get user's chats from ZSET (paginated, sorted by updatedAt desc)
+export async function getUserChatsFromCache(
+	userId: string,
+	limit = 10,
+	offset = 0
+): Promise<{ chatId: string; title: string }[]> {
+	const redis = getRedisClient();
+	if (!redis) {
+		return [];
+	}
+
+	try {
+		// Get from ZSET in reverse order (newest first)
+		const items = await redis.zrange<string[]>(
+			CacheKeys.userChats(userId),
+			offset,
+			// Fetch extra to compensate for potential legacy duplicates
+			offset + limit + 20 - 1,
+			{ rev: true }
+		);
+
+		// Support both legacy members (JSON string with title) and new members (chatId only)
+		const uniqueChatIds: string[] = [];
+		for (const item of items) {
+			let id = item;
+			if (item.startsWith("{")) {
+				try {
+					const parsed = JSON.parse(item);
+					if (parsed && typeof parsed.chatId === "string") {
+						id = parsed.chatId;
+					}
+				} catch (_) {
+					// ignore malformed legacy entries
+				}
+			}
+			if (!uniqueChatIds.includes(id)) {
+				uniqueChatIds.push(id);
+			}
+			if (uniqueChatIds.length >= limit) {
+				break;
+			}
+		}
+
+		// Fetch titles from cached chat objects
+		const chats = await Promise.all(
+			uniqueChatIds.map((cid) => getChatFromCache(cid, userId))
+		);
+		return uniqueChatIds.map((cid, idx) => ({
+			chatId: cid,
+			title: chats[idx]?.title ?? "New Chat",
+		}));
+	} catch (error) {
+		console.error("Redis getUserChatsFromCache error:", error);
+		return [];
+	}
+}
+
+/**
+ * DOCUMENT OPERATIONS
+ */
+
+// Get document from cache
+export async function getDocumentFromCache(
+	documentId: string,
+	userId: string
+): Promise<CachedDocument | null> {
+	const redis = getRedisClient();
+	if (!redis) {
+		return null;
+	}
+
+	try {
+		const cached = await redis.get<CachedDocument>(
+			CacheKeys.document(documentId, userId)
+		);
+		return cached;
+	} catch (error) {
+		console.error("Redis getDocumentFromCache error:", error);
+		return null;
+	}
+}
+
+// Set document in cache
+export async function setDocumentInCache(
+	documentId: string,
+	userId: string,
+	document: CachedDocument
+): Promise<void> {
+	const redis = getRedisClient();
+	if (!redis) {
+		return;
+	}
+
+	try {
+		await redis.set(CacheKeys.document(documentId, userId), document);
+	} catch (error) {
+		console.error("Redis setDocumentInCache error:", error);
+	}
+}
+
+// Append new version to document cache
+export async function appendDocumentVersionToCache(
+	documentId: string,
+	userId: string,
+	version: DocumentVersion,
+	opts?: { chatId?: string }
+): Promise<void> {
+	const redis = getRedisClient();
+	if (!redis) {
+		return;
+	}
+
+	try {
+		const cached = await getDocumentFromCache(documentId, userId);
+		if (!cached) {
+			// Create new document with first version
+			await setDocumentInCache(documentId, userId, {
+				id: documentId,
+				userId,
+				chatId: opts?.chatId ?? "",
+				versions: [version],
+			});
+			return;
+		}
+
+		// Append version
+		cached.versions.push(version);
+		await setDocumentInCache(documentId, userId, cached);
+	} catch (error) {
+		console.error("Redis appendDocumentVersionToCache error:", error);
+	}
+}
+
+/**
+ * CONVERSION HELPERS
+ * Convert DB models to cache models and vice versa
+ */
+
+export function chatToCache(chat: Chat, messages: DBMessage[]): CachedChat {
+	return {
+		id: chat.id,
+		userId: chat.userId,
+		title: chat.title,
+		visibility: chat.visibility,
+		createdAt: chat.createdAt.toISOString(),
+		updatedAt: chat.updatedAt.toISOString(),
+		lastContext: chat.lastContext,
+		messages: messages.map((msg) => ({
+			id: msg.id || "",
+			chatId: msg.chatId,
+			role: msg.role,
+			parts: msg.parts as any,
+			attachments: (msg.attachments || []) as any[],
+			createdAt: msg.createdAt
+				? msg.createdAt.toISOString()
+				: new Date().toISOString(),
+		})),
+		version: 1,
+	};
+}
+
+export function documentsToCache(documents: Document[]): CachedDocument | null {
+	if (documents.length === 0) {
+		return null;
+	}
+
+	const first = documents[0];
+	return {
+		id: first.id,
+		userId: first.userId,
+		chatId: first.chatId,
+		versions: documents.map((doc) => ({
+			title: doc.title,
+			content: doc.content,
+			kind: doc.kind,
+			createdAt: doc.createdAt.toISOString(),
+			updatedAt: doc.updatedAt.toISOString(),
+		})),
+	};
+}
+
+/**
+ * CACHE WARMING
+ * Populate cache from database
+ */
+
+export async function warmChatCache(
+	chatId: string,
+	userId: string,
+	chat: Chat,
+	messages: DBMessage[]
+): Promise<void> {
+	if (!isRedisAvailable()) {
+		return;
+	}
+
+	const cached = chatToCache(chat, messages);
+	await setChatInCache(chatId, userId, cached);
+}
+
+export async function warmDocumentCache(
+	documentId: string,
+	userId: string,
+	documents: Document[]
+): Promise<void> {
+	if (!isRedisAvailable()) {
+		return;
+	}
+
+	const cached = documentsToCache(documents);
+	if (cached) {
+		await setDocumentInCache(documentId, userId, cached);
+	}
+}
