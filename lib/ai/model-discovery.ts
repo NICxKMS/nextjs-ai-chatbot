@@ -1,3 +1,4 @@
+import { ChatSDKError } from "../errors";
 import type { ModelMetadata, ProviderCatalog } from "./model-catalog-types";
 import { PROVIDER_DISPLAY_NAMES, type ProviderId } from "./provider-info";
 
@@ -79,7 +80,8 @@ const fetchJson = async <T>(
 ): Promise<T> => {
 	const response = await fetch(input, init);
 	if (!response.ok) {
-		throw new Error(
+		throw new ChatSDKError(
+			"bad_request:api:upstream_fetch_failed",
 			`Failed to fetch ${input.toString()}: ${response.status}`
 		);
 	}
@@ -91,7 +93,10 @@ const discoverOpenAI = (
 ): Promise<ProviderCatalog> => {
 	const apiKey = process.env.OPENAI_API_KEY;
 	if (!apiKey) {
-		throw new Error("OPENAI_API_KEY is not configured");
+		throw new ChatSDKError(
+			"bad_request:api:missing_openai_api_key",
+			"OPENAI_API_KEY is not configured"
+		);
 	}
 
 	return withCache(
@@ -142,7 +147,10 @@ const discoverGoogleGemini = (
 ): Promise<ProviderCatalog> => {
 	const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 	if (!apiKey) {
-		throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not configured");
+		throw new ChatSDKError(
+			"bad_request:api:missing_google_api_key",
+			"GOOGLE_GENERATIVE_AI_API_KEY is not configured"
+		);
 	}
 
 	return withCache(
@@ -201,7 +209,10 @@ const discoverOpenRouter = (
 ): Promise<ProviderCatalog> => {
 	const apiKey = process.env.OPENROUTER_API_KEY;
 	if (!apiKey) {
-		throw new Error("OPENROUTER_API_KEY is not configured");
+		throw new ChatSDKError(
+			"bad_request:api:missing_openrouter_api_key",
+			"OPENROUTER_API_KEY is not configured"
+		);
 	}
 
 	return withCache(
@@ -278,7 +289,10 @@ const discoverCloudflareWorkers = (
 	const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
 	const apiKey = process.env.CLOUDFLARE_API_KEY;
 	if (!accountId || !apiKey) {
-		throw new Error("Cloudflare account credentials are not configured");
+		throw new ChatSDKError(
+			"bad_request:api:missing_cloudflare_credentials",
+			"Cloudflare account credentials are not configured"
+		);
 	}
 
 	return withCache(
@@ -372,7 +386,10 @@ export const discoverProviders = async (
 			.map(([providerId, err]) => `${providerId}: ${err.message}`)
 			.join("; ");
 
-		throw new Error(`Failed to discover models: ${message}`);
+		throw new ChatSDKError(
+			"bad_request:api:discover_models_failed",
+			message
+		);
 	}
 
 	return { catalogs: results, errors };

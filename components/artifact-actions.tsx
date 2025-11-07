@@ -1,5 +1,6 @@
 import { type Dispatch, memo, type SetStateAction, useState } from "react";
 import { toast } from "sonner";
+import { ChatSDKError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import { artifactDefinitions, type UIArtifact } from "./artifact";
 import type { ArtifactActionContext } from "./create-artifact";
@@ -32,7 +33,7 @@ function PureArtifactActions({
 	);
 
 	if (!artifactDefinition) {
-		throw new Error("Artifact definition not found!");
+		throw new ChatSDKError("bad_request:ui:artifact_definition_not_found");
 	}
 
 	const actionContext: ArtifactActionContext = {

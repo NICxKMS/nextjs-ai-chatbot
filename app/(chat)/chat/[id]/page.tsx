@@ -21,16 +21,16 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 	const chat = await getChatById({ id, userId: session.user?.id });
 
 	if (!chat) {
-		notFound();
+		redirect("/?notice=chat_not_found");
 	}
 
 	if (chat.visibility === "private") {
 		if (!session.user) {
-			return notFound();
+			return redirect("/?notice=chat_not_found");
 		}
 
 		if (session.user.id !== chat.userId) {
-			return notFound();
+			return redirect("/?notice=chat_not_found");
 		}
 	}
 

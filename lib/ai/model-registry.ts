@@ -7,6 +7,7 @@ import { experimental_createProviderRegistry as createProviderRegistry } from "a
 import { createAiGateway } from "ai-gateway-provider";
 import type { WorkersAISettings } from "workers-ai-provider";
 import { createWorkersAI } from "workers-ai-provider";
+import { ChatSDKError } from "../errors";
 import { curatedModels } from "./curated-models";
 import type { ModelMetadata, ProviderCatalog } from "./model-catalog-types";
 import {
@@ -121,7 +122,8 @@ if (
 			// Handle Google Gemini models via Cloudflare AI Gateway
 			if (id === "gemini-2.5-flash" || id === "gemini-2.5-pro") {
 				if (!googleProvider) {
-					throw new Error(
+					throw new ChatSDKError(
+						"bad_request:api:cloudflare_gateway_missing_google_provider",
 						"Google provider is not configured for Cloudflare AI Gateway Gemini models"
 					);
 				}

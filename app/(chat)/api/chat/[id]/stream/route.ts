@@ -13,13 +13,17 @@ export async function GET(
 	const { id: chatId } = await params;
 
 	if (!chatId) {
-		return new ChatSDKError("bad_request:api").toResponse();
+		return new ChatSDKError(
+			"bad_request:api:missing_chat_id"
+		).toResponse();
 	}
 
 	const session = await auth();
 
 	if (!session?.user) {
-		return new ChatSDKError("unauthorized:chat").toResponse();
+		return new ChatSDKError(
+			"unauthorized:chat:missing_session"
+		).toResponse();
 	}
 
 	let chat: Chat | null;
@@ -35,7 +39,9 @@ export async function GET(
 	}
 
 	if (chat.visibility === "private" && chat.userId !== session.user.id) {
-		return new ChatSDKError("forbidden:chat").toResponse();
+		return new ChatSDKError(
+			"forbidden:chat:owner_mismatch"
+		).toResponse();
 	}
 
 	// Since resumable streams are removed, we just return the most recent message if it's recent

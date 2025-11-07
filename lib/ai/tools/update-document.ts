@@ -3,6 +3,7 @@ import type { Session } from "next-auth";
 import { z } from "zod";
 import { documentHandlersByArtifactKind } from "@/lib/artifacts/server";
 import { getDocumentById } from "@/lib/db/queries";
+import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
 
 type UpdateDocumentProps = {
@@ -45,7 +46,8 @@ export const updateDocument = ({ session, dataStream }: UpdateDocumentProps) =>
 			);
 
 			if (!documentHandler) {
-				throw new Error(
+				throw new ChatSDKError(
+					"bad_request:document:no_handler_for_kind",
 					`No document handler found for kind: ${document.kind}`
 				);
 			}

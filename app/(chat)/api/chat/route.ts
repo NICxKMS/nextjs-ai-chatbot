@@ -102,7 +102,7 @@ export async function POST(request: Request) {
 		const json = await request.json();
 		requestBody = postRequestBodySchema.parse(json);
 	} catch (_) {
-		return new ChatSDKError("bad_request:api").toResponse();
+		return new ChatSDKError("bad_request:api:invalid_json").toResponse();
 	}
 
 	try {
@@ -123,7 +123,9 @@ export async function POST(request: Request) {
 		const session = await auth();
 
 		if (!session?.user) {
-			return new ChatSDKError("unauthorized:chat").toResponse();
+			return new ChatSDKError(
+				"unauthorized:chat:missing_session"
+			).toResponse();
 		}
 
 		const userType: UserType = session.user.type;
@@ -132,7 +134,7 @@ export async function POST(request: Request) {
 		// For guest users, require Redis to be available
 		if (isGuest && !isRedisAvailable()) {
 			return new ChatSDKError(
-				"bad_request:api",
+				"bad_request:api:guest_requires_cache",
 				"Guest sessions require cache to be enabled"
 			).toResponse();
 		}
@@ -158,7 +160,9 @@ export async function POST(request: Request) {
 			!userEntitlements ||
 			(messageCount as number) > userEntitlements.maxMessagesPerDay
 		) {
-			return new ChatSDKError("rate_limit:chat").toResponse();
+			return new ChatSDKError(
+				"rate_limit:chat:daily_limit_exceeded"
+			).toResponse();
 		}
 
 		let chatCreatedAt: Date | undefined;
@@ -166,7 +170,9 @@ export async function POST(request: Request) {
 
 		if (chat) {
 			if (chat.userId !== session.user.id) {
-				return new ChatSDKError("forbidden:chat").toResponse();
+				return new ChatSDKError(
+					"forbidden:chat:owner_mismatch"
+				).toResponse();
 			}
 		} else {
 			placeholderTitle = (() => {
@@ -550,7 +556,7 @@ export async function POST(request: Request) {
 			vercelId,
 			selectedModelId,
 		});
-		return new ChatSDKError("offline:chat").toResponse();
+		return new ChatSDKError("offline:chat:unhandled").toResponse();
 	}
 }
 

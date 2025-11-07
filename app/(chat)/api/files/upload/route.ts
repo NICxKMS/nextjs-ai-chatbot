@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { auth } from "@/app/(auth)/auth";
+import { ChatSDKError } from "@/lib/errors";
 import {
 	ATTACHMENT_MAX_FILE_SIZE,
 	getAllowedAttachmentMimeTypes,
@@ -27,21 +28,19 @@ export async function POST(request: Request) {
 	const session = await auth();
 
 	if (!session) {
-		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+		return new ChatSDKError(
+			"unauthorized:api:upload_unauthorized"
+		).toResponse();
 	}
 
 	if (!process.env.BLOB_READ_WRITE_TOKEN) {
-		return NextResponse.json(
-			{ error: "File storage is not configured" },
-			{ status: 500 }
-		);
+		return new ChatSDKError(
+			"bad_request:api:storage_not_configured"
+		).toResponse();
 	}
 
 	if (request.body === null) {
-		return NextResponse.json(
-			{ error: "Request body is empty" },
-			{ status: 400 }
-		);
+		return new ChatSDKError("bad_request:api:empty_body").toResponse();
 	}
 
 	let formData: FormData;
@@ -49,19 +48,17 @@ export async function POST(request: Request) {
 	try {
 		formData = await request.formData();
 	} catch (_error) {
-		return NextResponse.json(
-			{ error: "Invalid form payload" },
-			{ status: 400 }
-		);
+		return new ChatSDKError(
+			"bad_request:api:invalid_form_payload"
+		).toResponse();
 	}
 
 	const upload = formData.get("file");
 
 	if (!(upload instanceof Blob)) {
-		return NextResponse.json(
-			{ error: "No file uploaded" },
-			{ status: 400 }
-		);
+		return new ChatSDKError(
+			"bad_request:api:no_file_uploaded"
+		).toResponse();
 	}
 
 	const validationResult = FileSchema.safeParse({ file: upload });
@@ -71,13 +68,23 @@ export async function POST(request: Request) {
 			.map((error) => error.message)
 			.join(", ");
 
-		return NextResponse.json(
-			{
-				error: errorMessage,
-				allowedTypes: getAllowedAttachmentMimeTypes(),
-			},
-			{ status: 400 }
-		);
+		// Map schema errors to specific codes when possible
+		if (errorMessage.includes("size")) {
+			return new ChatSDKError(
+				"bad_request:api:file_too_large",
+				errorMessage
+			).toResponse();
+		}
+		if (errorMessage.includes("Unsupported file type")) {
+			return new ChatSDKError(
+				"bad_request:api:file_type_unsupported",
+				errorMessage
+			).toResponse();
+		}
+		return new ChatSDKError(
+			"bad_request:api:file_validation_failed",
+			errorMessage
+		).toResponse();
 	}
 
 	const hasName = typeof (upload as File).name === "string";
@@ -101,7 +108,9 @@ export async function POST(request: Request) {
 			filename,
 		});
 	} catch (error) {
-		console.error("File upload failed", error);
-		return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+		return new ChatSDKError(
+			"bad_request:api:upload_failed",
+			(error as Error)?.message
+		).toResponse();
 	}
 }

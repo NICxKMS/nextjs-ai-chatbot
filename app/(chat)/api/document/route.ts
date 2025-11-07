@@ -16,7 +16,7 @@ export async function GET(request: Request) {
 
 	if (!id) {
 		return new ChatSDKError(
-			"bad_request:api",
+			"bad_request:api:missing_id",
 			"Parameter id is missing"
 		).toResponse();
 	}
@@ -24,7 +24,9 @@ export async function GET(request: Request) {
 	const session = await auth();
 
 	if (!session?.user) {
-		return new ChatSDKError("unauthorized:document").toResponse();
+		return new ChatSDKError(
+			"unauthorized:document:missing_session"
+		).toResponse();
 	}
 
 	const isGuest = session.user.type === "guest";
@@ -53,7 +55,7 @@ export async function POST(request: Request) {
 
 	if (!id) {
 		return new ChatSDKError(
-			"bad_request:api",
+			"bad_request:api:missing_id",
 			"Parameter id is required."
 		).toResponse();
 	}
@@ -64,7 +66,9 @@ export async function POST(request: Request) {
 	const session = await sessionPromise;
 
 	if (!session?.user) {
-		return new ChatSDKError("unauthorized:document").toResponse();
+		return new ChatSDKError(
+			"unauthorized:document:missing_session"
+		).toResponse();
 	}
 
 	const isGuest = session.user.type === "guest";
@@ -97,7 +101,7 @@ export async function POST(request: Request) {
 		chatId = mostRecent.chatId;
 	} else {
 		return new ChatSDKError(
-			"bad_request:document",
+			"bad_request:document:no_chat_context",
 			"Cannot save document without existing chat context"
 		).toResponse();
 	}
@@ -122,14 +126,14 @@ export async function DELETE(request: Request) {
 
 	if (!id) {
 		return new ChatSDKError(
-			"bad_request:api",
+			"bad_request:api:missing_id",
 			"Parameter id is required."
 		).toResponse();
 	}
 
 	if (!timestamp) {
 		return new ChatSDKError(
-			"bad_request:api",
+			"bad_request:api:missing_timestamp",
 			"Parameter timestamp is required."
 		).toResponse();
 	}
@@ -137,7 +141,9 @@ export async function DELETE(request: Request) {
 	const session = await auth();
 
 	if (!session?.user) {
-		return new ChatSDKError("unauthorized:document").toResponse();
+		return new ChatSDKError(
+			"unauthorized:document:missing_session"
+		).toResponse();
 	}
 
 	const isGuest = session.user.type === "guest";

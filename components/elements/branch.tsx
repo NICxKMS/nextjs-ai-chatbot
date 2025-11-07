@@ -5,6 +5,7 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ChatSDKError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
 type BranchContextType = {
@@ -22,7 +23,7 @@ const useBranch = () => {
 	const context = useContext(BranchContext);
 
 	if (!context) {
-		throw new Error("Branch components must be used within Branch");
+		throw new ChatSDKError("bad_request:ui:branch_outside_provider");
 	}
 
 	return context;

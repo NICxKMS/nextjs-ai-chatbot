@@ -1,5 +1,6 @@
 import { extractReasoningMiddleware, wrapLanguageModel } from "ai";
 import { isTestEnvironment } from "../constants";
+import { ChatSDKError } from "../errors";
 import type { ReasoningType } from "./model-catalog-types";
 import { getLanguageModel, getModelById } from "./model-registry";
 import { DEFAULT_ARTIFACT_MODEL } from "./models";
@@ -55,7 +56,10 @@ export const myProvider = isTestEnvironment
 						case "artifact-model":
 							return artifactModel;
 						default:
-							throw new Error(`Unknown mock model id: ${id}`);
+							throw new ChatSDKError(
+								"bad_request:api:unknown_mock_model",
+								`Unknown mock model id: ${id}`
+							);
 					}
 				},
 			};

@@ -7,6 +7,7 @@ import {
 	useContext,
 	useState,
 } from "react";
+import { ChatSDKError } from "@/lib/errors";
 
 type OptimisticChat = {
 	id: string;
@@ -62,8 +63,8 @@ export function OptimisticChatsProvider({ children }: { children: ReactNode }) {
 export function useOptimisticChats() {
 	const context = useContext(OptimisticChatsContext);
 	if (!context) {
-		throw new Error(
-			"useOptimisticChats must be used within OptimisticChatsProvider"
+		throw new ChatSDKError(
+			"bad_request:ui:useOptimisticChats_outside_provider"
 		);
 	}
 	return context;

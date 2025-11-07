@@ -24,6 +24,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
 import { type ArtifactKind, artifactDefinitions } from "./artifact";
 import type { ArtifactToolbarItem } from "./create-artifact";
@@ -385,7 +386,7 @@ const PureToolbar = ({
 	);
 
 	if (!artifactDefinition) {
-		throw new Error("Artifact definition not found!");
+		throw new ChatSDKError("bad_request:ui:artifact_definition_not_found");
 	}
 
 	const toolsByArtifactKind = artifactDefinition.toolbar;

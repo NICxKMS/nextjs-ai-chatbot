@@ -3,6 +3,7 @@
 import type { DataUIPart } from "ai";
 import type React from "react";
 import { createContext, useContext, useMemo, useState } from "react";
+import { ChatSDKError } from "@/lib/errors";
 import type { CustomUIDataTypes } from "@/lib/types";
 
 type DataStreamContextValue = {
@@ -35,9 +36,7 @@ export function DataStreamProvider({
 export function useDataStream() {
 	const context = useContext(DataStreamContext);
 	if (!context) {
-		throw new Error(
-			"useDataStream must be used within a DataStreamProvider"
-		);
+		throw new ChatSDKError("bad_request:ui:dataStream_outside_provider");
 	}
 	return context;
 }
