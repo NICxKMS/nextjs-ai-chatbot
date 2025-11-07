@@ -19,7 +19,16 @@ export const fetcher = async (url: string) => {
 
   if (!response.ok) {
     const { code, cause } = await response.json();
-    throw new ChatSDKError(code as ErrorCode, cause);
+    const err = new ChatSDKError(code as ErrorCode, cause);
+    // Redirect only for chat missing and user missing
+    if (typeof window !== 'undefined') {
+      if (code === 'not_found:auth:user') {
+        window.location.replace('/api/auth/guest?redirectUrl=/');
+      } else if (typeof code === 'string' && code.startsWith('not_found:chat')) {
+        window.location.replace('/');
+      }
+    }
+    throw err;
   }
 
   return response.json();
@@ -34,7 +43,16 @@ export async function fetchWithErrorHandlers(
 
     if (!response.ok) {
       const { code, cause } = await response.json();
-      throw new ChatSDKError(code as ErrorCode, cause);
+      const err = new ChatSDKError(code as ErrorCode, cause);
+      // Redirect only for chat missing and user missing
+      if (typeof window !== 'undefined') {
+        if (code === 'not_found:auth:user') {
+          window.location.replace('/api/auth/guest?redirectUrl=/');
+        } else if (typeof code === 'string' && code.startsWith('not_found:chat')) {
+          window.location.replace('/');
+        }
+      }
+      throw err;
     }
 
     return response;

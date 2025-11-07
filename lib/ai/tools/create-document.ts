@@ -5,6 +5,7 @@ import {
 	artifactKinds,
 	documentHandlersByArtifactKind,
 } from "@/lib/artifacts/server";
+import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
 import { generateUUID } from "@/lib/utils";
 
@@ -59,7 +60,10 @@ export const createDocument = ({
 			);
 
 			if (!documentHandler) {
-				throw new Error(`No document handler found for kind: ${kind}`);
+				throw new ChatSDKError(
+					"bad_request:document:no_handler_for_kind",
+					`No document handler found for kind: ${kind}`
+				);
 			}
 
 			await documentHandler.onCreateDocument({

@@ -19,6 +19,7 @@ import { textArtifact } from "@/artifacts/text/client";
 import { useArtifact } from "@/hooks/use-artifact";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 import type { Document } from "@/lib/db/schema";
+import { ChatSDKError } from "@/lib/errors";
 import type { Attachment, ChatMessage, UserVote } from "@/lib/types";
 import { fetcher } from "@/lib/utils";
 import { ArtifactActions } from "./artifact-actions";
@@ -265,7 +266,7 @@ function PureArtifact({
 	);
 
 	if (!artifactDefinition) {
-		throw new Error("Artifact definition not found!");
+		throw new ChatSDKError("bad_request:ui:artifact_definition_not_found");
 	}
 
 	useEffect(() => {

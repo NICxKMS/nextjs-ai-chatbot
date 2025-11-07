@@ -15,7 +15,7 @@ export async function GET(request: Request) {
 
 	if (!chatId) {
 		return new ChatSDKError(
-			"bad_request:api",
+			"bad_request:api:missing_chat_id",
 			"Parameter chatId is required."
 		).toResponse();
 	}
@@ -24,13 +24,15 @@ export async function GET(request: Request) {
 	const session = await auth();
 
 	if (!session?.user) {
-		return new ChatSDKError("unauthorized:vote").toResponse();
+		return new ChatSDKError(
+			"unauthorized:vote:missing_session"
+		).toResponse();
 	}
 
 	// Guest users cannot vote (requires database persistence)
 	if (session.user.type === "guest") {
 		return new ChatSDKError(
-			"forbidden:vote",
+			"forbidden:vote:guest_cannot_vote",
 			"Guest users cannot vote on messages"
 		).toResponse();
 	}
@@ -42,7 +44,9 @@ export async function GET(request: Request) {
 	}
 
 	if (chat.userId !== session.user.id) {
-		return new ChatSDKError("forbidden:vote").toResponse();
+		return new ChatSDKError(
+			"forbidden:vote:owner_mismatch"
+		).toResponse();
 	}
 
 	const votes = await getVotesByChatIdAndUserId({
@@ -71,7 +75,7 @@ export async function PATCH(request: Request) {
 
 	if (!chatId || !messageId || !type) {
 		return new ChatSDKError(
-			"bad_request:api",
+			"bad_request:api:missing_vote_params",
 			"Parameters chatId, messageId, and type are required."
 		).toResponse();
 	}
@@ -82,13 +86,15 @@ export async function PATCH(request: Request) {
 	]);
 
 	if (!session?.user) {
-		return new ChatSDKError("unauthorized:vote").toResponse();
+		return new ChatSDKError(
+			"unauthorized:vote:missing_session"
+		).toResponse();
 	}
 
 	// Guest users cannot vote (requires database persistence)
 	if (session.user.type === "guest") {
 		return new ChatSDKError(
-			"forbidden:vote",
+			"forbidden:vote:guest_cannot_vote",
 			"Guest users cannot vote on messages"
 		).toResponse();
 	}
@@ -98,7 +104,9 @@ export async function PATCH(request: Request) {
 	}
 
 	if (chat.userId !== session.user.id) {
-		return new ChatSDKError("forbidden:vote").toResponse();
+		return new ChatSDKError(
+			"forbidden:vote:owner_mismatch"
+		).toResponse();
 	}
 
 	await voteMessage({

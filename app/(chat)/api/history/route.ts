@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
 	if (startingAfter && endingBefore) {
 		return new ChatSDKError(
-			"bad_request:api",
+			"bad_request:api:conflicting_pagination_params",
 			"Only one of starting_after or ending_before can be provided."
 		).toResponse();
 	}
@@ -27,7 +27,9 @@ export async function GET(request: NextRequest) {
 	const session = await auth();
 
 	if (!session?.user) {
-		return new ChatSDKError("unauthorized:chat").toResponse();
+		return new ChatSDKError(
+			"unauthorized:chat:missing_session"
+		).toResponse();
 	}
 
 	// Check if user is guest - fetch from cache instead of DB
@@ -54,7 +56,9 @@ export async function DELETE() {
 	const session = await auth();
 
 	if (!session?.user) {
-		return new ChatSDKError("unauthorized:chat").toResponse();
+		return new ChatSDKError(
+			"unauthorized:chat:missing_session"
+		).toResponse();
 	}
 
 	// Check if user is guest - delete from cache instead of DB

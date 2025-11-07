@@ -9,6 +9,7 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { ChatSDKError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import { Response } from "./response";
 
@@ -24,7 +25,7 @@ const ReasoningContext = createContext<ReasoningContextValue | null>(null);
 const useReasoning = () => {
 	const context = useContext(ReasoningContext);
 	if (!context) {
-		throw new Error("Reasoning components must be used within Reasoning");
+		throw new ChatSDKError("bad_request:ui:reasoning_outside_provider");
 	}
 	return context;
 };

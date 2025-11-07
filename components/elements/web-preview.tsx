@@ -16,6 +16,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ChatSDKError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
 export type WebPreviewContextValue = {
@@ -30,9 +31,7 @@ const WebPreviewContext = createContext<WebPreviewContextValue | null>(null);
 const useWebPreview = () => {
 	const context = useContext(WebPreviewContext);
 	if (!context) {
-		throw new Error(
-			"WebPreview components must be used within a WebPreview"
-		);
+		throw new ChatSDKError("bad_request:ui:webPreview_outside_provider");
 	}
 	return context;
 };

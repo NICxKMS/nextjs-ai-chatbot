@@ -2,6 +2,7 @@
 
 import { createContext, type ReactNode, useContext, useMemo } from "react";
 import { useLocalStorage } from "usehooks-ts";
+import { ChatSDKError } from "@/lib/errors";
 import type { AppSettings } from "@/lib/settings/types";
 
 export type { AppSettings } from "@/lib/settings/types";
@@ -59,7 +60,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 export function useSettings() {
 	const context = useContext(SettingsContext);
 	if (!context) {
-		throw new Error("useSettings must be used within a SettingsProvider");
+		throw new ChatSDKError("bad_request:ui:useSettings_outside_provider");
 	}
 	return context;
 }

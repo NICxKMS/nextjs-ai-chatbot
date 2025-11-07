@@ -11,7 +11,7 @@ export async function GET(request: Request) {
 
 	if (!documentId) {
 		return new ChatSDKError(
-			"bad_request:api",
+			"bad_request:api:missing_document_id",
 			"Parameter documentId is required."
 		).toResponse();
 	}
@@ -23,7 +23,9 @@ export async function GET(request: Request) {
 	const session = await auth();
 
 	if (!session?.user) {
-		return new ChatSDKError("unauthorized:suggestions").toResponse();
+		return new ChatSDKError(
+			"unauthorized:suggestions:missing_session"
+		).toResponse();
 	}
 
 	// Guest users cannot retrieve suggestions (not persisted in database)
@@ -40,7 +42,9 @@ export async function GET(request: Request) {
 	}
 
 	if (suggestion.userId !== session.user.id) {
-		return new ChatSDKError("forbidden:api").toResponse();
+		return new ChatSDKError(
+			"forbidden:api:owner_mismatch"
+		).toResponse();
 	}
 
 	return Response.json(suggestions, { status: 200 });

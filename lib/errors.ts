@@ -16,14 +16,16 @@ export type Surface =
 	| "vote"
 	| "document"
 	| "suggestions"
-	| "activate_gateway";
+	| "activate_gateway"
+	| "ui";
 
-export type ErrorCode = `${ErrorType}:${Surface}`;
+// Allow a specific reason suffix for granular codes, while keeping type/surface parsing stable
+export type ErrorCode = `${ErrorType}:${Surface}${"" | `:${string}`}`;
 
 export type ErrorVisibility = "response" | "log" | "none";
 
 export const visibilityBySurface: Record<Surface, ErrorVisibility> = {
-	database: "log",
+	database: "response",
 	chat: "response",
 	auth: "response",
 	stream: "response",
@@ -33,6 +35,7 @@ export const visibilityBySurface: Record<Surface, ErrorVisibility> = {
 	document: "response",
 	suggestions: "response",
 	activate_gateway: "response",
+	ui: "response",
 };
 
 export class ChatSDKError extends Error {
@@ -55,18 +58,14 @@ export class ChatSDKError extends Error {
 	}
 
 	toResponse() {
-		const code: ErrorCode = `${this.type}:${this.surface}`;
+		// Preserve the full, granular code (including reason suffixes)
+		const code: ErrorCode = this.code;
 		const visibility = visibilityBySurface[this.surface];
 
 		const { message, cause, statusCode } = this;
 
 		if (visibility === "log") {
-			console.error({
-				code,
-				message,
-				cause,
-			});
-
+			// Avoid logging per workspace rules; return safe, generic message for log-only surfaces
 			return Response.json(
 				{
 					code: "",
@@ -80,12 +79,202 @@ export class ChatSDKError extends Error {
 	}
 }
 
+// Postgres error-code mapping to focused ChatSDKError codes
+// Reference: https://www.postgresql.org/docs/current/errcodes-appendix.html
+function mapPostgresCodeToError(code?: string): ErrorCode {
+	switch (code) {
+		// Constraint violations
+		case "23505":
+			return "bad_request:database:unique_violation";
+		case "23503":
+			return "bad_request:database:foreign_key_violation";
+		case "23502":
+			return "bad_request:database:not_null_violation";
+		case "23514":
+			return "bad_request:database:check_violation";
+		// Concurrency
+		case "40P01":
+			return "bad_request:database:deadlock_detected";
+		case "40001":
+			return "bad_request:database:serialization_failure";
+		// Permissions / syntax
+		case "42501":
+			return "bad_request:database:insufficient_privilege";
+		case "42601":
+			return "bad_request:database:syntax_error";
+		case "42P01":
+			return "bad_request:database:undefined_table";
+		// Connection / availability
+		case "08006":
+		case "08001":
+			return "offline:database:connection_failure";
+		case "57014":
+		case "57000":
+			return "offline:database:timeout";
+		default:
+			return "bad_request:database";
+	}
+}
+
+export function toDatabaseError(
+	operation: string,
+	err?: unknown,
+	cause?: string
+): ChatSDKError {
+	const anyErr = err as { code?: string; message?: string } | undefined;
+	const errorCode = mapPostgresCodeToError(anyErr?.code);
+	const detailedCause =
+		cause ??
+		(operation
+			? `${operation}${anyErr?.message ? `: ${anyErr.message}` : ""}`
+			: anyErr?.message);
+	return new ChatSDKError(errorCode, detailedCause);
+}
+
 export function getMessageByErrorCode(errorCode: ErrorCode): string {
 	if (errorCode.includes("database")) {
-		return "An error occurred while executing a database query.";
+		// Specific database error codes handled below; generic fallback here
+		switch (errorCode) {
+			case "bad_request:database:unique_violation":
+				return "A record with the same value already exists.";
+			case "bad_request:database:foreign_key_violation":
+				return "This change would break a relationship to another record.";
+			case "bad_request:database:not_null_violation":
+				return "A required field is missing.";
+			case "bad_request:database:check_violation":
+				return "One or more fields failed validation.";
+			case "bad_request:database:deadlock_detected":
+				return "The database detected a deadlock. Please retry.";
+			case "bad_request:database:serialization_failure":
+				return "A concurrent update prevented this change. Please retry.";
+			case "bad_request:database:insufficient_privilege":
+				return "The database user is not permitted to perform this operation.";
+			case "bad_request:database:syntax_error":
+				return "A database syntax error occurred.";
+			case "bad_request:database:undefined_table":
+				return "A required database table is missing.";
+			case "offline:database:connection_failure":
+				return "Unable to connect to the database. Please try again later.";
+			case "offline:database:timeout":
+				return "The database took too long to respond. Please try again.";
+			default:
+				return "An error occurred while executing a database query.";
+		}
 	}
 
 	switch (errorCode) {
+		// API request/validation
+		case "bad_request:api:invalid_json":
+			return "Invalid JSON in request body.";
+		case "bad_request:api:guest_requires_cache":
+			return "Guest sessions require cache to be enabled.";
+		case "bad_request:api:discover_models_failed":
+			return "Unable to discover available models.";
+		case "bad_request:api:upstream_fetch_failed":
+			return "A required upstream service responded with an error.";
+		case "bad_request:api:invalid_form_payload":
+			return "Invalid form payload.";
+		case "bad_request:api:no_file_uploaded":
+			return "No file uploaded.";
+		case "bad_request:api:file_too_large":
+			return "File size exceeds the allowed limit.";
+		case "bad_request:api:file_type_unsupported":
+			return "Unsupported file type.";
+		case "bad_request:api:file_validation_failed":
+			return "File validation failed.";
+		case "bad_request:api:storage_not_configured":
+			return "File storage is not configured.";
+		case "bad_request:api:empty_body":
+			return "Request body is empty.";
+		case "bad_request:api:upload_failed":
+			return "File upload failed.";
+		case "rate_limit:chat:daily_limit_exceeded":
+			return "Daily message limit exceeded.";
+		case "forbidden:chat:owner_mismatch":
+			return "You don’t have access to this chat.";
+
+		case "forbidden:vote:owner_mismatch":
+			return "You don’t have access to vote on this chat.";
+		case "forbidden:api:owner_mismatch":
+			return "You don’t have access to this resource.";
+		case "offline:chat:unhandled":
+			return "The chat service is temporarily unavailable.";
+		case "not_found:vote":
+			return "The requested vote target was not found.";
+		case "not_found:auth:user":
+			return "Your account could not be found. Please Register before proceeding or proceed as a guest.";
+
+		// Auth
+		case "unauthorized:chat:missing_session":
+			return "You need to sign in before continuing.";
+		case "unauthorized:document:missing_session":
+			return "You need to sign in before continuing.";
+		case "unauthorized:suggestions:missing_session":
+			return "You need to sign in before continuing.";
+		case "unauthorized:vote:missing_session":
+			return "You need to sign in before continuing.";
+		case "unauthorized:api:upload_unauthorized":
+			return "You need to sign in to upload files.";
+
+		// Configuration / credentials
+		case "bad_request:database:missing_postgres_url":
+			return "Database connection is not configured.";
+		case "bad_request:api:missing_openai_api_key":
+			return "OPENAI_API_KEY is not configured.";
+		case "bad_request:api:missing_google_api_key":
+			return "GOOGLE_GENERATIVE_AI_API_KEY is not configured.";
+		case "bad_request:api:missing_openrouter_api_key":
+			return "OPENROUTER_API_KEY is not configured.";
+		case "bad_request:api:missing_cloudflare_credentials":
+			return "Cloudflare account credentials are not configured.";
+		case "bad_request:api:cloudflare_gateway_missing_google_provider":
+			return "Cloudflare AI Gateway requires Google provider to be configured for Gemini models.";
+		case "bad_request:api:unknown_mock_model":
+			return "Unknown mock model specified in test environment.";
+
+		// Parameters
+		case "bad_request:api:missing_id":
+			return "Parameter id is required.";
+		case "bad_request:api:missing_timestamp":
+			return "Parameter timestamp is required.";
+		case "bad_request:api:missing_document_id":
+			return "Parameter documentId is required.";
+		case "bad_request:api:missing_chat_id":
+			return "Parameter chatId is required.";
+		case "bad_request:api:missing_vote_params":
+			return "Parameters chatId, messageId, and type are required.";
+		case "bad_request:api:conflicting_pagination_params":
+			return "Only one of starting_after or ending_before can be provided.";
+
+		// Voting
+		case "forbidden:vote:guest_cannot_vote":
+			return "Guest users cannot vote on messages.";
+
+		// UI hook usage
+		case "bad_request:ui:useSidebar_outside_provider":
+			return "useSidebar must be used within a SidebarProvider.";
+		case "bad_request:ui:useSettings_outside_provider":
+			return "useSettings must be used within a SettingsProvider.";
+		case "bad_request:ui:useCarousel_outside_provider":
+			return "useCarousel must be used within a <Carousel />.";
+		case "bad_request:ui:dataStream_outside_provider":
+			return "useDataStream must be used within a DataStreamProvider.";
+		case "bad_request:ui:useOptimisticChats_outside_provider":
+			return "useOptimisticChats must be used within OptimisticChatsProvider.";
+		case "bad_request:ui:webPreview_outside_provider":
+			return "WebPreview components must be used within a WebPreview.";
+		case "bad_request:ui:reasoning_outside_provider":
+			return "Reasoning components must be used within Reasoning.";
+		case "bad_request:ui:branch_outside_provider":
+			return "Branch components must be used within Branch.";
+		case "bad_request:ui:artifact_definition_not_found":
+			return "Artifact definition not found for the requested kind.";
+		case "bad_request:ui:clipboard_unavailable":
+			return "Clipboard API is not available in this environment.";
+		case "bad_request:ui:clipboard_copy_failed":
+			return "Failed to copy to clipboard.";
+
+		// Existing base codes
 		case "bad_request:api":
 			return "The request couldn't be processed. Please check your input and try again.";
 
@@ -116,6 +305,8 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
 			return "You need to sign in to view this document. Please sign in and try again.";
 		case "bad_request:document":
 			return "The request to create or update the document was invalid. Please check your input and try again.";
+		case "bad_request:document:no_handler_for_kind":
+			return "No document handler exists for the specified kind.";
 
 		default:
 			return "Something went wrong. Please try again later.";

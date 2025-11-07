@@ -9,6 +9,7 @@ import {
 	oneLight,
 } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Button } from "@/components/ui/button";
+import { ChatSDKError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
 type CodeBlockContextType = {
@@ -124,7 +125,7 @@ export const CodeBlockCopyButton = ({
 
 	const copyToClipboard = async () => {
 		if (typeof window === "undefined" || !navigator.clipboard.writeText) {
-			onError?.(new Error("Clipboard API not available"));
+			onError?.(new ChatSDKError("bad_request:ui:clipboard_unavailable"));
 			return;
 		}
 
@@ -134,7 +135,12 @@ export const CodeBlockCopyButton = ({
 			onCopy?.();
 			setTimeout(() => setIsCopied(false), timeout);
 		} catch (error) {
-			onError?.(error as Error);
+			onError?.(
+				new ChatSDKError(
+					"bad_request:ui:clipboard_copy_failed",
+					(error as Error)?.message
+				)
+			);
 		}
 	};
 
