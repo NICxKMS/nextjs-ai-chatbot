@@ -48,7 +48,7 @@ export async function deleteTrailingMessages({ id }: { id: string }) {
 
 	// Get userId from chat for cache deletion
 	const chat = await getChatById({ id: message.chatId });
-	
+
 	await deleteMessagesByChatIdAfterTimestamp({
 		chatId: message.chatId,
 		timestamp: message.createdAt,

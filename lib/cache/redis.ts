@@ -7,7 +7,10 @@ import { Redis } from "@upstash/redis";
 let redis: Redis | null = null;
 
 export function getRedisClient(): Redis | null {
-	if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+	if (
+		!process.env.UPSTASH_REDIS_REST_URL ||
+		!process.env.UPSTASH_REDIS_REST_TOKEN
+	) {
 		console.warn("⚠️  Upstash Redis not configured - caching disabled");
 		return null;
 	}

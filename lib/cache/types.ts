@@ -12,10 +12,10 @@ export type CachedChat = {
 	createdAt: string; // ISO string
 	updatedAt: string; // ISO string
 	lastContext: AppUsage | null;
-	
+
 	// Denormalized messages array (chronologically ordered)
 	messages: CachedMessage[];
-	
+
 	// Version for optimistic locking
 	version: number;
 };
@@ -56,10 +56,11 @@ export type DocumentVersion = {
 export const CacheKeys = {
 	// chat:{chatId}:{userId} - Full denormalized chat with messages
 	chat: (chatId: string, userId: string) => `chat:${chatId}:${userId}`,
-	
+
 	// user:{userId}:chats - ZSET of chat IDs sorted by updatedAt
 	userChats: (userId: string) => `user:${userId}:chats`,
-	
+
 	// document:{documentId}:{userId} - Document with all versions
-	document: (documentId: string, userId: string) => `document:${documentId}:${userId}`,
+	document: (documentId: string, userId: string) =>
+		`document:${documentId}:${userId}`,
 } as const;

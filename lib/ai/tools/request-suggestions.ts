@@ -25,7 +25,11 @@ export const requestSuggestions = ({
 		}),
 		execute: async ({ documentId }) => {
 			const isGuest = session.user.type === "guest";
-			const document = await getDocumentById({ id: documentId, userId: session.user.id, isGuest });
+			const document = await getDocumentById({
+				id: documentId,
+				userId: session.user.id,
+				isGuest,
+			});
 
 			if (!document || !document.content) {
 				return {

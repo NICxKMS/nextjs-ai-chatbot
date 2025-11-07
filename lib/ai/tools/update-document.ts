@@ -21,7 +21,11 @@ export const updateDocument = ({ session, dataStream }: UpdateDocumentProps) =>
 		}),
 		execute: async ({ id, description }) => {
 			const isGuest = session.user.type === "guest";
-			const document = await getDocumentById({ id, userId: session.user.id, isGuest });
+			const document = await getDocumentById({
+				id,
+				userId: session.user.id,
+				isGuest,
+			});
 
 			if (!document) {
 				return {

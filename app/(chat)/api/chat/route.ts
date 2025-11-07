@@ -221,7 +221,9 @@ export async function POST(request: Request) {
 
 				// Start title generation early (non-blocking)
 				if (isNewChat) {
-					generatedTitlePromise = generateTitleFromUserMessage({ message })
+					generatedTitlePromise = generateTitleFromUserMessage({
+						message,
+					})
 						.then((title) => {
 							// Send title to client immediately when ready
 							dataStream.write({
@@ -232,7 +234,10 @@ export async function POST(request: Request) {
 							return title;
 						})
 						.catch((err) => {
-							console.warn("Background title generation failed", err);
+							console.warn(
+								"Background title generation failed",
+								err
+							);
 							return placeholderTitle || "New Chat";
 						});
 				}
@@ -414,7 +419,11 @@ export async function POST(request: Request) {
 						finalTitle = await Promise.race([
 							generatedTitlePromise,
 							new Promise<string>((resolve) =>
-								setTimeout(() => resolve(placeholderTitle || "New Chat"), 500)
+								setTimeout(
+									() =>
+										resolve(placeholderTitle || "New Chat"),
+									500
+								)
 							),
 						]);
 					} catch {
@@ -427,7 +436,10 @@ export async function POST(request: Request) {
 				const userMessage = {
 					id: message.id,
 					role: "user" as const,
-					parts: [...message.parts, { type: "model", id: selectedModelId }],
+					parts: [
+						...message.parts,
+						{ type: "model", id: selectedModelId },
+					],
 					createdAt: new Date(),
 					attachments: [],
 					chatId: id,

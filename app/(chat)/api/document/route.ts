@@ -28,7 +28,11 @@ export async function GET(request: Request) {
 	}
 
 	const isGuest = session.user.type === "guest";
-	const documents = await getDocumentsById({ id, userId: session.user.id, isGuest });
+	const documents = await getDocumentsById({
+		id,
+		userId: session.user.id,
+		isGuest,
+	});
 
 	const [document] = documents;
 
@@ -71,8 +75,12 @@ export async function POST(request: Request) {
 		kind,
 	}: { content: string; title: string; kind: ArtifactKind } =
 		await bodyPromise;
-	
-	const documents = await getDocumentsById({ id, userId: session.user.id, isGuest });
+
+	const documents = await getDocumentsById({
+		id,
+		userId: session.user.id,
+		isGuest,
+	});
 
 	let chatId: string | null = null;
 
@@ -133,7 +141,11 @@ export async function DELETE(request: Request) {
 	}
 
 	const isGuest = session.user.type === "guest";
-	const documents = await getDocumentsById({ id, userId: session.user.id, isGuest });
+	const documents = await getDocumentsById({
+		id,
+		userId: session.user.id,
+		isGuest,
+	});
 
 	const [document] = documents;
 
