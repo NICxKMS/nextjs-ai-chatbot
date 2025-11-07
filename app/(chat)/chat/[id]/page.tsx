@@ -43,8 +43,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 	const uiMessages = convertToUIMessages(messagesFromDb);
 	const availableModels = listChatModels();
 
-	const initialChatModel =
-		chat.lastContext?.modelId || DEFAULT_CHAT_MODEL;
+	const initialChatModel = chat.lastContext?.modelId || DEFAULT_CHAT_MODEL;
 
 	return (
 		<>

@@ -144,7 +144,10 @@ export async function deleteMessagesFromCacheAfterTimestamp(
 
 		await setChatInCache(chatId, userId, cached);
 	} catch (error) {
-		console.error("Redis deleteMessagesFromCacheAfterTimestamp error:", error);
+		console.error(
+			"Redis deleteMessagesFromCacheAfterTimestamp error:",
+			error
+		);
 	}
 }
 
@@ -410,7 +413,10 @@ export async function deleteDocumentVersionsFromCacheAfterTimestamp(
 
 		await setDocumentInCache(documentId, userId, cached);
 	} catch (error) {
-		console.error("Redis deleteDocumentVersionsFromCacheAfterTimestamp error:", error);
+		console.error(
+			"Redis deleteDocumentVersionsFromCacheAfterTimestamp error:",
+			error
+		);
 	}
 }
 

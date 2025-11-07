@@ -64,16 +64,18 @@ export async function saveGuestMessages({
 		if (!msg.chatId) {
 			continue;
 		}
-		
+
 		const cachedMsg: CachedMessage = {
 			id: msg.id || "",
 			chatId: msg.chatId,
 			role: msg.role,
 			parts: msg.parts as any,
 			attachments: (msg.attachments || []) as any[],
-			createdAt: msg.createdAt ? msg.createdAt.toISOString() : new Date().toISOString(),
+			createdAt: msg.createdAt
+				? msg.createdAt.toISOString()
+				: new Date().toISOString(),
 		};
-		
+
 		if (!messagesByChatId.has(msg.chatId)) {
 			messagesByChatId.set(msg.chatId, []);
 		}
@@ -118,12 +120,16 @@ export async function saveGuestMessagesAndContext({
 		role: msg.role,
 		parts: msg.parts as any,
 		attachments: (msg.attachments || []) as any[],
-		createdAt: msg.createdAt ? msg.createdAt.toISOString() : new Date().toISOString(),
+		createdAt: msg.createdAt
+			? msg.createdAt.toISOString()
+			: new Date().toISOString(),
 	}));
 
 	if (isNewChat && title && visibility) {
 		// For new chats, create with messages in one operation
-		const { createOrUpdateChatWithMessages } = await import("./batch-operations");
+		const { createOrUpdateChatWithMessages } = await import(
+			"./batch-operations"
+		);
 		await createOrUpdateChatWithMessages({
 			chatId,
 			userId,
@@ -248,34 +254,34 @@ export async function getGuestChatsByUserId({
 	endingBefore: string | null;
 }) {
 	const { getUserChatsFromCache } = await import("./operations");
-	
+
 	// TODO: Implement cursor-based pagination using _startingAfter/_endingBefore
 	// For now, simple offset-based pagination
 	const offset = 0;
 	const extendedLimit = limit + 1;
-	
+
 	const chatList = await getUserChatsFromCache(id, extendedLimit, offset);
-	
+
 	// OPTIMIZATION: Batch fetch with MGET instead of N+1 pattern
 	const { getRedisClient } = await import("./redis");
 	const { CacheKeys } = await import("./types");
 	const redis = getRedisClient();
-	
+
 	if (!redis || chatList.length === 0) {
 		return { chats: [], hasMore: false };
 	}
-	
+
 	// Batch fetch all chats in single MGET operation
-	const cacheKeys = chatList.map(item => CacheKeys.chat(item.chatId, id));
+	const cacheKeys = chatList.map((item) => CacheKeys.chat(item.chatId, id));
 	const cachedChats = await redis.mget<any[]>(...cacheKeys);
-	
+
 	// Convert to full chat objects
 	const chats = cachedChats
 		.map((cached) => {
 			if (!cached) {
 				return null;
 			}
-			
+
 			return {
 				id: cached.id,
 				userId: cached.userId,
@@ -289,10 +295,10 @@ export async function getGuestChatsByUserId({
 		.filter((c): c is NonNullable<typeof c> => {
 			return c !== null;
 		});
-	
+
 	const validChats = chats.filter((c) => c !== null);
 	const hasMore = validChats.length > limit;
-	
+
 	return {
 		chats: hasMore ? validChats.slice(0, limit) : validChats,
 		hasMore,
@@ -305,16 +311,16 @@ export async function deleteAllGuestChatsByUserId({
 	userId: string;
 }) {
 	const { getUserChatsFromCache } = await import("./operations");
-	
+
 	// Get all chats for this user (use large limit to get all)
 	const chatList = await getUserChatsFromCache(userId, 1000, 0);
-	
+
 	// Delete each chat from cache
 	const deletePromises = chatList.map((item) =>
 		deleteChatFromCache(item.chatId, userId)
 	);
-	
+
 	await Promise.all(deletePromises);
-	
+
 	return { deletedCount: chatList.length };
 }

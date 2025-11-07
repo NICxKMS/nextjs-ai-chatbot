@@ -448,7 +448,11 @@ export function Weather({
 									</div>
 
 									<div className="font-medium text-sm text-white">
-										{displayTemperatures[index] !== undefined ? n(displayTemperatures[index]) : "--"}°
+										{displayTemperatures[index] !==
+										undefined
+											? n(displayTemperatures[index])
+											: "--"}
+										°
 									</div>
 								</div>
 							);

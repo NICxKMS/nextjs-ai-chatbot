@@ -9,11 +9,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { OptimisticChatsProvider } from "@/hooks/use-optimistic-chats";
 import { SettingsProvider } from "@/lib/ui/settings-store";
 
-export function ChatLayoutClient({
-	children,
-}: {
-	children: React.ReactNode;
-}) {
+export function ChatLayoutClient({ children }: { children: React.ReactNode }) {
 	return (
 		<>
 			<Script

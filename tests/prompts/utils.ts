@@ -226,9 +226,7 @@ export const getResponseChunksByPrompt = (
 		];
 	}
 
-	if (
-		compareMessages(message, TEST_PROMPTS.CREATE_DOCUMENT_TEXT_CALL)
-	) {
+	if (compareMessages(message, TEST_PROMPTS.CREATE_DOCUMENT_TEXT_CALL)) {
 		return [
 			...textToDeltas(`\n
 # Silicon Valley: The Epicenter of Innovation
@@ -257,9 +255,7 @@ As we move forward, Silicon Valley continues to reinvent itself. While some pred
 		];
 	}
 
-	if (
-		compareMessages(message, TEST_PROMPTS.CREATE_DOCUMENT_TEXT_RESULT)
-	) {
+	if (compareMessages(message, TEST_PROMPTS.CREATE_DOCUMENT_TEXT_RESULT)) {
 		return [
 			...textToDeltas(
 				"A document was created and is now visible to the user."

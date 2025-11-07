@@ -62,9 +62,9 @@ if (!process.env.POSTGRES_URL) {
 
 // Optimize pool size based on deployment environment
 const getPoolConfig = () => {
-	const isProduction = process.env.NODE_ENV === 'production';
-	const isVercelFluid = process.env.VERCEL_FLUID === '1';
-	
+	const isProduction = process.env.NODE_ENV === "production";
+	const isVercelFluid = process.env.VERCEL_FLUID === "1";
+
 	if (isVercelFluid) {
 		// Vercel Fluid Compute: optimize for rapid scaling
 		return { max: 5, idle_timeout: 10 };
@@ -378,13 +378,15 @@ export async function saveMessages({ messages }: { messages: DBMessage[] }) {
 		if (isRedisAvailable() && messages.length > 0) {
 			// OPTIMIZATION: Batch fetch all unique chats before processing messages
 			// Eliminates N+1 query pattern (was O(n) sequential queries, now 1 parallel batch)
-			const uniqueChatIds = [...new Set(messages.map(m => m.chatId).filter(Boolean))];
-			
+			const uniqueChatIds = [
+				...new Set(messages.map((m) => m.chatId).filter(Boolean)),
+			];
+
 			// Fetch all chats in parallel
 			const chatResults = await Promise.all(
-				uniqueChatIds.map(chatId => getChatById({ id: chatId }))
+				uniqueChatIds.map((chatId) => getChatById({ id: chatId }))
 			);
-			
+
 			// Build lookup map for O(1) access
 			const chatsMap = new Map<string, { userId: string }>();
 			uniqueChatIds.forEach((chatId, index) => {
@@ -393,24 +395,30 @@ export async function saveMessages({ messages }: { messages: DBMessage[] }) {
 					chatsMap.set(chatId, { userId: fetchedChat.userId });
 				}
 			});
-			
+
 			// Group messages by chatId using pre-fetched chat data
-			const messagesByChatId = new Map<string, { userId: string; messages: CachedMessage[] }>();
-			
+			const messagesByChatId = new Map<
+				string,
+				{ userId: string; messages: CachedMessage[] }
+			>();
+
 			for (const msg of messages) {
 				if (!msg.chatId) {
 					continue;
 				}
-				
+
 				const chatData = chatsMap.get(msg.chatId);
 				if (!chatData) {
 					continue;
 				}
-				
+
 				if (!messagesByChatId.has(msg.chatId)) {
-					messagesByChatId.set(msg.chatId, { userId: chatData.userId, messages: [] });
+					messagesByChatId.set(msg.chatId, {
+						userId: chatData.userId,
+						messages: [],
+					});
 				}
-				
+
 				const msgGroup = messagesByChatId.get(msg.chatId);
 				if (msgGroup) {
 					msgGroup.messages.push({
@@ -419,14 +427,18 @@ export async function saveMessages({ messages }: { messages: DBMessage[] }) {
 						role: msg.role,
 						parts: msg.parts as any,
 						attachments: (msg.attachments || []) as any[],
-						createdAt: msg.createdAt ? msg.createdAt.toISOString() : new Date().toISOString(),
+						createdAt: msg.createdAt
+							? msg.createdAt.toISOString()
+							: new Date().toISOString(),
 					});
 				}
 			}
-			
+
 			// Bulk append for each chat
 			for (const [chatId, data] of messagesByChatId.entries()) {
-				cachePromises.push(appendMessagesToCache(chatId, data.userId, data.messages));
+				cachePromises.push(
+					appendMessagesToCache(chatId, data.userId, data.messages)
+				);
 			}
 		}
 
@@ -485,16 +497,18 @@ export async function saveMessagesAndContext({
 		// Optimized cache update
 		const cachePromise = isRedisAvailable()
 			? (async () => {
-					const cachedMessages: CachedMessage[] = messages.map((msg) => ({
-						id: msg.id || "",
-						chatId: msg.chatId,
-						role: msg.role,
-						parts: msg.parts as any,
-						attachments: (msg.attachments || []) as any[],
-						createdAt: msg.createdAt
-							? msg.createdAt.toISOString()
-							: new Date().toISOString(),
-					}));
+					const cachedMessages: CachedMessage[] = messages.map(
+						(msg) => ({
+							id: msg.id || "",
+							chatId: msg.chatId,
+							role: msg.role,
+							parts: msg.parts as any,
+							attachments: (msg.attachments || []) as any[],
+							createdAt: msg.createdAt
+								? msg.createdAt.toISOString()
+								: new Date().toISOString(),
+						})
+					);
 
 					if (isNewChat && title && visibility) {
 						// For new chats, create with messages in one operation
@@ -690,17 +704,19 @@ export async function saveDocument({
 					{ chatId }
 				);
 			}
-			
+
 			// Return mock document object for guest
-			return [{
-				id,
-				chatId,
-				title,
-				kind,
-				content,
-				userId,
-				createdAt,
-			}];
+			return [
+				{
+					id,
+					chatId,
+					title,
+					kind,
+					content,
+					userId,
+					createdAt,
+				},
+			];
 		}
 
 		// Authenticated users: save to both DB and cache
@@ -733,13 +749,13 @@ export async function saveDocument({
 				)
 			: Promise.resolve();
 
-		const [dbResult] = await Promise.allSettled([
-			dbPromise,
-			cachePromise,
-		]);
+		const [dbResult] = await Promise.allSettled([dbPromise, cachePromise]);
 
 		if (dbResult.status === "rejected") {
-			console.warn("saveDocument: DB write failed, cache updated", dbResult.reason);
+			console.warn(
+				"saveDocument: DB write failed, cache updated",
+				dbResult.reason
+			);
 			// Graceful degradation: return undefined to avoid tool failure
 			return undefined as any;
 		}
@@ -885,7 +901,11 @@ export async function deleteDocumentsByIdAfterTimestamp({
 		if (isGuest) {
 			// Guest users: cache-only deletion, no database
 			if (userId && isRedisAvailable()) {
-				await deleteDocumentVersionsFromCacheAfterTimestamp(id, userId, timestamp);
+				await deleteDocumentVersionsFromCacheAfterTimestamp(
+					id,
+					userId,
+					timestamp
+				);
 			}
 			// Return empty array (no DB records to return for guests)
 			return [];
@@ -908,7 +928,11 @@ export async function deleteDocumentsByIdAfterTimestamp({
 
 		// Also delete from cache if userId provided
 		if (userId && isRedisAvailable()) {
-			await deleteDocumentVersionsFromCacheAfterTimestamp(id, userId, timestamp);
+			await deleteDocumentVersionsFromCacheAfterTimestamp(
+				id,
+				userId,
+				timestamp
+			);
 		}
 
 		return result;
@@ -1009,7 +1033,11 @@ export async function deleteMessagesByChatIdAfterTimestamp({
 
 			// Also delete from cache if userId provided
 			if (userId && isRedisAvailable()) {
-				await deleteMessagesFromCacheAfterTimestamp(chatId, userId, timestamp);
+				await deleteMessagesFromCacheAfterTimestamp(
+					chatId,
+					userId,
+					timestamp
+				);
 			}
 
 			return result;
@@ -1044,7 +1072,7 @@ export async function updateChatVisiblityById({
 						.from(chat)
 						.where(eq(chat.id, chatId))
 						.limit(1);
-					
+
 					if (chatUser) {
 						return updateChatVisibilityInCache(
 							chatId,
@@ -1087,7 +1115,7 @@ export async function updateChatTitleById({
 						.from(chat)
 						.where(eq(chat.id, chatId))
 						.limit(1);
-					
+
 					if (chatUser) {
 						return updateChatTitleInCache(
 							chatId,
