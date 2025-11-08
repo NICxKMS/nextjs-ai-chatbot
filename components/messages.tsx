@@ -19,6 +19,7 @@ type MessagesProps = {
 	setMessages: UseChatHelpers<ChatMessage>["setMessages"];
 	regenerate: UseChatHelpers<ChatMessage>["regenerate"];
 	isReadonly: boolean;
+	isGuest: boolean;
 	isArtifactVisible: boolean;
 	selectedModelId: string;
 };
@@ -31,6 +32,7 @@ function PureMessages({
 	setMessages,
 	regenerate,
 	isReadonly,
+	isGuest,
 }: MessagesProps) {
 	const {
 		containerRef: messagesContainerRef,
@@ -85,7 +87,7 @@ function PureMessages({
 							}
 							setMessages={setMessages}
 							vote={
-								votes
+								!isGuest && votes
 									? votes.find(
 											(vote) =>
 												vote.messageId === message.id
@@ -127,6 +129,11 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
 		return true;
 	}
 
+	// During streaming, always re-render to capture text updates
+	if (prevProps.status === 'streaming' || nextProps.status === 'streaming') {
+		return false;
+	}
+
 	if (prevProps.status !== nextProps.status) {
 		return false;
 	}
@@ -143,6 +150,6 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
 		return false;
 	}
 
-	// No changes detected - skip render (memoize)
+	// All checks passed and not streaming - safe to skip render
 	return true;
 });
