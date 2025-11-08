@@ -1,10 +1,7 @@
 import { auth } from "@/app/(auth)/auth";
 import type { ArtifactKind } from "@/components/artifact";
-import {
-	deleteDocumentsByIdAfterTimestamp,
-	getDocumentsById,
-	saveDocument,
-} from "@/lib/db/queries";
+import { createContext } from "@/lib/data/base";
+import { documentData } from "@/lib/data/document";
 import { ChatSDKError } from "@/lib/errors";
 
 // Optimize for Vercel Fluid Compute
@@ -29,12 +26,8 @@ export async function GET(request: Request) {
 		).toResponse();
 	}
 
-	const isGuest = session.user.type === "guest";
-	const documents = await getDocumentsById({
-		id,
-		userId: session.user.id,
-		isGuest,
-	});
+	const ctx = createContext(session);
+	const documents = await documentData.getAll(id, ctx);
 
 	const [document] = documents;
 
@@ -71,7 +64,7 @@ export async function POST(request: Request) {
 		).toResponse();
 	}
 
-	const isGuest = session.user.type === "guest";
+	const ctx = createContext(session);
 
 	const {
 		content,
@@ -80,11 +73,7 @@ export async function POST(request: Request) {
 	}: { content: string; title: string; kind: ArtifactKind } =
 		await bodyPromise;
 
-	const documents = await getDocumentsById({
-		id,
-		userId: session.user.id,
-		isGuest,
-	});
+	const documents = await documentData.getAll(id, ctx);
 
 	let chatId: string | null = null;
 
@@ -106,15 +95,16 @@ export async function POST(request: Request) {
 		).toResponse();
 	}
 
-	const document = await saveDocument({
-		id,
-		content,
-		title,
-		kind,
-		userId: session.user.id,
-		chatId,
-		isGuest,
-	});
+	const document = await documentData.save(
+		{
+			id,
+			content,
+			title,
+			kind,
+			chatId,
+		},
+		ctx
+	);
 
 	return Response.json(document, { status: 200 });
 }
@@ -146,12 +136,8 @@ export async function DELETE(request: Request) {
 		).toResponse();
 	}
 
-	const isGuest = session.user.type === "guest";
-	const documents = await getDocumentsById({
-		id,
-		userId: session.user.id,
-		isGuest,
-	});
+	const ctx = createContext(session);
+	const documents = await documentData.getAll(id, ctx);
 
 	const [document] = documents;
 
@@ -163,12 +149,11 @@ export async function DELETE(request: Request) {
 		return new ChatSDKError("forbidden:document").toResponse();
 	}
 
-	const documentsDeleted = await deleteDocumentsByIdAfterTimestamp({
+	const documentsDeleted = await documentData.deleteAfterTimestamp(
 		id,
-		timestamp: new Date(timestamp),
-		userId: session.user.id,
-		isGuest,
-	});
+		new Date(timestamp),
+		ctx
+	);
 
 	return Response.json(documentsDeleted, { status: 200 });
 }

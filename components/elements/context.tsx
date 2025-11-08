@@ -52,6 +52,7 @@ export const ContextIcon = ({ percent }: ContextIconProps) => {
 			viewBox={`0 0 ${ICON_VIEWBOX} ${ICON_VIEWBOX}`}
 			width="28"
 		>
+			<title>{`${percent.toFixed(2)}% of model context used`}</title>
 			<circle
 				cx={ICON_CENTER}
 				cy={ICON_CENTER}

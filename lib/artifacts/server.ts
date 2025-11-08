@@ -4,8 +4,8 @@ import { codeDocumentHandler } from "@/artifacts/code/server";
 import { sheetDocumentHandler } from "@/artifacts/sheet/server";
 import { textDocumentHandler } from "@/artifacts/text/server";
 import type { ArtifactKind } from "@/components/artifact";
-import { appendDocumentVersionToCache } from "../cache/operations";
-import { saveDocument } from "../db/queries";
+import { createContext } from "../data/base";
+import { documentData } from "../data/document";
 import type { Document } from "../db/schema";
 import type { ChatMessage } from "../types";
 
@@ -56,29 +56,17 @@ export function createDocumentHandler<T extends ArtifactKind>(config: {
 			});
 
 			if (args.session?.user?.id) {
-				if (args.session.user.type === "guest") {
-					await appendDocumentVersionToCache(
-						args.id,
-						args.session.user.id,
-						{
-							title: args.title,
-							content: draftContent,
-							kind: config.kind,
-							createdAt: new Date().toISOString(),
-							updatedAt: new Date().toISOString(),
-						},
-						{ chatId: args.chatId }
-					);
-				} else {
-					await saveDocument({
+				const ctx = createContext(args.session);
+				await documentData.save(
+					{
 						id: args.id,
 						title: args.title,
 						content: draftContent,
 						kind: config.kind,
-						userId: args.session.user.id,
 						chatId: args.chatId,
-					});
-				}
+					},
+					ctx
+				);
 			}
 
 			return;
@@ -92,29 +80,17 @@ export function createDocumentHandler<T extends ArtifactKind>(config: {
 			});
 
 			if (args.session?.user?.id) {
-				if (args.session.user.type === "guest") {
-					await appendDocumentVersionToCache(
-						args.document.id,
-						args.session.user.id,
-						{
-							title: args.document.title,
-							content: draftContent,
-							kind: config.kind,
-							createdAt: new Date().toISOString(),
-							updatedAt: new Date().toISOString(),
-						},
-						{ chatId: args.document.chatId }
-					);
-				} else {
-					await saveDocument({
+				const ctx = createContext(args.session);
+				await documentData.save(
+					{
 						id: args.document.id,
 						title: args.document.title,
 						content: draftContent,
 						kind: config.kind,
-						userId: args.session.user.id,
 						chatId: args.document.chatId,
-					});
-				}
+					},
+					ctx
+				);
 			}
 
 			return;

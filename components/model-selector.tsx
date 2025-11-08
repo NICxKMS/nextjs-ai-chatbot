@@ -13,6 +13,7 @@ import type {
 	ProviderCatalog,
 } from "@/lib/ai/model-catalog-types";
 import { forceRefreshModelCatalog } from "@/lib/ai/model-registry";
+import { logError } from "@/lib/log";
 import { cn } from "@/lib/utils";
 import { CheckCircleFillIcon, ChevronDownIcon } from "./icons";
 
@@ -210,7 +211,7 @@ export function ModelSelector({
 							setIsRefreshing(true);
 							forceRefreshModelCatalog()
 								.catch((error) => {
-									console.error(
+									logError(
 										"Model catalog refresh failed",
 										error
 									);

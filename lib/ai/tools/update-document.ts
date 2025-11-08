@@ -2,7 +2,8 @@ import { tool, type UIMessageStreamWriter } from "ai";
 import type { Session } from "next-auth";
 import { z } from "zod";
 import { documentHandlersByArtifactKind } from "@/lib/artifacts/server";
-import { getDocumentById } from "@/lib/db/queries";
+import { createContext } from "@/lib/data/base";
+import { documentData } from "@/lib/data/document";
 import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
 
@@ -21,12 +22,8 @@ export const updateDocument = ({ session, dataStream }: UpdateDocumentProps) =>
 				.describe("The description of changes that need to be made"),
 		}),
 		execute: async ({ id, description }) => {
-			const isGuest = session.user.type === "guest";
-			const document = await getDocumentById({
-				id,
-				userId: session.user.id,
-				isGuest,
-			});
+			const ctx = createContext(session);
+			const document = await documentData.get(id, ctx);
 
 			if (!document) {
 				return {

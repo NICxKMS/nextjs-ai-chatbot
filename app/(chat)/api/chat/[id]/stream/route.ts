@@ -1,8 +1,8 @@
 import { createUIMessageStream, JsonToSseTransformStream } from "ai";
 import { differenceInSeconds } from "date-fns";
 import { auth } from "@/app/(auth)/auth";
-import { getChatById, getMessagesByChatId } from "@/lib/db/queries";
-import type { Chat } from "@/lib/db/schema";
+import { createContext } from "@/lib/data/base";
+import { chatData } from "@/lib/data/chat";
 import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
 
@@ -13,9 +13,7 @@ export async function GET(
 	const { id: chatId } = await params;
 
 	if (!chatId) {
-		return new ChatSDKError(
-			"bad_request:api:missing_chat_id"
-		).toResponse();
+		return new ChatSDKError("bad_request:api:missing_chat_id").toResponse();
 	}
 
 	const session = await auth();
@@ -26,29 +24,30 @@ export async function GET(
 		).toResponse();
 	}
 
-	let chat: Chat | null;
+	const ctx = createContext(session);
+
+	// Fetch chat with messages in a single optimized cache operation
+	// Guest users: cache-only (no database fallback)
+	// Authenticated users: cache first, then database fallback
+	let result: Awaited<ReturnType<typeof chatData.getWithMessages>>;
 
 	try {
-		chat = await getChatById({ id: chatId, userId: session.user.id });
+		result = await chatData.getWithMessages(chatId, ctx);
 	} catch {
 		return new ChatSDKError("not_found:chat").toResponse();
 	}
 
-	if (!chat) {
+	if (!result) {
 		return new ChatSDKError("not_found:chat").toResponse();
 	}
 
+	const { chat, messages } = result;
+
 	if (chat.visibility === "private" && chat.userId !== session.user.id) {
-		return new ChatSDKError(
-			"forbidden:chat:owner_mismatch"
-		).toResponse();
+		return new ChatSDKError("forbidden:chat:owner_mismatch").toResponse();
 	}
 
 	// Since resumable streams are removed, we just return the most recent message if it's recent
-	const messages = await getMessagesByChatId({
-		id: chatId,
-		userId: session.user.id,
-	});
 	const mostRecentMessage = messages.at(-1);
 
 	const emptyDataStream = createUIMessageStream<ChatMessage>({

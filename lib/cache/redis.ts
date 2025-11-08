@@ -2,28 +2,28 @@ import "server-only";
 
 import { Redis } from "@upstash/redis";
 
-// Initialize Upstash Redis client
-// Uses REST API for serverless compatibility with Vercel
-let redis: Redis | null = null;
+// Upstash Redis over HTTP is stateless and safe to reuse.
+// Use a global singleton to avoid re-initializing during HMR or warm container reuse.
+const globalForRedis = globalThis as unknown as {
+	__upstashRedis?: Redis;
+};
 
 export function getRedisClient(): Redis | null {
-	if (
-		!process.env.UPSTASH_REDIS_REST_URL ||
-		!process.env.UPSTASH_REDIS_REST_TOKEN
-	) {
-		console.warn("⚠️  Upstash Redis not configured - caching disabled");
+	const url = process.env.UPSTASH_REDIS_REST_URL;
+	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+	if (!url || !token) {
 		return null;
 	}
 
-	if (!redis) {
-		redis = new Redis({
-			url: process.env.UPSTASH_REDIS_REST_URL,
-			token: process.env.UPSTASH_REDIS_REST_TOKEN,
+	if (!globalForRedis.__upstashRedis) {
+		globalForRedis.__upstashRedis = new Redis({
+			url,
+			token,
 		});
-		console.log("✅ Upstash Redis client initialized");
 	}
 
-	return redis;
+	return globalForRedis.__upstashRedis;
 }
 
 // Helper to check if Redis is available

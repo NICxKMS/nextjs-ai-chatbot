@@ -6,7 +6,6 @@ import { auth } from "@/app/(auth)/auth";
 import { ChatSDKError } from "@/lib/errors";
 import {
 	ATTACHMENT_MAX_FILE_SIZE,
-	getAllowedAttachmentMimeTypes,
 	isAllowedAttachmentMimeType,
 } from "@/lib/files";
 

@@ -23,9 +23,12 @@ export const fetcher = async (url: string) => {
     // Redirect only for chat missing and user missing
     if (typeof window !== 'undefined') {
       if (code === 'not_found:auth:user') {
-        window.location.replace('/api/auth/guest?redirectUrl=/');
+        const url = new URL(window.location.href);
+        url.searchParams.set('notice', 'user_not_found');
+        const redirectUrl = encodeURIComponent(url.toString());
+        window.location.replace(`/api/auth/guest?redirectUrl=${redirectUrl}`);
       } else if (typeof code === 'string' && code.startsWith('not_found:chat')) {
-        window.location.replace('/');
+        window.location.replace('/?notice=chat_not_found');
       }
     }
     throw err;
@@ -47,9 +50,12 @@ export async function fetchWithErrorHandlers(
       // Redirect only for chat missing and user missing
       if (typeof window !== 'undefined') {
         if (code === 'not_found:auth:user') {
-          window.location.replace('/api/auth/guest?redirectUrl=/');
+          const url = new URL(window.location.href);
+          url.searchParams.set('notice', 'user_not_found');
+          const redirectUrl = encodeURIComponent(url.toString());
+          window.location.replace(`/api/auth/guest?redirectUrl=${redirectUrl}`);
         } else if (typeof code === 'string' && code.startsWith('not_found:chat')) {
-          window.location.replace('/');
+          window.location.replace('/?notice=chat_not_found');
         }
       }
       throw err;

@@ -2,10 +2,10 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import useSWR, { useSWRConfig } from "swr";
-import { unstable_serialize } from "swr/infinite";
+import useSWR from "swr";
 import { ChatHeader } from "@/components/chat-header";
 import {
 	AlertDialog,
@@ -23,17 +23,20 @@ import { useChatVisibility } from "@/hooks/use-chat-visibility";
 import { useOptimisticChats } from "@/hooks/use-optimistic-chats";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 import { ChatSDKError } from "@/lib/errors";
+import { logError, logWarn } from "@/lib/log";
 import type { Attachment, ChatMessage, UserVote } from "@/lib/types";
 import { useSettingsSnapshot } from "@/lib/ui/settings-store";
 import type { AppUsage } from "@/lib/usage";
 import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
-import { Artifact } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
-import { getChatHistoryPaginationKey } from "./sidebar-history";
 import { toast } from "./toast";
 import type { VisibilityType } from "./visibility-selector";
+
+const Artifact = dynamic(() => import("./artifact").then((m) => m.Artifact), {
+	ssr: false,
+});
 
 export function Chat({
 	id,
@@ -59,10 +62,13 @@ export function Chat({
 		initialVisibilityType,
 	});
 
-	const { mutate } = useSWRConfig();
 	const { setDataStream } = useDataStream();
 	const settings = useSettingsSnapshot();
-	const { addOptimisticChat, removeOptimisticChat } = useOptimisticChats();
+	const {
+		addOptimisticChat,
+		removeOptimisticChat,
+		updateOptimisticChatTitle,
+	} = useOptimisticChats();
 
 	const [input, setInput] = useState<string>("");
 	const [usage, setUsage] = useState<AppUsage | undefined>(
@@ -151,9 +157,8 @@ export function Chat({
 				setUsage(dataPart.data);
 			}
 			if (dataPart.type === "data-chatTitle") {
-				// Remove optimistic chat and trigger refetch when title is ready
-				removeOptimisticChat(id);
-				mutate(unstable_serialize(getChatHistoryPaginationKey));
+				// Update the optimistic chat title in-place from the stream.
+				updateOptimisticChatTitle(id, (dataPart as any).data);
 			}
 			if (dataPart.type === "data-appendMessage") {
 				const data = (dataPart as any).data;
@@ -166,12 +171,7 @@ export function Chat({
 							setMessages((prev) => [...prev, message]);
 						}
 					} catch (error) {
-						if (process.env.NODE_ENV !== "production") {
-							console.warn(
-								"Failed to parse data-appendMessage:",
-								error
-							);
-						}
+						logWarn("Failed to parse data-appendMessage", error);
 					}
 				} else if (
 					typeof data === "object" &&
@@ -202,7 +202,7 @@ export function Chat({
 					const providerName =
 						currentModel?.providerName ?? "Model provider";
 
-					console.error("Model invocation rejected", {
+					logError("Model invocation rejected", {
 						modelId: currentModelIdRef.current,
 						providerName,
 						reason: error.message,
@@ -216,7 +216,7 @@ export function Chat({
 					return;
 				}
 
-				console.error("Chat model error", {
+				logError("Chat model error", {
 					modelId: currentModelIdRef.current,
 					providerName: getCurrentModel()?.providerName,
 					code: error.code,
@@ -231,7 +231,7 @@ export function Chat({
 				return;
 			}
 
-			console.error("Unexpected chat error", error);
+			logError("Unexpected chat error", error);
 			toast({
 				type: "error",
 				description: `Unexpected error while contacting the model provider.${error instanceof Error ? ` ${error.message}` : ""}`,
@@ -256,6 +256,7 @@ export function Chat({
 		addOptimisticChat,
 	]);
 
+	// Note: We rely on the streaming title update without refetching history.
 	const searchParams = useSearchParams();
 	const query = searchParams.get("query");
 
@@ -372,7 +373,8 @@ export function Chat({
 							onClick={() => {
 								window.open(
 									"https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dadd-credit-card",
-									"_blank"
+									"_blank",
+									"noopener,noreferrer"
 								);
 								window.location.href = "/";
 							}}

@@ -2,16 +2,14 @@
 
 import { generateText, type UIMessage } from "ai";
 // import { cookies } from "next/headers";
+import { auth } from "@/app/(auth)/auth";
 import type { VisibilityType } from "@/components/visibility-selector";
 import { DEFAULT_TITLE_MODEL } from "@/lib/ai/models";
 import { myProvider } from "@/lib/ai/providers";
 import { isTestEnvironment } from "@/lib/constants";
-import {
-	deleteMessagesByChatIdAfterTimestamp,
-	getChatById,
-	getMessageById,
-	updateChatVisiblityById,
-} from "@/lib/db/queries";
+import { createContext } from "@/lib/data/base";
+import { chatData, messageData } from "@/lib/data/chat";
+import { getMessageById } from "@/lib/db/queries";
 
 // export async function saveChatModelAsCookie(model: string) {
 // 	const cookieStore = await cookies();
@@ -41,19 +39,23 @@ export async function generateTitleFromUserMessage({
 }
 
 export async function deleteTrailingMessages({ id }: { id: string }) {
+	const session = await auth();
+	if (!session?.user) {
+		return;
+	}
+
 	const [message] = await getMessageById({ id });
 	if (!message) {
 		return;
 	}
 
-	// Get userId from chat for cache deletion
-	const chat = await getChatById({ id: message.chatId });
+	const ctx = createContext(session);
 
-	await deleteMessagesByChatIdAfterTimestamp({
-		chatId: message.chatId,
-		timestamp: message.createdAt,
-		userId: chat?.userId,
-	});
+	await messageData.deleteAfterTimestamp(
+		message.chatId,
+		message.createdAt,
+		ctx
+	);
 }
 
 export async function updateChatVisibility({
@@ -63,5 +65,11 @@ export async function updateChatVisibility({
 	chatId: string;
 	visibility: VisibilityType;
 }) {
-	await updateChatVisiblityById({ chatId, visibility });
+	const session = await auth();
+	if (!session?.user) {
+		return;
+	}
+
+	const ctx = createContext(session);
+	await chatData.updateVisibility(chatId, visibility, ctx);
 }

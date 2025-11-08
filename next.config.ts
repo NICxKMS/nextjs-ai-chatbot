@@ -3,14 +3,17 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
 	cacheComponents: true,
 	reactCompiler: true,
+	productionBrowserSourceMaps: false,
+	reactStrictMode: false,
+
 	experimental: {
+		inlineCss: true,
 		optimizePackageImports: [
 			"lucide-react",
 			"date-fns",
 			"@radix-ui/react-icons",
 			"framer-motion",
 			"@tiptap/react",
-			"react-syntax-highlighter",
 			"@ai-sdk/react",
 		],
 	},

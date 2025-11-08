@@ -206,9 +206,9 @@ importers:
       react-syntax-highlighter:
         specifier: ^15.6.6
         version: 15.6.6(react@19.2.0)
-      redis:
-        specifier: ^5.0.0
-        version: 5.0.0
+      refractor:
+        specifier: 4.8.1
+        version: 4.8.1
       rehype-katex:
         specifier: ^7.0.1
         version: 7.0.1
@@ -2114,34 +2114,6 @@ packages:
   '@radix-ui/rect@1.1.1':
     resolution: {integrity: sha512-HPwpGIzkl28mWyZqG52jiqDJ12waP11Pa1lGoiyUkIEuMLBP0oeK/C89esbXrxsky5we7dfd8U58nm0SgAWpVw==}
 
-  '@redis/bloom@5.0.0':
-    resolution: {integrity: sha512-YHlra6a7+brJ3Ustqa+jC68Pdnw2/wbnVLeULN0llP3gHpKxOSmiDyLwuHq5t/jFi6QUgjSprUQi2a8CieKFIA==}
-    engines: {node: '>= 18'}
-    peerDependencies:
-      '@redis/client': ^5.0.0
-
-  '@redis/client@5.0.0':
-    resolution: {integrity: sha512-1MqfzOOoFBwWprigJ3S5hM+LuzaWwxyyx+74NDzCpmjKWyjjC07xkWsd5E9fr+61NUDtvUivRiyAxGiRIwJCaQ==}
-    engines: {node: '>= 18'}
-
-  '@redis/json@5.0.0':
-    resolution: {integrity: sha512-8YFjshsvWR9dWjOiQ50TfBxfl+z1mjCae8jDnfOYN1aCvUZWJXqM1OpL56v6mWRyXwZ5C9qJJKDGmHTr4PVskQ==}
-    engines: {node: '>= 18'}
-    peerDependencies:
-      '@redis/client': ^5.0.0
-
-  '@redis/search@5.0.0':
-    resolution: {integrity: sha512-oEop/S/0NB5p7vpTTlp5X5LQO4oTomJnFEOaKhQ5xZWROLXTgEVvPSfXVNBbtr9maU2+OupxXQR63HW3MGeTUg==}
-    engines: {node: '>= 18'}
-    peerDependencies:
-      '@redis/client': ^5.0.0
-
-  '@redis/time-series@5.0.0':
-    resolution: {integrity: sha512-DNsP4DH5CRfXlQDyvLJm2DltZm3kjpVKZsNTI3SPdbRxhc9i2c0NehUbM/gDECnEfG+jkNN/LUv6Em4LaLwPBQ==}
-    engines: {node: '>= 18'}
-    peerDependencies:
-      '@redis/client': ^5.0.0
-
   '@remirror/core-constants@3.0.0':
     resolution: {integrity: sha512-42aWfPrimMfDKDi4YegyS7x+/0tlzaqwPQCULLanv3DMIlu96KTJR0fM5isWX2UViOqlGnX6YFgqWepcX+XMNg==}
 
@@ -2767,6 +2739,9 @@ packages:
   '@types/pg@8.11.6':
     resolution: {integrity: sha512-/2WmmBXHLsfRqzfHW7BNZ8SbYzE8OSk7i3WjFYvfgRHj7S1xj+16Je5fUKv3lVdVzk/zn9TXOqf+avFCFIE0yQ==}
 
+  '@types/prismjs@1.26.5':
+    resolution: {integrity: sha512-AUZTa7hQ2KY5L7AmtSiqxlhWxb4ina0yd8hNbl4TWuqnv/pFP0nDMb3YrfSBf4hJVGLh2YEIBfKaBW/9UEl6IQ==}
+
   '@types/prop-types@15.7.14':
     resolution: {integrity: sha512-gNMvNH49DJ7OJYv+KAKn0Xp45p8PLl6zo2YnvDIbTd4J6MER2BmWN49TG7n9LvkyihINxeKW8+3bfS2yDC9dzQ==}
 
@@ -3047,10 +3022,6 @@ packages:
   clsx@2.1.1:
     resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
     engines: {node: '>=6'}
-
-  cluster-key-slot@1.1.2:
-    resolution: {integrity: sha512-RMr0FhtfXemyinomL4hrWcYJxmX6deFdCxpJzhDttxgO1+bcCnkk+9drydLVDmAMG7NE6aN/fl4F7ucU/90gAA==}
-    engines: {node: '>=0.10.0'}
 
   codemirror@6.0.1:
     resolution: {integrity: sha512-J8j+nZ+CdWmIeFIGXEFbFPtpiYacFMDR8GlHK3IyHQJMCaVRfGx9NT+Hxivv1ckLWPvNdZqndbr/7lVhrf/Svg==}
@@ -3639,6 +3610,9 @@ packages:
   hast-util-parse-selector@2.2.5:
     resolution: {integrity: sha512-7j6mrk/qqkSehsM92wQjdIgWM2/BW61u/53G6xmC8i1OmEdKLHbk419QKQUjz6LglWsfqoiHmyMRkP1BGjecNQ==}
 
+  hast-util-parse-selector@3.1.1:
+    resolution: {integrity: sha512-jdlwBjEexy1oGz0aJ2f4GKMaVKkA9jwjr4MjAAI22E5fM/TXVZHuS5OpONtdeIkRKqAaryQ2E9xNQxijoThSZA==}
+
   hast-util-parse-selector@4.0.0:
     resolution: {integrity: sha512-wkQCkSYoOGCRKERFWcxMVMOcYE2K1AaNLU8DXS9arxnLOUEWbOXKXiJUNzEpqZ3JOKpnha3jkFrumEjVliDe7A==}
 
@@ -3662,6 +3636,9 @@ packages:
 
   hastscript@6.0.0:
     resolution: {integrity: sha512-nDM6bvd7lIqDUiYEiu5Sl/+6ReP0BMk/2f4U/Rooccxkj0P5nm+acM5PrGJ/t5I8qPGiqZSE6hVAwZEdZIvP4w==}
+
+  hastscript@7.2.0:
+    resolution: {integrity: sha512-TtYPq24IldU8iKoJQqvZOuhi5CyCQRAbvDOX0x1eW6rsHSxa/1i2CCiptNTotGHJ3VoHRGmqiv6/D3q113ikkw==}
 
   hastscript@9.0.1:
     resolution: {integrity: sha512-g7df9rMFX/SPi34tyGCyUBREQoKkapwdY/T04Qn9TDWfHhAYt4/I0gMVirzK5wEzeUqIjEB+LXC/ypb7Aqno5w==}
@@ -4451,12 +4428,11 @@ packages:
     resolution: {integrity: sha512-tmbWg6W31tQLeB5cdIBOicJDJRR2KzXsV7uSK9iNfLWQ5bIZfxuPEHp7M8wiHyHnn0DD1i7w3Zmin0FtkrwoCQ==}
     engines: {node: '>=0.10.0'}
 
-  redis@5.0.0:
-    resolution: {integrity: sha512-J/fzf0cYeFw5NP4aYIvv9owYOcNUsaDqF4qmwbSuaV4yKBLaIHJQIFbAKLgjn99GDXdJBbfqCRXE7+BIlkpATA==}
-    engines: {node: '>= 18'}
-
   refractor@3.6.0:
     resolution: {integrity: sha512-MY9W41IOWxxk31o+YvFCNyNzdkc9M20NoZK5vq6jkv4I/uh2zkWcfudj0Q1fovjUQJrNewS9NMzeTtqPf+n5EA==}
+
+  refractor@4.8.1:
+    resolution: {integrity: sha512-/fk5sI0iTgFYlmVGYVew90AoYnNMP6pooClx/XKqyeeCQXrL0Kvgn8V0VEht5ccdljbzzF1i3Q213gcntkRExg==}
 
   regex-recursion@6.0.2:
     resolution: {integrity: sha512-0YCaSCq2VRIebiaUviZNs0cBz1kg5kVS2UKUfNIx8YVs1cN3AV7NTctO5FOKBA+UT2BPJIWZauYHPqJODG50cg==}
@@ -6614,26 +6590,6 @@ snapshots:
 
   '@radix-ui/rect@1.1.1': {}
 
-  '@redis/bloom@5.0.0(@redis/client@5.0.0)':
-    dependencies:
-      '@redis/client': 5.0.0
-
-  '@redis/client@5.0.0':
-    dependencies:
-      cluster-key-slot: 1.1.2
-
-  '@redis/json@5.0.0(@redis/client@5.0.0)':
-    dependencies:
-      '@redis/client': 5.0.0
-
-  '@redis/search@5.0.0(@redis/client@5.0.0)':
-    dependencies:
-      '@redis/client': 5.0.0
-
-  '@redis/time-series@5.0.0(@redis/client@5.0.0)':
-    dependencies:
-      '@redis/client': 5.0.0
-
   '@remirror/core-constants@3.0.0': {}
 
   '@rollup/rollup-android-arm-eabi@4.52.0':
@@ -7280,6 +7236,8 @@ snapshots:
       pg-protocol: 1.8.0
       pg-types: 4.0.2
 
+  '@types/prismjs@1.26.5': {}
+
   '@types/prop-types@15.7.14': {}
 
   '@types/react-dom@18.3.5(@types/react@18.3.18)':
@@ -7532,8 +7490,6 @@ snapshots:
   client-only@0.0.1: {}
 
   clsx@2.1.1: {}
-
-  cluster-key-slot@1.1.2: {}
 
   codemirror@6.0.1:
     dependencies:
@@ -8138,6 +8094,10 @@ snapshots:
 
   hast-util-parse-selector@2.2.5: {}
 
+  hast-util-parse-selector@3.1.1:
+    dependencies:
+      '@types/hast': 2.3.10
+
   hast-util-parse-selector@4.0.0:
     dependencies:
       '@types/hast': 3.0.4
@@ -8220,6 +8180,14 @@ snapshots:
       hast-util-parse-selector: 2.2.5
       property-information: 5.6.0
       space-separated-tokens: 1.1.5
+
+  hastscript@7.2.0:
+    dependencies:
+      '@types/hast': 2.3.10
+      comma-separated-tokens: 2.0.3
+      hast-util-parse-selector: 3.1.1
+      property-information: 6.5.0
+      space-separated-tokens: 2.0.2
 
   hastscript@9.0.1:
     dependencies:
@@ -9310,19 +9278,18 @@ snapshots:
 
   react@19.2.0: {}
 
-  redis@5.0.0:
-    dependencies:
-      '@redis/bloom': 5.0.0(@redis/client@5.0.0)
-      '@redis/client': 5.0.0
-      '@redis/json': 5.0.0(@redis/client@5.0.0)
-      '@redis/search': 5.0.0(@redis/client@5.0.0)
-      '@redis/time-series': 5.0.0(@redis/client@5.0.0)
-
   refractor@3.6.0:
     dependencies:
       hastscript: 6.0.0
       parse-entities: 2.0.0
       prismjs: 1.27.0
+
+  refractor@4.8.1:
+    dependencies:
+      '@types/hast': 2.3.10
+      '@types/prismjs': 1.26.5
+      hastscript: 7.2.0
+      parse-entities: 4.0.2
 
   regex-recursion@6.0.2:
     dependencies:

@@ -9,8 +9,6 @@ import {
 } from "ai";
 import { unstable_cache as cache } from "next/cache";
 import type { ModelCatalog } from "tokenlens/core";
-import { fetchModels } from "tokenlens/fetch";
-import { getUsage } from "tokenlens/helpers";
 import { auth, type UserType } from "@/app/(auth)/auth";
 import type { VisibilityType } from "@/components/visibility-selector";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
@@ -18,32 +16,33 @@ import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 import { getModelById } from "@/lib/ai/model-registry";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import { myProvider } from "@/lib/ai/providers";
-import { createDocument } from "@/lib/ai/tools/create-document";
-import { getWeather } from "@/lib/ai/tools/get-weather";
-import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
-import { updateDocument } from "@/lib/ai/tools/update-document";
-import {
-	deleteGuestChatById,
-	getGuestChatById,
-	getGuestMessagesByChatId,
-	saveGuestMessagesAndContext,
-} from "@/lib/cache/guest-queries";
 import { isRedisAvailable } from "@/lib/cache/redis";
 import { isProductionEnvironment } from "@/lib/constants";
-import {
-	deleteChatById,
-	getChatById,
-	getMessageCountByUserId,
-	getMessagesByChatId,
-	saveChat,
-	saveMessagesAndContext,
-} from "@/lib/db/queries";
+import { createContext } from "@/lib/data/base";
+import { chatData, messageData } from "@/lib/data/chat";
+import { getMessageCountByUserId } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
+import { logError, logWarn } from "@/lib/log";
 import type { ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
+
+// Tool type helpers for safe dynamic tool loading (no runtime cost)
+type GetWeatherTool = typeof import("@/lib/ai/tools/get-weather")["getWeather"];
+type CreateDocumentFactory =
+	typeof import("@/lib/ai/tools/create-document")["createDocument"];
+type UpdateDocumentFactory =
+	typeof import("@/lib/ai/tools/update-document")["updateDocument"];
+type RequestSuggestionsFactory =
+	typeof import("@/lib/ai/tools/request-suggestions")["requestSuggestions"];
+type ToolSetShape = {
+	getWeather: GetWeatherTool;
+	createDocument: ReturnType<CreateDocumentFactory>;
+	updateDocument: ReturnType<UpdateDocumentFactory>;
+	requestSuggestions: ReturnType<RequestSuggestionsFactory>;
+};
 
 const TOOL_IDS = [
 	"getWeather",
@@ -81,9 +80,10 @@ export const maxDuration = 60;
 const getTokenlensCatalog = cache(
 	async (): Promise<ModelCatalog | undefined> => {
 		try {
+			const { fetchModels } = await import("tokenlens/fetch");
 			return await fetchModels();
 		} catch (err) {
-			console.warn(
+			logWarn(
 				"TokenLens: catalog fetch failed, using default catalog",
 				err
 			);
@@ -129,10 +129,10 @@ export async function POST(request: Request) {
 		}
 
 		const userType: UserType = session.user.type;
-		const isGuest = userType === "guest";
+		const ctx = createContext(session);
 
 		// For guest users, require Redis to be available
-		if (isGuest && !isRedisAvailable()) {
+		if (ctx.isGuest && !isRedisAvailable()) {
 			return new ChatSDKError(
 				"bad_request:api:guest_requires_cache",
 				"Guest sessions require cache to be enabled"
@@ -144,12 +144,8 @@ export async function POST(request: Request) {
 				id: session.user.id,
 				differenceInHours: 24,
 			}),
-			isGuest
-				? getGuestChatById({ id, userId: session.user.id })
-				: getChatById({ id, userId: session.user.id }),
-			isGuest
-				? getGuestMessagesByChatId({ id, userId: session.user.id })
-				: getMessagesByChatId({ id, userId: session.user.id }),
+			chatData.get(id, ctx),
+			messageData.getForChat(id, ctx),
 		]);
 
 		const userEntitlements =
@@ -190,18 +186,20 @@ export async function POST(request: Request) {
 				}
 			})();
 
-			if (!isGuest) {
+			if (!ctx.isGuest) {
 				// For authenticated users, save to DB only (skip cache, will be created with messages)
-				const savedChat = await saveChat({
-					id,
-					userId: session.user.id,
-					title: placeholderTitle || "New Chat",
-					visibility: selectedVisibilityType,
-					skipCache: true,
-				});
+				const savedChat = await chatData.create(
+					{
+						id,
+						title: placeholderTitle || "New Chat",
+						visibility: selectedVisibilityType,
+						skipCache: true,
+					},
+					ctx
+				);
 				chatCreatedAt = savedChat.createdAt;
 			}
-			// For guests, skip saveGuestChat entirely (will be created with messages)
+			// For guests, skip chat creation entirely (will be created with messages)
 		}
 
 		const isNewChat = !chat;
@@ -222,7 +220,7 @@ export async function POST(request: Request) {
 		const tokenlensCatalogPromise = getTokenlensCatalog();
 
 		const stream = createUIMessageStream({
-			execute: ({ writer: dataStream }) => {
+			execute: async ({ writer: dataStream }) => {
 				const selectedModel = getModelById(selectedChatModel);
 
 				// Start title generation early (non-blocking)
@@ -240,10 +238,7 @@ export async function POST(request: Request) {
 							return title;
 						})
 						.catch((err) => {
-							console.warn(
-								"Background title generation failed",
-								err
-							);
+							logWarn("Background title generation failed", err);
 							return placeholderTitle || "New Chat";
 						});
 				}
@@ -300,22 +295,22 @@ export async function POST(request: Request) {
 					}
 				}
 
-				const streamTextOptions = {
-					model: myProvider.languageModel(selectedChatModel),
-					system: systemPrompt({
-						selectedChatModel,
-						requestHints,
-						selectedModel,
-						userSystemPrompt: requestBody.settings?.systemPrompt,
-					}),
-					messages: convertToModelMessages(uiMessages),
-					stopWhen: stepCountIs(5),
-					experimental_activeTools: getEnabledTools(selectedModel),
-					experimental_transform: smoothStream({
-						delayInMs: 2,
-						chunking: "word",
-					}),
-					tools: {
+				// Prepare tools only if enabled for the selected model
+				const enabledTools = getEnabledTools(selectedModel);
+				let tools: Partial<ToolSetShape> | undefined;
+				if (enabledTools.length > 0) {
+					const [
+						{ getWeather },
+						{ createDocument },
+						{ updateDocument },
+						{ requestSuggestions },
+					] = await Promise.all([
+						import("@/lib/ai/tools/get-weather"),
+						import("@/lib/ai/tools/create-document"),
+						import("@/lib/ai/tools/update-document"),
+						import("@/lib/ai/tools/request-suggestions"),
+					]);
+					tools = {
 						getWeather,
 						createDocument: createDocument({
 							session,
@@ -327,7 +322,27 @@ export async function POST(request: Request) {
 							session,
 							dataStream,
 						}),
-					},
+					};
+				}
+
+				const streamTextOptions = {
+					model: myProvider.languageModel(selectedChatModel),
+					system: systemPrompt({
+						selectedChatModel,
+						requestHints,
+						selectedModel,
+						userSystemPrompt: requestBody.settings?.systemPrompt,
+					}),
+					messages: convertToModelMessages(uiMessages),
+					stopWhen: stepCountIs(5),
+					experimental_activeTools: enabledTools,
+					experimental_transform: smoothStream<Partial<ToolSetShape>>(
+						{
+							delayInMs: 2,
+							chunking: "word",
+						}
+					),
+					...(tools ? { tools } : {}),
 					experimental_telemetry: {
 						isEnabled: isProductionEnvironment,
 						functionId: "stream-text",
@@ -377,6 +392,9 @@ export async function POST(request: Request) {
 								return;
 							}
 
+							const { getUsage } = await import(
+								"tokenlens/helpers"
+							);
 							const summary = getUsage({
 								modelId,
 								usage,
@@ -392,7 +410,7 @@ export async function POST(request: Request) {
 								data: finalMergedUsage,
 							});
 						} catch (err) {
-							console.warn("TokenLens enrichment failed", err);
+							logWarn("TokenLens enrichment failed", err);
 							finalMergedUsage = {
 								...usage,
 								modelId: selectedChatModel,
@@ -405,7 +423,8 @@ export async function POST(request: Request) {
 					},
 				};
 
-				const result = streamText(streamTextOptions);
+				const result =
+					streamText<Partial<ToolSetShape>>(streamTextOptions);
 
 				result.consumeStream();
 
@@ -473,43 +492,24 @@ export async function POST(request: Request) {
 					}),
 				];
 
-				if (isGuest) {
-					try {
-						await saveGuestMessagesAndContext({
+				try {
+					await messageData.saveWithContext(
+						{
 							messages: messagesToSave,
-							userId: session.user.id,
-							chatId: id,
-							lastContext: finalMergedUsage,
-							isNewChat,
-							title: finalTitle,
-							visibility: selectedVisibilityType,
-						});
-					} catch (err) {
-						console.warn(
-							"Unable to persist messages and context for guest chat",
-							id,
-							err
-						);
-					}
-				} else {
-					try {
-						await saveMessagesAndContext({
-							messages: messagesToSave,
-							userId: session.user.id,
 							chatId: id,
 							lastContext: finalMergedUsage,
 							isNewChat,
 							title: finalTitle,
 							visibility: selectedVisibilityType,
 							createdAt: chatCreatedAt,
-						});
-					} catch (err) {
-						console.warn(
-							"Unable to persist messages and context for chat",
-							id,
-							err
-						);
-					}
+						},
+						ctx
+					);
+				} catch (err) {
+					logWarn("Unable to persist messages and context for chat", {
+						chatId: id,
+						error: err,
+					});
 				}
 			},
 			onError: () => {
@@ -540,10 +540,10 @@ export async function POST(request: Request) {
 				).toResponse();
 			}
 
-			console.error("Gateway credit card error for non-Vercel model", {
+			logError("Gateway credit card error for non-Vercel model", error, {
 				selectedModelId,
 				vercelId,
-				message: error.message,
+				message: (error as Error).message,
 			});
 
 			return new ChatSDKError(
@@ -552,7 +552,7 @@ export async function POST(request: Request) {
 			).toResponse();
 		}
 
-		console.error("Unhandled error in chat API:", error, {
+		logError("Unhandled error in chat API", error, {
 			vercelId,
 			selectedModelId,
 		});
@@ -574,23 +574,17 @@ export async function DELETE(request: Request) {
 		return new ChatSDKError("unauthorized:chat").toResponse();
 	}
 
-	const isGuest = session.user.type === "guest";
+	const ctx = createContext(session);
 
-	// Fetch chat based on user type
-	const chatPromise = isGuest
-		? getGuestChatById({ id, userId: session.user.id })
-		: getChatById({ id });
-
-	const chat = await chatPromise;
+	// Fetch chat to verify ownership
+	const chat = await chatData.get(id, ctx);
 
 	if (chat?.userId !== session.user.id) {
 		return new ChatSDKError("forbidden:chat").toResponse();
 	}
 
-	// Delete based on user type
-	const deletedChat = isGuest
-		? await deleteGuestChatById({ id, userId: session.user.id })
-		: await deleteChatById({ id });
+	// Delete chat
+	const deletedChat = await chatData.delete(id, ctx);
 
 	return Response.json(deletedChat, { status: 200 });
 }

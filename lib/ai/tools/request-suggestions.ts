@@ -1,7 +1,9 @@
 import { streamObject, tool, type UIMessageStreamWriter } from "ai";
 import type { Session } from "next-auth";
 import { z } from "zod";
-import { getDocumentById, saveSuggestions } from "@/lib/db/queries";
+import { createContext } from "@/lib/data/base";
+import { documentData } from "@/lib/data/document";
+import { saveSuggestions } from "@/lib/db/queries";
 import type { Suggestion } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
 import { generateUUID } from "@/lib/utils";
@@ -24,12 +26,8 @@ export const requestSuggestions = ({
 				.describe("The ID of the document to request edits"),
 		}),
 		execute: async ({ documentId }) => {
-			const isGuest = session.user.type === "guest";
-			const document = await getDocumentById({
-				id: documentId,
-				userId: session.user.id,
-				isGuest,
-			});
+			const ctx = createContext(session);
+			const document = await documentData.get(documentId, ctx);
 
 			if (!document || !document.content) {
 				return {
@@ -82,7 +80,7 @@ export const requestSuggestions = ({
 
 			// Only save suggestions to database for authenticated users
 			// Guest users cannot persist suggestions (cache-only constraint)
-			if (session.user?.id && !isGuest) {
+			if (session.user?.id && !ctx.isGuest) {
 				const userId = session.user.id;
 
 				await saveSuggestions({
