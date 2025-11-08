@@ -1,10 +1,7 @@
 import { auth } from "@/app/(auth)/auth";
 import { createContext } from "@/lib/data/base";
 import { chatData } from "@/lib/data/chat";
-import {
-	getVotesByChatIdAndUserId,
-	voteMessage,
-} from "@/lib/db/queries";
+import { getVotesByChatIdAndUserId, voteMessage } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
 
 // Optimize for Vercel Fluid Compute

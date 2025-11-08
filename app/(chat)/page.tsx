@@ -31,16 +31,15 @@ export default async function Page() {
 
 	return (
 		<>
-			<Chat
-				autoResume={false}
-				availableModels={availableModels}
-				id={id}
-				initialChatModel={DEFAULT_CHAT_MODEL}
-				initialMessages={[]}
-				initialVisibilityType="private"
-				isReadonly={false}
-				key={id}
-			/>
+		<Chat
+			availableModels={availableModels}
+			id={id}
+			initialChatModel={DEFAULT_CHAT_MODEL}
+			initialMessages={[]}
+			initialVisibilityType="private"
+			isReadonly={false}
+			key={id}
+		/>
 			<DataStreamHandler />
 		</>
 	);

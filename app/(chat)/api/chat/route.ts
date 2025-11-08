@@ -139,13 +139,12 @@ export async function POST(request: Request) {
 			).toResponse();
 		}
 
-		const [messageCount, chat, messagesFromDb] = await Promise.all([
+		const [messageCount, chatWithMessages] = await Promise.all([
 			getMessageCountByUserId({
 				id: session.user.id,
 				differenceInHours: 24,
 			}),
-			chatData.get(id, ctx),
-			messageData.getForChat(id, ctx),
+			chatData.getWithMessages(id, ctx),
 		]);
 
 		const userEntitlements =
@@ -163,6 +162,9 @@ export async function POST(request: Request) {
 
 		let chatCreatedAt: Date | undefined;
 		let placeholderTitle: string | undefined;
+
+		const chat = chatWithMessages?.chat;
+		const messagesFromDb = chatWithMessages?.messages || [];
 
 		if (chat) {
 			if (chat.userId !== session.user.id) {

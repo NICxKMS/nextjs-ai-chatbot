@@ -33,9 +33,9 @@ export async function GET(request: NextRequest) {
 
 	const result = await chatData.list(
 		{
-			limit,
-			startingAfter,
-			endingBefore,
+				limit,
+				startingAfter,
+				endingBefore,
 		},
 		ctx
 	);
