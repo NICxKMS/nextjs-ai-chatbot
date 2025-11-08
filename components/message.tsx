@@ -325,6 +325,11 @@ const PurePreviewMessage = ({
 export const PreviewMessage = memo(
 	PurePreviewMessage,
 	(prevProps, nextProps) => {
+		// During loading/streaming, always re-render to capture text updates
+		if (prevProps.isLoading || nextProps.isLoading) {
+			return false;
+		}
+
 		if (prevProps.isLoading !== nextProps.isLoading) {
 			return false;
 		}
@@ -343,7 +348,7 @@ export const PreviewMessage = memo(
 			return false;
 		}
 
-		// No changes detected - skip render (memoize)
+		// All checks passed and not loading - safe to skip render
 		return true;
 	}
 );

@@ -238,8 +238,18 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 											paginatedChatHistory.chats
 									);
 
+								// Deduplicate chats by ID to prevent duplicate keys
+								const uniqueChats = Array.from(
+									new Map(
+										chatsFromHistory.map((chat) => [
+											chat.id,
+											chat,
+										])
+									).values()
+								);
+
 								const groupedChats =
-									groupChatsByDate(chatsFromHistory);
+									groupChatsByDate(uniqueChats);
 
 								return (
 									<div className="flex flex-col gap-6">
@@ -437,12 +447,14 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 							You have reached the end of your chat history.
 						</div>
 					) : (
-						<div className="mt-8 flex flex-row items-center gap-2 p-2 text-zinc-500 dark:text-zinc-400">
-							<div className="animate-spin">
-								<LoaderIcon />
+						isValidating && (
+							<div className="mt-8 flex flex-row items-center gap-2 p-2 text-zinc-500 dark:text-zinc-400">
+								<div className="animate-spin">
+									<LoaderIcon />
+								</div>
+								<div>Loading Chats...</div>
 							</div>
-							<div>Loading Chats...</div>
-						</div>
+						)
 					)}
 				</SidebarGroupContent>
 			</SidebarGroup>
