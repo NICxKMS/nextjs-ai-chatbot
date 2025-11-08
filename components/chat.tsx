@@ -4,6 +4,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { ChatHeader } from "@/components/chat-header";
@@ -17,7 +18,7 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useArtifactSelector } from "@/hooks/use-artifact";
+import { initialArtifactData, useArtifact, useArtifactSelector } from "@/hooks/use-artifact";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
 import { useOptimisticChats } from "@/hooks/use-optimistic-chats";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
@@ -68,6 +69,7 @@ export function Chat({
 		removeOptimisticChat,
 		updateOptimisticChatTitle,
 	} = useOptimisticChats();
+	const { setArtifact } = useArtifact();
 
 	const [input, setInput] = useState<string>("");
 	const [usage, setUsage] = useState<AppUsage | undefined>(
@@ -251,6 +253,13 @@ export function Chat({
 		addOptimisticChat,
 	]);
 
+	// Reset artifact visibility when navigating to a different chat
+	// This prevents artifacts from auto-opening when switching chats
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Effect intentionally runs on id change only
+	useEffect(() => {
+		setArtifact(initialArtifactData);
+	}, [id, setArtifact]);
+
 	// Note: We rely on the streaming title update without refetching history.
 	const searchParams = useSearchParams();
 	const query = searchParams.get("query");
@@ -269,15 +278,21 @@ export function Chat({
 		}
 	}, [query, sendMessage, hasAppendedQuery, id]);
 
+	const { data: session } = useSession();
+	const isGuest = session?.user?.type === "guest";
+
 	// Use server-provided votes if available, otherwise fetch client-side
-	// Only fetch if initialVotes is undefined (not provided from server)
+	// Guest users cannot vote, so don't fetch votes for them
 	const { data: votes } = useSWR<UserVote[]>(
-		initialVotes === undefined && messages.length >= 2
+		initialVotes === undefined &&
+			messages.length >= 2 &&
+			!isReadonly &&
+			!isGuest
 			? `/api/vote?chatId=${id}`
 			: null,
 		fetcher,
 		{
-			fallbackData: initialVotes,
+			fallbackData: initialVotes || [],
 		}
 	);
 
@@ -296,6 +311,7 @@ export function Chat({
 				<Messages
 					chatId={id}
 					isArtifactVisible={isArtifactVisible}
+					isGuest={isGuest}
 					isReadonly={isReadonly}
 					messages={messages}
 					regenerate={regenerate}

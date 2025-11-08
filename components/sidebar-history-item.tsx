@@ -5,6 +5,7 @@ import type { Chat } from "@/lib/db/schema";
 import {
 	CheckCircleFillIcon,
 	GlobeIcon,
+	LoaderIcon,
 	LockIcon,
 	MoreHorizontalIcon,
 	ShareIcon,
@@ -44,8 +45,11 @@ const PureChatItem = ({
 		initialVisibilityType: chat.visibility,
 	});
 
-	// Render skeleton for optimistic chats
-	if (isOptimistic) {
+	// Render loading icon for optimistic chats that are still generating title
+	// Once title is generated, render normally (without animation)
+	const isTitleGenerating = isOptimistic && chat.title === "Generating title...";
+	
+	if (isTitleGenerating) {
 		return (
 			<SidebarMenuItem>
 				<SidebarMenuButton asChild isActive={isActive}>
@@ -54,9 +58,8 @@ const PureChatItem = ({
 						onClick={() => setOpenMobile(false)}
 					>
 						<span className="flex items-center gap-2">
-							<span className="inline-block size-1 animate-pulse rounded-full bg-current" />
-							<span className="animate-pulse text-muted-foreground">
-								{chat.title}
+							<span className="animate-spin text-muted-foreground">
+								<LoaderIcon size={14} />
 							</span>
 						</span>
 					</Link>
@@ -142,6 +145,10 @@ const PureChatItem = ({
 
 export const ChatItem = memo(PureChatItem, (prevProps, nextProps) => {
 	if (prevProps.isActive !== nextProps.isActive) {
+		return false;
+	}
+	// Re-render when title changes (for optimistic title updates from stream)
+	if (prevProps.chat.title !== nextProps.chat.title) {
 		return false;
 	}
 	return true;
