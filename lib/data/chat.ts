@@ -20,6 +20,7 @@ import {
 	updateChatVisibilityInCache,
 	warmChatCache,
 } from "../cache/operations";
+import { incrementUserMessageCountAsync } from "../cache/quota";
 import { getRedisClient, isRedisAvailable } from "../cache/redis";
 import type { CachedMessage } from "../cache/types";
 import { CacheKeys } from "../cache/types";
@@ -927,6 +928,17 @@ export const messageData = {
 						title,
 					});
 				}
+
+				// OPTIMIZATION: Increment quota counter for guest users (fire-and-forget)
+				const userMessageCount = messages.filter(
+					(msg) => msg.role === "user"
+				).length;
+				if (userMessageCount > 0) {
+					for (let i = 0; i < userMessageCount; i++) {
+						incrementUserMessageCountAsync(ctx.userId);
+					}
+				}
+
 				return;
 			}
 
@@ -1001,14 +1013,24 @@ export const messageData = {
 				: Promise.resolve();
 
 			// Wait for all operations to complete
-			// For new chats: chat creation -> message insert -> context update (sequential)
-			// For existing chats: message insert + context update (parallel)
-			// Cache operations run in parallel with DB operations
 			await Promise.all([
 				messageInsertPromise,
 				...dbPromises,
 				cachePromise,
 			]);
+
+			// OPTIMIZATION: Increment quota counter for user messages (fire-and-forget)
+			// Only count user messages (not assistant responses)
+			const userMessageCount = messages.filter(
+				(msg) => msg.role === "user"
+			).length;
+			if (userMessageCount > 0) {
+				// Increment quota async (don't block on this)
+				for (let i = 0; i < userMessageCount; i++) {
+					incrementUserMessageCountAsync(ctx.userId);
+				}
+			}
+
 			return;
 		} catch (error) {
 			throw toDatabaseError(

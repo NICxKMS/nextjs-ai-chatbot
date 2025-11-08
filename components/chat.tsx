@@ -181,6 +181,18 @@ export function Chat({
 					}
 				}
 			},
+			onFinish: (finishData) => {
+				// OPTIMIZATION: For short responses, title might not be received during streaming
+				// Poll for title update after a brief delay to ensure it's fetched
+				if (initialMessages.length === 0 && messages.length === 1) {
+					// New chat - check if title was updated
+					setTimeout(() => {
+						// Trigger a sidebar refresh to pick up the generated title from DB
+						// This ensures titles appear even for very short responses
+						window.dispatchEvent(new Event("chat-title-updated"));
+					}, 1000);
+				}
+			},
 			onError: (error) => {
 				// Remove optimistic chat on error
 				removeOptimisticChat(id);
