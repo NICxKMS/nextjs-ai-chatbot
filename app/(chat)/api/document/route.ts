@@ -97,11 +97,11 @@ export async function POST(request: Request) {
 
 	const document = await documentData.save(
 		{
-			id,
-			content,
-			title,
-			kind,
-			chatId,
+		id,
+		content,
+		title,
+		kind,
+		chatId,
 		},
 		ctx
 	);

@@ -18,7 +18,6 @@ import {
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useArtifactSelector } from "@/hooks/use-artifact";
-import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
 import { useOptimisticChats } from "@/hooks/use-optimistic-chats";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
@@ -44,18 +43,18 @@ export function Chat({
 	initialChatModel,
 	initialVisibilityType,
 	isReadonly,
-	autoResume,
 	initialLastContext,
 	availableModels = [],
+	initialVotes,
 }: {
 	id: string;
 	initialMessages: ChatMessage[];
 	initialChatModel: string;
 	initialVisibilityType: VisibilityType;
 	isReadonly: boolean;
-	autoResume: boolean;
 	initialLastContext?: AppUsage;
 	availableModels?: ModelMetadata[];
+	initialVotes?: UserVote[];
 }) {
 	const { visibilityType } = useChatVisibility({
 		chatId: id,
@@ -120,124 +119,120 @@ export function Chat({
 		return 100; // Default
 	}, []);
 
-	const {
-		messages,
-		setMessages,
-		sendMessage,
-		status,
-		stop,
-		regenerate,
-		resumeStream,
-	} = useChat<ChatMessage>({
-		id,
-		messages: initialMessages,
-		experimental_throttle: optimalThrottle,
-		generateId: generateUUID,
-		transport: new DefaultChatTransport({
-			api: "/api/chat",
-			fetch: fetchWithErrorHandlers,
-			prepareSendMessagesRequest(request) {
-				return {
-					body: {
-						id: request.id,
-						message: request.messages.at(-1),
-						selectedChatModel: currentModelIdRef.current,
-						selectedVisibilityType: visibilityType,
-						settings,
-						...request.body,
-					},
-				};
-			},
-		}),
-		onData: (dataPart) => {
-			if (settings.streamArtifacts) {
-				setDataStream((ds) => (ds ? [...ds, dataPart] : []));
-			}
-			if (dataPart.type === "data-usage") {
-				setUsage(dataPart.data);
-			}
-			if (dataPart.type === "data-chatTitle") {
-				// Update the optimistic chat title in-place from the stream.
-				updateOptimisticChatTitle(id, (dataPart as any).data);
-			}
-			if (dataPart.type === "data-appendMessage") {
-				const data = (dataPart as any).data;
-				// Validate before parsing to reduce exception overhead
-				if (typeof data === "string") {
-					try {
-						const message = JSON.parse(data);
-						// Basic validation to ensure it's a valid message
-						if (message?.id && message?.role) {
-							setMessages((prev) => [...prev, message]);
-						}
-					} catch (error) {
-						logWarn("Failed to parse data-appendMessage", error);
-					}
-				} else if (
-					typeof data === "object" &&
-					data !== null &&
-					data?.id &&
-					data?.role
-				) {
-					// Already parsed object with valid structure
-					setMessages((prev) => [...prev, data]);
+	const { messages, setMessages, sendMessage, status, stop, regenerate } =
+		useChat<ChatMessage>({
+			id,
+			messages: initialMessages,
+			experimental_throttle: optimalThrottle,
+			generateId: generateUUID,
+			transport: new DefaultChatTransport({
+				api: "/api/chat",
+				fetch: fetchWithErrorHandlers,
+				prepareSendMessagesRequest(request) {
+					return {
+						body: {
+							id: request.id,
+							message: request.messages.at(-1),
+							selectedChatModel: currentModelIdRef.current,
+							selectedVisibilityType: visibilityType,
+							settings,
+							...request.body,
+						},
+					};
+				},
+			}),
+			onData: (dataPart) => {
+				if (settings.streamArtifacts) {
+					setDataStream((ds) => (ds ? [...ds, dataPart] : []));
 				}
-			}
-		},
-		onError: (error) => {
-			// Remove optimistic chat on error
-			removeOptimisticChat(id);
-			if (error instanceof ChatSDKError) {
-				const isGatewayCreditCardError = error.message?.includes(
-					"AI Gateway requires a valid credit card"
-				);
+				if (dataPart.type === "data-usage") {
+					setUsage(dataPart.data);
+				}
+				if (dataPart.type === "data-chatTitle") {
+					// Update the optimistic chat title in-place from the stream.
+					updateOptimisticChatTitle(id, (dataPart as any).data);
+				}
+				if (dataPart.type === "data-appendMessage") {
+					const data = (dataPart as any).data;
+					// Validate before parsing to reduce exception overhead
+					if (typeof data === "string") {
+						try {
+							const message = JSON.parse(data);
+							// Basic validation to ensure it's a valid message
+							if (message?.id && message?.role) {
+								setMessages((prev) => [...prev, message]);
+							}
+						} catch (error) {
+							logWarn(
+								"Failed to parse data-appendMessage",
+								error
+							);
+						}
+					} else if (
+						typeof data === "object" &&
+						data !== null &&
+						data?.id &&
+						data?.role
+					) {
+						// Already parsed object with valid structure
+						setMessages((prev) => [...prev, data]);
+					}
+				}
+			},
+			onError: (error) => {
+				// Remove optimistic chat on error
+				removeOptimisticChat(id);
+				if (error instanceof ChatSDKError) {
+					const isGatewayCreditCardError = error.message?.includes(
+						"AI Gateway requires a valid credit card"
+					);
 
-				if (isGatewayCreditCardError) {
-					if (isVercelGatewayModel(currentModelIdRef.current)) {
-						setShowCreditCardAlert(true);
+					if (isGatewayCreditCardError) {
+						if (isVercelGatewayModel(currentModelIdRef.current)) {
+							setShowCreditCardAlert(true);
+							return;
+						}
+
+						const currentModel = getCurrentModel();
+						const providerName =
+							currentModel?.providerName ?? "Model provider";
+
+						logError("Model invocation rejected", {
+							modelId: currentModelIdRef.current,
+							providerName,
+							reason: error.message,
+							cause: error.cause,
+						});
+
+						toast({
+							type: "error",
+							description: `${providerName} rejected the request due to billing requirements. Please verify your credentials or billing status with ${providerName}.`,
+						});
 						return;
 					}
 
-					const currentModel = getCurrentModel();
-					const providerName =
-						currentModel?.providerName ?? "Model provider";
-
-					logError("Model invocation rejected", {
+					logError("Chat model error", {
 						modelId: currentModelIdRef.current,
-						providerName,
-						reason: error.message,
+						providerName: getCurrentModel()?.providerName,
+						code: error.code,
+						message: error.message,
 						cause: error.cause,
 					});
 
 					toast({
 						type: "error",
-						description: `${providerName} rejected the request due to billing requirements. Please verify your credentials or billing status with ${providerName}.`,
+						description: `${error.message}${error.cause ? ` — ${error.cause}` : ""}${error.code ? ` (code: ${error.code})` : ""}`,
 					});
 					return;
 				}
 
-				logError("Chat model error", {
-					modelId: currentModelIdRef.current,
-					providerName: getCurrentModel()?.providerName,
-					code: error.code,
-					message: error.message,
-					cause: error.cause,
-				});
-
+				logError("Unexpected chat error", error);
 				toast({
 					type: "error",
-					description: `${error.message}${error.cause ? ` — ${error.cause}` : ""}${error.code ? ` (code: ${error.code})` : ""}`,
+					description: `Unexpected error while contacting the model provider.${error instanceof Error ? ` ${error.message}` : ""}`,
 				});
-				return;
-			}
-
-			logError("Unexpected chat error", error);
-			toast({
-				type: "error",
-				description: `Unexpected error while contacting the model provider.${error instanceof Error ? ` ${error.message}` : ""}`,
-			});
-		},
-	});
+			},
+		});
 
 	// Add optimistic chat when user sends first message
 	useEffect(() => {
@@ -274,20 +269,20 @@ export function Chat({
 		}
 	}, [query, sendMessage, hasAppendedQuery, id]);
 
+	// Use server-provided votes if available, otherwise fetch client-side
+	// Only fetch if initialVotes is undefined (not provided from server)
 	const { data: votes } = useSWR<UserVote[]>(
-		messages.length >= 2 ? `/api/vote?chatId=${id}` : null,
-		fetcher
+		initialVotes === undefined && messages.length >= 2
+			? `/api/vote?chatId=${id}`
+			: null,
+		fetcher,
+		{
+			fallbackData: initialVotes,
+		}
 	);
 
 	const [attachments, setAttachments] = useState<Attachment[]>([]);
 	const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
-
-	useAutoResume({
-		autoResume,
-		initialMessages,
-		resumeStream,
-		setMessages,
-	});
 
 	return (
 		<>
