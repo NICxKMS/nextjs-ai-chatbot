@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import { SelectItem } from "@/components/ui/select";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
+import { logError } from "@/lib/log";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { useSettingsSnapshot } from "@/lib/ui/settings-store";
 import type { AppUsage } from "@/lib/usage";
@@ -230,7 +231,7 @@ function PureMultimodalInput({
 					...successfullyUploadedAttachments,
 				]);
 			} catch (error) {
-				console.error("Error uploading files!", error);
+				logError("Error uploading files", error);
 			} finally {
 				setUploadQueue([]);
 			}

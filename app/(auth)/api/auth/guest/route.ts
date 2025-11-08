@@ -15,13 +15,16 @@ export async function GET(request: Request) {
 	});
 
 	if (token) {
-		// If a session exists but the underlying DB user is missing, convert to a guest session.
+		// If a session exists:
+		// - If DB user is missing, convert to a guest session
+		// - If DB user exists (including guest user), just go to the target page
 		const users = token.id ? await getUserById(token.id) : [];
-		if (users.length > 0) {
-			return NextResponse.redirect(new URL("/", request.url));
+		if (users.length === 0) {
+			// User record missing → create a guest session
+			return signIn("guest", { redirect: true, redirectTo: redirectUrl });
 		}
-		// User record missing → create a guest session
-		return signIn("guest", { redirect: true, redirectTo: redirectUrl });
+		// User exists (regular or guest) → respect the original redirect target
+		return NextResponse.redirect(new URL(redirectUrl, request.url));
 	}
 
 	return signIn("guest", { redirect: true, redirectTo: redirectUrl });

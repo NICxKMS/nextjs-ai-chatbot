@@ -5,12 +5,25 @@ import { listChatModels } from "@/lib/ai/model-registry";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { generateUUID } from "@/lib/utils";
 import { auth } from "../(auth)/auth";
+import { getUserById } from "@/lib/db/queries";
 
 export default async function Page() {
 	const session = await auth();
 
 	if (!session) {
 		redirect("/api/auth/guest");
+	}
+
+	// If session exists but underlying DB user is missing, convert to guest and do a full reload
+	if (session.user?.id) {
+		const users = await getUserById(session.user.id);
+		if (users.length === 0) {
+			redirect(
+				`/api/auth/guest?redirectUrl=${encodeURIComponent(
+					"/?notice=user_not_found"
+				)}`
+			);
+		}
 	}
 
 	const id = generateUUID();

@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { VisibilityType } from "@/components/visibility-selector";
+import { logError } from "@/lib/log";
 import type { AppUsage } from "../usage";
 import { getChatFromCache, setChatInCache } from "./operations";
 import { getRedisClient } from "./redis";
@@ -56,7 +57,7 @@ export async function batchUpdateChatCache({
 
 		await setChatInCache(chatId, userId, cached);
 	} catch (error) {
-		console.error("Redis batchUpdateChatCache error:", error);
+		logError("Redis batchUpdateChatCache error", error);
 	}
 }
 
@@ -122,6 +123,6 @@ export async function createOrUpdateChatWithMessages({
 			});
 		}
 	} catch (error) {
-		console.error("Redis createOrUpdateChatWithMessages error:", error);
+		logError("Redis createOrUpdateChatWithMessages error", error);
 	}
 }

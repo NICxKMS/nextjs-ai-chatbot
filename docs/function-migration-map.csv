@@ -1,0 +1,62 @@
+Domain,Function Name,File Path,Purpose,Call Sites,Migrated Status
+Chat,saveChat,lib/db/queries.ts,Create new chat in DB and cache,app/(chat)/api/chat/route.ts:206,pending
+Chat,getChatById,lib/db/queries.ts,Get chat by ID (cache-first for auth users),app/(chat)/api/chat/route.ts:160|app/(chat)/api/vote/route.ts:23|app/(chat)/api/vote/route.ts:83|app/(chat)/actions.ts:50|lib/db/queries.ts:581,pending
+Chat,getChatWithMessagesById,lib/db/queries.ts,Get chat with messages in single operation,app/(chat)/chat/[id]/page.tsx:33|lib/db/queries.ts:389,pending
+Chat,getChatsByUserId,lib/db/queries.ts,Get paginated list of user's chats,app/(chat)/api/history/route.ts:45,pending
+Chat,deleteChatById,lib/db/queries.ts,Delete chat and related data,app/(chat)/api/chat/route.ts:623,pending
+Chat,updateChatTitleById,lib/db/queries.ts,Update chat title in DB and cache,lib/cache/batch-operations.ts (via cache operations),pending
+Chat,updateChatVisiblityById,lib/db/queries.ts,Update chat visibility in DB and cache,app/(chat)/actions.ts:66,pending
+Chat,updateChatLastContextById,lib/db/queries.ts,Update chat context/usage in DB and cache,lib/db/queries.ts (internal use in saveMessagesAndContext),pending
+Chat,deleteAllChatsByUserId,lib/db/queries.ts,Delete all chats for a user,app/(chat)/api/history/route.ts:69,pending
+Message,saveMessages,lib/db/queries.ts,Bulk save messages to DB and cache,lib/db/queries.ts (internal use in saveMessagesAndContext),pending
+Message,getMessagesByChatId,lib/db/queries.ts,Get all messages for a chat,app/(chat)/api/chat/route.ts:163|lib/db/queries.ts:389,pending
+Message,saveMessagesAndContext,lib/db/queries.ts,Save messages and context in optimized batch,app/(chat)/api/chat/route.ts:527,pending
+Message,deleteMessagesByChatIdAfterTimestamp,lib/db/queries.ts,Delete messages after timestamp (for regeneration),app/(chat)/actions.ts:52,pending
+Message,getMessageById,lib/db/queries.ts,Get single message by ID,app/(chat)/actions.ts:44,pending
+Message,getMessageCountByUserId,lib/db/queries.ts,Get message count for rate limiting,app/(chat)/api/chat/route.ts:153,pending
+Document,saveDocument,lib/db/queries.ts,Save document version to DB and cache,app/(chat)/api/document/route.ts:109|lib/artifacts/server.ts:73|lib/artifacts/server.ts:109,pending
+Document,getDocumentsById,lib/db/queries.ts,Get all versions of a document,app/(chat)/api/document/route.ts:33|app/(chat)/api/document/route.ts:83|app/(chat)/api/document/route.ts:150,pending
+Document,getDocumentById,lib/db/queries.ts,Get latest version of a document,lib/ai/tools/update-document.ts:25,pending
+Document,deleteDocumentsByIdAfterTimestamp,lib/db/queries.ts,Delete document versions after timestamp,app/(chat)/api/document/route.ts:166,pending
+Vote,voteMessage,lib/db/queries.ts,Create or update vote on a message,app/(chat)/api/vote/route.ts:108,pending
+Vote,getVotesByChatId,lib/db/queries.ts,Get all votes for a chat,Not used in current codebase,pending
+Vote,getVotesByChatIdAndUserId,lib/db/queries.ts,Get votes for chat by specific user,app/(chat)/api/vote/route/ts:50,pending
+Suggestion,saveSuggestions,lib/db/queries.ts,Save AI suggestions for document,lib/ai/tools/request-suggestions.ts (indirect),pending
+Suggestion,getSuggestionsByDocumentId,lib/db/queries.ts,Get suggestions for a document,app/(chat)/api/suggestions/route.ts:19,pending
+User,getUser,lib/db/queries.ts,Get user by email,app/(auth)/auth.ts:45,pending
+User,createUser,lib/db/queries.ts,Create new authenticated user,Not migrating (auth only),pending
+User,getUserById,lib/db/queries.ts,Get user by ID,app/(chat)/page.tsx:19,pending
+User,createGuestUser,lib/db/queries.ts,Create guest user,app/(auth)/auth.ts:75,pending
+GuestChat,saveGuestChat,lib/cache/guest-queries.ts,Create guest chat (cache-only),Not used (inline in saveGuestMessagesAndContext),pending
+GuestChat,getGuestChatById,lib/cache/guest-queries.ts,Get guest chat by ID,app/(chat)/api/chat/route.ts:159|app/(chat)/api/chat/route.ts:611,pending
+GuestChat,getGuestChatWithMessagesById,lib/cache/guest-queries.ts,Get guest chat with messages (single op),app/(chat)/chat/[id]/page.tsx:29,pending
+GuestChat,getGuestChatsByUserId,lib/cache/guest-queries.ts,Get paginated list of guest chats,app/(chat)/api/history/route.ts:39,pending
+GuestChat,deleteGuestChatById,lib/cache/guest-queries.ts,Delete guest chat from cache,app/(chat)/api/chat/route.ts:622,pending
+GuestChat,deleteAllGuestChatsByUserId,lib/cache/guest-queries.ts,Delete all guest chats,app/(chat)/api/history/route.ts:68,pending
+GuestChat,updateGuestChatTitleById,lib/cache/guest-queries.ts,Update guest chat title,Not used (inline in batch operations),pending
+GuestChat,updateGuestChatVisibilityById,lib/cache/guest-queries.ts,Update guest chat visibility,Not used (inline in batch operations),pending
+GuestChat,updateGuestChatLastContextById,lib/cache/guest-queries.ts,Update guest chat context,Not used (inline in batch operations),pending
+GuestMessage,getGuestMessagesByChatId,lib/cache/guest-queries.ts,Get guest messages for chat,app/(chat)/api/chat/route.ts:162,pending
+GuestMessage,saveGuestMessages,lib/cache/guest-queries.ts,Save guest messages (cache-only),Not used (inline in saveGuestMessagesAndContext),pending
+GuestMessage,saveGuestMessagesAndContext,lib/cache/guest-queries.ts,Save guest messages with context,app/(chat)/api/chat/route.ts:510,pending
+Cache,getChatFromCache,lib/cache/operations.ts,Get chat from cache (low-level),lib/db/queries.ts:358|lib/db/queries.ts:429|lib/db/queries.ts:791|lib/cache/guest-queries.ts:161|lib/cache/guest-queries.ts:184|lib/cache/guest-queries.ts:211|lib/cache/batch-operations.ts:37|lib/cache/batch-operations.ts:92|lib/cache/operations.ts:78|lib/cache/operations.ts:106|lib/cache/operations.ts:134|lib/cache/operations.ts:164|lib/cache/operations.ts:191|lib/cache/operations.ts:218,pending
+Cache,setChatInCache,lib/cache/operations.ts,Set chat in cache (low-level),lib/db/queries.ts:182|lib/db/queries.ts:192|lib/cache/guest-queries.ts:46|lib/cache/operations.ts:88|lib/cache/operations.ts:116|lib/cache/operations.ts:146|lib/cache/operations.ts:173|lib/cache/operations.ts:200|lib/cache/operations.ts:227|lib/cache/batch-operations.ts:58|lib/cache/batch-operations.ts:107,pending
+Cache,appendMessagesToCache,lib/cache/operations.ts,Append messages to cached chat,lib/db/queries.ts:554|lib/db/queries.ts:634|lib/cache/guest-queries.ts:90,pending
+Cache,appendMessageToCache,lib/cache/operations.ts,Append single message (rarely used),Not used in current codebase,pending
+Cache,updateChatTitleInCache,lib/cache/operations.ts,Update title in cache,lib/db/queries.ts:1357|lib/cache/guest-queries.ts:246,pending
+Cache,updateChatVisibilityInCache,lib/cache/operations.ts,Update visibility in cache,lib/db/queries.ts:1313|lib/cache/guest-queries.ts:270,pending
+Cache,updateChatLastContextInCache,lib/cache/operations.ts,Update context in cache,lib/db/queries.ts:1395|lib/cache/guest-queries.ts:258,pending
+Cache,deleteChatFromCache,lib/cache/operations.ts,Delete chat from cache,lib/db/queries.ts:220|lib/cache/guest-queries.ts:280|lib/cache/guest-queries.ts:357,pending
+Cache,deleteMessagesFromCacheAfterTimestamp,lib/cache/operations.ts,Delete messages after timestamp,lib/db/queries.ts:1271,pending
+Cache,getUserChatsFromCache,lib/cache/operations.ts,Get user's chat list from ZSET,lib/cache/guest-queries.ts:294|lib/cache/guest-queries.ts:351,pending
+Cache,getDocumentFromCache,lib/cache/operations.ts,Get document from cache (low-level),lib/db/queries.ts:1013|lib/db/queries.ts:1069|lib/cache/operations.ts:370|lib/cache/operations.ts:402,pending
+Cache,setDocumentInCache,lib/cache/operations.ts,Set document in cache (low-level),lib/cache/operations.ts:373|lib/cache/operations.ts:384|lib/cache/operations.ts:412,pending
+Cache,appendDocumentVersionToCache,lib/cache/operations.ts,Append document version to cache,lib/db/queries.ts:922|lib/db/queries.ts:966|lib/artifacts/server.ts:60|lib/artifacts/server.ts:96,pending
+Cache,deleteDocumentVersionsFromCacheAfterTimestamp,lib/cache/operations.ts,Delete document versions after timestamp,lib/db/queries.ts:1135|lib/db/queries.ts:1162,pending
+Cache,warmChatCache,lib/cache/operations.ts,Populate cache from DB (background),lib/db/queries.ts:392|lib/db/queries.ts:482,pending
+Cache,warmDocumentCache,lib/cache/operations.ts,Populate document cache from DB,lib/db/queries.ts:1042|lib/db/queries.ts:1106,pending
+Cache,chatToCache,lib/cache/operations.ts,Convert DB chat to cache format,lib/db/queries.ts:182|lib/cache/guest-queries.ts:46|lib/cache/operations.ts:487,pending
+Cache,documentsToCache,lib/cache/operations.ts,Convert DB documents to cache format,lib/cache/operations.ts:500,pending
+Batch,batchUpdateChatCache,lib/cache/batch-operations.ts,Update chat with messages+context (optimized),lib/db/queries.ts:711|lib/db/queries.ts:757|lib/cache/guest-queries.ts:143,pending
+Batch,createOrUpdateChatWithMessages,lib/cache/batch-operations.ts,Create/update chat with messages (single op),lib/db/queries.ts:693|lib/db/queries.ts:741|lib/cache/guest-queries.ts:130,pending
+

@@ -1,6 +1,6 @@
+import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import { Artifact } from "@/components/create-artifact";
-import { DiffView } from "@/components/diffview";
 import { DocumentSkeleton } from "@/components/document-skeleton";
 import {
 	ClockRewind,
@@ -10,9 +10,28 @@ import {
 	RedoIcon,
 	UndoIcon,
 } from "@/components/icons";
-import { Editor } from "@/components/text-editor";
 import type { Suggestion } from "@/lib/db/schema";
 import { getSuggestions } from "../actions";
+
+const Editor = dynamic(
+	() => import("@/components/text-editor").then((m) => m.Editor),
+	{
+		ssr: false,
+		loading: () => <DocumentSkeleton artifactKind="text" />,
+	}
+);
+
+const DiffView = dynamic(
+	() => import("@/components/diffview").then((m) => m.DiffView),
+	{
+		ssr: false,
+		loading: () => (
+			<div className="p-4 text-muted-foreground text-sm">
+				Loading diff…
+			</div>
+		),
+	}
+);
 
 type TextArtifactMetadata = {
 	suggestions: Suggestion[];

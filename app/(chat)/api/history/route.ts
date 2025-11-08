@@ -1,10 +1,7 @@
 import type { NextRequest } from "next/server";
 import { auth } from "@/app/(auth)/auth";
-import {
-	deleteAllGuestChatsByUserId,
-	getGuestChatsByUserId,
-} from "@/lib/cache/guest-queries";
-import { deleteAllChatsByUserId, getChatsByUserId } from "@/lib/db/queries";
+import { createContext } from "@/lib/data/base";
+import { chatData } from "@/lib/data/chat";
 import { ChatSDKError } from "@/lib/errors";
 
 // Optimize for Vercel Fluid Compute
@@ -32,24 +29,21 @@ export async function GET(request: NextRequest) {
 		).toResponse();
 	}
 
-	// Check if user is guest - fetch from cache instead of DB
-	const isGuest = session.user.type === "guest";
+	const ctx = createContext(session);
 
-	const chats = isGuest
-		? await getGuestChatsByUserId({
-				id: session.user.id,
-				limit,
-				startingAfter,
-				endingBefore,
-			})
-		: await getChatsByUserId({
-				id: session.user.id,
-				limit,
-				startingAfter,
-				endingBefore,
-			});
+	const result = await chatData.list(
+		{
+			limit,
+			startingAfter,
+			endingBefore,
+		},
+		ctx
+	);
 
-	return Response.json(chats);
+	return Response.json({
+		chats: result.items,
+		hasMore: result.hasMore,
+	});
 }
 
 export async function DELETE() {
@@ -61,12 +55,9 @@ export async function DELETE() {
 		).toResponse();
 	}
 
-	// Check if user is guest - delete from cache instead of DB
-	const isGuest = session.user.type === "guest";
+	const ctx = createContext(session);
 
-	const result = isGuest
-		? await deleteAllGuestChatsByUserId({ userId: session.user.id })
-		: await deleteAllChatsByUserId({ userId: session.user.id });
+	const result = await chatData.deleteAll(ctx);
 
 	return Response.json(result, { status: 200 });
 }

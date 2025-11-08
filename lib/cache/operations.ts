@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { VisibilityType } from "@/components/visibility-selector";
+import { logError } from "@/lib/log";
 import type { Chat, DBMessage, Document } from "../db/schema";
 import type { AppUsage } from "../usage";
 import { getRedisClient, isRedisAvailable } from "./redis";
@@ -32,7 +33,7 @@ export async function getChatFromCache(
 		);
 		return cached;
 	} catch (error) {
-		console.error("Redis getChatFromCache error:", error);
+		logError("Redis getChatFromCache error", error);
 		return null;
 	}
 }
@@ -58,7 +59,7 @@ export async function setChatInCache(
 		});
 		await pipeline.exec();
 	} catch (error) {
-		console.error("Redis setChatInCache error:", error);
+		logError("Redis setChatInCache error", error);
 	}
 }
 
@@ -86,7 +87,7 @@ export async function appendMessageToCache(
 
 		await setChatInCache(chatId, userId, cached);
 	} catch (error) {
-		console.error("Redis appendMessageToCache error:", error);
+		logError("Redis appendMessageToCache error", error);
 	}
 }
 
@@ -114,7 +115,7 @@ export async function appendMessagesToCache(
 
 		await setChatInCache(chatId, userId, cached);
 	} catch (error) {
-		console.error("Redis appendMessagesToCache error:", error);
+		logError("Redis appendMessagesToCache error", error);
 	}
 }
 
@@ -144,10 +145,7 @@ export async function deleteMessagesFromCacheAfterTimestamp(
 
 		await setChatInCache(chatId, userId, cached);
 	} catch (error) {
-		console.error(
-			"Redis deleteMessagesFromCacheAfterTimestamp error:",
-			error
-		);
+		logError("Redis deleteMessagesFromCacheAfterTimestamp error", error);
 	}
 }
 
@@ -174,7 +172,7 @@ export async function updateChatTitleInCache(
 
 		await setChatInCache(chatId, userId, cached);
 	} catch (error) {
-		console.error("Redis updateChatTitleInCache error:", error);
+		logError("Redis updateChatTitleInCache error", error);
 	}
 }
 
@@ -201,7 +199,7 @@ export async function updateChatLastContextInCache(
 
 		await setChatInCache(chatId, userId, cached);
 	} catch (error) {
-		console.error("Redis updateChatLastContextInCache error:", error);
+		logError("Redis updateChatLastContextInCache error", error);
 	}
 }
 
@@ -228,7 +226,7 @@ export async function updateChatVisibilityInCache(
 
 		await setChatInCache(chatId, userId, cached);
 	} catch (error) {
-		console.error("Redis updateChatVisibilityInCache error:", error);
+		logError("Redis updateChatVisibilityInCache error", error);
 	}
 }
 
@@ -249,7 +247,7 @@ export async function deleteChatFromCache(
 		pipeline.zrem(CacheKeys.userChats(userId), chatId);
 		await pipeline.exec();
 	} catch (error) {
-		console.error("Redis deleteChatFromCache error:", error);
+		logError("Redis deleteChatFromCache error", error);
 	}
 }
 
@@ -308,7 +306,7 @@ export async function getUserChatsFromCache(
 			title: chats[idx]?.title ?? "New Chat",
 		}));
 	} catch (error) {
-		console.error("Redis getUserChatsFromCache error:", error);
+		logError("Redis getUserChatsFromCache error", error);
 		return [];
 	}
 }
@@ -333,7 +331,7 @@ export async function getDocumentFromCache(
 		);
 		return cached;
 	} catch (error) {
-		console.error("Redis getDocumentFromCache error:", error);
+		logError("Redis getDocumentFromCache error", error);
 		return null;
 	}
 }
@@ -352,7 +350,7 @@ export async function setDocumentInCache(
 	try {
 		await redis.set(CacheKeys.document(documentId, userId), document);
 	} catch (error) {
-		console.error("Redis setDocumentInCache error:", error);
+		logError("Redis setDocumentInCache error", error);
 	}
 }
 
@@ -385,7 +383,7 @@ export async function appendDocumentVersionToCache(
 		cached.versions.push(version);
 		await setDocumentInCache(documentId, userId, cached);
 	} catch (error) {
-		console.error("Redis appendDocumentVersionToCache error:", error);
+		logError("Redis appendDocumentVersionToCache error", error);
 	}
 }
 
@@ -413,8 +411,8 @@ export async function deleteDocumentVersionsFromCacheAfterTimestamp(
 
 		await setDocumentInCache(documentId, userId, cached);
 	} catch (error) {
-		console.error(
-			"Redis deleteDocumentVersionsFromCacheAfterTimestamp error:",
+		logError(
+			"Redis deleteDocumentVersionsFromCacheAfterTimestamp error",
 			error
 		);
 	}

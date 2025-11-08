@@ -50,17 +50,68 @@ flowchart LR
   U[User] -- UI events --> C[Next.js App (RSC + Client)]
   C -- Server Actions --> A[Chat API Routes]
   A -- Model Calls --> M[AI SDK / Providers]
-  A -- Queries --> D[(Database via Drizzle)]
+  A -- Data Access --> DA[Unified Data Layer]
+  DA -- Cache First --> R[(Redis Cache)]
+  DA -- DB Fallback --> D[(NeonDB)]
   C -- Uploads/Previews --> F[Artifacts & Storage]
 ```
 
+**Directory Structure:**
 - `app/(auth)` – authentication routes, config, and pages
 - `app/(chat)` – chat pages, API routes, and layout
 - `components/` – modular UI (chat, editors, artifacts, primitives)
 - `lib/ai/` – model registry, discovery, prompts, provider tooling
+- `lib/data/` – **unified data access layer** (cache-first, guest/auth abstraction)
 - `lib/db/` – schema, migrations, queries using Drizzle
+- `lib/cache/` – Redis operations and cache management
 - `artifacts/` – server and client handlers for generated artifacts
 - `hooks/` – reusable React hooks for chat state and UI behavior
+
+### Data Access Layer
+
+The application uses a **unified data access layer** that provides:
+
+- **Cache-first strategy**: Redis checked before database queries
+- **Guest/auth abstraction**: Single API for both user types
+- **Zero extra calls**: Optimized to eliminate redundant cache/DB operations
+- **Method-based API**: Clean, intuitive interface (`chatData.get()`, `messageData.save()`, etc.)
+
+**Example Usage:**
+
+```typescript
+import { auth } from "@/app/(auth)/auth";
+import { createContext } from "@/lib/data/base";
+import { chatData, messageData } from "@/lib/data/chat";
+
+// Create context from session (determines guest vs auth)
+const session = await auth();
+const ctx = createContext(session);
+
+// Get chat (cache-first, works for both guest and auth)
+const chat = await chatData.get(chatId, ctx);
+
+// Get chat with messages (single optimized fetch)
+const result = await chatData.getWithMessages(chatId, ctx);
+
+// Save messages with context (batch operation)
+await messageData.saveWithContext({
+  messages: [...],
+  chatId,
+  lastContext: usage,
+  isNewChat: true,
+  title: "New Chat",
+  visibility: "private"
+}, ctx);
+```
+
+**Key Benefits:**
+- Guest users: Cache-only (no database writes)
+- Authenticated users: Cache + database persistence
+- Automatic cache warming on DB queries
+- Batch operations to minimize round-trips
+- Type-safe with full TypeScript support
+
+See [docs/database-schema.md](docs/database-schema.md) and [docs/redis-cache-keymap.md](docs/redis-cache-keymap.md) for detailed documentation.
 
 ## Screenshots
 

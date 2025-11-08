@@ -18,6 +18,7 @@ type OptimisticChat = {
 type OptimisticChatsContextType = {
 	optimisticChats: OptimisticChat[];
 	addOptimisticChat: (chatId: string) => void;
+	updateOptimisticChatTitle: (chatId: string, title: string) => void;
 	removeOptimisticChat: (chatId: string) => void;
 };
 
@@ -47,13 +48,29 @@ export function OptimisticChatsProvider({ children }: { children: ReactNode }) {
 		});
 	}, []);
 
+	const updateOptimisticChatTitle = useCallback(
+		(chatId: string, title: string) => {
+			setOptimisticChats((prev) =>
+				prev.map((chat) =>
+					chat.id === chatId ? { ...chat, title } : chat
+				)
+			);
+		},
+		[]
+	);
+
 	const removeOptimisticChat = useCallback((chatId: string) => {
 		setOptimisticChats((prev) => prev.filter((chat) => chat.id !== chatId));
 	}, []);
 
 	return (
 		<OptimisticChatsContext.Provider
-			value={{ optimisticChats, addOptimisticChat, removeOptimisticChat }}
+			value={{
+				optimisticChats,
+				addOptimisticChat,
+				updateOptimisticChatTitle,
+				removeOptimisticChat,
+			}}
 		>
 			{children}
 		</OptimisticChatsContext.Provider>

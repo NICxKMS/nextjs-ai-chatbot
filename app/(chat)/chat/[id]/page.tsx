@@ -1,11 +1,12 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import { auth } from "@/app/(auth)/auth";
 import { Chat } from "@/components/chat";
 import { DataStreamHandler } from "@/components/data-stream-handler";
 import { listChatModels } from "@/lib/ai/model-registry";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
-import { getChatById, getMessagesByChatId } from "@/lib/db/queries";
+import { createContext } from "@/lib/data/base";
+import { chatData } from "@/lib/data/chat";
 import { convertToUIMessages } from "@/lib/utils";
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
@@ -14,15 +15,23 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 	const session = await auth();
 
 	if (!session) {
-		redirect("/api/auth/guest");
+		redirect(
+			`/api/auth/guest?redirectUrl=${encodeURIComponent(`/chat/${id}`)}`
+		);
 	}
 
-	// Pass userId to enable cache lookup for both guest and authenticated users
-	const chat = await getChatById({ id, userId: session.user?.id });
+	const ctx = createContext(session);
 
-	if (!chat) {
+	// Fetch chat with messages in a single optimized cache operation
+	// Guest users: cache-only (no database fallback)
+	// Authenticated users: cache first, then database fallback
+	const result = await chatData.getWithMessages(id, ctx);
+
+	if (!result) {
 		redirect("/?notice=chat_not_found");
 	}
+
+	const { chat, messages: messagesFromDb } = result;
 
 	if (chat.visibility === "private") {
 		if (!session.user) {
@@ -33,12 +42,6 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 			return redirect("/?notice=chat_not_found");
 		}
 	}
-
-	// Pass userId to enable cache lookup for messages
-	const messagesFromDb = await getMessagesByChatId({
-		id,
-		userId: session.user?.id,
-	});
 
 	const uiMessages = convertToUIMessages(messagesFromDb);
 	const availableModels = listChatModels();

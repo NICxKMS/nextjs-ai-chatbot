@@ -1,6 +1,7 @@
 import { auth } from "@/app/(auth)/auth";
+import { createContext } from "@/lib/data/base";
+import { chatData } from "@/lib/data/chat";
 import {
-	getChatById,
 	getVotesByChatIdAndUserId,
 	voteMessage,
 } from "@/lib/db/queries";
@@ -20,7 +21,6 @@ export async function GET(request: Request) {
 		).toResponse();
 	}
 
-	const chatPromise = getChatById({ id: chatId });
 	const session = await auth();
 
 	if (!session?.user) {
@@ -37,16 +37,15 @@ export async function GET(request: Request) {
 		).toResponse();
 	}
 
-	const chat = await chatPromise;
+	const ctx = createContext(session);
+	const chat = await chatData.get(chatId, ctx);
 
 	if (!chat) {
 		return new ChatSDKError("not_found:chat").toResponse();
 	}
 
 	if (chat.userId !== session.user.id) {
-		return new ChatSDKError(
-			"forbidden:vote:owner_mismatch"
-		).toResponse();
+		return new ChatSDKError("forbidden:vote:owner_mismatch").toResponse();
 	}
 
 	const votes = await getVotesByChatIdAndUserId({
@@ -80,10 +79,7 @@ export async function PATCH(request: Request) {
 		).toResponse();
 	}
 
-	const [session, chat] = await Promise.all([
-		sessionPromise,
-		getChatById({ id: chatId }),
-	]);
+	const session = await sessionPromise;
 
 	if (!session?.user) {
 		return new ChatSDKError(
@@ -99,14 +95,15 @@ export async function PATCH(request: Request) {
 		).toResponse();
 	}
 
+	const ctx = createContext(session);
+	const chat = await chatData.get(chatId, ctx);
+
 	if (!chat) {
 		return new ChatSDKError("not_found:vote").toResponse();
 	}
 
 	if (chat.userId !== session.user.id) {
-		return new ChatSDKError(
-			"forbidden:vote:owner_mismatch"
-		).toResponse();
+		return new ChatSDKError("forbidden:vote:owner_mismatch").toResponse();
 	}
 
 	await voteMessage({

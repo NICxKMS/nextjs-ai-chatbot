@@ -42,9 +42,7 @@ export async function GET(request: Request) {
 	}
 
 	if (suggestion.userId !== session.user.id) {
-		return new ChatSDKError(
-			"forbidden:api:owner_mismatch"
-		).toResponse();
+		return new ChatSDKError("forbidden:api:owner_mismatch").toResponse();
 	}
 
 	return Response.json(suggestions, { status: 200 });
