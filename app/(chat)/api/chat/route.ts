@@ -188,20 +188,8 @@ export async function POST(request: Request) {
 				}
 			})();
 
-			if (!ctx.isGuest) {
-				// For authenticated users, save to DB only (skip cache, will be created with messages)
-				const savedChat = await chatData.create(
-					{
-						id,
-						title: placeholderTitle || "New Chat",
-						visibility: selectedVisibilityType,
-						skipCache: true,
-					},
-					ctx
-				);
-				chatCreatedAt = savedChat.createdAt;
-			}
-			// For guests, skip chat creation entirely (will be created with messages)
+			// Set createdAt for new chats (will be created with messages in onFinish)
+			chatCreatedAt = new Date();
 		}
 
 		const isNewChat = !chat;

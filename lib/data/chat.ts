@@ -454,22 +454,28 @@ export const chatData = {
 				return;
 			}
 
-			// Authenticated users: delete from DB and cache
-			await db.delete(vote).where(eq(vote.chatId, chatId));
-			await db.delete(message).where(eq(message.chatId, chatId));
+			// Authenticated users: delete from DB and cache in parallel
+			const dbPromise = (async () => {
+				// Delete related records first (due to FK constraints)
+				await db.delete(vote).where(eq(vote.chatId, chatId));
+				await db.delete(message).where(eq(message.chatId, chatId));
 
-			const dbPromise = db
-				.delete(chat)
-				.where(eq(chat.id, chatId))
-				.returning();
+				// Then delete the chat
+				const deletedChats = await db
+					.delete(chat)
+					.where(eq(chat.id, chatId))
+					.returning();
 
-			// Delete from cache in parallel
+				return deletedChats[0];
+			})();
+
+			// Delete from cache in parallel (doesn't depend on DB operations)
 			const cachePromise = isRedisAvailable()
 				? deleteChatFromCache(chatId, ctx.userId)
 				: Promise.resolve();
 
 			const [result] = await Promise.all([dbPromise, cachePromise]);
-			return result[0];
+			return result;
 		} catch (error) {
 			throw toDatabaseError(
 				"delete_chat_by_id",
@@ -548,18 +554,19 @@ export const chatData = {
 		ctx: DataContext
 	): Promise<void> => {
 		try {
-			// Update cache
-			if (isRedisAvailable()) {
-				await updateChatTitleInCache(chatId, ctx.userId, title);
-			}
+			// Run cache and DB updates in parallel
+			const cachePromise = isRedisAvailable()
+				? updateChatTitleInCache(chatId, ctx.userId, title)
+				: Promise.resolve();
 
-			// Update DB for auth users
-			if (!ctx.isGuest) {
-				await db
-					.update(chat)
-					.set({ title, updatedAt: new Date() })
-					.where(eq(chat.id, chatId));
-			}
+			const dbPromise = ctx.isGuest
+				? Promise.resolve()
+				: db
+						.update(chat)
+						.set({ title, updatedAt: new Date() })
+						.where(eq(chat.id, chatId));
+
+			await Promise.all([cachePromise, dbPromise]);
 		} catch (error) {
 			throw toDatabaseError(
 				"update_chat_title",
@@ -582,22 +589,19 @@ export const chatData = {
 		ctx: DataContext
 	): Promise<void> => {
 		try {
-			// Update cache
-			if (isRedisAvailable()) {
-				await updateChatVisibilityInCache(
-					chatId,
-					ctx.userId,
-					visibility
-				);
-			}
+			// Run cache and DB updates in parallel
+			const cachePromise = isRedisAvailable()
+				? updateChatVisibilityInCache(chatId, ctx.userId, visibility)
+				: Promise.resolve();
 
-			// Update DB for auth users
-			if (!ctx.isGuest) {
-				await db
-					.update(chat)
-					.set({ visibility, updatedAt: new Date() })
-					.where(eq(chat.id, chatId));
-			}
+			const dbPromise = ctx.isGuest
+				? Promise.resolve()
+				: db
+						.update(chat)
+						.set({ visibility, updatedAt: new Date() })
+						.where(eq(chat.id, chatId));
+
+			await Promise.all([cachePromise, dbPromise]);
 		} catch (error) {
 			throw toDatabaseError(
 				"update_chat_visibility",
@@ -620,27 +624,26 @@ export const chatData = {
 		ctx: DataContext
 	): Promise<void> => {
 		try {
-			// Update cache
-			if (isRedisAvailable()) {
-				await updateChatLastContextInCache(chatId, ctx.userId, context);
-			}
+			// Run cache and DB updates in parallel
+			const cachePromise = isRedisAvailable()
+				? updateChatLastContextInCache(chatId, ctx.userId, context)
+				: Promise.resolve();
 
-			// Update DB for auth users
-			if (!ctx.isGuest) {
-				const { logWarn } = await import("../log");
-
-				try {
-					await db
+			const dbPromise = ctx.isGuest
+				? Promise.resolve()
+				: db
 						.update(chat)
 						.set({ lastContext: context, updatedAt: new Date() })
-						.where(eq(chat.id, chatId));
-				} catch (err) {
-					logWarn("Failed to update lastContext for chat", {
-						chatId,
-						error: err,
-					});
-				}
-			}
+						.where(eq(chat.id, chatId))
+						.catch(async (err) => {
+							const { logWarn } = await import("../log");
+							logWarn("Failed to update lastContext for chat", {
+								chatId,
+								error: err,
+							});
+						});
+
+			await Promise.all([cachePromise, dbPromise]);
 		} catch (error) {
 			const { logWarn } = await import("../log");
 			logWarn("Failed to update lastContext for chat", { chatId, error });
@@ -928,15 +931,40 @@ export const messageData = {
 			}
 
 			// Authenticated users: save to DB
-			const dbPromises: Promise<any>[] = [
-				db
-					.insert(message)
-					.values(messages)
-					.onConflictDoNothing({ target: message.id }),
-			];
+			const dbPromises: Promise<any>[] = [];
 
-			// Update context in DB if provided
-			if (lastContext) {
+			// Create chat in DB if it's a new chat
+			if (isNewChat && title && visibility) {
+				dbPromises.push(
+					db.insert(chat).values({
+						id: chatId,
+						userId: ctx.userId,
+						title,
+						visibility,
+						createdAt: createdAt || new Date(),
+						updatedAt: new Date(),
+						lastContext: lastContext || null,
+					})
+				);
+			}
+
+			// Insert messages (waits for chat creation due to FK constraint)
+			const messageInsertPromise = isNewChat
+				? // For new chats, wait for chat creation first
+					Promise.all(dbPromises).then(() =>
+						db
+							.insert(message)
+							.values(messages)
+							.onConflictDoNothing({ target: message.id })
+					)
+				: // For existing chats, insert immediately
+					db
+						.insert(message)
+						.values(messages)
+						.onConflictDoNothing({ target: message.id });
+
+			// Update context in DB if provided (for existing chats)
+			if (lastContext && !isNewChat) {
 				dbPromises.push(
 					db
 						.update(chat)
@@ -945,7 +973,7 @@ export const messageData = {
 				);
 			}
 
-			// Optimized cache update
+			// Optimized cache update (runs in parallel with DB operations)
 			const cachePromise = isRedisAvailable()
 				? (async () => {
 						if (isNewChat && title && visibility) {
@@ -972,7 +1000,15 @@ export const messageData = {
 					})()
 				: Promise.resolve();
 
-			await Promise.all([...dbPromises, cachePromise]);
+			// Wait for all operations to complete
+			// For new chats: chat creation -> message insert -> context update (sequential)
+			// For existing chats: message insert + context update (parallel)
+			// Cache operations run in parallel with DB operations
+			await Promise.all([
+				messageInsertPromise,
+				...dbPromises,
+				cachePromise,
+			]);
 			return;
 		} catch (error) {
 			throw toDatabaseError(
@@ -997,49 +1033,54 @@ export const messageData = {
 		ctx: DataContext
 	): Promise<void> => {
 		try {
-			// Update cache
-			if (isRedisAvailable()) {
-				await deleteMessagesFromCacheAfterTimestamp(
-					chatId,
-					ctx.userId,
-					timestamp
-				);
-			}
+			// Run cache and DB deletes in parallel
+			const cachePromise = isRedisAvailable()
+				? deleteMessagesFromCacheAfterTimestamp(
+						chatId,
+						ctx.userId,
+						timestamp
+					)
+				: Promise.resolve();
 
-			// Update DB for auth users
-			if (!ctx.isGuest) {
-				const messagesToDelete = await db
-					.select({ id: message.id })
-					.from(message)
-					.where(
-						and(
-							eq(message.chatId, chatId),
-							gte(message.createdAt, timestamp)
-						)
-					);
+			const dbPromise = ctx.isGuest
+				? Promise.resolve()
+				: (async () => {
+						const messagesToDelete = await db
+							.select({ id: message.id })
+							.from(message)
+							.where(
+								and(
+									eq(message.chatId, chatId),
+									gte(message.createdAt, timestamp)
+								)
+							);
 
-				const messageIds = messagesToDelete.map((msgRec) => msgRec.id);
-
-				if (messageIds.length > 0) {
-					await db
-						.delete(vote)
-						.where(
-							and(
-								eq(vote.chatId, chatId),
-								inArray(vote.messageId, messageIds)
-							)
+						const messageIds = messagesToDelete.map(
+							(msgRec) => msgRec.id
 						);
 
-					await db
-						.delete(message)
-						.where(
-							and(
-								eq(message.chatId, chatId),
-								inArray(message.id, messageIds)
-							)
-						);
-				}
-			}
+						if (messageIds.length > 0) {
+							await db
+								.delete(vote)
+								.where(
+									and(
+										eq(vote.chatId, chatId),
+										inArray(vote.messageId, messageIds)
+									)
+								);
+
+							await db
+								.delete(message)
+								.where(
+									and(
+										eq(message.chatId, chatId),
+										inArray(message.id, messageIds)
+									)
+								);
+						}
+					})();
+
+			await Promise.all([cachePromise, dbPromise]);
 		} catch (error) {
 			throw toDatabaseError(
 				"delete_messages_after_timestamp",
