@@ -132,6 +132,19 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 		}
 	}, [paginatedChatHistories, optimisticChats, removeOptimisticChat]);
 
+	// Listen for title updates (for short responses where title generates after streaming)
+	useEffect(() => {
+		const handleTitleUpdate = () => {
+			// Revalidate chat history to pick up newly generated titles
+			mutate();
+		};
+
+		window.addEventListener("chat-title-updated", handleTitleUpdate);
+		return () => {
+			window.removeEventListener("chat-title-updated", handleTitleUpdate);
+		};
+	}, [mutate]);
+
 	const hasReachedEnd = paginatedChatHistories
 		? paginatedChatHistories.some((page) => page.hasMore === false)
 		: false;

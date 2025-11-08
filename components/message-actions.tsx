@@ -5,6 +5,7 @@ import { useSWRConfig } from "swr";
 import { useCopyToClipboard } from "usehooks-ts";
 import type { ChatMessage, UserVote } from "@/lib/types";
 import { Action, Actions } from "./elements/actions";
+import {} from "../lib/errors"
 import { CopyIcon, PencilEditIcon, ThumbDownIcon, ThumbUpIcon } from "./icons";
 
 export function PureMessageActions({
