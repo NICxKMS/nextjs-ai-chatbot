@@ -54,7 +54,10 @@ export const documentData = {
 		try {
 			// Try cache first if Redis is available
 			if (isRedisAvailable()) {
-				const cached = await getDocumentFromCache(documentId, ctx.userId);
+				const cached = await getDocumentFromCache(
+					documentId,
+					ctx.userId
+				);
 				if (cached && cached.versions.length > 0) {
 					const latestVersion = cached.versions.at(-1);
 					if (latestVersion) {
@@ -135,7 +138,10 @@ export const documentData = {
 		try {
 			// Try cache first if Redis is available
 			if (isRedisAvailable()) {
-				const cached = await getDocumentFromCache(documentId, ctx.userId);
+				const cached = await getDocumentFromCache(
+					documentId,
+					ctx.userId
+				);
 				if (cached && cached.versions.length > 0) {
 					// Return cached data (for both guests and authenticated users)
 					return cached.versions.map((v) => ({
@@ -329,39 +335,42 @@ export const documentData = {
 				return [];
 			}
 
-			// Authenticated users: delete from both DB and cache
+			// Authenticated users: delete from both DB and cache in parallel
 			const { db } = await import("../db/queries");
 			const { document, suggestion } = await import("../db/schema");
 			const { eq, gt, and } = await import("drizzle-orm");
 
-			await db
-				.delete(suggestion)
-				.where(
-					and(
-						eq(suggestion.documentId, documentId),
-						gt(suggestion.documentCreatedAt, timestamp)
+			// Run DB and cache deletes in parallel
+			const dbPromise = (async () => {
+				await db
+					.delete(suggestion)
+					.where(
+						and(
+							eq(suggestion.documentId, documentId),
+							gt(suggestion.documentCreatedAt, timestamp)
+						)
+					);
+
+				return await db
+					.delete(document)
+					.where(
+						and(
+							eq(document.id, documentId),
+							gt(document.createdAt, timestamp)
+						)
 					)
-				);
+					.returning();
+			})();
 
-			const result = await db
-				.delete(document)
-				.where(
-					and(
-						eq(document.id, documentId),
-						gt(document.createdAt, timestamp)
+			const cachePromise = isRedisAvailable()
+				? deleteDocumentVersionsFromCacheAfterTimestamp(
+						documentId,
+						ctx.userId,
+						timestamp
 					)
-				)
-				.returning();
+				: Promise.resolve();
 
-			// Also delete from cache
-			if (isRedisAvailable()) {
-				await deleteDocumentVersionsFromCacheAfterTimestamp(
-					documentId,
-					ctx.userId,
-					timestamp
-				);
-			}
-
+			const [result] = await Promise.all([dbPromise, cachePromise]);
 			return result;
 		} catch (error) {
 			throw toDatabaseError(
@@ -372,4 +381,3 @@ export const documentData = {
 		}
 	},
 };
-
