@@ -18,7 +18,11 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { initialArtifactData, useArtifact, useArtifactSelector } from "@/hooks/use-artifact";
+import {
+	initialArtifactData,
+	useArtifact,
+	useArtifactSelector,
+} from "@/hooks/use-artifact";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
 import { useOptimisticChats } from "@/hooks/use-optimistic-chats";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
@@ -293,18 +297,17 @@ export function Chat({
 	const { data: session } = useSession();
 	const isGuest = session?.user?.type === "guest";
 
-	// Use server-provided votes if available, otherwise fetch client-side
-	// Guest users cannot vote, so don't fetch votes for them
+	// Use server-provided votes (no client-side fetching for new messages)
+	// Votes are only fetched server-side when loading existing chats
+	// and updated optimistically when user votes
 	const { data: votes } = useSWR<UserVote[]>(
-		initialVotes === undefined &&
-			messages.length >= 2 &&
-			!isReadonly &&
-			!isGuest
-			? `/api/vote?chatId=${id}`
-			: null,
-		fetcher,
+		`/api/vote?chatId=${id}`,
+		null, // No fetcher - we never fetch votes client-side
 		{
 			fallbackData: initialVotes || [],
+			revalidateOnFocus: false,
+			revalidateOnReconnect: false,
+			revalidateIfStale: false,
 		}
 	);
 
