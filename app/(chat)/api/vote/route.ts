@@ -1,64 +1,11 @@
 import { auth } from "@/app/(auth)/auth";
 import { createContext } from "@/lib/data/base";
 import { chatData } from "@/lib/data/chat";
-import { getVotesByChatIdAndUserId, voteMessage } from "@/lib/db/queries";
+import { voteMessage } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
 
 // Optimize for Vercel Fluid Compute
 export const maxDuration = 10;
-
-export async function GET(request: Request) {
-	const { searchParams } = new URL(request.url);
-	const chatId = searchParams.get("chatId");
-
-	if (!chatId) {
-		return new ChatSDKError(
-			"bad_request:api:missing_chat_id",
-			"Parameter chatId is required."
-		).toResponse();
-	}
-
-	const session = await auth();
-
-	if (!session?.user) {
-		return new ChatSDKError(
-			"unauthorized:vote:missing_session"
-		).toResponse();
-	}
-
-	// Guest users cannot vote (requires database persistence)
-	if (session.user.type === "guest") {
-		return new ChatSDKError(
-			"forbidden:vote:guest_cannot_vote",
-			"Guest users cannot vote on messages"
-		).toResponse();
-	}
-
-	const ctx = createContext(session);
-	const chat = await chatData.get(chatId, ctx);
-
-	if (!chat) {
-		return new ChatSDKError("not_found:chat").toResponse();
-	}
-
-	if (chat.userId !== session.user.id) {
-		return new ChatSDKError("forbidden:vote:owner_mismatch").toResponse();
-	}
-
-	const votes = await getVotesByChatIdAndUserId({
-		chatId,
-		userId: session.user.id,
-	});
-
-	// Return minimal UI shape
-	const uiVotes = votes.map((v) => ({
-		chatId: v.chatId,
-		messageId: v.messageId,
-		isUpvoted: v.isUpvoted,
-	}));
-
-	return Response.json(uiVotes, { status: 200 });
-}
 
 export async function PATCH(request: Request) {
 	const bodyPromise: Promise<{

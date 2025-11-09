@@ -46,6 +46,7 @@ export default async function Page() {
 				initialChatModel={DEFAULT_CHAT_MODEL}
 				initialMessages={[]}
 				initialVisibilityType="private"
+				initialVotes={[]}
 				isReadonly={false}
 				key={id}
 			/>
