@@ -21,10 +21,10 @@ import { generateHashedPassword } from "./utils";
 // https://authjs.dev/reference/adapter/drizzle
 
 // Environment-aware PostgreSQL pool configuration
-if (!process.env.POSTGRES_URL) {
+if (!process.env.DATABASE_URL) {
 	throw new ChatSDKError(
 		"bad_request:database:missing_postgres_url",
-		"POSTGRES_URL environment variable is not set"
+		"DATABASE_URL environment variable is not set"
 	);
 }
 
@@ -46,7 +46,7 @@ const getPoolConfig = () => {
 };
 
 const poolConfig = getPoolConfig();
-const client = postgres(process.env.POSTGRES_URL, {
+const client = postgres(process.env.DATABASE_URL, {
 	...poolConfig,
 	connect_timeout: 10,
 	prepare: false, // Better for serverless environments
