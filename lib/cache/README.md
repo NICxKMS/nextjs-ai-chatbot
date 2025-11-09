@@ -7,15 +7,15 @@ Upstash Redis caching layer for optimized performance and reduced database load.
 ### 1. Environment Setup
 
 ```bash
-UPSTASH_REDIS_REST_URL=https://your-redis.upstash.io
-UPSTASH_REDIS_REST_TOKEN=your_token_here
+CACHE_KV_REST_API_URL=https://your-redis.upstash.io
+CACHE_KV_REST_API_TOKEN=your_token_here
 ```
 
 ### 2. Import and Use
 
 ```typescript
-import { getChatFromCache, setChatInCache } from '@/lib/cache/operations';
-import { isRedisAvailable } from '@/lib/cache/redis';
+import { getChatFromCache, setChatInCache } from "@/lib/cache/operations";
+import { isRedisAvailable } from "@/lib/cache/redis";
 
 // Check if Redis is available
 if (isRedisAvailable()) {
@@ -26,14 +26,17 @@ if (isRedisAvailable()) {
 ## Module Structure
 
 ### `redis.ts`
+
 - **Purpose**: Initialize Upstash Redis client
 - **Exports**: `getRedisClient()`, `isRedisAvailable()`
 
 ### `types.ts`
+
 - **Purpose**: TypeScript type definitions for cached entities
 - **Types**: `CachedChat`, `CachedMessage`, `CachedDocument`, `CacheKeys`
 
 ### `operations.ts`
+
 - **Purpose**: Core cache operations for chats, messages, and documents
 - **Functions**:
   - `getChatFromCache()` - Retrieve denormalized chat
@@ -48,6 +51,7 @@ if (isRedisAvailable()) {
   - `appendDocumentVersionToCache()` - Add document version
 
 ### `guest-queries.ts`
+
 - **Purpose**: Cache-only operations for guest users
 - **Functions**: Mirror standard queries but skip PostgreSQL
 
@@ -64,6 +68,7 @@ const CacheKeys = {
 ## Data Structures
 
 ### Denormalized Chat
+
 ```typescript
 {
   id: string;
@@ -79,6 +84,7 @@ const CacheKeys = {
 ```
 
 ### User Chats (ZSET)
+
 ```typescript
 // Score: updatedAt timestamp
 // Member: JSON.stringify({ chatId, title })
@@ -87,6 +93,7 @@ const CacheKeys = {
 ## Usage Patterns
 
 ### Cache-First Read
+
 ```typescript
 const cached = await getChatFromCache(chatId, userId);
 if (cached) {
@@ -100,6 +107,7 @@ return fromDb;
 ```
 
 ### Parallel Write
+
 ```typescript
 await Promise.all([
   db.insert(chat).values(data), // PostgreSQL
@@ -108,8 +116,9 @@ await Promise.all([
 ```
 
 ### Guest User (Cache-Only)
+
 ```typescript
-if (userType === 'guest') {
+if (userType === "guest") {
   await saveGuestMessages({ messages, userId });
   // No PostgreSQL write
 }
@@ -147,17 +156,17 @@ try {
 ### Debugging
 
 ```typescript
-import { getRedisClient } from '@/lib/cache/redis';
+import { getRedisClient } from "@/lib/cache/redis";
 
 const redis = getRedisClient();
 if (redis) {
   // Inspect keys
-  const keys = await redis.keys('chat:*');
-  console.log('Cached chats:', keys);
-  
+  const keys = await redis.keys("chat:*");
+  console.log("Cached chats:", keys);
+
   // View data
-  const data = await redis.get('chat:123:user456');
-  console.log('Chat data:', data);
+  const data = await redis.get("chat:123:user456");
+  console.log("Chat data:", data);
 }
 ```
 
@@ -175,11 +184,12 @@ Track cache effectiveness:
 
 ```typescript
 // In operations.ts (custom implementation)
-console.log('Cache hit:', chatId);  // When returning cached data
-console.log('Cache miss:', chatId); // When falling back to DB
+console.log("Cache hit:", chatId); // When returning cached data
+console.log("Cache miss:", chatId); // When falling back to DB
 ```
 
 Recommended metrics:
+
 - Cache hit rate: >90% target for active users
 - Average response time: <100ms
 - Redis memory usage: Monitor in Upstash dashboard
