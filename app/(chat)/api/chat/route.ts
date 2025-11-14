@@ -16,12 +16,16 @@ import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 import { getModelById } from "@/lib/ai/model-registry";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import { myProvider } from "@/lib/ai/providers";
+import { createDocument } from "@/lib/ai/tools/create-document";
+// Static tool imports for faster loading (no dynamic import overhead)
+import { getWeather } from "@/lib/ai/tools/get-weather";
+import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
+import { updateDocument } from "@/lib/ai/tools/update-document";
 import { getUserMessageCount } from "@/lib/cache/quota";
 import { isRedisAvailable } from "@/lib/cache/redis";
 import { isProductionEnvironment } from "@/lib/constants";
 import { createContext } from "@/lib/data/base";
 import { chatData, messageData } from "@/lib/data/chat";
-import { getMessageCountByUserId } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
 import { logError, logWarn } from "@/lib/log";
 import type { ChatMessage } from "@/lib/types";
@@ -29,12 +33,6 @@ import type { AppUsage } from "@/lib/usage";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
-
-// Static tool imports for faster loading (no dynamic import overhead)
-import { getWeather } from "@/lib/ai/tools/get-weather";
-import { createDocument } from "@/lib/ai/tools/create-document";
-import { updateDocument } from "@/lib/ai/tools/update-document";
-import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 
 // Tool type helpers
 type ToolSetShape = {
@@ -122,9 +120,7 @@ export async function POST(request: Request) {
 
 		// OPTIMIZATION: Parallelize auth and quota check
 		// This reduces TTFR by ~50-100ms
-		const [session] = await Promise.all([
-			auth(),
-		]);
+		const [session] = await Promise.all([auth()]);
 
 		if (!session?.user) {
 			return new ChatSDKError(
@@ -213,7 +209,7 @@ export async function POST(request: Request) {
 		const tokenlensCatalogPromise = getTokenlensCatalog();
 
 		const stream = createUIMessageStream({
-			execute: async ({ writer: dataStream }) => {
+			execute: ({ writer: dataStream }) => {
 				const selectedModel = getModelById(selectedChatModel);
 
 				// Start title generation early (non-blocking)
