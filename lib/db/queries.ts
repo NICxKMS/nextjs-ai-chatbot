@@ -4,7 +4,6 @@ import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { ChatSDKError, toDatabaseError } from "../errors";
-import { generateUUID } from "../utils";
 import {
 	message,
 	type Suggestion,
@@ -13,7 +12,6 @@ import {
 	user,
 	vote,
 } from "./schema";
-import { generateHashedPassword } from "./utils";
 
 // Optionally, if not using email/pass login, you can
 // use the Drizzle adapter for Auth.js / NextAuth
@@ -71,18 +69,6 @@ export async function getUser(email: string): Promise<User[]> {
 	}
 }
 
-export async function createUser(email: string, password: string) {
-	const passwordHash = generateHashedPassword(password);
-
-	try {
-		return await db
-			.insert(user)
-			.values({ email: email.toLowerCase(), passwordHash });
-	} catch (error) {
-		throw toDatabaseError("create_user", error, "Failed to create user");
-	}
-}
-
 export async function getUserById(id: string): Promise<User[]> {
 	try {
 		return await db.select().from(user).where(eq(user.id, id));
@@ -91,27 +77,6 @@ export async function getUserById(id: string): Promise<User[]> {
 			"get_user_by_id",
 			error,
 			"Failed to get user by id"
-		);
-	}
-}
-
-export async function createGuestUser() {
-	const email = `guest-${Date.now()}`;
-	const passwordHash = generateHashedPassword(generateUUID());
-
-	try {
-		return await db
-			.insert(user)
-			.values({ email: email.toLowerCase(), passwordHash })
-			.returning({
-				id: user.id,
-				email: user.email,
-			});
-	} catch (error) {
-		throw toDatabaseError(
-			"create_guest_user",
-			error,
-			"Failed to create guest user"
 		);
 	}
 }

@@ -285,6 +285,10 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
 			return "You need to sign in before continuing.";
 		case "forbidden:auth":
 			return "Your account does not have access to this feature.";
+		case "bad_request:auth:guest_unavailable":
+			return "Guest authentication is not configured.";
+		case "offline:auth:guest_failed":
+			return "Failed to create a guest session. Please try again later.";
 
 		case "rate_limit:chat":
 			return "You have exceeded your maximum number of messages for the day. Please try again later.";

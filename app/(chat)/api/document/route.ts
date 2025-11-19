@@ -1,4 +1,4 @@
-import { auth } from "@/app/(auth)/auth";
+import { getAppSession } from "@/lib/auth/session";
 import type { ArtifactKind } from "@/components/artifact";
 import { createContext } from "@/lib/data/base";
 import { documentData } from "@/lib/data/document";
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 		).toResponse();
 	}
 
-	const session = await auth();
+	const session = await getAppSession();
 
 	if (!session?.user) {
 		return new ChatSDKError(
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
 		).toResponse();
 	}
 
-	const sessionPromise = auth();
+	const sessionPromise = getAppSession();
 	const bodyPromise = request.json();
 
 	const session = await sessionPromise;
@@ -128,7 +128,7 @@ export async function DELETE(request: Request) {
 		).toResponse();
 	}
 
-	const session = await auth();
+	const session = await getAppSession();
 
 	if (!session?.user) {
 		return new ChatSDKError(

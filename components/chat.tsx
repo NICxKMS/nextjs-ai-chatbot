@@ -4,9 +4,9 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
+import { useAuth } from "@/components/auth-provider";
 import { ChatHeader } from "@/components/chat-header";
 import {
 	AlertDialog,
@@ -294,7 +294,7 @@ export function Chat({
 		}
 	}, [query, sendMessage, hasAppendedQuery, id]);
 
-	const { data: session } = useSession();
+	const { session } = useAuth();
 	const isGuest = session?.user?.type === "guest";
 
 	// Use server-provided votes (no client-side fetching for new messages)

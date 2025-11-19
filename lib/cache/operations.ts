@@ -52,11 +52,23 @@ export async function setChatInCache(
 	try {
 		// Use Redis pipeline for atomic operations (40-50% faster)
 		const pipeline = redis.pipeline();
-		pipeline.set(CacheKeys.chat(chatId, userId), chat);
-		pipeline.zadd(CacheKeys.userChats(userId), {
+
+		const chatKey = CacheKeys.chat(chatId, userId);
+		const userChatsKey = CacheKeys.userChats(userId);
+
+		pipeline.set(chatKey, chat);
+		pipeline.zadd(userChatsKey, {
 			score: Date.parse(chat.updatedAt),
 			member: chatId,
 		});
+
+		// Apply a 7-day TTL for guest users to avoid unbounded growth
+		if (userId.startsWith("guest:")) {
+			const ttlSeconds = 7 * 24 * 60 * 60;
+			pipeline.expire(chatKey, ttlSeconds);
+			pipeline.expire(userChatsKey, ttlSeconds);
+		}
+
 		await pipeline.exec();
 	} catch (error) {
 		logError("Redis setChatInCache error", error);

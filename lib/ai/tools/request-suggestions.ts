@@ -1,5 +1,5 @@
 import { streamObject, tool, type UIMessageStreamWriter } from "ai";
-import type { Session } from "next-auth";
+import type { AppSession } from "@/lib/auth/session";
 import { z } from "zod";
 import { createContext } from "@/lib/data/base";
 import { documentData } from "@/lib/data/document";
@@ -10,7 +10,7 @@ import { generateUUID } from "@/lib/utils";
 import { myProvider } from "../providers";
 
 type RequestSuggestionsProps = {
-	session: Session;
+	session: AppSession;
 	dataStream: UIMessageStreamWriter<ChatMessage>;
 };
 

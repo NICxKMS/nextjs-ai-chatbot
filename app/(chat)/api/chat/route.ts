@@ -9,7 +9,8 @@ import {
 } from "ai";
 import { unstable_cache as cache } from "next/cache";
 import type { ModelCatalog } from "tokenlens/core";
-import { auth, type UserType } from "@/app/(auth)/auth";
+import type { AppUserType } from "@/lib/auth/session";
+import { getAppSession } from "@/lib/auth/session";
 import type { VisibilityType } from "@/components/visibility-selector";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
@@ -118,9 +119,7 @@ export async function POST(request: Request) {
 
 		selectedModelId = selectedChatModel;
 
-		// OPTIMIZATION: Parallelize auth and quota check
-		// This reduces TTFR by ~50-100ms
-		const [session] = await Promise.all([auth()]);
+		const session = await getAppSession();
 
 		if (!session?.user) {
 			return new ChatSDKError(
@@ -128,7 +127,7 @@ export async function POST(request: Request) {
 			).toResponse();
 		}
 
-		const userType: UserType = session.user.type;
+		const userType: AppUserType = session.user.type;
 		const ctx = createContext(session);
 
 		// For guest users, require Redis to be available
@@ -560,10 +559,12 @@ export async function DELETE(request: Request) {
 		return new ChatSDKError("bad_request:api").toResponse();
 	}
 
-	const session = await auth();
+	const session = await getAppSession();
 
 	if (!session?.user) {
-		return new ChatSDKError("unauthorized:chat").toResponse();
+		return new ChatSDKError(
+			"unauthorized:chat:missing_session"
+		).toResponse();
 	}
 
 	const ctx = createContext(session);
@@ -572,7 +573,7 @@ export async function DELETE(request: Request) {
 	const chat = await chatData.get(id, ctx, { warmCache: false });
 
 	if (chat?.userId !== session.user.id) {
-		return new ChatSDKError("forbidden:chat").toResponse();
+		return new ChatSDKError("forbidden:chat:owner_mismatch").toResponse();
 	}
 
 	// Delete chat
