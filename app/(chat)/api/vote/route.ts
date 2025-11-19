@@ -40,7 +40,7 @@ export async function PATCH(request: Request) {
 	}
 
 	const ctx = createContext(session);
-	const chat = await chatData.get(chatId, ctx);
+	const chat = await chatData.get(chatId, ctx, { warmCache: false });
 
 	if (!chat) {
 		return new ChatSDKError("not_found:vote").toResponse();

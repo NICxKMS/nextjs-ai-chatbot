@@ -1,12 +1,11 @@
 import "server-only";
 
-import { and, count, eq, gte } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { ChatSDKError, toDatabaseError } from "../errors";
 import { generateUUID } from "../utils";
 import {
-	chat,
 	message,
 	type Suggestion,
 	suggestion,
@@ -129,41 +128,6 @@ export async function getMessageById({ id }: { id: string }) {
 			"get_message_by_id",
 			error,
 			"Failed to get message by id"
-		);
-	}
-}
-
-export async function getMessageCountByUserId({
-	id,
-	differenceInHours,
-}: {
-	id: string;
-	differenceInHours: number;
-}) {
-	try {
-		const twentyFourHoursAgo = new Date(
-			Date.now() - differenceInHours * 60 * 60 * 1000
-		);
-
-		const [stats] = await db
-			.select({ count: count(message.id) })
-			.from(message)
-			.innerJoin(chat, eq(message.chatId, chat.id))
-			.where(
-				and(
-					eq(chat.userId, id),
-					gte(message.createdAt, twentyFourHoursAgo),
-					eq(message.role, "user")
-				)
-			)
-			.execute();
-
-		return stats?.count ?? 0;
-	} catch (error) {
-		throw toDatabaseError(
-			"get_message_count_by_user_id",
-			error,
-			"Failed to get message count by user id"
 		);
 	}
 }

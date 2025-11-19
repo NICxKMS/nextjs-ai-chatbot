@@ -69,7 +69,11 @@ export const chatData = {
 	 * @param ctx Data context (userId, isGuest)
 	 * @returns Chat metadata or null if not found
 	 */
-	get: async (chatId: string, ctx: DataContext): Promise<Chat | null> => {
+	get: async (
+		chatId: string,
+		ctx: DataContext,
+		opts?: { warmCache?: boolean }
+	): Promise<Chat | null> => {
 		try {
 			// Try cache first if Redis is available
 			if (isRedisAvailable()) {
@@ -103,8 +107,13 @@ export const chatData = {
 				return null;
 			}
 
-			// Warm cache in background if userId provided
-			if (isRedisAvailable() && chatFromDb.userId === ctx.userId) {
+			// Warm cache in background if enabled and userId matches
+			const shouldWarmCache = opts?.warmCache ?? true;
+			if (
+				isRedisAvailable() &&
+				shouldWarmCache &&
+				chatFromDb.userId === ctx.userId
+			) {
 				// Fetch messages for cache warming (don't block)
 				db.select()
 					.from(message)
@@ -934,9 +943,10 @@ export const messageData = {
 					(msg) => msg.role === "user"
 				).length;
 				if (userMessageCount > 0) {
-					for (let i = 0; i < userMessageCount; i++) {
-						incrementUserMessageCountAsync(ctx.userId);
-					}
+					incrementUserMessageCountAsync(
+						ctx.userId,
+						userMessageCount
+					);
 				}
 
 				return;
@@ -1026,9 +1036,7 @@ export const messageData = {
 			).length;
 			if (userMessageCount > 0) {
 				// Increment quota async (don't block on this)
-				for (let i = 0; i < userMessageCount; i++) {
-					incrementUserMessageCountAsync(ctx.userId);
-				}
+				incrementUserMessageCountAsync(ctx.userId, userMessageCount);
 			}
 
 			return;
