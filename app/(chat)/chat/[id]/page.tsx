@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 
-import { auth } from "@/app/(auth)/auth";
 import { Chat } from "@/components/chat";
 import { DataStreamHandler } from "@/components/data-stream-handler";
 import { listChatModels } from "@/lib/ai/model-registry";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+import { getAppSession } from "@/lib/auth/session";
 import { type ChatWithMessages, createContext } from "@/lib/data/base";
 import { chatData } from "@/lib/data/chat";
 import { getVotesByChatIdAndUserId } from "@/lib/db/queries";
@@ -14,12 +14,10 @@ import { convertToUIMessages } from "@/lib/utils";
 export default async function Page(props: { params: Promise<{ id: string }> }) {
 	const params = await props.params;
 	const { id } = params;
-	const session = await auth();
+	const session = await getAppSession();
 
-	if (!session) {
-		redirect(
-			`/api/auth/guest?redirectUrl=${encodeURIComponent(`/chat/${id}`)}`
-		);
+	if (!session?.user) {
+		redirect("/?notice=chat_not_found");
 	}
 
 	const ctx = createContext(session);

@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { Session } from "next-auth";
+import type { AppSession } from "@/lib/auth/session";
 import type { Chat, MessageRow } from "../db/schema";
 
 /**
@@ -20,14 +20,14 @@ export type DataContext = {
 };
 
 /**
- * Create a data context from a NextAuth session
+ * Create a data context from an AppSession
  * This is the standard way to construct context for data operations
  *
- * @param session NextAuth session object
+ * @param session AppSession object
  * @returns DataContext with userId and guest status
  * @throws Error if session or user is missing
  */
-export function createContext(session: Session): DataContext {
+export function createContext(session: AppSession): DataContext {
 	if (!session?.user?.id) {
 		throw new Error("Session user ID is required");
 	}
@@ -42,10 +42,10 @@ export function createContext(session: Session): DataContext {
  * Helper to check if a session represents a guest user
  * Uses the session.user.type field set during authentication
  *
- * @param session NextAuth session object
+ * @param session AppSession object
  * @returns true if user is a guest, false otherwise
  */
-export function isGuest(session: Session | null | undefined): boolean {
+export function isGuest(session: AppSession | null | undefined): boolean {
 	return session?.user?.type === "guest";
 }
 

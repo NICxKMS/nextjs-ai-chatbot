@@ -6,9 +6,9 @@ This document enumerates every component, hook, helper, cache operation, and dat
 
 ## 1. Identity, session, and entitlement context
 
-1. **NextAuth guest credential provider** creates a temporary user record in `user` table, returning a `Session` whose `session.user` carries `{ id, type: "guest" }`. Password verification is skipped; `createGuestUser()` generates a random account. @app/(auth)/auth.ts#71-78@lib/db/queries.ts#99-117
-   - **Expected latency:** One credential POST request plus a single Postgres insert/lookup round trip; no Redis interaction, so latency is dominated by backend/database RTT with negligible additional processing delay. @app/(auth)/auth.ts#71-78@lib/db/queries.ts#99-117
-   - **Compute requirements:** O(1) database insert and UUID generation; CPU cost is limited to random ID creation and JWT/session serialization with no iterative work. @app/(auth)/auth.ts#71-78
+1. **Guest JWT cookie**: When an anonymous user first visits the app, the client-side `AuthProvider` calls `POST /api/auth/guest` to issue a signed guest JWT (`guest_token`) with a 7-day TTL. The resulting `AppSession` carries `session.user` as `{ id: "guest:<uuid>", type: "guest" }`. On the server, `getAppSession()` simply reads either a Supabase or guest session from cookies. @lib/auth/session.ts#160-200@components/auth-provider.tsx#40-80
+   - **Expected latency:** No database or Redis round-trips; guest IDs are minted and stored purely in cookies, so latency is limited to synchronous JWT signing and cookie serialization. @lib/auth/session.ts#120-160
+   - **Compute requirements:** O(1) random UUID generation and HMAC signing; independent of database size or cache state. @lib/auth/session.ts#81-93
 2. **Session → DataContext translation** occurs through `createContext(session)`, shaping `{ userId: session.user.id, isGuest: session.user.type === "guest" }`. This context flows through every data-layer call. @lib/data/base.ts#30-39
    - **Expected latency:** Synchronous in-process object construction; effectively negligible latency beyond JavaScript execution time. @lib/data/base.ts#30-39
    - **Compute requirements:** O(1) property mapping; no allocations beyond a plain object literal. @lib/data/base.ts#30-39

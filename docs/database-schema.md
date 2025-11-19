@@ -8,12 +8,12 @@ This document describes the complete database schema for the AI Chat application
 
 ### User
 
-Stores authenticated and guest user accounts.
+Stores application users that own chats, documents, and votes. Authentication is handled separately by Supabase Auth; this table mirrors Supabase user IDs for relational integrity.
 
 **Columns:**
-- `id` (uuid, PK, default: random) - Unique user identifier
-- `email` (varchar(128), unique, not null) - User email (guest emails prefixed with `guest-`)
-- `password_hash` (varchar(128)) - Bcrypt password hash
+- `id` (uuid, PK, default: random) - Unique user identifier (matches Supabase `auth.users.id` for authenticated users)
+- `email` (varchar(128), unique, not null) - User email (for authenticated users); synthetic placeholder emails may be used when not available
+- `password_hash` (varchar(128)) - Legacy bcrypt password hash (no longer used for authentication)
 - `created_at` (timestamp with timezone, not null, default: now()) - Account creation timestamp
 - `last_login` (timestamp with timezone) - Last login timestamp
 
@@ -22,8 +22,8 @@ Stores authenticated and guest user accounts.
 - Unique index on `email`
 
 **Notes:**
-- Guest users have emails like `guest-{timestamp}` and random password hashes
-- Guest users are created via `createGuestUser()` but their chat data lives in Redis cache only
+- Guest users are **not** stored in this table; their chats and documents live in Redis cache only and are keyed by a `guest:<uuid>` identifier.
+- For authenticated users, rows are created automatically by a Postgres trigger on `auth.users` that inserts into `public."User"`. This trigger (and the one-time backfill SQL) is managed directly in Supabase, not via Drizzle migrations; see `docs/supabase-trigger.sql` for the canonical definition you can re-run in new environments.
 
 ---
 

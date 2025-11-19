@@ -1,6 +1,6 @@
 import { createUIMessageStream, JsonToSseTransformStream } from "ai";
 import { differenceInSeconds } from "date-fns";
-import { auth } from "@/app/(auth)/auth";
+import { getAppSession } from "@/lib/auth/session";
 import { createContext } from "@/lib/data/base";
 import { chatData } from "@/lib/data/chat";
 import { ChatSDKError } from "@/lib/errors";
@@ -16,7 +16,7 @@ export async function GET(
 		return new ChatSDKError("bad_request:api:missing_chat_id").toResponse();
 	}
 
-	const session = await auth();
+	const session = await getAppSession();
 
 	if (!session?.user) {
 		return new ChatSDKError(

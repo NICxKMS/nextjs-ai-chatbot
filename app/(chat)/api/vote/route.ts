@@ -1,4 +1,4 @@
-import { auth } from "@/app/(auth)/auth";
+import { getAppSession } from "@/lib/auth/session";
 import { createContext } from "@/lib/data/base";
 import { chatData } from "@/lib/data/chat";
 import { voteMessage } from "@/lib/db/queries";
@@ -13,7 +13,7 @@ export async function PATCH(request: Request) {
 		messageId: string;
 		type: "up" | "down";
 	}> = request.json();
-	const sessionPromise = auth();
+	const sessionPromise = getAppSession();
 	const { chatId, messageId, type } = await bodyPromise;
 
 	if (!chatId || !messageId || !type) {

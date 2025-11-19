@@ -2,7 +2,7 @@ import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { auth } from "@/app/(auth)/auth";
+import { getAppSession } from "@/lib/auth/session";
 import { ChatSDKError } from "@/lib/errors";
 import {
 	ATTACHMENT_MAX_FILE_SIZE,
@@ -24,9 +24,9 @@ const FileSchema = z.object({
 });
 
 export async function POST(request: Request) {
-	const session = await auth();
+	const session = await getAppSession();
 
-	if (!session) {
+	if (!session?.user) {
 		return new ChatSDKError(
 			"unauthorized:api:upload_unauthorized"
 		).toResponse();

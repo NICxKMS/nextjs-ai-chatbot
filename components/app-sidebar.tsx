@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
@@ -22,6 +21,7 @@ import {
 	SidebarMenu,
 	useSidebar,
 } from "@/components/ui/sidebar";
+import { useAuth } from "@/components/auth-provider";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -38,8 +38,10 @@ export function AppSidebar() {
 	const router = useRouter();
 	const { setOpenMobile } = useSidebar();
 	const { mutate } = useSWRConfig();
-	const { data: session } = useSession();
-	const user = session?.user;
+	const { session } = useAuth();
+	const userForDisplay: { email?: string | null } = session?.user
+		? { email: session.user.email ?? null }
+		: { email: null };
 	const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
 
 	const handleDeleteAll = () => {
@@ -77,7 +79,7 @@ export function AppSidebar() {
 								</span>
 							</Link>
 							<div className="flex flex-row gap-1">
-								{user && (
+								{session && (
 									<Tooltip>
 										<TooltipTrigger asChild>
 											<Button
@@ -126,10 +128,10 @@ export function AppSidebar() {
 					</SidebarMenu>
 				</SidebarHeader>
 				<SidebarContent>
-					<SidebarHistory user={user} />
+					<SidebarHistory user={userForDisplay} />
 				</SidebarContent>
 				<SidebarFooter>
-					{user && <SidebarUserNav user={user} />}
+					<SidebarUserNav user={userForDisplay} />
 				</SidebarFooter>
 			</Sidebar>
 

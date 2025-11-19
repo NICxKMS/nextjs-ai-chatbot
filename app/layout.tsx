@@ -5,8 +5,9 @@ import Script from "next/script";
 import { Suspense } from "react";
 import { Toaster } from "sonner";
 import { SWRConfig } from "swr";
-import { SessionWrapper } from "@/components/session-wrapper";
+import { AuthProvider } from "@/components/auth-provider";
 import { ThemeProvider } from "@/components/theme-provider";
+import { getAppSession } from "@/lib/auth/session";
 
 import "./globals.css";
 
@@ -72,29 +73,39 @@ export default function RootLayout({
 				</Script>
 				<SpeedInsights />
 				<Suspense>
-					<ThemeProvider
-						attribute="class"
-						defaultTheme="system"
-						disableTransitionOnChange
-						enableSystem
-					>
-						<Toaster position="top-center" />
-						<SWRConfig
-							value={{
-								dedupingInterval: 10_000,
-								revalidateOnFocus: false,
-								revalidateOnReconnect: false,
-								refreshWhenHidden: false,
-								refreshWhenOffline: false,
-								revalidateIfStale: true,
-								// revalidateOnMount: false,
-							}}
-						>
-							<SessionWrapper>{children}</SessionWrapper>
-						</SWRConfig>
-					</ThemeProvider>
+					<AppShell>{children}</AppShell>
 				</Suspense>
 			</body>
 		</html>
+	);
+}
+
+async function AppShell({ children }: { children: React.ReactNode }) {
+	const initialSession = await getAppSession();
+
+	return (
+		<ThemeProvider
+			attribute="class"
+			defaultTheme="system"
+			disableTransitionOnChange
+			enableSystem
+		>
+			<Toaster position="top-center" />
+			<SWRConfig
+				value={{
+					dedupingInterval: 10_000,
+					revalidateOnFocus: false,
+					revalidateOnReconnect: false,
+					refreshWhenHidden: false,
+					refreshWhenOffline: false,
+					revalidateIfStale: true,
+					// revalidateOnMount: false,
+				}}
+			>
+				<AuthProvider initialSession={initialSession}>
+					{children}
+				</AuthProvider>
+			</SWRConfig>
+		</ThemeProvider>
 	);
 }

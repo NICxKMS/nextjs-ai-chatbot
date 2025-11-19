@@ -1,50 +1,69 @@
 "use client";
 
 import Link from "next/link";
-import { useSession } from "next-auth/react";
-import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { AuthForm } from "@/components/auth-form";
 import { SubmitButton } from "@/components/submit-button";
 import { toast } from "@/components/toast";
-import { type LoginActionState, login } from "../actions";
+import { getSupabaseBrowserClient } from "@/lib/auth/client";
 
 export default function Page() {
 	const [email, setEmail] = useState("");
 	const [isSuccessful, setIsSuccessful] = useState(false);
+	const router = useRouter();
 
-	const [state, formAction] = useActionState<LoginActionState, FormData>(
-		login,
-		{
-			status: "idle",
+	const handleSubmit = async (formData: FormData) => {
+		const submittedEmail = formData.get("email");
+		const password = formData.get("password");
+
+		if (
+			typeof submittedEmail !== "string" ||
+			typeof password !== "string"
+		) {
+			toast({
+				type: "error",
+				description: "Please provide a valid email and password.",
+			});
+			return;
 		}
-	);
 
-	const { update: updateSession } = useSession();
+		setEmail(submittedEmail);
 
-	useEffect(() => {
-		if (state.status === "failed") {
+		const supabase = getSupabaseBrowserClient();
+
+		const { data, error } = await supabase.auth.signInWithPassword({
+			email: submittedEmail,
+			password,
+		});
+
+		if (error || !data.session) {
 			toast({
 				type: "error",
 				description: "Invalid credentials!",
 			});
-		} else if (state.status === "invalid_data") {
-			toast({
-				type: "error",
-				description: "Failed validating your submission!",
-			});
-		} else if (state.status === "success") {
-			setIsSuccessful(true);
-			updateSession().then(() => {
-				// Force full navigation to ensure session is properly loaded
-				window.location.href = "/";
-			});
+			return;
 		}
-	}, [state.status, updateSession]);
 
-	const handleSubmit = (formData: FormData) => {
-		setEmail(formData.get("email") as string);
-		formAction(formData);
+		const accessToken = data.session.access_token;
+
+		try {
+			await fetch("/api/auth/exchange", {
+				method: "POST",
+				credentials: "include",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ accessToken }),
+			});
+		} catch {
+			// If cookie exchange fails, still proceed; server-side session may be missing
+		}
+
+		setIsSuccessful(true);
+		router.push("/");
+		router.refresh();
 	};
 
 	return (

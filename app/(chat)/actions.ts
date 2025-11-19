@@ -2,7 +2,7 @@
 
 import { generateText, type UIMessage } from "ai";
 // import { cookies } from "next/headers";
-import { auth } from "@/app/(auth)/auth";
+import { getAppSession } from "@/lib/auth/session";
 import type { VisibilityType } from "@/components/visibility-selector";
 import { DEFAULT_TITLE_MODEL } from "@/lib/ai/models";
 import { myProvider } from "@/lib/ai/providers";
@@ -39,7 +39,7 @@ export async function generateTitleFromUserMessage({
 }
 
 export async function deleteTrailingMessages({ id }: { id: string }) {
-	const session = await auth();
+	const session = await getAppSession();
 	if (!session?.user) {
 		return;
 	}
@@ -65,7 +65,7 @@ export async function updateChatVisibility({
 	chatId: string;
 	visibility: VisibilityType;
 }) {
-	const session = await auth();
+	const session = await getAppSession();
 	if (!session?.user) {
 		return;
 	}

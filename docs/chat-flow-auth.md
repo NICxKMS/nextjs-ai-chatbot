@@ -6,9 +6,9 @@ This reference drills into every client, server, database, and cache touchpoint 
 
 ## 1. Identity, session, and entitlement context
 
-1. **Credential provider**: The primary NextAuth credentials provider validates email/password against hashed values (`compare(password, user.passwordHash)`); successful logins return `session.user` annotated with `{ id, type: "regular" }`. @app/(auth)/auth.ts#42-69
-   - **Expected latency:** One credentials POST round trip plus a single database lookup to retrieve the user and hashed password; bcrypt comparison executes synchronously on the server CPU. @app/(auth)/auth.ts#42-69
-   - **Compute requirements:** O(1) database query (indexed by email) and bcrypt hash verification (linear in hash cost factor, default 10 rounds). Session/JWT serialization adds constant overhead. @app/(auth)/auth.ts#42-69
+1. **Supabase Auth**: Email/password login and registration are handled client-side via `supabase.auth.signInWithPassword` and `supabase.auth.signUp`. On success, the access token is POSTed to `/api/auth/exchange`, which stores it in the `sb-access-token` httpOnly cookie. `getSupabaseSessionFromCookies()` decodes this JWT into an `AppSession` with `session.user` annotated as `{ id, type: "regular", email }`. @app/(auth)/login/page.tsx#12-47@app/(auth)/register/page.tsx#12-53@app/api/auth/exchange/route.ts#1-35@lib/auth/session.ts#64-118
+   - **Expected latency:** One Supabase Auth round trip for login plus a lightweight `/api/auth/exchange` call; both are HTTP-only and independent of the app’s Postgres instance. @app/(auth)/login/page.tsx#28-47
+   - **Compute requirements:** O(1) JWT verification and cookie serialization; no bcrypt work or user-table lookups are necessary during authentication. @lib/auth/session.ts#64-118
 2. **Session to DataContext**: `createContext(session)` produces `{ userId: session.user.id, isGuest: false }`, forming the foundation for all DAL invocations. @lib/data/base.ts#30-39
    - **Expected latency:** Synchronous object construction; effectively zero additional latency. @lib/data/base.ts#30-39
    - **Compute requirements:** O(1) property mapping. @lib/data/base.ts#30-39
