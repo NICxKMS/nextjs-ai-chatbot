@@ -6,7 +6,6 @@ import {
 	appendDocumentVersionToCache,
 	deleteDocumentVersionsFromCacheAfterTimestamp,
 	getDocumentFromCache,
-	setDocumentInCache,
 	warmDocumentCache,
 } from "../cache/operations";
 import { isRedisAvailable } from "../cache/redis";
@@ -81,34 +80,32 @@ export const documentData = {
 				return null;
 			}
 
-			// Authenticated users: fallback to database
+			// Authenticated users: fallback to database (single query)
 			const { db } = await import("../db/queries");
 			const { document } = await import("../db/schema");
-			const { eq, desc, asc } = await import("drizzle-orm");
+			const { eq, asc } = await import("drizzle-orm");
 
-			const [selectedDocument] = await db
+			const documents = await db
 				.select()
 				.from(document)
 				.where(eq(document.id, documentId))
-				.orderBy(desc(document.createdAt));
+				.orderBy(asc(document.createdAt));
 
-			if (!selectedDocument) {
+			if (documents.length === 0) {
 				return null;
 			}
 
-			// Warm cache in background
+			// Warm cache in background using the same result set
 			if (isRedisAvailable()) {
-				db.select()
-					.from(document)
-					.where(eq(document.id, documentId))
-					.orderBy(asc(document.createdAt))
-					.then((docs) =>
-						warmDocumentCache(documentId, ctx.userId, docs as any)
-					)
-					.catch((err) => logError("warmDocumentCache failed", err));
+				warmDocumentCache(
+					documentId,
+					ctx.userId,
+					documents as any
+				).catch((err) => logError("warmDocumentCache failed", err));
 			}
 
-			return selectedDocument;
+			const latestDocument = documents.at(-1);
+			return latestDocument ?? null;
 		} catch (error) {
 			throw toDatabaseError(
 				"get_document_by_id",

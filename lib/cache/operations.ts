@@ -267,43 +267,26 @@ export async function getUserChatsFromCache(
 		const items = await redis.zrange<string[]>(
 			CacheKeys.userChats(userId),
 			offset,
-			// Fetch extra to compensate for potential legacy duplicates
-			offset + limit + 20 - 1,
+			offset + limit - 1,
 			{ rev: true }
 		);
 
-		// Support both legacy members (JSON string with title) and new members (chatId only)
-		// Use Set for O(1) lookups instead of Array.includes() O(n) - prevents O(n²) complexity
+		// Deduplicate chat IDs defensively in case of overlapping inserts
 		const uniqueChatIdsSet = new Set<string>();
 		const uniqueChatIds: string[] = [];
 		for (const item of items) {
-			let id = item;
-			if (item.startsWith("{")) {
-				try {
-					const parsed = JSON.parse(item);
-					if (parsed && typeof parsed.chatId === "string") {
-						id = parsed.chatId;
-					}
-				} catch (_) {
-					// ignore malformed legacy entries
-				}
-			}
-			if (!uniqueChatIdsSet.has(id)) {
-				uniqueChatIdsSet.add(id);
-				uniqueChatIds.push(id);
+			if (!uniqueChatIdsSet.has(item)) {
+				uniqueChatIdsSet.add(item);
+				uniqueChatIds.push(item);
 			}
 			if (uniqueChatIds.length >= limit) {
 				break;
 			}
 		}
 
-		// Fetch titles from cached chat objects
-		const chats = await Promise.all(
-			uniqueChatIds.map((cid) => getChatFromCache(cid, userId))
-		);
-		return uniqueChatIds.map((cid, idx) => ({
+		return uniqueChatIds.map((cid) => ({
 			chatId: cid,
-			title: chats[idx]?.title ?? "New Chat",
+			title: "New Chat",
 		}));
 	} catch (error) {
 		logError("Redis getUserChatsFromCache error", error);

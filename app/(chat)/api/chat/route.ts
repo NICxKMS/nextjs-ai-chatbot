@@ -569,14 +569,14 @@ export async function DELETE(request: Request) {
 	const ctx = createContext(session);
 
 	// Fetch chat to verify ownership
-	const chat = await chatData.get(id, ctx);
+	const chat = await chatData.get(id, ctx, { warmCache: false });
 
 	if (chat?.userId !== session.user.id) {
 		return new ChatSDKError("forbidden:chat").toResponse();
 	}
 
 	// Delete chat
-	const deletedChat = await chatData.delete(id, ctx);
+	await chatData.delete(id, ctx);
 
-	return Response.json(deletedChat, { status: 200 });
+	return Response.json({ id }, { status: 200 });
 }
