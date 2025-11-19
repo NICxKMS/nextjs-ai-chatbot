@@ -31,7 +31,7 @@ import { logError, logWarn } from "@/lib/log";
 import type { Attachment, ChatMessage, UserVote } from "@/lib/types";
 import { useSettingsSnapshot } from "@/lib/ui/settings-store";
 import type { AppUsage } from "@/lib/usage";
-import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
+import { fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
 import { useDataStream } from "./data-stream-provider";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
@@ -185,7 +185,7 @@ export function Chat({
 					}
 				}
 			},
-			onFinish: (finishData) => {
+			onFinish: (_finishData) => {
 				// OPTIMIZATION: For short responses, title might not be received during streaming
 				// Poll for title update after a brief delay to ensure it's fetched
 				if (initialMessages.length === 0 && messages.length === 1) {

@@ -47,14 +47,16 @@ export async function getUserMessageCount(userId: string): Promise<number> {
 
 /**
  * Increment user message count atomically
- * Uses a single Redis INCR operation
+ * Uses Redis INCR operations (batched via pipeline when delta > 1)
  * Sets 25-hour TTL on first increment of the day
  *
  * @param userId User ID
+ * @param delta Amount to increment by (defaults to 1)
  * @returns New count after increment
  */
 export async function incrementUserMessageCount(
-	userId: string
+	userId: string,
+	delta = 1
 ): Promise<number> {
 	const redis = getRedisClient();
 	if (!redis) {
@@ -62,15 +64,35 @@ export async function incrementUserMessageCount(
 	}
 
 	try {
+		if (delta <= 0) {
+			return 0;
+		}
+
 		const dateKey = getQuotaDateKey();
 		const key = getQuotaKey(userId, dateKey);
 
-		// Atomically increment and get new value
-		const newCount = await redis.incr(key);
+		if (delta === 1) {
+			// Atomically increment and get new value
+			const newCount = await redis.incr(key);
+			// Set expiration on first use (when count is 1)
+			// TTL = 25 hours to handle timezone edge cases
+			if (newCount === 1) {
+				await redis.expire(key, 60 * 60 * 25); // 25 hours in seconds
+			}
+			return newCount;
+		}
 
-		// Set expiration on first use (when count is 1)
-		// TTL = 25 hours to handle timezone edge cases
-		if (newCount === 1) {
+		// Batch multiple increments in a single pipeline
+		const pipeline = redis.pipeline();
+		for (let i = 0; i < delta; i++) {
+			pipeline.incr(key);
+		}
+		const results = (await pipeline.exec()) as number[];
+		const firstCount = results[0];
+		const newCount = results.at(-1) ?? 0;
+
+		// Set expiration if this was the first time the key was incremented
+		if (firstCount === 1) {
 			await redis.expire(key, 60 * 60 * 25); // 25 hours in seconds
 		}
 
@@ -86,10 +108,14 @@ export async function incrementUserMessageCount(
  * Fire-and-forget for performance
  *
  * @param userId User ID
+ * @param delta Amount to increment by (defaults to 1)
  */
-export function incrementUserMessageCountAsync(userId: string): void {
+export function incrementUserMessageCountAsync(
+	userId: string,
+	delta = 1
+): void {
 	// Fire and forget - don't block on this
-	incrementUserMessageCount(userId).catch((err) =>
+	incrementUserMessageCount(userId, delta).catch((err) =>
 		console.error("Async quota increment failed:", err)
 	);
 }
