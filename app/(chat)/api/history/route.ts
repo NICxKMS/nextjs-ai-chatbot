@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { auth } from "@/app/(auth)/auth";
+import { getAppSession } from "@/lib/auth/session";
 import { createContext } from "@/lib/data/base";
 import { chatData } from "@/lib/data/chat";
 import { ChatSDKError } from "@/lib/errors";
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 		).toResponse();
 	}
 
-	const session = await auth();
+	const session = await getAppSession();
 
 	if (!session?.user) {
 		return new ChatSDKError(
@@ -33,9 +33,9 @@ export async function GET(request: NextRequest) {
 
 	const result = await chatData.list(
 		{
-				limit,
-				startingAfter,
-				endingBefore,
+			limit,
+			startingAfter,
+			endingBefore,
 		},
 		ctx
 	);
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function DELETE() {
-	const session = await auth();
+	const session = await getAppSession();
 
 	if (!session?.user) {
 		return new ChatSDKError(

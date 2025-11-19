@@ -1,4 +1,4 @@
-import type { UserType } from "@/app/(auth)/auth";
+import type { AppUserType } from "@/lib/auth/session";
 import { listChatModels } from "./model-registry";
 
 type Entitlements = {
@@ -8,7 +8,7 @@ type Entitlements = {
 
 const getAllModelIds = () => listChatModels().map((model) => model.id);
 
-export const entitlementsByUserType: Record<UserType, Entitlements> = {
+export const entitlementsByUserType: Record<AppUserType, Entitlements> = {
 	/*
 	 * For users without an account
 	 */

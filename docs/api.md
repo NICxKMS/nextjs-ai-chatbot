@@ -70,25 +70,6 @@ Register new user account.
 }
 ```
 
-#### POST /api/auth/guest
-Create guest session.
-
-```json
-// Request
-{
-  "redirectUrl": "/chat/new"
-}
-
-// Response
-{
-  "success": true,
-  "user": {
-    "id": "guest-uuid",
-    "type": "guest"
-  }
-}
-```
-
 ### Chat Operations
 
 #### POST /api/chat

@@ -3,9 +3,8 @@
 import { ChevronUp } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import type { User } from "next-auth";
-import { signOut, useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
+import { useAuth } from "@/components/auth-provider";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -18,15 +17,21 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { getSupabaseBrowserClient } from "@/lib/auth/client";
 import { LoaderIcon } from "./icons";
 import { toast } from "./toast";
 
-export function SidebarUserNav({ user }: { user: User }) {
+export function SidebarUserNav({ user }: { user: { email?: string | null } }) {
 	const router = useRouter();
-	const { data, status } = useSession();
+	const { session, status } = useAuth();
 	const { setTheme, resolvedTheme } = useTheme();
 
-	const isGuest = data?.user?.type === "guest";
+	const isGuest = session?.user?.type === "guest";
+	const isAuthenticated = Boolean(session);
+	const isAnonymous = !isAuthenticated || isGuest;
+	const avatarSeed = user.email ?? "guest";
+	const displayLabel = isAnonymous ? "Guest" : (user.email ?? "User");
+	const authActionLabel = isAnonymous ? "Login to your account" : "Sign out";
 
 	return (
 		<SidebarMenu>
@@ -51,17 +56,17 @@ export function SidebarUserNav({ user }: { user: User }) {
 								data-testid="user-nav-button"
 							>
 								<Image
-									alt={user.email ?? "User Avatar"}
+									alt={displayLabel}
 									className="rounded-full"
 									height={24}
-									src={`https://avatar.vercel.sh/${user.email}`}
+									src={`https://avatar.vercel.sh/${avatarSeed}`}
 									width={24}
 								/>
 								<span
 									className="truncate"
 									data-testid="user-email"
 								>
-									{isGuest ? "Guest" : user?.email}
+									{displayLabel}
 								</span>
 								<ChevronUp className="ml-auto" />
 							</SidebarMenuButton>
@@ -101,17 +106,27 @@ export function SidebarUserNav({ user }: { user: User }) {
 										return;
 									}
 
-									if (isGuest) {
+									if (!session || isGuest) {
 										router.push("/login");
 									} else {
-										signOut({
-											redirectTo: "/",
-										});
+										getSupabaseBrowserClient()
+											.auth.signOut()
+											.then(() => {
+												router.push("/");
+												router.refresh();
+											})
+											.catch(() => {
+												toast({
+													type: "error",
+													description:
+														"Failed to sign out, please try again.",
+												});
+											});
 									}
 								}}
 								type="button"
 							>
-								{isGuest ? "Login to your account" : "Sign out"}
+								{authActionLabel}
 							</button>
 						</DropdownMenuItem>
 					</DropdownMenuContent>

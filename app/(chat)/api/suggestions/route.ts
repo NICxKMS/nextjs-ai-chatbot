@@ -1,4 +1,4 @@
-import { auth } from "@/app/(auth)/auth";
+import { getAppSession } from "@/lib/auth/session";
 import { getSuggestionsByDocumentId } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
 
@@ -20,13 +20,17 @@ export async function GET(request: Request) {
 		documentId,
 	});
 
-	const session = await auth();
+	const session = await getAppSession();
 
 	if (!session?.user) {
 		return new ChatSDKError(
 			"unauthorized:suggestions:missing_session"
 		).toResponse();
 	}
+
+	// Authenticated users are mirrored from Supabase auth.users into the local
+	// User table via a database trigger, so we don't need an explicit
+	// "ensure user exists" check here.
 
 	// Guest users cannot retrieve suggestions (not persisted in database)
 	if (session.user.type === "guest") {

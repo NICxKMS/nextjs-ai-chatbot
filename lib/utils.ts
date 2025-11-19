@@ -20,14 +20,8 @@ export const fetcher = async (url: string) => {
   if (!response.ok) {
     const { code, cause } = await response.json();
     const err = new ChatSDKError(code as ErrorCode, cause);
-    // Redirect only for chat missing and user missing
     if (typeof window !== 'undefined') {
-      if (code === 'not_found:auth:user') {
-        const url = new URL(window.location.href);
-        url.searchParams.set('notice', 'user_not_found');
-        const redirectUrl = encodeURIComponent(url.toString());
-        window.location.replace(`/api/auth/guest?redirectUrl=${redirectUrl}`);
-      } else if (typeof code === 'string' && code.startsWith('not_found:chat')) {
+      if (typeof code === 'string' && code.startsWith('not_found:chat')) {
         window.location.replace('/?notice=chat_not_found');
       }
     }
@@ -47,14 +41,8 @@ export async function fetchWithErrorHandlers(
     if (!response.ok) {
       const { code, cause } = await response.json();
       const err = new ChatSDKError(code as ErrorCode, cause);
-      // Redirect only for chat missing and user missing
       if (typeof window !== 'undefined') {
-        if (code === 'not_found:auth:user') {
-          const url = new URL(window.location.href);
-          url.searchParams.set('notice', 'user_not_found');
-          const redirectUrl = encodeURIComponent(url.toString());
-          window.location.replace(`/api/auth/guest?redirectUrl=${redirectUrl}`);
-        } else if (typeof code === 'string' && code.startsWith('not_found:chat')) {
+        if (typeof code === 'string' && code.startsWith('not_found:chat')) {
           window.location.replace('/?notice=chat_not_found');
         }
       }
