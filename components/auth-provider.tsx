@@ -1,16 +1,10 @@
 "use client";
 
-import type { ReactNode } from "react";
-import {
-	createContext,
-	useContext,
-	useEffect,
-	useMemo,
-	useState,
-} from "react";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
-import type { AppSession } from "@/lib/auth/session";
+import type { ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/auth/client";
+import type { AppSession } from "@/lib/auth/session";
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
@@ -81,7 +75,7 @@ export function AuthProvider({
 		const {
 			data: { subscription },
 		} = supabase.auth.onAuthStateChange(
-			async (event: AuthChangeEvent, supabaseSession: Session | null) => {
+			(event: AuthChangeEvent, supabaseSession: Session | null) => {
 				if (event === "SIGNED_OUT" || !supabaseSession) {
 					setSession(null);
 					return;
@@ -118,7 +112,9 @@ export function AuthProvider({
 		[session, status]
 	);
 
-	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+	return (
+		<AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+	);
 }
 
 export function useAuth() {
@@ -130,4 +126,3 @@ export function useAuth() {
 
 	return ctx;
 }
-

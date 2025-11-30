@@ -12,10 +12,10 @@ import { memo, useEffect, useMemo, useRef } from "react";
 
 // import "katex/dist/katex.min.css";
 
-import type { Suggestion } from "@/lib/db/schema";
 import {
 	createDecorations,
 	projectWithPositions,
+	type SuggestionLike,
 	SuggestionsExtension,
 	suggestionsPluginKey,
 } from "@/lib/editor/suggestions-extension";
@@ -26,7 +26,7 @@ type EditorProps = {
 	status: "streaming" | "idle";
 	isCurrentVersion: boolean;
 	currentVersionIndex: number;
-	suggestions: Suggestion[];
+	suggestions: SuggestionLike[];
 };
 
 function PureEditor({

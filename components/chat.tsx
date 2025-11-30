@@ -28,7 +28,13 @@ import { useOptimisticChats } from "@/hooks/use-optimistic-chats";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 import { ChatSDKError } from "@/lib/errors";
 import { logError, logWarn } from "@/lib/log";
-import type { Attachment, ChatMessage, UserVote } from "@/lib/types";
+import {
+	type Attachment,
+	type ChatMessage,
+	isDataAppendMessagePart,
+	isDataChatTitlePart,
+	type UserVote,
+} from "@/lib/types";
 import { useSettingsSnapshot } from "@/lib/ui/settings-store";
 import type { AppUsage } from "@/lib/usage";
 import { fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
@@ -41,6 +47,15 @@ import type { VisibilityType } from "./visibility-selector";
 const Artifact = dynamic(() => import("./artifact").then((m) => m.Artifact), {
 	ssr: false,
 });
+
+// Experimental Network Information API type
+type NetworkInformation = {
+	effectiveType?: "slow-2g" | "2g" | "3g" | "4g" | "5g";
+};
+
+type NavigatorWithConnection = Navigator & {
+	connection?: NetworkInformation;
+};
 
 export function Chat({
 	id,
@@ -114,7 +129,8 @@ export function Chat({
 	// Adaptive throttle based on connection speed (memoized)
 	const optimalThrottle = useMemo(() => {
 		if (typeof navigator !== "undefined" && "connection" in navigator) {
-			const conn = (navigator as any).connection;
+			const nav = navigator as NavigatorWithConnection;
+			const conn = nav.connection;
 			if (conn?.effectiveType === "4g" || conn?.effectiveType === "5g") {
 				return 50; // Faster for good connections
 			}
@@ -154,12 +170,12 @@ export function Chat({
 				if (dataPart.type === "data-usage") {
 					setUsage(dataPart.data);
 				}
-				if (dataPart.type === "data-chatTitle") {
+				if (isDataChatTitlePart(dataPart)) {
 					// Update the optimistic chat title in-place from the stream.
-					updateOptimisticChatTitle(id, (dataPart as any).data);
+					updateOptimisticChatTitle(id, dataPart.data);
 				}
-				if (dataPart.type === "data-appendMessage") {
-					const data = (dataPart as any).data;
+				if (isDataAppendMessagePart(dataPart)) {
+					const data = dataPart.data;
 					// Validate before parsing to reduce exception overhead
 					if (typeof data === "string") {
 						try {
@@ -174,27 +190,34 @@ export function Chat({
 								error
 							);
 						}
-					} else if (
-						typeof data === "object" &&
-						data !== null &&
-						data?.id &&
-						data?.role
-					) {
-						// Already parsed object with valid structure
-						setMessages((prev) => [...prev, data]);
+					} else if (typeof data === "object" && data !== null) {
+						// Already parsed object - validate structure
+						const obj = data as Record<string, unknown>;
+						if (obj.id && obj.role) {
+							setMessages((prev) => [
+								...prev,
+								data as ChatMessage,
+							]);
+						}
 					}
 				}
 			},
 			onFinish: (_finishData) => {
-				// OPTIMIZATION: For short responses, title might not be received during streaming
-				// Poll for title update after a brief delay to ensure it's fetched
-				if (initialMessages.length === 0 && messages.length === 1) {
-					// New chat - check if title was updated
-					setTimeout(() => {
-						// Trigger a sidebar refresh to pick up the generated title from DB
-						// This ensures titles appear even for very short responses
-						window.dispatchEvent(new Event("chat-title-updated"));
-					}, 1000);
+				// OPTIMIZATION: Title is generated asynchronously in the background
+				// For new chats, poll for title update to ensure it appears in sidebar
+				// even when title generation completes after streaming ends
+				if (initialMessages.length === 0 && messages.length >= 1) {
+					// New chat - poll for title updates with increasing delays
+					// First check after 500ms, then 1.5s, then 3s to catch most cases
+					const pollDelays = [500, 1500, 3000];
+					for (const delay of pollDelays) {
+						setTimeout(() => {
+							// Trigger a sidebar refresh to pick up the generated title from DB/cache
+							window.dispatchEvent(
+								new Event("chat-title-updated")
+							);
+						}, delay);
+					}
 				}
 			},
 			onError: (error) => {
@@ -273,8 +296,17 @@ export function Chat({
 	// This prevents artifacts from auto-opening when switching chats
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Effect intentionally runs on id change only
 	useEffect(() => {
-		setArtifact(initialArtifactData);
-	}, [id, setArtifact]);
+		setArtifact({
+			...initialArtifactData,
+			boundingBox: {
+				...initialArtifactData.boundingBox,
+			},
+		});
+		setDataStream([]);
+		return () => {
+			setDataStream([]);
+		};
+	}, [id, setArtifact, setDataStream]);
 
 	// Note: We rely on the streaming title update without refetching history.
 	const searchParams = useSearchParams();

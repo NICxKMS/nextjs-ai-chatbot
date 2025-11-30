@@ -37,8 +37,9 @@ export const getAllowedAttachmentMimeTypes = () => [
 export const isAllowedAttachmentMimeType = (
 	mimeType: string | undefined | null
 ): boolean => {
+	// Security: Reject empty/undefined MIME types to prevent bypass attacks
 	if (!mimeType) {
-		return true;
+		return false;
 	}
 
 	if (ATTACHMENT_ALLOWED_MIME_TYPES.has(mimeType)) {

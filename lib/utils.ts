@@ -18,8 +18,18 @@ export const fetcher = async (url: string) => {
   const response = await fetch(url);
 
   if (!response.ok) {
-    const { code, cause } = await response.json();
-    const err = new ChatSDKError(code as ErrorCode, cause);
+    let code: ErrorCode = 'bad_request:api';
+    let cause: string | undefined;
+
+    try {
+      const errorData = await response.json();
+      code = errorData.code as ErrorCode;
+      cause = errorData.cause;
+    } catch {
+      // Response wasn't valid JSON, use defaults
+    }
+
+    const err = new ChatSDKError(code, cause);
     if (typeof window !== 'undefined') {
       if (typeof code === 'string' && code.startsWith('not_found:chat')) {
         window.location.replace('/?notice=chat_not_found');
@@ -39,8 +49,18 @@ export async function fetchWithErrorHandlers(
     const response = await fetch(input, init);
 
     if (!response.ok) {
-      const { code, cause } = await response.json();
-      const err = new ChatSDKError(code as ErrorCode, cause);
+      let code: ErrorCode = 'bad_request:api';
+      let cause: string | undefined;
+
+      try {
+        const errorData = await response.json();
+        code = errorData.code as ErrorCode;
+        cause = errorData.cause;
+      } catch {
+        // Response wasn't valid JSON, use defaults
+      }
+
+      const err = new ChatSDKError(code, cause);
       if (typeof window !== 'undefined') {
         if (typeof code === 'string' && code.startsWith('not_found:chat')) {
           window.location.replace('/?notice=chat_not_found');
@@ -94,7 +114,7 @@ export function getDocumentTimestampByIndex(
   index: number,
 ) {
   if (!documents) { return new Date(); }
-  if (index > documents.length) { return new Date(); }
+  if (index < 0 || index >= documents.length) { return new Date(); }
 
   const document = documents[index];
   return document ? document.createdAt : new Date();

@@ -8,8 +8,12 @@ import { createRoot } from "react-dom/client";
 import type { ArtifactKind } from "@/components/artifact";
 import { Suggestion as PreviewSuggestion } from "@/components/suggestion";
 import type { Suggestion } from "@/lib/db/schema";
+import type { StreamingSuggestion } from "@/lib/types";
 
-export interface UISuggestion extends Suggestion {
+// A suggestion-like type that accepts both full Suggestions and StreamingSuggestions
+export type SuggestionLike = Suggestion | StreamingSuggestion;
+
+export interface UISuggestion extends StreamingSuggestion {
 	selectionStart: number;
 	selectionEnd: number;
 }
@@ -44,7 +48,7 @@ function findPositionsInDoc(doc: Node, searchText: string): Position | null {
 
 export function projectWithPositions(
 	doc: Node,
-	suggestions: Suggestion[]
+	suggestions: SuggestionLike[]
 ): UISuggestion[] {
 	return suggestions.map((suggestion) => {
 		const positions = findPositionsInDoc(doc, suggestion.originalText);

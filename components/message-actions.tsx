@@ -1,11 +1,10 @@
 import equal from "fast-deep-equal";
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
 import { useCopyToClipboard } from "usehooks-ts";
 import type { ChatMessage, UserVote } from "@/lib/types";
 import { Action, Actions } from "./elements/actions";
-import {} from "../lib/errors"
 import { CopyIcon, PencilEditIcon, ThumbDownIcon, ThumbUpIcon } from "./icons";
 
 export function PureMessageActions({
@@ -24,15 +23,19 @@ export function PureMessageActions({
 	const { mutate } = useSWRConfig();
 	const [_, copyToClipboard] = useCopyToClipboard();
 
+	const textFromParts = useMemo(
+		() =>
+			message.parts
+				?.filter((part) => part.type === "text")
+				.map((part) => part.text)
+				.join("\n")
+				.trim(),
+		[message.parts]
+	);
+
 	if (isLoading) {
 		return null;
 	}
-
-	const textFromParts = message.parts
-		?.filter((part) => part.type === "text")
-		.map((part) => part.text)
-		.join("\n")
-		.trim();
 
 	const handleCopy = async () => {
 		if (!textFromParts) {
@@ -73,6 +76,7 @@ export function PureMessageActions({
 			</Action>
 
 			<Action
+				aria-pressed={vote?.isUpvoted === true}
 				data-testid="message-upvote"
 				disabled={vote?.isUpvoted}
 				onClick={() => {
@@ -124,6 +128,7 @@ export function PureMessageActions({
 			</Action>
 
 			<Action
+				aria-pressed={vote?.isUpvoted === false}
 				data-testid="message-downvote"
 				disabled={vote && !vote.isUpvoted}
 				onClick={() => {
@@ -180,10 +185,19 @@ export function PureMessageActions({
 export const MessageActions = memo(
 	PureMessageActions,
 	(prevProps, nextProps) => {
+		if (prevProps.chatId !== nextProps.chatId) {
+			return false;
+		}
+		if (prevProps.message.id !== nextProps.message.id) {
+			return false;
+		}
 		if (!equal(prevProps.vote, nextProps.vote)) {
 			return false;
 		}
 		if (prevProps.isLoading !== nextProps.isLoading) {
+			return false;
+		}
+		if (!equal(prevProps.message.parts, nextProps.message.parts)) {
 			return false;
 		}
 

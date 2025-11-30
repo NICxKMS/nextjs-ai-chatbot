@@ -3,18 +3,17 @@ import {
 	convertToModelMessages,
 	createUIMessageStream,
 	JsonToSseTransformStream,
+	type LanguageModelUsage,
 	smoothStream,
 	stepCountIs,
 	streamText,
 } from "ai";
 import { unstable_cache as cache } from "next/cache";
 import type { ModelCatalog } from "tokenlens/core";
-import type { AppUserType } from "@/lib/auth/session";
-import { getAppSession } from "@/lib/auth/session";
 import type { VisibilityType } from "@/components/visibility-selector";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
-import { getModelById } from "@/lib/ai/model-registry";
+import { getModelById, isValidModelId } from "@/lib/ai/model-registry";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import { myProvider } from "@/lib/ai/providers";
 import { createDocument } from "@/lib/ai/tools/create-document";
@@ -22,18 +21,25 @@ import { createDocument } from "@/lib/ai/tools/create-document";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
+import type { AppUserType } from "@/lib/auth/session";
+import { getAppSession } from "@/lib/auth/session";
 import { getUserMessageCount } from "@/lib/cache/quota";
 import { isRedisAvailable } from "@/lib/cache/redis";
 import { isProductionEnvironment } from "@/lib/constants";
 import { createContext } from "@/lib/data/base";
 import { chatData, messageData } from "@/lib/data/chat";
+import type { DBMessage } from "@/lib/db/schema";
 import { ChatSDKError } from "@/lib/errors";
 import { logError, logWarn } from "@/lib/log";
 import type { ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
-import { type PostRequestBody, postRequestBodySchema } from "./schema";
+import {
+	type MessagePart,
+	type PostRequestBody,
+	postRequestBodySchema,
+} from "./schema";
 
 // Tool type helpers
 type ToolSetShape = {
@@ -119,6 +125,13 @@ export async function POST(request: Request) {
 
 		selectedModelId = selectedChatModel;
 
+		// Validate model ID before proceeding
+		if (!isValidModelId(selectedChatModel)) {
+			return new ChatSDKError(
+				"bad_request:api:invalid_model_id"
+			).toResponse();
+		}
+
 		const session = await getAppSession();
 
 		if (!session?.user) {
@@ -173,8 +186,11 @@ export async function POST(request: Request) {
 		} else {
 			placeholderTitle = (() => {
 				try {
-					const textPart = (message.parts as any[])?.find(
-						(p: any) =>
+					const parts = message.parts as MessagePart[];
+					const textPart = parts?.find(
+						(
+							p
+						): p is MessagePart & { type: "text"; text: string } =>
 							p?.type === "text" && typeof p.text === "string"
 					);
 					const base = (textPart?.text || "").trim();
@@ -348,10 +364,11 @@ export async function POST(request: Request) {
 								>,
 							}
 						: {}),
-					onFinish: async (callResult: any) => {
-						let usage: any;
+					onFinish: async (callResult: {
+						usage: LanguageModelUsage;
+					}) => {
+						const usage = callResult.usage;
 						try {
-							usage = callResult.usage;
 							const providers = await tokenlensCatalogPromise;
 							const modelId =
 								myProvider.languageModel(
@@ -425,28 +442,9 @@ export async function POST(request: Request) {
 			},
 			generateId: generateUUID,
 			onFinish: async ({ messages }) => {
-				// Get generated title (wait longer since streaming is done - doesn't affect TTFR)
-				let finalTitle = placeholderTitle;
-				if (isNewChat && generatedTitlePromise) {
-					try {
-						// OPTIMIZATION: Extended timeout to 3s for title generation
-						// This happens AFTER streaming completes, so it doesn't affect response time
-						// Ensures proper titles even for short responses (e.g., "hi" -> "hey, how are you")
-						finalTitle = await Promise.race([
-							generatedTitlePromise,
-							new Promise<string>((resolve) =>
-								setTimeout(
-									() =>
-										resolve(placeholderTitle || "New Chat"),
-									3000 // Extended from 500ms to 3000ms
-								)
-							),
-						]);
-					} catch {
-						// Use placeholder if title generation failed
-						finalTitle = placeholderTitle;
-					}
-				}
+				// OPTIMIZATION: Use placeholder title immediately to avoid blocking
+				// Title will be updated asynchronously in the background once generated
+				const initialTitle = placeholderTitle || "New Chat";
 
 				// Include the user message that was sent (not in messages from AI SDK)
 				const userMessage = {
@@ -461,14 +459,14 @@ export async function POST(request: Request) {
 					chatId: id,
 				};
 
-				const messagesToSave = [
+				const messagesToSave: DBMessage[] = [
 					userMessage,
 					...messages.map((currentMessage) => {
 						const partsWithModel = [
 							...currentMessage.parts,
 							{ type: "model", id: selectedModelId },
 						];
-						const base = {
+						return {
 							id: currentMessage.id,
 							role: currentMessage.role as
 								| "user"
@@ -479,23 +477,61 @@ export async function POST(request: Request) {
 							attachments: [],
 							chatId: id,
 						};
-						return base as any;
 					}),
 				];
 
 				try {
+					// Save chat immediately with placeholder title (non-blocking)
 					await messageData.saveWithContext(
 						{
 							messages: messagesToSave,
 							chatId: id,
 							lastContext: finalMergedUsage,
 							isNewChat,
-							title: finalTitle,
+							title: initialTitle,
 							visibility: selectedVisibilityType,
 							createdAt: chatCreatedAt,
 						},
 						ctx
 					);
+
+					// OPTIMIZATION: Update title asynchronously in background (fire-and-forget)
+					// This removes the 3s race condition and ensures proper titles without blocking
+					if (isNewChat && generatedTitlePromise) {
+						generatedTitlePromise
+							.then(async (generatedTitle) => {
+								// Only update if we got a meaningful title different from placeholder
+								if (
+									generatedTitle &&
+									generatedTitle !== initialTitle
+								) {
+									try {
+										await chatData.updateTitle(
+											id,
+											generatedTitle,
+											ctx
+										);
+									} catch (titleUpdateErr) {
+										logWarn(
+											"Background title update failed",
+											{
+												chatId: id,
+												error: titleUpdateErr,
+											}
+										);
+									}
+								}
+							})
+							.catch((err) => {
+								logWarn(
+									"Background title generation promise rejected",
+									{
+										chatId: id,
+										error: err,
+									}
+								);
+							});
+					}
 				} catch (err) {
 					logWarn("Unable to persist messages and context for chat", {
 						chatId: id,

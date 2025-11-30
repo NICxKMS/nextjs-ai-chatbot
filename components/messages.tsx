@@ -130,16 +130,18 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
 	}
 
 	// During streaming, always re-render to capture text updates
-	if (prevProps.status === 'streaming' || nextProps.status === 'streaming') {
+	if (prevProps.status === "streaming" || nextProps.status === "streaming") {
 		return false;
 	}
 
+	// Status changed (covers non-streaming status transitions)
 	if (prevProps.status !== nextProps.status) {
 		return false;
 	}
 	if (prevProps.selectedModelId !== nextProps.selectedModelId) {
 		return false;
 	}
+	// Fast path: check length before deep equality
 	if (prevProps.messages.length !== nextProps.messages.length) {
 		return false;
 	}
