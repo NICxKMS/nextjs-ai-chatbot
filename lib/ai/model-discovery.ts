@@ -324,9 +324,7 @@ const discoverCloudflareWorkers = (
 					modelId: model.id,
 					name: model.meta.name,
 					description: model.meta.description ?? "",
-					capabilities: model.meta.capabilities?.map(
-						(cap) => cap as any
-					) ?? ["chat"],
+					capabilities: (model.meta.capabilities as ModelMetadata["capabilities"]) ?? ["chat"],
 				})
 			);
 

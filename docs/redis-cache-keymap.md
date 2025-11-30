@@ -4,6 +4,15 @@
 
 This document describes the complete Redis cache structure for the AI Chat application, including key patterns, data types, TTL policies, and serialization strategies.
 
+## Architecture: Redis List-Based Storage
+
+**Performance characteristics:**
+
+- **Message append: O(1)** via Redis List RPUSH (vs O(N) JSON rewrite)
+- **Get all messages: O(N)** via LRANGE
+- **Get last N messages: O(N)** via LRANGE -N -1
+- **Metadata updates: O(1)** via simple SET
+
 ## Connection Configuration
 
 **Provider:** Upstash Redis (HTTP-based, stateless)
@@ -30,53 +39,118 @@ This document describes the complete Redis cache structure for the AI Chat appli
 
 ## Key Patterns
 
-### 1. Chat Keys
+### 1. Chat Metadata Keys (NEW)
+
+**Pattern:** `chat:{chatId}:{userId}:meta`
+
+**Type:** String (JSON)
+
+**Data Structure:** CachedChatMeta
+
+```typescript
+{
+  id: string; // Chat UUID
+  userId: string; // Owner user UUID
+  title: string; // Chat title
+  visibility: VisibilityType; // 'public' | 'private'
+  createdAt: string; // ISO 8601 timestamp
+  updatedAt: string; // ISO 8601 timestamp
+  lastContext: AppUsage | null; // Last usage metadata
+  version: number; // Optimistic locking version
+}
+```
+
+**Purpose:** Store chat metadata separately for O(1) updates
+
+**Operations:**
+
+- `redis.get()` - Retrieve metadata
+- `redis.set()` - Store/update metadata
+- `redis.del()` - Delete metadata
+
+**Example Key:**
+
+```
+chat:550e8400-e29b-41d4-a716-446655440000:123e4567-e89b-12d3-a456-426614174000:meta
+```
+
+---
+
+### 2. Chat Messages Keys (NEW)
+
+**Pattern:** `chat:{chatId}:{userId}:msgs`
+
+**Type:** List (Redis List)
+
+**Element:** JSON string of CachedMessage
+
+```typescript
+{
+  id: string;              // Message UUID
+  chatId: string;          // Parent chat UUID
+  role: 'user' | 'assistant' | 'system';
+  parts: MessagePart[];    // JSON parts array
+  attachments: MessageAttachment[]; // JSON attachments array
+  createdAt: string;       // ISO 8601 timestamp
+}
+```
+
+**Purpose:** Store messages as Redis List for O(1) append operations
+
+**Operations:**
+
+- `redis.rpush()` - **O(1) append** new message(s)
+- `redis.lrange(0, -1)` - Get all messages
+- `redis.lrange(-N, -1)` - Get last N messages
+- `redis.llen()` - **O(1) count** messages
+- `redis.del()` - Delete all messages
+
+**Example Key:**
+
+```
+chat:550e8400-e29b-41d4-a716-446655440000:123e4567-e89b-12d3-a456-426614174000:msgs
+```
+
+**Performance Benefits:**
+
+| Operation     | Old (JSON blob) | New (Redis List) |
+| ------------- | --------------- | ---------------- |
+| Append 1 msg  | O(N) rewrite    | **O(1)** RPUSH   |
+| Append M msgs | O(N) rewrite    | **O(M)** RPUSH   |
+| Get last 20   | O(N) parse all  | **O(20)** LRANGE |
+| Count msgs    | O(N) parse      | **O(1)** LLEN    |
+
+---
+
+### 3. Legacy Chat Keys (DEPRECATED)
 
 **Pattern:** `chat:{chatId}:{userId}`
 
 **Type:** String (JSON)
 
-**Data Structure:** CachedChat
+**Status:** DEPRECATED - migrated automatically on access
+
+**Data Structure:** CachedChat (old format)
 
 ```typescript
 {
-  id: string;              // Chat UUID
-  userId: string;          // Owner user UUID
-  title: string;           // Chat title
-  visibility: VisibilityType; // 'public' | 'private'
-  createdAt: string;       // ISO 8601 timestamp
-  updatedAt: string;       // ISO 8601 timestamp
-  lastContext: AppUsage | null; // Last usage metadata
-  messages: CachedMessage[]; // Denormalized messages array
-  version: number;         // Optimistic locking version
+  id: string;
+  userId: string;
+  title: string;
+  visibility: VisibilityType;
+  createdAt: string;
+  updatedAt: string;
+  lastContext: AppUsage | null;
+  messages: CachedMessage[];  // Embedded array (slow append)
+  version: number;
 }
 ```
 
-**Purpose:** Denormalized chat with all messages for single-fetch optimization
-
-**Operations:**
-
-- `redis.get()` - Retrieve full chat with messages
-- `redis.set()` - Store/update chat
-- `redis.del()` - Delete chat
-
-**TTL:** None (manual cleanup required)
-
-**Optimization Notes:**
-
-- Eliminates N+1 query pattern (messages embedded in chat)
-- Single Redis GET returns chat metadata + all messages
-- Version field enables optimistic concurrency control
-
-**Example Key:**
-
-```
-chat:550e8400-e29b-41d4-a716-446655440000:123e4567-e89b-12d3-a456-426614174000
-```
+**Migration:** When accessed, automatically migrated to new format (meta + msgs)
 
 ---
 
-### 2. User Chat List Keys
+### 4. User Chat List Keys
 
 **Pattern:** `user:{userId}:chats`
 
@@ -101,12 +175,6 @@ chat:550e8400-e29b-41d4-a716-446655440000:123e4567-e89b-12d3-a456-426614174000
 ```typescript
 redis.zrange(key, offset, offset + limit - 1, { rev: true });
 ```
-
-**Legacy Format Support:**
-
-- Old members: JSON strings `{"chatId":"...", "title":"..."}`
-- New members: Plain chatId strings
-- Code handles both formats for backward compatibility
 
 **Example Key:**
 
@@ -295,7 +363,8 @@ const date = new Date(cached.createdAt); // Parse back to Date
 
 ```typescript
 const pipeline = redis.pipeline();
-pipeline.set(CacheKeys.chat(chatId, userId), chat);
+pipeline.set(CacheKeys.chatMeta(chatId, userId), meta);
+pipeline.rpush(CacheKeys.chatMessages(chatId, userId), ...messageStrings);
 pipeline.zadd(CacheKeys.userChats(userId), {
   score: Date.parse(chat.updatedAt),
   member: chatId,
@@ -315,8 +384,8 @@ await pipeline.exec();
 **Usage:**
 
 ```typescript
-const keys = chatIds.map((id) => CacheKeys.chat(id, userId));
-const chats = await redis.mget<CachedChat[]>(...keys);
+const keys = chatIds.map((id) => CacheKeys.chatMeta(id, userId));
+const chatMetas = await redis.mget<CachedChatMeta[]>(...keys);
 ```
 
 **Operations Using MGET:**

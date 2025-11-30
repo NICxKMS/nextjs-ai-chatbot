@@ -11,9 +11,26 @@ export type {
 // Import for local use
 import type { MessageAttachment, MessagePart } from "../types/message-parts";
 
-// Denormalized chat structure for Redis
-export type CachedChat = {
-	// Chat metadata
+/**
+ * =============================================================================
+ * REDIS SORTED SET (ZSET) CACHE STRUCTURE
+ * =============================================================================
+ *
+ * Chat data is split into two keys for efficient operations:
+ *
+ * 1. chat:{chatId}:{userId}:meta  → String (chat metadata as JSON)
+ * 2. chat:{chatId}:{userId}:msgs  → Sorted Set (messages with timestamp scores)
+ *
+ * Benefits of ZSET for messages:
+ * - O(log N) message append via ZADD
+ * - O(log N + M) range deletion via ZREMRANGEBYSCORE (vs O(N) List filter)
+ * - O(log N + M) range queries via ZRANGEBYSCORE
+ * - Natural time-based ordering
+ * - No blocking Lua iteration needed for deletions
+ */
+
+// Chat metadata stored as JSON string (without messages)
+export type CachedChatMeta = {
 	id: string;
 	userId: string;
 	title: string;
@@ -21,12 +38,13 @@ export type CachedChat = {
 	createdAt: string; // ISO string
 	updatedAt: string; // ISO string
 	lastContext: AppUsage | null;
-
-	// Denormalized messages array (chronologically ordered)
-	messages: CachedMessage[];
-
-	// Version for optimistic locking
 	version: number;
+};
+
+// Full chat structure (for API compatibility with existing code)
+// This is assembled from meta + messages list
+export type CachedChat = CachedChatMeta & {
+	messages: CachedMessage[];
 };
 
 export type CachedMessage = {
@@ -63,8 +81,13 @@ export type DocumentVersion = {
 
 // Cache key patterns
 export const CacheKeys = {
-	// chat:{chatId}:{userId} - Full denormalized chat with messages
-	chat: (chatId: string, userId: string) => `chat:${chatId}:${userId}`,
+	// chat:{chatId}:{userId}:meta - Chat metadata (String/JSON)
+	chatMeta: (chatId: string, userId: string) =>
+		`chat:${chatId}:${userId}:meta`,
+
+	// chat:{chatId}:{userId}:msgs - Messages (Sorted Set with timestamp scores)
+	chatMessages: (chatId: string, userId: string) =>
+		`chat:${chatId}:${userId}:msgs`,
 
 	// user:{userId}:chats - ZSET of chat IDs sorted by updatedAt
 	userChats: (userId: string) => `user:${userId}:chats`,

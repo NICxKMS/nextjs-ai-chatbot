@@ -178,13 +178,16 @@ export async function createGuestSession(): Promise<AppSession | null> {
 }
 
 export async function getAppSession(): Promise<AppSession | null> {
-	const supabaseSession = await getSupabaseSessionFromCookies();
+	// OPTIMIZATION: Check both session types in parallel
+	const [supabaseSession, guestSession] = await Promise.all([
+		getSupabaseSessionFromCookies(),
+		getGuestSessionFromCookies(),
+	]);
 
+	// Prefer authenticated session over guest
 	if (supabaseSession) {
 		return supabaseSession;
 	}
-
-	const guestSession = await getGuestSessionFromCookies();
 
 	if (guestSession) {
 		return guestSession;

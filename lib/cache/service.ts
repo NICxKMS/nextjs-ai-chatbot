@@ -111,10 +111,12 @@ class CacheService {
 	private recordSuccess(): void {
 		if (this.circuitState === "half-open") {
 			this.successCount++;
+			this.halfOpenAttempts++;
 			if (this.successCount >= this.circuitConfig.halfOpenMaxAttempts) {
 				this.circuitState = "closed";
 				this.failureCount = 0;
 				this.successCount = 0;
+				this.halfOpenAttempts = 0;
 				logInfo(
 					"Cache circuit breaker closed after successful recovery"
 				);

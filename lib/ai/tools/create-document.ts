@@ -22,7 +22,7 @@ export const createDocument = ({
 }: CreateDocumentProps) =>
 	tool({
 		description:
-			"Create a document for a writing or content creation activities. This tool will call other functions that will generate the contents of the document based on the title and kind.",
+			"Create a new document, code snippet, or spreadsheet. Use for substantial content (>10 lines) or when the user explicitly requests a separate artifact.",
 		inputSchema: z.object({
 			title: z.string(),
 			kind: z.enum(artifactKinds),

@@ -19,7 +19,7 @@ export const requestSuggestions = ({
 	dataStream,
 }: RequestSuggestionsProps) =>
 	tool({
-		description: "Request suggestions for a document",
+		description: "Generate suggestions to improve the current document's content.",
 		inputSchema: z.object({
 			documentId: z
 				.string()
@@ -42,7 +42,7 @@ export const requestSuggestions = ({
 
 			const { elementStream } = streamObject({
 				model: myProvider.languageModel("artifact-model"),
-				system: "You are a help writing assistant. Given a piece of writing, please offer suggestions to improve the piece of writing and describe the change. It is very important for the edits to contain full sentences instead of just words. Max 5 suggestions.",
+				system: "You are a writing assistant. Analyze the text and provide up to 5 specific suggestions for improvement. Ensure suggestions are complete sentences and clearly describe the change.",
 				prompt: document.content,
 				output: "array",
 				schema: z.object({
