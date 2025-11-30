@@ -365,14 +365,20 @@ export const discoverProviders = async (
 		},
 	];
 
-	for (const discoverer of discoverers) {
-		try {
-			const catalog = await discoverer.run();
-			results.push(catalog);
-		} catch (error) {
-			errors[discoverer.providerId] = error as Error;
+	// OPTIMIZATION: Discover all providers in parallel instead of sequentially
+	const settled = await Promise.allSettled(discoverers.map((d) => d.run()));
+
+	settled.forEach((result, index) => {
+		const discoverer = discoverers[index];
+		if (!discoverer) {
+			return;
 		}
-	}
+		if (result.status === "fulfilled") {
+			results.push(result.value);
+		} else {
+			errors[discoverer.providerId] = result.reason as Error;
+		}
+	});
 
 	results.push({
 		providerId: "vercel-gateway",

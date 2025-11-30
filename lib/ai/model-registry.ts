@@ -284,6 +284,20 @@ export const getModelById = (id: string) =>
 	modelCatalog.find((model) => model.id === id) ??
 	filterByAvailableProviders(curatedModels).find((model) => model.id === id);
 
+/**
+ * Check if a model ID is valid (exists in catalog or curated models)
+ * @param id Model ID to validate
+ * @returns true if valid, false otherwise
+ */
+export const isValidModelId = (id: string): boolean => {
+	// Check if it's in the catalog or curated models
+	const inCatalog = modelCatalog.some((model) => model.id === id);
+	const inCurated = filterByAvailableProviders(curatedModels).some(
+		(model) => model.id === id
+	);
+	return inCatalog || inCurated;
+};
+
 const defaultModelOrder = [
 	"google:gemini-2.5-flash-lite",
 	"google:gemini-2.5-flash",

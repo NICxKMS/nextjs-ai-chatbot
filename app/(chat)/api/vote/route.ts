@@ -4,6 +4,14 @@ import { chatData } from "@/lib/data/chat";
 import { voteMessage } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
 
+// UUID validation regex
+const UUID_REGEX =
+	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidUUID(value: string): boolean {
+	return UUID_REGEX.test(value);
+}
+
 // Optimize for Vercel Fluid Compute
 export const maxDuration = 10;
 
@@ -20,6 +28,22 @@ export async function PATCH(request: Request) {
 		return new ChatSDKError(
 			"bad_request:api:missing_vote_params",
 			"Parameters chatId, messageId, and type are required."
+		).toResponse();
+	}
+
+	// Validate UUID format
+	if (!isValidUUID(chatId) || !isValidUUID(messageId)) {
+		return new ChatSDKError(
+			"bad_request:api:invalid_uuid_format",
+			"chatId and messageId must be valid UUIDs."
+		).toResponse();
+	}
+
+	// Validate vote type
+	if (type !== "up" && type !== "down") {
+		return new ChatSDKError(
+			"bad_request:api:invalid_vote_type",
+			"Vote type must be 'up' or 'down'."
 		).toResponse();
 	}
 

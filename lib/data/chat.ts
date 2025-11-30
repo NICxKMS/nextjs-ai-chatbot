@@ -7,6 +7,7 @@ import {
 	batchUpdateChatCache,
 	createOrUpdateChatWithMessages,
 } from "../cache/batch-operations";
+import { dbMessageToCachedMessage } from "../cache/helpers";
 import {
 	appendMessagesToCache,
 	chatToCache,
@@ -115,19 +116,22 @@ export const chatData = {
 				chatFromDb.userId === ctx.userId
 			) {
 				// Fetch messages for cache warming (don't block)
+				// Note: Both DB fetch and warmChatCache errors are caught
 				db.select()
 					.from(message)
 					.where(eq(message.chatId, chatId))
 					.orderBy(asc(message.createdAt))
-					.then((messages) => {
+					.then((messages) =>
 						warmChatCache(
 							chatId,
 							ctx.userId,
 							chatFromDb,
 							messages as DBMessage[]
-						);
-					})
-					.catch((err) => logError("Cache warming failed", err));
+						).catch((err) => logError("Cache warming failed", err))
+					)
+					.catch((err) =>
+						logError("Cache warming DB fetch failed", err)
+					);
 			}
 
 			return chatFromDb;
@@ -435,7 +439,8 @@ export const chatData = {
 		} catch (error) {
 			// If the user doesn't exist, inserting a chat will violate the FK constraint.
 			// Translate that specific failure into a 404 so the client can recover by redirecting.
-			if ((error as any)?.code === "23503") {
+			const errorCode = (error as { code?: string })?.code;
+			if (errorCode === "23503") {
 				throw new ChatSDKError("not_found:auth:user", "User not found");
 			}
 			throw toDatabaseError("save_chat", error, "Failed to save chat");
@@ -466,11 +471,13 @@ export const chatData = {
 
 			// Authenticated users: delete from DB and cache in parallel
 			const dbPromise = (async () => {
-				// Delete related records first (due to FK constraints)
-				await db.delete(vote).where(eq(vote.chatId, chatId));
-				await db.delete(message).where(eq(message.chatId, chatId));
+				// Delete votes and messages in parallel (both depend on chat, not each other)
+				await Promise.all([
+					db.delete(vote).where(eq(vote.chatId, chatId)),
+					db.delete(message).where(eq(message.chatId, chatId)),
+				]);
 
-				// Then delete the chat
+				// Then delete the chat (must be after votes/messages due to FK)
 				const deletedChats = await db
 					.delete(chat)
 					.where(eq(chat.id, chatId))
@@ -746,16 +753,7 @@ export const messageData = {
 						continue;
 					}
 
-					const cachedMsg: CachedMessage = {
-						id: msg.id || "",
-						chatId: msg.chatId,
-						role: msg.role,
-						parts: msg.parts as any,
-						attachments: (msg.attachments || []) as any[],
-						createdAt: msg.createdAt
-							? msg.createdAt.toISOString()
-							: new Date().toISOString(),
-					};
+					const cachedMsg = dbMessageToCachedMessage(msg);
 
 					if (!messagesByChatId.has(msg.chatId)) {
 						messagesByChatId.set(msg.chatId, []);
@@ -835,16 +833,7 @@ export const messageData = {
 
 					const msgGroup = messagesByChatId.get(msg.chatId);
 					if (msgGroup) {
-						msgGroup.messages.push({
-							id: msg.id || "",
-							chatId: msg.chatId,
-							role: msg.role,
-							parts: msg.parts as any,
-							attachments: (msg.attachments || []) as any[],
-							createdAt: msg.createdAt
-								? msg.createdAt.toISOString()
-								: new Date().toISOString(),
-						});
+						msgGroup.messages.push(dbMessageToCachedMessage(msg));
 					}
 				}
 
@@ -903,17 +892,10 @@ export const messageData = {
 				createdAt,
 			} = params;
 
-			// Convert messages to cached format
-			const cachedMessages: CachedMessage[] = messages.map((msg) => ({
-				id: msg.id || "",
-				chatId: msg.chatId,
-				role: msg.role,
-				parts: msg.parts as any,
-				attachments: (msg.attachments || []) as any[],
-				createdAt: msg.createdAt
-					? msg.createdAt.toISOString()
-					: new Date().toISOString(),
-			}));
+			// Convert messages to cached format using centralized helper
+			const cachedMessages: CachedMessage[] = messages.map(
+				dbMessageToCachedMessage
+			);
 
 			if (ctx.isGuest) {
 				// Guest users: cache-only, no database write

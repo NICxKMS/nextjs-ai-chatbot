@@ -62,7 +62,10 @@ export class ChatSDKError extends Error {
 		const code: ErrorCode = this.code;
 		const visibility = visibilityBySurface[this.surface];
 
-		const { message, cause, statusCode } = this;
+		const { message, statusCode } = this;
+		// Sanitize cause in production to avoid leaking sensitive information
+		const isProduction = process.env.NODE_ENV === "production";
+		const safeCause = isProduction ? undefined : this.cause;
 
 		if (visibility === "log") {
 			// Avoid logging per workspace rules; return safe, generic message for log-only surfaces
@@ -75,7 +78,10 @@ export class ChatSDKError extends Error {
 			);
 		}
 
-		return Response.json({ code, message, cause }, { status: statusCode });
+		return Response.json(
+			{ code, message, ...(safeCause ? { cause: safeCause } : {}) },
+			{ status: statusCode }
+		);
 	}
 }
 
@@ -231,6 +237,8 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
 			return "Cloudflare AI Gateway requires Google provider to be configured for Gemini models.";
 		case "bad_request:api:unknown_mock_model":
 			return "Unknown mock model specified in test environment.";
+		case "bad_request:api:invalid_model_id":
+			return "The specified model ID is not valid or not available.";
 
 		// Parameters
 		case "bad_request:api:missing_id":
@@ -245,6 +253,10 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
 			return "Parameters chatId, messageId, and type are required.";
 		case "bad_request:api:conflicting_pagination_params":
 			return "Only one of starting_after or ending_before can be provided.";
+		case "bad_request:api:invalid_uuid_format":
+			return "The provided ID must be a valid UUID format.";
+		case "bad_request:api:invalid_vote_type":
+			return "Vote type must be 'up' or 'down'.";
 
 		// Voting
 		case "forbidden:vote:guest_cannot_vote":
@@ -311,6 +323,8 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
 			return "The request to create or update the document was invalid. Please check your input and try again.";
 		case "bad_request:document:no_handler_for_kind":
 			return "No document handler exists for the specified kind.";
+		case "bad_request:document:no_chat_context":
+			return "Cannot save document without existing chat context.";
 
 		default:
 			return "Something went wrong. Please try again later.";

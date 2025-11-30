@@ -4,6 +4,22 @@
 
 import { type Attributes, SpanStatusCode, trace } from "@opentelemetry/api";
 
+// Request context is only available server-side and must be injected
+// to avoid bundler issues with "server-only" directive
+let getRequestContextFn:
+	| (() => { requestId: string; userId?: string } | undefined)
+	| undefined;
+
+/**
+ * Inject the request context getter function (server-side only).
+ * This should be called from instrumentation or server-side initialization.
+ */
+export function injectRequestContextGetter(
+	getter: () => { requestId: string; userId?: string } | undefined
+): void {
+	getRequestContextFn = getter;
+}
+
 function toAttributeValue(
 	value: unknown
 ): string | number | boolean | undefined {
@@ -42,6 +58,20 @@ function addEvent(
 	const attributes: Attributes = {};
 	attributes["log.level"] = level;
 	attributes["log.message"] = message;
+
+	// Auto-inject request context if available and not already provided
+	if (getRequestContextFn) {
+		const ctx = getRequestContextFn();
+		if (ctx) {
+			if (!attrs?.requestId && ctx.requestId) {
+				attributes["log.requestId"] = ctx.requestId;
+			}
+			if (!attrs?.userId && ctx.userId) {
+				attributes["log.userId"] = ctx.userId;
+			}
+		}
+	}
+
 	// Flatten error details into string attributes
 	if (detail instanceof Error) {
 		attributes["log.detail.name"] = detail.name;

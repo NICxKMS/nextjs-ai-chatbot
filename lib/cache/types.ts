@@ -2,6 +2,15 @@ import type { ArtifactKind } from "@/components/artifact";
 import type { VisibilityType } from "@/components/visibility-selector";
 import type { AppUsage } from "../usage";
 
+// Re-export types needed by cache consumers
+export type {
+	MessageAttachment,
+	MessagePart,
+} from "../types/message-parts";
+
+// Import for local use
+import type { MessageAttachment, MessagePart } from "../types/message-parts";
+
 // Denormalized chat structure for Redis
 export type CachedChat = {
 	// Chat metadata
@@ -24,8 +33,8 @@ export type CachedMessage = {
 	id: string;
 	chatId: string;
 	role: "user" | "assistant" | "system";
-	parts: any; // JSON parts
-	attachments: any[]; // JSON attachments
+	parts: MessagePart[] | unknown; // JSON parts - can be array or other JSON
+	attachments: MessageAttachment[]; // JSON attachments
 	createdAt: string; // ISO string
 };
 

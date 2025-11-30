@@ -65,22 +65,26 @@ export const curatedModels: ModelMetadata[] = [
 	// GOOGLE GEMINI - Latest Models
 	// ============================================================================
 	{
-		id: "google:gemini-2.0-flash-exp",
+		id: "google:gemini-3.0-pro-preview",
 		providerId: "google",
 		providerName: "Google Gemini",
-		modelId: "gemini-2.0-flash-exp",
-		name: "Gemini 2.0 Flash Experimental",
+		modelId: "gemini-3.0-pro-preview",
+		name: "Gemini 3.0 Pro Preview",
 		description:
-			"Latest Google Gemini 2.0 Flash with experimental features and high speed",
-		release: "2025-09",
+			"Preview of the next-generation Gemini model with enhanced reasoning and multimodal capabilities",
+		release: "2025-11",
 		contextWindow: 1_000_000,
-		modalities: ["text", "vision", "audio"],
-		capabilities: ["chat", "multimodal", "code"],
-		tags: ["curated", "latest", "experimental"],
+		modalities: ["text", "vision"],
+		capabilities: ["chat", "reasoning", "vision", "code"],
+		tags: ["curated", "latest", "reasoning"],
 		source: "curated",
 		isCurated: true,
-		reasoningType: "none",
+		reasoningType: "gemini-thinking",
+		thinkingBudget: -1,
 	},
+	// ============================================================================
+	// GOOGLE GEMINI 2.5 - Full Model Family
+	// ============================================================================
 	{
 		id: "google:gemini-2.5-pro",
 		providerId: "google",
@@ -99,10 +103,6 @@ export const curatedModels: ModelMetadata[] = [
 		reasoningType: "gemini-thinking",
 		thinkingBudget: -1,
 	},
-
-	// ============================================================================
-	// GOOGLE GEMINI 2.5 - Full Model Family
-	// ============================================================================
 	{
 		id: "google:gemini-2.5-flash",
 		providerId: "google",
@@ -438,6 +438,28 @@ export const curatedModels: ModelMetadata[] = [
 		isCurated: true,
 		reasoningType: "none",
 	},
+
+	// ============================================================================
+	// CLOUDFLARE AI GATEWAY - Latest Models
+	// ============================================================================
+	{
+		id: "cloudflare-ai-gateway:gemini-2.5-flash-lite",
+		providerId: "cloudflare-ai-gateway",
+		providerName: "Cloudflare AI Gateway",
+		modelId: "gemini-2.5-flash-lite",
+		name: "Gemini 2.5 Flash Lite (CF Gateway)",
+		description:
+			"Google Gemini 2.5 Flash Lite via Cloudflare AI Gateway with flash-lite fallback",
+		release: "2025-05",
+		contextWindow: 1_000_000,
+		modalities: ["text", "vision", "audio"],
+		capabilities: ["chat", "multimodal", "reasoning"],
+		tags: ["curated", "gateway", "fast", "reasoning"],
+		source: "curated",
+		isCurated: true,
+		reasoningType: "gemini-thinking",
+		thinkingBudget: -1,
+	},
 	{
 		id: "cloudflare-ai-gateway:@cf/meta/llama-3.3-70b-instruct-fp8-fast",
 		providerId: "cloudflare-ai-gateway",
@@ -454,6 +476,24 @@ export const curatedModels: ModelMetadata[] = [
 		source: "curated",
 		isCurated: true,
 		reasoningType: "none",
+	},
+	{
+		id: "cloudflare-ai-gateway:gemini-3.0-pro-preview",
+		providerId: "cloudflare-ai-gateway",
+		providerName: "Cloudflare AI Gateway",
+		modelId: "gemini-3.0-pro-preview",
+		name: "Gemini 3.0 Pro Preview (CF Gateway)",
+		description:
+			"Preview of  Google Gemini 3.0 Pro via Cloudflare AI Gateway",
+		release: "2025-11",
+		contextWindow: 1_000_000,
+		modalities: ["text", "vision"],
+		capabilities: ["chat", "reasoning", "vision", "code"],
+		tags: ["curated", "gateway", "reasoning"],
+		source: "curated",
+		isCurated: true,
+		reasoningType: "gemini-thinking",
+		thinkingBudget: -1,
 	},
 	{
 		id: "cloudflare-ai-gateway:gemini-2.5-flash",

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { logError } from "@/lib/log";
 import { getRedisClient } from "./redis";
 
 /**
@@ -12,9 +13,11 @@ function getQuotaDateKey(): string {
 
 /**
  * Get quota cache key for a user on a specific date
+ * Uses Redis hash tag {userId} to ensure keys for the same user
+ * are co-located on the same shard in cluster deployments
  */
 function getQuotaKey(userId: string, date: string): string {
-	return `quota:user:${userId}:${date}`;
+	return `quota:{${userId}}:${date}`;
 }
 
 /**
@@ -40,7 +43,7 @@ export async function getUserMessageCount(userId: string): Promise<number> {
 		const count = await redis.get<number>(key);
 		return count ?? 0;
 	} catch (error) {
-		console.error("Failed to get user message count from cache:", error);
+		logError("Failed to get user message count from cache", error);
 		return 0;
 	}
 }
@@ -63,42 +66,26 @@ export async function incrementUserMessageCount(
 		return 0;
 	}
 
-	try {
-		if (delta <= 0) {
-			return 0;
-		}
+	if (delta <= 0) {
+		return 0;
+	}
 
+	try {
 		const dateKey = getQuotaDateKey();
 		const key = getQuotaKey(userId, dateKey);
 
-		if (delta === 1) {
-			// Atomically increment and get new value
-			const newCount = await redis.incr(key);
-			// Set expiration on first use (when count is 1)
-			// TTL = 25 hours to handle timezone edge cases
-			if (newCount === 1) {
-				await redis.expire(key, 60 * 60 * 25); // 25 hours in seconds
-			}
-			return newCount;
-		}
+		// Use INCRBY for efficient batch increment (single command vs delta commands)
+		const newCount = await redis.incrby(key, delta);
 
-		// Batch multiple increments in a single pipeline
-		const pipeline = redis.pipeline();
-		for (let i = 0; i < delta; i++) {
-			pipeline.incr(key);
-		}
-		const results = (await pipeline.exec()) as number[];
-		const firstCount = results[0];
-		const newCount = results.at(-1) ?? 0;
-
-		// Set expiration if this was the first time the key was incremented
-		if (firstCount === 1) {
+		// Set expiration on first use (when count equals delta, meaning key was new)
+		// TTL = 25 hours to handle timezone edge cases
+		if (newCount === delta) {
 			await redis.expire(key, 60 * 60 * 25); // 25 hours in seconds
 		}
 
 		return newCount;
 	} catch (error) {
-		console.error("Failed to increment user message count:", error);
+		logError("Failed to increment user message count", error);
 		return 0;
 	}
 }
@@ -116,7 +103,7 @@ export function incrementUserMessageCountAsync(
 ): void {
 	// Fire and forget - don't block on this
 	incrementUserMessageCount(userId, delta).catch((err) =>
-		console.error("Async quota increment failed:", err)
+		logError("Async quota increment failed", err)
 	);
 }
 
@@ -136,7 +123,7 @@ export async function resetUserQuota(userId: string): Promise<void> {
 		const key = getQuotaKey(userId, dateKey);
 		await redis.del(key);
 	} catch (error) {
-		console.error("Failed to reset user quota:", error);
+		logError("Failed to reset user quota", error);
 	}
 }
 
@@ -174,7 +161,7 @@ export async function getBatchUserMessageCounts(
 
 		return result;
 	} catch (error) {
-		console.error("Failed to get batch user message counts:", error);
+		logError("Failed to get batch user message counts", error);
 		return result;
 	}
 }
