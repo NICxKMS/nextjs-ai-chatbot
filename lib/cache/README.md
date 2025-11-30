@@ -2,6 +2,23 @@
 
 Upstash Redis caching layer for optimized performance and reduced database load.
 
+## Architecture: Redis List-Based Storage
+
+**Performance characteristics:**
+
+- **Message append: O(1)** via Redis List RPUSH
+- **Get all messages: O(N)** via LRANGE
+- **Get last N messages: O(N)** via LRANGE -N -1
+- **Metadata updates: O(1)** via simple SET
+
+**Key structure:**
+
+```
+chat:{chatId}:{userId}:meta  → JSON string (metadata only)
+chat:{chatId}:{userId}:msgs  → Redis List (messages as JSON strings)
+user:{userId}:chats          → ZSET (chat IDs sorted by updatedAt)
+```
+
 ## Quick Start
 
 ### 1. Environment Setup
@@ -14,12 +31,19 @@ CACHE_KV_REST_API_TOKEN=your_token_here
 ### 2. Import and Use
 
 ```typescript
-import { getChatFromCache, setChatInCache } from "@/lib/cache/operations";
+import { getChatFromCache, appendMessageToCache } from "@/lib/cache/operations";
 import { isRedisAvailable } from "@/lib/cache/redis";
 
 // Check if Redis is available
 if (isRedisAvailable()) {
+  // Full chat with messages
   const chat = await getChatFromCache(chatId, userId);
+
+  // O(1) message append - no JSON rewrite!
+  await appendMessageToCache(chatId, userId, newMessage);
+
+  // Get only last 20 messages (efficient for preview)
+  const recent = await getLastMessagesFromCache(chatId, userId, 20);
 }
 ```
 
@@ -33,103 +57,129 @@ if (isRedisAvailable()) {
 ### `types.ts`
 
 - **Purpose**: TypeScript type definitions for cached entities
-- **Types**: `CachedChat`, `CachedMessage`, `CachedDocument`, `CacheKeys`
+- **Types**: `CachedChatMeta`, `CachedChat`, `CachedMessage`, `CacheKeys`
 
 ### `operations.ts`
 
-- **Purpose**: Core cache operations for chats, messages, and documents
+- **Purpose**: Core cache operations using Redis List for messages
 - **Functions**:
-  - `getChatFromCache()` - Retrieve denormalized chat
-  - `setChatInCache()` - Store complete chat with messages
-  - `appendMessageToCache()` - Add new message to chat
-  - `updateChatTitleInCache()` - Update chat title
-  - `updateChatLastContextInCache()` - Update usage context
+  - `getChatFromCache()` - Get full chat (meta + messages)
+  - `getChatMetaFromCache()` - Get metadata only (faster)
+  - `getLastMessagesFromCache()` - Get last N messages
+  - `getMessageCountFromCache()` - Get message count O(1)
+  - `setChatInCache()` - Store complete chat
+  - `appendMessageToCache()` - **O(1) message append**
+  - `appendMessagesToCache()` - **O(M) bulk append**
+  - `updateChatTitleInCache()` - Update title
+  - `updateChatLastContextInCache()` - Update context
   - `deleteChatFromCache()` - Remove chat
-  - `getUserChatsFromCache()` - Get user's chat list (ZSET)
-  - `getDocumentFromCache()` - Retrieve document versions
-  - `setDocumentInCache()` - Store document
-  - `appendDocumentVersionToCache()` - Add document version
+  - `getUserChatsFromCache()` - Get user's chat list
 
-### `guest-queries.ts`
+### `batch-operations.ts`
 
-- **Purpose**: Cache-only operations for guest users
-- **Functions**: Mirror standard queries but skip PostgreSQL
+- **Purpose**: Optimized batch operations
+- **Functions**:
+  - `batchUpdateChatCache()` - Update meta + append messages
+  - `createOrUpdateChatWithMessages()` - Create/update in one op
+
+### `helpers.ts`
+
+- **Purpose**: Conversion utilities
+- **Functions**: `dbMessageToCachedMessage()`, `groupMessagesByChatId()`
 
 ## Cache Keys
 
 ```typescript
 const CacheKeys = {
-  chat: (chatId, userId) => `chat:${chatId}:${userId}`,
+  chatMeta: (chatId, userId) => `chat:${chatId}:${userId}:meta`,
+  chatMessages: (chatId, userId) => `chat:${chatId}:${userId}:msgs`,
   userChats: (userId) => `user:${userId}:chats`,
   document: (documentId, userId) => `document:${documentId}:${userId}`,
+  // Legacy (for backward compatibility during migration)
+  chat: (chatId, userId) => `chat:${chatId}:${userId}`,
 };
 ```
 
 ## Data Structures
 
-### Denormalized Chat
+### Chat Metadata (String)
 
 ```typescript
-{
+type CachedChatMeta = {
   id: string;
   userId: string;
   title: string;
   visibility: "public" | "private";
-  createdAt: string;
-  updatedAt: string;
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
   lastContext: AppUsage | null;
-  messages: CachedMessage[]; // Full message array
   version: number;
-}
+};
+```
+
+### Messages (Redis List)
+
+```typescript
+// Each element is a JSON string of CachedMessage
+type CachedMessage = {
+  id: string;
+  chatId: string;
+  role: "user" | "assistant" | "system";
+  parts: MessagePart[];
+  attachments: MessageAttachment[];
+  createdAt: string; // ISO string
+};
 ```
 
 ### User Chats (ZSET)
 
-```typescript
-// Score: updatedAt timestamp
-// Member: JSON.stringify({ chatId, title })
 ```
+Score: updatedAt timestamp (milliseconds)
+Member: chatId string
+```
+
+## Performance Comparison
+
+| Operation         | Old (JSON blob)  | New (Redis List) |
+| ----------------- | ---------------- | ---------------- |
+| Append 1 message  | O(N) rewrite     | **O(1)**         |
+| Append M messages | O(N) rewrite     | **O(M)**         |
+| Read all messages | O(1) + parse     | O(N)             |
+| Read last 20      | O(1) + parse all | **O(20)**        |
+| Update title      | O(N) via Lua     | **O(1)**         |
+| Message count     | O(1) + parse     | **O(1)** LLEN    |
 
 ## Usage Patterns
 
-### Cache-First Read
+### O(1) Message Append
 
 ```typescript
-const cached = await getChatFromCache(chatId, userId);
-if (cached) {
-  return cached; // Fast path
-}
-
-// Fallback to database
-const fromDb = await fetchFromPostgreSQL();
-await warmChatCache(chatId, userId, fromDb); // Background
-return fromDb;
+// Before: O(N) - had to rewrite entire JSON blob
+// After: O(1) - just RPUSH to list
+await appendMessageToCache(chatId, userId, {
+  id: msgId,
+  chatId,
+  role: "assistant",
+  parts: [...],
+  attachments: [],
+  createdAt: new Date().toISOString(),
+});
 ```
 
-### Parallel Write
+### Efficient Chat Preview
 
 ```typescript
-await Promise.all([
-  db.insert(chat).values(data), // PostgreSQL
-  setChatInCache(id, userId, cachedData), // Redis
-]);
+// Get only metadata + last 20 messages (fast)
+const meta = await getChatMetaFromCache(chatId, userId);
+const recentMessages = await getLastMessagesFromCache(chatId, userId, 20);
 ```
 
-### Guest User (Cache-Only)
+### Bulk Message Append
 
 ```typescript
-if (userType === "guest") {
-  await saveGuestMessages({ messages, userId });
-  // No PostgreSQL write
-}
+// Append multiple messages efficiently - O(M)
+await appendMessagesToCache(chatId, userId, [msg1, msg2, msg3]);
 ```
-
-## Performance
-
-- **Cache Hit**: <50ms response time
-- **Cache Miss**: ~200ms (DB + cache warm)
-- **Parallel Write**: No user-perceived latency
-- **Denormalized Structure**: 1 request vs N queries
 
 ## Error Handling
 
@@ -137,65 +187,31 @@ All cache operations include try-catch blocks and gracefully degrade:
 
 ```typescript
 try {
-  await setChatInCache(...);
+  await appendMessageToCache(...);
 } catch (error) {
-  console.error("Redis error:", error);
+  logError("Redis error:", error);
   // Continue - PostgreSQL has data
-}
-```
-
-## Development
-
-### Testing Locally
-
-1. Get free Upstash Redis: [upstash.com](https://upstash.com)
-2. Add credentials to `.env.local`
-3. Start dev server: `pnpm dev`
-4. Check console for "✅ Upstash Redis client initialized"
-
-### Debugging
-
-```typescript
-import { getRedisClient } from "@/lib/cache/redis";
-
-const redis = getRedisClient();
-if (redis) {
-  // Inspect keys
-  const keys = await redis.keys("chat:*");
-  console.log("Cached chats:", keys);
-
-  // View data
-  const data = await redis.get("chat:123:user456");
-  console.log("Chat data:", data);
 }
 ```
 
 ## Best Practices
 
-1. **Always provide userId**: Required for cache keys
-2. **Non-blocking cache warming**: Use `.catch()` to avoid blocking
-3. **Graceful degradation**: Check `isRedisAvailable()` before caching
-4. **Consistent keys**: Use `CacheKeys` helper for all operations
-5. **Background updates**: Warm cache after DB writes
+1. **Use `appendMessageToCache`** for streaming responses - O(1) per message
+2. **Use `getChatMetaFromCache`** for list views - skip message parsing
+3. **Use `getLastMessagesFromCache`** for previews - avoid loading all messages
+4. **Check `isRedisAvailable()`** before operations
+5. **Use pipeline operations** for batch updates
 
 ## Monitoring
 
 Track cache effectiveness:
 
-```typescript
-// In operations.ts (custom implementation)
-console.log("Cache hit:", chatId); // When returning cached data
-console.log("Cache miss:", chatId); // When falling back to DB
-```
-
-Recommended metrics:
-
 - Cache hit rate: >90% target for active users
-- Average response time: <100ms
-- Redis memory usage: Monitor in Upstash dashboard
+- Average append latency: <10ms (O(1) operation)
+- Message list length: Monitor for very long chats
 
 ## See Also
 
-- [Full Implementation Guide](../../docs/upstash-redis-implementation.md)
+- [Redis Cache Keymap](../../docs/redis-cache-keymap.md)
 - [Upstash Documentation](https://upstash.com/docs/redis)
-- [Next.js Caching](https://nextjs.org/docs/app/building-your-application/caching)
+- [Redis List Commands](https://redis.io/docs/data-types/lists/)
