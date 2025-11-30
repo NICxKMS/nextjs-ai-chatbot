@@ -59,7 +59,7 @@ export function useArtifact() {
 				const artifactToUpdate = currentArtifact || initialArtifactData;
 
 				if (typeof updaterFn === "function") {
-					return updaterFn(artifactToUpdate);
+					return updaterFn({ ...artifactToUpdate });
 				}
 
 				return updaterFn;

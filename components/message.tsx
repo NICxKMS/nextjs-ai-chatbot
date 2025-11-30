@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import { memo, useState } from "react";
 import type { ChatMessage, UserVote } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
-import { useDataStream } from "./data-stream-provider";
 import { DocumentToolResult } from "./document";
 import { DocumentPreview } from "./document-preview";
 import { MessageContent } from "./elements/message";
@@ -23,6 +22,15 @@ import { MessageEditor } from "./message-editor";
 import { MessageReasoning } from "./message-reasoning";
 import { PreviewAttachment } from "./preview-attachment";
 import { Weather } from "./weather";
+
+// Type for file parts from message - may have name or filename depending on source
+type FilePart = {
+	type: "file";
+	url: string;
+	mediaType: string;
+	name?: string;
+	filename?: string;
+};
 
 const PurePreviewMessage = ({
 	chatId,
@@ -46,10 +54,8 @@ const PurePreviewMessage = ({
 	const [mode, setMode] = useState<"view" | "edit">("view");
 
 	const attachmentsFromMessage = message.parts.filter(
-		(part) => part.type === "file"
+		(part): part is FilePart => part.type === "file"
 	);
-
-	useDataStream();
 
 	return (
 		<motion.div
@@ -98,8 +104,8 @@ const PurePreviewMessage = ({
 								<PreviewAttachment
 									attachment={{
 										name:
-											(attachment as any).name ??
-											(attachment as any).filename ??
+											attachment.name ??
+											attachment.filename ??
 											"file",
 										contentType: attachment.mediaType,
 										url: attachment.url,

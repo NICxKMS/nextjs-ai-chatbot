@@ -10,9 +10,18 @@ export function DataStreamHandler() {
 
 	const { artifact, setArtifact, setMetadata } = useArtifact();
 	const lastProcessedIndex = useRef(-1);
+	const lastArtifactKind = useRef(artifact.kind);
 
+	// Reset processed index when stream is cleared or artifact kind changes
 	useEffect(() => {
+		// Reset if artifact kind changed
+		if (lastArtifactKind.current !== artifact.kind) {
+			lastProcessedIndex.current = -1;
+			lastArtifactKind.current = artifact.kind;
+		}
+
 		if (!dataStream?.length) {
+			lastProcessedIndex.current = -1;
 			return;
 		}
 

@@ -36,7 +36,8 @@ export function useChatVisibility({
 			(currentChat) => currentChat.id === chatId
 		);
 		if (!chat) {
-			return "private";
+			// Chat not in cache yet - use local visibility state
+			return localVisibility;
 		}
 		return chat.visibility;
 	}, [history, chatId, localVisibility]);

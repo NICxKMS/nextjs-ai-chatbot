@@ -23,6 +23,10 @@ const filePartSchema = z.object({
 
 const partSchema = z.union([textPartSchema, filePartSchema]);
 
+export type TextPart = z.infer<typeof textPartSchema>;
+export type FilePart = z.infer<typeof filePartSchema>;
+export type MessagePart = z.infer<typeof partSchema>;
+
 export const postRequestBodySchema = z.object({
 	id: z.string().uuid(),
 	message: z.object({

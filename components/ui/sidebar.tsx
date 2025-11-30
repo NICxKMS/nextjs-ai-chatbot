@@ -48,7 +48,7 @@ type SidebarContextProps = {
 	setOpen: (open: boolean) => void;
 	openMobile: boolean;
 	setOpenMobile: (open: boolean) => void;
-	isMobile: boolean;
+	isMobile: boolean | undefined;
 	toggleSidebar: () => void;
 };
 
@@ -219,6 +219,12 @@ const Sidebar = forwardRef<
 					{children}
 				</div>
 			);
+		}
+
+		// Don't render anything while detecting mobile state to prevent
+		// loading sidebar content on mobile where it's not visible initially
+		if (isMobile === undefined) {
+			return null;
 		}
 
 		if (isMobile) {

@@ -3,6 +3,9 @@ import useSWR from "swr";
 
 type ScrollFlag = ScrollBehavior | false;
 
+/** Distance from bottom (in pixels) to consider "at bottom" */
+const SCROLL_BOTTOM_THRESHOLD = 100;
+
 export function useScrollToBottom() {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const endRef = useRef<HTMLDivElement>(null);
@@ -19,8 +22,10 @@ export function useScrollToBottom() {
 		}
 		const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
 
-		// Check if we are within 100px of the bottom (like v0 does)
-		setIsAtBottom(scrollTop + clientHeight >= scrollHeight - 100);
+		// Check if we are within threshold of the bottom
+		setIsAtBottom(
+			scrollTop + clientHeight >= scrollHeight - SCROLL_BOTTOM_THRESHOLD
+		);
 	}, []);
 
 	useEffect(() => {

@@ -6,4 +6,6 @@ export const isTestEnvironment = Boolean(
 		process.env.CI_PLAYWRIGHT
 );
 
-export const guestRegex = /^guest-\d+$/;
+// Matches guest IDs in format "guest:{uuid}" as created by session.ts
+export const guestRegex =
+	/^guest:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

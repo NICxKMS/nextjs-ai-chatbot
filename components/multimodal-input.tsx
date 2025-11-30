@@ -16,7 +16,11 @@ import {
 	useState,
 } from "react";
 import { toast } from "sonner";
-import { useLocalStorage, useWindowSize } from "usehooks-ts";
+import {
+	useDebounceCallback,
+	useLocalStorage,
+	useWindowSize,
+} from "usehooks-ts";
 import { SelectItem } from "@/components/ui/select";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 import { logError } from "@/lib/log";
@@ -107,6 +111,12 @@ function PureMultimodalInput({
 		""
 	);
 
+	// Debounce localStorage writes to avoid excessive writes on every keystroke
+	const debouncedSetLocalStorageInput = useDebounceCallback(
+		setLocalStorageInput,
+		500
+	);
+
 	useEffect(() => {
 		if (textareaRef.current) {
 			const domValue = textareaRef.current.value;
@@ -120,8 +130,8 @@ function PureMultimodalInput({
 	}, [adjustHeight, localStorageInput, setInput]);
 
 	useEffect(() => {
-		setLocalStorageInput(input);
-	}, [input, setLocalStorageInput]);
+		debouncedSetLocalStorageInput(input);
+	}, [input, debouncedSetLocalStorageInput]);
 
 	const handleInput = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
 		setInput(event.target.value);
@@ -196,20 +206,17 @@ function PureMultimodalInput({
 		}
 	}, []);
 
-	// const _modelResolver = useMemo(() => {
-	//   return myProvider.languageModel(selectedModelId);
-	// }, [selectedModelId]);
-
 	const userSettings = useSettingsSnapshot();
+	const { sampling, systemPrompt, enableReasoning } = userSettings;
 
 	const contextProps = useMemo(
 		() => ({
 			usage,
-			sampling: userSettings.sampling,
-			systemPrompt: userSettings.systemPrompt,
-			enableReasoning: userSettings.enableReasoning,
+			sampling,
+			systemPrompt,
+			enableReasoning,
 		}),
-		[usage, userSettings]
+		[usage, sampling, systemPrompt, enableReasoning]
 	);
 
 	const handleFileChange = useCallback(
@@ -391,7 +398,12 @@ function PureAttachmentsButton({
 	status: UseChatHelpers<ChatMessage>["status"];
 	selectedModelId: string;
 }) {
-	const isReasoningModel = selectedModelId === "chat-model-reasoning";
+	// Check if model is a reasoning-only model (no file attachments support)
+	const isReasoningModel =
+		selectedModelId === "chat-model-reasoning" ||
+		selectedModelId.includes("reasoning") ||
+		selectedModelId.includes("o1") ||
+		selectedModelId.includes("o3");
 
 	return (
 		<Button

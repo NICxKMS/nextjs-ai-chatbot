@@ -10,7 +10,7 @@ import {
 	RedoIcon,
 	UndoIcon,
 } from "@/components/icons";
-import type { Suggestion } from "@/lib/db/schema";
+import type { SuggestionLike } from "@/lib/editor/suggestions-extension";
 import { getSuggestions } from "../actions";
 
 const Editor = dynamic(
@@ -33,8 +33,9 @@ const DiffView = dynamic(
 	}
 );
 
+// Metadata can contain either full Suggestions (from DB) or StreamingSuggestions (during streaming)
 type TextArtifactMetadata = {
-	suggestions: Suggestion[];
+	suggestions: SuggestionLike[];
 };
 
 export const textArtifact = new Artifact<"text", TextArtifactMetadata>({

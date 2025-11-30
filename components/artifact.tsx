@@ -19,7 +19,6 @@ import { textArtifact } from "@/artifacts/text/client";
 import { useArtifact } from "@/hooks/use-artifact";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 import type { Document } from "@/lib/db/schema";
-import { ChatSDKError } from "@/lib/errors";
 import type { Attachment, ChatMessage, UserVote } from "@/lib/types";
 import { fetcher } from "@/lib/utils";
 import { ArtifactActions } from "./artifact-actions";
@@ -265,18 +264,20 @@ function PureArtifact({
 		(definition) => definition.kind === artifact.kind
 	);
 
-	if (!artifactDefinition) {
-		throw new ChatSDKError("bad_request:ui:artifact_definition_not_found");
-	}
+	// Fallback to text artifact if definition not found instead of throwing
+	const safeArtifactDefinition = artifactDefinition ?? textArtifact;
 
 	useEffect(() => {
-		if (artifact.documentId !== "init" && artifactDefinition.initialize) {
-			artifactDefinition.initialize({
+		if (
+			artifact.documentId !== "init" &&
+			safeArtifactDefinition.initialize
+		) {
+			safeArtifactDefinition.initialize({
 				documentId: artifact.documentId,
 				setMetadata,
 			});
 		}
-	}, [artifact.documentId, artifactDefinition, setMetadata]);
+	}, [artifact.documentId, safeArtifactDefinition, setMetadata]);
 
 	return (
 		<AnimatePresence>
@@ -487,7 +488,7 @@ function PureArtifact({
 						</div>
 
 						<div className="h-full max-w-full! items-center overflow-y-scroll bg-background dark:bg-muted">
-							<artifactDefinition.content
+							<safeArtifactDefinition.content
 								content={
 									isCurrentVersion
 										? artifact.content
@@ -554,7 +555,7 @@ export const Artifact = memo(PureArtifact, (prevProps, nextProps) => {
 	if (prevProps.input !== nextProps.input) {
 		return false;
 	}
-	if (!equal(prevProps.messages, nextProps.messages.length)) {
+	if (!equal(prevProps.messages, nextProps.messages)) {
 		return false;
 	}
 	if (prevProps.selectedVisibilityType !== nextProps.selectedVisibilityType) {

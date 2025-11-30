@@ -40,7 +40,7 @@ export function OptimisticChatsProvider({ children }: { children: ReactNode }) {
 			return [
 				{
 					id: chatId,
-					title: "Generating title...",
+					title: "New Chat", // Initial placeholder, will be updated when title is generated
 					createdAt: new Date(),
 				},
 				...prev,

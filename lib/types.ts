@@ -10,6 +10,39 @@ import type { AppUsage } from "./usage";
 
 export type DataPart = { type: "append-message"; message: string };
 
+// Streaming suggestion type - a partial Suggestion used during streaming
+// before the full Suggestion is persisted to the database
+export type StreamingSuggestion = Omit<
+	Suggestion,
+	"userId" | "createdAt" | "documentCreatedAt"
+>;
+
+// Type guards for custom stream data parts
+export type DataChatTitlePart = { type: "data-chatTitle"; data: string };
+export type DataAppendMessagePart = {
+	type: "data-appendMessage";
+	data: unknown;
+};
+export type DataUsagePart = { type: "data-usage"; data: AppUsage };
+
+export const isDataChatTitlePart = (part: unknown): part is DataChatTitlePart =>
+	typeof part === "object" &&
+	part !== null &&
+	(part as DataChatTitlePart).type === "data-chatTitle" &&
+	typeof (part as DataChatTitlePart).data === "string";
+
+export const isDataAppendMessagePart = (
+	part: unknown
+): part is DataAppendMessagePart =>
+	typeof part === "object" &&
+	part !== null &&
+	(part as DataAppendMessagePart).type === "data-appendMessage";
+
+export const isDataUsagePart = (part: unknown): part is DataUsagePart =>
+	typeof part === "object" &&
+	part !== null &&
+	(part as DataUsagePart).type === "data-usage";
+
 export const messageMetadataSchema = z.object({
 	createdAt: z.string(),
 });
@@ -35,7 +68,7 @@ export type CustomUIDataTypes = {
 	imageDelta: string;
 	sheetDelta: string;
 	codeDelta: string;
-	suggestion: Suggestion;
+	suggestion: StreamingSuggestion;
 	appendMessage: string;
 	id: string;
 	title: string;

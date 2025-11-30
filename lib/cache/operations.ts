@@ -4,6 +4,7 @@ import type { VisibilityType } from "@/components/visibility-selector";
 import { logError } from "@/lib/log";
 import type { Chat, DBMessage, Document } from "../db/schema";
 import type { AppUsage } from "../usage";
+import { dbMessageToCachedMessage } from "./helpers";
 import { getRedisClient, isRedisAvailable } from "./redis";
 import {
 	type CachedChat,
@@ -12,6 +13,11 @@ import {
 	CacheKeys,
 	type DocumentVersion,
 } from "./types";
+
+/**
+ * Cache TTL Constants
+ */
+const GUEST_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
 /**
  * CHAT OPERATIONS
@@ -64,9 +70,8 @@ export async function setChatInCache(
 
 		// Apply a 7-day TTL for guest users to avoid unbounded growth
 		if (userId.startsWith("guest:")) {
-			const ttlSeconds = 7 * 24 * 60 * 60;
-			pipeline.expire(chatKey, ttlSeconds);
-			pipeline.expire(userChatsKey, ttlSeconds);
+			pipeline.expire(chatKey, GUEST_CACHE_TTL_SECONDS);
+			pipeline.expire(userChatsKey, GUEST_CACHE_TTL_SECONDS);
 		}
 
 		await pipeline.exec();
@@ -75,7 +80,7 @@ export async function setChatInCache(
 	}
 }
 
-// Append new message to cached chat
+// Append new message to cached chat (atomic operation using Lua script)
 export async function appendMessageToCache(
 	chatId: string,
 	userId: string,
@@ -87,23 +92,48 @@ export async function appendMessageToCache(
 	}
 
 	try {
-		const cached = await getChatFromCache(chatId, userId);
-		if (!cached) {
-			return;
-		}
+		const chatKey = CacheKeys.chat(chatId, userId);
+		const userChatsKey = CacheKeys.userChats(userId);
+		const isGuest = userId.startsWith("guest:");
+		const ttlSeconds = isGuest ? GUEST_CACHE_TTL_SECONDS : 0;
+		const now = new Date().toISOString();
 
-		// Append message to array
-		cached.messages.push(message);
-		cached.updatedAt = new Date().toISOString();
-		cached.version += 1;
+		// Atomic Lua script to append message and update metadata
+		const script = `
+			local cached = redis.call('GET', KEYS[1])
+			if not cached then
+				return 0
+			end
+			local chat = cjson.decode(cached)
+			table.insert(chat.messages, cjson.decode(ARGV[1]))
+			chat.updatedAt = ARGV[2]
+			chat.version = chat.version + 1
+			redis.call('SET', KEYS[1], cjson.encode(chat))
+			redis.call('ZADD', KEYS[2], tonumber(ARGV[3]), ARGV[4])
+			if tonumber(ARGV[5]) > 0 then
+				redis.call('EXPIRE', KEYS[1], tonumber(ARGV[5]))
+				redis.call('EXPIRE', KEYS[2], tonumber(ARGV[5]))
+			end
+			return 1
+		`;
 
-		await setChatInCache(chatId, userId, cached);
+		await redis.eval(
+			script,
+			[chatKey, userChatsKey],
+			[
+				JSON.stringify(message),
+				now,
+				Date.now().toString(),
+				chatId,
+				ttlSeconds.toString(),
+			]
+		);
 	} catch (error) {
 		logError("Redis appendMessageToCache error", error);
 	}
 }
 
-// Bulk append multiple messages to cached chat (single cache operation)
+// Bulk append multiple messages to cached chat (atomic Lua script operation)
 export async function appendMessagesToCache(
 	chatId: string,
 	userId: string,
@@ -115,23 +145,51 @@ export async function appendMessagesToCache(
 	}
 
 	try {
-		const cached = await getChatFromCache(chatId, userId);
-		if (!cached) {
-			return;
-		}
+		const chatKey = CacheKeys.chat(chatId, userId);
+		const userChatsKey = CacheKeys.userChats(userId);
+		const isGuest = userId.startsWith("guest:");
+		const ttlSeconds = isGuest ? GUEST_CACHE_TTL_SECONDS : 0;
+		const now = new Date().toISOString();
 
-		// Append all messages at once
-		cached.messages.push(...messages);
-		cached.updatedAt = new Date().toISOString();
-		cached.version += 1;
+		// Atomic Lua script to append multiple messages
+		const script = `
+			local cached = redis.call('GET', KEYS[1])
+			if not cached then
+				return 0
+			end
+			local chat = cjson.decode(cached)
+			local newMessages = cjson.decode(ARGV[1])
+			for i, msg in ipairs(newMessages) do
+				table.insert(chat.messages, msg)
+			end
+			chat.updatedAt = ARGV[2]
+			chat.version = chat.version + 1
+			redis.call('SET', KEYS[1], cjson.encode(chat))
+			redis.call('ZADD', KEYS[2], tonumber(ARGV[3]), ARGV[4])
+			if tonumber(ARGV[5]) > 0 then
+				redis.call('EXPIRE', KEYS[1], tonumber(ARGV[5]))
+				redis.call('EXPIRE', KEYS[2], tonumber(ARGV[5]))
+			end
+			return 1
+		`;
 
-		await setChatInCache(chatId, userId, cached);
+		await redis.eval(
+			script,
+			[chatKey, userChatsKey],
+			[
+				JSON.stringify(messages),
+				now,
+				Date.now().toString(),
+				chatId,
+				ttlSeconds.toString(),
+			]
+		);
 	} catch (error) {
 		logError("Redis appendMessagesToCache error", error);
 	}
 }
 
-// Delete messages from cache at or after timestamp
+// Delete messages from cache at or after timestamp (atomic operation)
 export async function deleteMessagesFromCacheAfterTimestamp(
 	chatId: string,
 	userId: string,
@@ -143,25 +201,47 @@ export async function deleteMessagesFromCacheAfterTimestamp(
 	}
 
 	try {
-		const cached = await getChatFromCache(chatId, userId);
-		if (!cached) {
-			return;
-		}
+		const chatKey = CacheKeys.chat(chatId, userId);
+		const timestampMs = timestamp.getTime();
+		const now = new Date().toISOString();
 
-		// Filter out messages created at or after timestamp
-		cached.messages = cached.messages.filter(
-			(msg) => new Date(msg.createdAt) < timestamp
-		);
-		cached.updatedAt = new Date().toISOString();
-		cached.version += 1;
+		// Atomic Lua script to filter messages by timestamp
+		const script = `
+			local cached = redis.call('GET', KEYS[1])
+			if not cached then
+				return 0
+			end
+			local chat = cjson.decode(cached)
+			local filtered = {}
+			local cutoff = tonumber(ARGV[1])
+			for i, msg in ipairs(chat.messages) do
+				local msgTime = 0
+				if msg.createdAt then
+					-- Parse ISO date string to timestamp (approximate)
+					local pattern = "(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)"
+					local y, m, d, h, min, s = string.match(msg.createdAt, pattern)
+					if y then
+						msgTime = os.time({year=tonumber(y), month=tonumber(m), day=tonumber(d), hour=tonumber(h), min=tonumber(min), sec=tonumber(s)}) * 1000
+					end
+				end
+				if msgTime < cutoff then
+					table.insert(filtered, msg)
+				end
+			end
+			chat.messages = filtered
+			chat.updatedAt = ARGV[2]
+			chat.version = chat.version + 1
+			redis.call('SET', KEYS[1], cjson.encode(chat))
+			return 1
+		`;
 
-		await setChatInCache(chatId, userId, cached);
+		await redis.eval(script, [chatKey], [timestampMs.toString(), now]);
 	} catch (error) {
 		logError("Redis deleteMessagesFromCacheAfterTimestamp error", error);
 	}
 }
 
-// Update chat title in cache
+// Update chat title in cache (atomic operation)
 export async function updateChatTitleInCache(
 	chatId: string,
 	userId: string,
@@ -173,22 +253,30 @@ export async function updateChatTitleInCache(
 	}
 
 	try {
-		const cached = await getChatFromCache(chatId, userId);
-		if (!cached) {
-			return;
-		}
+		const chatKey = CacheKeys.chat(chatId, userId);
+		const now = new Date().toISOString();
 
-		cached.title = title;
-		cached.updatedAt = new Date().toISOString();
-		cached.version += 1;
+		// Atomic Lua script to update title
+		const script = `
+			local cached = redis.call('GET', KEYS[1])
+			if not cached then
+				return 0
+			end
+			local chat = cjson.decode(cached)
+			chat.title = ARGV[1]
+			chat.updatedAt = ARGV[2]
+			chat.version = chat.version + 1
+			redis.call('SET', KEYS[1], cjson.encode(chat))
+			return 1
+		`;
 
-		await setChatInCache(chatId, userId, cached);
+		await redis.eval(script, [chatKey], [title, now]);
 	} catch (error) {
 		logError("Redis updateChatTitleInCache error", error);
 	}
 }
 
-// Update chat last context in cache
+// Update chat last context in cache (atomic operation)
 export async function updateChatLastContextInCache(
 	chatId: string,
 	userId: string,
@@ -200,22 +288,30 @@ export async function updateChatLastContextInCache(
 	}
 
 	try {
-		const cached = await getChatFromCache(chatId, userId);
-		if (!cached) {
-			return;
-		}
+		const chatKey = CacheKeys.chat(chatId, userId);
+		const now = new Date().toISOString();
 
-		cached.lastContext = context;
-		cached.updatedAt = new Date().toISOString();
-		cached.version += 1;
+		// Atomic Lua script to update lastContext
+		const script = `
+			local cached = redis.call('GET', KEYS[1])
+			if not cached then
+				return 0
+			end
+			local chat = cjson.decode(cached)
+			chat.lastContext = cjson.decode(ARGV[1])
+			chat.updatedAt = ARGV[2]
+			chat.version = chat.version + 1
+			redis.call('SET', KEYS[1], cjson.encode(chat))
+			return 1
+		`;
 
-		await setChatInCache(chatId, userId, cached);
+		await redis.eval(script, [chatKey], [JSON.stringify(context), now]);
 	} catch (error) {
 		logError("Redis updateChatLastContextInCache error", error);
 	}
 }
 
-// Update chat visibility in cache
+// Update chat visibility in cache (atomic operation)
 export async function updateChatVisibilityInCache(
 	chatId: string,
 	userId: string,
@@ -227,16 +323,24 @@ export async function updateChatVisibilityInCache(
 	}
 
 	try {
-		const cached = await getChatFromCache(chatId, userId);
-		if (!cached) {
-			return;
-		}
+		const chatKey = CacheKeys.chat(chatId, userId);
+		const now = new Date().toISOString();
 
-		cached.visibility = visibility;
-		cached.updatedAt = new Date().toISOString();
-		cached.version += 1;
+		// Atomic Lua script to update visibility
+		const script = `
+			local cached = redis.call('GET', KEYS[1])
+			if not cached then
+				return 0
+			end
+			local chat = cjson.decode(cached)
+			chat.visibility = ARGV[1]
+			chat.updatedAt = ARGV[2]
+			chat.version = chat.version + 1
+			redis.call('SET', KEYS[1], cjson.encode(chat))
+			return 1
+		`;
 
-		await setChatInCache(chatId, userId, cached);
+		await redis.eval(script, [chatKey], [visibility, now]);
 	} catch (error) {
 		logError("Redis updateChatVisibilityInCache error", error);
 	}
@@ -349,7 +453,7 @@ export async function setDocumentInCache(
 	}
 }
 
-// Append new version to document cache
+// Append new version to document cache (atomic operation using Lua script)
 export async function appendDocumentVersionToCache(
 	documentId: string,
 	userId: string,
@@ -362,21 +466,33 @@ export async function appendDocumentVersionToCache(
 	}
 
 	try {
-		const cached = await getDocumentFromCache(documentId, userId);
-		if (!cached) {
-			// Create new document with first version
-			await setDocumentInCache(documentId, userId, {
-				id: documentId,
-				userId,
-				chatId: opts?.chatId ?? "",
-				versions: [version],
-			});
-			return;
-		}
+		const docKey = CacheKeys.document(documentId, userId);
+		const chatId = opts?.chatId ?? "";
 
-		// Append version
-		cached.versions.push(version);
-		await setDocumentInCache(documentId, userId, cached);
+		// Atomic Lua script to append version or create document
+		const script = `
+			local cached = redis.call('GET', KEYS[1])
+			if not cached then
+				local newDoc = {
+					id = ARGV[1],
+					userId = ARGV[2],
+					chatId = ARGV[3],
+					versions = { cjson.decode(ARGV[4]) }
+				}
+				redis.call('SET', KEYS[1], cjson.encode(newDoc))
+				return 1
+			end
+			local doc = cjson.decode(cached)
+			table.insert(doc.versions, cjson.decode(ARGV[4]))
+			redis.call('SET', KEYS[1], cjson.encode(doc))
+			return 1
+		`;
+
+		await redis.eval(
+			script,
+			[docKey],
+			[documentId, userId, chatId, JSON.stringify(version)]
+		);
 	} catch (error) {
 		logError("Redis appendDocumentVersionToCache error", error);
 	}
@@ -427,16 +543,7 @@ export function chatToCache(chat: Chat, messages: DBMessage[]): CachedChat {
 		createdAt: chat.createdAt.toISOString(),
 		updatedAt: chat.updatedAt.toISOString(),
 		lastContext: chat.lastContext,
-		messages: messages.map((msg) => ({
-			id: msg.id || "",
-			chatId: msg.chatId,
-			role: msg.role,
-			parts: msg.parts as any,
-			attachments: (msg.attachments || []) as any[],
-			createdAt: msg.createdAt
-				? msg.createdAt.toISOString()
-				: new Date().toISOString(),
-		})),
+		messages: messages.map(dbMessageToCachedMessage),
 		version: 1,
 	};
 }

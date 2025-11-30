@@ -113,35 +113,22 @@ export async function voteMessage({
 	userId: string;
 }) {
 	try {
-		const [existingVote] = await db
-			.select()
-			.from(vote)
-			.where(
-				and(
-					eq(vote.chatId, chatId),
-					eq(vote.messageId, messageId),
-					eq(vote.userId, userId)
-				)
-			);
+		// Use a single upsert-style operation to avoid race conditions
+		// PostgreSQL's ON CONFLICT handles concurrent requests atomically
+		const isUpvoted = type === "up";
 
-		if (existingVote) {
-			return await db
-				.update(vote)
-				.set({ isUpvoted: type === "up" })
-				.where(
-					and(
-						eq(vote.chatId, chatId),
-						eq(vote.messageId, messageId),
-						eq(vote.userId, userId)
-					)
-				);
-		}
-		return await db.insert(vote).values({
-			chatId,
-			messageId,
-			userId,
-			isUpvoted: type === "up",
-		});
+		return await db
+			.insert(vote)
+			.values({
+				chatId,
+				messageId,
+				userId,
+				isUpvoted,
+			})
+			.onConflictDoUpdate({
+				target: [vote.chatId, vote.messageId, vote.userId],
+				set: { isUpvoted },
+			});
 	} catch (error) {
 		throw toDatabaseError("vote_message", error, "Failed to vote message");
 	}

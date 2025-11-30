@@ -81,9 +81,13 @@ export const documentData = {
 			}
 
 			// Authenticated users: fallback to database (single query)
-			const { db } = await import("../db/queries");
-			const { document } = await import("../db/schema");
-			const { eq, asc } = await import("drizzle-orm");
+			// OPTIMIZATION: Parallel dynamic imports
+			const [{ db }, { document }, drizzleOps] = await Promise.all([
+				import("../db/queries"),
+				import("../db/schema"),
+				import("drizzle-orm"),
+			]);
+			const { eq, asc } = drizzleOps;
 
 			const documents = await db
 				.select()
@@ -160,9 +164,13 @@ export const documentData = {
 			}
 
 			// Authenticated users: fallback to database
-			const { db } = await import("../db/queries");
-			const { document } = await import("../db/schema");
-			const { eq, asc } = await import("drizzle-orm");
+			// OPTIMIZATION: Parallel dynamic imports
+			const [{ db }, { document }, drizzleOps] = await Promise.all([
+				import("../db/queries"),
+				import("../db/schema"),
+				import("drizzle-orm"),
+			]);
+			const { eq, asc } = drizzleOps;
 
 			const documents = await db
 				.select()
@@ -247,9 +255,12 @@ export const documentData = {
 			}
 
 			// Authenticated users: save to both DB and cache
-			const { db } = await import("../db/queries");
-			const { document } = await import("../db/schema");
-			const { logWarn } = await import("../log");
+			// OPTIMIZATION: Parallel dynamic imports
+			const [{ db }, { document }, { logWarn }] = await Promise.all([
+				import("../db/queries"),
+				import("../db/schema"),
+				import("../log"),
+			]);
 
 			const dbPromise = db
 				.insert(document)
@@ -333,9 +344,14 @@ export const documentData = {
 			}
 
 			// Authenticated users: delete from both DB and cache in parallel
-			const { db } = await import("../db/queries");
-			const { document, suggestion } = await import("../db/schema");
-			const { eq, gt, and } = await import("drizzle-orm");
+			// OPTIMIZATION: Parallel dynamic imports
+			const [{ db }, schemaModule, drizzleOps] = await Promise.all([
+				import("../db/queries"),
+				import("../db/schema"),
+				import("drizzle-orm"),
+			]);
+			const { document, suggestion } = schemaModule;
+			const { eq, gt, and } = drizzleOps;
 
 			// Run DB and cache deletes in parallel
 			const dbPromise = (async () => {

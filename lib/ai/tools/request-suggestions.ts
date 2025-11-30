@@ -1,6 +1,6 @@
 import { streamObject, tool, type UIMessageStreamWriter } from "ai";
-import type { AppSession } from "@/lib/auth/session";
 import { z } from "zod";
+import type { AppSession } from "@/lib/auth/session";
 import { createContext } from "@/lib/data/base";
 import { documentData } from "@/lib/data/document";
 import { saveSuggestions } from "@/lib/db/queries";
@@ -59,8 +59,10 @@ export const requestSuggestions = ({
 			});
 
 			for await (const element of elementStream) {
-				// @ts-expect-error todo: fix type
-				const suggestion: Suggestion = {
+				const suggestion: Omit<
+					Suggestion,
+					"userId" | "createdAt" | "documentCreatedAt"
+				> = {
 					originalText: element.originalSentence,
 					suggestedText: element.suggestedSentence,
 					description: element.description,
