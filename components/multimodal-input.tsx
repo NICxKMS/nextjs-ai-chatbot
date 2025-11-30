@@ -226,8 +226,18 @@ function PureMultimodalInput({
 			setUploadQueue(files.map((file) => file.name));
 
 			try {
-				const uploadPromises = files.map((file) => uploadFile(file));
-				const uploadedAttachments = await Promise.all(uploadPromises);
+				// OPTIMIZATION: Limit concurrent uploads to prevent overwhelming server/browser
+				const MAX_CONCURRENT_UPLOADS = 3;
+				const uploadedAttachments: (Awaited<ReturnType<typeof uploadFile>>)[] = [];
+
+				for (let i = 0; i < files.length; i += MAX_CONCURRENT_UPLOADS) {
+					const batch = files.slice(i, i + MAX_CONCURRENT_UPLOADS);
+					const batchResults = await Promise.all(
+						batch.map((file) => uploadFile(file))
+					);
+					uploadedAttachments.push(...batchResults);
+				}
+
 				const successfullyUploadedAttachments =
 					uploadedAttachments.filter(
 						(attachment) => attachment !== undefined

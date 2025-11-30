@@ -49,8 +49,27 @@ export async function getUserMessageCount(userId: string): Promise<number> {
 }
 
 /**
+ * Lua script for atomic increment with TTL
+ * Combines INCRBY and EXPIRE into single round-trip
+ */
+const INCREMENT_WITH_TTL_SCRIPT = `
+local key = KEYS[1]
+local delta = tonumber(ARGV[1])
+local ttl = tonumber(ARGV[2])
+
+local newCount = redis.call('INCRBY', key, delta)
+
+-- Set expiration on first use (when count equals delta, meaning key was new)
+if newCount == delta then
+	redis.call('EXPIRE', key, ttl)
+end
+
+return newCount
+`;
+
+/**
  * Increment user message count atomically
- * Uses Redis INCR operations (batched via pipeline when delta > 1)
+ * Uses Lua script for atomic INCRBY + conditional EXPIRE (single round-trip!)
  * Sets 25-hour TTL on first increment of the day
  *
  * @param userId User ID
@@ -73,17 +92,16 @@ export async function incrementUserMessageCount(
 	try {
 		const dateKey = getQuotaDateKey();
 		const key = getQuotaKey(userId, dateKey);
+		const TTL_25_HOURS = 60 * 60 * 25;
 
-		// Use INCRBY for efficient batch increment (single command vs delta commands)
-		const newCount = await redis.incrby(key, delta);
+		// Use Lua script for atomic increment with conditional TTL (single round-trip!)
+		const newCount = await redis.eval(
+			INCREMENT_WITH_TTL_SCRIPT,
+			[key],
+			[delta.toString(), TTL_25_HOURS.toString()]
+		);
 
-		// Set expiration on first use (when count equals delta, meaning key was new)
-		// TTL = 25 hours to handle timezone edge cases
-		if (newCount === delta) {
-			await redis.expire(key, 60 * 60 * 25); // 25 hours in seconds
-		}
-
-		return newCount;
+		return typeof newCount === "number" ? newCount : 0;
 	} catch (error) {
 		logError("Failed to increment user message count", error);
 		return 0;

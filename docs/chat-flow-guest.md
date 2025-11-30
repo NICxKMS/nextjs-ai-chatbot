@@ -25,17 +25,17 @@ This document enumerates every component, hook, helper, cache operation, and dat
 
 ### 2.1. `Chat` component props and state
 
-*Server-provided props* include `id`, `initialMessages`, `initialChatModel`, `initialVisibilityType`, `isReadonly`, `initialLastContext`, `availableModels`, and `initialVotes`. @components/chat.tsx#40-58
+_Server-provided props_ include `id`, `initialMessages`, `initialChatModel`, `initialVisibilityType`, `isReadonly`, `initialLastContext`, `availableModels`, and `initialVotes`. @components/chat.tsx#40-58
 
-*Derived state and helpers:*
+_Derived state and helpers:_
 
-| Concern | Hook/Source | Purpose | Expected Latency | Compute Characteristics |
-|---------|-------------|---------|------------------|-------------------------|
-| Visibility | `useChatVisibility({ chatId: id, initialVisibilityType })` | Synchronizes visibility with server + optimistic updates. @components/chat.tsx#59-62 | Hook initialization is synchronous; subsequent SWR fetch performs a single HTTP GET whose latency equals the network round-trip to the visibility endpoint. | O(1) hook setup; background SWR revalidation performs JSON parse of the returned payload with work proportional to message count. @components/chat.tsx#59-62 |
-| Data stream | `useDataStream()` | Provides `[dataStream, setDataStream]` used to surface streamed tool outputs/artifacts. @components/chat.tsx#64-65@components/data-stream-provider.tsx#18-32 | Context subscription is synchronous; streaming events reuse the existing SSE channel so latency is bound by server push cadence and network RTT. | O(1) context value retrieval; SSE handling enqueues lightweight object merges per chunk (constant work per event). @components/data-stream-provider.tsx#18-32 |
-| Settings | `useSettingsSnapshot()` | Supplies reactive UI sampling + reasoning settings. @components/chat.tsx#65-66 | Reads recoil-like snapshot synchronously with no network I/O. | O(1) state snapshot copy; CPU usage confined to cloning the shallow settings object. @components/chat.tsx#65-66 |
-| Optimistic chat list | `useOptimisticChats()` | Gives `addOptimisticChat`, `updateOptimisticChatTitle`, `removeOptimisticChat`. @components/chat.tsx#67-70@hooks/use-optimistic-chats.tsx#30-87 | Context hook resolves synchronously; subsequent optimistic mutations run inside React event cycle with latency bounded by render scheduling. | O(1) initial hook cost; each optimistic update iterates over the in-memory chat array (O(n_chats)). @hooks/use-optimistic-chats.tsx#30-87 |
-| Input + usage | `useState` for `input`, `usage`, `showCreditCardAlert`, `currentModelId`; `useRef` mirrors `currentModelId`. @components/chat.tsx#72-107 | State initialization occurs during render; updates propagate on the next render tick, bounded by React's scheduling. | O(1) allocations per state/ref; updates involve shallow merges and string copies proportional to message length. @components/chat.tsx#72-107 |
+| Concern              | Hook/Source                                                                                                                              | Purpose                                                                                                                                                      | Expected Latency                                                                                                                                            | Compute Characteristics                                                                                                                                       |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Visibility           | `useChatVisibility({ chatId: id, initialVisibilityType })`                                                                               | Synchronizes visibility with server + optimistic updates. @components/chat.tsx#59-62                                                                         | Hook initialization is synchronous; subsequent SWR fetch performs a single HTTP GET whose latency equals the network round-trip to the visibility endpoint. | O(1) hook setup; background SWR revalidation performs JSON parse of the returned payload with work proportional to message count. @components/chat.tsx#59-62  |
+| Data stream          | `useDataStream()`                                                                                                                        | Provides `[dataStream, setDataStream]` used to surface streamed tool outputs/artifacts. @components/chat.tsx#64-65@components/data-stream-provider.tsx#18-32 | Context subscription is synchronous; streaming events reuse the existing SSE channel so latency is bound by server push cadence and network RTT.            | O(1) context value retrieval; SSE handling enqueues lightweight object merges per chunk (constant work per event). @components/data-stream-provider.tsx#18-32 |
+| Settings             | `useSettingsSnapshot()`                                                                                                                  | Supplies reactive UI sampling + reasoning settings. @components/chat.tsx#65-66                                                                               | Reads recoil-like snapshot synchronously with no network I/O.                                                                                               | O(1) state snapshot copy; CPU usage confined to cloning the shallow settings object. @components/chat.tsx#65-66                                               |
+| Optimistic chat list | `useOptimisticChats()`                                                                                                                   | Gives `addOptimisticChat`, `updateOptimisticChatTitle`, `removeOptimisticChat`. @components/chat.tsx#67-70@hooks/use-optimistic-chats.tsx#30-87              | Context hook resolves synchronously; subsequent optimistic mutations run inside React event cycle with latency bounded by render scheduling.                | O(1) initial hook cost; each optimistic update iterates over the in-memory chat array (O(n_chats)). @hooks/use-optimistic-chats.tsx#30-87                     |
+| Input + usage        | `useState` for `input`, `usage`, `showCreditCardAlert`, `currentModelId`; `useRef` mirrors `currentModelId`. @components/chat.tsx#72-107 | State initialization occurs during render; updates propagate on the next render tick, bounded by React's scheduling.                                         | O(1) allocations per state/ref; updates involve shallow merges and string copies proportional to message length. @components/chat.tsx#72-107                |
 
 ### 2.2. Adaptive throttling and transport preparation
 
@@ -43,16 +43,17 @@ This document enumerates every component, hook, helper, cache operation, and dat
    - **Expected latency:** Purely synchronous calculation; relies on `navigator.connection` which resolves immediately on supported browsers. @components/chat.tsx#108-120
    - **Compute requirements:** O(1) conditionals; negligible CPU beyond conditional comparisons. @components/chat.tsx#108-120
 2. `useChat<ChatMessage>(...)` initialization passes:
+
    - `id` and `messages: initialMessages` to seed conversation state. @components/chat.tsx#122-126
    - `experimental_throttle: optimalThrottle` for streaming back-pressure. @components/chat.tsx#122-127
    - `generateId: generateUUID` (crypto-based fallback). @components/chat.tsx#127-128@lib/utils.ts#81-94
    - `transport: new DefaultChatTransport({ ... })` where:
-     * `api` points to `/api/chat`.
-     * `fetch` is `fetchWithErrorHandlers` (adds offline + redirect handling).
-     * `prepareSendMessagesRequest` merges chat metadata into the outgoing body.
-     @components/chat.tsx#128-143@lib/utils.ts#40-72
-     - **Expected latency:** Object construction is synchronous; actual network latency begins when `transport` issues `fetch`, governed by HTTPS RTT (typically 100–300 ms public internet). @components/chat.tsx#128-143
-     - **Compute requirements:** O(1) instantiation; later request preparation iterates only over last submitted message (O(parts_count)). @components/chat.tsx#128-140
+     - `api` points to `/api/chat`.
+     - `fetch` is `fetchWithErrorHandlers` (adds offline + redirect handling).
+     - `prepareSendMessagesRequest` merges chat metadata into the outgoing body.
+       @components/chat.tsx#128-143@lib/utils.ts#40-72
+     * **Expected latency:** Object construction is synchronous; actual network latency begins when `transport` issues `fetch`, governed by HTTPS RTT (typically 100–300 ms public internet). @components/chat.tsx#128-143
+     * **Compute requirements:** O(1) instantiation; later request preparation iterates only over last submitted message (O(parts_count)). @components/chat.tsx#128-140
 
 3. `useChat` also registers `onData`, `onError`, `sendMessage`, `setMessages`, `stop`, `regenerate`, `status`, and `messages` references used downstream. @components/chat.tsx#122-235
    - **Expected latency:** Hook registration is synchronous; event callbacks execute inside React render cycle with microsecond overhead until invoked. @components/chat.tsx#122-235
@@ -100,9 +101,9 @@ This document enumerates every component, hook, helper, cache operation, and dat
 
 ### 3.2. `ChatMessage` structure
 
-*Definition*: `ChatMessage = UIMessage<MessageMetadata, CustomUIDataTypes, ChatTools>` where `MessageMetadata` enforces a `createdAt` string and `CustomUIDataTypes` enumerates event payload types (textDelta, appendMessage, usage, etc.). @lib/types.ts#11-47
+_Definition_: `ChatMessage = UIMessage<MessageMetadata, CustomUIDataTypes, ChatTools>` where `MessageMetadata` enforces a `createdAt` string and `CustomUIDataTypes` enumerates event payload types (textDelta, appendMessage, usage, etc.). @lib/types.ts#11-47
 
-*Runtime composition*:
+_Runtime composition_:
 
 - `sendMessage` (from `useChat`) automatically assigns `message.id` (uuid), `role: "user"`, `parts` from `submitForm`, and attaches `metadata.createdAt` client-side.
   - **Expected latency:** Runs synchronously within the browser event loop; only after this step does the network call begin. @components/chat.tsx#122-148
@@ -122,7 +123,7 @@ This document enumerates every component, hook, helper, cache operation, and dat
    - Throws `ChatSDKError` when status not OK, reading `{ code, cause }` from response JSON.
    - Executes redirect logic for `not_found:auth:user` and `not_found:chat` codes (affecting window.location).
    - Re-throws network errors; if offline, raises `ChatSDKError("offline:chat")` to trigger UI messaging.
-   @lib/utils.ts#40-72
+     @lib/utils.ts#40-72
    - **Expected latency:** Adds negligible overhead (<1 ms) before delegating to the browser fetch; overall latency equals HTTPS RTT plus server processing. @lib/utils.ts#40-72
    - **Compute requirements:** O(1) promise wrappers; response handling includes `await response.json()` with cost proportional to payload size during error paths. @lib/utils.ts#40-72
 3. Request body must pass `postRequestBodySchema`, verifying:
@@ -132,7 +133,7 @@ This document enumerates every component, hook, helper, cache operation, and dat
    - `selectedChatModel` is non-empty string.
    - `selectedVisibilityType` ∈ {"public","private"}.
    - Optional `settings` object includes `sampling` (temperature, topP, maxOutputTokens bounds), `systemPrompt`, `enableReasoning`, `streamArtifacts`, `autoScroll`.
-   @app/(chat)/api/chat/schema.ts#1-48
+     @app/(chat)/api/chat/schema.ts#1-48
    - **Expected latency:** Zod validation runs server-side immediately after parsing; latency is CPU-bound and scales with message size and attachment count. @app/(chat)/api/chat/schema.ts#1-48
    - **Compute requirements:** Schema traversal touches every message part and optional setting (O(parts_count + attachment_count)); uses string regex and array validations. @app/(chat)/api/chat/schema.ts#1-48
 
@@ -162,13 +163,14 @@ This document enumerates every component, hook, helper, cache operation, and dat
 
 `Promise.all` kicks off two tasks: @app/(chat)/api/chat/route.ts#142-148
 
-| Task | Implementation | Result | Expected Latency | Compute Characteristics |
-|------|----------------|--------|------------------|-------------------------|
+| Task                     | Implementation                                                            | Result                                                                                                                            | Expected Latency                                                                                                                                                        | Compute Characteristics                                                                                                                                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Daily user message count | `getMessageCountByUserId({ id: session.user.id, differenceInHours: 24 })` | Number of `message` rows with `message.role === "user"` linked to chats owned by the user in last 24h. @lib/db/queries.ts#136-168 | One SQL query over indexed columns; latency equals single Postgres round trip (depends on network + query planning, typically milliseconds). @lib/db/queries.ts#136-168 | Executes a COUNT-like aggregation with WHERE + JOIN filters; complexity proportional to number of recent messages (O(n_recent_messages)). Uses Drizzle to emit SQL but CPU dominated by database engine. @lib/db/queries.ts#136-168 |
-| Chat snapshot | `chatData.getWithMessages(id, ctx)` | Cached chat metadata + messages (guest cache only). @lib/data/chat.ts#149-220 | Single Redis GET (if cache hit) or immediate return `null`; latency equals Redis RTT. | O(1) cache retrieval; on miss returns without DB access for guests. CPU limited to JSON parse of cached payload (linear in stored message count). @lib/data/chat.ts#149-220 |
+| Chat snapshot            | `chatData.getWithMessages(id, ctx)`                                       | Cached chat metadata + messages (guest cache only). @lib/data/chat.ts#149-220                                                     | Single Redis GET (if cache hit) or immediate return `null`; latency equals Redis RTT.                                                                                   | O(1) cache retrieval; on miss returns without DB access for guests. CPU limited to JSON parse of cached payload (linear in stored message count). @lib/data/chat.ts#149-220                                                         |
 
 Both tasks proceed concurrently; aggregate latency equals the slower of the two operations. If `messageCount` > `entitlementsByUserType.guest.maxMessagesPerDay`, return `rate_limit:chat:daily_limit_exceeded`. @app/(chat)/api/chat/route.ts#150-160
-  - **Compute requirements:** Comparison of integers (O(1)) followed by early HTTP response assembly. @app/(chat)/api/chat/route.ts#150-160
+
+- **Compute requirements:** Comparison of integers (O(1)) followed by early HTTP response assembly. @app/(chat)/api/chat/route.ts#150-160
 
 ### 5.3. Chat validation
 
@@ -218,6 +220,7 @@ Both tasks proceed concurrently; aggregate latency equals the slower of the two 
 ### 6.1. Configuring `streamText`
 
 1. `streamTextOptions` includes:
+
    - `model`: `myProvider.languageModel(selectedChatModel)` which may wrap reasoning extraction via `wrapLanguageModel` + `extractReasoningMiddleware`. @app/(chat)/api/chat/route.ts#330-332@lib/ai/providers.ts#39-94
      - **Expected latency:** Provider selection is synchronous; subsequent model inference latency is dictated by upstream AI provider response time, typically the dominant component (hundreds of milliseconds to seconds depending on prompt/model). @lib/ai/providers.ts#39-94
      - **Compute requirements:** Local CPU cost is O(1) for composing provider wrapper; remote compute performed by provider infrastructure. @lib/ai/providers.ts#39-94
@@ -240,13 +243,14 @@ Both tasks proceed concurrently; aggregate latency equals the slower of the two 
      - **Compute requirements:** O(n_messages_streamed) to aggregate usage stats and construct SSE payloads; TokenLens usage parsing executes locally but scales with token count. @app/(chat)/api/chat/route.ts#364-424
 
 2. `createUIMessageStream({ execute, generateId, onFinish, onError })` sets up the streaming harness:
+
    - `execute` obtains `result = streamText<Partial<ToolSetShape>>(streamTextOptions)`.
    - `result.consumeStream()` is called to begin streaming provider chunks.
    - `dataStream.merge(result.toUIMessageStream({ sendReasoning: true }))` merges provider output into UI-specific SSE events.
    - `generateId: generateUUID` ensures stream chunk IDs are unique.
    - `onFinish` (outer) persists chat data (section 7).
    - `onError` returns a fallback message "Oops, an error occurred!".
-   @app/(chat)/api/chat/route.ts#224-520
+     @app/(chat)/api/chat/route.ts#224-520
    - **Expected latency:** Stream startup latency equals the time until the provider emits first chunk; SSE piping adds negligible overhead. @app/(chat)/api/chat/route.ts#224-520
    - **Compute requirements:** Event handling per chunk is O(1); merging streams incurs constant-time operations for each SSE frame. @app/(chat)/api/chat/route.ts#224-520
 
@@ -260,7 +264,7 @@ Both tasks proceed concurrently; aggregate latency equals the slower of the two 
   - `type: "response"` chunks deliver incremental assistant text (`textDelta`).
   - Tool invocations/resolutions appear as `tool-call`/`tool-result` uiparts (consumed by the `Artifact` panel through `dataStream`).
   - Custom events emitted by server (`data-chatTitle`, `data-usage`, `data-appendMessage`) are directly handled in `onData`.
-  @components/chat.tsx#144-179@lib/types.ts#33-47
+    @components/chat.tsx#144-179@lib/types.ts#33-47
   - **Expected latency:** Client receives chunks as soon as SSE delivers them; per-event handling occurs within same animation frame, bounded by browser event loop responsiveness. @components/chat.tsx#144-179
   - **Compute requirements:** O(1) processing per event: JSON parse plus targeted state updates keyed by event type. @components/chat.tsx#144-179
 
@@ -282,7 +286,7 @@ Inside `onFinish({ messages })` (AI SDK callback): @app/(chat)/api/chat/route.ts
    - `createdAt: new Date()`.
    - `attachments: []` (attachments tracked in parts already).
    - `chatId: id`.
-   @app/(chat)/api/chat/route.ts#462-473
+     @app/(chat)/api/chat/route.ts#462-473
    - **Expected latency:** Synchronous object construction; negligible. @app/(chat)/api/chat/route.ts#462-473
    - **Compute requirements:** O(1) for each property assignment; attaches a single additional part to existing array (O(parts_count + 1)). @app/(chat)/api/chat/route.ts#462-473
 3. Transform each assistant message emitted by the stream (AI SDK `messages`) into DB-ready shape: ensure `role` typed, append the same `{ type: "model", id: selectedModelId }` part, assign `createdAt`, empty `attachments`, and `chatId`. @app/(chat)/api/chat/route.ts#475-495
@@ -308,31 +312,32 @@ Inside `onFinish({ messages })` (AI SDK callback): @app/(chat)/api/chat/route.ts
    - **Compute requirements:** O(n_messages × parts_count) to serialize metadata and coerce timestamps to ISO strings. @lib/data/chat.ts#893-903
 2. Branch on `ctx.isGuest` (true):
    - **New chat** (`isNewChat && title && visibility`): call `createOrUpdateChatWithMessages({ chatId, userId: ctx.userId, title, visibility, messages: cachedMessages, lastContext, createdAt })` which:
-     * Checks if chat already cached via `getChatFromCache`.
-     * If missing: `setChatInCache` with metadata `{ id, userId, title, visibility, createdAt?, updatedAt: now, lastContext, messages, version: 1 }`.
-     * If present: append messages, override title/context when provided, bump `updatedAt` and `version`.
-     @lib/data/chat.ts#905-917@lib/cache/batch-operations.ts#18-124
-      - **Expected latency:** Executes as a single Redis pipeline operation (multi-set), bounded by one network round trip; ancillary `getChatFromCache` adds another RTT when used. @lib/cache/batch-operations.ts#18-124
-      - **Compute requirements:** O(n_messages)` JSON serialization plus metadata merges; Redis handles storage, minimizing server CPU. @lib/cache/batch-operations.ts#18-124
+     - Checks if chat already cached via `getChatFromCache`.
+     - If missing: `setChatInCache` with metadata `{ id, userId, title, visibility, createdAt?, updatedAt: now, lastContext, messages, version: 1 }`.
+     - If present: append messages, override title/context when provided, bump `updatedAt` and `version`.
+       @lib/data/chat.ts#905-917@lib/cache/batch-operations.ts#18-124
+     * **Expected latency:** Executes as a single Redis pipeline operation (multi-set), bounded by one network round trip; ancillary `getChatFromCache` adds another RTT when used. @lib/cache/batch-operations.ts#18-124
+     * **Compute requirements:** O(n_messages)` JSON serialization plus metadata merges; Redis handles storage, minimizing server CPU. @lib/cache/batch-operations.ts#18-124
    - **Existing chat**: `batchUpdateChatCache({ chatId, userId: ctx.userId, messages: cachedMessages, lastContext, title })` which:
-     * Loads cached chat.
-     * Appends messages array (if non-empty).
-     * Updates `lastContext`, `title`, `updatedAt`, increments `version`.
-     * Persists via `setChatInCache`.
-     @lib/data/chat.ts#918-926@lib/cache/batch-operations.ts#18-62
-      - **Expected latency:** Two Redis calls (GET + pipeline SET) when cache available; round-trip latency dominates. @lib/cache/batch-operations.ts#18-62
-      - **Compute requirements:** O(n_messages)` to merge arrays; operations remain linear in message count. @lib/cache/batch-operations.ts#18-62
+     - Loads cached chat.
+     - Appends messages array (if non-empty).
+     - Updates `lastContext`, `title`, `updatedAt`, increments `version`.
+     - Persists via `setChatInCache`.
+       @lib/data/chat.ts#918-926@lib/cache/batch-operations.ts#18-62
+     * **Expected latency:** Two Redis calls (GET + pipeline SET) when cache available; round-trip latency dominates. @lib/cache/batch-operations.ts#18-62
+     * **Compute requirements:** O(n_messages)` to merge arrays; operations remain linear in message count. @lib/cache/batch-operations.ts#18-62
 3. Function returns `void`; **no database access** occurs for guests. Error paths log via `logError("Redis batchUpdateChatCache error", error)` or `logError("Redis createOrUpdateChatWithMessages error", error)` but do not escalate. @lib/cache/batch-operations.ts#58-61@lib/cache/batch-operations.ts#124-128
    - **Expected latency:** Logging occurs only on failure; console/monitoring I/O is asynchronous. @lib/cache/batch-operations.ts#58-61
    - **Compute requirements:** Error serialization O(1) relative to stack size; no retries executed. @lib/cache/batch-operations.ts#58-61
 
 Supporting cache helpers referenced in guest flow:
 
-| Helper | Responsibility |
-|--------|----------------|
-| `getChatFromCache(chatId, userId)` | Fetches denormalized chat (metadata + messages) for a user-specific cache key. @lib/data/chat.ts#154-176 |
-| `appendMessagesToCache(chatId, userId, messages)` | Appends message array to cached chat (used in other guest methods). @lib/data/chat.ts#758-846 |
-| `CacheKeys.chat(chatId, userId)` | Constructs namespaced Redis key (used in list + message operations). @lib/data/chat.ts#265-267 |
+| Helper                                            | Responsibility                                                                                           |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `getChatFromCache(chatId, userId)`                | Fetches denormalized chat (metadata + messages) for a user-specific cache key. @lib/data/chat.ts#154-176 |
+| `appendMessagesToCache(chatId, userId, messages)` | Appends message array to cached chat using Redis List RPUSH - O(1) operation. @lib/data/chat.ts#758-846  |
+| `CacheKeys.chatMeta(chatId, userId)`              | Constructs namespaced Redis key for chat metadata. @lib/cache/types.ts                                   |
+| `CacheKeys.chatMessages(chatId, userId)`          | Constructs namespaced Redis key for messages list. @lib/cache/types.ts                                   |
 
 ---
 
@@ -343,9 +348,9 @@ Supporting cache helpers referenced in guest flow:
    - Updates `usage` on `data-usage` events (sets `AppUsage` state displayed in footer).
    - Updates optimistic chat title via `updateOptimisticChatTitle(id, dataPart.data)` on `data-chatTitle` events.
    - Handles `data-appendMessage` by:
-     * Accepting string payloads -> `JSON.parse` -> append when `id` & `role` exist.
-     * Accepting already-parsed object -> push to `messages` state.
-     * Logging parse failures with `logWarn` but continuing stream.
+     - Accepting string payloads -> `JSON.parse` -> append when `id` & `role` exist.
+     - Accepting already-parsed object -> push to `messages` state.
+     - Logging parse failures with `logWarn` but continuing stream.
 2. `onError(error)` removes optimistic chat, identifies credit-card billing errors (looking for substring), logs using `logError`, and surfaces user-facing toasts. @components/chat.tsx#182-235
 3. UI components respond:
    - `Messages` displays conversation (`messages`, `status`, `regenerate`, votes). @components/chat.tsx#296-307
@@ -357,11 +362,11 @@ Supporting cache helpers referenced in guest flow:
 
 ## 10. Guest-only pathways and limitations
 
-| Feature | Behavior for guests |
-|---------|--------------------|
-| Chat listing (`chatData.list`) | Reads user’s chat IDs from Redis ZSET via `getUserChatsFromCache`, MGETs metadata, and never touches DB. @lib/data/chat.ts#241-295 |
-| Chat deletion (`chatData.delete`) | Removes chat from cache only; DB deletion skipped. @lib/data/chat.ts#446-455 |
-| Bulk deletion (`chatData.deleteAll`) | Iterates cached chat list and deletes each key; DB untouched. @lib/data/chat.ts#488-505 |
+| Feature                                  | Behavior for guests                                                                                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Chat listing (`chatData.list`)           | Reads user’s chat IDs from Redis ZSET via `getUserChatsFromCache`, MGETs metadata, and never touches DB. @lib/data/chat.ts#241-295          |
+| Chat deletion (`chatData.delete`)        | Removes chat from cache only; DB deletion skipped. @lib/data/chat.ts#446-455                                                                |
+| Bulk deletion (`chatData.deleteAll`)     | Iterates cached chat list and deletes each key; DB untouched. @lib/data/chat.ts#488-505                                                     |
 | Resume SSE (`GET /api/chat/[id]/stream`) | Refuses request because `auth()` must return session → `unauthorized:chat:missing_session`. @app/(chat)/api/chat/[id]/stream/route.ts#19-25 |
 
 Guest chats therefore disappear if Redis flushes or evicts data; no fallback exists.
@@ -376,7 +381,7 @@ Guest chats therefore disappear if Redis flushes or evicts data; no fallback exi
    - Known `ChatSDKError`s use `.toResponse()` (preserving code/cause) for consistent client handling.
    - Vercel AI Gateway billing errors produce `bad_request:activate_gateway` for gateway models; otherwise logged as anomalies.
    - Unhandled errors recorded via `logError("Unhandled error in chat API", ...)` and returned as `offline:chat:unhandled`.
-   @app/(chat)/api/chat/route.ts#524-562
+     @app/(chat)/api/chat/route.ts#524-562
 
 ---
 
@@ -395,71 +400,71 @@ Because the guest flow never interacts with the database, **every** chat artifac
 
 ## 13. Latency & Compute Flow Map
 
-| Flow Chain | Expected Latency | Compute Load |
-|------------|------------------|--------------|
-| 1 ➜ Guest credential provider | Auth POST plus single Postgres round trip; no Redis dependency. | O(1) insert and UUID/JWT serialization. |
-| 2 ➜ Session → DataContext translation | Synchronous object creation in the Next.js runtime. | O(1) property mapping. |
-| 3 ➜ Entitlements lookup | Immediate in-memory configuration read. | O(1) property access. |
-| 4 ➜ Redis availability guard | Resolves immediately when cached; otherwise incurs one Redis PING RTT. | O(1) boolean branch on promise resolution. |
-| 5 ➜ Hydrated props into `Chat` | Delivered with SSR payload; no additional client delay. | O(n_initial_messages) render of pre-fetched data. |
-| 6 ➜ `useChatVisibility` hook | Hook init is synchronous; SWR fetch latency equals visibility API RTT. | O(1) init; JSON parse proportional to payload size. |
-| 7 ➜ `useDataStream` subscription | Context attach is instant; streaming cadence driven by SSE network timing. | O(1) per chunk merge into context state. |
-| 8 ➜ `useSettingsSnapshot` read | Immediate synchronous snapshot. | O(1) shallow copy. |
-| 9 ➜ `useOptimisticChats` registration | Synchronous context lookup; optimistic updates execute on next render. | O(n_chats) array scans during optimistic mutations. |
-| 10 ➜ Local chat/input state refs | Render-time initialization; no async work. | O(1) allocation per state/ref; updates O(len(input)). |
-| 11 ➜ `optimalThrottle` calculation | Pure browser computation of connection hints. | O(1) conditional comparisons. |
-| 12 ➜ `useChat` initialization | Runs during render with existing history; no I/O. | O(n_initial_messages) cloning of message array. |
-| 13 ➜ `DefaultChatTransport` configuration | Instantiated synchronously; network latency incurred later. | O(parts_count) to prepare final request body. |
-| 14 ➜ Sync `currentModelIdRef` effect | Runs post-render in same tick. | O(1) assignment. |
-| 15 ➜ Optimistic chat insertion effect | Executes after status change; no network. | O(n_chats) to check existing optimistic entries. |
-| 16 ➜ Query bootstrap `sendMessage` | Immediately triggers transport; latency inherits from `/api/chat` POST RTT. | O(len(query)) string slicing and state updates. |
-| 17 ➜ Votes `useSWR` fetch | Deferred GET to votes endpoint; RTT bound by API latency. | O(votes) JSON parse and merge. |
-| 18 ➜ Multimodal input state updates | Client-side keystroke handling only. | O(1) per keystroke re-render. |
-| 19 ➜ Textarea auto-resize | DOM measurement per frame, microseconds. | O(1) read/write of element height. |
-| 20 ➜ Local storage draft sync | `localStorage` access is synchronous and fast. | O(1) serialization for short strings. |
-| 21 ➜ `submitForm` message assembly | In-memory concatenation; no I/O. | O(parts + text_length) array build. |
-| 22 ➜ Post-submit cleanup | Executes in same event loop tick. | O(#attachments) state resets and DOM focus. |
-| 23 ➜ File upload POST | HTTPS upload plus storage processing time (size/bandwidth dependent). | O(file_size) multipart encoding and stream forwarding. |
-| 24 ➜ `sendMessage` metadata enrich | Synchronous augmentation prior to network send. | O(parts_count) shallow merges. |
-| 25 ➜ `prepareSendMessagesRequest` staging | Executed just before `fetch`; no network yet. | O(1) object spread and reference capture. |
-| 26 ➜ `fetchWithErrorHandlers` wrapper | Adds negligible overhead before browser fetch; RTT dominated by `/api/chat`. | O(1) promise chaining; JSON parse cost on error paths. |
-| 27 ➜ Server JSON parse + Zod validation | Single event-loop cycle proportional to payload size. | O(payload_bytes + parts + attachments). |
-| 28 ➜ Field extraction from payload | Instantaneous destructuring. | O(1) assignments. |
-| 29 ➜ `auth()` session lookup | Depends on session backing store (cookie decode + optional DB/Redis RTT). | O(1) token verification and optional DB read. |
-| 30 ➜ Server `createContext` | Synchronous object creation. | O(1) mapping. |
-| 31 ➜ Guest Redis guard | Resolves immediately if memoized; otherwise one Redis RTT. | O(1) conditional branch. |
-| 32 ➜ Prefetch daily message count | Single SQL call subject to Postgres RTT. | O(n_recent_messages) COUNT aggregation. |
-| 33 ➜ Prefetch chat snapshot | Cache hit: one Redis GET RTT; miss returns null. | O(n_cached_messages) JSON parsing to typed objects. |
-| 34 ➜ Rate-limit comparison | Immediate integer comparison. | O(1) evaluation. |
-| 35 ➜ Ownership verification | Pure synchronous check when cache hit. | O(1) equality test. |
-| 36 ➜ Placeholder title derivation | In-memory string trimming and fallback. | O(len(first_text_part)). |
-| 37 ➜ Mark `isNewChat` | Immediate flag assignment. | O(1) state flip. |
-| 38 ➜ Convert history to UI messages | Linear pass over cached history. | O(n_messages) mapping. |
-| 39 ➜ Append current message to UI messages | Immediate push into array. | O(1) append. |
-| 40 ➜ Extract geolocation hints | Edge helper reads request metadata instantly. | O(1) property access. |
-| 41 ➜ Start title generation promise | Additional AI call executed in parallel (tens to hundreds of ms). | Provider-side compute; local O(1) promise management. |
-| 42 ➜ Lookup model metadata | Constant-time registry access. | O(1) map lookup. |
-| 43 ➜ Build provider options | Synchronous configuration assembly. | O(1) branching per provider. |
-| 44 ➜ Discover & import tools | Optional dynamic import; latency depends on module cache (~milliseconds). | O(k_tools) instantiation and setup. |
-| 45 ➜ `convertToModelMessages` | Runs in memory; linear in messages × parts. | O(n_messages × parts_count). |
-| 46 ➜ Finalize `streamText` options | Pure configuration (stopWhen, transforms, telemetry, sampling). | O(1) object composition. |
-| 47 ➜ `createUIMessageStream` execution | Waits for model’s first chunk; dominated by provider latency. | O(1) orchestration. |
-| 48 ➜ Consume stream & merge to UI channel | Per chunk arrival matches SSE cadence. | O(1) per chunk enqueue/merge. |
-| 49 ➜ `JsonToSseTransformStream` piping | Adds minimal buffering before response. | O(1) per chunk serialization. |
-| 50 ➜ Await title promise in `onFinish` | <=500 ms timeout bounds wait. | O(1) promise resolution/timeout handler. |
-| 51 ➜ Build persisted user message | Immediate object construction. | O(1) field assignments. |
-| 52 ➜ Normalize assistant messages | Linear in assistant message count. | O(n_assistant_messages × parts_count). |
-| 53 ➜ Aggregate `messagesToSave` array | Immediate spread into new array. | O(total_messages) shallow copy. |
-| 54 ➜ Invoke `messageData.saveWithContext` | Guest branch performs Redis GET/SET pair (RTT bound). | O(n_messages) JSON serialization before write. |
-| 55 ➜ Convert DBMessages → cache payload | Linear in message count before cache write. | O(n_messages × parts_count). |
-| 56 ➜ `createOrUpdateChatWithMessages` (new chat) | Single Redis pipeline RTT when chat is new. | O(n_messages) cache write with metadata merge. |
-| 57 ➜ `batchUpdateChatCache` (existing chat) | Redis GET + pipeline SET; RTT-dominated. | O(n_messages) append and metadata updates. |
-| 58 ➜ Cache error logging fallback | Async log emission if Redis write fails. | O(1) error serialization. |
-| 59 ➜ Client `onData` SSE handling | Per event handled within same frame as arrival. | O(1) branching and state updates per event. |
-| 60 ➜ Client `onError` handling | Immediate toast/log emission on failure. | O(1) string checks and state cleanup. |
-| 61 ➜ UI component rerender | Occurs on next React reconciliation cycle. | O(#messages_displayed) diffing/render. |
-| 62 ➜ Cache-only guest list/delete paths | Triggered when listing/deleting; Redis RTT per call. | O(n_chats) ZSET scans and key deletions. |
-| 63 ➜ Error propagation logging (server catch) | Only runs on exceptions; response sent immediately after log. | O(1) log formatting and console output. |
+| Flow Chain                                       | Expected Latency                                                             | Compute Load                                           |
+| ------------------------------------------------ | ---------------------------------------------------------------------------- | ------------------------------------------------------ |
+| 1 ➜ Guest credential provider                    | Auth POST plus single Postgres round trip; no Redis dependency.              | O(1) insert and UUID/JWT serialization.                |
+| 2 ➜ Session → DataContext translation            | Synchronous object creation in the Next.js runtime.                          | O(1) property mapping.                                 |
+| 3 ➜ Entitlements lookup                          | Immediate in-memory configuration read.                                      | O(1) property access.                                  |
+| 4 ➜ Redis availability guard                     | Resolves immediately when cached; otherwise incurs one Redis PING RTT.       | O(1) boolean branch on promise resolution.             |
+| 5 ➜ Hydrated props into `Chat`                   | Delivered with SSR payload; no additional client delay.                      | O(n_initial_messages) render of pre-fetched data.      |
+| 6 ➜ `useChatVisibility` hook                     | Hook init is synchronous; SWR fetch latency equals visibility API RTT.       | O(1) init; JSON parse proportional to payload size.    |
+| 7 ➜ `useDataStream` subscription                 | Context attach is instant; streaming cadence driven by SSE network timing.   | O(1) per chunk merge into context state.               |
+| 8 ➜ `useSettingsSnapshot` read                   | Immediate synchronous snapshot.                                              | O(1) shallow copy.                                     |
+| 9 ➜ `useOptimisticChats` registration            | Synchronous context lookup; optimistic updates execute on next render.       | O(n_chats) array scans during optimistic mutations.    |
+| 10 ➜ Local chat/input state refs                 | Render-time initialization; no async work.                                   | O(1) allocation per state/ref; updates O(len(input)).  |
+| 11 ➜ `optimalThrottle` calculation               | Pure browser computation of connection hints.                                | O(1) conditional comparisons.                          |
+| 12 ➜ `useChat` initialization                    | Runs during render with existing history; no I/O.                            | O(n_initial_messages) cloning of message array.        |
+| 13 ➜ `DefaultChatTransport` configuration        | Instantiated synchronously; network latency incurred later.                  | O(parts_count) to prepare final request body.          |
+| 14 ➜ Sync `currentModelIdRef` effect             | Runs post-render in same tick.                                               | O(1) assignment.                                       |
+| 15 ➜ Optimistic chat insertion effect            | Executes after status change; no network.                                    | O(n_chats) to check existing optimistic entries.       |
+| 16 ➜ Query bootstrap `sendMessage`               | Immediately triggers transport; latency inherits from `/api/chat` POST RTT.  | O(len(query)) string slicing and state updates.        |
+| 17 ➜ Votes `useSWR` fetch                        | Deferred GET to votes endpoint; RTT bound by API latency.                    | O(votes) JSON parse and merge.                         |
+| 18 ➜ Multimodal input state updates              | Client-side keystroke handling only.                                         | O(1) per keystroke re-render.                          |
+| 19 ➜ Textarea auto-resize                        | DOM measurement per frame, microseconds.                                     | O(1) read/write of element height.                     |
+| 20 ➜ Local storage draft sync                    | `localStorage` access is synchronous and fast.                               | O(1) serialization for short strings.                  |
+| 21 ➜ `submitForm` message assembly               | In-memory concatenation; no I/O.                                             | O(parts + text_length) array build.                    |
+| 22 ➜ Post-submit cleanup                         | Executes in same event loop tick.                                            | O(#attachments) state resets and DOM focus.            |
+| 23 ➜ File upload POST                            | HTTPS upload plus storage processing time (size/bandwidth dependent).        | O(file_size) multipart encoding and stream forwarding. |
+| 24 ➜ `sendMessage` metadata enrich               | Synchronous augmentation prior to network send.                              | O(parts_count) shallow merges.                         |
+| 25 ➜ `prepareSendMessagesRequest` staging        | Executed just before `fetch`; no network yet.                                | O(1) object spread and reference capture.              |
+| 26 ➜ `fetchWithErrorHandlers` wrapper            | Adds negligible overhead before browser fetch; RTT dominated by `/api/chat`. | O(1) promise chaining; JSON parse cost on error paths. |
+| 27 ➜ Server JSON parse + Zod validation          | Single event-loop cycle proportional to payload size.                        | O(payload_bytes + parts + attachments).                |
+| 28 ➜ Field extraction from payload               | Instantaneous destructuring.                                                 | O(1) assignments.                                      |
+| 29 ➜ `auth()` session lookup                     | Depends on session backing store (cookie decode + optional DB/Redis RTT).    | O(1) token verification and optional DB read.          |
+| 30 ➜ Server `createContext`                      | Synchronous object creation.                                                 | O(1) mapping.                                          |
+| 31 ➜ Guest Redis guard                           | Resolves immediately if memoized; otherwise one Redis RTT.                   | O(1) conditional branch.                               |
+| 32 ➜ Prefetch daily message count                | Single SQL call subject to Postgres RTT.                                     | O(n_recent_messages) COUNT aggregation.                |
+| 33 ➜ Prefetch chat snapshot                      | Cache hit: one Redis GET RTT; miss returns null.                             | O(n_cached_messages) JSON parsing to typed objects.    |
+| 34 ➜ Rate-limit comparison                       | Immediate integer comparison.                                                | O(1) evaluation.                                       |
+| 35 ➜ Ownership verification                      | Pure synchronous check when cache hit.                                       | O(1) equality test.                                    |
+| 36 ➜ Placeholder title derivation                | In-memory string trimming and fallback.                                      | O(len(first_text_part)).                               |
+| 37 ➜ Mark `isNewChat`                            | Immediate flag assignment.                                                   | O(1) state flip.                                       |
+| 38 ➜ Convert history to UI messages              | Linear pass over cached history.                                             | O(n_messages) mapping.                                 |
+| 39 ➜ Append current message to UI messages       | Immediate push into array.                                                   | O(1) append.                                           |
+| 40 ➜ Extract geolocation hints                   | Edge helper reads request metadata instantly.                                | O(1) property access.                                  |
+| 41 ➜ Start title generation promise              | Additional AI call executed in parallel (tens to hundreds of ms).            | Provider-side compute; local O(1) promise management.  |
+| 42 ➜ Lookup model metadata                       | Constant-time registry access.                                               | O(1) map lookup.                                       |
+| 43 ➜ Build provider options                      | Synchronous configuration assembly.                                          | O(1) branching per provider.                           |
+| 44 ➜ Discover & import tools                     | Optional dynamic import; latency depends on module cache (~milliseconds).    | O(k_tools) instantiation and setup.                    |
+| 45 ➜ `convertToModelMessages`                    | Runs in memory; linear in messages × parts.                                  | O(n_messages × parts_count).                           |
+| 46 ➜ Finalize `streamText` options               | Pure configuration (stopWhen, transforms, telemetry, sampling).              | O(1) object composition.                               |
+| 47 ➜ `createUIMessageStream` execution           | Waits for model’s first chunk; dominated by provider latency.                | O(1) orchestration.                                    |
+| 48 ➜ Consume stream & merge to UI channel        | Per chunk arrival matches SSE cadence.                                       | O(1) per chunk enqueue/merge.                          |
+| 49 ➜ `JsonToSseTransformStream` piping           | Adds minimal buffering before response.                                      | O(1) per chunk serialization.                          |
+| 50 ➜ Await title promise in `onFinish`           | <=500 ms timeout bounds wait.                                                | O(1) promise resolution/timeout handler.               |
+| 51 ➜ Build persisted user message                | Immediate object construction.                                               | O(1) field assignments.                                |
+| 52 ➜ Normalize assistant messages                | Linear in assistant message count.                                           | O(n_assistant_messages × parts_count).                 |
+| 53 ➜ Aggregate `messagesToSave` array            | Immediate spread into new array.                                             | O(total_messages) shallow copy.                        |
+| 54 ➜ Invoke `messageData.saveWithContext`        | Guest branch performs Redis GET/SET pair (RTT bound).                        | O(n_messages) JSON serialization before write.         |
+| 55 ➜ Convert DBMessages → cache payload          | Linear in message count before cache write.                                  | O(n_messages × parts_count).                           |
+| 56 ➜ `createOrUpdateChatWithMessages` (new chat) | Single Redis pipeline RTT when chat is new.                                  | O(n_messages) cache write with metadata merge.         |
+| 57 ➜ `batchUpdateChatCache` (existing chat)      | Redis GET + pipeline SET; RTT-dominated.                                     | O(n_messages) append and metadata updates.             |
+| 58 ➜ Cache error logging fallback                | Async log emission if Redis write fails.                                     | O(1) error serialization.                              |
+| 59 ➜ Client `onData` SSE handling                | Per event handled within same frame as arrival.                              | O(1) branching and state updates per event.            |
+| 60 ➜ Client `onError` handling                   | Immediate toast/log emission on failure.                                     | O(1) string checks and state cleanup.                  |
+| 61 ➜ UI component rerender                       | Occurs on next React reconciliation cycle.                                   | O(#messages_displayed) diffing/render.                 |
+| 62 ➜ Cache-only guest list/delete paths          | Triggered when listing/deleting; Redis RTT per call.                         | O(n_chats) ZSET scans and key deletions.               |
+| 63 ➜ Error propagation logging (server catch)    | Only runs on exceptions; response sent immediately after log.                | O(1) log formatting and console output.                |
 
 **Total steps: 63**
 

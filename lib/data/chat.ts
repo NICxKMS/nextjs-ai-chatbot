@@ -277,7 +277,7 @@ export const chatData = {
 				}
 
 				const cacheKeys = chatList.map((item) =>
-					CacheKeys.chat(item.chatId, ctx.userId)
+					CacheKeys.chatMeta(item.chatId, ctx.userId)
 				);
 				const cachedChats = await redis.mget<any[]>(...cacheKeys);
 
@@ -540,8 +540,11 @@ export const chatData = {
 
 			const chatIds = userChats.map((chatRec) => chatRec.id);
 
-			await db.delete(vote).where(inArray(vote.chatId, chatIds));
-			await db.delete(message).where(inArray(message.chatId, chatIds));
+			// OPTIMIZATION: Delete votes and messages in parallel (both depend on chat, not each other)
+			await Promise.all([
+				db.delete(vote).where(inArray(vote.chatId, chatIds)),
+				db.delete(message).where(inArray(message.chatId, chatIds)),
+			]);
 
 			const deletedChats = await db
 				.delete(chat)
@@ -784,66 +787,33 @@ export const messageData = {
 			// Update cache in parallel - use bulk operation
 			const cachePromises: Promise<void>[] = [];
 			if (isRedisAvailable() && messages.length > 0) {
-				// OPTIMIZATION: Batch fetch all unique chats before processing messages
-				const uniqueChatIds = [
-					...new Set(messages.map((m) => m.chatId).filter(Boolean)),
-				];
-
-				// Fetch all chats in parallel (using the unified method)
-				const chatResults = await Promise.all(
-					uniqueChatIds.map((chatId) =>
-						chatData.get(chatId, {
-							userId: ctx.userId,
-							isGuest: false,
-						})
-					)
-				);
-
-				// Build lookup map for O(1) access
-				const chatsMap = new Map<string, { userId: string }>();
-				uniqueChatIds.forEach((chatId, index) => {
-					const fetchedChat = chatResults[index];
-					if (fetchedChat) {
-						chatsMap.set(chatId, { userId: fetchedChat.userId });
-					}
-				});
-
-				// Group messages by chatId using pre-fetched chat data
-				const messagesByChatId = new Map<
-					string,
-					{ userId: string; messages: CachedMessage[] }
-				>();
+				// OPTIMIZATION: Group messages by chatId using context userId
+				// No need to fetch chats - we're saving messages for the current user
+				const messagesByChatId = new Map<string, CachedMessage[]>();
 
 				for (const msg of messages) {
 					if (!msg.chatId) {
 						continue;
 					}
 
-					const chatRecord = chatsMap.get(msg.chatId);
-					if (!chatRecord) {
-						continue;
-					}
-
 					if (!messagesByChatId.has(msg.chatId)) {
-						messagesByChatId.set(msg.chatId, {
-							userId: chatRecord.userId,
-							messages: [],
-						});
+						messagesByChatId.set(msg.chatId, []);
 					}
 
-					const msgGroup = messagesByChatId.get(msg.chatId);
-					if (msgGroup) {
-						msgGroup.messages.push(dbMessageToCachedMessage(msg));
+					const chatMessages = messagesByChatId.get(msg.chatId);
+					if (chatMessages) {
+						chatMessages.push(dbMessageToCachedMessage(msg));
 					}
 				}
 
-				// Bulk append for each chat
-				for (const [chatId, data] of messagesByChatId.entries()) {
+				// Bulk append for each chat - skip existence check as we trust the caller
+				for (const [chatId, cachedMsgs] of messagesByChatId.entries()) {
 					cachePromises.push(
 						appendMessagesToCache(
 							chatId,
-							data.userId,
-							data.messages
+							ctx.userId,
+							cachedMsgs,
+							{ skipExistenceCheck: true }
 						)
 					);
 				}
@@ -901,6 +871,7 @@ export const messageData = {
 				// Guest users: cache-only, no database write
 				if (isNewChat && title && visibility) {
 					// For new chats, create with messages in one operation
+					// Pass isNewChat to skip redundant existence check
 					await createOrUpdateChatWithMessages({
 						chatId,
 						userId: ctx.userId,
@@ -908,6 +879,7 @@ export const messageData = {
 						visibility,
 						messages: cachedMessages,
 						lastContext,
+						isNewChat: true,
 					});
 				} else {
 					// For existing chats, use batch update
@@ -982,6 +954,7 @@ export const messageData = {
 				? (async () => {
 						if (isNewChat && title && visibility) {
 							// For new chats, create with messages in one operation
+							// Pass isNewChat to skip redundant existence check
 							await createOrUpdateChatWithMessages({
 								chatId,
 								userId: ctx.userId,
@@ -990,6 +963,7 @@ export const messageData = {
 								messages: cachedMessages,
 								lastContext,
 								createdAt,
+								isNewChat: true,
 							});
 						} else {
 							// For existing chats, use batch update

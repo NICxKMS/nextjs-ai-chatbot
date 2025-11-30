@@ -104,7 +104,7 @@ export const documentData = {
 				warmDocumentCache(
 					documentId,
 					ctx.userId,
-					documents as any
+					documents as Document[]
 				).catch((err) => logError("warmDocumentCache failed", err));
 			}
 
@@ -183,7 +183,7 @@ export const documentData = {
 				warmDocumentCache(
 					documentId,
 					ctx.userId,
-					documents as any
+					documents as Document[]
 				).catch((err) => logError("warmDocumentCache failed", err));
 			}
 
