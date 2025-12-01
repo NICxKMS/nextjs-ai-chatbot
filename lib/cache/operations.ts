@@ -301,22 +301,25 @@ export async function appendMessageToCache(
 		if (opts?.skipExistenceCheck) {
 			// Use pipeline directly when caller confirms chat exists
 			const pipeline = redis.pipeline();
-			
+
 			// Add message to ZSET with timestamp score
-			pipeline.zadd(msgsKey, { score: msgScore, member: JSON.stringify(message) });
-			
+			pipeline.zadd(msgsKey, {
+				score: msgScore,
+				member: JSON.stringify(message),
+			});
+
 			// Update user chats ZSET
 			pipeline.zadd(userChatsKey, {
 				score: Date.now(),
 				member: chatId,
 			});
-			
+
 			// Apply TTL for guest users
 			if (isGuest) {
 				pipeline.expire(msgsKey, GUEST_CACHE_TTL_SECONDS);
 				pipeline.expire(userChatsKey, GUEST_CACHE_TTL_SECONDS);
 			}
-			
+
 			await pipeline.exec();
 			return;
 		}
@@ -325,7 +328,14 @@ export async function appendMessageToCache(
 		await redis.eval(
 			APPEND_MESSAGE_SCRIPT,
 			[metaKey, msgsKey, userChatsKey],
-			[JSON.stringify(message), now, Date.now().toString(), chatId, msgScore.toString(), isGuest ? GUEST_CACHE_TTL_SECONDS.toString() : "0"]
+			[
+				JSON.stringify(message),
+				now,
+				Date.now().toString(),
+				chatId,
+				msgScore.toString(),
+				isGuest ? GUEST_CACHE_TTL_SECONDS.toString() : "0",
+			]
 		);
 	} catch (error) {
 		logError("Redis appendMessageToCache error", error);
@@ -408,25 +418,25 @@ export async function appendMessagesToCache(
 		if (opts?.skipExistenceCheck) {
 			// Use pipeline directly when caller confirms chat exists
 			const pipeline = redis.pipeline();
-			
+
 			// Add all messages to ZSET with timestamp scores
 			for (const msg of messages) {
 				const score = getMessageScore(msg);
 				pipeline.zadd(msgsKey, { score, member: JSON.stringify(msg) });
 			}
-			
+
 			// Update user chats ZSET
 			pipeline.zadd(userChatsKey, {
 				score: Date.now(),
 				member: chatId,
 			});
-			
+
 			// Apply TTL for guest users
 			if (isGuest) {
 				pipeline.expire(msgsKey, GUEST_CACHE_TTL_SECONDS);
 				pipeline.expire(userChatsKey, GUEST_CACHE_TTL_SECONDS);
 			}
-			
+
 			await pipeline.exec();
 			return;
 		}
@@ -442,7 +452,14 @@ export async function appendMessagesToCache(
 		await redis.eval(
 			APPEND_MESSAGES_SCRIPT,
 			[metaKey, msgsKey, userChatsKey],
-			[now, Date.now().toString(), chatId, messages.length.toString(), isGuest ? GUEST_CACHE_TTL_SECONDS.toString() : "0", ...scoreMessagePairs]
+			[
+				now,
+				Date.now().toString(),
+				chatId,
+				messages.length.toString(),
+				isGuest ? GUEST_CACHE_TTL_SECONDS.toString() : "0",
+				...scoreMessagePairs,
+			]
 		);
 	} catch (error) {
 		logError("Redis appendMessagesToCache error", error);
@@ -472,13 +489,17 @@ export async function deleteMessagesFromCacheAfterTimestamp(
 		// ZREMRANGEBYSCORE is O(log N + M) where M = deleted messages
 		// No Lua iteration required!
 		const pipeline = redis.pipeline();
-		
+
 		// Remove all messages with score >= timestamp (at or after)
 		// Use a very large number for max to represent +inf
-		pipeline.zremrangebyscore(msgsKey, timestampMs, Number.MAX_SAFE_INTEGER);
-		
+		pipeline.zremrangebyscore(
+			msgsKey,
+			timestampMs,
+			Number.MAX_SAFE_INTEGER
+		);
+
 		await pipeline.exec();
-		
+
 		// Update metadata version (separate call, but metadata update is fast)
 		await updateChatMetadataAtomically(chatId, userId, {});
 	} catch (error) {
@@ -515,7 +536,9 @@ return cjson.encode(data)
 async function updateChatMetadataAtomically(
 	chatId: string,
 	userId: string,
-	updates: Partial<Pick<CachedChatMeta, "title" | "visibility" | "lastContext">>
+	updates: Partial<
+		Pick<CachedChatMeta, "title" | "visibility" | "lastContext">
+	>
 ): Promise<void> {
 	const redis = getRedisClient();
 	if (!redis) {
@@ -555,7 +578,9 @@ export function updateChatLastContextInCache(
 	userId: string,
 	context: AppUsage
 ): Promise<void> {
-	return updateChatMetadataAtomically(chatId, userId, { lastContext: context });
+	return updateChatMetadataAtomically(chatId, userId, {
+		lastContext: context,
+	});
 }
 
 /**
