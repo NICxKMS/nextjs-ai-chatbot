@@ -6,6 +6,26 @@ import type { ModelMetadata } from "./model-catalog-types";
  * Deprecated and older versions have been removed
  */
 export const curatedModels: ModelMetadata[] = [
+	// Title Model (no thinking for fast title generation)
+	// ============================================================================
+	{
+		id: "google:gemini-flash-lite-latest-title",
+		providerId: "google",
+		providerName: "Google Gemini",
+		modelId: "gemini-flash-lite-latest",
+		name: "Gemini Flash Lite Latest (Title)",
+		description:
+			"Ultra-fast model optimized for title generation with no thinking overhead",
+		release: "2025-06",
+		contextWindow: 1_000_000,
+		modalities: ["text"],
+		capabilities: ["chat"],
+		tags: ["curated", "fast", "lightweight", "title"],
+		source: "curated",
+		isCurated: true,
+		reasoningType: "none",
+		thinkingBudget: 0,
+	},
 	// ============================================================================
 	// OPENAI - Latest Models
 	// ============================================================================

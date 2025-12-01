@@ -3,10 +3,6 @@ import "server-only";
 import type { VisibilityType } from "@/components/visibility-selector";
 import { logError } from "@/lib/log";
 import type { AppUsage } from "../usage";
-import {
-	appendMessagesToCache,
-	setChatInCache,
-} from "./operations";
 import { getRedisClient } from "./redis";
 import { type CachedChatMeta, type CachedMessage, CacheKeys } from "./types";
 
@@ -32,23 +28,9 @@ function getMessageScore(message: CachedMessage): number {
 }
 
 /**
- * Apply TTL for guest users on multiple keys via pipeline
- */
-function applyGuestTTL(
-	pipeline: ReturnType<import("@upstash/redis").Redis["pipeline"]>,
-	keys: string[],
-	userId: string
-): void {
-	if (userId.startsWith("guest:")) {
-		for (const key of keys) {
-			pipeline.expire(key, GUEST_CACHE_TTL_SECONDS);
-		}
-	}
-}
-
-/**
  * Lua script for atomic batch update - avoids GET round-trip
  * Updates metadata and appends messages using ZADD in single operation
+ * Includes TTL application for guest users (eliminates separate EXPIRE round-trip)
  * Returns 1 if successful, 0 if chat doesn't exist
  */
 const BATCH_UPDATE_SCRIPT = `
@@ -62,6 +44,7 @@ local now = ARGV[2]
 local userChatsScore = tonumber(ARGV[3])
 local chatId = ARGV[4]
 local msgCount = tonumber(ARGV[5])
+local ttl = tonumber(ARGV[6])
 
 -- Apply updates to metadata
 if updates.lastContext then
@@ -76,8 +59,8 @@ data.version = (data.version or 0) + 1
 -- Save updated metadata
 redis.call('SET', KEYS[1], cjson.encode(data))
 
--- Add messages to ZSET (ARGV[6] onwards: score1, msg1, score2, msg2, ...)
-for i = 6, 6 + (msgCount * 2) - 1, 2 do
+-- Add messages to ZSET (ARGV[7] onwards: score1, msg1, score2, msg2, ...)
+for i = 7, 7 + (msgCount * 2) - 1, 2 do
 	local msgScore = tonumber(ARGV[i])
 	local msgStr = ARGV[i + 1]
 	if msgScore and msgStr then
@@ -88,12 +71,20 @@ end
 -- Update user chats ZSET
 redis.call('ZADD', KEYS[3], userChatsScore, chatId)
 
+-- Apply TTL for guest users (ttl > 0 means guest)
+if ttl > 0 then
+	redis.call('EXPIRE', KEYS[1], ttl)
+	redis.call('EXPIRE', KEYS[2], ttl)
+	redis.call('EXPIRE', KEYS[3], ttl)
+end
+
 return 1
 `;
 
 /**
  * Lua script for atomic create-or-update operation - single round-trip
  * Creates new chat or updates existing chat atomically using ZADD for messages
+ * Includes TTL application for guest users (eliminates separate EXPIRE round-trip)
  * Returns: "created" if new chat, "updated" if existing, "error" on failure
  */
 const CREATE_OR_UPDATE_SCRIPT = `
@@ -106,6 +97,7 @@ local newMetaJson = ARGV[1]
 local userChatsScore = tonumber(ARGV[2])
 local chatId = ARGV[3]
 local msgCount = tonumber(ARGV[4])
+local ttl = tonumber(ARGV[6 + msgCount * 2])
 
 if existingMeta then
 	-- Update existing chat
@@ -137,6 +129,13 @@ if existingMeta then
 	-- Update user chats ZSET
 	redis.call('ZADD', userChatsKey, userChatsScore, chatId)
 	
+	-- Apply TTL for guest users (ttl > 0 means guest)
+	if ttl > 0 then
+		redis.call('EXPIRE', metaKey, ttl)
+		redis.call('EXPIRE', msgsKey, ttl)
+		redis.call('EXPIRE', userChatsKey, ttl)
+	end
+	
 	return "updated"
 else
 	-- Create new chat
@@ -154,6 +153,13 @@ else
 	-- Update user chats ZSET
 	redis.call('ZADD', userChatsKey, userChatsScore, chatId)
 	
+	-- Apply TTL for guest users (ttl > 0 means guest)
+	if ttl > 0 then
+		redis.call('EXPIRE', metaKey, ttl)
+		redis.call('EXPIRE', msgsKey, ttl)
+		redis.call('EXPIRE', userChatsKey, ttl)
+	end
+	
 	return "created"
 end
 `;
@@ -169,14 +175,14 @@ export async function batchUpdateChatCache({
 	messages,
 	lastContext,
 	title,
-	skipExistenceCheck,
+	_skipExistenceCheck,
 }: {
 	chatId: string;
 	userId: string;
 	messages?: CachedMessage[];
 	lastContext?: AppUsage;
 	title?: string;
-	skipExistenceCheck?: boolean;
+	_skipExistenceCheck?: boolean;
 }): Promise<void> {
 	const redis = getRedisClient();
 	if (!redis) {
@@ -192,8 +198,12 @@ export async function batchUpdateChatCache({
 
 		// Prepare updates object
 		const updates: { lastContext?: AppUsage; title?: string } = {};
-		if (lastContext) updates.lastContext = lastContext;
-		if (title) updates.title = title;
+		if (lastContext) {
+			updates.lastContext = lastContext;
+		}
+		if (title) {
+			updates.title = title;
+		}
 
 		// Prepare score-message pairs for ZSET
 		const scoreMessagePairs: string[] = [];
@@ -211,23 +221,15 @@ export async function batchUpdateChatCache({
 			Date.now().toString(),
 			chatId,
 			(messages?.length ?? 0).toString(),
+			isGuest ? GUEST_CACHE_TTL_SECONDS.toString() : "0",
 			...scoreMessagePairs,
 		];
 
-		const result = await redis.eval(
+		await redis.eval(
 			BATCH_UPDATE_SCRIPT,
 			[metaKey, msgsKey, userChatsKey],
 			args
 		);
-
-		// Apply TTL for guest users if update was successful
-		if (result === 1 && isGuest) {
-			const pipeline = redis.pipeline();
-			pipeline.expire(metaKey, GUEST_CACHE_TTL_SECONDS);
-			pipeline.expire(msgsKey, GUEST_CACHE_TTL_SECONDS);
-			pipeline.expire(userChatsKey, GUEST_CACHE_TTL_SECONDS);
-			await pipeline.exec();
-		}
 	} catch (error) {
 		logError("Redis batchUpdateChatCache error", error);
 	}
@@ -246,7 +248,7 @@ export async function createOrUpdateChatWithMessages({
 	messages,
 	lastContext,
 	createdAt,
-	isNewChat,
+	_isNewChat,
 }: {
 	chatId: string;
 	userId: string;
@@ -255,7 +257,7 @@ export async function createOrUpdateChatWithMessages({
 	messages: CachedMessage[];
 	lastContext?: AppUsage;
 	createdAt?: Date;
-	isNewChat?: boolean;
+	_isNewChat?: boolean;
 }): Promise<void> {
 	const redis = getRedisClient();
 	if (!redis) {
@@ -297,7 +299,7 @@ export async function createOrUpdateChatWithMessages({
 		}
 
 		// Use Lua script for atomic operation (single round-trip!)
-		const result = await redis.eval(
+		await redis.eval(
 			CREATE_OR_UPDATE_SCRIPT,
 			[metaKey, msgsKey, userChatsKey],
 			[
@@ -307,17 +309,9 @@ export async function createOrUpdateChatWithMessages({
 				messages.length.toString(),
 				JSON.stringify(updates),
 				...scoreMessagePairs,
+				isGuest ? GUEST_CACHE_TTL_SECONDS.toString() : "0",
 			]
 		);
-
-		// Apply TTL for guest users (separate round-trip, but only for guests)
-		if (isGuest) {
-			const pipeline = redis.pipeline();
-			pipeline.expire(metaKey, GUEST_CACHE_TTL_SECONDS);
-			pipeline.expire(msgsKey, GUEST_CACHE_TTL_SECONDS);
-			pipeline.expire(userChatsKey, GUEST_CACHE_TTL_SECONDS);
-			await pipeline.exec();
-		}
 	} catch (error) {
 		logError("Redis createOrUpdateChatWithMessages error", error);
 	}
