@@ -232,6 +232,7 @@ export async function setChatInCache(
 /**
  * Lua script for atomic message append with existence check
  * Uses ZADD with timestamp score for O(log N) insert
+ * Includes TTL application for guest users (eliminates separate EXPIRE round-trip)
  * Returns 1 if successful, 0 if chat doesn't exist
  */
 const APPEND_MESSAGE_SCRIPT = `
@@ -243,6 +244,7 @@ local now = ARGV[2]
 local userChatsScore = tonumber(ARGV[3])
 local chatId = ARGV[4]
 local msgScore = tonumber(ARGV[5])
+local ttl = tonumber(ARGV[6])
 
 -- Check if chat exists
 local meta = redis.call('GET', metaKey)
@@ -261,6 +263,13 @@ redis.call('SET', metaKey, cjson.encode(data))
 
 -- Update user chats ZSET
 redis.call('ZADD', userChatsKey, userChatsScore, chatId)
+
+-- Apply TTL for guest users (ttl > 0 means guest)
+if ttl > 0 then
+	redis.call('EXPIRE', metaKey, ttl)
+	redis.call('EXPIRE', msgsKey, ttl)
+	redis.call('EXPIRE', userChatsKey, ttl)
+end
 
 return 1
 `;
@@ -313,20 +322,11 @@ export async function appendMessageToCache(
 		}
 
 		// Use Lua script for atomic operation (single round-trip!)
-		const result = await redis.eval(
+		await redis.eval(
 			APPEND_MESSAGE_SCRIPT,
 			[metaKey, msgsKey, userChatsKey],
-			[JSON.stringify(message), now, Date.now().toString(), chatId, msgScore.toString()]
+			[JSON.stringify(message), now, Date.now().toString(), chatId, msgScore.toString(), isGuest ? GUEST_CACHE_TTL_SECONDS.toString() : "0"]
 		);
-
-		// Apply TTL for guest users if update was successful
-		if (result === 1 && isGuest) {
-			const pipeline = redis.pipeline();
-			pipeline.expire(metaKey, GUEST_CACHE_TTL_SECONDS);
-			pipeline.expire(msgsKey, GUEST_CACHE_TTL_SECONDS);
-			pipeline.expire(userChatsKey, GUEST_CACHE_TTL_SECONDS);
-			await pipeline.exec();
-		}
 	} catch (error) {
 		logError("Redis appendMessageToCache error", error);
 	}
@@ -335,6 +335,7 @@ export async function appendMessageToCache(
 /**
  * Lua script for atomic bulk message append with existence check
  * Uses ZADD for each message with its timestamp score
+ * Includes TTL application for guest users (eliminates separate EXPIRE round-trip)
  * Returns 1 if successful, 0 if chat doesn't exist
  */
 const APPEND_MESSAGES_SCRIPT = `
@@ -345,6 +346,7 @@ local now = ARGV[1]
 local userChatsScore = tonumber(ARGV[2])
 local chatId = ARGV[3]
 local msgCount = tonumber(ARGV[4])
+local ttl = tonumber(ARGV[5])
 
 -- Check if chat exists
 local meta = redis.call('GET', metaKey)
@@ -352,8 +354,8 @@ if not meta then
 	return 0
 end
 
--- Add messages to ZSET (ARGV[5] onwards: score1, msg1, score2, msg2, ...)
-for i = 5, #ARGV, 2 do
+-- Add messages to ZSET (ARGV[6] onwards: score1, msg1, score2, msg2, ...)
+for i = 6, 6 + (msgCount * 2) - 1, 2 do
 	local msgScore = tonumber(ARGV[i])
 	local msgStr = ARGV[i + 1]
 	if msgScore and msgStr then
@@ -369,6 +371,13 @@ redis.call('SET', metaKey, cjson.encode(data))
 
 -- Update user chats ZSET
 redis.call('ZADD', userChatsKey, userChatsScore, chatId)
+
+-- Apply TTL for guest users (ttl > 0 means guest)
+if ttl > 0 then
+	redis.call('EXPIRE', metaKey, ttl)
+	redis.call('EXPIRE', msgsKey, ttl)
+	redis.call('EXPIRE', userChatsKey, ttl)
+end
 
 return 1
 `;
@@ -430,20 +439,11 @@ export async function appendMessagesToCache(
 		}
 
 		// Use Lua script for atomic operation (single round-trip!)
-		const result = await redis.eval(
+		await redis.eval(
 			APPEND_MESSAGES_SCRIPT,
 			[metaKey, msgsKey, userChatsKey],
-			[now, Date.now().toString(), chatId, messages.length.toString(), ...scoreMessagePairs]
+			[now, Date.now().toString(), chatId, messages.length.toString(), isGuest ? GUEST_CACHE_TTL_SECONDS.toString() : "0", ...scoreMessagePairs]
 		);
-
-		// Apply TTL for guest users if update was successful
-		if (result === 1 && isGuest) {
-			const pipeline = redis.pipeline();
-			pipeline.expire(metaKey, GUEST_CACHE_TTL_SECONDS);
-			pipeline.expire(msgsKey, GUEST_CACHE_TTL_SECONDS);
-			pipeline.expire(userChatsKey, GUEST_CACHE_TTL_SECONDS);
-			await pipeline.exec();
-		}
 	} catch (error) {
 		logError("Redis appendMessagesToCache error", error);
 	}
@@ -465,10 +465,8 @@ export async function deleteMessagesFromCacheAfterTimestamp(
 	}
 
 	try {
-		const metaKey = CacheKeys.chatMeta(chatId, userId);
 		const msgsKey = CacheKeys.chatMessages(chatId, userId);
 		const timestampMs = timestamp.getTime();
-		const now = new Date().toISOString();
 
 		// Use pipeline for atomic delete + metadata update
 		// ZREMRANGEBYSCORE is O(log N + M) where M = deleted messages
@@ -541,7 +539,7 @@ async function updateChatMetadataAtomically(
 /**
  * Update chat title in cache - O(1) atomic operation
  */
-export async function updateChatTitleInCache(
+export function updateChatTitleInCache(
 	chatId: string,
 	userId: string,
 	title: string
@@ -552,7 +550,7 @@ export async function updateChatTitleInCache(
 /**
  * Update chat last context in cache - O(1) atomic operation
  */
-export async function updateChatLastContextInCache(
+export function updateChatLastContextInCache(
 	chatId: string,
 	userId: string,
 	context: AppUsage
@@ -563,7 +561,7 @@ export async function updateChatLastContextInCache(
 /**
  * Update chat visibility in cache - O(1) atomic operation
  */
-export async function updateChatVisibilityInCache(
+export function updateChatVisibilityInCache(
 	chatId: string,
 	userId: string,
 	visibility: VisibilityType
