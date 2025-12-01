@@ -341,5 +341,16 @@ export const getReasoningModel = () => {
 	);
 };
 
-export const getLanguageModel = (id: string): LanguageModelV2 =>
-	providerRegistry.languageModel(id as `${string}:${string}`);
+export const getLanguageModel = (id: string): LanguageModelV2 => {
+	// Look up metadata to get the actual modelId (may differ from the id suffix)
+	const metadata = getModelById(id);
+	if (metadata) {
+		// Use providerId:modelId to get the actual model from the provider
+		const resolvedId = `${metadata.providerId}:${metadata.modelId}`;
+		return providerRegistry.languageModel(
+			resolvedId as `${string}:${string}`
+		);
+	}
+	// Fallback to direct id if not found in catalog
+	return providerRegistry.languageModel(id as `${string}:${string}`);
+};
