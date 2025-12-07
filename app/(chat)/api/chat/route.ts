@@ -58,6 +58,12 @@ const TOOL_IDS = [
 
 type ToolId = (typeof TOOL_IDS)[number];
 
+// Input validation limits
+const MAX_MESSAGE_LENGTH = 100_000; // 100KB limit for message content
+const MAX_PARTS_COUNT = 50; // Maximum number of parts in a message
+const MAX_PLACEHOLDER_TITLE_LENGTH = 80;
+const DEFAULT_CHAT_TITLE = "New Chat";
+
 type ToolIdList = ToolId[];
 
 const getEnabledTools = (model: ModelMetadata | undefined): ToolIdList => {
@@ -106,6 +112,23 @@ export async function POST(request: Request) {
 	try {
 		const json = await request.json();
 		requestBody = postRequestBodySchema.parse(json);
+
+		// Validate message size to prevent oversized requests
+		const messageText = JSON.stringify(requestBody.message);
+		if (messageText.length > MAX_MESSAGE_LENGTH) {
+			return new ChatSDKError(
+				"bad_request:api",
+				"Message exceeds maximum size limit"
+			).toResponse();
+		}
+
+		// Validate parts count
+		if (requestBody.message.parts && requestBody.message.parts.length > MAX_PARTS_COUNT) {
+			return new ChatSDKError(
+				"bad_request:api",
+				"Too many message parts"
+			).toResponse();
+		}
 	} catch (_) {
 		return new ChatSDKError("bad_request:api:invalid_json").toResponse();
 	}
@@ -166,9 +189,23 @@ export async function POST(request: Request) {
 			!userEntitlements ||
 			userMessageCount > userEntitlements.maxMessagesPerDay
 		) {
-			return new ChatSDKError(
-				"rate_limit:chat:daily_limit_exceeded"
-			).toResponse();
+			// Return rate limit error with informational headers
+			const maxMessages = userEntitlements?.maxMessagesPerDay ?? 0;
+			return new Response(
+				JSON.stringify({
+					code: "rate_limit:chat:daily_limit_exceeded",
+					message: "Daily message limit exceeded.",
+				}),
+				{
+					status: 429,
+					headers: {
+						"Content-Type": "application/json",
+						"X-RateLimit-Limit": String(maxMessages),
+						"X-RateLimit-Remaining": "0",
+						"Retry-After": "86400", // 24 hours
+					},
+				}
+			);
 		}
 
 		let chatCreatedAt: Date | undefined;
@@ -195,10 +232,10 @@ export async function POST(request: Request) {
 					);
 					const base = (textPart?.text || "").trim();
 					const trimmed =
-						base.length > 0 ? base.slice(0, 80) : "New Chat";
+						base.length > 0 ? base.slice(0, MAX_PLACEHOLDER_TITLE_LENGTH) : DEFAULT_CHAT_TITLE;
 					return trimmed;
 				} catch {
-					return "New Chat";
+					return DEFAULT_CHAT_TITLE;
 				}
 			})();
 

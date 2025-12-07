@@ -1,5 +1,5 @@
-import { getAppSession } from "@/lib/auth/session";
 import type { ArtifactKind } from "@/components/artifact";
+import { getAppSession } from "@/lib/auth/session";
 import { createContext } from "@/lib/data/base";
 import { documentData } from "@/lib/data/document";
 import { ChatSDKError } from "@/lib/errors";
@@ -74,34 +74,28 @@ export async function POST(request: Request) {
 		await bodyPromise;
 
 	const documents = await documentData.getAll(id, ctx);
+	const mostRecent = documents.at(-1);
 
-	let chatId: string | null = null;
-
-	if (documents.length > 0) {
-		const mostRecent = documents.at(-1);
-		if (!mostRecent) {
-			return new ChatSDKError("not_found:document").toResponse();
-		}
-
-		if (mostRecent.userId !== session.user.id) {
-			return new ChatSDKError("forbidden:document").toResponse();
-		}
-
-		chatId = mostRecent.chatId;
-	} else {
+	if (!mostRecent) {
 		return new ChatSDKError(
 			"bad_request:document:no_chat_context",
 			"Cannot save document without existing chat context"
 		).toResponse();
 	}
 
+	if (mostRecent.userId !== session.user.id) {
+		return new ChatSDKError("forbidden:document").toResponse();
+	}
+
+	const chatId = mostRecent.chatId;
+
 	const document = await documentData.save(
 		{
-		id,
-		content,
-		title,
-		kind,
-		chatId,
+			id,
+			content,
+			title,
+			kind,
+			chatId,
 		},
 		ctx
 	);

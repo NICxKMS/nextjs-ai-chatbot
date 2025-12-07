@@ -41,12 +41,20 @@ export const fetcher = async (url: string) => {
   return response.json();
 };
 
+const DEFAULT_FETCH_TIMEOUT_MS = 30_000;
+
 export async function fetchWithErrorHandlers(
   input: RequestInfo | URL,
   init?: RequestInit,
 ) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), DEFAULT_FETCH_TIMEOUT_MS);
+
   try {
-    const response = await fetch(input, init);
+    const response = await fetch(input, {
+      ...init,
+      signal: init?.signal ?? controller.signal,
+    });
 
     if (!response.ok) {
       let code: ErrorCode = 'bad_request:api';
@@ -71,11 +79,18 @@ export async function fetchWithErrorHandlers(
 
     return response;
   } catch (error: unknown) {
+    // Handle timeout errors
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new ChatSDKError('offline:chat', 'Request timed out');
+    }
+
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       throw new ChatSDKError('offline:chat');
     }
 
     throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

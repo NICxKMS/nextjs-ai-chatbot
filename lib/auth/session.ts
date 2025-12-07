@@ -167,6 +167,8 @@ export async function createGuestSession(): Promise<AppSession | null> {
 		path: "/",
 		maxAge: GUEST_TTL_SECONDS,
 		sameSite: "lax",
+		// Partitioned cookies provide additional isolation in cross-site contexts
+		...(isProductionEnvironment && { partitioned: true }),
 	});
 
 	return {

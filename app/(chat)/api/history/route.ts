@@ -40,10 +40,17 @@ export async function GET(request: NextRequest) {
 		ctx
 	);
 
-	return Response.json({
-		chats: result.items,
-		hasMore: result.hasMore,
-	});
+	return Response.json(
+		{
+			chats: result.items,
+			hasMore: result.hasMore,
+		},
+		{
+			headers: {
+				"Cache-Control": "private, s-maxage=10, stale-while-revalidate=59",
+			},
+		}
+	);
 }
 
 export async function DELETE() {

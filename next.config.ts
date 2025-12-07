@@ -4,9 +4,10 @@ const nextConfig: NextConfig = {
 	cacheComponents: true,
 	reactCompiler: true,
 	productionBrowserSourceMaps: false,
-	reactStrictMode: false,
+	reactStrictMode: true,
 
 	experimental: {
+		ppr: true,
 		inlineCss: true,
 		optimizePackageImports: [
 			"lucide-react",

@@ -48,6 +48,11 @@ const Artifact = dynamic(() => import("./artifact").then((m) => m.Artifact), {
 	ssr: false,
 });
 
+// Network-adaptive throttle values (ms)
+const THROTTLE_FAST_MS = 50; // 4G/5G connections
+const THROTTLE_SLOW_MS = 150; // 3G connections
+const THROTTLE_DEFAULT_MS = 100;
+
 // Experimental Network Information API type
 type NetworkInformation = {
 	effectiveType?: "slow-2g" | "2g" | "3g" | "4g" | "5g";
@@ -98,6 +103,14 @@ export function Chat({
 	const [currentModelId, setCurrentModelId] = useState(initialChatModel);
 	const currentModelIdRef = useRef(currentModelId);
 
+	// Track mount state to prevent timer callbacks after unmount
+	const isMountedRef = useRef(true);
+	useEffect(() => {
+		return () => {
+			isMountedRef.current = false;
+		};
+	}, []);
+
 	const getCurrentModel = useCallback(
 		() =>
 			availableModels.find(
@@ -132,13 +145,13 @@ export function Chat({
 			const nav = navigator as NavigatorWithConnection;
 			const conn = nav.connection;
 			if (conn?.effectiveType === "4g" || conn?.effectiveType === "5g") {
-				return 50; // Faster for good connections
+				return THROTTLE_FAST_MS;
 			}
 			if (conn?.effectiveType === "3g") {
-				return 150; // Slower for 3G
+				return THROTTLE_SLOW_MS;
 			}
 		}
-		return 100; // Default
+		return THROTTLE_DEFAULT_MS;
 	}, []);
 
 	const { messages, setMessages, sendMessage, status, stop, regenerate } =
@@ -329,12 +342,19 @@ export function Chat({
 	const { session } = useAuth();
 	const isGuest = session?.user?.type === "guest";
 
-	// Use server-provided votes (no client-side fetching for new messages)
-	// Votes are only fetched server-side when loading existing chats
-	// and updated optimistically when user votes
+	/**
+	 * Votes use server-provided data only (no client-side fetching).
+	 *
+	 * Why null fetcher:
+	 * - Votes are fetched server-side when loading existing chats
+	 * - New votes are updated optimistically via mutate()
+	 * - Eliminates unnecessary API calls during streaming
+	 *
+	 * If initialVotes is stale, user can refresh the page.
+	 */
 	const { data: votes } = useSWR<UserVote[]>(
 		`/api/vote?chatId=${id}`,
-		null, // No fetcher - we never fetch votes client-side
+		null, // No fetcher - relies on server-provided fallbackData
 		{
 			fallbackData: initialVotes || [],
 			revalidateOnFocus: false,

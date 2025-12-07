@@ -16,7 +16,9 @@
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
     "test": "export PLAYWRIGHT=True && pnpm exec playwright test",
-    "analyze": "next build --analyze"
+    "analyze": "next build --analyze",
+    "audit": "pnpm audit --audit-level=high",
+    "audit:fix": "pnpm audit --fix"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^1.0.41",

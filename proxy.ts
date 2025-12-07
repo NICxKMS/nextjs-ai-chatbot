@@ -1,5 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+// Content Security Policy header for enhanced security
+const CSP_DIRECTIVES = [
+	"default-src 'self'",
+	"script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+	"style-src 'self' 'unsafe-inline'",
+	"img-src 'self' blob: data: https://avatar.vercel.sh https://*.blob.vercel-storage.com",
+	"font-src 'self' data:",
+	"connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.vercel.app",
+	"frame-ancestors 'none'",
+	"base-uri 'self'",
+	"form-action 'self'",
+].join("; ");
+
 export async function proxy(request: NextRequest) {
 	const { pathname } = request.nextUrl;
 
@@ -11,8 +24,15 @@ export async function proxy(request: NextRequest) {
 		return new Response("pong", { status: 200 });
 	}
 
-	// Let all other requests pass through without auth redirects.
-	return NextResponse.next();
+	// Add security headers to all responses
+	const response = NextResponse.next();
+	response.headers.set("Content-Security-Policy", CSP_DIRECTIVES);
+	response.headers.set("X-Content-Type-Options", "nosniff");
+	response.headers.set("X-Frame-Options", "DENY");
+	response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+	response.headers.set("X-DNS-Prefetch-Control", "on");
+	
+	return response;
 }
 
 export const config = {
