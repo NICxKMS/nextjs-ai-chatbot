@@ -1,5 +1,5 @@
-import { getAppSession } from "@/lib/auth/session";
 import type { ArtifactKind } from "@/components/artifact";
+import { getAppSession } from "@/lib/auth/session";
 import { createContext } from "@/lib/data/base";
 import { documentData } from "@/lib/data/document";
 import { ChatSDKError } from "@/lib/errors";
@@ -97,11 +97,11 @@ export async function POST(request: Request) {
 
 	const document = await documentData.save(
 		{
-		id,
-		content,
-		title,
-		kind,
-		chatId,
+			id,
+			content,
+			title,
+			kind,
+			chatId,
 		},
 		ctx
 	);

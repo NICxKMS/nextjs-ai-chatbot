@@ -809,12 +809,9 @@ export const messageData = {
 				// Bulk append for each chat - skip existence check as we trust the caller
 				for (const [chatId, cachedMsgs] of messagesByChatId.entries()) {
 					cachePromises.push(
-						appendMessagesToCache(
-							chatId,
-							ctx.userId,
-							cachedMsgs,
-							{ skipExistenceCheck: true }
-						)
+						appendMessagesToCache(chatId, ctx.userId, cachedMsgs, {
+							skipExistenceCheck: true,
+						})
 					);
 				}
 			}
@@ -879,7 +876,7 @@ export const messageData = {
 						visibility,
 						messages: cachedMessages,
 						lastContext,
-						isNewChat: true,
+						_isNewChat: true,
 					});
 				} else {
 					// For existing chats, use batch update
@@ -963,7 +960,7 @@ export const messageData = {
 								messages: cachedMessages,
 								lastContext,
 								createdAt,
-								isNewChat: true,
+								_isNewChat: true,
 							});
 						} else {
 							// For existing chats, use batch update

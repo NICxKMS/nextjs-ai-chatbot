@@ -41,7 +41,8 @@ export async function generateTitleFromUserMessage({
 		// Fallback to extracting first part of message text if title generation fails
 		const textPart = message.parts?.find(
 			(p): p is { type: "text"; text: string } =>
-				p.type === "text" && typeof (p as { text?: string }).text === "string"
+				p.type === "text" &&
+				typeof (p as { text?: string }).text === "string"
 		);
 		const fallbackTitle = textPart?.text?.slice(0, 80).trim() || "New Chat";
 		return fallbackTitle;
