@@ -9,36 +9,36 @@ import { isTestEnvironment } from "@/lib/constants";
  * @returns A short title (max 80 chars)
  */
 export async function generateTitleFromUserMessage({
-	message,
+    message,
 }: {
-	message: UIMessage;
+    message: UIMessage;
 }): Promise<string> {
-	try {
-		const titleModel = isTestEnvironment
-			? myProvider.languageModel("title-model")
-			: myProvider.languageModel(DEFAULT_TITLE_MODEL);
+    try {
+        const titleModel = isTestEnvironment
+            ? myProvider.languageModel("title-model")
+            : myProvider.languageModel(DEFAULT_TITLE_MODEL);
 
-		const { text: title } = await generateText({
-			model: titleModel,
-			system: `\n
+        const { text: title } = await generateText({
+            model: titleModel,
+            system: `\n
     - you will generate a short title based on the first message a user begins a conversation with
     - ensure it is not more than 80 characters long
     - the title should be a summary of the user's message
     - do not use quotes or colons`,
-			prompt: JSON.stringify(message),
-		});
+            prompt: JSON.stringify(message),
+        });
 
-		return title || "New Chat";
-	} catch {
-		// Fallback to extracting first part of message text if title generation fails
-		const textPart = message.parts?.find(
-			(p): p is { type: "text"; text: string } =>
-				p.type === "text" &&
-				typeof (p as { text?: string }).text === "string"
-		);
-		const fallbackTitle = textPart?.text?.slice(0, 80).trim() || "New Chat";
-		return fallbackTitle;
-	}
+        return title || "New Chat";
+    } catch {
+        // Fallback to extracting first part of message text if title generation fails
+        const textPart = message.parts?.find(
+            (p): p is { type: "text"; text: string } =>
+                p.type === "text" &&
+                typeof (p as { text?: string }).text === "string"
+        );
+        const fallbackTitle = textPart?.text?.slice(0, 80).trim() || "New Chat";
+        return fallbackTitle;
+    }
 }
 
 /**
@@ -46,16 +46,16 @@ export async function generateTitleFromUserMessage({
  * Used as immediate title while async generation happens
  */
 export function generatePlaceholderTitle(message: UIMessage): string {
-	try {
-		const parts = message.parts as Array<{ type: string; text?: string }>;
-		const textPart = parts?.find(
-			(p): p is { type: "text"; text: string } =>
-				p?.type === "text" && typeof p.text === "string"
-		);
-		const base = (textPart?.text || "").trim();
-		const trimmed = base.length > 0 ? base.slice(0, 80) : "New Chat";
-		return trimmed;
-	} catch {
-		return "New Chat";
-	}
+    try {
+        const parts = message.parts as Array<{ type: string; text?: string }>;
+        const textPart = parts?.find(
+            (p): p is { type: "text"; text: string } =>
+                p?.type === "text" && typeof p.text === "string"
+        );
+        const base = (textPart?.text || "").trim();
+        const trimmed = base.length > 0 ? base.slice(0, 80) : "New Chat";
+        return trimmed;
+    } catch {
+        return "New Chat";
+    }
 }

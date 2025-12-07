@@ -15,8 +15,8 @@ import type { Chat, MessageRow } from "../db/schema";
  * Contains user identification and guest status
  */
 export type DataContext = {
-	userId: string;
-	isGuest: boolean;
+    userId: string;
+    isGuest: boolean;
 };
 
 /**
@@ -28,14 +28,14 @@ export type DataContext = {
  * @throws Error if session or user is missing
  */
 export function createContext(session: AppSession): DataContext {
-	if (!session?.user?.id) {
-		throw new Error("Session user ID is required");
-	}
+    if (!session?.user?.id) {
+        throw new Error("Session user ID is required");
+    }
 
-	return {
-		userId: session.user.id,
-		isGuest: session.user.type === "guest",
-	};
+    return {
+        userId: session.user.id,
+        isGuest: session.user.type === "guest",
+    };
 }
 
 /**
@@ -46,7 +46,7 @@ export function createContext(session: AppSession): DataContext {
  * @returns true if user is a guest, false otherwise
  */
 export function isGuest(session: AppSession | null | undefined): boolean {
-	return session?.user?.type === "guest";
+    return session?.user?.type === "guest";
 }
 
 /**
@@ -54,44 +54,44 @@ export function isGuest(session: AppSession | null | undefined): boolean {
  * Used for operations that fetch both chat metadata and messages together
  */
 export type ChatWithMessages = {
-	chat: Chat;
-	messages: MessageRow[];
+    chat: Chat;
+    messages: MessageRow[];
 };
 
 /**
  * Pagination parameters for list operations
  */
 export type PaginationParams = {
-	limit: number;
-	startingAfter: string | null;
-	endingBefore: string | null;
+    limit: number;
+    startingAfter: string | null;
+    endingBefore: string | null;
 };
 
 /**
  * Paginated list result
  */
 export type PaginatedResult<T> = {
-	items: T[];
-	hasMore: boolean;
+    items: T[];
+    hasMore: boolean;
 };
 
 /**
  * Operation result wrapper for operations that may fail gracefully
  */
 export type OperationResult<T> =
-	| { success: true; data: T }
-	| { success: false; error: string };
+    | { success: true; data: T }
+    | { success: false; error: string };
 
 /**
  * Create a successful operation result
  */
 export function success<T>(data: T): OperationResult<T> {
-	return { success: true, data };
+    return { success: true, data };
 }
 
 /**
  * Create a failed operation result
  */
 export function failure<T>(error: string): OperationResult<T> {
-	return { success: false, error };
+    return { success: false, error };
 }

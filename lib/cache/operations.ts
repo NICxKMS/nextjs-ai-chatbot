@@ -8,12 +8,12 @@ import { dbMessageToCachedMessage } from "./helpers";
 import { withCacheMetrics } from "./metrics";
 import { getRedisClient, isRedisAvailable } from "./redis";
 import {
-	type CachedChat,
-	type CachedChatMeta,
-	type CachedDocument,
-	type CachedMessage,
-	CacheKeys,
-	type DocumentVersion,
+    type CachedChat,
+    type CachedChatMeta,
+    type CachedDocument,
+    type CachedMessage,
+    CacheKeys,
+    type DocumentVersion,
 } from "./types";
 
 /**
@@ -49,12 +49,12 @@ const GUEST_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
  * ZSET returns members as strings (the JSON we stored)
  */
 function parseMessagesFromRaw(messagesRaw: unknown[]): CachedMessage[] {
-	return (messagesRaw || []).map((msgStr) => {
-		if (typeof msgStr === "string") {
-			return JSON.parse(msgStr) as CachedMessage;
-		}
-		return msgStr as CachedMessage;
-	});
+    return (messagesRaw || []).map((msgStr) => {
+        if (typeof msgStr === "string") {
+            return JSON.parse(msgStr) as CachedMessage;
+        }
+        return msgStr as CachedMessage;
+    });
 }
 
 /**
@@ -69,19 +69,19 @@ function parseMessagesFromRaw(messagesRaw: unknown[]): CachedMessage[] {
  * This guarantees: system < user < assistant for same-timestamp messages
  */
 function getMessageScore(message: CachedMessage): number {
-	const baseTimestamp = new Date(message.createdAt).getTime();
+    const baseTimestamp = new Date(message.createdAt).getTime();
 
-	// Add role-based microsecond offset to ensure correct ordering
-	// when multiple messages share the same createdAt timestamp
-	let roleOffset = 0;
-	if (message.role === "user") {
-		roleOffset = 0.001; // User messages sort first (after system)
-	} else if (message.role === "assistant") {
-		roleOffset = 0.002; // Assistant messages sort after user
-	}
-	// system messages get 0 offset (sort before user)
+    // Add role-based microsecond offset to ensure correct ordering
+    // when multiple messages share the same createdAt timestamp
+    let roleOffset = 0;
+    if (message.role === "user") {
+        roleOffset = 0.001; // User messages sort first (after system)
+    } else if (message.role === "assistant") {
+        roleOffset = 0.002; // Assistant messages sort after user
+    }
+    // system messages get 0 offset (sort before user)
 
-	return baseTimestamp + roleOffset;
+    return baseTimestamp + roleOffset;
 }
 
 /**
@@ -89,15 +89,15 @@ function getMessageScore(message: CachedMessage): number {
  * Centralizes the repetitive TTL application pattern
  */
 function applyGuestTTL(
-	pipeline: ReturnType<import("@upstash/redis").Redis["pipeline"]>,
-	keys: string[],
-	userId: string
+    pipeline: ReturnType<import("@upstash/redis").Redis["pipeline"]>,
+    keys: string[],
+    userId: string
 ): void {
-	if (userId.startsWith("guest:")) {
-		for (const key of keys) {
-			pipeline.expire(key, GUEST_CACHE_TTL_SECONDS);
-		}
-	}
+    if (userId.startsWith("guest:")) {
+        for (const key of keys) {
+            pipeline.expire(key, GUEST_CACHE_TTL_SECONDS);
+        }
+    }
 }
 
 /**
@@ -114,70 +114,70 @@ function applyGuestTTL(
  * consider using getLastMessagesFromCache() with pagination instead.
  */
 export async function getChatFromCache(
-	chatId: string,
-	userId: string,
-	opts?: { maxMessages?: number }
+    chatId: string,
+    userId: string,
+    opts?: { maxMessages?: number }
 ): Promise<CachedChat | null> {
-	const result = await withCacheMetrics("get_chat", async () => {
-		const redis = getRedisClient();
-		if (!redis) {
-			return null;
-		}
+    const result = await withCacheMetrics("get_chat", async () => {
+        const redis = getRedisClient();
+        if (!redis) {
+            return null;
+        }
 
-		try {
-			const metaKey = CacheKeys.chatMeta(chatId, userId);
-			const msgsKey = CacheKeys.chatMessages(chatId, userId);
+        try {
+            const metaKey = CacheKeys.chatMeta(chatId, userId);
+            const msgsKey = CacheKeys.chatMessages(chatId, userId);
 
-			// Fetch metadata and messages in parallel
-			// ZRANGE returns all members sorted by score (timestamp) ascending
-			// If maxMessages is specified, only fetch the last N messages for performance
-			const [meta, messagesRaw] = await Promise.all([
-				redis.get<CachedChatMeta>(metaKey),
-				opts?.maxMessages
-					? redis.zrange(msgsKey, -opts.maxMessages, -1)
-					: redis.zrange(msgsKey, 0, -1),
-			]);
+            // Fetch metadata and messages in parallel
+            // ZRANGE returns all members sorted by score (timestamp) ascending
+            // If maxMessages is specified, only fetch the last N messages for performance
+            const [meta, messagesRaw] = await Promise.all([
+                redis.get<CachedChatMeta>(metaKey),
+                opts?.maxMessages
+                    ? redis.zrange(msgsKey, -opts.maxMessages, -1)
+                    : redis.zrange(msgsKey, 0, -1),
+            ]);
 
-			if (!meta) {
-				return null;
-			}
+            if (!meta) {
+                return null;
+            }
 
-			// Parse messages using centralized helper
-			const messages = parseMessagesFromRaw(messagesRaw);
+            // Parse messages using centralized helper
+            const messages = parseMessagesFromRaw(messagesRaw);
 
-			return {
-				...meta,
-				messages,
-			};
-		} catch (error) {
-			logError("Redis getChatFromCache error", error);
-			return null;
-		}
-	});
+            return {
+                ...meta,
+                messages,
+            };
+        } catch (error) {
+            logError("Redis getChatFromCache error", error);
+            return null;
+        }
+    });
 
-	return result ?? null;
+    return result ?? null;
 } /**
  * Get chat metadata only (without messages) - faster for list views
  */
 export async function getChatMetaFromCache(
-	chatId: string,
-	userId: string
+    chatId: string,
+    userId: string
 ): Promise<CachedChatMeta | null> {
-	const redis = getRedisClient();
-	if (!redis) {
-		return null;
-	}
+    const redis = getRedisClient();
+    if (!redis) {
+        return null;
+    }
 
-	try {
-		const metaKey = CacheKeys.chatMeta(chatId, userId);
-		if (!metaKey) {
-			return null;
-		}
-		return await redis.get<CachedChatMeta>(metaKey);
-	} catch (error) {
-		logError("Redis getChatMetaFromCache error", error);
-		return null;
-	}
+    try {
+        const metaKey = CacheKeys.chatMeta(chatId, userId);
+        if (!metaKey) {
+            return null;
+        }
+        return await redis.get<CachedChatMeta>(metaKey);
+    } catch (error) {
+        logError("Redis getChatMetaFromCache error", error);
+        return null;
+    }
 }
 
 /**
@@ -185,25 +185,25 @@ export async function getChatMetaFromCache(
  * Uses ZRANGE with REV to get newest messages first, then reverses
  */
 export async function getLastMessagesFromCache(
-	chatId: string,
-	userId: string,
-	count: number
+    chatId: string,
+    userId: string,
+    count: number
 ): Promise<CachedMessage[]> {
-	const redis = getRedisClient();
-	if (!redis) {
-		return [];
-	}
+    const redis = getRedisClient();
+    if (!redis) {
+        return [];
+    }
 
-	try {
-		const msgsKey = CacheKeys.chatMessages(chatId, userId);
-		// Get last N messages (highest scores = newest)
-		const messagesRaw = await redis.zrange(msgsKey, -count, -1);
+    try {
+        const msgsKey = CacheKeys.chatMessages(chatId, userId);
+        // Get last N messages (highest scores = newest)
+        const messagesRaw = await redis.zrange(msgsKey, -count, -1);
 
-		return parseMessagesFromRaw(messagesRaw);
-	} catch (error) {
-		logError("Redis getLastMessagesFromCache error", error);
-		return [];
-	}
+        return parseMessagesFromRaw(messagesRaw);
+    } catch (error) {
+        logError("Redis getLastMessagesFromCache error", error);
+        return [];
+    }
 }
 
 /**
@@ -211,52 +211,52 @@ export async function getLastMessagesFromCache(
  * Uses ZSET for messages with timestamp scores
  */
 export async function setChatInCache(
-	chatId: string,
-	userId: string,
-	chat: CachedChat
+    chatId: string,
+    userId: string,
+    chat: CachedChat
 ): Promise<void> {
-	const redis = getRedisClient();
-	if (!redis) {
-		return;
-	}
+    const redis = getRedisClient();
+    if (!redis) {
+        return;
+    }
 
-	try {
-		const metaKey = CacheKeys.chatMeta(chatId, userId);
-		const msgsKey = CacheKeys.chatMessages(chatId, userId);
-		const userChatsKey = CacheKeys.userChats(userId);
+    try {
+        const metaKey = CacheKeys.chatMeta(chatId, userId);
+        const msgsKey = CacheKeys.chatMessages(chatId, userId);
+        const userChatsKey = CacheKeys.userChats(userId);
 
-		// Extract metadata (without messages)
-		const { messages, ...meta } = chat;
+        // Extract metadata (without messages)
+        const { messages, ...meta } = chat;
 
-		// Use pipeline for atomic operations
-		const pipeline = redis.pipeline();
+        // Use pipeline for atomic operations
+        const pipeline = redis.pipeline();
 
-		// Set metadata
-		pipeline.set(metaKey, meta);
+        // Set metadata
+        pipeline.set(metaKey, meta);
 
-		// Clear existing messages and set new ones using ZSET
-		if (messages.length > 0) {
-			pipeline.del(msgsKey);
-			// ZADD with score=timestamp for each message
-			for (const msg of messages) {
-				const score = getMessageScore(msg);
-				pipeline.zadd(msgsKey, { score, member: JSON.stringify(msg) });
-			}
-		}
+        // Clear existing messages and set new ones using ZSET
+        if (messages.length > 0) {
+            pipeline.del(msgsKey);
+            // ZADD with score=timestamp for each message
+            for (const msg of messages) {
+                const score = getMessageScore(msg);
+                pipeline.zadd(msgsKey, { score, member: JSON.stringify(msg) });
+            }
+        }
 
-		// Update user chats ZSET
-		pipeline.zadd(userChatsKey, {
-			score: Date.parse(chat.updatedAt),
-			member: chatId,
-		});
+        // Update user chats ZSET
+        pipeline.zadd(userChatsKey, {
+            score: Date.parse(chat.updatedAt),
+            member: chatId,
+        });
 
-		// Apply TTL for guest users
-		applyGuestTTL(pipeline, [metaKey, msgsKey, userChatsKey], userId);
+        // Apply TTL for guest users
+        applyGuestTTL(pipeline, [metaKey, msgsKey, userChatsKey], userId);
 
-		await pipeline.exec();
-	} catch (error) {
-		logError("Redis setChatInCache error", error);
-	}
+        await pipeline.exec();
+    } catch (error) {
+        logError("Redis setChatInCache error", error);
+    }
 }
 
 /**
@@ -310,66 +310,66 @@ return 1
  * @param opts.skipExistenceCheck - Skip metadata check when caller confirms chat exists
  */
 export async function appendMessageToCache(
-	chatId: string,
-	userId: string,
-	message: CachedMessage,
-	opts?: { skipExistenceCheck?: boolean }
+    chatId: string,
+    userId: string,
+    message: CachedMessage,
+    opts?: { skipExistenceCheck?: boolean }
 ): Promise<void> {
-	const redis = getRedisClient();
-	if (!redis) {
-		return;
-	}
+    const redis = getRedisClient();
+    if (!redis) {
+        return;
+    }
 
-	try {
-		const metaKey = CacheKeys.chatMeta(chatId, userId);
-		const msgsKey = CacheKeys.chatMessages(chatId, userId);
-		const userChatsKey = CacheKeys.userChats(userId);
-		const now = new Date().toISOString();
-		const isGuest = userId.startsWith("guest:");
-		const msgScore = getMessageScore(message);
+    try {
+        const metaKey = CacheKeys.chatMeta(chatId, userId);
+        const msgsKey = CacheKeys.chatMessages(chatId, userId);
+        const userChatsKey = CacheKeys.userChats(userId);
+        const now = new Date().toISOString();
+        const isGuest = userId.startsWith("guest:");
+        const msgScore = getMessageScore(message);
 
-		if (opts?.skipExistenceCheck) {
-			// Use pipeline directly when caller confirms chat exists
-			const pipeline = redis.pipeline();
+        if (opts?.skipExistenceCheck) {
+            // Use pipeline directly when caller confirms chat exists
+            const pipeline = redis.pipeline();
 
-			// Add message to ZSET with timestamp score
-			pipeline.zadd(msgsKey, {
-				score: msgScore,
-				member: JSON.stringify(message),
-			});
+            // Add message to ZSET with timestamp score
+            pipeline.zadd(msgsKey, {
+                score: msgScore,
+                member: JSON.stringify(message),
+            });
 
-			// Update user chats ZSET
-			pipeline.zadd(userChatsKey, {
-				score: Date.now(),
-				member: chatId,
-			});
+            // Update user chats ZSET
+            pipeline.zadd(userChatsKey, {
+                score: Date.now(),
+                member: chatId,
+            });
 
-			// Apply TTL for guest users
-			if (isGuest) {
-				pipeline.expire(msgsKey, GUEST_CACHE_TTL_SECONDS);
-				pipeline.expire(userChatsKey, GUEST_CACHE_TTL_SECONDS);
-			}
+            // Apply TTL for guest users
+            if (isGuest) {
+                pipeline.expire(msgsKey, GUEST_CACHE_TTL_SECONDS);
+                pipeline.expire(userChatsKey, GUEST_CACHE_TTL_SECONDS);
+            }
 
-			await pipeline.exec();
-			return;
-		}
+            await pipeline.exec();
+            return;
+        }
 
-		// Use Lua script for atomic operation (single round-trip!)
-		await redis.eval(
-			APPEND_MESSAGE_SCRIPT,
-			[metaKey, msgsKey, userChatsKey],
-			[
-				JSON.stringify(message),
-				now,
-				Date.now().toString(),
-				chatId,
-				msgScore.toString(),
-				isGuest ? GUEST_CACHE_TTL_SECONDS.toString() : "0",
-			]
-		);
-	} catch (error) {
-		logError("Redis appendMessageToCache error", error);
-	}
+        // Use Lua script for atomic operation (single round-trip!)
+        await redis.eval(
+            APPEND_MESSAGE_SCRIPT,
+            [metaKey, msgsKey, userChatsKey],
+            [
+                JSON.stringify(message),
+                now,
+                Date.now().toString(),
+                chatId,
+                msgScore.toString(),
+                isGuest ? GUEST_CACHE_TTL_SECONDS.toString() : "0",
+            ]
+        );
+    } catch (error) {
+        logError("Redis appendMessageToCache error", error);
+    }
 }
 
 /**
@@ -428,72 +428,72 @@ return 1
  * @param opts.skipExistenceCheck - Skip metadata check when caller confirms chat exists
  */
 export async function appendMessagesToCache(
-	chatId: string,
-	userId: string,
-	messages: CachedMessage[],
-	opts?: { skipExistenceCheck?: boolean }
+    chatId: string,
+    userId: string,
+    messages: CachedMessage[],
+    opts?: { skipExistenceCheck?: boolean }
 ): Promise<void> {
-	const redis = getRedisClient();
-	if (!redis || messages.length === 0) {
-		return;
-	}
+    const redis = getRedisClient();
+    if (!redis || messages.length === 0) {
+        return;
+    }
 
-	try {
-		const metaKey = CacheKeys.chatMeta(chatId, userId);
-		const msgsKey = CacheKeys.chatMessages(chatId, userId);
-		const userChatsKey = CacheKeys.userChats(userId);
-		const now = new Date().toISOString();
-		const isGuest = userId.startsWith("guest:");
+    try {
+        const metaKey = CacheKeys.chatMeta(chatId, userId);
+        const msgsKey = CacheKeys.chatMessages(chatId, userId);
+        const userChatsKey = CacheKeys.userChats(userId);
+        const now = new Date().toISOString();
+        const isGuest = userId.startsWith("guest:");
 
-		if (opts?.skipExistenceCheck) {
-			// Use pipeline directly when caller confirms chat exists
-			const pipeline = redis.pipeline();
+        if (opts?.skipExistenceCheck) {
+            // Use pipeline directly when caller confirms chat exists
+            const pipeline = redis.pipeline();
 
-			// Add all messages to ZSET with timestamp scores
-			for (const msg of messages) {
-				const score = getMessageScore(msg);
-				pipeline.zadd(msgsKey, { score, member: JSON.stringify(msg) });
-			}
+            // Add all messages to ZSET with timestamp scores
+            for (const msg of messages) {
+                const score = getMessageScore(msg);
+                pipeline.zadd(msgsKey, { score, member: JSON.stringify(msg) });
+            }
 
-			// Update user chats ZSET
-			pipeline.zadd(userChatsKey, {
-				score: Date.now(),
-				member: chatId,
-			});
+            // Update user chats ZSET
+            pipeline.zadd(userChatsKey, {
+                score: Date.now(),
+                member: chatId,
+            });
 
-			// Apply TTL for guest users
-			if (isGuest) {
-				pipeline.expire(msgsKey, GUEST_CACHE_TTL_SECONDS);
-				pipeline.expire(userChatsKey, GUEST_CACHE_TTL_SECONDS);
-			}
+            // Apply TTL for guest users
+            if (isGuest) {
+                pipeline.expire(msgsKey, GUEST_CACHE_TTL_SECONDS);
+                pipeline.expire(userChatsKey, GUEST_CACHE_TTL_SECONDS);
+            }
 
-			await pipeline.exec();
-			return;
-		}
+            await pipeline.exec();
+            return;
+        }
 
-		// Prepare score-message pairs for Lua script
-		const scoreMessagePairs: string[] = [];
-		for (const msg of messages) {
-			scoreMessagePairs.push(getMessageScore(msg).toString());
-			scoreMessagePairs.push(JSON.stringify(msg));
-		}
+        // Prepare score-message pairs for Lua script
+        const scoreMessagePairs: string[] = [];
+        for (const msg of messages) {
+            scoreMessagePairs.push(getMessageScore(msg).toString());
+            scoreMessagePairs.push(JSON.stringify(msg));
+        }
 
-		// Use Lua script for atomic operation (single round-trip!)
-		await redis.eval(
-			APPEND_MESSAGES_SCRIPT,
-			[metaKey, msgsKey, userChatsKey],
-			[
-				now,
-				Date.now().toString(),
-				chatId,
-				messages.length.toString(),
-				isGuest ? GUEST_CACHE_TTL_SECONDS.toString() : "0",
-				...scoreMessagePairs,
-			]
-		);
-	} catch (error) {
-		logError("Redis appendMessagesToCache error", error);
-	}
+        // Use Lua script for atomic operation (single round-trip!)
+        await redis.eval(
+            APPEND_MESSAGES_SCRIPT,
+            [metaKey, msgsKey, userChatsKey],
+            [
+                now,
+                Date.now().toString(),
+                chatId,
+                messages.length.toString(),
+                isGuest ? GUEST_CACHE_TTL_SECONDS.toString() : "0",
+                ...scoreMessagePairs,
+            ]
+        );
+    } catch (error) {
+        logError("Redis appendMessagesToCache error", error);
+    }
 }
 
 /**
@@ -502,39 +502,39 @@ export async function appendMessagesToCache(
  * This is the key advantage of ZSET over List for message storage.
  */
 export async function deleteMessagesFromCacheAfterTimestamp(
-	chatId: string,
-	userId: string,
-	timestamp: Date
+    chatId: string,
+    userId: string,
+    timestamp: Date
 ): Promise<void> {
-	const redis = getRedisClient();
-	if (!redis) {
-		return;
-	}
+    const redis = getRedisClient();
+    if (!redis) {
+        return;
+    }
 
-	try {
-		const msgsKey = CacheKeys.chatMessages(chatId, userId);
-		const timestampMs = timestamp.getTime();
+    try {
+        const msgsKey = CacheKeys.chatMessages(chatId, userId);
+        const timestampMs = timestamp.getTime();
 
-		// Use pipeline for atomic delete + metadata update
-		// ZREMRANGEBYSCORE is O(log N + M) where M = deleted messages
-		// No Lua iteration required!
-		const pipeline = redis.pipeline();
+        // Use pipeline for atomic delete + metadata update
+        // ZREMRANGEBYSCORE is O(log N + M) where M = deleted messages
+        // No Lua iteration required!
+        const pipeline = redis.pipeline();
 
-		// Remove all messages with score >= timestamp (at or after)
-		// Use a very large number for max to represent +inf
-		pipeline.zremrangebyscore(
-			msgsKey,
-			timestampMs,
-			Number.MAX_SAFE_INTEGER
-		);
+        // Remove all messages with score >= timestamp (at or after)
+        // Use a very large number for max to represent +inf
+        pipeline.zremrangebyscore(
+            msgsKey,
+            timestampMs,
+            Number.MAX_SAFE_INTEGER
+        );
 
-		await pipeline.exec();
+        await pipeline.exec();
 
-		// Update metadata version (separate call, but metadata update is fast)
-		await updateChatMetadataAtomically(chatId, userId, {});
-	} catch (error) {
-		logError("Redis deleteMessagesFromCacheAfterTimestamp error", error);
-	}
+        // Update metadata version (separate call, but metadata update is fast)
+        await updateChatMetadataAtomically(chatId, userId, {});
+    } catch (error) {
+        logError("Redis deleteMessagesFromCacheAfterTimestamp error", error);
+    }
 }
 
 /**
@@ -564,137 +564,137 @@ return cjson.encode(data)
  * @param updates Partial metadata updates
  */
 async function updateChatMetadataAtomically(
-	chatId: string,
-	userId: string,
-	updates: Partial<
-		Pick<CachedChatMeta, "title" | "visibility" | "lastContext">
-	>
+    chatId: string,
+    userId: string,
+    updates: Partial<
+        Pick<CachedChatMeta, "title" | "visibility" | "lastContext">
+    >
 ): Promise<void> {
-	const redis = getRedisClient();
-	if (!redis) {
-		return;
-	}
+    const redis = getRedisClient();
+    if (!redis) {
+        return;
+    }
 
-	try {
-		const metaKey = CacheKeys.chatMeta(chatId, userId);
-		const now = new Date().toISOString();
+    try {
+        const metaKey = CacheKeys.chatMeta(chatId, userId);
+        const now = new Date().toISOString();
 
-		await redis.eval(
-			UPDATE_META_SCRIPT,
-			[metaKey],
-			[JSON.stringify(updates), now]
-		);
-	} catch (error) {
-		logError("Redis updateChatMetadataAtomically error", error);
-	}
+        await redis.eval(
+            UPDATE_META_SCRIPT,
+            [metaKey],
+            [JSON.stringify(updates), now]
+        );
+    } catch (error) {
+        logError("Redis updateChatMetadataAtomically error", error);
+    }
 }
 
 /**
  * Update chat title in cache - O(1) atomic operation
  */
 export function updateChatTitleInCache(
-	chatId: string,
-	userId: string,
-	title: string
+    chatId: string,
+    userId: string,
+    title: string
 ): Promise<void> {
-	return updateChatMetadataAtomically(chatId, userId, { title });
+    return updateChatMetadataAtomically(chatId, userId, { title });
 }
 
 /**
  * Update chat last context in cache - O(1) atomic operation
  */
 export function updateChatLastContextInCache(
-	chatId: string,
-	userId: string,
-	context: AppUsage
+    chatId: string,
+    userId: string,
+    context: AppUsage
 ): Promise<void> {
-	return updateChatMetadataAtomically(chatId, userId, {
-		lastContext: context,
-	});
+    return updateChatMetadataAtomically(chatId, userId, {
+        lastContext: context,
+    });
 }
 
 /**
  * Update chat visibility in cache - O(1) atomic operation
  */
 export function updateChatVisibilityInCache(
-	chatId: string,
-	userId: string,
-	visibility: VisibilityType
+    chatId: string,
+    userId: string,
+    visibility: VisibilityType
 ): Promise<void> {
-	return updateChatMetadataAtomically(chatId, userId, { visibility });
+    return updateChatMetadataAtomically(chatId, userId, { visibility });
 }
 
 /**
  * Delete chat from cache
  */
 export async function deleteChatFromCache(
-	chatId: string,
-	userId: string
+    chatId: string,
+    userId: string
 ): Promise<void> {
-	const redis = getRedisClient();
-	if (!redis) {
-		return;
-	}
+    const redis = getRedisClient();
+    if (!redis) {
+        return;
+    }
 
-	try {
-		const metaKey = CacheKeys.chatMeta(chatId, userId);
-		const msgsKey = CacheKeys.chatMessages(chatId, userId);
-		const userChatsKey = CacheKeys.userChats(userId);
+    try {
+        const metaKey = CacheKeys.chatMeta(chatId, userId);
+        const msgsKey = CacheKeys.chatMessages(chatId, userId);
+        const userChatsKey = CacheKeys.userChats(userId);
 
-		// Delete all keys atomically
-		const pipeline = redis.pipeline();
-		pipeline.del(metaKey);
-		pipeline.del(msgsKey);
-		pipeline.zrem(userChatsKey, chatId);
-		await pipeline.exec();
-	} catch (error) {
-		logError("Redis deleteChatFromCache error", error);
-	}
+        // Delete all keys atomically
+        const pipeline = redis.pipeline();
+        pipeline.del(metaKey);
+        pipeline.del(msgsKey);
+        pipeline.zrem(userChatsKey, chatId);
+        await pipeline.exec();
+    } catch (error) {
+        logError("Redis deleteChatFromCache error", error);
+    }
 }
 
 /**
  * Get user's chats from ZSET (paginated, sorted by updatedAt desc)
  */
 export async function getUserChatsFromCache(
-	userId: string,
-	limit = 10,
-	offset = 0
+    userId: string,
+    limit = 10,
+    offset = 0
 ): Promise<{ chatId: string; title: string }[]> {
-	const redis = getRedisClient();
-	if (!redis) {
-		return [];
-	}
+    const redis = getRedisClient();
+    if (!redis) {
+        return [];
+    }
 
-	try {
-		// Get from ZSET in reverse order (newest first)
-		const items = await redis.zrange<string[]>(
-			CacheKeys.userChats(userId),
-			offset,
-			offset + limit - 1,
-			{ rev: true }
-		);
+    try {
+        // Get from ZSET in reverse order (newest first)
+        const items = await redis.zrange<string[]>(
+            CacheKeys.userChats(userId),
+            offset,
+            offset + limit - 1,
+            { rev: true }
+        );
 
-		// Deduplicate chat IDs defensively
-		const uniqueChatIdsSet = new Set<string>();
-		const uniqueChatIds: string[] = [];
-		for (const item of items) {
-			if (!uniqueChatIdsSet.has(item)) {
-				uniqueChatIdsSet.add(item);
-				uniqueChatIds.push(item);
-			}
-			if (uniqueChatIds.length >= limit) {
-				break;
-			}
-		}
+        // Deduplicate chat IDs defensively
+        const uniqueChatIdsSet = new Set<string>();
+        const uniqueChatIds: string[] = [];
+        for (const item of items) {
+            if (!uniqueChatIdsSet.has(item)) {
+                uniqueChatIdsSet.add(item);
+                uniqueChatIds.push(item);
+            }
+            if (uniqueChatIds.length >= limit) {
+                break;
+            }
+        }
 
-		return uniqueChatIds.map((cid) => ({
-			chatId: cid,
-			title: "New Chat",
-		}));
-	} catch (error) {
-		logError("Redis getUserChatsFromCache error", error);
-		return [];
-	}
+        return uniqueChatIds.map((cid) => ({
+            chatId: cid,
+            title: "New Chat",
+        }));
+    } catch (error) {
+        logError("Redis getUserChatsFromCache error", error);
+        return [];
+    }
 }
 
 /**
@@ -702,22 +702,22 @@ export async function getUserChatsFromCache(
  * Uses ZCARD for ZSET cardinality
  */
 export async function getMessageCountFromCache(
-	chatId: string,
-	userId: string
+    chatId: string,
+    userId: string
 ): Promise<number> {
-	const redis = getRedisClient();
-	if (!redis) {
-		return 0;
-	}
+    const redis = getRedisClient();
+    if (!redis) {
+        return 0;
+    }
 
-	try {
-		const msgsKey = CacheKeys.chatMessages(chatId, userId);
-		const count = await redis.zcard(msgsKey);
-		return count || 0;
-	} catch (error) {
-		logError("Redis getMessageCountFromCache error", error);
-		return 0;
-	}
+    try {
+        const msgsKey = CacheKeys.chatMessages(chatId, userId);
+        const count = await redis.zcard(msgsKey);
+        return count || 0;
+    } catch (error) {
+        logError("Redis getMessageCountFromCache error", error);
+        return 0;
+    }
 }
 
 /**
@@ -728,61 +728,61 @@ export async function getMessageCountFromCache(
 
 // Get document from cache
 export async function getDocumentFromCache(
-	documentId: string,
-	userId: string
+    documentId: string,
+    userId: string
 ): Promise<CachedDocument | null> {
-	const redis = getRedisClient();
-	if (!redis) {
-		return null;
-	}
+    const redis = getRedisClient();
+    if (!redis) {
+        return null;
+    }
 
-	try {
-		const cached = await redis.get<CachedDocument>(
-			CacheKeys.document(documentId, userId)
-		);
-		return cached;
-	} catch (error) {
-		logError("Redis getDocumentFromCache error", error);
-		return null;
-	}
+    try {
+        const cached = await redis.get<CachedDocument>(
+            CacheKeys.document(documentId, userId)
+        );
+        return cached;
+    } catch (error) {
+        logError("Redis getDocumentFromCache error", error);
+        return null;
+    }
 }
 
 // Set document in cache
 export async function setDocumentInCache(
-	documentId: string,
-	userId: string,
-	document: CachedDocument
+    documentId: string,
+    userId: string,
+    document: CachedDocument
 ): Promise<void> {
-	const redis = getRedisClient();
-	if (!redis) {
-		return;
-	}
+    const redis = getRedisClient();
+    if (!redis) {
+        return;
+    }
 
-	try {
-		await redis.set(CacheKeys.document(documentId, userId), document);
-	} catch (error) {
-		logError("Redis setDocumentInCache error", error);
-	}
+    try {
+        await redis.set(CacheKeys.document(documentId, userId), document);
+    } catch (error) {
+        logError("Redis setDocumentInCache error", error);
+    }
 }
 
 // Append new version to document cache
 export async function appendDocumentVersionToCache(
-	documentId: string,
-	userId: string,
-	version: DocumentVersion,
-	opts?: { chatId?: string }
+    documentId: string,
+    userId: string,
+    version: DocumentVersion,
+    opts?: { chatId?: string }
 ): Promise<void> {
-	const redis = getRedisClient();
-	if (!redis) {
-		return;
-	}
+    const redis = getRedisClient();
+    if (!redis) {
+        return;
+    }
 
-	try {
-		const docKey = CacheKeys.document(documentId, userId);
-		const chatId = opts?.chatId ?? "";
+    try {
+        const docKey = CacheKeys.document(documentId, userId);
+        const chatId = opts?.chatId ?? "";
 
-		// Atomic Lua script to append version or create document
-		const script = `
+        // Atomic Lua script to append version or create document
+        const script = `
 			local cached = redis.call('GET', KEYS[1])
 			if not cached then
 				local newDoc = {
@@ -800,32 +800,32 @@ export async function appendDocumentVersionToCache(
 			return 1
 		`;
 
-		await redis.eval(
-			script,
-			[docKey],
-			[documentId, userId, chatId, JSON.stringify(version)]
-		);
-	} catch (error) {
-		logError("Redis appendDocumentVersionToCache error", error);
-	}
+        await redis.eval(
+            script,
+            [docKey],
+            [documentId, userId, chatId, JSON.stringify(version)]
+        );
+    } catch (error) {
+        logError("Redis appendDocumentVersionToCache error", error);
+    }
 }
 
 // Delete document versions from cache after timestamp
 export async function deleteDocumentVersionsFromCacheAfterTimestamp(
-	documentId: string,
-	userId: string,
-	timestamp: Date
+    documentId: string,
+    userId: string,
+    timestamp: Date
 ): Promise<void> {
-	const redis = getRedisClient();
-	if (!redis) {
-		return;
-	}
+    const redis = getRedisClient();
+    if (!redis) {
+        return;
+    }
 
-	try {
-		const docKey = CacheKeys.document(documentId, userId);
-		const timestampMs = timestamp.getTime();
+    try {
+        const docKey = CacheKeys.document(documentId, userId);
+        const timestampMs = timestamp.getTime();
 
-		const script = `
+        const script = `
 			local cached = redis.call('GET', KEYS[1])
 			if not cached then
 				return 0
@@ -851,13 +851,13 @@ export async function deleteDocumentVersionsFromCacheAfterTimestamp(
 			return 1
 		`;
 
-		await redis.eval(script, [docKey], [timestampMs.toString()]);
-	} catch (error) {
-		logError(
-			"Redis deleteDocumentVersionsFromCacheAfterTimestamp error",
-			error
-		);
-	}
+        await redis.eval(script, [docKey], [timestampMs.toString()]);
+    } catch (error) {
+        logError(
+            "Redis deleteDocumentVersionsFromCacheAfterTimestamp error",
+            error
+        );
+    }
 }
 
 /**
@@ -867,40 +867,40 @@ export async function deleteDocumentVersionsFromCacheAfterTimestamp(
  */
 
 export function chatToCache(chat: Chat, messages: DBMessage[]): CachedChat {
-	return {
-		id: chat.id,
-		userId: chat.userId,
-		title: chat.title,
-		visibility: chat.visibility,
-		createdAt: chat.createdAt.toISOString(),
-		updatedAt: chat.updatedAt.toISOString(),
-		lastContext: chat.lastContext,
-		messages: messages.map(dbMessageToCachedMessage),
-		version: 1,
-	};
+    return {
+        id: chat.id,
+        userId: chat.userId,
+        title: chat.title,
+        visibility: chat.visibility,
+        createdAt: chat.createdAt.toISOString(),
+        updatedAt: chat.updatedAt.toISOString(),
+        lastContext: chat.lastContext,
+        messages: messages.map(dbMessageToCachedMessage),
+        version: 1,
+    };
 }
 
 export function documentsToCache(documents: Document[]): CachedDocument | null {
-	if (documents.length === 0) {
-		return null;
-	}
+    if (documents.length === 0) {
+        return null;
+    }
 
-	const first = documents[0];
-	if (!first) {
-		return null;
-	}
-	return {
-		id: first.id,
-		userId: first.userId,
-		chatId: first.chatId,
-		versions: documents.map((doc) => ({
-			title: doc.title,
-			content: doc.content,
-			kind: doc.kind,
-			createdAt: doc.createdAt.toISOString(),
-			updatedAt: doc.updatedAt.toISOString(),
-		})),
-	};
+    const first = documents[0];
+    if (!first) {
+        return null;
+    }
+    return {
+        id: first.id,
+        userId: first.userId,
+        chatId: first.chatId,
+        versions: documents.map((doc) => ({
+            title: doc.title,
+            content: doc.content,
+            kind: doc.kind,
+            createdAt: doc.createdAt.toISOString(),
+            updatedAt: doc.updatedAt.toISOString(),
+        })),
+    };
 }
 
 /**
@@ -910,30 +910,30 @@ export function documentsToCache(documents: Document[]): CachedDocument | null {
  */
 
 export async function warmChatCache(
-	chatId: string,
-	userId: string,
-	chat: Chat,
-	messages: DBMessage[]
+    chatId: string,
+    userId: string,
+    chat: Chat,
+    messages: DBMessage[]
 ): Promise<void> {
-	if (!isRedisAvailable()) {
-		return;
-	}
+    if (!isRedisAvailable()) {
+        return;
+    }
 
-	const cached = chatToCache(chat, messages);
-	await setChatInCache(chatId, userId, cached);
+    const cached = chatToCache(chat, messages);
+    await setChatInCache(chatId, userId, cached);
 }
 
 export async function warmDocumentCache(
-	documentId: string,
-	userId: string,
-	documents: Document[]
+    documentId: string,
+    userId: string,
+    documents: Document[]
 ): Promise<void> {
-	if (!isRedisAvailable()) {
-		return;
-	}
+    if (!isRedisAvailable()) {
+        return;
+    }
 
-	const cached = documentsToCache(documents);
-	if (cached) {
-		await setDocumentInCache(documentId, userId, cached);
-	}
+    const cached = documentsToCache(documents);
+    if (cached) {
+        await setDocumentInCache(documentId, userId, cached);
+    }
 }

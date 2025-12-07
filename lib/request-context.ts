@@ -13,11 +13,11 @@ import { randomUUID } from "node:crypto";
  * - Async-safe context propagation
  */
 export type RequestContext = {
-	requestId: string;
-	userId?: string;
-	startTime: number;
-	path?: string;
-	method?: string;
+    requestId: string;
+    userId?: string;
+    startTime: number;
+    path?: string;
+    method?: string;
 };
 
 // AsyncLocalStorage for request-scoped context
@@ -28,7 +28,7 @@ const requestContextStorage = new AsyncLocalStorage<RequestContext>();
  * Uses UUID v4 for uniqueness
  */
 export function generateRequestId(): string {
-	return randomUUID();
+    return randomUUID();
 }
 
 /**
@@ -36,7 +36,7 @@ export function generateRequestId(): string {
  * Returns undefined if called outside of a request scope
  */
 export function getRequestContext(): RequestContext | undefined {
-	return requestContextStorage.getStore();
+    return requestContextStorage.getStore();
 }
 
 /**
@@ -44,7 +44,7 @@ export function getRequestContext(): RequestContext | undefined {
  * Returns undefined if called outside of a request scope
  */
 export function getRequestId(): string | undefined {
-	return requestContextStorage.getStore()?.requestId;
+    return requestContextStorage.getStore()?.requestId;
 }
 
 /**
@@ -52,18 +52,18 @@ export function getRequestId(): string | undefined {
  * Creates a new context with a unique request ID
  */
 export function runWithRequestContext<T>(
-	fn: () => T,
-	initialContext?: Partial<RequestContext>
+    fn: () => T,
+    initialContext?: Partial<RequestContext>
 ): T {
-	const context: RequestContext = {
-		requestId: initialContext?.requestId ?? generateRequestId(),
-		userId: initialContext?.userId,
-		startTime: initialContext?.startTime ?? Date.now(),
-		path: initialContext?.path,
-		method: initialContext?.method,
-	};
+    const context: RequestContext = {
+        requestId: initialContext?.requestId ?? generateRequestId(),
+        userId: initialContext?.userId,
+        startTime: initialContext?.startTime ?? Date.now(),
+        path: initialContext?.path,
+        method: initialContext?.method,
+    };
 
-	return requestContextStorage.run(context, fn);
+    return requestContextStorage.run(context, fn);
 }
 
 /**
@@ -71,18 +71,18 @@ export function runWithRequestContext<T>(
  * Creates a new context with a unique request ID
  */
 export function runWithRequestContextAsync<T>(
-	fn: () => Promise<T>,
-	initialContext?: Partial<RequestContext>
+    fn: () => Promise<T>,
+    initialContext?: Partial<RequestContext>
 ): Promise<T> {
-	const context: RequestContext = {
-		requestId: initialContext?.requestId ?? generateRequestId(),
-		userId: initialContext?.userId,
-		startTime: initialContext?.startTime ?? Date.now(),
-		path: initialContext?.path,
-		method: initialContext?.method,
-	};
+    const context: RequestContext = {
+        requestId: initialContext?.requestId ?? generateRequestId(),
+        userId: initialContext?.userId,
+        startTime: initialContext?.startTime ?? Date.now(),
+        path: initialContext?.path,
+        method: initialContext?.method,
+    };
 
-	return requestContextStorage.run(context, fn);
+    return requestContextStorage.run(context, fn);
 }
 
 /**
@@ -90,31 +90,31 @@ export function runWithRequestContextAsync<T>(
  * Useful for adding user ID after authentication
  */
 export function updateRequestContext(
-	updates: Partial<Omit<RequestContext, "requestId" | "startTime">>
+    updates: Partial<Omit<RequestContext, "requestId" | "startTime">>
 ): void {
-	const current = requestContextStorage.getStore();
-	if (current) {
-		if (updates.userId !== undefined) {
-			current.userId = updates.userId;
-		}
-		if (updates.path !== undefined) {
-			current.path = updates.path;
-		}
-		if (updates.method !== undefined) {
-			current.method = updates.method;
-		}
-	}
+    const current = requestContextStorage.getStore();
+    if (current) {
+        if (updates.userId !== undefined) {
+            current.userId = updates.userId;
+        }
+        if (updates.path !== undefined) {
+            current.path = updates.path;
+        }
+        if (updates.method !== undefined) {
+            current.method = updates.method;
+        }
+    }
 }
 
 /**
  * Get elapsed time since request start in milliseconds
  */
 export function getRequestDuration(): number | undefined {
-	const ctx = requestContextStorage.getStore();
-	if (!ctx) {
-		return;
-	}
-	return Date.now() - ctx.startTime;
+    const ctx = requestContextStorage.getStore();
+    if (!ctx) {
+        return;
+    }
+    return Date.now() - ctx.startTime;
 }
 
 /**
@@ -122,43 +122,43 @@ export function getRequestDuration(): number | undefined {
  * Extracts request ID from X-Request-ID header if present
  */
 export function createContextFromHeaders(
-	headers: Headers,
-	method?: string,
-	path?: string
+    headers: Headers,
+    method?: string,
+    path?: string
 ): Partial<RequestContext> {
-	const requestId = headers.get("x-request-id") ?? generateRequestId();
-	return {
-		requestId,
-		method,
-		path,
-		startTime: Date.now(),
-	};
+    const requestId = headers.get("x-request-id") ?? generateRequestId();
+    return {
+        requestId,
+        method,
+        path,
+        startTime: Date.now(),
+    };
 }
 
 /**
  * Format request context for logging
  */
 export function formatRequestContext(ctx?: RequestContext): string {
-	if (!ctx) {
-		return "[no-context]";
-	}
+    if (!ctx) {
+        return "[no-context]";
+    }
 
-	const parts = [`req=${ctx.requestId.slice(0, 8)}`];
+    const parts = [`req=${ctx.requestId.slice(0, 8)}`];
 
-	if (ctx.userId) {
-		// Truncate user ID for privacy
-		const truncatedUserId = ctx.userId.startsWith("guest:")
-			? `guest:${ctx.userId.slice(6, 14)}...`
-			: `${ctx.userId.slice(0, 8)}...`;
-		parts.push(`user=${truncatedUserId}`);
-	}
+    if (ctx.userId) {
+        // Truncate user ID for privacy
+        const truncatedUserId = ctx.userId.startsWith("guest:")
+            ? `guest:${ctx.userId.slice(6, 14)}...`
+            : `${ctx.userId.slice(0, 8)}...`;
+        parts.push(`user=${truncatedUserId}`);
+    }
 
-	if (ctx.method && ctx.path) {
-		parts.push(`${ctx.method} ${ctx.path}`);
-	}
+    if (ctx.method && ctx.path) {
+        parts.push(`${ctx.method} ${ctx.path}`);
+    }
 
-	const duration = Date.now() - ctx.startTime;
-	parts.push(`${duration}ms`);
+    const duration = Date.now() - ctx.startTime;
+    parts.push(`${duration}ms`);
 
-	return `[${parts.join(" ")}]`;
+    return `[${parts.join(" ")}]`;
 }

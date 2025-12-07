@@ -12,146 +12,146 @@ import { Greeting } from "./greeting";
 import { PreviewMessage, ThinkingMessage } from "./message";
 
 type MessagesProps = {
-	chatId: string;
-	status: UseChatHelpers<ChatMessage>["status"];
-	votes: UserVote[] | undefined;
-	messages: ChatMessage[];
-	setMessages: UseChatHelpers<ChatMessage>["setMessages"];
-	regenerate: UseChatHelpers<ChatMessage>["regenerate"];
-	isReadonly: boolean;
-	isGuest: boolean;
-	isArtifactVisible: boolean;
-	selectedModelId: string;
+    chatId: string;
+    status: UseChatHelpers<ChatMessage>["status"];
+    votes: UserVote[] | undefined;
+    messages: ChatMessage[];
+    setMessages: UseChatHelpers<ChatMessage>["setMessages"];
+    regenerate: UseChatHelpers<ChatMessage>["regenerate"];
+    isReadonly: boolean;
+    isGuest: boolean;
+    isArtifactVisible: boolean;
+    selectedModelId: string;
 };
 
 function PureMessages({
-	chatId,
-	status,
-	votes,
-	messages,
-	setMessages,
-	regenerate,
-	isReadonly,
-	isGuest,
+    chatId,
+    status,
+    votes,
+    messages,
+    setMessages,
+    regenerate,
+    isReadonly,
+    isGuest,
 }: MessagesProps) {
-	const {
-		containerRef: messagesContainerRef,
-		endRef: messagesEndRef,
-		isAtBottom,
-		scrollToBottom,
-		hasSentMessage,
-	} = useMessages({
-		status,
-	});
+    const {
+        containerRef: messagesContainerRef,
+        endRef: messagesEndRef,
+        isAtBottom,
+        scrollToBottom,
+        hasSentMessage,
+    } = useMessages({
+        status,
+    });
 
-	useDataStream();
-	const { autoScroll } = useSettingsSnapshot();
+    useDataStream();
+    const { autoScroll } = useSettingsSnapshot();
 
-	useEffect(() => {
-		if (status === "submitted" && autoScroll) {
-			requestAnimationFrame(() => {
-				const container = messagesContainerRef.current;
-				if (container) {
-					container.scrollTo({
-						top: container.scrollHeight,
-						behavior: "smooth",
-					});
-				}
-			});
-		}
-	}, [status, autoScroll, messagesContainerRef]);
+    useEffect(() => {
+        if (status === "submitted" && autoScroll) {
+            requestAnimationFrame(() => {
+                const container = messagesContainerRef.current;
+                if (container) {
+                    container.scrollTo({
+                        top: container.scrollHeight,
+                        behavior: "smooth",
+                    });
+                }
+            });
+        }
+    }, [status, autoScroll, messagesContainerRef]);
 
-	return (
-		<div
-			className="overscroll-behavior-contain -webkit-overflow-scrolling-touch flex-1 touch-pan-y overflow-y-scroll"
-			ref={messagesContainerRef}
-			style={{ overflowAnchor: "none" }}
-		>
-			<Conversation className="mx-auto flex min-w-0 max-w-4xl flex-col gap-4 md:gap-6">
-				<ConversationContent className="flex flex-col gap-4 px-2 py-4 md:gap-6 md:px-4">
-					{messages.length === 0 && <Greeting />}
+    return (
+        <div
+            className="overscroll-behavior-contain -webkit-overflow-scrolling-touch flex-1 touch-pan-y overflow-y-scroll"
+            ref={messagesContainerRef}
+            style={{ overflowAnchor: "none" }}
+        >
+            <Conversation className="mx-auto flex min-w-0 max-w-4xl flex-col gap-4 md:gap-6">
+                <ConversationContent className="flex flex-col gap-4 px-2 py-4 md:gap-6 md:px-4">
+                    {messages.length === 0 && <Greeting />}
 
-					{messages.map((message, index) => (
-						<PreviewMessage
-							chatId={chatId}
-							isLoading={
-								status === "streaming" &&
-								messages.length - 1 === index
-							}
-							isReadonly={isReadonly}
-							key={message.id}
-							message={message}
-							regenerate={regenerate}
-							requiresScrollPadding={
-								hasSentMessage && index === messages.length - 1
-							}
-							setMessages={setMessages}
-							vote={
-								!isGuest && votes
-									? votes.find(
-											(vote) =>
-												vote.messageId === message.id
-										)
-									: undefined
-							}
-						/>
-					))}
+                    {messages.map((message, index) => (
+                        <PreviewMessage
+                            chatId={chatId}
+                            isLoading={
+                                status === "streaming" &&
+                                messages.length - 1 === index
+                            }
+                            isReadonly={isReadonly}
+                            key={message.id}
+                            message={message}
+                            regenerate={regenerate}
+                            requiresScrollPadding={
+                                hasSentMessage && index === messages.length - 1
+                            }
+                            setMessages={setMessages}
+                            vote={
+                                !isGuest && votes
+                                    ? votes.find(
+                                          (vote) =>
+                                              vote.messageId === message.id
+                                      )
+                                    : undefined
+                            }
+                        />
+                    ))}
 
-					<AnimatePresence mode="wait">
-						{status === "submitted" && (
-							<ThinkingMessage key="thinking" />
-						)}
-					</AnimatePresence>
+                    <AnimatePresence mode="wait">
+                        {status === "submitted" && (
+                            <ThinkingMessage key="thinking" />
+                        )}
+                    </AnimatePresence>
 
-					<div
-						className="min-h-[24px] min-w-[24px] shrink-0"
-						ref={messagesEndRef}
-					/>
-				</ConversationContent>
-			</Conversation>
+                    <div
+                        className="min-h-[24px] min-w-[24px] shrink-0"
+                        ref={messagesEndRef}
+                    />
+                </ConversationContent>
+            </Conversation>
 
-			{!isAtBottom && (
-				<button
-					aria-label="Scroll to bottom"
-					className="-translate-x-1/2 absolute bottom-40 left-1/2 z-10 rounded-full border bg-background p-2 shadow-lg transition-colors hover:bg-muted"
-					onClick={() => scrollToBottom("smooth")}
-					type="button"
-				>
-					<ArrowDownIcon className="size-4" />
-				</button>
-			)}
-		</div>
-	);
+            {!isAtBottom && (
+                <button
+                    aria-label="Scroll to bottom"
+                    className="-translate-x-1/2 absolute bottom-40 left-1/2 z-10 rounded-full border bg-background p-2 shadow-lg transition-colors hover:bg-muted"
+                    onClick={() => scrollToBottom("smooth")}
+                    type="button"
+                >
+                    <ArrowDownIcon className="size-4" />
+                </button>
+            )}
+        </div>
+    );
 }
 
 export const Messages = memo(PureMessages, (prevProps, nextProps) => {
-	if (prevProps.isArtifactVisible && nextProps.isArtifactVisible) {
-		return true;
-	}
+    if (prevProps.isArtifactVisible && nextProps.isArtifactVisible) {
+        return true;
+    }
 
-	// During streaming, always re-render to capture text updates
-	if (prevProps.status === "streaming" || nextProps.status === "streaming") {
-		return false;
-	}
+    // During streaming, always re-render to capture text updates
+    if (prevProps.status === "streaming" || nextProps.status === "streaming") {
+        return false;
+    }
 
-	// Status changed (covers non-streaming status transitions)
-	if (prevProps.status !== nextProps.status) {
-		return false;
-	}
-	if (prevProps.selectedModelId !== nextProps.selectedModelId) {
-		return false;
-	}
-	// Fast path: check length before deep equality
-	if (prevProps.messages.length !== nextProps.messages.length) {
-		return false;
-	}
-	if (!equal(prevProps.messages, nextProps.messages)) {
-		return false;
-	}
-	if (!equal(prevProps.votes, nextProps.votes)) {
-		return false;
-	}
+    // Status changed (covers non-streaming status transitions)
+    if (prevProps.status !== nextProps.status) {
+        return false;
+    }
+    if (prevProps.selectedModelId !== nextProps.selectedModelId) {
+        return false;
+    }
+    // Fast path: check length before deep equality
+    if (prevProps.messages.length !== nextProps.messages.length) {
+        return false;
+    }
+    if (!equal(prevProps.messages, nextProps.messages)) {
+        return false;
+    }
+    if (!equal(prevProps.votes, nextProps.votes)) {
+        return false;
+    }
 
-	// All checks passed and not streaming - safe to skip render
-	return true;
+    // All checks passed and not streaming - safe to skip render
+    return true;
 });

@@ -7,36 +7,36 @@ import { ChatSDKError } from "@/lib/errors";
 import type { CustomUIDataTypes } from "@/lib/types";
 
 type DataStreamContextValue = {
-	dataStream: DataUIPart<CustomUIDataTypes>[];
-	setDataStream: React.Dispatch<
-		React.SetStateAction<DataUIPart<CustomUIDataTypes>[]>
-	>;
+    dataStream: DataUIPart<CustomUIDataTypes>[];
+    setDataStream: React.Dispatch<
+        React.SetStateAction<DataUIPart<CustomUIDataTypes>[]>
+    >;
 };
 
 const DataStreamContext = createContext<DataStreamContextValue | null>(null);
 
 export function DataStreamProvider({
-	children,
+    children,
 }: {
-	children: React.ReactNode;
+    children: React.ReactNode;
 }) {
-	const [dataStream, setDataStream] = useState<
-		DataUIPart<CustomUIDataTypes>[]
-	>([]);
+    const [dataStream, setDataStream] = useState<
+        DataUIPart<CustomUIDataTypes>[]
+    >([]);
 
-	const value = useMemo(() => ({ dataStream, setDataStream }), [dataStream]);
+    const value = useMemo(() => ({ dataStream, setDataStream }), [dataStream]);
 
-	return (
-		<DataStreamContext.Provider value={value}>
-			{children}
-		</DataStreamContext.Provider>
-	);
+    return (
+        <DataStreamContext.Provider value={value}>
+            {children}
+        </DataStreamContext.Provider>
+    );
 }
 
 export function useDataStream() {
-	const context = useContext(DataStreamContext);
-	if (!context) {
-		throw new ChatSDKError("bad_request:ui:dataStream_outside_provider");
-	}
-	return context;
+    const context = useContext(DataStreamContext);
+    if (!context) {
+        throw new ChatSDKError("bad_request:ui:dataStream_outside_provider");
+    }
+    return context;
 }

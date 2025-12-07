@@ -11,26 +11,26 @@ import type { CachedMessage, MessageAttachment } from "./types";
  * @returns Cached message format
  */
 export function dbMessageToCachedMessage(msg: DBMessage): CachedMessage {
-	// Ensure attachments is an array (jsonb column can be object or array)
-	let attachments: MessageAttachment[];
-	if (Array.isArray(msg.attachments)) {
-		attachments = msg.attachments as MessageAttachment[];
-	} else if (msg.attachments && typeof msg.attachments === "object") {
-		attachments = [msg.attachments as MessageAttachment];
-	} else {
-		attachments = [];
-	}
+    // Ensure attachments is an array (jsonb column can be object or array)
+    let attachments: MessageAttachment[];
+    if (Array.isArray(msg.attachments)) {
+        attachments = msg.attachments as MessageAttachment[];
+    } else if (msg.attachments && typeof msg.attachments === "object") {
+        attachments = [msg.attachments as MessageAttachment];
+    } else {
+        attachments = [];
+    }
 
-	return {
-		id: msg.id || "",
-		chatId: msg.chatId,
-		role: msg.role,
-		parts: msg.parts,
-		attachments,
-		createdAt: msg.createdAt
-			? msg.createdAt.toISOString()
-			: new Date().toISOString(),
-	};
+    return {
+        id: msg.id || "",
+        chatId: msg.chatId,
+        role: msg.role,
+        parts: msg.parts,
+        attachments,
+        createdAt: msg.createdAt
+            ? msg.createdAt.toISOString()
+            : new Date().toISOString(),
+    };
 }
 
 /**
@@ -40,9 +40,9 @@ export function dbMessageToCachedMessage(msg: DBMessage): CachedMessage {
  * @returns Array of cached messages
  */
 export function dbMessagesToCachedMessages(
-	messages: DBMessage[]
+    messages: DBMessage[]
 ): CachedMessage[] {
-	return messages.map(dbMessageToCachedMessage);
+    return messages.map(dbMessageToCachedMessage);
 }
 
 /**
@@ -52,26 +52,26 @@ export function dbMessagesToCachedMessages(
  * @returns Map of chatId to cached messages array
  */
 export function groupMessagesByChatId(
-	messages: DBMessage[]
+    messages: DBMessage[]
 ): Map<string, CachedMessage[]> {
-	const messagesByChatId = new Map<string, CachedMessage[]>();
+    const messagesByChatId = new Map<string, CachedMessage[]>();
 
-	for (const msg of messages) {
-		if (!msg.chatId) {
-			continue;
-		}
+    for (const msg of messages) {
+        if (!msg.chatId) {
+            continue;
+        }
 
-		const cachedMsg = dbMessageToCachedMessage(msg);
+        const cachedMsg = dbMessageToCachedMessage(msg);
 
-		if (!messagesByChatId.has(msg.chatId)) {
-			messagesByChatId.set(msg.chatId, []);
-		}
+        if (!messagesByChatId.has(msg.chatId)) {
+            messagesByChatId.set(msg.chatId, []);
+        }
 
-		const chatMessages = messagesByChatId.get(msg.chatId);
-		if (chatMessages) {
-			chatMessages.push(cachedMsg);
-		}
-	}
+        const chatMessages = messagesByChatId.get(msg.chatId);
+        if (chatMessages) {
+            chatMessages.push(cachedMsg);
+        }
+    }
 
-	return messagesByChatId;
+    return messagesByChatId;
 }

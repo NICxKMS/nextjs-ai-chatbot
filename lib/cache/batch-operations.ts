@@ -24,7 +24,7 @@ const GUEST_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
  * Get timestamp score for a message (milliseconds since epoch)
  */
 function getMessageScore(message: CachedMessage): number {
-	return new Date(message.createdAt).getTime();
+    return new Date(message.createdAt).getTime();
 }
 
 /**
@@ -170,69 +170,69 @@ end
  * @param opts.skipExistenceCheck - Skip existence check when caller confirms chat exists
  */
 export async function batchUpdateChatCache({
-	chatId,
-	userId,
-	messages,
-	lastContext,
-	title,
-	_skipExistenceCheck,
+    chatId,
+    userId,
+    messages,
+    lastContext,
+    title,
+    _skipExistenceCheck,
 }: {
-	chatId: string;
-	userId: string;
-	messages?: CachedMessage[];
-	lastContext?: AppUsage;
-	title?: string;
-	_skipExistenceCheck?: boolean;
+    chatId: string;
+    userId: string;
+    messages?: CachedMessage[];
+    lastContext?: AppUsage;
+    title?: string;
+    _skipExistenceCheck?: boolean;
 }): Promise<void> {
-	const redis = getRedisClient();
-	if (!redis) {
-		return;
-	}
+    const redis = getRedisClient();
+    if (!redis) {
+        return;
+    }
 
-	try {
-		const metaKey = CacheKeys.chatMeta(chatId, userId);
-		const msgsKey = CacheKeys.chatMessages(chatId, userId);
-		const userChatsKey = CacheKeys.userChats(userId);
-		const now = new Date().toISOString();
-		const isGuest = userId.startsWith("guest:");
+    try {
+        const metaKey = CacheKeys.chatMeta(chatId, userId);
+        const msgsKey = CacheKeys.chatMessages(chatId, userId);
+        const userChatsKey = CacheKeys.userChats(userId);
+        const now = new Date().toISOString();
+        const isGuest = userId.startsWith("guest:");
 
-		// Prepare updates object
-		const updates: { lastContext?: AppUsage; title?: string } = {};
-		if (lastContext) {
-			updates.lastContext = lastContext;
-		}
-		if (title) {
-			updates.title = title;
-		}
+        // Prepare updates object
+        const updates: { lastContext?: AppUsage; title?: string } = {};
+        if (lastContext) {
+            updates.lastContext = lastContext;
+        }
+        if (title) {
+            updates.title = title;
+        }
 
-		// Prepare score-message pairs for ZSET
-		const scoreMessagePairs: string[] = [];
-		if (messages) {
-			for (const msg of messages) {
-				scoreMessagePairs.push(getMessageScore(msg).toString());
-				scoreMessagePairs.push(JSON.stringify(msg));
-			}
-		}
+        // Prepare score-message pairs for ZSET
+        const scoreMessagePairs: string[] = [];
+        if (messages) {
+            for (const msg of messages) {
+                scoreMessagePairs.push(getMessageScore(msg).toString());
+                scoreMessagePairs.push(JSON.stringify(msg));
+            }
+        }
 
-		// Use Lua script for atomic operation (single round-trip)
-		const args = [
-			JSON.stringify(updates),
-			now,
-			Date.now().toString(),
-			chatId,
-			(messages?.length ?? 0).toString(),
-			isGuest ? GUEST_CACHE_TTL_SECONDS.toString() : "0",
-			...scoreMessagePairs,
-		];
+        // Use Lua script for atomic operation (single round-trip)
+        const args = [
+            JSON.stringify(updates),
+            now,
+            Date.now().toString(),
+            chatId,
+            (messages?.length ?? 0).toString(),
+            isGuest ? GUEST_CACHE_TTL_SECONDS.toString() : "0",
+            ...scoreMessagePairs,
+        ];
 
-		await redis.eval(
-			BATCH_UPDATE_SCRIPT,
-			[metaKey, msgsKey, userChatsKey],
-			args
-		);
-	} catch (error) {
-		logError("Redis batchUpdateChatCache error", error);
-	}
+        await redis.eval(
+            BATCH_UPDATE_SCRIPT,
+            [metaKey, msgsKey, userChatsKey],
+            args
+        );
+    } catch (error) {
+        logError("Redis batchUpdateChatCache error", error);
+    }
 }
 
 /**
@@ -241,78 +241,78 @@ export async function batchUpdateChatCache({
  * @param isNewChat - Hint that this is a new chat (optimization only, script handles both)
  */
 export async function createOrUpdateChatWithMessages({
-	chatId,
-	userId,
-	title,
-	visibility,
-	messages,
-	lastContext,
-	createdAt,
-	_isNewChat,
+    chatId,
+    userId,
+    title,
+    visibility,
+    messages,
+    lastContext,
+    createdAt,
+    _isNewChat,
 }: {
-	chatId: string;
-	userId: string;
-	title: string;
-	visibility: VisibilityType;
-	messages: CachedMessage[];
-	lastContext?: AppUsage;
-	createdAt?: Date;
-	_isNewChat?: boolean;
+    chatId: string;
+    userId: string;
+    title: string;
+    visibility: VisibilityType;
+    messages: CachedMessage[];
+    lastContext?: AppUsage;
+    createdAt?: Date;
+    _isNewChat?: boolean;
 }): Promise<void> {
-	const redis = getRedisClient();
-	if (!redis) {
-		return;
-	}
+    const redis = getRedisClient();
+    if (!redis) {
+        return;
+    }
 
-	try {
-		const metaKey = CacheKeys.chatMeta(chatId, userId);
-		const msgsKey = CacheKeys.chatMessages(chatId, userId);
-		const userChatsKey = CacheKeys.userChats(userId);
-		const now = new Date();
-		const nowStr = now.toISOString();
-		const isGuest = userId.startsWith("guest:");
+    try {
+        const metaKey = CacheKeys.chatMeta(chatId, userId);
+        const msgsKey = CacheKeys.chatMessages(chatId, userId);
+        const userChatsKey = CacheKeys.userChats(userId);
+        const now = new Date();
+        const nowStr = now.toISOString();
+        const isGuest = userId.startsWith("guest:");
 
-		// Prepare new metadata (used if creating new chat)
-		const newMeta: CachedChatMeta = {
-			id: chatId,
-			userId,
-			title,
-			visibility,
-			createdAt: createdAt ? createdAt.toISOString() : nowStr,
-			updatedAt: nowStr,
-			lastContext: lastContext || null,
-			version: 1,
-		};
+        // Prepare new metadata (used if creating new chat)
+        const newMeta: CachedChatMeta = {
+            id: chatId,
+            userId,
+            title,
+            visibility,
+            createdAt: createdAt ? createdAt.toISOString() : nowStr,
+            updatedAt: nowStr,
+            lastContext: lastContext || null,
+            version: 1,
+        };
 
-		// Prepare updates for existing chat
-		const updates = {
-			title,
-			lastContext: lastContext || null,
-			updatedAt: nowStr,
-		};
+        // Prepare updates for existing chat
+        const updates = {
+            title,
+            lastContext: lastContext || null,
+            updatedAt: nowStr,
+        };
 
-		// Prepare score-message pairs for ZSET
-		const scoreMessagePairs: string[] = [];
-		for (const msg of messages) {
-			scoreMessagePairs.push(getMessageScore(msg).toString());
-			scoreMessagePairs.push(JSON.stringify(msg));
-		}
+        // Prepare score-message pairs for ZSET
+        const scoreMessagePairs: string[] = [];
+        for (const msg of messages) {
+            scoreMessagePairs.push(getMessageScore(msg).toString());
+            scoreMessagePairs.push(JSON.stringify(msg));
+        }
 
-		// Use Lua script for atomic operation (single round-trip!)
-		await redis.eval(
-			CREATE_OR_UPDATE_SCRIPT,
-			[metaKey, msgsKey, userChatsKey],
-			[
-				JSON.stringify(newMeta),
-				Date.now().toString(),
-				chatId,
-				messages.length.toString(),
-				JSON.stringify(updates),
-				...scoreMessagePairs,
-				isGuest ? GUEST_CACHE_TTL_SECONDS.toString() : "0",
-			]
-		);
-	} catch (error) {
-		logError("Redis createOrUpdateChatWithMessages error", error);
-	}
+        // Use Lua script for atomic operation (single round-trip!)
+        await redis.eval(
+            CREATE_OR_UPDATE_SCRIPT,
+            [metaKey, msgsKey, userChatsKey],
+            [
+                JSON.stringify(newMeta),
+                Date.now().toString(),
+                chatId,
+                messages.length.toString(),
+                JSON.stringify(updates),
+                ...scoreMessagePairs,
+                isGuest ? GUEST_CACHE_TTL_SECONDS.toString() : "0",
+            ]
+        );
+    } catch (error) {
+        logError("Redis createOrUpdateChatWithMessages error", error);
+    }
 }

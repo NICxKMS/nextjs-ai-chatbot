@@ -12,25 +12,25 @@ import { getAppSession } from "@/lib/auth/session";
 import "./globals.css";
 
 export const metadata: Metadata = {
-	metadataBase: new URL("https://chat.vercel.ai"),
-	title: "Ai Assistant",
-	description: "Ai Assistant using the AI SDK.",
+    metadataBase: new URL("https://chat.vercel.ai"),
+    title: "Ai Assistant",
+    description: "Ai Assistant using the AI SDK.",
 };
 
 export const viewport = {
-	maximumScale: 1, // Disable auto-zoom on mobile Safari
+    maximumScale: 1, // Disable auto-zoom on mobile Safari
 };
 
 const geist = Geist({
-	subsets: ["latin"],
-	display: "swap",
-	variable: "--font-geist",
+    subsets: ["latin"],
+    display: "swap",
+    variable: "--font-geist",
 });
 
 const geistMono = Geist_Mono({
-	subsets: ["latin"],
-	display: "swap",
-	variable: "--font-geist-mono",
+    subsets: ["latin"],
+    display: "swap",
+    variable: "--font-geist-mono",
 });
 
 const LIGHT_THEME_COLOR = "hsl(0 0% 100%)";
@@ -54,58 +54,58 @@ const THEME_COLOR_SCRIPT = `\
 })();`;
 
 export default function RootLayout({
-	children,
+    children,
 }: Readonly<{
-	children: React.ReactNode;
+    children: React.ReactNode;
 }>) {
-	return (
-		<html
-			className={`${geist.variable} ${geistMono.variable}`}
-			// `next-themes` injects an extra classname to the body element to avoid
-			// visual flicker before hydration. Hence the `suppressHydrationWarning`
-			// prop is necessary to avoid the React hydration mismatch warning.
-			lang="en"
-			suppressHydrationWarning
-		>
-			<body className="antialiased">
-				<Script id="theme-color" strategy="beforeInteractive">
-					{THEME_COLOR_SCRIPT}
-				</Script>
-				<SpeedInsights />
-				<Suspense>
-					<AppShell>{children}</AppShell>
-				</Suspense>
-			</body>
-		</html>
-	);
+    return (
+        <html
+            className={`${geist.variable} ${geistMono.variable}`}
+            // `next-themes` injects an extra classname to the body element to avoid
+            // visual flicker before hydration. Hence the `suppressHydrationWarning`
+            // prop is necessary to avoid the React hydration mismatch warning.
+            lang="en"
+            suppressHydrationWarning
+        >
+            <body className="antialiased">
+                <Script id="theme-color" strategy="beforeInteractive">
+                    {THEME_COLOR_SCRIPT}
+                </Script>
+                <SpeedInsights />
+                <Suspense>
+                    <AppShell>{children}</AppShell>
+                </Suspense>
+            </body>
+        </html>
+    );
 }
 
 async function AppShell({ children }: { children: React.ReactNode }) {
-	const initialSession = await getAppSession();
+    const initialSession = await getAppSession();
 
-	return (
-		<ThemeProvider
-			attribute="class"
-			defaultTheme="system"
-			disableTransitionOnChange
-			enableSystem
-		>
-			<Toaster position="top-center" />
-			<SWRConfig
-				value={{
-					dedupingInterval: 10_000,
-					revalidateOnFocus: false,
-					revalidateOnReconnect: false,
-					refreshWhenHidden: false,
-					refreshWhenOffline: false,
-					revalidateIfStale: true,
-					// revalidateOnMount: false,
-				}}
-			>
-				<AuthProvider initialSession={initialSession}>
-					{children}
-				</AuthProvider>
-			</SWRConfig>
-		</ThemeProvider>
-	);
+    return (
+        <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            disableTransitionOnChange
+            enableSystem
+        >
+            <Toaster position="top-center" />
+            <SWRConfig
+                value={{
+                    dedupingInterval: 10_000,
+                    revalidateOnFocus: false,
+                    revalidateOnReconnect: false,
+                    refreshWhenHidden: false,
+                    refreshWhenOffline: false,
+                    revalidateIfStale: true,
+                    // revalidateOnMount: false,
+                }}
+            >
+                <AuthProvider initialSession={initialSession}>
+                    {children}
+                </AuthProvider>
+            </SWRConfig>
+        </ThemeProvider>
+    );
 }
