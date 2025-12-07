@@ -88,10 +88,14 @@ function applyGuestTTL(
 /**
  * Get chat from cache (assembles metadata + messages)
  * Returns full CachedChat for backward compatibility
+ * 
+ * NOTE: This loads ALL messages into memory. For conversations with 1000+ messages,
+ * consider using getLastMessagesFromCache() with pagination instead.
  */
 export async function getChatFromCache(
 	chatId: string,
-	userId: string
+	userId: string,
+	opts?: { maxMessages?: number }
 ): Promise<CachedChat | null> {
 	const redis = getRedisClient();
 	if (!redis) {
@@ -104,9 +108,12 @@ export async function getChatFromCache(
 
 		// Fetch metadata and messages in parallel
 		// ZRANGE returns all members sorted by score (timestamp) ascending
+		// If maxMessages is specified, only fetch the last N messages for performance
 		const [meta, messagesRaw] = await Promise.all([
 			redis.get<CachedChatMeta>(metaKey),
-			redis.zrange(msgsKey, 0, -1),
+			opts?.maxMessages
+				? redis.zrange(msgsKey, -opts.maxMessages, -1)
+				: redis.zrange(msgsKey, 0, -1),
 		]);
 
 		if (!meta) {

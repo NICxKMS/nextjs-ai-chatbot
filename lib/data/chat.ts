@@ -654,19 +654,18 @@ export const chatData = {
 				: db
 						.update(chat)
 						.set({ lastContext: context, updatedAt: new Date() })
-						.where(eq(chat.id, chatId))
-						.catch(async (err) => {
-							const { logWarn } = await import("../log");
-							logWarn("Failed to update lastContext for chat", {
-								chatId,
-								error: err,
-							});
-						});
+						.where(eq(chat.id, chatId));
 
 			await Promise.all([cachePromise, dbPromise]);
 		} catch (error) {
+			// Note: Context updates are best-effort for usage tracking
+			// Failures here should not block the main chat flow
 			const { logWarn } = await import("../log");
-			logWarn("Failed to update lastContext for chat", { chatId, error });
+			logWarn("Failed to update lastContext for chat (best-effort)", {
+				chatId,
+				error,
+			});
+			// Don't re-throw - this is a non-critical operation
 		}
 	},
 };
@@ -809,12 +808,9 @@ export const messageData = {
 				// Bulk append for each chat - skip existence check as we trust the caller
 				for (const [chatId, cachedMsgs] of messagesByChatId.entries()) {
 					cachePromises.push(
-						appendMessagesToCache(
-							chatId,
-							ctx.userId,
-							cachedMsgs,
-							{ skipExistenceCheck: true }
-						)
+						appendMessagesToCache(chatId, ctx.userId, cachedMsgs, {
+							skipExistenceCheck: true,
+						})
 					);
 				}
 			}
@@ -879,7 +875,7 @@ export const messageData = {
 						visibility,
 						messages: cachedMessages,
 						lastContext,
-						isNewChat: true,
+						_isNewChat: true,
 					});
 				} else {
 					// For existing chats, use batch update
@@ -909,10 +905,15 @@ export const messageData = {
 			// Authenticated users: save to DB
 			const dbPromises: Promise<any>[] = [];
 
-			// Create chat in DB if it's a new chat
+			// Insert messages with proper sequencing for new chats
+			let messageInsertPromise: Promise<any>;
+
 			if (isNewChat && title && visibility) {
-				dbPromises.push(
-					db.insert(chat).values({
+				// For new chats: create chat first, then insert messages
+				// This ensures FK constraint is satisfied and prevents orphaned chats
+				messageInsertPromise = db
+					.insert(chat)
+					.values({
 						id: chatId,
 						userId: ctx.userId,
 						title,
@@ -921,23 +922,19 @@ export const messageData = {
 						updatedAt: new Date(),
 						lastContext: lastContext || null,
 					})
-				);
-			}
-
-			// Insert messages (waits for chat creation due to FK constraint)
-			const messageInsertPromise = isNewChat
-				? // For new chats, wait for chat creation first
-					Promise.all(dbPromises).then(() =>
+					.then(() =>
 						db
 							.insert(message)
 							.values(messages)
 							.onConflictDoNothing({ target: message.id })
-					)
-				: // For existing chats, insert immediately
-					db
-						.insert(message)
-						.values(messages)
-						.onConflictDoNothing({ target: message.id });
+					);
+			} else {
+				// For existing chats, insert messages immediately
+				messageInsertPromise = db
+					.insert(message)
+					.values(messages)
+					.onConflictDoNothing({ target: message.id });
+			}
 
 			// Update context in DB if provided (for existing chats)
 			if (lastContext && !isNewChat) {
@@ -963,7 +960,7 @@ export const messageData = {
 								messages: cachedMessages,
 								lastContext,
 								createdAt,
-								isNewChat: true,
+								_isNewChat: true,
 							});
 						} else {
 							// For existing chats, use batch update
