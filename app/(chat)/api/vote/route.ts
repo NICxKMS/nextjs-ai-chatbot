@@ -3,6 +3,7 @@ import { createContext } from "@/lib/data/base";
 import { chatData } from "@/lib/data/chat";
 import { voteMessage } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
+import { logger } from "@/lib/monitoring/logger";
 
 // UUID validation regex
 const UUID_REGEX =
@@ -16,6 +17,7 @@ function isValidUUID(value: string): boolean {
 export const maxDuration = 10;
 
 export async function PATCH(request: Request) {
+	const startTime = Date.now();
 	const bodyPromise: Promise<{
 		chatId: string;
 		messageId: string;
@@ -79,6 +81,15 @@ export async function PATCH(request: Request) {
 		messageId,
 		type,
 		userId: session.user.id,
+	});
+
+	const duration = Date.now() - startTime;
+	logger.info("Message voted", {
+		chatId,
+		messageId,
+		type,
+		userId: session.user.id,
+		duration,
 	});
 
 	return new Response("Message voted", { status: 200 });

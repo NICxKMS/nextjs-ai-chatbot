@@ -228,7 +228,9 @@ function PureMultimodalInput({
 			try {
 				// OPTIMIZATION: Limit concurrent uploads to prevent overwhelming server/browser
 				const MAX_CONCURRENT_UPLOADS = 3;
-				const uploadedAttachments: (Awaited<ReturnType<typeof uploadFile>>)[] = [];
+				const uploadedAttachments: Awaited<
+					ReturnType<typeof uploadFile>
+				>[] = [];
 
 				for (let i = 0; i < files.length; i += MAX_CONCURRENT_UPLOADS) {
 					const batch = files.slice(i, i + MAX_CONCURRENT_UPLOADS);

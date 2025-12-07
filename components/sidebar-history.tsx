@@ -151,9 +151,14 @@ export function SidebarHistory({
 			// Prevent unbounded memory growth by selectively removing IDs no longer in optimisticChats
 			// This avoids the race condition of clearing all IDs which could cause reprocessing
 			if (processedOptimisticIds.current.size > 100) {
-				const currentOptimisticIds = new Set(optimisticChats.map((c) => c.id));
+				const currentOptimisticIds = new Set(
+					optimisticChats.map((c) => c.id)
+				);
 				for (const processedId of processedOptimisticIds.current) {
-					if (!currentOptimisticIds.has(processedId) && !allChatIds.has(processedId)) {
+					if (
+						!currentOptimisticIds.has(processedId) &&
+						!allChatIds.has(processedId)
+					) {
 						processedOptimisticIds.current.delete(processedId);
 					}
 				}
