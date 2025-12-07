@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { ChatSDKError, toDatabaseError } from "../errors";
+import { withQueryTracking } from "./query-tracking";
 import {
 	message,
 	type Suggestion,
@@ -55,30 +56,42 @@ export const db = drizzle(client);
 // =============================================================================
 
 export async function getUser(email: string): Promise<User[]> {
-	try {
-		return await db
-			.select()
-			.from(user)
-			.where(eq(user.email, email.toLowerCase()));
-	} catch (error) {
-		throw toDatabaseError(
-			"get_user_by_email",
-			error,
-			"Failed to get user by email"
-		);
-	}
+	return await withQueryTracking(
+		"getUser",
+		async () => {
+			try {
+				return await db
+					.select()
+					.from(user)
+					.where(eq(user.email, email.toLowerCase()));
+			} catch (error) {
+				throw toDatabaseError(
+					"get_user_by_email",
+					error,
+					"Failed to get user by email"
+				);
+			}
+		},
+		{ email: `${email.toLowerCase().substring(0, 20)}...` } // Partial email for privacy
+	);
 }
 
 export async function getUserById(id: string): Promise<User[]> {
-	try {
-		return await db.select().from(user).where(eq(user.id, id));
-	} catch (error) {
-		throw toDatabaseError(
-			"get_user_by_id",
-			error,
-			"Failed to get user by id"
-		);
-	}
+	return await withQueryTracking(
+		"getUserById",
+		async () => {
+			try {
+				return await db.select().from(user).where(eq(user.id, id));
+			} catch (error) {
+				throw toDatabaseError(
+					"get_user_by_id",
+					error,
+					"Failed to get user by id"
+				);
+			}
+		},
+		{ userId: id }
+	);
 }
 
 // =============================================================================
@@ -86,15 +99,24 @@ export async function getUserById(id: string): Promise<User[]> {
 // =============================================================================
 
 export async function getMessageById({ id }: { id: string }) {
-	try {
-		return await db.select().from(message).where(eq(message.id, id));
-	} catch (error) {
-		throw toDatabaseError(
-			"get_message_by_id",
-			error,
-			"Failed to get message by id"
-		);
-	}
+	return await withQueryTracking(
+		"getMessageById",
+		async () => {
+			try {
+				return await db
+					.select()
+					.from(message)
+					.where(eq(message.id, id));
+			} catch (error) {
+				throw toDatabaseError(
+					"get_message_by_id",
+					error,
+					"Failed to get message by id"
+				);
+			}
+		},
+		{ messageId: id }
+	);
 }
 
 // =============================================================================
@@ -112,38 +134,54 @@ export async function voteMessage({
 	type: "up" | "down";
 	userId: string;
 }) {
-	try {
-		// Use a single upsert-style operation to avoid race conditions
-		// PostgreSQL's ON CONFLICT handles concurrent requests atomically
-		const isUpvoted = type === "up";
+	return await withQueryTracking(
+		"voteMessage",
+		async () => {
+			try {
+				// Use a single upsert-style operation to avoid race conditions
+				// PostgreSQL's ON CONFLICT handles concurrent requests atomically
+				const isUpvoted = type === "up";
 
-		return await db
-			.insert(vote)
-			.values({
-				chatId,
-				messageId,
-				userId,
-				isUpvoted,
-			})
-			.onConflictDoUpdate({
-				target: [vote.chatId, vote.messageId, vote.userId],
-				set: { isUpvoted },
-			});
-	} catch (error) {
-		throw toDatabaseError("vote_message", error, "Failed to vote message");
-	}
+				return await db
+					.insert(vote)
+					.values({
+						chatId,
+						messageId,
+						userId,
+						isUpvoted,
+					})
+					.onConflictDoUpdate({
+						target: [vote.chatId, vote.messageId, vote.userId],
+						set: { isUpvoted },
+					});
+			} catch (error) {
+				throw toDatabaseError(
+					"vote_message",
+					error,
+					"Failed to vote message"
+				);
+			}
+		},
+		{ chatId, messageId, userId, type }
+	);
 }
 
 export async function getVotesByChatId({ id }: { id: string }) {
-	try {
-		return await db.select().from(vote).where(eq(vote.chatId, id));
-	} catch (error) {
-		throw toDatabaseError(
-			"get_votes_by_chat_id",
-			error,
-			"Failed to get votes by chat id"
-		);
-	}
+	return await withQueryTracking(
+		"getVotesByChatId",
+		async () => {
+			try {
+				return await db.select().from(vote).where(eq(vote.chatId, id));
+			} catch (error) {
+				throw toDatabaseError(
+					"get_votes_by_chat_id",
+					error,
+					"Failed to get votes by chat id"
+				);
+			}
+		},
+		{ chatId: id }
+	);
 }
 
 export async function getVotesByChatIdAndUserId({
@@ -153,18 +191,26 @@ export async function getVotesByChatIdAndUserId({
 	chatId: string;
 	userId: string;
 }) {
-	try {
-		return await db
-			.select()
-			.from(vote)
-			.where(and(eq(vote.chatId, chatId), eq(vote.userId, userId)));
-	} catch (error) {
-		throw toDatabaseError(
-			"get_votes_by_chat_id_and_user_id",
-			error,
-			"Failed to get votes by chat id and user id"
-		);
-	}
+	return await withQueryTracking(
+		"getVotesByChatIdAndUserId",
+		async () => {
+			try {
+				return await db
+					.select()
+					.from(vote)
+					.where(
+						and(eq(vote.chatId, chatId), eq(vote.userId, userId))
+					);
+			} catch (error) {
+				throw toDatabaseError(
+					"get_votes_by_chat_id_and_user_id",
+					error,
+					"Failed to get votes by chat id and user id"
+				);
+			}
+		},
+		{ chatId, userId }
+	);
 }
 
 // =============================================================================
@@ -176,15 +222,21 @@ export async function saveSuggestions({
 }: {
 	suggestions: Suggestion[];
 }) {
-	try {
-		return await db.insert(suggestion).values(suggestions);
-	} catch (error) {
-		throw toDatabaseError(
-			"save_suggestions",
-			error,
-			"Failed to save suggestions"
-		);
-	}
+	return await withQueryTracking(
+		"saveSuggestions",
+		async () => {
+			try {
+				return await db.insert(suggestion).values(suggestions);
+			} catch (error) {
+				throw toDatabaseError(
+					"save_suggestions",
+					error,
+					"Failed to save suggestions"
+				);
+			}
+		},
+		{ count: suggestions.length }
+	);
 }
 
 export async function getSuggestionsByDocumentId({
@@ -192,16 +244,22 @@ export async function getSuggestionsByDocumentId({
 }: {
 	documentId: string;
 }) {
-	try {
-		return await db
-			.select()
-			.from(suggestion)
-			.where(and(eq(suggestion.documentId, documentId)));
-	} catch (error) {
-		throw toDatabaseError(
-			"get_suggestions_by_document_id",
-			error,
-			"Failed to get suggestions by document id"
-		);
-	}
+	return await withQueryTracking(
+		"getSuggestionsByDocumentId",
+		async () => {
+			try {
+				return await db
+					.select()
+					.from(suggestion)
+					.where(and(eq(suggestion.documentId, documentId)));
+			} catch (error) {
+				throw toDatabaseError(
+					"get_suggestions_by_document_id",
+					error,
+					"Failed to get suggestions by document id"
+				);
+			}
+		},
+		{ documentId }
+	);
 }

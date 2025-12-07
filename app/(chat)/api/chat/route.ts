@@ -1,84 +1,33 @@
 import { geolocation } from "@vercel/functions";
 import {
-	convertToModelMessages,
 	createUIMessageStream,
 	JsonToSseTransformStream,
-	type LanguageModelUsage,
-	smoothStream,
-	stepCountIs,
-	streamText,
+	type UIMessage,
 } from "ai";
 import { unstable_cache as cache } from "next/cache";
 import type { ModelCatalog } from "tokenlens/core";
 import type { VisibilityType } from "@/components/visibility-selector";
+import { executeChatCompletion } from "@/lib/ai/chat-completion";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
-import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
-import { getModelById, isValidModelId } from "@/lib/ai/model-registry";
-import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
-import { myProvider } from "@/lib/ai/providers";
-import { createDocument } from "@/lib/ai/tools/create-document";
-// Static tool imports for faster loading (no dynamic import overhead)
-import { getWeather } from "@/lib/ai/tools/get-weather";
-import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
-import { updateDocument } from "@/lib/ai/tools/update-document";
+import { isValidModelId } from "@/lib/ai/model-registry";
+import type { RequestHints } from "@/lib/ai/prompts";
+import {
+	generatePlaceholderTitle,
+	generateTitleFromUserMessage,
+} from "@/lib/ai/title-generation";
 import type { AppUserType } from "@/lib/auth/session";
 import { getAppSession } from "@/lib/auth/session";
 import { getUserMessageCount } from "@/lib/cache/quota";
 import { isRedisAvailable } from "@/lib/cache/redis";
-import { isProductionEnvironment } from "@/lib/constants";
 import { createContext } from "@/lib/data/base";
-import { chatData, messageData } from "@/lib/data/chat";
-import type { DBMessage } from "@/lib/db/schema";
+import { chatData } from "@/lib/data/chat";
+import { saveChat, updateChatTitle } from "@/lib/data/chat-operations";
 import { ChatSDKError } from "@/lib/errors";
 import { logError, logWarn } from "@/lib/log";
-import type { ChatMessage } from "@/lib/types";
+import { logger } from "@/lib/monitoring/logger";
 import type { AppUsage } from "@/lib/usage";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
-import { generateTitleFromUserMessage } from "../../actions";
-import {
-	type MessagePart,
-	type PostRequestBody,
-	postRequestBodySchema,
-} from "./schema";
-
-// Tool type helpers
-type ToolSetShape = {
-	getWeather: typeof getWeather;
-	createDocument: ReturnType<typeof createDocument>;
-	updateDocument: ReturnType<typeof updateDocument>;
-	requestSuggestions: ReturnType<typeof requestSuggestions>;
-};
-
-const TOOL_IDS = [
-	"getWeather",
-	"createDocument",
-	"updateDocument",
-	"requestSuggestions",
-] as const;
-
-type ToolId = (typeof TOOL_IDS)[number];
-
-type ToolIdList = ToolId[];
-
-const getEnabledTools = (model: ModelMetadata | undefined): ToolIdList => {
-	if (!model) {
-		return [];
-	}
-
-	// Disable tools only for pure reasoning models without other capabilities
-	if (
-		model.capabilities.includes("reasoning") &&
-		model.capabilities.length === 1
-	) {
-		return [];
-	}
-
-	if (model.capabilities.includes("tooling") || model.isCurated) {
-		return [...TOOL_IDS];
-	}
-
-	return [];
-};
+import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
 export const maxDuration = 60;
 
@@ -100,13 +49,26 @@ const getTokenlensCatalog = cache(
 );
 
 export async function POST(request: Request) {
+	const requestStart = Date.now();
+	const requestContext = {
+		url: request.url,
+		method: request.method,
+		headers: {
+			userAgent: request.headers.get("user-agent"),
+			vercelId: request.headers.get("x-vercel-id"),
+		},
+	};
+
 	let requestBody: PostRequestBody;
 	let selectedModelId = "";
+
+	logger.info("Chat request started", requestContext);
 
 	try {
 		const json = await request.json();
 		requestBody = postRequestBodySchema.parse(json);
 	} catch (_) {
+		logger.warn("Invalid JSON in chat request", requestContext);
 		return new ChatSDKError("bad_request:api:invalid_json").toResponse();
 	}
 
@@ -118,7 +80,7 @@ export async function POST(request: Request) {
 			selectedVisibilityType,
 		}: {
 			id: string;
-			message: ChatMessage;
+			message: UIMessage;
 			selectedChatModel: string;
 			selectedVisibilityType: VisibilityType;
 		} = requestBody;
@@ -153,10 +115,18 @@ export async function POST(request: Request) {
 
 		// OPTIMIZATION: Parallelize quota check (from cache) and chat fetch
 		// Uses single Redis GET for quota (~10-20ms) instead of DB query with JOIN (~100-300ms)
+		const dataFetchStart = Date.now();
 		const [userMessageCount, chatWithMessages] = await Promise.all([
 			getUserMessageCount(session.user.id),
 			chatData.getWithMessages(id, ctx),
 		]);
+		const dataFetchTime = Date.now() - dataFetchStart;
+
+		logger.perf("ChatDataFetch", dataFetchTime, {
+			userId: session.user.id,
+			chatId: id,
+			messageCount: userMessageCount,
+		});
 
 		const userEntitlements =
 			entitlementsByUserType[
@@ -184,23 +154,7 @@ export async function POST(request: Request) {
 				).toResponse();
 			}
 		} else {
-			placeholderTitle = (() => {
-				try {
-					const parts = message.parts as MessagePart[];
-					const textPart = parts?.find(
-						(
-							p
-						): p is MessagePart & { type: "text"; text: string } =>
-							p?.type === "text" && typeof p.text === "string"
-					);
-					const base = (textPart?.text || "").trim();
-					const trimmed =
-						base.length > 0 ? base.slice(0, 80) : "New Chat";
-					return trimmed;
-				} catch {
-					return "New Chat";
-				}
-			})();
+			placeholderTitle = generatePlaceholderTitle(message);
 
 			// Set createdAt for new chats (will be created with messages in onFinish)
 			chatCreatedAt = new Date();
@@ -225,17 +179,21 @@ export async function POST(request: Request) {
 
 		const stream = createUIMessageStream({
 			execute: ({ writer: dataStream }) => {
-				const selectedModel = getModelById(selectedChatModel);
+				logger.info("Starting chat completion", {
+					chatId: id,
+					modelId: selectedChatModel,
+					isNewChat,
+					userId: session.user.id,
+				});
 
 				// Start title generation early (non-blocking)
 				// OPTIMIZATION: Title generation runs in parallel with streaming
-				// Even if response is short, we ensure title is sent when ready
 				if (isNewChat) {
 					generatedTitlePromise = generateTitleFromUserMessage({
 						message,
 					})
 						.then((title) => {
-							// Send title to client when ready (may be during or after streaming)
+							// Send title to client when ready
 							try {
 								dataStream.write({
 									type: "data-chatTitle",
@@ -243,8 +201,6 @@ export async function POST(request: Request) {
 									transient: true,
 								});
 							} catch (streamErr) {
-								// Stream may be closed for very short responses
-								// Title will still be saved to DB in onFinish
 								logWarn(
 									"Title generated but stream closed, will save to DB",
 									streamErr
@@ -258,268 +214,67 @@ export async function POST(request: Request) {
 						});
 				}
 
-				const providerOptions: Record<
-					string,
-					Record<string, unknown>
-				> = {};
-
-				if (
-					selectedModel?.reasoningType &&
-					selectedModel.reasoningType !== "none"
-				) {
-					switch (selectedModel.reasoningType) {
-						case "openai-thinking":
-							providerOptions.openai = {
-								reasoningEffort: "high",
-							};
-							break;
-
-						case "anthropic-thinking":
-							providerOptions.anthropic = {
-								thinkingBudget:
-									selectedModel.thinkingBudget ?? 8000,
-							};
-							break;
-
-						case "gemini-thinking":
-							providerOptions.google = {
-								thinkingConfig: {
-									type: "enabled",
-									includeThoughts: true,
-									budgetTokens:
-										selectedModel.thinkingBudget ?? 1024,
-								},
-							};
-							break;
-
-						case "deepseek-thinking":
-							providerOptions.deepseek = {
-								reasoningLevel: "high",
-							};
-							break;
-
-						case "internal-thinking":
-							providerOptions.reasoning = {
-								enabled: true,
-								budget: selectedModel.thinkingBudget ?? 6000,
-							};
-							break;
-
-						default:
-							break;
-					}
-				}
-
-				// Prepare tools only if enabled for the selected model
-				// OPTIMIZATION: Using static imports (no async overhead)
-				const enabledTools = getEnabledTools(selectedModel);
-				let tools: Partial<ToolSetShape> | undefined;
-				if (enabledTools.length > 0) {
-					tools = {
-						getWeather,
-						createDocument: createDocument({
-							session,
-							dataStream,
-							chatId: id,
-						}),
-						updateDocument: updateDocument({ session, dataStream }),
-						requestSuggestions: requestSuggestions({
-							session,
-							dataStream,
-						}),
-					};
-				}
-
-				const streamTextOptions = {
-					model: myProvider.languageModel(selectedChatModel),
-					system: systemPrompt({
-						selectedChatModel,
-						requestHints,
-						selectedModel,
-						userSystemPrompt: requestBody.settings?.systemPrompt,
-					}),
-					messages: convertToModelMessages(uiMessages),
-					stopWhen: stepCountIs(5),
-					experimental_activeTools: enabledTools,
-					experimental_transform: smoothStream<Partial<ToolSetShape>>(
-						{
-							delayInMs: 2,
-							chunking: "word",
-						}
-					),
-					...(tools ? { tools } : {}),
-					experimental_telemetry: {
-						isEnabled: isProductionEnvironment,
-						functionId: "stream-text",
+				// Execute AI completion using extracted module
+				executeChatCompletion({
+					selectedChatModel,
+					requestHints,
+					requestBody,
+					uiMessages,
+					chatId: id,
+					session,
+					dataStream,
+					tokenlensCatalogPromise,
+					onUsageCalculated: (usage) => {
+						finalMergedUsage = usage;
 					},
-					temperature: requestBody.settings?.sampling.temperature,
-					topP: requestBody.settings?.sampling.topP,
-					maxOutputTokens:
-						requestBody.settings?.sampling.maxOutputTokens,
-					...(Object.keys(providerOptions).length > 0
-						? {
-								providerOptions: providerOptions as Record<
-									string,
-									Record<string, string | number | boolean>
-								>,
-							}
-						: {}),
-					onFinish: async (callResult: {
-						usage: LanguageModelUsage;
-					}) => {
-						const usage = callResult.usage;
-						try {
-							const providers = await tokenlensCatalogPromise;
-							const modelId =
-								myProvider.languageModel(
-									selectedChatModel
-								).modelId;
-							if (!modelId) {
-								finalMergedUsage = {
-									...usage,
-									modelId: selectedChatModel,
-								};
-								dataStream.write({
-									type: "data-usage",
-									data: finalMergedUsage,
-								});
-								return;
-							}
-
-							if (!providers) {
-								finalMergedUsage = {
-									...usage,
-									modelId: selectedChatModel,
-								};
-								dataStream.write({
-									type: "data-usage",
-									data: finalMergedUsage,
-								});
-								return;
-							}
-
-							const { getUsage } = await import(
-								"tokenlens/helpers"
-							);
-							const summary = getUsage({
-								modelId,
-								usage,
-								providers,
-							});
-							finalMergedUsage = {
-								...usage,
-								...summary,
-								modelId: selectedChatModel,
-							} as AppUsage;
-							dataStream.write({
-								type: "data-usage",
-								data: finalMergedUsage,
-							});
-						} catch (err) {
-							logWarn("TokenLens enrichment failed", err);
-							finalMergedUsage = {
-								...usage,
-								modelId: selectedChatModel,
-							};
-							dataStream.write({
-								type: "data-usage",
-								data: finalMergedUsage,
-							});
-						}
-					},
-				};
-
-				const result =
-					streamText<Partial<ToolSetShape>>(streamTextOptions);
-
-				result.consumeStream();
-
-				dataStream.merge(
-					result.toUIMessageStream({
-						sendReasoning: true,
-					})
-				);
+				});
 			},
 			generateId: generateUUID,
 			onFinish: async ({ messages }) => {
-				// OPTIMIZATION: Use placeholder title immediately to avoid blocking
-				// Title will be updated asynchronously in the background once generated
+				const startTime = Date.now();
 				const initialTitle = placeholderTitle || "New Chat";
 
-				// Include the user message that was sent (not in messages from AI SDK)
-				const userMessage = {
-					id: message.id,
-					role: "user" as const,
-					parts: [
-						...message.parts,
-						{ type: "model", id: selectedModelId },
-					],
-					createdAt: new Date(),
-					attachments: [],
-					chatId: id,
-				};
-
-				const messagesToSave: DBMessage[] = [
-					userMessage,
-					...messages.map((currentMessage) => {
-						const partsWithModel = [
-							...currentMessage.parts,
-							{ type: "model", id: selectedModelId },
-						];
-						return {
-							id: currentMessage.id,
-							role: currentMessage.role as
-								| "user"
-								| "assistant"
-								| "system",
-							parts: partsWithModel,
-							createdAt: new Date(),
-							attachments: [],
-							chatId: id,
-						};
-					}),
-				];
-
 				try {
-					// Save chat immediately with placeholder title (non-blocking)
-					await messageData.saveWithContext(
-						{
-							messages: messagesToSave,
-							chatId: id,
-							lastContext: finalMergedUsage,
-							isNewChat,
-							title: initialTitle,
-							visibility: selectedVisibilityType,
-							createdAt: chatCreatedAt,
-						},
-						ctx
-					);
+					// Save chat immediately with placeholder title
+					await saveChat({
+						chatId: id,
+						isNewChat,
+						userMessage: message,
+						assistantMessages: messages,
+						selectedModelId,
+						title: initialTitle,
+						visibility: selectedVisibilityType,
+						createdAt: chatCreatedAt,
+						usage: finalMergedUsage,
+						ctx,
+					});
 
-					// OPTIMIZATION: Update title asynchronously in background (fire-and-forget)
-					// This removes the 3s race condition and ensures proper titles without blocking
+					const saveTime = Date.now() - startTime;
+					logger.info("Chat saved successfully", {
+						chatId: id,
+						isNewChat,
+						messageCount: messages.length + 1,
+						saveTime,
+						userId: session.user.id,
+					});
+
+					// OPTIMIZATION: Update title asynchronously in background
 					if (isNewChat && generatedTitlePromise) {
 						generatedTitlePromise
 							.then(async (generatedTitle) => {
-								// Only update if we got a meaningful title different from placeholder
 								if (
 									generatedTitle &&
 									generatedTitle !== initialTitle
 								) {
-									try {
-										await chatData.updateTitle(
-											id,
-											generatedTitle,
-											ctx
-										);
-									} catch (titleUpdateErr) {
-										logWarn(
-											"Background title update failed",
-											{
-												chatId: id,
-												error: titleUpdateErr,
-											}
-										);
-									}
+									await updateChatTitle({
+										chatId: id,
+										title: generatedTitle,
+										ctx,
+									});
+									logger.info("Chat title updated", {
+										chatId: id,
+										title: generatedTitle,
+									});
 								}
 							})
 							.catch((err) => {
@@ -533,9 +288,10 @@ export async function POST(request: Request) {
 							});
 					}
 				} catch (err) {
-					logWarn("Unable to persist messages and context for chat", {
+					logger.error("Failed to save chat", {
 						chatId: id,
 						error: err,
+						userId: session.user.id,
 					});
 				}
 			},
@@ -544,11 +300,28 @@ export async function POST(request: Request) {
 			},
 		});
 
+		const totalTime = Date.now() - requestStart;
+		logger.info("Chat request completed", {
+			chatId: id,
+			modelId: selectedChatModel,
+			totalTime,
+			isNewChat,
+			userId: session.user.id,
+		});
+
 		return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
 	} catch (error) {
+		const totalTime = Date.now() - requestStart;
 		const vercelId = request.headers.get("x-vercel-id");
 		const isVercelGatewayModel =
 			selectedModelId.startsWith("vercel-gateway:");
+
+		logger.error("Chat request failed", {
+			error,
+			modelId: selectedModelId,
+			totalTime,
+			vercelId,
+		});
 
 		if (error instanceof ChatSDKError) {
 			return error.toResponse();
@@ -588,6 +361,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+	const startTime = Date.now();
 	const { searchParams } = new URL(request.url);
 	const id = searchParams.get("id");
 
@@ -614,6 +388,13 @@ export async function DELETE(request: Request) {
 
 	// Delete chat
 	await chatData.delete(id, ctx);
+
+	const duration = Date.now() - startTime;
+	logger.info("Chat deleted", {
+		chatId: id,
+		userId: session.user.id,
+		duration,
+	});
 
 	return Response.json({ id }, { status: 200 });
 }

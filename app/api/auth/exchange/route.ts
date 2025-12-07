@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { ChatSDKError } from "@/lib/errors";
 import { getSupabaseSessionFromCookies } from "@/lib/auth/session";
+import { ChatSDKError } from "@/lib/errors";
 
 export async function POST(request: Request) {
 	try {
@@ -40,5 +40,3 @@ export async function POST(request: Request) {
 		).toResponse();
 	}
 }
-
-

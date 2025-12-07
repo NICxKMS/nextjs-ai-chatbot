@@ -47,8 +47,9 @@ const PureChatItem = ({
 
 	// Render loading icon for optimistic chats that are still generating title
 	// Once title is generated, render normally (without animation)
-	const isTitleGenerating = isOptimistic && chat.title === "Generating title...";
-	
+	const isTitleGenerating =
+		isOptimistic && chat.title === "Generating title...";
+
 	if (isTitleGenerating) {
 		return (
 			<SidebarMenuItem>

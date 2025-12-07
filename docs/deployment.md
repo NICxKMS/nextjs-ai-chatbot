@@ -1,38 +1,102 @@
-# Deployment
+# Deployment Guide
 
-Production deployment, monitoring, and operations.
+Production deployment, environment configuration, and operations.
 
-## Production Setup
+## Deployment Architecture
 
-### Platform: Vercel (Recommended)
+```mermaid
+flowchart TB
+    subgraph Vercel["Vercel Platform"]
+        Next[Next.js App]
+        Edge[Edge Middleware]
+        Fluid[Fluid Compute]
+    end
 
-#### 1. Project Configuration
+    subgraph External["External Services"]
+        Neon[(Neon PostgreSQL)]
+        Upstash[(Upstash Redis)]
+        Supabase[Supabase Auth]
+        NewRelic[New Relic APM]
+    end
 
-```bash
-# Deploy to Vercel
-vercel --prod
+    subgraph AI["AI Providers"]
+        OpenAI[OpenAI]
+        Google[Google Gemini]
+        CF[Cloudflare AI]
+    end
 
-# Or connect GitHub repository for auto-deploys
+    Next --> Edge
+    Edge --> Fluid
+    Fluid --> Neon
+    Fluid --> Upstash
+    Fluid --> Supabase
+    Fluid --> NewRelic
+    Fluid --> OpenAI
+    Fluid --> Google
+    Fluid --> CF
 ```
 
-#### 2. Environment Variables
+## Environment Configuration
+
+### Required Variables
 
 ```bash
-# Production URLs
-DATABASE_URL="postgresql://neon-db-url"
-CACHE_KV_REST_API_URL="https://redis-url"
-CACHE_KV_REST_API_TOKEN="redis-token"
+# Database (Neon PostgreSQL recommended)
+DATABASE_URL="postgresql://user:pass@host/db?sslmode=require"
+
+# Cache (Upstash Redis)
+CACHE_KV_REST_API_URL="https://xxx.upstash.io"
+CACHE_KV_REST_API_TOKEN="your-token"
 
 # Authentication
-NEXTAUTH_SECRET="production-secret"
-NEXTAUTH_URL="https://your-domain.com"
-
-# AI Providers
-OPENAI_API_KEY="sk-production-key"
-ANTHROPIC_API_KEY="sk-ant-production-key"
+SUPABASE_JWT_SECRET="your-supabase-jwt-secret"
+GUEST_JWT_SECRET="your-guest-jwt-secret"
+SUPABASE_ACCESS_TOKEN_COOKIE_NAME="sb-access-token"
 ```
 
-#### 3. Build Configuration
+### AI Providers (at least one required)
+
+```bash
+# Google Gemini (recommended)
+GOOGLE_GENERATIVE_AI_API_KEY="your-key"
+
+# OpenAI
+OPENAI_API_KEY="sk-..."
+
+# OpenRouter (for Claude, DeepSeek, Qwen)
+OPENROUTER_API_KEY="sk-or-..."
+
+# Cloudflare Workers AI
+CLOUDFLARE_ACCOUNT_ID="your-account-id"
+CLOUDFLARE_API_KEY="your-api-key"
+
+# Cloudflare AI Gateway (with fallback)
+CLOUDFLARE_AI_GATEWAY_NAME="chat-api"
+CLOUDFLARE_AI_GATEWAY_API_KEY="your-key"
+
+# Vercel AI Gateway
+AI_GATEWAY_API_KEY="your-key"
+```
+
+### Monitoring (optional)
+
+```bash
+NEW_RELIC_LICENSE_KEY="your-license-key"
+NEW_RELIC_APP_NAME="nextjs-ai-chatbot"
+NEW_RELIC_LOG_LEVEL="info"
+```
+
+---
+
+## Vercel Deployment
+
+### Setup
+
+1. Connect GitHub repository to Vercel
+2. Add environment variables in Vercel dashboard
+3. Deploy
+
+### Build Configuration
 
 ```json
 {
@@ -43,317 +107,148 @@ ANTHROPIC_API_KEY="sk-ant-production-key"
 }
 ```
 
-### Database: Neon PostgreSQL
-
-#### Setup
-
-1. Create Neon project at [neon.tech](https://neon.tech)
-2. Copy connection string to Vercel env vars
-3. Run migrations: `pnpm db:push`
-
-#### Connection Pooling
-
-```typescript
-// Optimized for Vercel Fluid Compute
-const getPoolConfig = () => {
-  const isVercelFluid = process.env.VERCEL_FLUID === "1";
-  return isVercelFluid
-    ? { max: 5, idle_timeout: 10 }
-    : { max: 10, idle_timeout: 20 };
-};
-```
-
-### Cache: Upstash Redis
-
-#### Setup
-
-1. Create Redis database at [upstash.com](https://upstash.com)
-2. Configure REST URL and token
-3. Test connection: `curl -X GET "$CACHE_KV_REST_API_URL/ping"`
-
-#### Configuration
-
-```typescript
-// Global singleton for serverless
-const redis = new Redis({
-  url: process.env.CACHE_KV_REST_API_URL,
-  token: process.env.CACHE_KV_REST_API_TOKEN,
-});
-```
-
-## Performance Configuration
-
 ### Vercel Fluid Compute
 
-```typescript
-// API route configuration
-export const runtime = "nodejs";
-export const maxDuration = 30; // seconds
-export const dynamic = "force-dynamic";
-```
+Detected via `VERCEL_FLUID=1`. Optimizes:
 
-### Next.js Optimizations
+- Connection pool: max 5, idle 10s
+- Function timeout: 60s
 
-```typescript
-// next.config.ts
-const nextConfig = {
-  experimental: {
-    optimizePackageImports: [
-      "lucide-react",
-      "date-fns",
-      "@radix-ui/react-icons",
-    ],
-    inlineCss: true,
-  },
-  images: {
-    formats: ["image/avif", "image/webp"],
-    minimumCacheTTL: 60,
-  },
-};
-```
+---
 
-### Bundle Optimization
+## Database Setup (Neon)
+
+### Create Database
+
+1. Create project at [neon.tech](https://neon.tech)
+2. Copy connection string
+3. Add to `DATABASE_URL`
+
+### Run Migrations
 
 ```bash
-# Analyze bundle size
-pnpm build --analyze
+# Push schema changes
+pnpm db:push
 
-# Core Web Vitals
-# Lighthouse score should be >90 for all categories
+# Generate migration files (if needed)
+pnpm db:generate
+
+# Run migrations
+pnpm db:migrate
 ```
 
-## Security Configuration
+### Supabase Auth Sync
 
-### Authentication
+Apply trigger in Supabase SQL editor:
 
-```typescript
-// auth.config.ts
-export const authConfig: NextAuthConfig = {
-  secret: process.env.NEXTAUTH_SECRET,
-  trustHost: true, // Required for Vercel
-  useSecureCookies: process.env.NODE_ENV === "production",
-};
+```sql
+-- Creates User row when auth.users row is created
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public."User" (id, email)
+  VALUES (NEW.id, NEW.email)
+  ON CONFLICT (id) DO NOTHING;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_new_user();
 ```
 
-### Security Headers
+---
 
-```typescript
-// middleware.ts
-export function middleware(request: NextRequest) {
-  const response = NextResponse.next();
+## Cache Setup (Upstash)
 
-  response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+### Create Database
 
-  return response;
-}
-```
+1. Create database at [upstash.com](https://upstash.com)
+2. Copy REST URL and token
+3. Add to environment variables
 
-### Rate Limiting
-
-```typescript
-// Enforced via Redis counters
-const userQuota = await getUserMessageCount(userId);
-if (userQuota >= DAILY_LIMIT) {
-  throw new ChatSDKError("rate_limit:chat:daily_limit_exceeded");
-}
-```
-
-## Monitoring
-
-### OpenTelemetry Setup
-
-```typescript
-// instrumentation.ts
-import { registerOTel } from "@vercel/otel";
-
-export function register() {
-  registerOTel("nextjs-ai-chatbot");
-}
-```
-
-### Key Metrics
-
-- **Performance**: TTFB, LCP, CLS, FID
-- **Business**: Messages per user, session duration
-- **Technical**: Cache hit rate, DB query time, error rate
-- **Cost**: Compute usage, Redis operations, API calls
-
-### Error Tracking
-
-```typescript
-// Structured logging
-logError("Redis operation failed", {
-  operation: "getChatFromCache",
-  chatId,
-  userId,
-  error: error.message,
-});
-```
-
-## Scaling Considerations
-
-### Database Scaling
-
-- **Connection Pooling**: Optimized for serverless
-- **Query Optimization**: Indexed for common patterns
-- **Read Replicas**: For high read workloads
-
-### Cache Scaling
-
-- **Pipeline Operations**: Reduce round-trips
-- **Intelligent Warming**: Background population
-- **TTL Management**: Automatic cleanup
-
-### CDN Configuration
-
-```typescript
-// Static asset optimization
-const nextConfig = {
-  images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "*.blob.vercel-storage.com",
-      },
-    ],
-  },
-};
-```
-
-## Deployment Checklist
-
-### Pre-Deployment
-
-- [ ] Environment variables configured
-- [ ] Database migrations run
-- [ ] Redis connection verified
-- [ ] Build completes successfully
-- [ ] All tests pass
-- [ ] Linter passes
-
-### Post-Deployment
-
-- [ ] Application loads correctly
-- [ ] Authentication flow works
-- [ ] Chat functionality tested
-- [ ] AI responses working
-- [ ] Error monitoring active
-- [ ] Performance metrics tracked
-
-## Troubleshooting
-
-### Common Issues
-
-#### Database Connection
+### Test Connection
 
 ```bash
-# Check connection string
-echo $DATABASE_URL
-
-# Test connection
-psql $DATABASE_URL -c "SELECT 1;"
-```
-
-#### Redis Connection
-
-```bash
-# Test Redis
 curl -X GET "$CACHE_KV_REST_API_URL/ping" \
   -H "Authorization: Bearer $CACHE_KV_REST_API_TOKEN"
 ```
 
-#### Build Errors
+---
+
+## Development
+
+### Local Setup
 
 ```bash
-# Clear build cache
-rm -rf .next
+# Clone repository
+git clone https://github.com/nicxkms/nextjs-ai-chatbot.git
+cd nextjs-ai-chatbot
 
-# Reinstall dependencies
-rm -rf node_modules pnpm-lock.yaml
+# Install dependencies
 pnpm install
+
+# Configure environment
+cp .env.example .env.local
+# Edit .env.local with your keys
+
+# Push database schema
+pnpm db:push
+
+# Start development server
+pnpm dev
 ```
 
-#### Performance Issues
+### Available Scripts
+
+| Script           | Description                     |
+| ---------------- | ------------------------------- |
+| `pnpm dev`       | Start dev server with Turbopack |
+| `pnpm build`     | Build for production            |
+| `pnpm start`     | Start production server         |
+| `pnpm lint`      | Run linter                      |
+| `pnpm db:push`   | Push schema to database         |
+| `pnpm db:studio` | Open Drizzle Studio             |
+| `pnpm test`      | Run Playwright tests            |
+
+---
+
+## Troubleshooting
+
+### Database Connection
 
 ```bash
-# Check Core Web Vitals
-# Vercel Analytics → Speed Insights
+# Test connection
+psql $DATABASE_URL -c "SELECT 1;"
 
-# Monitor API response times
-# Vercel Analytics → Functions
+# Check SSL
+psql $DATABASE_URL -c "SHOW ssl;"
 ```
 
-### Debug Mode
-
-```typescript
-// Enable debug logging
-export const DEBUG = process.env.NODE_ENV === "development";
-
-export function debugLog(message: string, data?: any) {
-  if (DEBUG) {
-    console.log(`[DEBUG] ${message}`, data);
-  }
-}
-```
-
-## Maintenance
-
-### Regular Tasks
-
-- **Daily**: Monitor error rates, check performance metrics
-- **Weekly**: Update dependencies, review security advisories
-- **Monthly**: Database maintenance, cache cleanup, performance audit
-
-### Backup Strategy
-
-- **Database**: Neon provides point-in-time recovery
-- **Cache**: Redis is ephemeral (rebuildable from DB)
-- **Code**: Git version control with releases
-
-### Cost Optimization
-
-- **Compute**: Right-size Vercel functions
-- **Database**: Optimize queries, use connection pooling
-- **Cache**: Efficient key patterns, appropriate TTLs
-
-## Environment Management
-
-### Staging Environment
+### Redis Connection
 
 ```bash
-# Separate staging project
-vercel --scope team-name --project chatbot-staging
-
-# Staging environment variables
-DATABASE_URL="staging-db-url"
-CACHE_KV_REST_API_URL="staging-redis-url"
+# Test ping
+curl "$CACHE_KV_REST_API_URL/ping" \
+  -H "Authorization: Bearer $CACHE_KV_REST_API_TOKEN"
 ```
 
-### Blue-Green Deployment
+### Build Errors
 
 ```bash
-# Deploy to preview environment
-vercel --prod
-
-# Test thoroughly
-# Route traffic to new version
-# Monitor for issues
-# Full rollout if stable
+# Clear caches
+rm -rf .next node_modules
+pnpm install
+pnpm build
 ```
 
-## Compliance
+### Common Issues
 
-### Data Privacy
-
-- **GDPR**: User data deletion capabilities
-- **CCPA**: Data access and deletion rights
-- **SOC 2**: Security controls and monitoring
-
-### Security Best Practices
-
-- **Encryption**: TLS 1.3 for all traffic
-- **Authentication**: Secure session management
-- **Authorization**: Role-based access control
-- **Audit**: Comprehensive logging and monitoring
+| Issue                         | Solution                                     |
+| ----------------------------- | -------------------------------------------- |
+| `SUPABASE_JWT_SECRET` not set | Get from Supabase dashboard → Settings → API |
+| `GUEST_JWT_SECRET` not set    | Generate with `openssl rand -base64 32`      |
+| Database timeout              | Check connection string, SSL mode            |
+| Redis errors                  | Verify REST URL and token                    |

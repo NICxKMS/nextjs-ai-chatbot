@@ -1,7 +1,7 @@
 import { tool, type UIMessageStreamWriter } from "ai";
-import type { AppSession } from "@/lib/auth/session";
 import { z } from "zod";
 import { documentHandlersByArtifactKind } from "@/lib/artifacts/server";
+import type { AppSession } from "@/lib/auth/session";
 import { createContext } from "@/lib/data/base";
 import { documentData } from "@/lib/data/document";
 import { ChatSDKError } from "@/lib/errors";
@@ -14,7 +14,8 @@ type UpdateDocumentProps = {
 
 export const updateDocument = ({ session, dataStream }: UpdateDocumentProps) =>
 	tool({
-		description: "Update an existing document. Provide a clear description of the changes required.",
+		description:
+			"Update an existing document. Provide a clear description of the changes required.",
 		inputSchema: z.object({
 			id: z.string().describe("The ID of the document to update"),
 			description: z

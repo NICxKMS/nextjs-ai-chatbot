@@ -184,7 +184,12 @@ export const updateDocumentPrompt = (
 	currentContent: string | null,
 	type: ArtifactKind
 ) => {
-	const mediaType = type === "code" ? "code snippet" : type === "sheet" ? "spreadsheet" : "document";
+	const mediaType =
+		type === "code"
+			? "code snippet"
+			: type === "sheet"
+				? "spreadsheet"
+				: "document";
 	return `Update the ${mediaType} below based on the user's request.
     
 ${currentContent}`;
