@@ -6,88 +6,88 @@ import { artifactDefinitions } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
 
 export function DataStreamHandler() {
-	const { dataStream } = useDataStream();
+    const { dataStream } = useDataStream();
 
-	const { artifact, setArtifact, setMetadata } = useArtifact();
-	const lastProcessedIndex = useRef(-1);
-	const lastArtifactKind = useRef(artifact.kind);
+    const { artifact, setArtifact, setMetadata } = useArtifact();
+    const lastProcessedIndex = useRef(-1);
+    const lastArtifactKind = useRef(artifact.kind);
 
-	// Reset processed index when stream is cleared or artifact kind changes
-	useEffect(() => {
-		// Reset if artifact kind changed
-		if (lastArtifactKind.current !== artifact.kind) {
-			lastProcessedIndex.current = -1;
-			lastArtifactKind.current = artifact.kind;
-		}
+    // Reset processed index when stream is cleared or artifact kind changes
+    useEffect(() => {
+        // Reset if artifact kind changed
+        if (lastArtifactKind.current !== artifact.kind) {
+            lastProcessedIndex.current = -1;
+            lastArtifactKind.current = artifact.kind;
+        }
 
-		if (!dataStream?.length) {
-			lastProcessedIndex.current = -1;
-			return;
-		}
+        if (!dataStream?.length) {
+            lastProcessedIndex.current = -1;
+            return;
+        }
 
-		const newDeltas = dataStream.slice(lastProcessedIndex.current + 1);
-		lastProcessedIndex.current = dataStream.length - 1;
+        const newDeltas = dataStream.slice(lastProcessedIndex.current + 1);
+        lastProcessedIndex.current = dataStream.length - 1;
 
-		for (const delta of newDeltas) {
-			const artifactDefinition = artifactDefinitions.find(
-				(currentArtifactDefinition) =>
-					currentArtifactDefinition.kind === artifact.kind
-			);
+        for (const delta of newDeltas) {
+            const artifactDefinition = artifactDefinitions.find(
+                (currentArtifactDefinition) =>
+                    currentArtifactDefinition.kind === artifact.kind
+            );
 
-			if (artifactDefinition?.onStreamPart) {
-				artifactDefinition.onStreamPart({
-					streamPart: delta,
-					setArtifact,
-					setMetadata,
-				});
-			}
+            if (artifactDefinition?.onStreamPart) {
+                artifactDefinition.onStreamPart({
+                    streamPart: delta,
+                    setArtifact,
+                    setMetadata,
+                });
+            }
 
-			setArtifact((draftArtifact) => {
-				if (!draftArtifact) {
-					return { ...initialArtifactData, status: "streaming" };
-				}
+            setArtifact((draftArtifact) => {
+                if (!draftArtifact) {
+                    return { ...initialArtifactData, status: "streaming" };
+                }
 
-				switch (delta.type) {
-					case "data-id":
-						return {
-							...draftArtifact,
-							documentId: delta.data,
-							status: "streaming",
-						};
+                switch (delta.type) {
+                    case "data-id":
+                        return {
+                            ...draftArtifact,
+                            documentId: delta.data,
+                            status: "streaming",
+                        };
 
-					case "data-title":
-						return {
-							...draftArtifact,
-							title: delta.data,
-							status: "streaming",
-						};
+                    case "data-title":
+                        return {
+                            ...draftArtifact,
+                            title: delta.data,
+                            status: "streaming",
+                        };
 
-					case "data-kind":
-						return {
-							...draftArtifact,
-							kind: delta.data,
-							status: "streaming",
-						};
+                    case "data-kind":
+                        return {
+                            ...draftArtifact,
+                            kind: delta.data,
+                            status: "streaming",
+                        };
 
-					case "data-clear":
-						return {
-							...draftArtifact,
-							content: "",
-							status: "streaming",
-						};
+                    case "data-clear":
+                        return {
+                            ...draftArtifact,
+                            content: "",
+                            status: "streaming",
+                        };
 
-					case "data-finish":
-						return {
-							...draftArtifact,
-							status: "idle",
-						};
+                    case "data-finish":
+                        return {
+                            ...draftArtifact,
+                            status: "idle",
+                        };
 
-					default:
-						return draftArtifact;
-				}
-			});
-		}
-	}, [dataStream, setArtifact, setMetadata, artifact]);
+                    default:
+                        return draftArtifact;
+                }
+            });
+        }
+    }, [dataStream, setArtifact, setMetadata, artifact]);
 
-	return null;
+    return null;
 }

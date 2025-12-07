@@ -46,65 +46,65 @@ const MAX_BATCH_SIZE = 1000;
  * ```
  */
 export async function batchInsert<T extends Record<string, unknown>>(
-	table: unknown,
-	records: T[],
-	options: {
-		chunkSize?: number;
-		continueOnError?: boolean;
-	} = {}
+    table: unknown,
+    records: T[],
+    options: {
+        chunkSize?: number;
+        continueOnError?: boolean;
+    } = {}
 ): Promise<T[]> {
-	const { chunkSize = DEFAULT_BATCH_SIZE, continueOnError = false } = options;
+    const { chunkSize = DEFAULT_BATCH_SIZE, continueOnError = false } = options;
 
-	if (records.length === 0) {
-		return [];
-	}
+    if (records.length === 0) {
+        return [];
+    }
 
-	const safeChunkSize = Math.min(chunkSize, MAX_BATCH_SIZE);
-	const span = trace.getActiveSpan();
+    const safeChunkSize = Math.min(chunkSize, MAX_BATCH_SIZE);
+    const span = trace.getActiveSpan();
 
-	if (span) {
-		span.setAttribute("batch.operation", "insert");
-		span.setAttribute("batch.total_records", records.length);
-		span.setAttribute("batch.chunk_size", safeChunkSize);
-	}
+    if (span) {
+        span.setAttribute("batch.operation", "insert");
+        span.setAttribute("batch.total_records", records.length);
+        span.setAttribute("batch.chunk_size", safeChunkSize);
+    }
 
-	const chunks: T[][] = [];
-	for (let i = 0; i < records.length; i += safeChunkSize) {
-		chunks.push(records.slice(i, i + safeChunkSize));
-	}
+    const chunks: T[][] = [];
+    for (let i = 0; i < records.length; i += safeChunkSize) {
+        chunks.push(records.slice(i, i + safeChunkSize));
+    }
 
-	const results: T[] = [];
-	const errors: Error[] = [];
+    const results: T[] = [];
+    const errors: Error[] = [];
 
-	for (const [index, chunk] of chunks.entries()) {
-		try {
-			const inserted = await db
-				.insert(table as Parameters<typeof db.insert>[0])
-				.values(chunk)
-				.returning();
+    for (const [index, chunk] of chunks.entries()) {
+        try {
+            const inserted = await db
+                .insert(table as Parameters<typeof db.insert>[0])
+                .values(chunk)
+                .returning();
 
-			results.push(...(inserted as T[]));
+            results.push(...(inserted as T[]));
 
-			if (span) {
-				span.addEvent(`Chunk ${index + 1}/${chunks.length} inserted`, {
-					records: chunk.length,
-				});
-			}
-		} catch (error) {
-			errors.push(error as Error);
-			logError(`Batch insert chunk ${index + 1} failed`, error);
+            if (span) {
+                span.addEvent(`Chunk ${index + 1}/${chunks.length} inserted`, {
+                    records: chunk.length,
+                });
+            }
+        } catch (error) {
+            errors.push(error as Error);
+            logError(`Batch insert chunk ${index + 1} failed`, error);
 
-			if (!continueOnError) {
-				throw error;
-			}
-		}
-	}
+            if (!continueOnError) {
+                throw error;
+            }
+        }
+    }
 
-	if (errors.length > 0 && span) {
-		span.recordException(new Error(`${errors.length} chunks failed`));
-	}
+    if (errors.length > 0 && span) {
+        span.recordException(new Error(`${errors.length} chunks failed`));
+    }
 
-	return results;
+    return results;
 }
 
 /**
@@ -124,78 +124,78 @@ export async function batchInsert<T extends Record<string, unknown>>(
  * ```
  */
 export async function batchUpdate<T extends { id: string }>(
-	table: unknown,
-	updates: Array<{ id: string; data: Partial<T> }>,
-	options: {
-		chunkSize?: number;
-		continueOnError?: boolean;
-	} = {}
+    table: unknown,
+    updates: Array<{ id: string; data: Partial<T> }>,
+    options: {
+        chunkSize?: number;
+        continueOnError?: boolean;
+    } = {}
 ): Promise<number> {
-	const { chunkSize = DEFAULT_BATCH_SIZE, continueOnError = false } = options;
+    const { chunkSize = DEFAULT_BATCH_SIZE, continueOnError = false } = options;
 
-	if (updates.length === 0) {
-		return 0;
-	}
+    if (updates.length === 0) {
+        return 0;
+    }
 
-	// Deduplicate by ID (keep last update for each ID)
-	const deduped = new Map<string, Partial<T>>();
-	for (const update of updates) {
-		deduped.set(update.id, update.data);
-	}
+    // Deduplicate by ID (keep last update for each ID)
+    const deduped = new Map<string, Partial<T>>();
+    for (const update of updates) {
+        deduped.set(update.id, update.data);
+    }
 
-	const uniqueUpdates = Array.from(deduped.entries()).map(([id, data]) => ({
-		id,
-		data,
-	}));
+    const uniqueUpdates = Array.from(deduped.entries()).map(([id, data]) => ({
+        id,
+        data,
+    }));
 
-	const span = trace.getActiveSpan();
+    const span = trace.getActiveSpan();
 
-	if (span) {
-		span.setAttribute("batch.operation", "update");
-		span.setAttribute("batch.total_records", uniqueUpdates.length);
-		span.setAttribute("batch.original_records", updates.length);
-	}
+    if (span) {
+        span.setAttribute("batch.operation", "update");
+        span.setAttribute("batch.total_records", uniqueUpdates.length);
+        span.setAttribute("batch.original_records", updates.length);
+    }
 
-	let updateCount = 0;
-	const chunks: (typeof uniqueUpdates)[] = [];
+    let updateCount = 0;
+    const chunks: (typeof uniqueUpdates)[] = [];
 
-	const safeChunkSize = Math.min(chunkSize, MAX_BATCH_SIZE);
-	for (let i = 0; i < uniqueUpdates.length; i += safeChunkSize) {
-		chunks.push(uniqueUpdates.slice(i, i + safeChunkSize));
-	}
+    const safeChunkSize = Math.min(chunkSize, MAX_BATCH_SIZE);
+    for (let i = 0; i < uniqueUpdates.length; i += safeChunkSize) {
+        chunks.push(uniqueUpdates.slice(i, i + safeChunkSize));
+    }
 
-	for (const [index, chunk] of chunks.entries()) {
-		try {
-			// Execute updates in transaction
-			const result = await db.transaction(async (tx) => {
-				let count = 0;
-				for (const { id, data } of chunk) {
-					await tx
-						.update(table as Parameters<typeof db.update>[0])
-						.set(data as Record<string, unknown>)
-						.where((table as any).id.eq(id));
-					count++;
-				}
-				return count;
-			});
+    for (const [index, chunk] of chunks.entries()) {
+        try {
+            // Execute updates in transaction
+            const result = await db.transaction(async (tx) => {
+                let count = 0;
+                for (const { id, data } of chunk) {
+                    await tx
+                        .update(table as Parameters<typeof db.update>[0])
+                        .set(data as Record<string, unknown>)
+                        .where((table as any).id.eq(id));
+                    count++;
+                }
+                return count;
+            });
 
-			updateCount += result;
+            updateCount += result;
 
-			if (span) {
-				span.addEvent(`Chunk ${index + 1}/${chunks.length} updated`, {
-					records: chunk.length,
-				});
-			}
-		} catch (error) {
-			logError(`Batch update chunk ${index + 1} failed`, error);
+            if (span) {
+                span.addEvent(`Chunk ${index + 1}/${chunks.length} updated`, {
+                    records: chunk.length,
+                });
+            }
+        } catch (error) {
+            logError(`Batch update chunk ${index + 1} failed`, error);
 
-			if (!continueOnError) {
-				throw error;
-			}
-		}
-	}
+            if (!continueOnError) {
+                throw error;
+            }
+        }
+    }
 
-	return updateCount;
+    return updateCount;
 }
 
 /**
@@ -214,71 +214,71 @@ export async function batchUpdate<T extends { id: string }>(
  * ```
  */
 export async function batchDelete(
-	table: unknown,
-	ids: string[],
-	options: {
-		chunkSize?: number;
-		safetyLimit?: number;
-		continueOnError?: boolean;
-	} = {}
+    table: unknown,
+    ids: string[],
+    options: {
+        chunkSize?: number;
+        safetyLimit?: number;
+        continueOnError?: boolean;
+    } = {}
 ): Promise<number> {
-	const {
-		chunkSize = DEFAULT_BATCH_SIZE,
-		safetyLimit = 10_000,
-		continueOnError = false,
-	} = options;
+    const {
+        chunkSize = DEFAULT_BATCH_SIZE,
+        safetyLimit = 10_000,
+        continueOnError = false,
+    } = options;
 
-	if (ids.length === 0) {
-		return 0;
-	}
+    if (ids.length === 0) {
+        return 0;
+    }
 
-	// Safety check
-	if (ids.length > safetyLimit) {
-		throw new Error(
-			`Batch delete exceeds safety limit (${ids.length} > ${safetyLimit.toLocaleString()})`
-		);
-	}
+    // Safety check
+    if (ids.length > safetyLimit) {
+        throw new Error(
+            `Batch delete exceeds safety limit (${ids.length} > ${safetyLimit.toLocaleString()})`
+        );
+    }
 
-	// Deduplicate IDs
-	const uniqueIds = [...new Set(ids)];
+    // Deduplicate IDs
+    const uniqueIds = [...new Set(ids)];
 
-	const span = trace.getActiveSpan();
+    const span = trace.getActiveSpan();
 
-	if (span) {
-		span.setAttribute("batch.operation", "delete");
-		span.setAttribute("batch.total_records", uniqueIds.length);
-	}
+    if (span) {
+        span.setAttribute("batch.operation", "delete");
+        span.setAttribute("batch.total_records", uniqueIds.length);
+    }
 
-	let deleteCount = 0;
-	const chunks: string[][] = [];
+    let deleteCount = 0;
+    const chunks: string[][] = [];
 
-	const safeChunkSize = Math.min(chunkSize, MAX_BATCH_SIZE);
-	for (let i = 0; i < uniqueIds.length; i += safeChunkSize) {
-		chunks.push(uniqueIds.slice(i, i + safeChunkSize));
-	}
+    const safeChunkSize = Math.min(chunkSize, MAX_BATCH_SIZE);
+    for (let i = 0; i < uniqueIds.length; i += safeChunkSize) {
+        chunks.push(uniqueIds.slice(i, i + safeChunkSize));
+    }
 
-	for (const [index, chunk] of chunks.entries()) {
-		try {
-			await db
-				.delete(table as Parameters<typeof db.delete>[0])
-				.where((table as any).id.in(chunk)); // Count deleted rows (if supported)
-			deleteCount += chunk.length;
+    for (const [index, chunk] of chunks.entries()) {
+        try {
+            await db
+                .delete(table as Parameters<typeof db.delete>[0])
+                .where((table as any).id.in(chunk)); // Count deleted rows (if supported)
+            deleteCount += chunk.length;
 
-			if (span) {
-				span.addEvent(`Chunk ${index + 1}/${chunks.length} deleted`, {
-					records: chunk.length,
-				});
-			}
-		} catch (error) {
-			logError(`Batch delete chunk ${index + 1} failed`, error);
+            if (span) {
+                span.addEvent(`Chunk ${index + 1}/${chunks.length} deleted`, {
+                    records: chunk.length,
+                });
+            }
+        } catch (error) {
+            logError(`Batch delete chunk ${index + 1} failed`, error);
 
-			if (!continueOnError) {
-				throw error;
-			}
-		}
-	}
+            if (!continueOnError) {
+                throw error;
+            }
+        }
+    }
 
-	return deleteCount;
+    return deleteCount;
 }
 
 /**
@@ -295,58 +295,58 @@ export async function batchDelete(
  * ```
  */
 export async function batchUpsert<T extends Record<string, unknown>>(
-	table: unknown,
-	records: T[],
-	options: {
-		chunkSize?: number;
-		continueOnError?: boolean;
-	} = {}
+    table: unknown,
+    records: T[],
+    options: {
+        chunkSize?: number;
+        continueOnError?: boolean;
+    } = {}
 ): Promise<T[]> {
-	const { chunkSize = DEFAULT_BATCH_SIZE, continueOnError = false } = options;
+    const { chunkSize = DEFAULT_BATCH_SIZE, continueOnError = false } = options;
 
-	if (records.length === 0) {
-		return [];
-	}
+    if (records.length === 0) {
+        return [];
+    }
 
-	const safeChunkSize = Math.min(chunkSize, MAX_BATCH_SIZE);
-	const chunks: T[][] = [];
+    const safeChunkSize = Math.min(chunkSize, MAX_BATCH_SIZE);
+    const chunks: T[][] = [];
 
-	for (let i = 0; i < records.length; i += safeChunkSize) {
-		chunks.push(records.slice(i, i + safeChunkSize));
-	}
+    for (let i = 0; i < records.length; i += safeChunkSize) {
+        chunks.push(records.slice(i, i + safeChunkSize));
+    }
 
-	const results: T[] = [];
-	const span = trace.getActiveSpan();
+    const results: T[] = [];
+    const span = trace.getActiveSpan();
 
-	if (span) {
-		span.setAttribute("batch.operation", "upsert");
-		span.setAttribute("batch.total_records", records.length);
-		span.setAttribute("batch.chunk_size", safeChunkSize);
-	}
+    if (span) {
+        span.setAttribute("batch.operation", "upsert");
+        span.setAttribute("batch.total_records", records.length);
+        span.setAttribute("batch.chunk_size", safeChunkSize);
+    }
 
-	for (const [index, chunk] of chunks.entries()) {
-		try {
-			const upserted = await db
-				.insert(table as Parameters<typeof db.insert>[0])
-				.values(chunk)
-				.onConflictDoNothing()
-				.returning();
+    for (const [index, chunk] of chunks.entries()) {
+        try {
+            const upserted = await db
+                .insert(table as Parameters<typeof db.insert>[0])
+                .values(chunk)
+                .onConflictDoNothing()
+                .returning();
 
-			results.push(...(upserted as T[]));
+            results.push(...(upserted as T[]));
 
-			if (span) {
-				span.addEvent(`Chunk ${index + 1}/${chunks.length} upserted`, {
-					records: chunk.length,
-				});
-			}
-		} catch (error) {
-			logError(`Batch upsert chunk ${index + 1} failed`, error);
+            if (span) {
+                span.addEvent(`Chunk ${index + 1}/${chunks.length} upserted`, {
+                    records: chunk.length,
+                });
+            }
+        } catch (error) {
+            logError(`Batch upsert chunk ${index + 1} failed`, error);
 
-			if (!continueOnError) {
-				throw error;
-			}
-		}
-	}
+            if (!continueOnError) {
+                throw error;
+            }
+        }
+    }
 
-	return results;
+    return results;
 }

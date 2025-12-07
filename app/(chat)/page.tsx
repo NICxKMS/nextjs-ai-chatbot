@@ -6,26 +6,31 @@ import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { generateUUID } from "@/lib/utils";
 
 export default async function Page() {
-	// Access request data before using random values to satisfy Next.js
-	// cacheComponents constraints for server components.
-	await cookies();
+    // Access request data before using random values to satisfy Next.js
+    // cacheComponents constraints for server components.
+    const cookieStore = await cookies();
+    const availableModels = listChatModels();
+    const selectedModelId = cookieStore.get("chat-model")?.value;
+    const initialChatModel =
+        selectedModelId &&
+        availableModels.some((model) => model.id === selectedModelId)
+            ? selectedModelId
+            : DEFAULT_CHAT_MODEL;
+    const id = generateUUID();
 
-	const id = generateUUID();
-	const availableModels = listChatModels();
-
-	return (
-		<>
-			<Chat
-				availableModels={availableModels}
-				id={id}
-				initialChatModel={DEFAULT_CHAT_MODEL}
-				initialMessages={[]}
-				initialVisibilityType="private"
-				initialVotes={[]}
-				isReadonly={false}
-				key={id}
-			/>
-			<DataStreamHandler />
-		</>
-	);
+    return (
+        <>
+            <Chat
+                availableModels={availableModels}
+                id={id}
+                initialChatModel={initialChatModel}
+                initialMessages={[]}
+                initialVisibilityType="private"
+                initialVotes={[]}
+                isReadonly={false}
+                key={id}
+            />
+            <DataStreamHandler />
+        </>
+    );
 }

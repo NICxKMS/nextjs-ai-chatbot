@@ -84,10 +84,10 @@ export const regularPrompt = [
 */
 
 export type RequestHints = {
-	latitude: Geo["latitude"];
-	longitude: Geo["longitude"];
-	city: Geo["city"];
-	country: Geo["country"];
+    latitude: Geo["latitude"];
+    longitude: Geo["longitude"];
+    city: Geo["city"];
+    country: Geo["country"];
 };
 
 export const getRequestPromptFromHints = (requestHints: RequestHints) => `\
@@ -99,33 +99,33 @@ About the origin of user's request:
 `;
 
 export const systemPrompt = ({
-	selectedChatModel,
-	requestHints,
-	selectedModel,
-	userSystemPrompt,
+    selectedChatModel,
+    requestHints,
+    selectedModel,
+    userSystemPrompt,
 }: {
-	selectedChatModel: string;
-	requestHints: RequestHints;
-	selectedModel?: ModelMetadata;
-	userSystemPrompt?: string;
+    selectedChatModel: string;
+    requestHints: RequestHints;
+    selectedModel?: ModelMetadata;
+    userSystemPrompt?: string;
 }) => {
-	const requestPrompt = getRequestPromptFromHints(requestHints);
+    const requestPrompt = getRequestPromptFromHints(requestHints);
 
-	const baseSegments = [regularPrompt, requestPrompt];
-	const shouldIncludeArtifacts = !(
-		selectedChatModel === REASONING_MODEL_ID ||
-		selectedModel?.capabilities.includes("reasoning")
-	);
+    const baseSegments = [regularPrompt, requestPrompt];
+    const shouldIncludeArtifacts = !(
+        selectedChatModel === REASONING_MODEL_ID ||
+        selectedModel?.capabilities.includes("reasoning")
+    );
 
-	if (userSystemPrompt) {
-		baseSegments.splice(1, 0, userSystemPrompt);
-	}
+    if (userSystemPrompt) {
+        baseSegments.splice(1, 0, userSystemPrompt);
+    }
 
-	if (shouldIncludeArtifacts) {
-		baseSegments.push(artifactsPrompt);
-	}
+    if (shouldIncludeArtifacts) {
+        baseSegments.push(artifactsPrompt);
+    }
 
-	return baseSegments.join("\n\n");
+    return baseSegments.join("\n\n");
 };
 
 export const codePrompt = `
@@ -181,16 +181,16 @@ You are a spreadsheet creation assistant. Create a spreadsheet in csv format bas
 */
 
 export const updateDocumentPrompt = (
-	currentContent: string | null,
-	type: ArtifactKind
+    currentContent: string | null,
+    type: ArtifactKind
 ) => {
-	const mediaType =
-		type === "code"
-			? "code snippet"
-			: type === "sheet"
-				? "spreadsheet"
-				: "document";
-	return `Update the ${mediaType} below based on the user's request.
+    const mediaType =
+        type === "code"
+            ? "code snippet"
+            : type === "sheet"
+              ? "spreadsheet"
+              : "document";
+    return `Update the ${mediaType} below based on the user's request.
     
 ${currentContent}`;
 };

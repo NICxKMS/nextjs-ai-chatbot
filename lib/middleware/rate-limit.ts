@@ -32,36 +32,36 @@ import { logError, logWarn } from "@/lib/log";
  */
 
 export type RateLimitStrategy =
-	| "token_bucket"
-	| "sliding_window"
-	| "fixed_window";
+    | "token_bucket"
+    | "sliding_window"
+    | "fixed_window";
 
 export type RateLimitConfig = {
-	/** Strategy to use */
-	strategy?: RateLimitStrategy;
-	/** Max requests per window */
-	limit: number;
-	/** Window duration in seconds */
-	window: number;
-	/** Identifier (IP, userId, apiKey, etc.) */
-	identifier: string;
-	/** Namespace for grouping (e.g., "api", "chat", "upload") */
-	namespace?: string;
-	/** Custom error message */
-	errorMessage?: string;
+    /** Strategy to use */
+    strategy?: RateLimitStrategy;
+    /** Max requests per window */
+    limit: number;
+    /** Window duration in seconds */
+    window: number;
+    /** Identifier (IP, userId, apiKey, etc.) */
+    identifier: string;
+    /** Namespace for grouping (e.g., "api", "chat", "upload") */
+    namespace?: string;
+    /** Custom error message */
+    errorMessage?: string;
 };
 
 export type RateLimitResult = {
-	/** Whether request is allowed */
-	allowed: boolean;
-	/** Remaining requests in window */
-	remaining: number;
-	/** Limit for this identifier */
-	limit: number;
-	/** Time until reset (seconds) */
-	resetIn: number;
-	/** Retry after (seconds) - only if blocked */
-	retryAfter?: number;
+    /** Whether request is allowed */
+    allowed: boolean;
+    /** Remaining requests in window */
+    remaining: number;
+    /** Limit for this identifier */
+    limit: number;
+    /** Time until reset (seconds) */
+    resetIn: number;
+    /** Retry after (seconds) - only if blocked */
+    retryAfter?: number;
 };
 
 /**
@@ -69,72 +69,72 @@ export type RateLimitResult = {
  * Allows bursts while maintaining average rate
  */
 class TokenBucketLimiter {
-	async checkLimit(
-		redis: ReturnType<typeof getRedisClient>,
-		config: RateLimitConfig
-	): Promise<RateLimitResult> {
-		if (!redis) {
-			// Fail open if Redis unavailable
-			return {
-				allowed: true,
-				remaining: config.limit,
-				limit: config.limit,
-				resetIn: config.window,
-			};
-		}
+    async checkLimit(
+        redis: ReturnType<typeof getRedisClient>,
+        config: RateLimitConfig
+    ): Promise<RateLimitResult> {
+        if (!redis) {
+            // Fail open if Redis unavailable
+            return {
+                allowed: true,
+                remaining: config.limit,
+                limit: config.limit,
+                resetIn: config.window,
+            };
+        }
 
-		const key = this.getKey(config);
-		const now = Date.now();
+        const key = this.getKey(config);
+        const now = Date.now();
 
-		// Get current bucket state
-		const bucket = await redis.get<{
-			tokens: number;
-			lastRefill: number;
-		}>(key);
+        // Get current bucket state
+        const bucket = await redis.get<{
+            tokens: number;
+            lastRefill: number;
+        }>(key);
 
-		const tokensPerSecond = config.limit / config.window;
-		let tokens: number;
+        const tokensPerSecond = config.limit / config.window;
+        let tokens: number;
 
-		if (bucket) {
-			// Refill tokens based on time elapsed
-			const elapsedSeconds = (now - bucket.lastRefill) / 1000;
-			const refillAmount = elapsedSeconds * tokensPerSecond;
-			tokens = Math.min(config.limit, bucket.tokens + refillAmount);
-		} else {
-			// First request - full bucket
-			tokens = config.limit;
-		}
+        if (bucket) {
+            // Refill tokens based on time elapsed
+            const elapsedSeconds = (now - bucket.lastRefill) / 1000;
+            const refillAmount = elapsedSeconds * tokensPerSecond;
+            tokens = Math.min(config.limit, bucket.tokens + refillAmount);
+        } else {
+            // First request - full bucket
+            tokens = config.limit;
+        }
 
-		// Check if request can proceed
-		const allowed = tokens >= 1;
+        // Check if request can proceed
+        const allowed = tokens >= 1;
 
-		if (allowed) {
-			// Consume token
-			tokens -= 1;
-		}
+        if (allowed) {
+            // Consume token
+            tokens -= 1;
+        }
 
-		// Save bucket state
-		await redis.set(
-			key,
-			{ tokens, lastRefill: now },
-			{ ex: config.window * 2 }
-		);
+        // Save bucket state
+        await redis.set(
+            key,
+            { tokens, lastRefill: now },
+            { ex: config.window * 2 }
+        );
 
-		const resetIn = Math.ceil((config.limit - tokens) / tokensPerSecond);
+        const resetIn = Math.ceil((config.limit - tokens) / tokensPerSecond);
 
-		return {
-			allowed,
-			remaining: Math.floor(tokens),
-			limit: config.limit,
-			resetIn,
-			retryAfter: allowed ? undefined : Math.ceil(1 / tokensPerSecond),
-		};
-	}
+        return {
+            allowed,
+            remaining: Math.floor(tokens),
+            limit: config.limit,
+            resetIn,
+            retryAfter: allowed ? undefined : Math.ceil(1 / tokensPerSecond),
+        };
+    }
 
-	private getKey(config: RateLimitConfig): string {
-		const namespace = config.namespace || "rate_limit";
-		return `${namespace}:token_bucket:${config.identifier}`;
-	}
+    private getKey(config: RateLimitConfig): string {
+        const namespace = config.namespace || "rate_limit";
+        return `${namespace}:token_bucket:${config.identifier}`;
+    }
 }
 
 /**
@@ -142,25 +142,25 @@ class TokenBucketLimiter {
  * Precise rate limiting using sorted sets
  */
 class SlidingWindowLimiter {
-	async checkLimit(
-		redis: ReturnType<typeof getRedisClient>,
-		config: RateLimitConfig
-	): Promise<RateLimitResult> {
-		if (!redis) {
-			return {
-				allowed: true,
-				remaining: config.limit,
-				limit: config.limit,
-				resetIn: config.window,
-			};
-		}
+    async checkLimit(
+        redis: ReturnType<typeof getRedisClient>,
+        config: RateLimitConfig
+    ): Promise<RateLimitResult> {
+        if (!redis) {
+            return {
+                allowed: true,
+                remaining: config.limit,
+                limit: config.limit,
+                resetIn: config.window,
+            };
+        }
 
-		const key = this.getKey(config);
-		const now = Date.now();
-		const windowStart = now - config.window * 1000;
+        const key = this.getKey(config);
+        const now = Date.now();
+        const windowStart = now - config.window * 1000;
 
-		// Use Lua script for atomicity
-		const script = `
+        // Use Lua script for atomicity
+        const script = `
 			local key = KEYS[1]
 			local now = tonumber(ARGV[1])
 			local windowStart = tonumber(ARGV[2])
@@ -190,34 +190,34 @@ class SlidingWindowLimiter {
 			end
 		`;
 
-		const result = (await redis.eval(
-			script,
-			[key],
-			[
-				now.toString(),
-				windowStart.toString(),
-				config.limit.toString(),
-				config.window.toString(),
-			]
-		)) as number[];
+        const result = (await redis.eval(
+            script,
+            [key],
+            [
+                now.toString(),
+                windowStart.toString(),
+                config.limit.toString(),
+                config.window.toString(),
+            ]
+        )) as number[];
 
-		const allowed = result[0] === 1;
-		const remaining = result[1] || 0;
-		const resetIn = result[2] || config.window;
+        const allowed = result[0] === 1;
+        const remaining = result[1] || 0;
+        const resetIn = result[2] || config.window;
 
-		return {
-			allowed,
-			remaining,
-			limit: config.limit,
-			resetIn,
-			retryAfter: allowed ? undefined : resetIn,
-		};
-	}
+        return {
+            allowed,
+            remaining,
+            limit: config.limit,
+            resetIn,
+            retryAfter: allowed ? undefined : resetIn,
+        };
+    }
 
-	private getKey(config: RateLimitConfig): string {
-		const namespace = config.namespace || "rate_limit";
-		return `${namespace}:sliding_window:${config.identifier}`;
-	}
+    private getKey(config: RateLimitConfig): string {
+        const namespace = config.namespace || "rate_limit";
+        return `${namespace}:sliding_window:${config.identifier}`;
+    }
 }
 
 /**
@@ -225,57 +225,57 @@ class SlidingWindowLimiter {
  * Simple counter-based limiting
  */
 class FixedWindowLimiter {
-	async checkLimit(
-		redis: ReturnType<typeof getRedisClient>,
-		config: RateLimitConfig
-	): Promise<RateLimitResult> {
-		if (!redis) {
-			return {
-				allowed: true,
-				remaining: config.limit,
-				limit: config.limit,
-				resetIn: config.window,
-			};
-		}
+    async checkLimit(
+        redis: ReturnType<typeof getRedisClient>,
+        config: RateLimitConfig
+    ): Promise<RateLimitResult> {
+        if (!redis) {
+            return {
+                allowed: true,
+                remaining: config.limit,
+                limit: config.limit,
+                resetIn: config.window,
+            };
+        }
 
-		const key = this.getKey(config);
-		const now = Date.now();
-		const windowStart = Math.floor(now / (config.window * 1000));
+        const key = this.getKey(config);
+        const now = Date.now();
+        const windowStart = Math.floor(now / (config.window * 1000));
 
-		const fullKey = `${key}:${windowStart}`;
+        const fullKey = `${key}:${windowStart}`;
 
-		// Increment counter
-		const count = await redis.incr(fullKey);
+        // Increment counter
+        const count = await redis.incr(fullKey);
 
-		if (count === 1) {
-			// Set expiry on first request
-			await redis.expire(fullKey, config.window * 2);
-		}
+        if (count === 1) {
+            // Set expiry on first request
+            await redis.expire(fullKey, config.window * 2);
+        }
 
-		const allowed = count <= config.limit;
-		const remaining = Math.max(0, config.limit - count);
-		const resetIn = config.window - ((now / 1000) % config.window);
+        const allowed = count <= config.limit;
+        const remaining = Math.max(0, config.limit - count);
+        const resetIn = config.window - ((now / 1000) % config.window);
 
-		return {
-			allowed,
-			remaining,
-			limit: config.limit,
-			resetIn: Math.ceil(resetIn),
-			retryAfter: allowed ? undefined : Math.ceil(resetIn),
-		};
-	}
+        return {
+            allowed,
+            remaining,
+            limit: config.limit,
+            resetIn: Math.ceil(resetIn),
+            retryAfter: allowed ? undefined : Math.ceil(resetIn),
+        };
+    }
 
-	private getKey(config: RateLimitConfig): string {
-		const namespace = config.namespace || "rate_limit";
-		return `${namespace}:fixed_window:${config.identifier}`;
-	}
+    private getKey(config: RateLimitConfig): string {
+        const namespace = config.namespace || "rate_limit";
+        return `${namespace}:fixed_window:${config.identifier}`;
+    }
 }
 
 // Limiter instances
 const limiters = {
-	token_bucket: new TokenBucketLimiter(),
-	sliding_window: new SlidingWindowLimiter(),
-	fixed_window: new FixedWindowLimiter(),
+    token_bucket: new TokenBucketLimiter(),
+    sliding_window: new SlidingWindowLimiter(),
+    fixed_window: new FixedWindowLimiter(),
 };
 
 /**
@@ -305,53 +305,53 @@ const limiters = {
  * ```
  */
 export async function checkRateLimit(
-	config: RateLimitConfig
+    config: RateLimitConfig
 ): Promise<RateLimitResult> {
-	const redis = getRedisClient();
-	const strategy = config.strategy || "sliding_window";
-	const limiter = limiters[strategy];
+    const redis = getRedisClient();
+    const strategy = config.strategy || "sliding_window";
+    const limiter = limiters[strategy];
 
-	const span = trace.getActiveSpan();
+    const span = trace.getActiveSpan();
 
-	if (span) {
-		span.setAttribute("rate_limit.strategy", strategy);
-		span.setAttribute("rate_limit.limit", config.limit);
-		span.setAttribute("rate_limit.window", config.window);
-		span.setAttribute(
-			"rate_limit.namespace",
-			config.namespace || "default"
-		);
-	}
+    if (span) {
+        span.setAttribute("rate_limit.strategy", strategy);
+        span.setAttribute("rate_limit.limit", config.limit);
+        span.setAttribute("rate_limit.window", config.window);
+        span.setAttribute(
+            "rate_limit.namespace",
+            config.namespace || "default"
+        );
+    }
 
-	try {
-		const result = await limiter.checkLimit(redis, config);
+    try {
+        const result = await limiter.checkLimit(redis, config);
 
-		if (span) {
-			span.setAttribute("rate_limit.allowed", result.allowed);
-			span.setAttribute("rate_limit.remaining", result.remaining);
-		}
+        if (span) {
+            span.setAttribute("rate_limit.allowed", result.allowed);
+            span.setAttribute("rate_limit.remaining", result.remaining);
+        }
 
-		if (!result.allowed) {
-			logWarn("Rate limit exceeded", {
-				identifier: config.identifier,
-				namespace: config.namespace,
-				limit: config.limit,
-				window: config.window,
-			});
-		}
+        if (!result.allowed) {
+            logWarn("Rate limit exceeded", {
+                identifier: config.identifier,
+                namespace: config.namespace,
+                limit: config.limit,
+                window: config.window,
+            });
+        }
 
-		return result;
-	} catch (error) {
-		logError("Rate limit check failed", error);
+        return result;
+    } catch (error) {
+        logError("Rate limit check failed", error);
 
-		// Fail open on error
-		return {
-			allowed: true,
-			remaining: config.limit,
-			limit: config.limit,
-			resetIn: config.window,
-		};
-	}
+        // Fail open on error
+        return {
+            allowed: true,
+            remaining: config.limit,
+            limit: config.limit,
+            resetIn: config.window,
+        };
+    }
 }
 
 /**
@@ -377,97 +377,97 @@ export async function checkRateLimit(
  * ```
  */
 export function createRateLimiter(config: Omit<RateLimitConfig, "identifier">) {
-	return async (request: Request) => {
-		// Extract identifier from request
-		const ip =
-			request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-			request.headers.get("x-real-ip") ||
-			"unknown";
+    return async (request: Request) => {
+        // Extract identifier from request
+        const ip =
+            request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+            request.headers.get("x-real-ip") ||
+            "unknown";
 
-		const result = await checkRateLimit({
-			...config,
-			identifier: ip,
-		});
+        const result = await checkRateLimit({
+            ...config,
+            identifier: ip,
+        });
 
-		if (!result.allowed) {
-			return {
-				allowed: false,
-				response: new Response(
-					JSON.stringify({
-						error: config.errorMessage || "Rate limit exceeded",
-						limit: result.limit,
-						retryAfter: result.retryAfter,
-					}),
-					{
-						status: 429,
-						headers: {
-							"Content-Type": "application/json",
-							"X-RateLimit-Limit": result.limit.toString(),
-							"X-RateLimit-Remaining":
-								result.remaining.toString(),
-							"X-RateLimit-Reset": (
-								Date.now() +
-								(result.retryAfter || 0) * 1000
-							).toString(),
-							"Retry-After": (result.retryAfter || 0).toString(),
-						},
-					}
-				),
-			};
-		}
+        if (!result.allowed) {
+            return {
+                allowed: false,
+                response: new Response(
+                    JSON.stringify({
+                        error: config.errorMessage || "Rate limit exceeded",
+                        limit: result.limit,
+                        retryAfter: result.retryAfter,
+                    }),
+                    {
+                        status: 429,
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-RateLimit-Limit": result.limit.toString(),
+                            "X-RateLimit-Remaining":
+                                result.remaining.toString(),
+                            "X-RateLimit-Reset": (
+                                Date.now() +
+                                (result.retryAfter || 0) * 1000
+                            ).toString(),
+                            "Retry-After": (result.retryAfter || 0).toString(),
+                        },
+                    }
+                ),
+            };
+        }
 
-		return { allowed: true, result };
-	};
+        return { allowed: true, result };
+    };
 }
 
 /**
  * Pre-configured rate limiters for common use cases
  */
 export const RateLimiters = {
-	/** Strict: 10 requests per minute */
-	strict: (identifier: string) =>
-		checkRateLimit({
-			strategy: "sliding_window",
-			limit: 10,
-			window: 60,
-			identifier,
-		}),
+    /** Strict: 10 requests per minute */
+    strict: (identifier: string) =>
+        checkRateLimit({
+            strategy: "sliding_window",
+            limit: 10,
+            window: 60,
+            identifier,
+        }),
 
-	/** Standard: 100 requests per minute */
-	standard: (identifier: string) =>
-		checkRateLimit({
-			strategy: "sliding_window",
-			limit: 100,
-			window: 60,
-			identifier,
-		}),
+    /** Standard: 100 requests per minute */
+    standard: (identifier: string) =>
+        checkRateLimit({
+            strategy: "sliding_window",
+            limit: 100,
+            window: 60,
+            identifier,
+        }),
 
-	/** Generous: 1000 requests per minute */
-	generous: (identifier: string) =>
-		checkRateLimit({
-			strategy: "sliding_window",
-			limit: 1000,
-			window: 60,
-			identifier,
-		}),
+    /** Generous: 1000 requests per minute */
+    generous: (identifier: string) =>
+        checkRateLimit({
+            strategy: "sliding_window",
+            limit: 1000,
+            window: 60,
+            identifier,
+        }),
 
-	/** Per-user chat: 50 requests per minute */
-	chat: (userId: string) =>
-		checkRateLimit({
-			strategy: "token_bucket",
-			limit: 50,
-			window: 60,
-			identifier: userId,
-			namespace: "chat",
-		}),
+    /** Per-user chat: 50 requests per minute */
+    chat: (userId: string) =>
+        checkRateLimit({
+            strategy: "token_bucket",
+            limit: 50,
+            window: 60,
+            identifier: userId,
+            namespace: "chat",
+        }),
 
-	/** File upload: 5 requests per hour */
-	upload: (userId: string) =>
-		checkRateLimit({
-			strategy: "fixed_window",
-			limit: 5,
-			window: 3600,
-			identifier: userId,
-			namespace: "upload",
-		}),
+    /** File upload: 5 requests per hour */
+    upload: (userId: string) =>
+        checkRateLimit({
+            strategy: "fixed_window",
+            limit: 5,
+            window: 3600,
+            identifier: userId,
+            namespace: "upload",
+        }),
 };

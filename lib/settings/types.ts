@@ -1,13 +1,13 @@
 export type SamplingSettings = {
-	temperature: number;
-	topP: number;
-	maxOutputTokens: number;
+    temperature: number;
+    topP: number;
+    maxOutputTokens: number;
 };
 
 export type AppSettings = {
-	sampling: SamplingSettings;
-	systemPrompt: string;
-	enableReasoning: boolean;
-	streamArtifacts: boolean;
-	autoScroll: boolean;
+    sampling: SamplingSettings;
+    systemPrompt: string;
+    enableReasoning: boolean;
+    streamArtifacts: boolean;
+    autoScroll: boolean;
 };
