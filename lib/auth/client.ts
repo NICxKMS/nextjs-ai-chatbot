@@ -2,9 +2,7 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 
-let browserSupabaseClient:
-	| ReturnType<typeof createBrowserClient>
-	| null = null;
+let browserSupabaseClient: ReturnType<typeof createBrowserClient> | null = null;
 
 export function getSupabaseBrowserClient() {
 	if (browserSupabaseClient) {
@@ -23,5 +21,3 @@ export function getSupabaseBrowserClient() {
 	browserSupabaseClient = createBrowserClient(url, anonKey);
 	return browserSupabaseClient;
 }
-
-

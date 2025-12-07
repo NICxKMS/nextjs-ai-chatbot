@@ -5,6 +5,7 @@ import { logError } from "@/lib/log";
 import type { Chat, DBMessage, Document } from "../db/schema";
 import type { AppUsage } from "../usage";
 import { dbMessageToCachedMessage } from "./helpers";
+import { withCacheMetrics } from "./metrics";
 import { getRedisClient, isRedisAvailable } from "./redis";
 import {
 	type CachedChat,
@@ -58,9 +59,29 @@ function parseMessagesFromRaw(messagesRaw: unknown[]): CachedMessage[] {
 
 /**
  * Get timestamp score for a message (milliseconds since epoch)
+ *
+ * To ensure proper ordering when messages have the same timestamp,
+ * we add a role-based offset in microseconds:
+ * - user messages: +0.001 ms (to sort first)
+ * - assistant messages: +0.002 ms (to sort second)
+ * - system messages: +0.000 ms (to sort before user)
+ *
+ * This guarantees: system < user < assistant for same-timestamp messages
  */
 function getMessageScore(message: CachedMessage): number {
-	return new Date(message.createdAt).getTime();
+	const baseTimestamp = new Date(message.createdAt).getTime();
+
+	// Add role-based microsecond offset to ensure correct ordering
+	// when multiple messages share the same createdAt timestamp
+	let roleOffset = 0;
+	if (message.role === "user") {
+		roleOffset = 0.001; // User messages sort first (after system)
+	} else if (message.role === "assistant") {
+		roleOffset = 0.002; // Assistant messages sort after user
+	}
+	// system messages get 0 offset (sort before user)
+
+	return baseTimestamp + roleOffset;
 }
 
 /**
@@ -88,7 +109,7 @@ function applyGuestTTL(
 /**
  * Get chat from cache (assembles metadata + messages)
  * Returns full CachedChat for backward compatibility
- * 
+ *
  * NOTE: This loads ALL messages into memory. For conversations with 1000+ messages,
  * consider using getLastMessagesFromCache() with pagination instead.
  */
@@ -97,43 +118,45 @@ export async function getChatFromCache(
 	userId: string,
 	opts?: { maxMessages?: number }
 ): Promise<CachedChat | null> {
-	const redis = getRedisClient();
-	if (!redis) {
-		return null;
-	}
-
-	try {
-		const metaKey = CacheKeys.chatMeta(chatId, userId);
-		const msgsKey = CacheKeys.chatMessages(chatId, userId);
-
-		// Fetch metadata and messages in parallel
-		// ZRANGE returns all members sorted by score (timestamp) ascending
-		// If maxMessages is specified, only fetch the last N messages for performance
-		const [meta, messagesRaw] = await Promise.all([
-			redis.get<CachedChatMeta>(metaKey),
-			opts?.maxMessages
-				? redis.zrange(msgsKey, -opts.maxMessages, -1)
-				: redis.zrange(msgsKey, 0, -1),
-		]);
-
-		if (!meta) {
+	const result = await withCacheMetrics("get_chat", async () => {
+		const redis = getRedisClient();
+		if (!redis) {
 			return null;
 		}
 
-		// Parse messages using centralized helper
-		const messages = parseMessagesFromRaw(messagesRaw);
+		try {
+			const metaKey = CacheKeys.chatMeta(chatId, userId);
+			const msgsKey = CacheKeys.chatMessages(chatId, userId);
 
-		return {
-			...meta,
-			messages,
-		};
-	} catch (error) {
-		logError("Redis getChatFromCache error", error);
-		return null;
-	}
-}
+			// Fetch metadata and messages in parallel
+			// ZRANGE returns all members sorted by score (timestamp) ascending
+			// If maxMessages is specified, only fetch the last N messages for performance
+			const [meta, messagesRaw] = await Promise.all([
+				redis.get<CachedChatMeta>(metaKey),
+				opts?.maxMessages
+					? redis.zrange(msgsKey, -opts.maxMessages, -1)
+					: redis.zrange(msgsKey, 0, -1),
+			]);
 
-/**
+			if (!meta) {
+				return null;
+			}
+
+			// Parse messages using centralized helper
+			const messages = parseMessagesFromRaw(messagesRaw);
+
+			return {
+				...meta,
+				messages,
+			};
+		} catch (error) {
+			logError("Redis getChatFromCache error", error);
+			return null;
+		}
+	});
+
+	return result ?? null;
+} /**
  * Get chat metadata only (without messages) - faster for list views
  */
 export async function getChatMetaFromCache(

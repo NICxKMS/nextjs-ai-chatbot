@@ -1,13 +1,15 @@
-import { getAppSession } from "@/lib/auth/session";
 import type { ArtifactKind } from "@/components/artifact";
+import { getAppSession } from "@/lib/auth/session";
 import { createContext } from "@/lib/data/base";
 import { documentData } from "@/lib/data/document";
 import { ChatSDKError } from "@/lib/errors";
+import { logger } from "@/lib/monitoring/logger";
 
 // Optimize for Vercel Fluid Compute
 export const maxDuration = 10;
 
 export async function GET(request: Request) {
+	const startTime = Date.now();
 	const { searchParams } = new URL(request.url);
 	const id = searchParams.get("id");
 
@@ -39,10 +41,18 @@ export async function GET(request: Request) {
 		return new ChatSDKError("forbidden:document").toResponse();
 	}
 
+	const duration = Date.now() - startTime;
+	logger.perf("DocumentGet", duration, {
+		documentId: id,
+		userId: session.user.id,
+		versions: documents.length,
+	});
+
 	return Response.json(documents, { status: 200 });
 }
 
 export async function POST(request: Request) {
+	const startTime = Date.now();
 	const { searchParams } = new URL(request.url);
 	const id = searchParams.get("id");
 
@@ -97,19 +107,30 @@ export async function POST(request: Request) {
 
 	const document = await documentData.save(
 		{
-		id,
-		content,
-		title,
-		kind,
-		chatId,
+			id,
+			content,
+			title,
+			kind,
+			chatId,
 		},
 		ctx
 	);
+
+	const duration = Date.now() - startTime;
+	logger.info("Document saved", {
+		documentId: id,
+		chatId,
+		kind,
+		contentLength: content.length,
+		userId: session.user.id,
+		duration,
+	});
 
 	return Response.json(document, { status: 200 });
 }
 
 export async function DELETE(request: Request) {
+	const startTime = Date.now();
 	const { searchParams } = new URL(request.url);
 	const id = searchParams.get("id");
 	const timestamp = searchParams.get("timestamp");
@@ -154,6 +175,15 @@ export async function DELETE(request: Request) {
 		new Date(timestamp),
 		ctx
 	);
+
+	const duration = Date.now() - startTime;
+	logger.info("Document versions deleted", {
+		documentId: id,
+		timestamp,
+		userId: session.user.id,
+		duration,
+		deleted: documentsDeleted.length,
+	});
 
 	return Response.json(documentsDeleted, { status: 200 });
 }

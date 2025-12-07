@@ -180,7 +180,15 @@ export const chatData = {
 						lastContext: cached.lastContext,
 					} as Chat;
 
-					const messagesData = cached.messages.map((msg) => ({
+					// Deduplicate messages by ID to prevent React duplicate key errors
+					// (can occur due to race conditions, retries, or concurrent cache warming)
+					const uniqueMessages = Array.from(
+						new Map(
+							cached.messages.map((msg) => [msg.id, msg])
+						).values()
+					);
+
+					const messagesData = uniqueMessages.map((msg) => ({
 						id: msg.id,
 						chatId: msg.chatId,
 						role: msg.role,

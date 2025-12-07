@@ -1,51 +1,19 @@
 "use server";
 
-import { generateText, type UIMessage } from "ai";
+import type { UIMessage } from "ai";
 import type { VisibilityType } from "@/components/visibility-selector";
-import { DEFAULT_TITLE_MODEL } from "@/lib/ai/models";
-import { myProvider } from "@/lib/ai/providers";
-// import { cookies } from "next/headers";
+import { generateTitleFromUserMessage as generateTitle } from "@/lib/ai/title-generation";
 import { getAppSession } from "@/lib/auth/session";
-import { isTestEnvironment } from "@/lib/constants";
 import { createContext } from "@/lib/data/base";
 import { chatData, messageData } from "@/lib/data/chat";
 import { getMessageById } from "@/lib/db/queries";
-
-// export async function saveChatModelAsCookie(model: string) {
-// 	const cookieStore = await cookies();
-// 	cookieStore.set("chat-model", model);
-// }
 
 export async function generateTitleFromUserMessage({
 	message,
 }: {
 	message: UIMessage;
-}) {
-	try {
-		const titleModel = isTestEnvironment
-			? myProvider.languageModel("title-model")
-			: myProvider.languageModel(DEFAULT_TITLE_MODEL);
-
-		const { text: title } = await generateText({
-			model: titleModel,
-			system: `\n
-    - you will generate a short title based on the first message a user begins a conversation with
-    - ensure it is not more than 80 characters long
-    - the title should be a summary of the user's message
-    - do not use quotes or colons`,
-			prompt: JSON.stringify(message),
-		});
-
-		return title || "New Chat";
-	} catch {
-		// Fallback to extracting first part of message text if title generation fails
-		const textPart = message.parts?.find(
-			(p): p is { type: "text"; text: string } =>
-				p.type === "text" && typeof (p as { text?: string }).text === "string"
-		);
-		const fallbackTitle = textPart?.text?.slice(0, 80).trim() || "New Chat";
-		return fallbackTitle;
-	}
+}): Promise<string> {
+	return await generateTitle({ message });
 }
 
 export async function deleteTrailingMessages({ id }: { id: string }) {

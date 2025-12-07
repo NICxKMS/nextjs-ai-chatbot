@@ -19,7 +19,8 @@ export const requestSuggestions = ({
 	dataStream,
 }: RequestSuggestionsProps) =>
 	tool({
-		description: "Generate suggestions to improve the current document's content.",
+		description:
+			"Generate suggestions to improve the current document's content.",
 		inputSchema: z.object({
 			documentId: z
 				.string()
