@@ -21,29 +21,46 @@ test.describe
         test("Authenticate as guest user when a new session is loaded", async ({
             page,
         }) => {
-            const response = await page.goto("/");
+            // First visit to home page - client-side AuthProvider will POST to /api/auth/guest
+            await page.goto("/");
+
+            // Wait for the client-side guest session creation
+            const guestRequest = await page.waitForRequest((request) =>
+                request.url().includes("/api/auth/guest") &&
+                request.method() === "POST"
+            );
+
+            expect(guestRequest).toBeTruthy();
+
+            // Verify the page is accessible
+            await expect(page.getByPlaceholder("Send a message...")).toBeVisible();
+        });
+
+        test("Create guest session when navigating directly to a chat page", async ({
+            page,
+        }) => {
+            // Direct navigation to a chat page should redirect through guest auth
+            // to create session, then back to home (since chat doesn't exist)
+            const response = await page.goto("/chat/non-existent-chat-id");
 
             if (!response) {
                 throw new Error("Failed to load page");
             }
 
-            let request = response.request();
+            // Should end up on home page with notice (chat not found after guest auth)
+            await page.waitForURL(/\/(\?notice=chat_not_found)?/);
 
-            const chain: string[] = [];
+            // Verify guest session was created (user shows as Guest)
+            const sidebarToggleButton = page.getByTestId("sidebar-toggle-button");
+            await sidebarToggleButton.click();
 
-            while (request) {
-                chain.unshift(request.url());
-                request = request.redirectedFrom();
-            }
-
-            expect(chain).toEqual([
-                "http://localhost:3000/",
-                "http://localhost:3000/api/auth/guest?redirectUrl=http%3A%2F%2Flocalhost%3A3000%2F",
-                "http://localhost:3000/",
-            ]);
+            const userEmail = page.getByTestId("user-email");
+            await expect(userEmail).toContainText("Guest");
         });
 
+
         test("Log out is not available for guest users", async ({ page }) => {
+
             await page.goto("/");
 
             const sidebarToggleButton = page.getByTestId(
@@ -71,7 +88,7 @@ test.describe
                 throw new Error("Failed to load page");
             }
 
-            let request = response.request();
+            let request: import("@playwright/test").Request | null = response.request();
 
             const chain: string[] = [];
 
@@ -79,6 +96,7 @@ test.describe
                 chain.unshift(request.url());
                 request = request.redirectedFrom();
             }
+
 
             expect(chain).toEqual(["http://localhost:3000/"]);
         });

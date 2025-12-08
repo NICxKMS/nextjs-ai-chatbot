@@ -4,8 +4,8 @@ import { ChevronUp } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { unstable_serialize } from "swr/infinite";
 import { useSWRConfig } from "swr";
+import { unstable_serialize } from "swr/infinite";
 import { useAuth } from "@/components/auth-provider";
 import {
     DropdownMenu,
@@ -20,8 +20,8 @@ import {
     SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { getSupabaseBrowserClient } from "@/lib/auth/client";
-import { getChatHistoryPaginationKey } from "./sidebar-history";
 import { LoaderIcon } from "./icons";
+import { getChatHistoryPaginationKey } from "./sidebar-history";
 import { toast } from "./toast";
 
 export function SidebarUserNav({ user }: { user: { email?: string | null } }) {

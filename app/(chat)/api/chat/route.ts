@@ -232,7 +232,9 @@ export async function POST(request: Request) {
             generateId: generateUUID,
             onFinish: async ({ messages }) => {
                 const startTime = Date.now();
-                const initialTitle = placeholderTitle || "New Chat";
+                const initialTitle = isNewChat
+                    ? placeholderTitle || "New Chat"
+                    : chat?.title || "New Chat";
 
                 try {
                     // Save chat immediately with placeholder title
@@ -382,7 +384,11 @@ export async function DELETE(request: Request) {
     // Fetch chat to verify ownership
     const chat = await chatData.get(id, ctx, { warmCache: false });
 
-    if (chat?.userId !== session.user.id) {
+    if (!chat) {
+        return new ChatSDKError("not_found:chat").toResponse();
+    }
+
+    if (chat.userId !== session.user.id) {
         return new ChatSDKError("forbidden:chat:owner_mismatch").toResponse();
     }
 
