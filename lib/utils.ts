@@ -146,6 +146,9 @@ export function convertToUIMessages(messages: MessageRow[]): ChatMessage[] {
       id: message.id,
       role: message.role as 'user' | 'assistant' | 'system',
       parts: message.parts as UIMessagePart<CustomUIDataTypes, ChatTools>[],
+      metadata: {
+        createdAt: message.createdAt.toISOString(),
+      },
     } satisfies ChatMessage;
   });
 }

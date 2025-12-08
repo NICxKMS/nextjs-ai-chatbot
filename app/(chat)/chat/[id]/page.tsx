@@ -17,8 +17,13 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     const session = await getAppSession();
 
     if (!session?.user) {
-        redirect("/?notice=chat_not_found");
+        // No session exists - redirect to guest auth endpoint to create one,
+        // then redirect back to this page. This fixes the race condition where
+        // direct navigation would redirect before client-side guest session creation.
+        const currentUrl = `/chat/${id}`;
+        redirect(`/api/auth/guest?redirectUrl=${encodeURIComponent(currentUrl)}`);
     }
+
 
     const ctx = createContext(session);
 
@@ -39,14 +44,8 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 
     const { chat, messages: messagesFromDb } = result;
 
-    if (chat.visibility === "private") {
-        if (!session.user) {
-            return redirect("/?notice=chat_not_found");
-        }
-
-        if (session.user.id !== chat.userId) {
-            return redirect("/?notice=chat_not_found");
-        }
+    if (chat.visibility === "private" && session.user.id !== chat.userId) {
+        return redirect("/?notice=chat_not_found");
     }
 
     const uiMessages = convertToUIMessages(messagesFromDb);

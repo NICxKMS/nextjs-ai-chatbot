@@ -1,609 +1,609 @@
 {
-	"name": "AI Chatbot - Production Monitoring",
-	"description": "Comprehensive monitoring dashboard for Next.js AI Chatbot with New Relic",
-	"permissions": "PUBLIC_READ_WRITE",
-	"pages": [
-		{
-			"name": "Overview",
-			"description": "System health and performance overview",
-			"widgets": [
-				{
-					"title": "System Health Status",
-					"visualization": {
-						"id": "viz.billboard"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT latest(status) as 'System Status' FROM SystemHealthCheck SINCE 5 minutes ago"
-							}
-						]
-					}
-				},
-				{
-					"title": "Request Rate (per minute)",
-					"visualization": {
-						"id": "viz.line"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT rate(count(*), 1 minute) as 'Requests/min' FROM Transaction TIMESERIES AUTO"
-							}
-						]
-					}
-				},
-				{
-					"title": "Error Rate (%)",
-					"visualization": {
-						"id": "viz.line"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT percentage(count(*), WHERE error IS true) as 'Error Rate' FROM Transaction TIMESERIES AUTO"
-							}
-						]
-					}
-				},
-				{
-					"title": "P95 Response Time (ms)",
-					"visualization": {
-						"id": "viz.line"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT percentile(duration, 95) as 'P95', percentile(duration, 99) as 'P99' FROM Transaction TIMESERIES AUTO"
-							}
-						]
-					}
-				},
-				{
-					"title": "Uptime",
-					"visualization": {
-						"id": "viz.billboard"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT latest(uptime) / 1000 / 60 as 'Uptime (minutes)' FROM SystemHealthCheck SINCE 5 minutes ago"
-							}
-						]
-					}
-				}
-			]
-		},
-		{
-			"name": "AI/LLM Performance",
-			"description": "AI model usage, token metrics, and response times",
-			"widgets": [
-				{
-					"title": "AI Completions (per minute)",
-					"visualization": {
-						"id": "viz.line"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT rate(count(*), 1 minute) as 'Completions/min' FROM AICompletion TIMESERIES AUTO"
-							}
-						]
-					}
-				},
-				{
-					"title": "Avg Response Time by Model",
-					"visualization": {
-						"id": "viz.bar"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT average(durationMs) as 'Avg Response Time (ms)' FROM AICompletion FACET model SINCE 1 hour ago"
-							}
-						]
-					}
-				},
-				{
-					"title": "Token Usage by Model",
-					"visualization": {
-						"id": "viz.line"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT sum(totalTokens) as 'Total Tokens' FROM AICompletion FACET model TIMESERIES AUTO"
-							}
-						]
-					}
-				},
-				{
-					"title": "Time to First Token (Streaming)",
-					"visualization": {
-						"id": "viz.line"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT average(firstTokenMs) as 'Avg TTFT', percentile(firstTokenMs, 95) as 'P95 TTFT' FROM AIStreamingCompletion TIMESERIES AUTO"
-							}
-						]
-					}
-				},
-				{
-					"title": "Tokens per Second",
-					"visualization": {
-						"id": "viz.line"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT average(tokensPerSecond) as 'Tokens/sec' FROM AICompletion FACET model TIMESERIES AUTO"
-							}
-						]
-					}
-				},
-				{
-					"title": "AI Model Usage Distribution",
-					"visualization": {
-						"id": "viz.pie"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT count(*) FROM AICompletion FACET model SINCE 24 hours ago"
-							}
-						]
-					}
-				},
-				{
-					"title": "AI Provider Distribution",
-					"visualization": {
-						"id": "viz.pie"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT count(*) FROM AICompletion FACET provider SINCE 24 hours ago"
-							}
-						]
-					}
-				},
-				{
-					"title": "Success Rate by Model",
-					"visualization": {
-						"id": "viz.table"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT percentage(count(*), WHERE success = true) as 'Success Rate', count(*) as 'Total' FROM AICompletion FACET model SINCE 24 hours ago"
-							}
-						]
-					}
-				}
-			]
-		},
-		{
-			"name": "API Performance",
-			"description": "Detailed API endpoint performance metrics",
-			"widgets": [
-				{
-					"title": "Chat API Response Time",
-					"visualization": {
-						"id": "viz.line"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT average(duration) as 'Avg', percentile(duration, 95) as 'P95' FROM Transaction WHERE name LIKE '%/api/chat%' TIMESERIES AUTO"
-							}
-						]
-					}
-				},
-				{
-					"title": "Request Metrics - DB Calls per Request",
-					"visualization": {
-						"id": "viz.line"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT average(dbCalls) as 'Avg DB Calls', max(dbCalls) as 'Max DB Calls' FROM RequestMetrics TIMESERIES AUTO"
-							}
-						]
-					}
-				},
-				{
-					"title": "Request Metrics - Cache Hit Rate",
-					"visualization": {
-						"id": "viz.line"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT average(cacheHitRate) * 100 as 'Cache Hit Rate %' FROM RequestMetrics FACET route TIMESERIES AUTO"
-							}
-						]
-					}
-				},
-				{
-					"title": "Top 10 Slowest Operations",
-					"visualization": {
-						"id": "viz.table"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT average(duration) as 'Avg Duration (ms)', count(*) as 'Count' FROM Transaction FACET name LIMIT 10"
-							}
-						]
-					}
-				},
-				{
-					"title": "API Endpoints by Call Volume",
-					"visualization": {
-						"id": "viz.pie"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT count(*) FROM Transaction WHERE name LIKE '%/api/%' FACET name SINCE 1 hour ago"
-							}
-						]
-					}
-				},
-				{
-					"title": "Transaction Complete Events",
-					"visualization": {
-						"id": "viz.line"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT count(*) FROM TransactionComplete FACET success TIMESERIES AUTO"
-							}
-						]
-					}
-				}
-			]
-		},
-		{
-			"name": "Database Performance",
-			"description": "Database query performance and slow query analysis",
-			"widgets": [
-				{
-					"title": "Database Query Duration (ms)",
-					"visualization": {
-						"id": "viz.line"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT average(dbTotalDurationMs / dbCalls) as 'Avg Query Time' FROM RequestMetrics WHERE dbCalls > 0 TIMESERIES AUTO"
-							}
-						]
-					}
-				},
-				{
-					"title": "DB Calls per Route",
-					"visualization": {
-						"id": "viz.bar"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT average(dbCalls) as 'Avg DB Calls', max(dbCalls) as 'Max' FROM RequestMetrics FACET route SINCE 1 hour ago"
-							}
-						]
-					}
-				},
-				{
-					"title": "Database Slow Queries (Custom Metric)",
-					"visualization": {
-						"id": "viz.line"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT count(*) FROM Log WHERE message LIKE 'Slow database%' TIMESERIES AUTO"
-							}
-						]
-					}
-				},
-				{
-					"title": "Connection Pool Stats",
-					"visualization": {
-						"id": "viz.billboard"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT latest(poolActive) as 'Active', latest(poolWaiting) as 'Waiting' FROM SystemHealthCheck SINCE 5 minutes ago"
-							}
-						]
-					}
-				}
-			]
-		},
-		{
-			"name": "Cache Performance",
-			"description": "Cache hit rates and operation timing",
-			"widgets": [
-				{
-					"title": "Overall Cache Hit Rate",
-					"visualization": {
-						"id": "viz.billboard"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT sum(hits) / (sum(hits) + sum(misses)) * 100 as 'Hit Rate %' FROM CacheOperationMetrics SINCE 15 minutes ago"
-							}
-						]
-					}
-				},
-				{
-					"title": "Cache Operations - Hits vs Misses",
-					"visualization": {
-						"id": "viz.line"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT sum(hits) as 'Hits', sum(misses) as 'Misses' FROM CacheOperationMetrics TIMESERIES AUTO"
-							}
-						]
-					}
-				},
-				{
-					"title": "Cache Hit Rate by Operation",
-					"visualization": {
-						"id": "viz.bar"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT average(hitRate) * 100 as 'Hit Rate %' FROM CacheOperationMetrics FACET operation SINCE 1 hour ago"
-							}
-						]
-					}
-				},
-				{
-					"title": "Cache Operation Latency (ms)",
-					"visualization": {
-						"id": "viz.line"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT average(avgLatencyMs) as 'Avg Latency' FROM CacheOperationMetrics TIMESERIES AUTO"
-							}
-						]
-					}
-				},
-				{
-					"title": "Cache Errors",
-					"visualization": {
-						"id": "viz.line"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT sum(errors) as 'Errors' FROM CacheOperationMetrics TIMESERIES AUTO"
-							}
-						]
-					}
-				},
-				{
-					"title": "Per-Request Cache Stats",
-					"visualization": {
-						"id": "viz.table"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT average(cacheCalls) as 'Avg Calls', average(cacheHits) as 'Avg Hits', average(cacheMisses) as 'Avg Misses', average(cacheHitRate) * 100 as 'Hit Rate %' FROM RequestMetrics FACET route SINCE 1 hour ago"
-							}
-						]
-					}
-				}
-			]
-		},
-		{
-			"name": "User Activity",
-			"description": "User actions and business analytics",
-			"widgets": [
-				{
-					"title": "User Actions (per hour)",
-					"visualization": {
-						"id": "viz.line"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT count(*) as 'Actions' FROM UserAction FACET action TIMESERIES 1 hour"
-							}
-						]
-					}
-				},
-				{
-					"title": "User Action Distribution",
-					"visualization": {
-						"id": "viz.pie"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT count(*) FROM UserAction FACET action SINCE 24 hours ago"
-							}
-						]
-					}
-				},
-				{
-					"title": "Active Users (unique per hour)",
-					"visualization": {
-						"id": "viz.line"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT uniqueCount(user.id) as 'Active Users' FROM Transaction WHERE user.id IS NOT NULL TIMESERIES 1 hour"
-							}
-						]
-					}
-				},
-				{
-					"title": "Popular AI Models",
-					"visualization": {
-						"id": "viz.pie"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT count(*) FROM AICompletion FACET model SINCE 24 hours ago LIMIT 10"
-							}
-						]
-					}
-				},
-				{
-					"title": "File Uploads",
-					"visualization": {
-						"id": "viz.line"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT count(*) FROM Log WHERE message = 'File uploaded' TIMESERIES AUTO"
-							}
-						]
-					}
-				},
-				{
-					"title": "Guest vs Authenticated Sessions",
-					"visualization": {
-						"id": "viz.pie"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT count(*) FROM Log WHERE message LIKE 'Guest%' FACET message SINCE 24 hours ago"
-							}
-						]
-					}
-				}
-			]
-		},
-		{
-			"name": "Error Tracking",
-			"description": "Error analysis and debugging",
-			"widgets": [
-				{
-					"title": "Error Count by Type",
-					"visualization": {
-						"id": "viz.bar"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT count(*) FROM TransactionError FACET error.class SINCE 1 hour ago LIMIT 10"
-							}
-						]
-					}
-				},
-				{
-					"title": "Recent Errors",
-					"visualization": {
-						"id": "viz.table"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT timestamp, error.message, transactionName FROM TransactionError SINCE 1 hour ago LIMIT 50"
-							}
-						]
-					}
-				},
-				{
-					"title": "Failed AI Completions",
-					"visualization": {
-						"id": "viz.table"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT timestamp, model, durationMs FROM AICompletion WHERE success = false SINCE 1 hour ago LIMIT 20"
-							}
-						]
-					}
-				},
-				{
-					"title": "Error Rate by Route",
-					"visualization": {
-						"id": "viz.line"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT percentage(count(*), WHERE error IS true) as 'Error Rate' FROM Transaction WHERE name LIKE '%/api/%' FACET name TIMESERIES AUTO"
-							}
-						]
-					}
-				},
-				{
-					"title": "Health Check Failures",
-					"visualization": {
-						"id": "viz.table"
-					},
-					"rawConfiguration": {
-						"nrqlQueries": [
-							{
-								"accountId": 7448597,
-								"query": "SELECT timestamp, status, cacheStatus, poolStatus FROM SystemHealthCheck WHERE status != 'healthy' SINCE 24 hours ago"
-							}
-						]
-					}
-				}
-			]
-		}
-	]
+  "name": "AI Chatbot - Production Monitoring",
+  "description": "Comprehensive monitoring dashboard for Next.js AI Chatbot with New Relic",
+  "permissions": "PUBLIC_READ_WRITE",
+  "pages": [
+    {
+      "name": "Overview",
+      "description": "System health and performance overview",
+      "widgets": [
+        {
+          "title": "System Health Status",
+          "visualization": {
+            "id": "viz.billboard"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT latest(status) as 'System Status' FROM SystemHealthCheck SINCE 5 minutes ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Request Rate (per minute)",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT rate(count(*), 1 minute) as 'Requests/min' FROM Transaction TIMESERIES AUTO"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Error Rate (%)",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT percentage(count(*), WHERE error IS true) as 'Error Rate' FROM Transaction TIMESERIES AUTO"
+              }
+            ]
+          }
+        },
+        {
+          "title": "P95 Response Time (ms)",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT percentile(duration, 95) as 'P95', percentile(duration, 99) as 'P99' FROM Transaction TIMESERIES AUTO"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Uptime",
+          "visualization": {
+            "id": "viz.billboard"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT latest(uptime) / 1000 / 60 as 'Uptime (minutes)' FROM SystemHealthCheck SINCE 5 minutes ago"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "AI/LLM Performance",
+      "description": "AI model usage, token metrics, and response times",
+      "widgets": [
+        {
+          "title": "AI Completions (per minute)",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT rate(count(*), 1 minute) as 'Completions/min' FROM AICompletion TIMESERIES AUTO"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Avg Response Time by Model",
+          "visualization": {
+            "id": "viz.bar"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT average(durationMs) as 'Avg Response Time (ms)' FROM AICompletion FACET model SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Token Usage by Model",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT sum(totalTokens) as 'Total Tokens' FROM AICompletion FACET model TIMESERIES AUTO"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Time to First Token (Streaming)",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT average(firstTokenMs) as 'Avg TTFT', percentile(firstTokenMs, 95) as 'P95 TTFT' FROM AIStreamingCompletion TIMESERIES AUTO"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Tokens per Second",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT average(tokensPerSecond) as 'Tokens/sec' FROM AICompletion FACET model TIMESERIES AUTO"
+              }
+            ]
+          }
+        },
+        {
+          "title": "AI Model Usage Distribution",
+          "visualization": {
+            "id": "viz.pie"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT count(*) FROM AICompletion FACET model SINCE 24 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "AI Provider Distribution",
+          "visualization": {
+            "id": "viz.pie"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT count(*) FROM AICompletion FACET provider SINCE 24 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Success Rate by Model",
+          "visualization": {
+            "id": "viz.table"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT percentage(count(*), WHERE success = true) as 'Success Rate', count(*) as 'Total' FROM AICompletion FACET model SINCE 24 hours ago"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "API Performance",
+      "description": "Detailed API endpoint performance metrics",
+      "widgets": [
+        {
+          "title": "Chat API Response Time",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT average(duration) as 'Avg', percentile(duration, 95) as 'P95' FROM Transaction WHERE name LIKE '%/api/chat%' TIMESERIES AUTO"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Request Metrics - DB Calls per Request",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT average(dbCalls) as 'Avg DB Calls', max(dbCalls) as 'Max DB Calls' FROM RequestMetrics TIMESERIES AUTO"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Request Metrics - Cache Hit Rate",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT average(cacheHitRate) * 100 as 'Cache Hit Rate %' FROM RequestMetrics FACET route TIMESERIES AUTO"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Top 10 Slowest Operations",
+          "visualization": {
+            "id": "viz.table"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT average(duration) as 'Avg Duration (ms)', count(*) as 'Count' FROM Transaction FACET name LIMIT 10"
+              }
+            ]
+          }
+        },
+        {
+          "title": "API Endpoints by Call Volume",
+          "visualization": {
+            "id": "viz.pie"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT count(*) FROM Transaction WHERE name LIKE '%/api/%' FACET name SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Transaction Complete Events",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT count(*) FROM TransactionComplete FACET success TIMESERIES AUTO"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Database Performance",
+      "description": "Database query performance and slow query analysis",
+      "widgets": [
+        {
+          "title": "Database Query Duration (ms)",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT average(dbTotalDurationMs / dbCalls) as 'Avg Query Time' FROM RequestMetrics WHERE dbCalls > 0 TIMESERIES AUTO"
+              }
+            ]
+          }
+        },
+        {
+          "title": "DB Calls per Route",
+          "visualization": {
+            "id": "viz.bar"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT average(dbCalls) as 'Avg DB Calls', max(dbCalls) as 'Max' FROM RequestMetrics FACET route SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Database Slow Queries (Custom Metric)",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT count(*) FROM Log WHERE message LIKE 'Slow database%' TIMESERIES AUTO"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Connection Pool Stats",
+          "visualization": {
+            "id": "viz.billboard"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT latest(poolActive) as 'Active', latest(poolWaiting) as 'Waiting' FROM SystemHealthCheck SINCE 5 minutes ago"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cache Performance",
+      "description": "Cache hit rates and operation timing",
+      "widgets": [
+        {
+          "title": "Overall Cache Hit Rate",
+          "visualization": {
+            "id": "viz.billboard"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT sum(hits) / (sum(hits) + sum(misses)) * 100 as 'Hit Rate %' FROM CacheOperationMetrics SINCE 15 minutes ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Cache Operations - Hits vs Misses",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT sum(hits) as 'Hits', sum(misses) as 'Misses' FROM CacheOperationMetrics TIMESERIES AUTO"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Cache Hit Rate by Operation",
+          "visualization": {
+            "id": "viz.bar"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT average(hitRate) * 100 as 'Hit Rate %' FROM CacheOperationMetrics FACET operation SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Cache Operation Latency (ms)",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT average(avgLatencyMs) as 'Avg Latency' FROM CacheOperationMetrics TIMESERIES AUTO"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Cache Errors",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT sum(errors) as 'Errors' FROM CacheOperationMetrics TIMESERIES AUTO"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Per-Request Cache Stats",
+          "visualization": {
+            "id": "viz.table"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT average(cacheCalls) as 'Avg Calls', average(cacheHits) as 'Avg Hits', average(cacheMisses) as 'Avg Misses', average(cacheHitRate) * 100 as 'Hit Rate %' FROM RequestMetrics FACET route SINCE 1 hour ago"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Activity",
+      "description": "User actions and business analytics",
+      "widgets": [
+        {
+          "title": "User Actions (per hour)",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT count(*) as 'Actions' FROM UserAction FACET action TIMESERIES 1 hour"
+              }
+            ]
+          }
+        },
+        {
+          "title": "User Action Distribution",
+          "visualization": {
+            "id": "viz.pie"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT count(*) FROM UserAction FACET action SINCE 24 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Active Users (unique per hour)",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT uniqueCount(user.id) as 'Active Users' FROM Transaction WHERE user.id IS NOT NULL TIMESERIES 1 hour"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Popular AI Models",
+          "visualization": {
+            "id": "viz.pie"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT count(*) FROM AICompletion FACET model SINCE 24 hours ago LIMIT 10"
+              }
+            ]
+          }
+        },
+        {
+          "title": "File Uploads",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT count(*) FROM Log WHERE message = 'File uploaded' TIMESERIES AUTO"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Guest vs Authenticated Sessions",
+          "visualization": {
+            "id": "viz.pie"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT count(*) FROM Log WHERE message LIKE 'Guest%' FACET message SINCE 24 hours ago"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error Tracking",
+      "description": "Error analysis and debugging",
+      "widgets": [
+        {
+          "title": "Error Count by Type",
+          "visualization": {
+            "id": "viz.bar"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT count(*) FROM TransactionError FACET error.class SINCE 1 hour ago LIMIT 10"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Recent Errors",
+          "visualization": {
+            "id": "viz.table"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT timestamp, error.message, transactionName FROM TransactionError SINCE 1 hour ago LIMIT 50"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Failed AI Completions",
+          "visualization": {
+            "id": "viz.table"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT timestamp, model, durationMs FROM AICompletion WHERE success = false SINCE 1 hour ago LIMIT 20"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Error Rate by Route",
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT percentage(count(*), WHERE error IS true) as 'Error Rate' FROM Transaction WHERE name LIKE '%/api/%' FACET name TIMESERIES AUTO"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Health Check Failures",
+          "visualization": {
+            "id": "viz.table"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": 7448597,
+                "query": "SELECT timestamp, status, cacheStatus, poolStatus FROM SystemHealthCheck WHERE status != 'healthy' SINCE 24 hours ago"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
 }

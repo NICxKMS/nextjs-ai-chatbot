@@ -475,7 +475,7 @@ function PureModelSelectorCompact({
                 </span>
                 <ChevronDownIcon size={16} />
             </Trigger>
-            <PromptInputModelSelectContent className="min-w-[260px] p-0">
+            <PromptInputModelSelectContent className="max-h-[300px] min-w-[260px] overflow-y-auto p-0">
                 <div className="flex flex-col gap-px">
                     {availableModels.map((model) => (
                         <SelectItem key={model.id} value={model.name}>

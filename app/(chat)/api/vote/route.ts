@@ -24,7 +24,22 @@ export async function PATCH(request: Request) {
         type: "up" | "down";
     }> = request.json();
     const sessionPromise = getAppSession();
-    const { chatId, messageId, type } = await bodyPromise;
+
+    let chatId: string;
+    let messageId: string;
+    let type: "up" | "down";
+
+    try {
+        const body = await bodyPromise;
+        chatId = body.chatId;
+        messageId = body.messageId;
+        type = body.type;
+    } catch (_) {
+        return new ChatSDKError(
+            "bad_request:api:invalid_json",
+            "Request body must be valid JSON"
+        ).toResponse();
+    }
 
     if (!chatId || !messageId || !type) {
         return new ChatSDKError(
@@ -49,7 +64,16 @@ export async function PATCH(request: Request) {
         ).toResponse();
     }
 
-    const session = await sessionPromise;
+    let session;
+    try {
+        session = await sessionPromise;
+    } catch (error) {
+        logger.error("Session retrieval failed in vote route", { error });
+        return new ChatSDKError(
+            "unauthorized:vote:session_error",
+            "Failed to retrieve session"
+        ).toResponse();
+    }
 
     if (!session?.user) {
         return new ChatSDKError(

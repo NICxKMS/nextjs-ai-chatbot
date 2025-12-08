@@ -51,9 +51,9 @@ export async function createAuthenticatedContext({
 
     const chatPage = new ChatPage(page);
     await chatPage.createNewChat();
-    await chatPage.chooseModelFromSelector("chat-model-reasoning");
+    await chatPage.chooseModelFromSelector("openai:gpt-4o-latest");
     await expect(chatPage.getSelectedModel()).resolves.toEqual(
-        "Reasoning model"
+        "GPT-4o Latest"
     );
 
     await page.waitForTimeout(1000);

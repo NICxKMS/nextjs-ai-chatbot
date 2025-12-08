@@ -59,18 +59,26 @@ export default function Page() {
             });
 
             if (!exchangeResponse.ok) {
-                console.warn(
-                    "Session exchange failed:",
-                    exchangeResponse.status
-                );
+                toast({
+                    type: "error",
+                    description:
+                        "Login successful, but session setup failed. Please try again.",
+                });
+                return;
             }
         } catch {
-            // If cookie exchange fails, still proceed; server-side session may be missing
+            toast({
+                type: "error",
+                description:
+                    "Login successful, but session setup failed. Please try again.",
+            });
+            return;
         }
 
         setIsSuccessful(true);
         router.push("/");
         router.refresh();
+
     };
 
     return (

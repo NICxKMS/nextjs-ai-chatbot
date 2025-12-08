@@ -47,7 +47,6 @@ exports.config = {
         filepath: "stdout",
     },
 
-
     /**
      * Serverless mode for Vercel/Lambda deployments
      * Automatically detected, but can be explicitly set

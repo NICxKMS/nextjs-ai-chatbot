@@ -48,7 +48,7 @@ function getGuestJwtSecret(): Uint8Array | null {
     return encoder.encode(secret);
 }
 
-function getSupabaseAccessTokenCookieName(): string {
+export function getSupabaseAccessTokenCookieName(): string {
     return process.env.SUPABASE_ACCESS_TOKEN_COOKIE_NAME || "sb-access-token";
 }
 
@@ -62,6 +62,45 @@ async function verifyJwt(
     } catch {
         return null;
     }
+}
+
+/**
+ * Parse session from a provided Supabase access token.
+ * Used when the token is already available and we want to avoid
+ * reading from cookies (e.g., immediately after setting a cookie
+ * in the same request, which may not be readable yet in Next.js).
+ */
+export async function getSupabaseSessionFromToken(
+    accessToken: string
+): Promise<AppSession | null> {
+    const secret = getSupabaseJwtSecret();
+
+    if (!secret) {
+        return null;
+    }
+
+    const result = await verifyJwt(accessToken, secret);
+
+    if (!result?.payload?.sub || typeof result.payload.sub !== "string") {
+        return null;
+    }
+
+    const emailClaim =
+        (typeof result.payload.email === "string" && result.payload.email) ||
+        (typeof result.payload.user_metadata === "object" &&
+            result.payload.user_metadata !== null &&
+            typeof (result.payload.user_metadata as { email?: unknown })
+                .email === "string" &&
+            (result.payload.user_metadata as { email?: string }).email) ||
+        null;
+
+    return {
+        user: {
+            id: result.payload.sub,
+            type: "regular",
+            email: emailClaim,
+        },
+    };
 }
 
 export async function getSupabaseSessionFromCookies(): Promise<AppSession | null> {

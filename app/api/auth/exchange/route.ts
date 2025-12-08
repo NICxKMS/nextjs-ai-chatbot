@@ -1,8 +1,13 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getSupabaseSessionFromCookies } from "@/lib/auth/session";
+import {
+    getSupabaseAccessTokenCookieName,
+    getSupabaseSessionFromToken,
+} from "@/lib/auth/session";
+import { isProductionEnvironment } from "@/lib/constants";
 import { ChatSDKError } from "@/lib/errors";
 import { logger } from "@/lib/monitoring/logger";
+
 
 export async function POST(request: Request) {
     const startTime = Date.now();
@@ -21,14 +26,14 @@ export async function POST(request: Request) {
 
         const cookieStore = await cookies();
 
-        cookieStore.set("sb-access-token", accessToken, {
+        cookieStore.set(getSupabaseAccessTokenCookieName(), accessToken, {
             httpOnly: true,
-            secure: true,
+            secure: isProductionEnvironment,
             path: "/",
             sameSite: "lax",
         });
 
-        const session = await getSupabaseSessionFromCookies();
+        const session = await getSupabaseSessionFromToken(accessToken);
 
         const duration = Date.now() - startTime;
         logger.info("Auth exchange completed", {

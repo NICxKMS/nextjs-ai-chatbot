@@ -105,6 +105,18 @@ export const ArtifactActions = memo(
         if (prevProps.artifact.content !== nextProps.artifact.content) {
             return false;
         }
+        if (prevProps.mode !== nextProps.mode) {
+            return false;
+        }
+        if (prevProps.metadata !== nextProps.metadata) {
+            return false;
+        }
+        if (prevProps.setMetadata !== nextProps.setMetadata) {
+            return false;
+        }
+        if (prevProps.handleVersionChange !== nextProps.handleVersionChange) {
+            return false;
+        }
 
         return true;
     }

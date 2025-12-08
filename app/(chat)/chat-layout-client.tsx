@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { Suspense, useEffect } from "react";
 import { toast } from "sonner";
 import { DataStreamProvider } from "@/components/data-stream-provider";
+import { Loader } from "@/components/elements/loader";
 import { SidebarSkeleton } from "@/components/sidebar-skeleton";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { OptimisticChatsProvider } from "@/hooks/use-optimistic-chats";
@@ -62,7 +63,15 @@ export function ChatLayoutClient({ children }: { children: ReactNode }) {
                                 <AppSidebar />
                             </Suspense>
                             <SidebarInset>
-                                <Suspense>{children}</Suspense>
+                                <Suspense
+                                    fallback={
+                                        <div className="flex h-full w-full items-center justify-center">
+                                            <Loader size={24} />
+                                        </div>
+                                    }
+                                >
+                                    {children}
+                                </Suspense>
                             </SidebarInset>
                         </SidebarProvider>
                     </OptimisticChatsProvider>

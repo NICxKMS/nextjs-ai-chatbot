@@ -103,6 +103,78 @@ export const curatedModels: ModelMetadata[] = [
         thinkingBudget: -1,
     },
     // ============================================================================
+    // GOOGLE GEMMA 3 - Open Model Family
+    // ============================================================================
+    {
+        id: "google:gemma-3-1b-it",
+        providerId: "google",
+        providerName: "Google Gemma",
+        modelId: "gemma-3-1b-it",
+        name: "Gemma 3 1B",
+        description:
+            "Lightweight text-only model optimized for on-device deployment",
+        release: "2025-03",
+        contextWindow: 32_000,
+        modalities: ["text"],
+        capabilities: ["chat"],
+        tags: ["curated", "open-source", "lightweight"],
+        source: "curated",
+        isCurated: true,
+        reasoningType: "none",
+    },
+    {
+        id: "google:gemma-3-4b-it",
+        providerId: "google",
+        providerName: "Google Gemma",
+        modelId: "gemma-3-4b-it",
+        name: "Gemma 3 4B",
+        description:
+            "Multimodal model with text and vision, optimized for mobile and laptop deployment",
+        release: "2025-03",
+        contextWindow: 128_000,
+        modalities: ["text", "vision"],
+        capabilities: ["chat", "multimodal", "code"],
+        tags: ["curated", "open-source", "multimodal"],
+        source: "curated",
+        isCurated: true,
+        reasoningType: "none",
+    },
+    {
+        id: "google:gemma-3-12b-it",
+        providerId: "google",
+        providerName: "Google Gemma",
+        modelId: "gemma-3-12b-it",
+        name: "Gemma 3 12B",
+        description:
+            "Balanced multimodal model with strong performance across text and vision tasks",
+        release: "2025-03",
+        contextWindow: 128_000,
+        modalities: ["text", "vision"],
+        capabilities: ["chat", "multimodal", "code"],
+        tags: ["curated", "open-source", "multimodal"],
+        source: "curated",
+        isCurated: true,
+        reasoningType: "none",
+    },
+    {
+        id: "google:gemma-3-27b-it",
+        providerId: "google",
+        providerName: "Google Gemma",
+        modelId: "gemma-3-27b-it",
+        name: "Gemma 3 27B",
+        description:
+            "Flagship multimodal model with advanced understanding and 140+ language support",
+        release: "2025-03",
+        contextWindow: 128_000,
+        modalities: ["text", "vision"],
+        capabilities: ["chat", "multimodal", "code"],
+        tags: ["curated", "open-source", "multimodal", "flagship"],
+        source: "curated",
+        isCurated: true,
+        reasoningType: "none",
+    },
+
+    // ============================================================================
     // GOOGLE GEMINI 2.5 - Full Model Family
     // ============================================================================
     {

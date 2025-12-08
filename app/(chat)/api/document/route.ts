@@ -85,10 +85,8 @@ export async function POST(request: Request) {
     let chatId: string | null = null;
 
     if (documents.length > 0) {
-        const mostRecent = documents.at(-1);
-        if (!mostRecent) {
-            return new ChatSDKError("not_found:document").toResponse();
-        }
+        // documents.at(-1) is guaranteed to return a value when length > 0
+        const mostRecent = documents.at(-1)!;
 
         if (mostRecent.userId !== session.user.id) {
             return new ChatSDKError("forbidden:document").toResponse();

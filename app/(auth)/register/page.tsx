@@ -37,14 +37,29 @@ export default function Page() {
             password,
         });
 
-        if (error || !data.session) {
+        if (error || !data.user) {
             toast({
                 type: "error",
-                description: "Failed to create account!",
+                description: error?.message || "Failed to create account!",
             });
             return;
         }
 
+        // When email confirmation is required, Supabase returns user but no session
+        // The user needs to verify their email before they can log in
+        if (!data.session) {
+            toast({
+                type: "success",
+                description:
+                    "Account created! Please check your email to verify your account.",
+            });
+            setIsSuccessful(true);
+            // Redirect to login page so user can log in after confirming email
+            router.push("/login");
+            return;
+        }
+
+        // If we have a session (email confirmation disabled), exchange it for cookies
         const accessToken = data.session.access_token;
 
         try {
@@ -58,13 +73,20 @@ export default function Page() {
             });
 
             if (!exchangeResponse.ok) {
-                console.warn(
-                    "Session exchange failed:",
-                    exchangeResponse.status
-                );
+                toast({
+                    type: "error",
+                    description:
+                        "Account created, but session setup failed. Please try logging in.",
+                });
+                return;
             }
         } catch {
-            // If cookie exchange fails, still proceed; server-side session may be missing
+            toast({
+                type: "error",
+                description:
+                    "Account created, but session setup failed. Please try logging in.",
+            });
+            return;
         }
 
         toast({
@@ -75,6 +97,7 @@ export default function Page() {
         setIsSuccessful(true);
         router.push("/");
         router.refresh();
+
     };
 
     return (
