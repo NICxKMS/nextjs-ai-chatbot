@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, type Page } from "@playwright/test";
 
-
 const CHAT_ID_REGEX =
     /^http:\/\/localhost:3000\/chat\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -109,8 +108,6 @@ export class ChatPage {
     }
 
     async chooseModelFromSelector(chatModelId: string) {
-
-
         await this.page.getByTestId("model-selector").click();
         await this.page
             .getByTestId(`model-selector-item-${chatModelId}`)

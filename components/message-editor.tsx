@@ -84,7 +84,9 @@ export function MessageEditor({
 
                         await deleteTrailingMessages({
                             chatId,
-                            createdAt: message.metadata?.createdAt ?? new Date().toISOString(),
+                            createdAt:
+                                message.metadata?.createdAt ??
+                                new Date().toISOString(),
                         });
 
                         setMessages((messages) => {

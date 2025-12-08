@@ -14,16 +14,15 @@ import { convertToUIMessages } from "@/lib/utils";
 export default async function Page(props: { params: Promise<{ id: string }> }) {
     const params = await props.params;
     const { id } = params;
+
+    // Guest session creation is handled by the proxy, so a session
+    // should always exist when this page renders.
     const session = await getAppSession();
 
     if (!session?.user) {
-        // No session exists - redirect to guest auth endpoint to create one,
-        // then redirect back to this page. This fixes the race condition where
-        // direct navigation would redirect before client-side guest session creation.
-        const currentUrl = `/chat/${id}`;
-        redirect(`/api/auth/guest?redirectUrl=${encodeURIComponent(currentUrl)}`);
+        // Fallback: if somehow no session exists, redirect to home
+        redirect("/");
     }
-
 
     const ctx = createContext(session);
 

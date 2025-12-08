@@ -1,81 +1,88 @@
-import type { NextRequest } from "next/server";
 import { getAppSession } from "@/lib/auth/session";
 import { createContext } from "@/lib/data/base";
 import { chatData } from "@/lib/data/chat";
 import { ChatSDKError } from "@/lib/errors";
-import { logger } from "@/lib/monitoring/logger";
+import { trackUserAction } from "@/lib/monitoring/dashboard";
+import { withPerformanceTracking } from "@/lib/monitoring/performance";
 
 // Optimize for Vercel Fluid Compute
 export const maxDuration = 10;
 
-export async function GET(request: NextRequest) {
-    const startTime = Date.now();
-    const { searchParams } = request.nextUrl;
+export const GET = withPerformanceTracking(
+    "GET /api/history",
+    async (request: Request) => {
+        const { searchParams } = new URL(request.url);
 
-    const limit = Number.parseInt(searchParams.get("limit") || "10", 10);
-    const startingAfter = searchParams.get("starting_after");
-    const endingBefore = searchParams.get("ending_before");
+        const limit = Number.parseInt(searchParams.get("limit") || "10", 10);
+        const startingAfter = searchParams.get("starting_after");
+        const endingBefore = searchParams.get("ending_before");
 
-    if (startingAfter && endingBefore) {
-        return new ChatSDKError(
-            "bad_request:api:conflicting_pagination_params",
-            "Only one of starting_after or ending_before can be provided."
-        ).toResponse();
-    }
+        if (startingAfter && endingBefore) {
+            return new ChatSDKError(
+                "bad_request:api:conflicting_pagination_params",
+                "Only one of starting_after or ending_before can be provided."
+            ).toResponse();
+        }
 
-    const session = await getAppSession();
+        const session = await getAppSession();
 
-    if (!session?.user) {
-        return new ChatSDKError(
-            "unauthorized:chat:missing_session"
-        ).toResponse();
-    }
+        if (!session?.user) {
+            return new ChatSDKError(
+                "unauthorized:chat:missing_session"
+            ).toResponse();
+        }
 
-    const ctx = createContext(session);
+        const ctx = createContext(session);
 
-    const result = await chatData.list(
-        {
-            limit,
-            startingAfter,
-            endingBefore,
+        const result = await chatData.list(
+            {
+                limit,
+                startingAfter,
+                endingBefore,
+            },
+            ctx
+        );
+
+        return Response.json({
+            chats: result.items,
+            hasMore: result.hasMore,
+        });
+    },
+    {
+        extractMetadata: (request) => {
+            const url = new URL(request.url);
+            return {
+                limit: url.searchParams.get("limit") ?? "10",
+                startingAfter:
+                    url.searchParams.get("starting_after") ?? undefined,
+                endingBefore:
+                    url.searchParams.get("ending_before") ?? undefined,
+            };
         },
-        ctx
-    );
-
-    const duration = Date.now() - startTime;
-    logger.perf("HistoryList", duration, {
-        userId: session.user.id,
-        limit,
-        count: result.items.length,
-        hasMore: result.hasMore,
-    });
-
-    return Response.json({
-        chats: result.items,
-        hasMore: result.hasMore,
-    });
-}
-
-export async function DELETE() {
-    const startTime = Date.now();
-    const session = await getAppSession();
-
-    if (!session?.user) {
-        return new ChatSDKError(
-            "unauthorized:chat:missing_session"
-        ).toResponse();
     }
+);
 
-    const ctx = createContext(session);
+export const DELETE = withPerformanceTracking(
+    "DELETE /api/history",
+    async () => {
+        const session = await getAppSession();
 
-    const result = await chatData.deleteAll(ctx);
+        if (!session?.user) {
+            return new ChatSDKError(
+                "unauthorized:chat:missing_session"
+            ).toResponse();
+        }
 
-    const duration = Date.now() - startTime;
-    logger.info("History deleted", {
-        userId: session.user.id,
-        duration,
-        deleted: result.deletedCount,
-    });
+        const ctx = createContext(session);
 
-    return Response.json(result, { status: 200 });
-}
+        const result = await chatData.deleteAll(ctx);
+
+        // Track user action for analytics
+        trackUserAction("delete_all_chats", {
+            userId: session.user.id,
+            count: result.deletedCount,
+        });
+
+        return Response.json(result, { status: 200 });
+    }
+);

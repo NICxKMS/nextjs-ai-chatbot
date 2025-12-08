@@ -56,10 +56,19 @@ flowchart LR
 ### Environment Variables
 
 ```bash
+# Required
 NEW_RELIC_LICENSE_KEY="your-license-key"
-NEW_RELIC_APP_NAME="nextjs-ai-chatbot"
+NEW_RELIC_APP_NAME="ai-assistant"
+
+# Logging (required for Vercel - read-only filesystem)
+NEW_RELIC_LOG="stdout"
 NEW_RELIC_LOG_LEVEL="info"  # trace, debug, info, warn, error
+
+# Optional: Security agent (disabled by default)
+NEW_RELIC_SECURITY_ENABLED="false"
 ```
+
+> **Important for Vercel**: The `NEW_RELIC_LOG=stdout` environment variable must be set in your Vercel project settings. Without this, New Relic will attempt to write to a log file, which fails on Vercel's read-only filesystem.
 
 ### Configuration
 
@@ -316,7 +325,7 @@ trackMetric("TokensUsed", 150, "tokens");
 ```sql
 -- Average response time by endpoint
 SELECT average(duration) FROM Transaction
-WHERE appName = 'nextjs-ai-chatbot'
+WHERE appName = 'ai-assistant'
 FACET name SINCE 1 hour ago
 
 -- Slow transactions
@@ -366,12 +375,88 @@ TIMESERIES 5 minutes
 
 ---
 
-## Alerting Recommendations
+## Alerting Configuration
 
-| Alert                | Condition    | Threshold        |
-| -------------------- | ------------ | ---------------- |
-| High Error Rate      | Error %      | > 5% for 5 min   |
-| Slow Response        | Avg duration | > 2s for 5 min   |
-| Pool Exhaustion      | Utilization  | > 80% for 5 min  |
-| Cache Degradation    | Hit rate     | < 70% for 10 min |
-| Health Check Failing | Status code  | != 200 for 2 min |
+Pre-configured alert conditions are available in `lib/monitoring/alerts.nrql.json`.
+
+### Alert Conditions Summary
+
+| Alert                    | Condition           | Threshold        | Severity |
+| ------------------------ | ------------------- | ---------------- | -------- |
+| High Error Rate          | Error %             | > 5% for 5 min   | Critical |
+| Slow Response            | Avg duration        | > 2s for 5 min   | Warning  |
+| AI Completion Failures   | Failed completions  | > 10 for 5 min   | Critical |
+| High AI Latency          | Avg completion time | > 10s for 5 min  | Warning  |
+| Cache Degradation        | Hit rate            | < 70% for 10 min | Warning  |
+| Pool Exhaustion          | Utilization         | > 80% for 5 min  | Critical |
+| Health Check Failing     | Non-healthy status  | > 2 for 2 min    | Critical |
+| Rate Limiting Triggered  | 429 responses       | > 50 for 5 min   | Warning  |
+| Slow Time to First Token | Streaming TTFT      | > 2s for 5 min   | Warning  |
+| Database Query Errors    | DB error logs       | > 5 for 5 min    | Critical |
+| High Token Usage         | Total tokens/hour   | > 1M for 1 hour  | Warning  |
+| Apdex Score Drop         | Apdex score         | < 0.85 for 5 min | Warning  |
+
+### Setting Up Alerts
+
+1. Navigate to New Relic > Alerts & AI > Alert Policies
+2. Create a new policy or use existing
+3. Add NRQL conditions from `alerts.nrql.json`
+4. Configure notification channels (Slack, PagerDuty, Email)
+
+### Example: Creating an Alert via API
+
+```bash
+# Create alert condition using New Relic API
+curl -X POST 'https://api.newrelic.com/v2/alerts_nrql_conditions.json' \
+  -H 'Api-Key: YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "nrql_condition": {
+      "type": "static",
+      "name": "High Error Rate",
+      "enabled": true,
+      "terms": [{
+        "threshold": 5,
+        "threshold_duration": 300,
+        "operator": "above",
+        "priority": "critical"
+      }],
+      "nrql": {
+        "query": "SELECT percentage(count(*), WHERE error IS true) FROM Transaction WHERE appName = '\''ai-assistant'\''"
+      },
+      "policy_id": YOUR_POLICY_ID
+    }
+  }'
+```
+
+---
+
+## AI/LLM Metrics
+
+The application tracks comprehensive AI completion metrics:
+
+### Tracked Metrics
+
+| Metric                         | Type   | Description                |
+| ------------------------------ | ------ | -------------------------- |
+| `AICompletion`                 | Event  | Each AI model completion   |
+| `AIStreamingCompletion`        | Event  | Streaming-specific metrics |
+| `Custom/AI/CompletionDuration` | Metric | Total completion time (ms) |
+| `Custom/AI/TotalTokens`        | Metric | Token count per completion |
+| `Custom/AI/TimeToFirstToken`   | Metric | Streaming TTFT (ms)        |
+
+### NRQL Queries for AI Metrics
+
+```sql
+-- Average completion time by model
+SELECT average(durationMs) FROM AICompletion FACET model SINCE 1 hour ago
+
+-- Token usage over time
+SELECT sum(totalTokens) FROM AICompletion TIMESERIES 1 hour
+
+-- Time to first token distribution
+SELECT percentile(firstTokenMs, 50, 95, 99) FROM AIStreamingCompletion SINCE 1 hour ago
+
+-- Success rate by provider
+SELECT percentage(count(*), WHERE success = true) FROM AICompletion FACET provider
+```

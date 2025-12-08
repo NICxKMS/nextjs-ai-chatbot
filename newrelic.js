@@ -11,6 +11,13 @@
  * - Improved transaction tracing
  */
 
+// CRITICAL: Force stdout logging BEFORE exports.config is read
+// This prevents EROFS errors on Vercel/Lambda read-only filesystems
+// The agent checks process.env before reading the config file
+if (!process.env.NEW_RELIC_LOG) {
+    process.env.NEW_RELIC_LOG = "stdout";
+}
+
 /**
  * New Relic agent configuration.
  *
@@ -21,7 +28,7 @@ exports.config = {
     /**
      * Array of application names.
      */
-    app_name: [process.env.NEW_RELIC_APP_NAME || "nextjs-ai-chatbot"],
+    app_name: [process.env.NEW_RELIC_APP_NAME || "ai-assistant"],
 
     /**
      * Your New Relic license key.
@@ -31,6 +38,12 @@ exports.config = {
     /**
      * Logging configuration
      * NOTE: Vercel has a read-only file system, so we MUST use stdout
+     *
+     * IMPORTANT: Also set these environment variables in Vercel:
+     *   NEW_RELIC_LOG=stdout
+     *   NEW_RELIC_LOG_ENABLED=true
+     *
+     * This ensures logging is configured before the config file is loaded.
      */
     logging: {
         /**
@@ -44,7 +57,28 @@ exports.config = {
          * Where to put the log file -- MUST be stdout for Vercel/serverless
          * The read-only file system will cause EROFS errors if a file path is used
          */
-        filepath: "stdout",
+        filepath: process.env.NEW_RELIC_LOG || "stdout",
+
+        /**
+         * Whether to enable logging
+         */
+        enabled: true,
+    },
+
+    /**
+     * Security agent configuration
+     * Disable file-based logging for serverless environments
+     */
+    security: {
+        enabled: process.env.NEW_RELIC_SECURITY_ENABLED === "true",
+        agent: {
+            enabled: process.env.NEW_RELIC_SECURITY_ENABLED === "true",
+        },
+        // Disable security agent logging to file in serverless
+        detection: {
+            rxss: { enabled: true },
+            deserialization: { enabled: true },
+        },
     },
 
     /**
@@ -137,13 +171,32 @@ exports.config = {
         attributes: {
             enabled: true,
         },
+        /**
+         * Custom error grouping for better fingerprinting
+         * Groups ChatSDKError by error code for cleaner error inbox
+         */
+        error_group_callback: (metadata) => {
+            // Group by custom error code if present
+            if (metadata?.customAttributes?.code) {
+                return { group: metadata.customAttributes.code };
+            }
+            // Group by error class for standard errors
+            if (metadata?.["error.class"]) {
+                return { group: metadata["error.class"] };
+            }
+            return null; // Use default grouping
+        },
     },
 
     /**
-     * Browser monitoring
+     * Browser monitoring (Real User Monitoring)
+     * Enabled in production for frontend visibility
      */
     browser_monitoring: {
-        enable: false, // Set to true to enable Real User Monitoring
+        enable: process.env.NODE_ENV === "production",
+        attributes: {
+            enabled: true,
+        },
     },
 
     /**
@@ -190,10 +243,11 @@ exports.config = {
 
     /**
      * Span events for detailed tracing
+     * Balanced for cost optimization while maintaining visibility
      */
     span_events: {
         enabled: true,
-        max_samples_stored: 2000,
+        max_samples_stored: 1500,
         attributes: {
             enabled: true,
         },
@@ -201,10 +255,11 @@ exports.config = {
 
     /**
      * Transaction events
+     * Reduced sample count for cost optimization on high-traffic endpoints
      */
     transaction_events: {
         enabled: true,
-        max_samples_stored: 10_000,
+        max_samples_stored: 5000,
         attributes: {
             enabled: true,
         },
@@ -225,14 +280,27 @@ exports.config = {
     },
 
     /**
-     * Rules for naming transactions
+     * Rules for naming and ignoring transactions
      */
     rules: {
         name: [
-            // Group API routes
+            // Group API routes for cleaner transaction naming
             { pattern: "^/api/chat.*", name: "/api/chat" },
             { pattern: "^/api/auth.*", name: "/api/auth" },
             { pattern: "^/api/health.*", name: "/api/health" },
+            { pattern: "^/api/document.*", name: "/api/document" },
+            { pattern: "^/api/history.*", name: "/api/history" },
+            { pattern: "^/api/vote.*", name: "/api/vote" },
+            { pattern: "^/api/files.*", name: "/api/files" },
+            { pattern: "^/api/suggestions.*", name: "/api/suggestions" },
+        ],
+        ignore: [
+            // Ignore static assets and internal Next.js routes
+            "^/_next/static.*",
+            "^/_next/image.*",
+            "^/favicon.ico$",
+            "^/robots.txt$",
+            "^/sitemap.xml$",
         ],
     },
 

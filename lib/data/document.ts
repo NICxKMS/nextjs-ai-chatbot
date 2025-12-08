@@ -9,6 +9,7 @@ import {
     warmDocumentCache,
 } from "../cache/operations";
 import { isRedisAvailable } from "../cache/redis";
+import { withQueryTracking } from "../db/query-tracking";
 import type { Document } from "../db/schema";
 import { toDatabaseError } from "../errors";
 import type { DataContext } from "./base";
@@ -89,11 +90,16 @@ export const documentData = {
             ]);
             const { eq, asc } = drizzleOps;
 
-            const documents = await db
-                .select()
-                .from(document)
-                .where(eq(document.id, documentId))
-                .orderBy(asc(document.createdAt));
+            const documents = await withQueryTracking(
+                "documentData.get",
+                () =>
+                    db
+                        .select()
+                        .from(document)
+                        .where(eq(document.id, documentId))
+                        .orderBy(asc(document.createdAt)),
+                { documentId }
+            );
 
             if (documents.length === 0) {
                 return null;
@@ -172,11 +178,16 @@ export const documentData = {
             ]);
             const { eq, asc } = drizzleOps;
 
-            const documents = await db
-                .select()
-                .from(document)
-                .where(eq(document.id, documentId))
-                .orderBy(asc(document.createdAt));
+            const documents = await withQueryTracking(
+                "documentData.getAll",
+                () =>
+                    db
+                        .select()
+                        .from(document)
+                        .where(eq(document.id, documentId))
+                        .orderBy(asc(document.createdAt)),
+                { documentId }
+            );
 
             // Warm cache in background
             if (isRedisAvailable() && documents.length > 0) {
@@ -262,19 +273,24 @@ export const documentData = {
                 import("../log"),
             ]);
 
-            const dbPromise = db
-                .insert(document)
-                .values({
-                    id,
-                    chatId,
-                    title,
-                    kind,
-                    content,
-                    userId: ctx.userId,
-                    createdAt,
-                    updatedAt: createdAt,
-                })
-                .returning();
+            const dbPromise = withQueryTracking(
+                "documentData.save",
+                () =>
+                    db
+                        .insert(document)
+                        .values({
+                            id,
+                            chatId,
+                            title,
+                            kind,
+                            content,
+                            userId: ctx.userId,
+                            createdAt,
+                            updatedAt: createdAt,
+                        })
+                        .returning(),
+                { documentId: id, chatId }
+            );
 
             // Update cache in parallel
             const cachePromise = isRedisAvailable()
@@ -355,24 +371,34 @@ export const documentData = {
 
             // Run DB and cache deletes in parallel
             const dbPromise = (async () => {
-                await db
-                    .delete(suggestion)
-                    .where(
-                        and(
-                            eq(suggestion.documentId, documentId),
-                            gt(suggestion.documentCreatedAt, timestamp)
-                        )
-                    );
+                await withQueryTracking(
+                    "documentData.deleteAfterTimestamp:suggestions",
+                    () =>
+                        db
+                            .delete(suggestion)
+                            .where(
+                                and(
+                                    eq(suggestion.documentId, documentId),
+                                    gt(suggestion.documentCreatedAt, timestamp)
+                                )
+                            ),
+                    { documentId }
+                );
 
-                return await db
-                    .delete(document)
-                    .where(
-                        and(
-                            eq(document.id, documentId),
-                            gt(document.createdAt, timestamp)
-                        )
-                    )
-                    .returning();
+                return await withQueryTracking(
+                    "documentData.deleteAfterTimestamp:document",
+                    () =>
+                        db
+                            .delete(document)
+                            .where(
+                                and(
+                                    eq(document.id, documentId),
+                                    gt(document.createdAt, timestamp)
+                                )
+                            )
+                            .returning(),
+                    { documentId }
+                );
             })();
 
             const cachePromise = isRedisAvailable()

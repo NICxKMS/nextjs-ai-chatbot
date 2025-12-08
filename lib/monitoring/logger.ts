@@ -1,5 +1,12 @@
 import "server-only";
 
+import {
+    addAttribute,
+    noticeError,
+    recordEvent,
+    recordMetric,
+} from "./newrelic-agent";
+
 /**
  * ==============================================================================
  * STRUCTURED LOGGING SYSTEM - NEW RELIC INTEGRATION
@@ -90,18 +97,6 @@ const SENSITIVE_KEYS = [
 ];
 
 /**
- * Get New Relic agent (lazy loaded, optional)
- */
-function getNewRelicAgent() {
-    try {
-        // Dynamic require for optional New Relic dependency
-        return require("newrelic");
-    } catch {
-        return null;
-    }
-}
-
-/**
  * Check if log level should be emitted
  */
 function shouldLog(level: LogLevel): boolean {
@@ -168,49 +163,33 @@ function sendToNewRelic(
     eventType: string,
     attributes: Record<string, unknown>
 ) {
-    const newrelic = getNewRelicAgent();
-    if (!newrelic) {
-        return;
+    // Filter to only include primitive values that New Relic accepts
+    const safeAttributes: Record<string, string | number | boolean> = {};
+    for (const [key, value] of Object.entries(attributes)) {
+        if (
+            typeof value === "string" ||
+            typeof value === "number" ||
+            typeof value === "boolean"
+        ) {
+            safeAttributes[key] = value;
+        }
     }
-
-    try {
-        newrelic.recordCustomEvent(eventType, attributes);
-    } catch (err) {
-        // Silently fail if New Relic is unavailable
-        console.error("Failed to send event to New Relic:", err);
-    }
+    recordEvent(eventType, safeAttributes);
 }
 
 /**
  * Add custom attributes to current New Relic transaction
  */
 function addTransactionAttributes(attributes: Record<string, unknown>) {
-    const newrelic = getNewRelicAgent();
-    if (!newrelic) {
-        return;
-    }
-
-    try {
-        // Check if we're in an active transaction to avoid warnings
-        const transaction = newrelic.getTransaction();
-        if (!transaction || !transaction.isActive()) {
-            // No active transaction - this is normal for background tasks
-            // Just skip attribute addition silently
-            return;
+    for (const [key, value] of Object.entries(attributes)) {
+        // Only add primitive values (New Relic limitation)
+        if (
+            typeof value === "string" ||
+            typeof value === "number" ||
+            typeof value === "boolean"
+        ) {
+            addAttribute(key, value);
         }
-
-        for (const [key, value] of Object.entries(attributes)) {
-            // Only add primitive values (New Relic limitation)
-            if (
-                typeof value === "string" ||
-                typeof value === "number" ||
-                typeof value === "boolean"
-            ) {
-                newrelic.addCustomAttribute(key, value);
-            }
-        }
-    } catch {
-        // Silently fail - don't pollute logs with New Relic errors
     }
 }
 
@@ -233,14 +212,13 @@ function log(level: LogLevel, message: string, context?: LogContext) {
         console.log(formattedLog);
     }
 
-    // Send to New Relic as custom event for advanced querying
-    if (level === "error" || level === "warn" || level === "perf") {
-        sendToNewRelic("ApplicationLog", {
-            level,
-            message,
-            ...context,
-        });
-    }
+    // Send ALL logs to New Relic as custom events for advanced querying
+    // This ensures visibility in New Relic's custom events dashboard
+    sendToNewRelic("ApplicationLog", {
+        level,
+        message,
+        ...context,
+    });
 
     // Add to current transaction for correlation
     if (context) {
@@ -302,27 +280,17 @@ export const logger = {
         log("error", message, errorContext);
 
         // Also send to New Relic error tracking
-        const newrelic = getNewRelicAgent();
-        if (newrelic && error instanceof Error) {
-            try {
-                newrelic.noticeError(error, errorContext);
-            } catch {
-                // Silently fail
-            }
+        if (error instanceof Error) {
+            noticeError(error, errorContext);
         }
     },
 
     /**
      * Performance logging (operation timing)
      * Use to track duration of key operations
+     * Always sends to New Relic for observability, console output filtered by threshold
      */
     perf: (operation: string, duration: number, context?: LogContext) => {
-        // Only log if duration exceeds threshold or in development
-        const threshold = 1000; // 1 second
-        if (duration < threshold && process.env.NODE_ENV === "production") {
-            return;
-        }
-
         const perfContext: LogContext = {
             ...context,
             operation,
@@ -330,16 +298,24 @@ export const logger = {
             durationSeconds: (duration / 1000).toFixed(2),
         };
 
-        log("perf", `${operation} completed`, perfContext);
+        // Always send to New Relic as custom metric (no threshold)
+        recordMetric(`Custom/${operation}/Duration`, duration);
 
-        // Send as custom metric to New Relic
-        const newrelic = getNewRelicAgent();
-        if (newrelic) {
-            try {
-                newrelic.recordMetric(`Custom/${operation}/Duration`, duration);
-            } catch {
-                // Silently fail
-            }
+        // Send as custom event for detailed querying
+        sendToNewRelic("PerformanceMetric", {
+            operation,
+            duration,
+            durationSeconds: Number((duration / 1000).toFixed(2)),
+            ...context,
+        });
+
+        // Only log to console if duration exceeds threshold (reduces noise)
+        const consoleThreshold = 500; // 500ms for console output
+        if (
+            duration >= consoleThreshold ||
+            process.env.NODE_ENV !== "production"
+        ) {
+            log("perf", `${operation} completed`, perfContext);
         }
     },
 
@@ -410,7 +386,21 @@ export function createLogContext(
 }
 
 /**
+ * Generate a unique request ID for correlation
+ * Uses crypto.randomUUID() for unique, collision-resistant IDs
+ */
+function generateRequestId(): string {
+    try {
+        return crypto.randomUUID();
+    } catch {
+        // Fallback for environments without crypto.randomUUID
+        return `req_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+    }
+}
+
+/**
  * Extract request context from Next.js Request object
+ * Generates a request ID if not present in headers for correlation
  */
 export function extractRequestContext(request?: Request): LogContext {
     if (!request) {
@@ -418,7 +408,11 @@ export function extractRequestContext(request?: Request): LogContext {
     }
 
     const url = new URL(request.url);
-    const requestId = request.headers.get("x-request-id") || undefined;
+    // Use existing request ID from headers or generate a new one
+    const requestId =
+        request.headers.get("x-request-id") ||
+        request.headers.get("x-vercel-id") ||
+        generateRequestId();
 
     return {
         requestId,

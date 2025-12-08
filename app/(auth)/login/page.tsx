@@ -66,6 +66,19 @@ export default function Page() {
                 });
                 return;
             }
+
+            // Validate that a valid user was returned in the response
+            const exchangeData = (await exchangeResponse.json()) as {
+                user: unknown;
+            };
+            if (!exchangeData.user) {
+                toast({
+                    type: "error",
+                    description:
+                        "Login successful, but session setup failed. Please try again.",
+                });
+                return;
+            }
         } catch {
             toast({
                 type: "error",
@@ -78,7 +91,6 @@ export default function Page() {
         setIsSuccessful(true);
         router.push("/");
         router.refresh();
-
     };
 
     return (

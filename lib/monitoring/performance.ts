@@ -1,6 +1,11 @@
 import "server-only";
 
+import { reportRequestMetrics } from "./dashboard";
 import { extractRequestContext, logger } from "./logger";
+import {
+    getMetricsSummary,
+    runWithRequestMetricsAsync,
+} from "./request-metrics";
 
 /**
  * ==============================================================================
@@ -12,6 +17,7 @@ import { extractRequestContext, logger } from "./logger";
  * - Error handling
  * - Request/response logging
  * - New Relic transaction tracking
+ * - Automatic request metrics reporting (DB calls, cache stats)
  *
  * Usage:
  * ```typescript
@@ -34,88 +40,138 @@ export type PerformanceMetadata = {
     [key: string]: unknown;
 };
 
+export type PerformanceTrackingOptions = {
+    /** Extract additional metadata from request */
+    extractMetadata?: (
+        request: Request
+    ) => Promise<PerformanceMetadata> | PerformanceMetadata;
+    /** Log when request starts (default: false) */
+    logRequest?: boolean;
+    /** Log when response completes (default: false) */
+    logResponse?: boolean;
+    /** Automatically report DB/cache metrics to New Relic (default: true) */
+    reportMetrics?: boolean;
+};
+
 /**
  * Wrap API route handler with performance tracking
  * Automatically logs duration, errors, and sends metrics to New Relic
+ *
+ * Features:
+ * - Automatic request timing
+ * - Error logging with context
+ * - New Relic metrics reporting (DB calls, cache stats)
+ * - Request-scoped metrics context (AsyncLocalStorage)
+ * - Optional request/response logging
  */
 export function withPerformanceTracking<T = Response>(
     operationName: string,
     handler: (request: Request, context?: unknown) => Promise<T>,
-    options?: {
-        extractMetadata?: (
-            request: Request
-        ) => Promise<PerformanceMetadata> | PerformanceMetadata;
-        logRequest?: boolean;
-        logResponse?: boolean;
-    }
+    options?: PerformanceTrackingOptions
 ): (request: Request, context?: unknown) => Promise<T> {
-    return async (request: Request, context?: unknown) => {
-        const startTime = performance.now();
-        const requestContext = extractRequestContext(request);
+    const shouldReportMetrics = options?.reportMetrics !== false;
 
-        // Extract additional metadata if provided
-        let metadata: PerformanceMetadata = {};
-        if (options?.extractMetadata) {
-            try {
-                metadata = await options.extractMetadata(request);
-            } catch (error) {
-                logger.warn("Failed to extract metadata", {
-                    operationName,
-                    error,
-                });
+    return (request: Request, context?: unknown) => {
+        // Wrap the entire handler execution in request metrics context
+        // This enables AsyncLocalStorage tracking for DB and cache operations
+        return runWithRequestMetricsAsync(async () => {
+            const startTime = performance.now();
+            const requestContext = extractRequestContext(request);
+
+            // Extract additional metadata if provided
+            let metadata: PerformanceMetadata = {};
+            if (options?.extractMetadata) {
+                try {
+                    metadata = await options.extractMetadata(request);
+                } catch (error) {
+                    logger.warn("Failed to extract metadata", {
+                        operationName,
+                        error,
+                    });
+                }
             }
-        }
 
-        // Log request if enabled
-        if (options?.logRequest) {
-            logger.info(`${operationName} started`, {
-                ...requestContext,
-                ...metadata,
-            });
-        }
-
-        try {
-            // Execute handler
-            const response = await handler(request, context);
-
-            // Calculate duration
-            const duration = performance.now() - startTime;
-
-            // Log successful completion
-            logger.perf(operationName, duration, {
-                ...requestContext,
-                ...metadata,
-                success: true,
-                statusCode:
-                    response instanceof Response ? response.status : undefined,
-            });
-
-            // Log response if enabled
-            if (options?.logResponse && response instanceof Response) {
-                logger.debug(`${operationName} completed`, {
+            // Log request if enabled
+            if (options?.logRequest) {
+                logger.info(`${operationName} started`, {
                     ...requestContext,
                     ...metadata,
-                    statusCode: response.status,
-                    duration,
                 });
             }
 
-            return response;
-        } catch (error) {
-            // Calculate duration even on error
-            const duration = performance.now() - startTime;
+            try {
+                // Execute handler
+                const response = await handler(request, context);
 
-            // Log error with full context
-            logger.error(`${operationName} failed`, error, {
-                ...requestContext,
-                ...metadata,
-                success: false,
-                duration,
-            });
+                // Calculate duration
+                const duration = performance.now() - startTime;
 
-            // Re-throw to allow Next.js error handling
-            throw error;
-        }
+                // Auto-report DB/cache metrics to New Relic
+                const metrics = getMetricsSummary();
+                if (shouldReportMetrics && Object.keys(metrics).length > 0) {
+                    reportRequestMetrics(operationName, {
+                        dbCalls: metrics.dbCalls || 0,
+                        dbTotalDurationMs: metrics.dbTotalDurationMs || 0,
+                        cacheCalls: metrics.cacheCalls || 0,
+                        cacheHits: metrics.cacheHits || 0,
+                        cacheMisses: metrics.cacheMisses || 0,
+                        cacheTotalDurationMs: metrics.cacheTotalDurationMs || 0,
+                    });
+                }
+
+                // Log successful completion
+                logger.perf(operationName, duration, {
+                    ...requestContext,
+                    ...metadata,
+                    ...metrics,
+                    success: true,
+                    statusCode:
+                        response instanceof Response
+                            ? response.status
+                            : undefined,
+                });
+
+                // Log response if enabled
+                if (options?.logResponse && response instanceof Response) {
+                    logger.debug(`${operationName} completed`, {
+                        ...requestContext,
+                        ...metadata,
+                        statusCode: response.status,
+                        duration,
+                    });
+                }
+
+                return response;
+            } catch (error) {
+                // Calculate duration even on error
+                const duration = performance.now() - startTime;
+
+                // Still report metrics even on error
+                const metrics = getMetricsSummary();
+                if (shouldReportMetrics && Object.keys(metrics).length > 0) {
+                    reportRequestMetrics(operationName, {
+                        dbCalls: metrics.dbCalls || 0,
+                        dbTotalDurationMs: metrics.dbTotalDurationMs || 0,
+                        cacheCalls: metrics.cacheCalls || 0,
+                        cacheHits: metrics.cacheHits || 0,
+                        cacheMisses: metrics.cacheMisses || 0,
+                        cacheTotalDurationMs: metrics.cacheTotalDurationMs || 0,
+                    });
+                }
+
+                // Log error with full context
+                logger.error(`${operationName} failed`, error, {
+                    ...requestContext,
+                    ...metadata,
+                    ...metrics,
+                    success: false,
+                    duration,
+                });
+
+                // Re-throw to allow Next.js error handling
+                throw error;
+            }
+        });
     };
 }
 
