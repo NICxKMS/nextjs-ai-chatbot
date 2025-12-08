@@ -2,6 +2,13 @@ import "server-only";
 
 import { getRedisClient } from "@/lib/cache/redis";
 import { type PoolStats, poolMonitor } from "@/lib/db/pool-monitor";
+import {
+    addAttributes,
+    getNewRelicAgent,
+    noticeError as noticeNewRelicErrorInternal,
+    recordEvent,
+    recordMetric,
+} from "./newrelic-agent";
 
 /**
  * ==============================================================================
@@ -29,7 +36,7 @@ import { type PoolStats, poolMonitor } from "@/lib/db/pool-monitor";
  * Setup:
  * 1. Install New Relic: npm install newrelic
  * 2. Set env var: NEW_RELIC_LICENSE_KEY=your_key
- * 3. Set env var: NEW_RELIC_APP_NAME=nextjs-chatbot
+ * 3. Set env var: NEW_RELIC_APP_NAME=ai-assistant
  * 4. Import newrelic at app entry: import 'newrelic' (optional, auto-detects)
  */
 
@@ -84,90 +91,13 @@ export type AggregatedMetrics = {
 const startTime = Date.now();
 
 /**
- * Get New Relic agent (lazy loaded, optional dependency)
- */
-function getNewRelicAgent() {
-    try {
-        const newrelic = require("newrelic");
-        return newrelic;
-    } catch {
-        // New Relic not installed or not configured
-        return null;
-    }
-}
-
-/**
- * Record custom event to New Relic
- */
-function recordNewRelicEvent(
-    eventType: string,
-    attributes: Record<string, string | number | boolean>
-) {
-    const newrelic = getNewRelicAgent();
-    if (!newrelic) {
-        return;
-    }
-
-    try {
-        newrelic.recordCustomEvent(eventType, attributes);
-    } catch (error) {
-        console.error("Failed to record New Relic event:", error);
-    }
-}
-
-/**
- * Record custom metric to New Relic
- */
-function recordNewRelicMetric(name: string, value: number) {
-    const newrelic = getNewRelicAgent();
-    if (!newrelic) {
-        return;
-    }
-
-    try {
-        newrelic.recordMetric(name, value);
-    } catch (error) {
-        console.error("Failed to record New Relic metric:", error);
-    }
-}
-
-/**
- * Add custom attributes to current transaction
- */
-function addNewRelicAttributes(
-    attributes: Record<string, string | number | boolean>
-) {
-    const newrelic = getNewRelicAgent();
-    if (!newrelic) {
-        return;
-    }
-
-    try {
-        for (const [key, value] of Object.entries(attributes)) {
-            newrelic.addCustomAttribute(key, value);
-        }
-    } catch (error) {
-        console.error("Failed to add New Relic attributes:", error);
-    }
-}
-
-/**
- * Notice error in New Relic
+ * Notice error in New Relic (exported wrapper for backward compatibility)
  */
 export function noticeNewRelicError(
     error: Error,
     customAttributes?: Record<string, unknown>
 ) {
-    const newrelic = getNewRelicAgent();
-    if (!newrelic) {
-        return;
-    }
-
-    try {
-        newrelic.noticeError(error, customAttributes);
-    } catch (err) {
-        console.error("Failed to notice New Relic error:", err);
-    }
+    noticeNewRelicErrorInternal(error, customAttributes);
 }
 
 /**
@@ -177,15 +107,21 @@ async function checkCacheHealth(): Promise<ComponentHealth> {
     const redis = getRedisClient();
 
     if (!redis) {
-        recordNewRelicEvent("CacheHealthCheck", {
-            status: "degraded",
+        // In development or when Redis is intentionally disabled,
+        // treat "not configured" as healthy rather than degraded
+        const isDev = process.env.NODE_ENV === "development";
+
+        recordEvent("CacheHealthCheck", {
+            status: isDev ? "healthy" : "degraded",
             reason: "not_configured",
         });
 
         return {
-            status: "degraded",
-            message: "Redis not configured",
-            details: {},
+            status: isDev ? "healthy" : "degraded",
+            message: isDev
+                ? "Redis not configured (optional in development)"
+                : "Redis not configured",
+            details: { configured: false },
         };
     }
 
@@ -194,10 +130,15 @@ async function checkCacheHealth(): Promise<ComponentHealth> {
         await redis.ping();
         const duration = Date.now() - start;
 
-        recordNewRelicMetric("Custom/Cache/ResponseTime", duration);
+        recordMetric("Custom/Cache/ResponseTime", duration);
 
-        if (duration > 500) {
-            recordNewRelicEvent("CacheHealthCheck", {
+        // Upstash Redis over HTTP can have higher latency on cold starts
+        // Use 2000ms threshold for "degraded" (allows for cold start + network latency)
+        // Only mark as degraded if consistently slow (not just initial connection)
+        const slowThresholdMs = 2000;
+
+        if (duration > slowThresholdMs) {
+            recordEvent("CacheHealthCheck", {
                 status: "degraded",
                 reason: "slow_response",
                 responseTime: duration,
@@ -206,11 +147,11 @@ async function checkCacheHealth(): Promise<ComponentHealth> {
             return {
                 status: "degraded",
                 message: "Cache responding slowly",
-                details: { responseTime: duration },
+                details: { responseTime: duration, threshold: slowThresholdMs },
             };
         }
 
-        recordNewRelicEvent("CacheHealthCheck", {
+        recordEvent("CacheHealthCheck", {
             status: "healthy",
             responseTime: duration,
         });
@@ -229,7 +170,7 @@ async function checkCacheHealth(): Promise<ComponentHealth> {
             }
         );
 
-        recordNewRelicEvent("CacheHealthCheck", {
+        recordEvent("CacheHealthCheck", {
             status: "critical",
             reason: "unavailable",
         });
@@ -249,17 +190,17 @@ function checkConnectionPoolHealth(): ComponentHealth {
     const stats = poolMonitor.getPoolStats();
 
     // Record pool metrics to New Relic
-    recordNewRelicMetric("Custom/ConnectionPool/Active", stats.active);
-    recordNewRelicMetric("Custom/ConnectionPool/Idle", stats.idle);
-    recordNewRelicMetric("Custom/ConnectionPool/Waiting", stats.waiting);
-    recordNewRelicMetric("Custom/ConnectionPool/Total", stats.total);
+    recordMetric("Custom/ConnectionPool/Active", stats.active);
+    recordMetric("Custom/ConnectionPool/Idle", stats.idle);
+    recordMetric("Custom/ConnectionPool/Waiting", stats.waiting);
+    recordMetric("Custom/ConnectionPool/Total", stats.total);
 
     const usageRate = stats.max > 0 ? stats.active / stats.max : 0;
-    recordNewRelicMetric("Custom/ConnectionPool/UsageRate", usageRate);
+    recordMetric("Custom/ConnectionPool/UsageRate", usageRate);
 
     // Check for high wait times
     if (stats.waiting > 10) {
-        recordNewRelicEvent("ConnectionPoolHealthCheck", {
+        recordEvent("ConnectionPoolHealthCheck", {
             status: "degraded",
             reason: "high_wait_queue",
             waiting: stats.waiting,
@@ -274,7 +215,7 @@ function checkConnectionPoolHealth(): ComponentHealth {
 
     // Check pool exhaustion
     if (usageRate > 0.9) {
-        recordNewRelicEvent("ConnectionPoolHealthCheck", {
+        recordEvent("ConnectionPoolHealthCheck", {
             status: "degraded",
             reason: "near_capacity",
             usageRate,
@@ -289,7 +230,7 @@ function checkConnectionPoolHealth(): ComponentHealth {
         };
     }
 
-    recordNewRelicEvent("ConnectionPoolHealthCheck", {
+    recordEvent("ConnectionPoolHealthCheck", {
         status: "healthy",
         active: stats.active,
         idle: stats.idle,
@@ -314,16 +255,10 @@ function getDatabaseMetrics(): AggregatedMetrics["database"] {
     const errorRate = connectionMetrics.errors / Math.max(totalQueries, 1);
 
     // Record to New Relic
-    recordNewRelicMetric("Custom/Database/QueriesTotal", totalQueries);
-    recordNewRelicMetric(
-        "Custom/Database/TransactionsTotal",
-        totalTransactions
-    );
-    recordNewRelicMetric("Custom/Database/ErrorRate", errorRate);
-    recordNewRelicMetric(
-        "Custom/Database/Timeouts",
-        connectionMetrics.timeouts
-    );
+    recordMetric("Custom/Database/QueriesTotal", totalQueries);
+    recordMetric("Custom/Database/TransactionsTotal", totalTransactions);
+    recordMetric("Custom/Database/ErrorRate", errorRate);
+    recordMetric("Custom/Database/Timeouts", connectionMetrics.timeouts);
 
     return {
         totalQueries,
@@ -366,17 +301,17 @@ async function getCacheMetrics(): Promise<AggregatedMetrics["cache"]> {
     const avgLatency = operationCount > 0 ? totalLatency / operationCount : 0;
 
     // Record to New Relic
-    recordNewRelicMetric("Custom/Cache/HitRate", hitRate);
-    recordNewRelicMetric("Custom/Cache/MissRate", missRate);
-    recordNewRelicMetric("Custom/Cache/Hits", totalHits);
-    recordNewRelicMetric("Custom/Cache/Misses", totalMisses);
-    recordNewRelicMetric("Custom/Cache/Errors", totalErrors);
-    recordNewRelicMetric("Custom/Cache/TotalRequests", total);
-    recordNewRelicMetric("Custom/Cache/AvgLatencyMs", avgLatency);
+    recordMetric("Custom/Cache/HitRate", hitRate);
+    recordMetric("Custom/Cache/MissRate", missRate);
+    recordMetric("Custom/Cache/Hits", totalHits);
+    recordMetric("Custom/Cache/Misses", totalMisses);
+    recordMetric("Custom/Cache/Errors", totalErrors);
+    recordMetric("Custom/Cache/TotalRequests", total);
+    recordMetric("Custom/Cache/AvgLatencyMs", avgLatency);
 
     // Record per-operation metrics
     for (const [operation, opMetrics] of Object.entries(summary)) {
-        recordNewRelicEvent("CacheOperationMetrics", {
+        recordEvent("CacheOperationMetrics", {
             operation,
             hits: opMetrics.hits,
             misses: opMetrics.misses,
@@ -425,9 +360,9 @@ async function getRateLimitMetrics() {
         const blockRate = total > 0 ? blocked / total : 0;
 
         // Record to New Relic
-        recordNewRelicMetric("Custom/RateLimit/TotalRequests", total);
-        recordNewRelicMetric("Custom/RateLimit/BlockedRequests", blocked);
-        recordNewRelicMetric("Custom/RateLimit/BlockRate", blockRate);
+        recordMetric("Custom/RateLimit/TotalRequests", total);
+        recordMetric("Custom/RateLimit/BlockedRequests", blocked);
+        recordMetric("Custom/RateLimit/BlockRate", blockRate);
 
         return {
             totalRequests: total,
@@ -472,15 +407,9 @@ async function getDeduplicationMetrics() {
         const savingsPercent = total > 0 ? (duplicates / total) * 100 : 0;
 
         // Record to New Relic
-        recordNewRelicMetric(
-            "Custom/Deduplication/DuplicatesDetected",
-            duplicates
-        );
-        recordNewRelicMetric("Custom/Deduplication/CacheHits", cacheHits);
-        recordNewRelicMetric(
-            "Custom/Deduplication/SavingsPercent",
-            savingsPercent
-        );
+        recordMetric("Custom/Deduplication/DuplicatesDetected", duplicates);
+        recordMetric("Custom/Deduplication/CacheHits", cacheHits);
+        recordMetric("Custom/Deduplication/SavingsPercent", savingsPercent);
 
         return {
             duplicatesDetected: duplicates,
@@ -582,18 +511,21 @@ export async function getSystemHealth(): Promise<SystemHealth> {
         };
 
         // Record overall health to New Relic
-        recordNewRelicEvent("SystemHealthCheck", {
+        recordEvent("SystemHealthCheck", {
             status,
             uptime,
             cacheStatus: cache.status,
             poolStatus: connectionPool.status,
             cacheHitRate: metrics.cache.hitRate,
             poolActive: metrics.connectionPool.active,
+            poolIdle: metrics.connectionPool.idle,
             poolWaiting: metrics.connectionPool.waiting,
+            poolMax: metrics.connectionPool.max,
+            poolTotal: metrics.connectionPool.total,
         });
 
         // Add attributes to current transaction
-        addNewRelicAttributes({
+        addAttributes({
             "health.status": status,
             "health.cacheStatus": cache.status,
             "health.poolStatus": connectionPool.status,
@@ -601,7 +533,7 @@ export async function getSystemHealth(): Promise<SystemHealth> {
         });
 
         const duration = Date.now() - healthCheckStart;
-        recordNewRelicMetric("Custom/HealthCheck/Duration", duration);
+        recordMetric("Custom/HealthCheck/Duration", duration);
 
         return health;
     } catch (error) {
@@ -704,7 +636,7 @@ export async function getMetricsSummary(): Promise<{
 
     // Record summary event to New Relic
     if (!summary.healthy) {
-        recordNewRelicEvent("SystemHealthAlert", {
+        recordEvent("SystemHealthAlert", {
             healthy: summary.healthy,
             warningCount: warnings.length,
             criticalCount: critical.length,
@@ -728,7 +660,7 @@ export async function getMetricsSummary(): Promise<{
  */
 export function trackMetric(name: string, value: number, unit?: string) {
     const metricName = unit ? `Custom/${name}/${unit}` : `Custom/${name}`;
-    recordNewRelicMetric(metricName, value);
+    recordMetric(metricName, value);
 }
 
 /**
@@ -749,7 +681,7 @@ export function trackEvent(
     eventType: string,
     attributes: Record<string, string | number | boolean>
 ) {
-    recordNewRelicEvent(eventType, attributes);
+    recordEvent(eventType, attributes);
 }
 
 /**
@@ -781,7 +713,7 @@ export function startSegment(name: string, category?: string): () => void {
 
     return () => {
         const duration = Date.now() - segmentStartTime;
-        recordNewRelicMetric(`Custom/Segment/${segmentName}`, duration);
+        recordMetric(`Custom/Segment/${segmentName}`, duration);
     };
 }
 
@@ -817,8 +749,8 @@ export function withNewRelicTransaction<T>(
             const result = await handler(...args);
             const duration = Date.now() - transactionStart;
 
-            recordNewRelicMetric(`Custom/Transaction/${name}`, duration);
-            recordNewRelicEvent("TransactionComplete", {
+            recordMetric(`Custom/Transaction/${name}`, duration);
+            recordEvent("TransactionComplete", {
                 name,
                 duration,
                 success: true,
@@ -836,7 +768,7 @@ export function withNewRelicTransaction<T>(
                 }
             );
 
-            recordNewRelicEvent("TransactionComplete", {
+            recordEvent("TransactionComplete", {
                 name,
                 duration,
                 success: false,
@@ -879,25 +811,22 @@ export function trackAICompletion(params: {
     userId?: string;
 }) {
     // Record metrics
-    recordNewRelicMetric("Custom/AI/CompletionDuration", params.durationMs);
+    recordMetric("Custom/AI/CompletionDuration", params.durationMs);
     if (params.totalTokens) {
-        recordNewRelicMetric("Custom/AI/TotalTokens", params.totalTokens);
+        recordMetric("Custom/AI/TotalTokens", params.totalTokens);
     }
     if (params.promptTokens) {
-        recordNewRelicMetric("Custom/AI/PromptTokens", params.promptTokens);
+        recordMetric("Custom/AI/PromptTokens", params.promptTokens);
     }
     if (params.completionTokens) {
-        recordNewRelicMetric(
-            "Custom/AI/CompletionTokens",
-            params.completionTokens
-        );
+        recordMetric("Custom/AI/CompletionTokens", params.completionTokens);
     }
     if (params.firstTokenMs) {
-        recordNewRelicMetric("Custom/AI/TimeToFirstToken", params.firstTokenMs);
+        recordMetric("Custom/AI/TimeToFirstToken", params.firstTokenMs);
     }
 
     // Record event with full details
-    recordNewRelicEvent("AICompletion", {
+    recordEvent("AICompletion", {
         model: params.model,
         provider: params.provider || "unknown",
         promptTokens: params.promptTokens || 0,
@@ -916,7 +845,7 @@ export function trackAICompletion(params: {
     });
 
     // Add to current transaction
-    addNewRelicAttributes({
+    addAttributes({
         "ai.model": params.model,
         "ai.provider": params.provider || "unknown",
         "ai.totalTokens": params.totalTokens || 0,
@@ -945,23 +874,14 @@ export function trackStreamingMetrics(params: {
     chunkCount?: number;
     totalTokens?: number;
 }) {
-    recordNewRelicMetric(
-        "Custom/AI/Streaming/TimeToFirstToken",
-        params.firstTokenMs
-    );
-    recordNewRelicMetric(
-        "Custom/AI/Streaming/TotalDuration",
-        params.totalDurationMs
-    );
+    recordMetric("Custom/AI/Streaming/TimeToFirstToken", params.firstTokenMs);
+    recordMetric("Custom/AI/Streaming/TotalDuration", params.totalDurationMs);
 
     if (params.chunkCount) {
-        recordNewRelicMetric(
-            "Custom/AI/Streaming/ChunkCount",
-            params.chunkCount
-        );
+        recordMetric("Custom/AI/Streaming/ChunkCount", params.chunkCount);
     }
 
-    recordNewRelicEvent("AIStreamingCompletion", {
+    recordEvent("AIStreamingCompletion", {
         model: params.model,
         firstTokenMs: params.firstTokenMs,
         totalDurationMs: params.totalDurationMs,
@@ -1003,15 +923,12 @@ export function reportRequestMetrics(
     }
 ) {
     // Record individual metrics
-    recordNewRelicMetric("Custom/Request/DBCalls", metrics.dbCalls);
-    recordNewRelicMetric(
-        "Custom/Request/DBDurationMs",
-        metrics.dbTotalDurationMs
-    );
-    recordNewRelicMetric("Custom/Request/CacheCalls", metrics.cacheCalls);
-    recordNewRelicMetric("Custom/Request/CacheHits", metrics.cacheHits);
-    recordNewRelicMetric("Custom/Request/CacheMisses", metrics.cacheMisses);
-    recordNewRelicMetric(
+    recordMetric("Custom/Request/DBCalls", metrics.dbCalls);
+    recordMetric("Custom/Request/DBDurationMs", metrics.dbTotalDurationMs);
+    recordMetric("Custom/Request/CacheCalls", metrics.cacheCalls);
+    recordMetric("Custom/Request/CacheHits", metrics.cacheHits);
+    recordMetric("Custom/Request/CacheMisses", metrics.cacheMisses);
+    recordMetric(
         "Custom/Request/CacheDurationMs",
         metrics.cacheTotalDurationMs
     );
@@ -1020,7 +937,7 @@ export function reportRequestMetrics(
         metrics.cacheCalls > 0 ? metrics.cacheHits / metrics.cacheCalls : 0;
 
     // Record event with full context
-    recordNewRelicEvent("RequestMetrics", {
+    recordEvent("RequestMetrics", {
         route: routeName,
         dbCalls: metrics.dbCalls,
         dbTotalDurationMs: metrics.dbTotalDurationMs,
@@ -1036,11 +953,87 @@ export function reportRequestMetrics(
     });
 
     // Add to current transaction
-    addNewRelicAttributes({
+    addAttributes({
         "request.dbCalls": metrics.dbCalls,
         "request.cacheCalls": metrics.cacheCalls,
         "request.cacheHitRate": cacheHitRate,
     });
+
+    // Report aggregate cache operation metrics periodically (fire-and-forget)
+    // This ensures CacheOperationMetrics events are sent even without health checks
+    maybeReportCacheOperationMetrics().catch(() => {
+        // Silently ignore errors - don't disrupt request handling
+    });
+}
+
+// Track when we last reported cache operation metrics
+let lastCacheMetricsReport = 0;
+const CACHE_METRICS_REPORT_INTERVAL_MS = 60_000; // Report every 60 seconds max
+
+/**
+ * Report cache operation metrics if enough time has passed since last report
+ * This ensures metrics are sent even without explicit health check calls
+ */
+async function maybeReportCacheOperationMetrics(): Promise<void> {
+    const now = Date.now();
+    if (now - lastCacheMetricsReport < CACHE_METRICS_REPORT_INTERVAL_MS) {
+        return; // Too soon since last report
+    }
+    lastCacheMetricsReport = now;
+
+    try {
+        await reportCacheOperationMetrics();
+    } catch {
+        // Silently ignore errors - don't disrupt request handling
+    }
+}
+
+/**
+ * Report aggregate cache operation metrics to New Relic
+ * Can be called independently of health checks for more frequent metric updates
+ *
+ * @example
+ * ```typescript
+ * // Call periodically or at end of important operations
+ * await reportCacheOperationMetrics();
+ * ```
+ */
+export async function reportCacheOperationMetrics(): Promise<void> {
+    // Import CacheMetrics dynamically to avoid circular dependency
+    const { CacheMetrics } = await import("@/lib/cache/metrics");
+
+    const summary = CacheMetrics.getSummary();
+
+    // Record per-operation metrics as CacheOperationMetrics events
+    for (const [operation, opMetrics] of Object.entries(summary)) {
+        recordEvent("CacheOperationMetrics", {
+            operation,
+            hits: opMetrics.hits,
+            misses: opMetrics.misses,
+            errors: opMetrics.errors,
+            hitRate: opMetrics.hitRate,
+            avgLatencyMs: opMetrics.avgLatencyMs,
+        });
+    }
+
+    // Also record aggregate custom metrics
+    let totalHits = 0;
+    let totalMisses = 0;
+    let totalErrors = 0;
+
+    for (const opMetrics of Object.values(summary)) {
+        totalHits += opMetrics.hits;
+        totalMisses += opMetrics.misses;
+        totalErrors += opMetrics.errors;
+    }
+
+    const total = totalHits + totalMisses;
+    const hitRate = total > 0 ? totalHits / total : 0;
+
+    recordMetric("Custom/Cache/HitRate", hitRate);
+    recordMetric("Custom/Cache/Hits", totalHits);
+    recordMetric("Custom/Cache/Misses", totalMisses);
+    recordMetric("Custom/Cache/Errors", totalErrors);
 }
 
 /**
@@ -1059,9 +1052,76 @@ export function trackUserAction(
     action: string,
     attributes: Record<string, string | number | boolean>
 ) {
-    recordNewRelicEvent("UserAction", {
+    recordEvent("UserAction", {
         action,
         timestamp: Date.now(),
         ...attributes,
     });
+}
+
+/**
+ * Track chat operations for detailed observability in New Relic
+ * Creates ChatOperation custom event with comprehensive attributes
+ *
+ * @example
+ * ```typescript
+ * trackChatOperation("request_started", {
+ *   chatId: "123",
+ *   userId: "user-456",
+ *   modelId: "gpt-4",
+ *   isNewChat: true
+ * });
+ *
+ * trackChatOperation("request_completed", {
+ *   chatId: "123",
+ *   userId: "user-456",
+ *   modelId: "gpt-4",
+ *   durationMs: 1500,
+ *   dbCalls: 3,
+ *   cacheHits: 2
+ * });
+ * ```
+ */
+export function trackChatOperation(
+    operation:
+        | "request_started"
+        | "request_completed"
+        | "request_failed"
+        | "message_saved"
+        | "title_generated",
+    attributes: {
+        chatId: string;
+        userId?: string;
+        modelId?: string;
+        isNewChat?: boolean;
+        durationMs?: number;
+        dbCalls?: number;
+        cacheHits?: number;
+        cacheMisses?: number;
+        errorCode?: string;
+        errorMessage?: string;
+        [key: string]: string | number | boolean | undefined;
+    }
+) {
+    // Filter out undefined values and ensure type safety
+    const safeAttributes: Record<string, string | number | boolean> = {
+        operation,
+        timestamp: Date.now(),
+    };
+
+    for (const [key, value] of Object.entries(attributes)) {
+        if (value !== undefined) {
+            safeAttributes[key] = value;
+        }
+    }
+
+    recordEvent("ChatOperation", safeAttributes);
+
+    // Also record as metric if duration is present
+    if (attributes.durationMs !== undefined) {
+        recordMetric(
+            `Custom/Chat/${operation}/Duration`,
+            attributes.durationMs
+        );
+    }
 }

@@ -1,3 +1,34 @@
+/**
+ * Report error to New Relic (server-side only)
+ * This function is kept local to errors.ts because this module is used
+ * in both client and server contexts, and we can't import from server-only modules.
+ *
+ * @param error - Error to report
+ * @param customAttributes - Additional context
+ */
+function reportErrorToNewRelic(
+    error: Error,
+    customAttributes: Record<string, unknown>
+): void {
+    // Only run on server
+    if (typeof window !== "undefined") {
+        return;
+    }
+
+    try {
+        // Use Function constructor to bypass Webpack static analysis
+        const newrelic = new Function(
+            'return typeof require !== "undefined" ? require("newrelic") : null'
+        )() as {
+            noticeError?: (err: Error, attrs?: Record<string, unknown>) => void;
+        } | null;
+
+        newrelic?.noticeError?.(error, customAttributes);
+    } catch {
+        // Silent fail - monitoring shouldn't break the app
+    }
+}
+
 export type ErrorType =
     | "bad_request"
     | "unauthorized"
@@ -66,6 +97,16 @@ export class ChatSDKError extends Error {
         // Sanitize cause in production to avoid leaking sensitive information
         const isProduction = process.env.NODE_ENV === "production";
         const safeCause = isProduction ? undefined : this.cause;
+
+        // Report server errors and offline errors to New Relic for monitoring
+        if (this.type === "offline" || statusCode >= 500) {
+            reportErrorToNewRelic(this, {
+                code: this.code,
+                surface: this.surface,
+                type: this.type,
+                statusCode: this.statusCode,
+            });
+        }
 
         if (visibility === "log") {
             // Avoid logging per workspace rules; return safe, generic message for log-only surfaces

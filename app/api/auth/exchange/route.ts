@@ -6,13 +6,14 @@ import {
 } from "@/lib/auth/session";
 import { isProductionEnvironment } from "@/lib/constants";
 import { ChatSDKError } from "@/lib/errors";
+import { trackUserAction } from "@/lib/monitoring/dashboard";
 import { logger } from "@/lib/monitoring/logger";
+import { recordEvent } from "@/lib/monitoring/newrelic-agent";
+import { withPerformanceTracking } from "@/lib/monitoring/performance";
 
-
-export async function POST(request: Request) {
-    const startTime = Date.now();
-
-    try {
+export const POST = withPerformanceTracking(
+    "POST /api/auth/exchange",
+    async (request: Request) => {
         const { accessToken } = (await request.json()) as {
             accessToken?: string;
         };
@@ -35,26 +36,38 @@ export async function POST(request: Request) {
 
         const session = await getSupabaseSessionFromToken(accessToken);
 
-        const duration = Date.now() - startTime;
         logger.info("Auth exchange completed", {
             hasUser: !!session?.user,
             userId: session?.user?.id,
-            duration,
+        });
+
+        // Return error if session creation failed
+        if (!session?.user) {
+            logger.warn("Auth exchange failed - no user in session", {
+                hasSession: !!session,
+            });
+            return new ChatSDKError(
+                "unauthorized:chat",
+                "Session creation failed"
+            ).toResponse();
+        }
+
+        // Track authenticated login for analytics
+        trackUserAction("authenticated_login", {
+            userId: session.user.id,
+        });
+
+        // Send Log event for dashboard "Guest vs Authenticated Sessions" widget
+        recordEvent("Log", {
+            message: "Authenticated session created",
+            userId: session.user.id,
         });
 
         return NextResponse.json(
             {
-                user: session?.user ?? null,
+                user: session.user,
             },
             { status: 200 }
         );
-    } catch (error) {
-        const duration = Date.now() - startTime;
-        logger.error("Auth exchange failed", error, { duration });
-
-        return new ChatSDKError(
-            "bad_request:api:invalid_json",
-            "Failed to process auth exchange"
-        ).toResponse();
     }
-}
+);

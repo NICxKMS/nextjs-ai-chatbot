@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SQL } from "drizzle-orm";
 import { logger } from "@/lib/monitoring/logger";
+import { recordEvent } from "@/lib/monitoring/newrelic-agent";
 import { recordDbCall } from "@/lib/monitoring/request-metrics";
 
 /**
@@ -35,6 +36,13 @@ export async function withQueryTracking<T>(
                 duration,
                 ...metadata,
             });
+            // Send as Log event for dashboard slow query tracking
+            recordEvent("Log", {
+                message: `Slow database query: ${queryName}`,
+                level: "warn",
+                queryName,
+                duration,
+            });
         }
 
         return result;
@@ -46,6 +54,16 @@ export async function withQueryTracking<T>(
             duration,
             error,
             ...metadata,
+        });
+
+        // Send as Log event for dashboard database error tracking
+        recordEvent("Log", {
+            message: `Database query failed: ${queryName}`,
+            level: "error",
+            queryName,
+            duration,
+            errorMessage:
+                error instanceof Error ? error.message : String(error),
         });
 
         throw error;
@@ -81,6 +99,13 @@ export async function withTransactionTracking<T>(
                 duration,
                 ...metadata,
             });
+            // Send as Log event for dashboard slow query tracking
+            recordEvent("Log", {
+                message: `Slow database transaction: ${transactionName}`,
+                level: "warn",
+                transactionName,
+                duration,
+            });
         }
 
         return result;
@@ -92,6 +117,16 @@ export async function withTransactionTracking<T>(
             duration,
             error,
             ...metadata,
+        });
+
+        // Send as Log event for dashboard database error tracking
+        recordEvent("Log", {
+            message: `Database transaction failed: ${transactionName}`,
+            level: "error",
+            transactionName,
+            duration,
+            errorMessage:
+                error instanceof Error ? error.message : String(error),
         });
 
         throw error;

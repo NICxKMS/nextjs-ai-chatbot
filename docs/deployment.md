@@ -78,13 +78,22 @@ CLOUDFLARE_AI_GATEWAY_API_KEY="your-key"
 AI_GATEWAY_API_KEY="your-key"
 ```
 
-### Monitoring (optional)
+### Monitoring (optional but recommended)
 
 ```bash
+# Required
 NEW_RELIC_LICENSE_KEY="your-license-key"
-NEW_RELIC_APP_NAME="nextjs-ai-chatbot"
+NEW_RELIC_APP_NAME="ai-assistant"
+
+# Required for Vercel (read-only filesystem)
+NEW_RELIC_LOG="stdout"
 NEW_RELIC_LOG_LEVEL="info"
+
+# Optional: Disable security agent in serverless
+NEW_RELIC_SECURITY_ENABLED="false"
 ```
+
+> **Important**: On Vercel, you must set `NEW_RELIC_LOG=stdout` to avoid filesystem errors.
 
 ---
 

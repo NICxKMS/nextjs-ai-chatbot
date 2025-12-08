@@ -52,9 +52,7 @@ export async function createAuthenticatedContext({
     const chatPage = new ChatPage(page);
     await chatPage.createNewChat();
     await chatPage.chooseModelFromSelector("openai:gpt-4o-latest");
-    await expect(chatPage.getSelectedModel()).resolves.toEqual(
-        "GPT-4o Latest"
-    );
+    await expect(chatPage.getSelectedModel()).resolves.toEqual("GPT-4o Latest");
 
     await page.waitForTimeout(1000);
     await context.storageState({ path: storageFile });

@@ -22,9 +22,29 @@ const GUEST_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
 /**
  * Get timestamp score for a message (milliseconds since epoch)
+ *
+ * To ensure proper ordering when messages have the same timestamp,
+ * we add a role-based offset in microseconds:
+ * - user messages: +0.001 ms (to sort first)
+ * - assistant messages: +0.002 ms (to sort second)
+ * - system messages: +0.000 ms (to sort before user)
+ *
+ * This guarantees: system < user < assistant for same-timestamp messages
  */
 function getMessageScore(message: CachedMessage): number {
-    return new Date(message.createdAt).getTime();
+    const baseTimestamp = new Date(message.createdAt).getTime();
+
+    // Add role-based microsecond offset to ensure correct ordering
+    // when multiple messages share the same createdAt timestamp
+    let roleOffset = 0;
+    if (message.role === "user") {
+        roleOffset = 0.001; // User messages sort first (after system)
+    } else if (message.role === "assistant") {
+        roleOffset = 0.002; // Assistant messages sort after user
+    }
+    // system messages get 0 offset (sort before user)
+
+    return baseTimestamp + roleOffset;
 }
 
 /**

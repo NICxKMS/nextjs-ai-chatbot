@@ -25,15 +25,18 @@ test.describe
             await page.goto("/");
 
             // Wait for the client-side guest session creation
-            const guestRequest = await page.waitForRequest((request) =>
-                request.url().includes("/api/auth/guest") &&
-                request.method() === "POST"
+            const guestRequest = await page.waitForRequest(
+                (request) =>
+                    request.url().includes("/api/auth/guest") &&
+                    request.method() === "POST"
             );
 
             expect(guestRequest).toBeTruthy();
 
             // Verify the page is accessible
-            await expect(page.getByPlaceholder("Send a message...")).toBeVisible();
+            await expect(
+                page.getByPlaceholder("Send a message...")
+            ).toBeVisible();
         });
 
         test("Create guest session when navigating directly to a chat page", async ({
@@ -51,16 +54,16 @@ test.describe
             await page.waitForURL(/\/(\?notice=chat_not_found)?/);
 
             // Verify guest session was created (user shows as Guest)
-            const sidebarToggleButton = page.getByTestId("sidebar-toggle-button");
+            const sidebarToggleButton = page.getByTestId(
+                "sidebar-toggle-button"
+            );
             await sidebarToggleButton.click();
 
             const userEmail = page.getByTestId("user-email");
             await expect(userEmail).toContainText("Guest");
         });
 
-
         test("Log out is not available for guest users", async ({ page }) => {
-
             await page.goto("/");
 
             const sidebarToggleButton = page.getByTestId(
@@ -88,7 +91,8 @@ test.describe
                 throw new Error("Failed to load page");
             }
 
-            let request: import("@playwright/test").Request | null = response.request();
+            let request: import("@playwright/test").Request | null =
+                response.request();
 
             const chain: string[] = [];
 
@@ -96,7 +100,6 @@ test.describe
                 chain.unshift(request.url());
                 request = request.redirectedFrom();
             }
-
 
             expect(chain).toEqual(["http://localhost:3000/"]);
         });

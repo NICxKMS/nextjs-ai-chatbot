@@ -1,6 +1,6 @@
 {
   "name": "AI Chatbot - Production Monitoring",
-  "description": "Comprehensive monitoring dashboard for Next.js AI Chatbot with New Relic",
+  "description": "Comprehensive monitoring dashboard for Next.js AI Chatbot with New Relic. NOTE: Update accountId values before importing.",
   "permissions": "PUBLIC_READ_WRITE",
   "pages": [
     {
@@ -522,7 +522,7 @@
             "nrqlQueries": [
               {
                 "accountId": 7448597,
-                "query": "SELECT count(*) FROM Log WHERE message LIKE 'Guest%' FACET message SINCE 24 hours ago"
+                "query": "SELECT count(*) FROM Log WHERE message LIKE '%session created' FACET message SINCE 24 hours ago"
               }
             ]
           }

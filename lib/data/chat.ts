@@ -26,6 +26,7 @@ import { getRedisClient, isRedisAvailable } from "../cache/redis";
 import type { CachedMessage } from "../cache/types";
 import { CacheKeys } from "../cache/types";
 import { db } from "../db/queries";
+import { withQueryTracking } from "../db/query-tracking";
 import type { Chat, DBMessage, MessageRow } from "../db/schema";
 import { chat, message, vote } from "../db/schema";
 import { ChatSDKError, toDatabaseError } from "../errors";
@@ -99,10 +100,11 @@ export const chatData = {
             }
 
             // Authenticated users: cache miss - fetch from database
-            const [chatFromDb] = await db
-                .select()
-                .from(chat)
-                .where(eq(chat.id, chatId));
+            const [chatFromDb] = await withQueryTracking(
+                "chatData.get",
+                () => db.select().from(chat).where(eq(chat.id, chatId)),
+                { chatId }
+            );
 
             if (!chatFromDb) {
                 return null;
@@ -188,7 +190,26 @@ export const chatData = {
                         ).values()
                     );
 
-                    const messagesData = uniqueMessages.map((msg) => ({
+                    // Sort messages by timestamp with role-based tiebreaker
+                    // (defensive measure - cache should already be sorted, but ensures consistency)
+                    const sortedMessages = uniqueMessages.sort((a, b) => {
+                        const timeA = new Date(a.createdAt).getTime();
+                        const timeB = new Date(b.createdAt).getTime();
+                        if (timeA !== timeB) {
+                            return timeA - timeB;
+                        }
+                        // Role tiebreaker: system < user < assistant
+                        const roleOrder: Record<string, number> = {
+                            system: 0,
+                            user: 1,
+                            assistant: 2,
+                        };
+                        return (
+                            (roleOrder[a.role] ?? 1) - (roleOrder[b.role] ?? 1)
+                        );
+                    });
+
+                    const messagesData = sortedMessages.map((msg) => ({
                         id: msg.id,
                         chatId: msg.chatId,
                         role: msg.role,
@@ -210,21 +231,27 @@ export const chatData = {
             }
 
             // Authenticated users: cache miss - fetch from database
-            const [chatFromDb] = await db
-                .select()
-                .from(chat)
-                .where(eq(chat.id, chatId));
+            const [chatFromDb] = await withQueryTracking(
+                "chatData.getWithMessages:chat",
+                () => db.select().from(chat).where(eq(chat.id, chatId)),
+                { chatId }
+            );
 
             if (!chatFromDb) {
                 return null;
             }
 
             // Fetch messages from database
-            const messagesFromDb = await db
-                .select()
-                .from(message)
-                .where(eq(message.chatId, chatId))
-                .orderBy(asc(message.createdAt));
+            const messagesFromDb = await withQueryTracking(
+                "chatData.getWithMessages:messages",
+                () =>
+                    db
+                        .select()
+                        .from(message)
+                        .where(eq(message.chatId, chatId))
+                        .orderBy(asc(message.createdAt)),
+                { chatId }
+            );
 
             // Warm cache in background
             if (isRedisAvailable() && chatFromDb.userId === ctx.userId) {
@@ -236,9 +263,25 @@ export const chatData = {
                 ).catch((err) => logError("Cache warming failed", err));
             }
 
+            // Apply role-based sorting for messages with same timestamp
+            const sortedMessages = messagesFromDb.sort((a, b) => {
+                const timeA = a.createdAt.getTime();
+                const timeB = b.createdAt.getTime();
+                if (timeA !== timeB) {
+                    return timeA - timeB;
+                }
+                // Role tiebreaker: system < user < assistant
+                const roleOrder: Record<string, number> = {
+                    system: 0,
+                    user: 1,
+                    assistant: 2,
+                };
+                return (roleOrder[a.role] ?? 1) - (roleOrder[b.role] ?? 1);
+            });
+
             return {
                 chat: chatFromDb,
-                messages: messagesFromDb,
+                messages: sortedMessages,
             };
         } catch (error) {
             throw toDatabaseError(
@@ -319,26 +362,39 @@ export const chatData = {
             // Authenticated users: DB query with pagination
             const extendedLimit = limit + 1;
 
-            const query = (whereCondition?: any) =>
-                db
-                    .select()
-                    .from(chat)
-                    .where(
-                        whereCondition
-                            ? and(whereCondition, eq(chat.userId, ctx.userId))
-                            : eq(chat.userId, ctx.userId)
-                    )
-                    .orderBy(desc(chat.createdAt))
-                    .limit(extendedLimit);
+            const query = (whereCondition?: any, label?: string) =>
+                withQueryTracking(
+                    `chatData.list:${label || "query"}`,
+                    () =>
+                        db
+                            .select()
+                            .from(chat)
+                            .where(
+                                whereCondition
+                                    ? and(
+                                          whereCondition,
+                                          eq(chat.userId, ctx.userId)
+                                      )
+                                    : eq(chat.userId, ctx.userId)
+                            )
+                            .orderBy(desc(chat.createdAt))
+                            .limit(extendedLimit),
+                    { userId: ctx.userId, limit: extendedLimit }
+                );
 
             let filteredChats: Chat[] = [];
 
             if (startingAfter) {
-                const [selectedChat] = await db
-                    .select()
-                    .from(chat)
-                    .where(eq(chat.id, startingAfter))
-                    .limit(1);
+                const [selectedChat] = await withQueryTracking(
+                    "chatData.list:cursor",
+                    () =>
+                        db
+                            .select()
+                            .from(chat)
+                            .where(eq(chat.id, startingAfter))
+                            .limit(1),
+                    { cursorId: startingAfter }
+                );
 
                 if (!selectedChat) {
                     throw new ChatSDKError(
@@ -348,14 +404,20 @@ export const chatData = {
                 }
 
                 filteredChats = await query(
-                    gt(chat.createdAt, selectedChat.createdAt)
+                    gt(chat.createdAt, selectedChat.createdAt),
+                    "after"
                 );
             } else if (endingBefore) {
-                const [selectedChat] = await db
-                    .select()
-                    .from(chat)
-                    .where(eq(chat.id, endingBefore))
-                    .limit(1);
+                const [selectedChat] = await withQueryTracking(
+                    "chatData.list:cursor",
+                    () =>
+                        db
+                            .select()
+                            .from(chat)
+                            .where(eq(chat.id, endingBefore))
+                            .limit(1),
+                    { cursorId: endingBefore }
+                );
 
                 if (!selectedChat) {
                     throw new ChatSDKError(
@@ -365,10 +427,11 @@ export const chatData = {
                 }
 
                 filteredChats = await query(
-                    lt(chat.createdAt, selectedChat.createdAt)
+                    lt(chat.createdAt, selectedChat.createdAt),
+                    "before"
                 );
             } else {
-                filteredChats = await query();
+                filteredChats = await query(undefined, "default");
             }
 
             const hasMore = filteredChats.length > limit;
@@ -430,7 +493,11 @@ export const chatData = {
             }
 
             // Authenticated users: write to DB
-            const dbPromise = db.insert(chat).values(newChat);
+            const dbPromise = withQueryTracking(
+                "chatData.create",
+                () => db.insert(chat).values(newChat),
+                { chatId: id }
+            );
 
             // Optionally skip cache (will be created later with messages)
             const cachePromise =
@@ -481,15 +548,28 @@ export const chatData = {
             const dbPromise = (async () => {
                 // Delete votes and messages in parallel (both depend on chat, not each other)
                 await Promise.all([
-                    db.delete(vote).where(eq(vote.chatId, chatId)),
-                    db.delete(message).where(eq(message.chatId, chatId)),
+                    withQueryTracking(
+                        "chatData.delete:votes",
+                        () => db.delete(vote).where(eq(vote.chatId, chatId)),
+                        { chatId }
+                    ),
+                    withQueryTracking(
+                        "chatData.delete:messages",
+                        () =>
+                            db
+                                .delete(message)
+                                .where(eq(message.chatId, chatId)),
+                        { chatId }
+                    ),
                 ]);
 
                 // Then delete the chat (must be after votes/messages due to FK)
-                const deletedChats = await db
-                    .delete(chat)
-                    .where(eq(chat.id, chatId))
-                    .returning();
+                const deletedChats = await withQueryTracking(
+                    "chatData.delete:chat",
+                    () =>
+                        db.delete(chat).where(eq(chat.id, chatId)).returning(),
+                    { chatId }
+                );
 
                 return deletedChats[0];
             })();
@@ -537,10 +617,15 @@ export const chatData = {
             }
 
             // Authenticated users: delete from DB
-            const userChats = await db
-                .select({ id: chat.id })
-                .from(chat)
-                .where(eq(chat.userId, ctx.userId));
+            const userChats = await withQueryTracking(
+                "chatData.deleteAll:listChats",
+                () =>
+                    db
+                        .select({ id: chat.id })
+                        .from(chat)
+                        .where(eq(chat.userId, ctx.userId)),
+                { userId: ctx.userId }
+            );
 
             if (userChats.length === 0) {
                 return { deletedCount: 0 };
@@ -550,14 +635,30 @@ export const chatData = {
 
             // OPTIMIZATION: Delete votes and messages in parallel (both depend on chat, not each other)
             await Promise.all([
-                db.delete(vote).where(inArray(vote.chatId, chatIds)),
-                db.delete(message).where(inArray(message.chatId, chatIds)),
+                withQueryTracking(
+                    "chatData.deleteAll:votes",
+                    () => db.delete(vote).where(inArray(vote.chatId, chatIds)),
+                    { count: chatIds.length }
+                ),
+                withQueryTracking(
+                    "chatData.deleteAll:messages",
+                    () =>
+                        db
+                            .delete(message)
+                            .where(inArray(message.chatId, chatIds)),
+                    { count: chatIds.length }
+                ),
             ]);
 
-            const deletedChats = await db
-                .delete(chat)
-                .where(eq(chat.userId, ctx.userId))
-                .returning();
+            const deletedChats = await withQueryTracking(
+                "chatData.deleteAll:chats",
+                () =>
+                    db
+                        .delete(chat)
+                        .where(eq(chat.userId, ctx.userId))
+                        .returning(),
+                { userId: ctx.userId }
+            );
 
             return { deletedCount: deletedChats.length };
         } catch (error) {
@@ -589,10 +690,15 @@ export const chatData = {
 
             const dbPromise = ctx.isGuest
                 ? Promise.resolve()
-                : db
-                      .update(chat)
-                      .set({ title, updatedAt: new Date() })
-                      .where(eq(chat.id, chatId));
+                : withQueryTracking(
+                      "chatData.updateTitle",
+                      () =>
+                          db
+                              .update(chat)
+                              .set({ title, updatedAt: new Date() })
+                              .where(eq(chat.id, chatId)),
+                      { chatId }
+                  );
 
             await Promise.all([cachePromise, dbPromise]);
         } catch (error) {
@@ -624,10 +730,15 @@ export const chatData = {
 
             const dbPromise = ctx.isGuest
                 ? Promise.resolve()
-                : db
-                      .update(chat)
-                      .set({ visibility, updatedAt: new Date() })
-                      .where(eq(chat.id, chatId));
+                : withQueryTracking(
+                      "chatData.updateVisibility",
+                      () =>
+                          db
+                              .update(chat)
+                              .set({ visibility, updatedAt: new Date() })
+                              .where(eq(chat.id, chatId)),
+                      { chatId }
+                  );
 
             await Promise.all([cachePromise, dbPromise]);
         } catch (error) {
@@ -706,8 +817,27 @@ export const messageData = {
             if (isRedisAvailable()) {
                 const cached = await getChatFromCache(chatId, ctx.userId);
                 if (cached) {
+                    // Sort messages by timestamp with role-based tiebreaker
+                    // (defensive measure - cache should already be sorted, but ensures consistency)
+                    const sortedMessages = [...cached.messages].sort((a, b) => {
+                        const timeA = new Date(a.createdAt).getTime();
+                        const timeB = new Date(b.createdAt).getTime();
+                        if (timeA !== timeB) {
+                            return timeA - timeB;
+                        }
+                        // Role tiebreaker: system < user < assistant
+                        const roleOrder: Record<string, number> = {
+                            system: 0,
+                            user: 1,
+                            assistant: 2,
+                        };
+                        return (
+                            (roleOrder[a.role] ?? 1) - (roleOrder[b.role] ?? 1)
+                        );
+                    });
+
                     // Return messages from cached denormalized structure
-                    return cached.messages.map((msg) => ({
+                    return sortedMessages.map((msg) => ({
                         id: msg.id,
                         chatId: msg.chatId,
                         role: msg.role,
@@ -723,12 +853,33 @@ export const messageData = {
                 return [];
             }
 
-            // Cache miss - fetch from database
-            return await db
-                .select()
-                .from(message)
-                .where(eq(message.chatId, chatId))
-                .orderBy(asc(message.createdAt));
+            // Cache miss - fetch from database (already ordered by createdAt)
+            const dbMessages = await withQueryTracking(
+                "messageData.getForChat",
+                () =>
+                    db
+                        .select()
+                        .from(message)
+                        .where(eq(message.chatId, chatId))
+                        .orderBy(asc(message.createdAt)),
+                { chatId }
+            );
+
+            // Apply role-based sorting for messages with same timestamp
+            return dbMessages.sort((a, b) => {
+                const timeA = a.createdAt.getTime();
+                const timeB = b.createdAt.getTime();
+                if (timeA !== timeB) {
+                    return timeA - timeB;
+                }
+                // Role tiebreaker: system < user < assistant
+                const roleOrder: Record<string, number> = {
+                    system: 0,
+                    user: 1,
+                    assistant: 2,
+                };
+                return (roleOrder[a.role] ?? 1) - (roleOrder[b.role] ?? 1);
+            });
         } catch (error) {
             throw toDatabaseError(
                 "get_messages_by_chat_id",
@@ -786,10 +937,15 @@ export const messageData = {
             }
 
             // Authenticated users: write to DB and cache
-            const dbPromise = db
-                .insert(message)
-                .values(messages)
-                .onConflictDoNothing({ target: message.id });
+            const dbPromise = withQueryTracking(
+                "messageData.save",
+                () =>
+                    db
+                        .insert(message)
+                        .values(messages)
+                        .onConflictDoNothing({ target: message.id }),
+                { messageCount: messages.length }
+            );
 
             // Update cache in parallel - use bulk operation
             const cachePromises: Promise<void>[] = [];
@@ -919,38 +1075,55 @@ export const messageData = {
             if (isNewChat && title && visibility) {
                 // For new chats: create chat first, then insert messages
                 // This ensures FK constraint is satisfied and prevents orphaned chats
-                messageInsertPromise = db
-                    .insert(chat)
-                    .values({
-                        id: chatId,
-                        userId: ctx.userId,
-                        title,
-                        visibility,
-                        createdAt: createdAt || new Date(),
-                        updatedAt: new Date(),
-                        lastContext: lastContext || null,
-                    })
-                    .then(() =>
+                messageInsertPromise = withQueryTracking(
+                    "messageData.saveWithContext:createChat",
+                    () =>
+                        db.insert(chat).values({
+                            id: chatId,
+                            userId: ctx.userId,
+                            title,
+                            visibility,
+                            createdAt: createdAt || new Date(),
+                            updatedAt: new Date(),
+                            lastContext: lastContext || null,
+                        }),
+                    { chatId, isNewChat: true }
+                ).then(() =>
+                    withQueryTracking(
+                        "messageData.saveWithContext:insertMessages",
+                        () =>
+                            db
+                                .insert(message)
+                                .values(messages)
+                                .onConflictDoNothing({ target: message.id }),
+                        { chatId, messageCount: messages.length }
+                    )
+                );
+            } else {
+                // For existing chats, insert messages immediately
+                messageInsertPromise = withQueryTracking(
+                    "messageData.saveWithContext:insertMessages",
+                    () =>
                         db
                             .insert(message)
                             .values(messages)
-                            .onConflictDoNothing({ target: message.id })
-                    );
-            } else {
-                // For existing chats, insert messages immediately
-                messageInsertPromise = db
-                    .insert(message)
-                    .values(messages)
-                    .onConflictDoNothing({ target: message.id });
+                            .onConflictDoNothing({ target: message.id }),
+                    { chatId, messageCount: messages.length }
+                );
             }
 
             // Update context in DB if provided (for existing chats)
             if (lastContext && !isNewChat) {
                 dbPromises.push(
-                    db
-                        .update(chat)
-                        .set({ lastContext, updatedAt: new Date() })
-                        .where(eq(chat.id, chatId))
+                    withQueryTracking(
+                        "messageData.saveWithContext:updateContext",
+                        () =>
+                            db
+                                .update(chat)
+                                .set({ lastContext, updatedAt: new Date() })
+                                .where(eq(chat.id, chatId)),
+                        { chatId }
+                    )
                 );
             }
 
@@ -1036,38 +1209,56 @@ export const messageData = {
             const dbPromise = ctx.isGuest
                 ? Promise.resolve()
                 : (async () => {
-                      const messagesToDelete = await db
-                          .select({ id: message.id })
-                          .from(message)
-                          .where(
-                              and(
-                                  eq(message.chatId, chatId),
-                                  gte(message.createdAt, timestamp)
-                              )
-                          );
+                      const messagesToDelete = await withQueryTracking(
+                          "messageData.deleteAfterTimestamp:select",
+                          () =>
+                              db
+                                  .select({ id: message.id })
+                                  .from(message)
+                                  .where(
+                                      and(
+                                          eq(message.chatId, chatId),
+                                          gte(message.createdAt, timestamp)
+                                      )
+                                  ),
+                          { chatId }
+                      );
 
                       const messageIds = messagesToDelete.map(
                           (msgRec) => msgRec.id
                       );
 
                       if (messageIds.length > 0) {
-                          await db
-                              .delete(vote)
-                              .where(
-                                  and(
-                                      eq(vote.chatId, chatId),
-                                      inArray(vote.messageId, messageIds)
-                                  )
-                              );
+                          await withQueryTracking(
+                              "messageData.deleteAfterTimestamp:votes",
+                              () =>
+                                  db
+                                      .delete(vote)
+                                      .where(
+                                          and(
+                                              eq(vote.chatId, chatId),
+                                              inArray(
+                                                  vote.messageId,
+                                                  messageIds
+                                              )
+                                          )
+                                      ),
+                              { chatId, count: messageIds.length }
+                          );
 
-                          await db
-                              .delete(message)
-                              .where(
-                                  and(
-                                      eq(message.chatId, chatId),
-                                      inArray(message.id, messageIds)
-                                  )
-                              );
+                          await withQueryTracking(
+                              "messageData.deleteAfterTimestamp:messages",
+                              () =>
+                                  db
+                                      .delete(message)
+                                      .where(
+                                          and(
+                                              eq(message.chatId, chatId),
+                                              inArray(message.id, messageIds)
+                                          )
+                                      ),
+                              { chatId, count: messageIds.length }
+                          );
                       }
                   })();
 
