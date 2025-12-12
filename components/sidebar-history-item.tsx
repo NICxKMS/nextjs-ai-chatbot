@@ -5,7 +5,6 @@ import type { Chat } from "@/lib/db/schema";
 import {
     CheckCircleFillIcon,
     GlobeIcon,
-    LoaderIcon,
     LockIcon,
     MoreHorizontalIcon,
     ShareIcon,
@@ -32,42 +31,16 @@ const PureChatItem = ({
     isActive,
     onDelete,
     setOpenMobile,
-    isOptimistic = false,
 }: {
     chat: Chat;
     isActive: boolean;
     onDelete: (chatId: string) => void;
     setOpenMobile: (open: boolean) => void;
-    isOptimistic?: boolean;
 }) => {
     const { visibilityType, setVisibilityType } = useChatVisibility({
         chatId: chat.id,
         initialVisibilityType: chat.visibility,
     });
-
-    // Render loading icon for optimistic chats that are still generating title
-    // Once title is generated, render normally (without animation)
-    const isTitleGenerating =
-        isOptimistic && chat.title === "Generating title...";
-
-    if (isTitleGenerating) {
-        return (
-            <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive}>
-                    <Link
-                        href={`/chat/${chat.id}`}
-                        onClick={() => setOpenMobile(false)}
-                    >
-                        <span className="flex items-center gap-2">
-                            <span className="animate-spin text-muted-foreground">
-                                <LoaderIcon size={14} />
-                            </span>
-                        </span>
-                    </Link>
-                </SidebarMenuButton>
-            </SidebarMenuItem>
-        );
-    }
 
     return (
         <SidebarMenuItem>

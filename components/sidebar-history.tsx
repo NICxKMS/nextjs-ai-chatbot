@@ -358,7 +358,6 @@ export function SidebarHistory({
                                             <ChatItem
                                                 chat={chat as Chat}
                                                 isActive={chat.id === id}
-                                                isOptimistic
                                                 key={`optimistic-${chat.id}`}
                                                 onDelete={() => {
                                                     // Optimistic chats can't be deleted

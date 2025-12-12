@@ -344,13 +344,22 @@ export function Chat({
             initialMessages.length === 0 &&
             messages.length === 1
         ) {
-            addOptimisticChat(id);
+            // Extract initial title from first message for better UX
+            const firstMessage = messages[0];
+            const textPart = firstMessage?.parts?.find(
+                (p): p is { type: "text"; text: string } =>
+                    p.type === "text" && typeof p.text === "string"
+            );
+            const initialTitle =
+                textPart?.text?.slice(0, 80).trim() || "New Chat";
+
+            addOptimisticChat(id, initialTitle);
             // Clear new session flag so history will fetch on subsequent sidebar opens
             clearNewSessionFlag();
         }
     }, [
         status,
-        messages.length,
+        messages,
         initialMessages.length,
         id,
         addOptimisticChat,
