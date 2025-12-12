@@ -2,6 +2,7 @@ import { generateText, type UIMessage } from "ai";
 import { DEFAULT_TITLE_MODEL } from "@/lib/ai/models";
 import { myProvider } from "@/lib/ai/providers";
 import { isTestEnvironment } from "@/lib/constants";
+import { logWarn } from "@/lib/log";
 
 /**
  * Generate a chat title from the user's first message
@@ -29,8 +30,13 @@ export async function generateTitleFromUserMessage({
         });
 
         return title || "New Chat";
-    } catch {
-        // Fallback to extracting first part of message text if title generation fails
+    } catch (error) {
+        // Log the error for observability, then fallback to extracting first part of message text
+        logWarn("Title generation failed, using fallback", {
+            error,
+            messageId: message.id,
+        });
+
         const textPart = message.parts?.find(
             (p): p is { type: "text"; text: string } =>
                 p.type === "text" &&
