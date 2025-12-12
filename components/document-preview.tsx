@@ -24,10 +24,27 @@ import { Editor } from "./text-editor";
 
 type DocumentLike = Pick<Document, "title" | "kind" | "content">;
 
+/** Tool invocation arguments for document creation/update */
+type DocumentToolArgs = {
+    title?: string;
+    kind?: string;
+    id?: string;
+    isUpdate?: boolean;
+};
+
+/** Tool invocation result for document operations - local type for props */
+type DocumentToolResultData = {
+    id?: string;
+    title?: string;
+    kind?: string;
+    success?: boolean;
+    error?: string;
+};
+
 type DocumentPreviewProps = {
     isReadonly: boolean;
-    result?: any;
-    args?: any;
+    result?: DocumentToolResultData;
+    args?: DocumentToolArgs;
 };
 
 export function DocumentPreview({
@@ -61,24 +78,27 @@ export function DocumentPreview({
     }, [artifact.documentId, setArtifact]);
 
     if (artifact.isVisible) {
-        if (result) {
+        if (result?.id && result.title && result.kind) {
             return (
                 <DocumentToolResult
                     isReadonly={isReadonly}
                     result={{
                         id: result.id,
                         title: result.title,
-                        kind: result.kind,
+                        kind: result.kind as ArtifactKind,
                     }}
                     type="create"
                 />
             );
         }
 
-        if (args) {
+        if (args?.title && args.kind) {
             return (
                 <DocumentToolCall
-                    args={{ title: args.title, kind: args.kind }}
+                    args={{
+                        title: args.title,
+                        kind: args.kind as ArtifactKind,
+                    }}
                     isReadonly={isReadonly}
                     type="create"
                 />
@@ -87,7 +107,11 @@ export function DocumentPreview({
     }
 
     if (isDocumentsFetching) {
-        return <LoadingSkeleton artifactKind={result.kind ?? args.kind} />;
+        return (
+            <LoadingSkeleton
+                artifactKind={(result?.kind ?? args?.kind) as ArtifactKind}
+            />
+        );
     }
 
     const document: DocumentLike | null = previewDocument

@@ -5,6 +5,8 @@ import { generateRandomTestUser } from "../helpers";
 import { AuthPage } from "../pages/auth";
 import { ChatPage } from "../pages/chat";
 
+const CHAT_NOT_FOUND_URL_PATTERN = /\/(\?notice=chat_not_found)?/;
+
 const _asGlobalRequest = (
     request: import("@playwright/test").Request
 ): Request => {
@@ -51,7 +53,7 @@ test.describe
             }
 
             // Should end up on home page with notice (chat not found after guest auth)
-            await page.waitForURL(/\/(\?notice=chat_not_found)?/);
+            await page.waitForURL(CHAT_NOT_FOUND_URL_PATTERN);
 
             // Verify guest session was created (user shows as Guest)
             const sidebarToggleButton = page.getByTestId(

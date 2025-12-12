@@ -6,14 +6,16 @@ import type { ArtifactActionContext } from "./create-artifact";
 import { Button } from "./ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
+type ArtifactMetadata = any;
+
 type ArtifactActionsProps = {
     artifact: UIArtifact;
     handleVersionChange: (type: "next" | "prev" | "toggle" | "latest") => void;
     currentVersionIndex: number;
     isCurrentVersion: boolean;
     mode: "edit" | "diff";
-    metadata: any;
-    setMetadata: Dispatch<SetStateAction<any>>;
+    metadata: ArtifactMetadata;
+    setMetadata: Dispatch<SetStateAction<ArtifactMetadata>>;
 };
 
 function PureArtifactActions({

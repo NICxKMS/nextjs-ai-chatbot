@@ -8,6 +8,15 @@ import { cn } from "@/lib/utils";
 
 import "react-data-grid/lib/styles.css";
 
+/** Cell value type for spreadsheet cells */
+type CellValue = string | number | boolean | null;
+
+/** Row data structure for DataGrid */
+type RowData = Record<string, CellValue> & {
+    id: number;
+    rowNumber: number;
+};
+
 type SheetEditorProps = {
     content: string;
     saveContent: (content: string, isCurrentVersion: boolean) => void;
@@ -73,7 +82,7 @@ const PureSpreadsheetEditor = ({ content, saveContent }: SheetEditorProps) => {
 
     const initialRows = useMemo(() => {
         return parseData.map((row, rowIndex) => {
-            const rowData: any = {
+            const rowData: RowData = {
                 id: rowIndex,
                 rowNumber: rowIndex + 1,
             };
@@ -92,11 +101,11 @@ const PureSpreadsheetEditor = ({ content, saveContent }: SheetEditorProps) => {
         setLocalRows(initialRows);
     }, [initialRows]);
 
-    const generateCsv = (data: any[][]) => {
+    const generateCsv = (data: CellValue[][]) => {
         return unparse(data);
     };
 
-    const handleRowsChange = (newRows: any[]) => {
+    const handleRowsChange = (newRows: RowData[]) => {
         setLocalRows(newRows);
 
         const updatedData = newRows.map((row) => {

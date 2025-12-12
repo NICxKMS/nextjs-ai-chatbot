@@ -65,14 +65,18 @@ async function registerLanguageDynamically(language: string): Promise<boolean> {
 
     try {
         // Create split chunks for all prism languages; load only the requested one at runtime.
-        const mod = await import(
+        const mod: { default?: unknown; [key: string]: unknown } = await import(
             /* webpackInclude: /\.js$/ */
             `react-syntax-highlighter/dist/esm/languages/prism/${lang}`
         );
-        const grammar = (mod as any).default ?? (mod as any)[lang];
+        const grammar = mod.default ?? mod[lang];
         if (grammar) {
             // registerLanguage exists on PrismLight
-            (SyntaxHighlighter as any).registerLanguage(lang, grammar);
+            const highlighter =
+                SyntaxHighlighter as typeof SyntaxHighlighter & {
+                    registerLanguage: (name: string, grammar: unknown) => void;
+                };
+            highlighter.registerLanguage(lang, grammar);
             REGISTERED_LANGUAGES.add(lang);
             return true;
         }

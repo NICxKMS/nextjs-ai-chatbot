@@ -25,6 +25,7 @@ import {
 import { useOptimisticChats } from "@/hooks/use-optimistic-chats";
 import type { Chat } from "@/lib/db/schema";
 import { fetcher } from "@/lib/utils";
+import { useAuth } from "./auth-provider";
 import { LoaderIcon } from "./icons";
 import { ChatItem } from "./sidebar-history-item";
 
@@ -108,9 +109,29 @@ export function SidebarHistory({
 }: {
     user: { email?: string | null } | undefined;
 }) {
-    const { setOpenMobile } = useSidebar();
+    const { setOpenMobile, open: isSidebarOpen } = useSidebar();
     const { id } = useParams();
     const { optimisticChats, removeOptimisticChat } = useOptimisticChats();
+    const { isNewSession } = useAuth();
+
+    // Create a conditional key function that returns null when:
+    // 1. User is not authenticated yet
+    // 2. This is a brand new session with no prior history
+    // This prevents unnecessary network calls for new guests
+    const getKeyWithAuth = (
+        pageIndex: number,
+        previousPageData: ChatHistory
+    ) => {
+        // Don't fetch if user is not authenticated
+        if (!user) {
+            return null;
+        }
+        // Skip fetch for brand new sessions - they have no history
+        if (isNewSession && pageIndex === 0) {
+            return null;
+        }
+        return getChatHistoryPaginationKey(pageIndex, previousPageData);
+    };
 
     const {
         data: paginatedChatHistories,
@@ -118,7 +139,7 @@ export function SidebarHistory({
         isValidating,
         isLoading,
         mutate,
-    } = useSWRInfinite<ChatHistory>(getChatHistoryPaginationKey, fetcher, {
+    } = useSWRInfinite<ChatHistory>(getKeyWithAuth, fetcher, {
         fallbackData: [],
         revalidateOnMount: true,
     });
@@ -128,8 +149,10 @@ export function SidebarHistory({
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
     // Remove optimistic chats once real chats are loaded
-    // Use a ref to track which optimistic chats we've already processed to avoid race conditions
-    const processedOptimisticIds = useRef<Set<string>>(new Set());
+    // Initialize ref with current optimistic chat IDs to handle remounts correctly
+    const processedOptimisticIds = useRef<Set<string>>(
+        new Set(optimisticChats.map((c) => c.id))
+    );
 
     useEffect(() => {
         if (paginatedChatHistories && paginatedChatHistories.length > 0) {
@@ -208,7 +231,11 @@ export function SidebarHistory({
 
                 return "Chat deleted successfully";
             },
-            error: "Failed to delete chat",
+            error: () => {
+                // Reset deleteId on error to allow retry
+                setDeleteId(null);
+                return "Failed to delete chat";
+            },
         });
 
         setShowDeleteDialog(false);
@@ -218,14 +245,32 @@ export function SidebarHistory({
         }
     };
 
-    // Memoize date boundaries to avoid recalculating on every chat
+    // Track when boundaries were last calculated to avoid excessive recalculation
+    const lastBoundaryCalcRef = useRef<number>(0);
+
+    // Memoize date boundaries - recalculate when sidebar opens OR if day has changed
+    // FIX: Stale boundaries after midnight cause incorrect grouping
     const dateBoundaries = useMemo(() => {
         const now = new Date();
+        const currentDay = now.toDateString();
+        const lastDay = new Date(lastBoundaryCalcRef.current).toDateString();
+
+        // Skip recalculation if same day and not a sidebar open event
+        if (
+            lastBoundaryCalcRef.current > 0 &&
+            currentDay === lastDay &&
+            !isSidebarOpen
+        ) {
+            // Return existing boundaries by not updating the ref
+        } else {
+            lastBoundaryCalcRef.current = now.getTime();
+        }
+
         return {
             oneWeekAgo: subWeeks(now, 1),
             oneMonthAgo: subMonths(now, 1),
         };
-    }, []); // Only recalculate when component mounts
+    }, [isSidebarOpen]); // Recalculate when sidebar opens
 
     // Memoize grouped chats to avoid recalculating on every render
     const groupedChats = useMemo(() => {

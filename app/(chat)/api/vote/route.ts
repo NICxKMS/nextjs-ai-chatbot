@@ -1,146 +1,99 @@
-import { getAppSession } from "@/lib/auth/session";
-import { createContext } from "@/lib/data/base";
+import {
+    requireAuthForRoute,
+    requireNonGuestForRoute,
+    requireRateLimitForRoute,
+    requireResourceForRoute,
+    verifyOwnershipForRoute,
+} from "@/lib/api/guards";
+import { parseJsonBodyForRoute } from "@/lib/api/validators";
 import { chatData } from "@/lib/data/chat";
 import { voteMessage } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
-import { trackUserAction } from "@/lib/monitoring/dashboard";
-import { logger } from "@/lib/monitoring/logger";
-import { withPerformanceTracking } from "@/lib/monitoring/performance";
-
-// UUID validation regex
-const UUID_REGEX =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function isValidUUID(value: string): boolean {
-    return UUID_REGEX.test(value);
-}
+import { logInfo } from "@/lib/log";
+import { type VoteRequestBody, voteRequestSchema } from "./schema";
 
 // Optimize for Vercel Fluid Compute
 export const maxDuration = 10;
 
-export const PATCH = withPerformanceTracking(
-    "PATCH /api/vote",
-    async (request: Request) => {
-        const bodyPromise: Promise<{
-            chatId: string;
-            messageId: string;
-            type: "up" | "down";
-        }> = request.json();
-        const sessionPromise = getAppSession();
-
-        let chatId: string;
-        let messageId: string;
-        let type: "up" | "down";
-
-        try {
-            const body = await bodyPromise;
-            chatId = body.chatId;
-            messageId = body.messageId;
-            type = body.type;
-        } catch (_) {
-            return new ChatSDKError(
-                "bad_request:api:invalid_json",
-                "Request body must be valid JSON"
-            ).toResponse();
-        }
-
-        if (!chatId || !messageId || !type) {
-            return new ChatSDKError(
-                "bad_request:api:missing_vote_params",
-                "Parameters chatId, messageId, and type are required."
-            ).toResponse();
-        }
-
-        // Validate UUID format
-        if (!isValidUUID(chatId) || !isValidUUID(messageId)) {
-            return new ChatSDKError(
-                "bad_request:api:invalid_uuid_format",
-                "chatId and messageId must be valid UUIDs."
-            ).toResponse();
-        }
-
-        // Validate vote type
-        if (type !== "up" && type !== "down") {
-            return new ChatSDKError(
-                "bad_request:api:invalid_vote_type",
-                "Vote type must be 'up' or 'down'."
-            ).toResponse();
-        }
-
-        let session: Awaited<ReturnType<typeof getAppSession>>;
-        try {
-            session = await sessionPromise;
-        } catch (error) {
-            logger.error("Session retrieval failed in vote route", error);
-            return new ChatSDKError(
-                "unauthorized:vote:session_error",
-                "Failed to retrieve session"
-            ).toResponse();
-        }
-
-        if (!session?.user) {
-            return new ChatSDKError(
-                "unauthorized:vote:missing_session"
-            ).toResponse();
-        }
-
-        // Guest users cannot vote (requires database persistence)
-        if (session.user.type === "guest") {
-            return new ChatSDKError(
-                "forbidden:vote:guest_cannot_vote",
-                "Guest users cannot vote on messages"
-            ).toResponse();
-        }
-
-        const ctx = createContext(session);
-        const chat = await chatData.get(chatId, ctx, { warmCache: false });
-
-        if (!chat) {
-            return new ChatSDKError("not_found:vote").toResponse();
-        }
-
-        if (chat.userId !== session.user.id) {
-            return new ChatSDKError(
-                "forbidden:vote:owner_mismatch"
-            ).toResponse();
-        }
-
-        await voteMessage({
-            chatId,
-            messageId,
-            type,
-            userId: session.user.id,
-        });
-
-        logger.info("Message voted", {
-            chatId,
-            messageId,
-            type,
-            userId: session.user.id,
-        });
-
-        // Track user action for analytics
-        trackUserAction("message_vote", {
-            chatId,
-            messageId,
-            voteType: type,
-            userId: session.user.id,
-        });
-
-        return new Response("Message voted", { status: 200 });
-    },
-    {
-        extractMetadata: async (request) => {
-            try {
-                const body = await request.clone().json();
-                return {
-                    chatId: body.chatId,
-                    messageId: body.messageId,
-                    voteType: body.type,
-                };
-            } catch {
-                return {};
-            }
-        },
+export async function PATCH(request: Request) {
+    // Parse and validate request body
+    const bodyResult = await parseJsonBodyForRoute(
+        request,
+        voteRequestSchema,
+        "vote"
+    );
+    if (bodyResult instanceof Response) {
+        return bodyResult;
     }
-);
+    const { chatId, messageId, type } = bodyResult as VoteRequestBody;
+
+    // Require authenticated session
+    const authResult = await requireAuthForRoute("vote");
+    if (authResult instanceof Response) {
+        return authResult;
+    }
+    const { session, ctx } = authResult;
+
+    // Apply rate limiting for voting
+    const rateLimitResult = await requireRateLimitForRoute(
+        "standard",
+        session.user.id,
+        "api"
+    );
+    if (rateLimitResult instanceof Response) {
+        return rateLimitResult;
+    }
+
+    // Guest users cannot vote (requires database persistence)
+    const guestCheck = requireNonGuestForRoute(session, "vote", "vote");
+    if (guestCheck) {
+        return guestCheck;
+    }
+
+    // Fetch and verify chat exists
+    const chat = await chatData.get(chatId, ctx, { warmCache: false });
+    const chatResource = requireResourceForRoute(chat, "vote");
+    if (chatResource instanceof Response) {
+        return chatResource;
+    }
+
+    // Verify ownership
+    const ownershipCheck = verifyOwnershipForRoute(
+        chatResource,
+        session,
+        "vote"
+    );
+    if (ownershipCheck) {
+        return ownershipCheck;
+    }
+
+    // Issue #9 Fix: Verify that the message belongs to the chat
+    // This prevents users from voting on messages from other chats
+    const chatWithMessages = await chatData.getWithMessages(chatId, ctx);
+    const messageExists = chatWithMessages?.messages.some(
+        (m) => m.id === messageId
+    );
+    if (!messageExists) {
+        return new ChatSDKError(
+            "not_found:vote",
+            "Message not found in this chat"
+        ).toResponse();
+    }
+
+    await voteMessage({
+        chatId,
+        messageId,
+        type,
+        userId: session.user.id,
+    });
+
+    logInfo("Message voted", {
+        chatId,
+        messageId,
+        type,
+        userId: session.user.id,
+    });
+
+    // Issue #10 Fix: Return JSON response for consistency
+    return Response.json({ success: true, messageId, type }, { status: 200 });
+}

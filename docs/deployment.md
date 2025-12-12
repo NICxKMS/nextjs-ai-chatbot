@@ -16,7 +16,7 @@ flowchart TB
         Neon[(Neon PostgreSQL)]
         Upstash[(Upstash Redis)]
         Supabase[Supabase Auth]
-        NewRelic[New Relic APM]
+        Sentry[Sentry Monitoring]
     end
 
     subgraph AI["AI Providers"]
@@ -30,7 +30,7 @@ flowchart TB
     Fluid --> Neon
     Fluid --> Upstash
     Fluid --> Supabase
-    Fluid --> NewRelic
+    Fluid --> Sentry
     Fluid --> OpenAI
     Fluid --> Google
     Fluid --> CF
@@ -78,22 +78,20 @@ CLOUDFLARE_AI_GATEWAY_API_KEY="your-key"
 AI_GATEWAY_API_KEY="your-key"
 ```
 
-### Monitoring (optional but recommended)
+### Monitoring (optional - auto-configured via Vercel integration)
 
 ```bash
-# Required
-NEW_RELIC_LICENSE_KEY="your-license-key"
-NEW_RELIC_APP_NAME="ai-assistant"
+# Sentry DSN (auto-configured by Vercel Sentry integration)
+SENTRY_DSN="https://xxx@xxx.ingest.sentry.io/xxx"
+NEXT_PUBLIC_SENTRY_DSN="https://xxx@xxx.ingest.sentry.io/xxx"
 
-# Required for Vercel (read-only filesystem)
-NEW_RELIC_LOG="stdout"
-NEW_RELIC_LOG_LEVEL="info"
-
-# Optional: Disable security agent in serverless
-NEW_RELIC_SECURITY_ENABLED="false"
+# For source map uploads
+SENTRY_ORG="your-org"
+SENTRY_PROJECT="ai-assistant"
+SENTRY_AUTH_TOKEN="sntrys_xxx"
 ```
 
-> **Important**: On Vercel, you must set `NEW_RELIC_LOG=stdout` to avoid filesystem errors.
+> **Note**: If using Vercel's Sentry integration, these are automatically configured.
 
 ---
 

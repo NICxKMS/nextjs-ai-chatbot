@@ -9,6 +9,7 @@ import {
     useRef,
     useState,
 } from "react";
+import { toast } from "sonner";
 import { deleteTrailingMessages } from "@/app/(chat)/actions";
 import type { ChatMessage } from "@/lib/types";
 import { getTextFromMessage } from "@/lib/utils";
@@ -82,12 +83,18 @@ export function MessageEditor({
                     onClick={async () => {
                         setIsSubmitting(true);
 
-                        await deleteTrailingMessages({
-                            chatId,
-                            createdAt:
-                                message.metadata?.createdAt ??
-                                new Date().toISOString(),
-                        });
+                        try {
+                            await deleteTrailingMessages({
+                                chatId,
+                                createdAt:
+                                    message.metadata?.createdAt ??
+                                    new Date().toISOString(),
+                            });
+                        } catch (_error) {
+                            setIsSubmitting(false);
+                            toast.error("Failed to edit message");
+                            return;
+                        }
 
                         setMessages((messages) => {
                             const index = messages.findIndex(

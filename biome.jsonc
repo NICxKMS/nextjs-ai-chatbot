@@ -52,5 +52,18 @@
         "noSvgWithoutTitle": "off"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      /* Instrumentation files may need special linting rules */
+      "includes": ["instrumentation*.ts", "app/global-error.tsx"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noNamespace": "off"
+          }
+        }
+      }
+    }
+  ]
 }

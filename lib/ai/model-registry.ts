@@ -102,11 +102,6 @@ if (
     CLOUDFLARE_AI_GATEWAY_NAME &&
     CLOUDFLARE_AI_GATEWAY_API_KEY
 ) {
-    const workersProvider = createWorkersAI({
-        accountId: CLOUDFLARE_ACCOUNT_ID,
-        apiKey: CLOUDFLARE_API_KEY,
-    } as WorkersAISettings);
-
     const googleProvider = GOOGLE_GENERATIVE_AI_API_KEY
         ? createGoogleGenerativeAI({ apiKey: GOOGLE_GENERATIVE_AI_API_KEY })
         : undefined;
@@ -119,30 +114,41 @@ if (
 
     const cloudflareAiGatewayProvider = {
         languageModel(id: string) {
-            // Handle Google Gemini models via Cloudflare AI Gateway
-            if (id === "gemini-2.5-flash" || id === "gemini-2.5-pro") {
-                if (!googleProvider) {
-                    throw new ChatSDKError(
-                        "bad_request:api:cloudflare_gateway_missing_google_provider",
-                        "Google provider is not configured for Cloudflare AI Gateway Gemini models"
-                    );
-                }
-                const primaryGemini = googleProvider(id);
-                const fallbackLite = googleProvider("gemini-2.5-flash-lite");
-                return aigateway([
-                    primaryGemini,
-                    fallbackLite,
-                ]) as unknown as LanguageModelV2;
+            // Cloudflare AI Gateway only supports Vercel AI SDK providers (OpenAI, Anthropic, Google, etc.)
+            // Workers AI models are NOT supported because they use Cloudflare bindings directly,
+            // not the config.fetch pattern that ai-gateway-provider requires.
+
+            // Supported Gemini models via Cloudflare AI Gateway
+            const supportedGeminiModels = [
+                "gemini-2.5-flash",
+                "gemini-2.5-flash-lite",
+                "gemini-2.5-pro",
+            ];
+
+            if (!supportedGeminiModels.includes(id)) {
+                throw new ChatSDKError(
+                    "bad_request:api:cloudflare_gateway_unsupported_model",
+                    `Model "${id}" is not supported via Cloudflare AI Gateway. Supported models: ${supportedGeminiModels.join(", ")}`
+                );
             }
 
-            // Handle Cloudflare Workers AI models with Gemini fallback
-            const primary = workersProvider(id);
             if (!googleProvider) {
-                return aigateway([primary]) as unknown as LanguageModelV2;
+                throw new ChatSDKError(
+                    "bad_request:api:cloudflare_gateway_missing_google_provider",
+                    "Google provider is not configured for Cloudflare AI Gateway Gemini models"
+                );
             }
+
+            const primaryModel = googleProvider(id);
+
+            // Use flash-lite as fallback for all models except itself
+            if (id === "gemini-2.5-flash-lite") {
+                return aigateway([primaryModel]) as unknown as LanguageModelV2;
+            }
+
             const fallbackLite = googleProvider("gemini-2.5-flash-lite");
             return aigateway([
-                primary,
+                primaryModel,
                 fallbackLite,
             ]) as unknown as LanguageModelV2;
         },

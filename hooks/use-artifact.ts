@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import type { Dispatch, SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import useSWR from "swr";
 import type { UIArtifact } from "@/components/artifact";
 
@@ -21,6 +22,16 @@ export const initialArtifactData: UIArtifact = {
 
 type Selector<T> = (state: UIArtifact) => T;
 
+/**
+ * Selector hook for reading specific artifact state.
+ * IMPORTANT: Pass a stable/memoized selector function to avoid unnecessary recalculations.
+ * @example
+ * // Good - stable selector
+ * const isVisible = useArtifactSelector(useCallback((state) => state.isVisible, []));
+ * // Or define selector outside component
+ * const selectIsVisible = (state: UIArtifact) => state.isVisible;
+ * const isVisible = useArtifactSelector(selectIsVisible);
+ */
 export function useArtifactSelector<Selected>(selector: Selector<Selected>) {
     const { data: localArtifact } = useSWR<UIArtifact>("artifact", null, {
         fallbackData: initialArtifactData,
@@ -35,6 +46,13 @@ export function useArtifactSelector<Selected>(selector: Selector<Selected>) {
 
     return selectedValue;
 }
+
+/**
+ * Metadata type used by artifact definitions.
+ * Each artifact type can define its own metadata shape.
+ * Using 'any' to allow compatibility with all artifact definition metadata types.
+ */
+type ArtifactMetadata = any;
 
 export function useArtifact() {
     const { data: localArtifact, mutate: setLocalArtifact } =
@@ -68,25 +86,58 @@ export function useArtifact() {
         [setLocalArtifact]
     );
 
+    // Track previous documentId to detect changes and clear stale metadata
+    const previousDocumentIdRef = useRef(artifact.documentId);
+
+    // Artifact metadata is dynamic per artifact type (code, text, image, etc.)
+    // The key changes when documentId changes, automatically fetching/clearing metadata
     const { data: localArtifactMetadata, mutate: setLocalArtifactMetadata } =
-        useSWR<any>(
+        useSWR<ArtifactMetadata>(
             () =>
-                artifact.documentId
+                artifact.documentId && artifact.documentId !== "init"
                     ? `artifact-metadata-${artifact.documentId}`
                     : null,
             null,
             {
                 fallbackData: null,
+                // Revalidate when key changes to clear stale data
+                revalidateOnMount: true,
             }
         );
+
+    // Clear metadata immediately when documentId changes to prevent showing stale data
+    useEffect(() => {
+        if (previousDocumentIdRef.current !== artifact.documentId) {
+            previousDocumentIdRef.current = artifact.documentId;
+            // Clear metadata for the new document until it's properly initialized
+            setLocalArtifactMetadata(null, { revalidate: false });
+        }
+    }, [artifact.documentId, setLocalArtifactMetadata]);
+
+    // Wrap SWR's mutate to match React's SetStateAction pattern expected by artifact definitions
+    // Using type assertion to bridge SWR mutate with React SetStateAction interface
+    const setMetadata = useCallback(
+        (updaterFn: SetStateAction<ArtifactMetadata>) => {
+            if (typeof updaterFn === "function") {
+                setLocalArtifactMetadata(
+                    (currentMetadata: ArtifactMetadata) => {
+                        return updaterFn(currentMetadata ?? null);
+                    }
+                );
+            } else {
+                setLocalArtifactMetadata(updaterFn);
+            }
+        },
+        [setLocalArtifactMetadata]
+    ) as Dispatch<SetStateAction<ArtifactMetadata>>;
 
     return useMemo(
         () => ({
             artifact,
             setArtifact,
-            metadata: localArtifactMetadata,
-            setMetadata: setLocalArtifactMetadata,
+            metadata: localArtifactMetadata as ArtifactMetadata,
+            setMetadata,
         }),
-        [artifact, setArtifact, localArtifactMetadata, setLocalArtifactMetadata]
+        [artifact, setArtifact, localArtifactMetadata, setMetadata]
     );
 }

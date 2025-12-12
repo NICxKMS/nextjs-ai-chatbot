@@ -1,88 +1,92 @@
-import { getAppSession } from "@/lib/auth/session";
-import { createContext } from "@/lib/data/base";
+import {
+    requireAuthForRoute,
+    requireRateLimitForRoute,
+} from "@/lib/api/guards";
+
+import { getSearchParams } from "@/lib/api/utils";
+import {
+    DEFAULT_PAGINATION_LIMIT,
+    MAX_PAGINATION_LIMIT,
+} from "@/lib/constants";
 import { chatData } from "@/lib/data/chat";
 import { ChatSDKError } from "@/lib/errors";
-import { trackUserAction } from "@/lib/monitoring/dashboard";
-import { withPerformanceTracking } from "@/lib/monitoring/performance";
 
 // Optimize for Vercel Fluid Compute
 export const maxDuration = 10;
 
-export const GET = withPerformanceTracking(
-    "GET /api/history",
-    async (request: Request) => {
-        const { searchParams } = new URL(request.url);
+export async function GET(request: Request) {
+    const searchParams = getSearchParams(request);
 
-        const limit = Number.parseInt(searchParams.get("limit") || "10", 10);
-        const startingAfter = searchParams.get("starting_after");
-        const endingBefore = searchParams.get("ending_before");
+    const rawLimit = Number.parseInt(
+        searchParams.get("limit") || String(DEFAULT_PAGINATION_LIMIT),
+        10
+    );
+    // Task 3.8 Fix: Handle NaN and clamp limit to valid range
+    const limit = Number.isNaN(rawLimit)
+        ? DEFAULT_PAGINATION_LIMIT
+        : Math.min(Math.max(1, rawLimit), MAX_PAGINATION_LIMIT);
+    const startingAfter = searchParams.get("starting_after");
+    const endingBefore = searchParams.get("ending_before");
 
-        if (startingAfter && endingBefore) {
-            return new ChatSDKError(
-                "bad_request:api:conflicting_pagination_params",
-                "Only one of starting_after or ending_before can be provided."
-            ).toResponse();
-        }
+    if (startingAfter && endingBefore) {
+        return new ChatSDKError(
+            "bad_request:api:conflicting_pagination_params",
+            "Only one of starting_after or ending_before can be provided."
+        ).toResponse();
+    }
 
-        const session = await getAppSession();
+    // Require authenticated session
+    const authResult = await requireAuthForRoute("chat");
+    if (authResult instanceof Response) {
+        return authResult;
+    }
+    const { session, ctx } = authResult;
 
-        if (!session?.user) {
-            return new ChatSDKError(
-                "unauthorized:chat:missing_session"
-            ).toResponse();
-        }
+    // Apply rate limiting for history listing (100 requests per minute)
+    const rateLimitResult = await requireRateLimitForRoute(
+        "standard",
+        session.user.id,
+        "history"
+    );
+    if (rateLimitResult instanceof Response) {
+        return rateLimitResult;
+    }
 
-        const ctx = createContext(session);
-
-        const result = await chatData.list(
-            {
-                limit,
-                startingAfter,
-                endingBefore,
-            },
-            ctx
-        );
-
-        return Response.json({
-            chats: result.items,
-            hasMore: result.hasMore,
-        });
-    },
-    {
-        extractMetadata: (request) => {
-            const url = new URL(request.url);
-            return {
-                limit: url.searchParams.get("limit") ?? "10",
-                startingAfter:
-                    url.searchParams.get("starting_after") ?? undefined,
-                endingBefore:
-                    url.searchParams.get("ending_before") ?? undefined,
-            };
+    const result = await chatData.list(
+        {
+            limit,
+            startingAfter,
+            endingBefore,
         },
+        ctx
+    );
+
+    return Response.json({
+        chats: result.items,
+        hasMore: result.hasMore,
+    });
+}
+
+export async function DELETE() {
+    // Require authenticated session
+    const authResult = await requireAuthForRoute("chat");
+    if (authResult instanceof Response) {
+        return authResult;
     }
-);
+    const { session, ctx } = authResult;
 
-export const DELETE = withPerformanceTracking(
-    "DELETE /api/history",
-    async () => {
-        const session = await getAppSession();
-
-        if (!session?.user) {
-            return new ChatSDKError(
-                "unauthorized:chat:missing_session"
-            ).toResponse();
-        }
-
-        const ctx = createContext(session);
-
-        const result = await chatData.deleteAll(ctx);
-
-        // Track user action for analytics
-        trackUserAction("delete_all_chats", {
-            userId: session.user.id,
-            count: result.deletedCount,
-        });
-
-        return Response.json(result, { status: 200 });
+    // Task 3.9 Fix: Use "strict" limiter (10 req/min) for destructive operations
+    // Previously used "upload" which is for file uploads (10/hour)
+    const rateLimitResult = await requireRateLimitForRoute(
+        "strict",
+        session.user.id,
+        "history"
+    );
+    if (rateLimitResult instanceof Response) {
+        return rateLimitResult;
     }
-);
+
+    const result = await chatData.deleteAll(ctx);
+
+    return Response.json(result, { status: 200 });
+}

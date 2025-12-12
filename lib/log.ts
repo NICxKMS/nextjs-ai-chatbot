@@ -1,18 +1,32 @@
-// Centralized logging utility that avoids console usage.
-// Server: records structured events on the active OpenTelemetry span (if any).
-// Client: no-op (errors are surfaced via UI toasts where appropriate).
+/**
+ * Centralized Logging Module
+ *
+ * Server-side: Records structured events on the active OpenTelemetry span.
+ * Client-side: No-op (errors are surfaced via UI toasts where appropriate).
+ *
+ * Features:
+ * - Automatic request context injection (requestId, userId)
+ * - Error tracking with stack traces
+ * - Performance metrics logging
+ * - Environment-aware logging levels
+ */
 
 import { type Attributes, SpanStatusCode, trace } from "@opentelemetry/api";
 
-// Request context is only available server-side and must be injected
-// to avoid bundler issues with "server-only" directive
+type LogLevel = "debug" | "info" | "warn" | "error";
+type LogAttrs = Record<string, unknown>;
+
+// Environment detection
+const isServer = typeof window === "undefined";
+
+// Request context injection for server-side correlation
 let getRequestContextFn:
     | (() => { requestId: string; userId?: string } | undefined)
     | undefined;
 
 /**
  * Inject the request context getter function (server-side only).
- * This should be called from instrumentation or server-side initialization.
+ * Called from instrumentation or server-side initialization.
  */
 export function injectRequestContextGetter(
     getter: () => { requestId: string; userId?: string } | undefined
@@ -20,6 +34,7 @@ export function injectRequestContextGetter(
     getRequestContextFn = getter;
 }
 
+/** Convert values to OTel-compatible attribute values */
 function toAttributeValue(
     value: unknown
 ): string | number | boolean | undefined {
@@ -33,7 +48,6 @@ function toAttributeValue(
     ) {
         return value;
     }
-    // Collapse arrays/objects into a JSON string to satisfy OTel attribute restrictions.
     try {
         return JSON.stringify(value);
     } catch {
@@ -41,25 +55,29 @@ function toAttributeValue(
     }
 }
 
-function addEvent(
-    level: "info" | "warn" | "error",
+/** Core logging function */
+function log(
+    level: LogLevel,
     message: string,
     detail?: unknown,
-    attrs?: Record<string, unknown>
+    attrs?: LogAttrs
 ): void {
-    // Avoid pulling console or other side effects on the client
-    if (typeof window !== "undefined") {
+    // Skip client-side logging
+    if (!isServer) {
         return;
     }
+
     const span = trace.getActiveSpan();
     if (!span) {
         return;
     }
-    const attributes: Attributes = {};
-    attributes["log.level"] = level;
-    attributes["log.message"] = message;
 
-    // Auto-inject request context if available and not already provided
+    const attributes: Attributes = {
+        "log.level": level,
+        "log.message": message,
+    };
+
+    // Auto-inject request context
     if (getRequestContextFn) {
         const ctx = getRequestContextFn();
         if (ctx) {
@@ -72,12 +90,12 @@ function addEvent(
         }
     }
 
-    // Flatten error details into string attributes
+    // Handle error details
     if (detail instanceof Error) {
-        attributes["log.detail.name"] = detail.name;
-        attributes["log.detail.message"] = detail.message;
+        attributes["log.error.name"] = detail.name;
+        attributes["log.error.message"] = detail.message;
         if (detail.stack) {
-            attributes["log.detail.stack"] = detail.stack;
+            attributes["log.error.stack"] = detail.stack;
         }
     } else if (detail !== undefined) {
         const v = toAttributeValue(detail);
@@ -85,6 +103,8 @@ function addEvent(
             attributes["log.detail"] = v;
         }
     }
+
+    // Add custom attributes
     if (attrs) {
         for (const [key, value] of Object.entries(attrs)) {
             const v = toAttributeValue(value);
@@ -93,7 +113,10 @@ function addEvent(
             }
         }
     }
+
     span.addEvent("log", attributes);
+
+    // Mark span as error for error level logs
     if (level === "error") {
         if (detail instanceof Error) {
             span.recordException(detail);
@@ -102,34 +125,61 @@ function addEvent(
                 message: message || detail.message,
             });
         } else {
-            span.setStatus({
-                code: SpanStatusCode.ERROR,
-                message,
-            });
+            span.setStatus({ code: SpanStatusCode.ERROR, message });
         }
     }
 }
 
-export function logInfo(
-    message: string,
-    detail?: unknown,
-    attrs?: Record<string, unknown>
-): void {
-    addEvent("info", message, detail, attrs);
+// Public API
+
+/** Log informational messages */
+export function logInfo(message: string, attrs?: LogAttrs): void {
+    log("info", message, undefined, attrs);
 }
 
+/** Log warning messages */
 export function logWarn(
     message: string,
-    detail?: unknown,
-    attrs?: Record<string, unknown>
+    detailOrAttrs?: unknown,
+    attrs?: LogAttrs
 ): void {
-    addEvent("warn", message, detail, attrs);
+    // If second param is a plain object and no third param, treat as attrs
+    if (
+        detailOrAttrs !== null &&
+        typeof detailOrAttrs === "object" &&
+        !(detailOrAttrs instanceof Error) &&
+        !attrs
+    ) {
+        log("warn", message, undefined, detailOrAttrs as LogAttrs);
+    } else {
+        log("warn", message, detailOrAttrs, attrs);
+    }
 }
 
+/** Log error messages with optional error object */
 export function logError(
     message: string,
-    detail?: unknown,
-    attrs?: Record<string, unknown>
+    errorOrAttrs?: unknown,
+    attrs?: LogAttrs
 ): void {
-    addEvent("error", message, detail, attrs);
+    // If second param is a plain object (not Error) and no third param, treat as attrs
+    if (
+        errorOrAttrs !== null &&
+        typeof errorOrAttrs === "object" &&
+        !(errorOrAttrs instanceof Error) &&
+        !attrs
+    ) {
+        log("error", message, undefined, errorOrAttrs as LogAttrs);
+    } else {
+        log("error", message, errorOrAttrs, attrs);
+    }
+}
+
+/** Log performance metrics */
+export function logPerf(
+    operation: string,
+    durationMs: number,
+    attrs?: LogAttrs
+): void {
+    log("info", operation, undefined, { ...attrs, durationMs });
 }

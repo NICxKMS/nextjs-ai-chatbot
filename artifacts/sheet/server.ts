@@ -16,6 +16,12 @@ export const sheetDocumentHandler = createDocumentHandler<"sheet">({
             schema: z.object({
                 csv: z.string().describe("CSV data"),
             }),
+            experimental_telemetry: {
+                isEnabled: true,
+                functionId: "artifact-sheet-create",
+                recordInputs: true,
+                recordOutputs: true,
+            },
         });
 
         for await (const delta of fullStream) {
@@ -55,6 +61,12 @@ export const sheetDocumentHandler = createDocumentHandler<"sheet">({
             schema: z.object({
                 csv: z.string(),
             }),
+            experimental_telemetry: {
+                isEnabled: true,
+                functionId: "artifact-sheet-update",
+                recordInputs: true,
+                recordOutputs: true,
+            },
         });
 
         for await (const delta of fullStream) {

@@ -1,33 +1,4 @@
-/**
- * Report error to New Relic (server-side only)
- * This function is kept local to errors.ts because this module is used
- * in both client and server contexts, and we can't import from server-only modules.
- *
- * @param error - Error to report
- * @param customAttributes - Additional context
- */
-function reportErrorToNewRelic(
-    error: Error,
-    customAttributes: Record<string, unknown>
-): void {
-    // Only run on server
-    if (typeof window !== "undefined") {
-        return;
-    }
-
-    try {
-        // Use Function constructor to bypass Webpack static analysis
-        const newrelic = new Function(
-            'return typeof require !== "undefined" ? require("newrelic") : null'
-        )() as {
-            noticeError?: (err: Error, attrs?: Record<string, unknown>) => void;
-        } | null;
-
-        newrelic?.noticeError?.(error, customAttributes);
-    } catch {
-        // Silent fail - monitoring shouldn't break the app
-    }
-}
+import { isProductionEnvironment } from "@/lib/constants";
 
 export type ErrorType =
     | "bad_request"
@@ -55,6 +26,9 @@ export type ErrorCode = `${ErrorType}:${Surface}${"" | `:${string}`}`;
 
 export type ErrorVisibility = "response" | "log" | "none";
 
+// Task 9.15: User type for context-aware error messages
+export type ErrorUserType = "guest" | "regular" | "unknown";
+
 export const visibilityBySurface: Record<Surface, ErrorVisibility> = {
     database: "response",
     chat: "response",
@@ -74,8 +48,13 @@ export class ChatSDKError extends Error {
     surface: Surface;
     statusCode: number;
     code: ErrorCode;
+    userType?: ErrorUserType;
 
-    constructor(errorCode: ErrorCode, cause?: string) {
+    constructor(
+        errorCode: ErrorCode,
+        cause?: string,
+        userType?: ErrorUserType
+    ) {
         super();
 
         const [type, surface] = errorCode.split(":");
@@ -84,7 +63,9 @@ export class ChatSDKError extends Error {
         this.cause = cause;
         this.surface = surface as Surface;
         this.code = errorCode;
-        this.message = getMessageByErrorCode(errorCode);
+        this.userType = userType;
+        // Task 9.15: Pass userType for context-aware error messages
+        this.message = getMessageByErrorCode(errorCode, userType);
         this.statusCode = getStatusCodeByType(this.type);
     }
 
@@ -95,17 +76,11 @@ export class ChatSDKError extends Error {
 
         const { message, statusCode } = this;
         // Sanitize cause in production to avoid leaking sensitive information
-        const isProduction = process.env.NODE_ENV === "production";
-        const safeCause = isProduction ? undefined : this.cause;
+        const safeCause = isProductionEnvironment ? undefined : this.cause;
 
-        // Report server errors and offline errors to New Relic for monitoring
+        // Log critical errors (server errors and offline errors)
         if (this.type === "offline" || statusCode >= 500) {
-            reportErrorToNewRelic(this, {
-                code: this.code,
-                surface: this.surface,
-                type: this.type,
-                statusCode: this.statusCode,
-            });
+            console.error("Critical error:", this.code, this.message);
         }
 
         if (visibility === "log") {
@@ -163,22 +138,73 @@ function mapPostgresCodeToError(code?: string): ErrorCode {
     }
 }
 
+/**
+ * PostgreSQL error shape for type-safe error handling
+ */
+type PostgresError = {
+    code?: string;
+    message?: string;
+    detail?: string;
+    constraint?: string;
+};
+
+/**
+ * Type guard to check if an error is a PostgreSQL error
+ */
+function isPostgresError(err: unknown): err is PostgresError {
+    return (
+        typeof err === "object" &&
+        err !== null &&
+        (typeof (err as PostgresError).code === "string" ||
+            typeof (err as PostgresError).message === "string")
+    );
+}
+
 export function toDatabaseError(
     operation: string,
     err?: unknown,
     cause?: string
 ): ChatSDKError {
-    const anyErr = err as { code?: string; message?: string } | undefined;
-    const errorCode = mapPostgresCodeToError(anyErr?.code);
+    const pgErr = isPostgresError(err) ? err : undefined;
+    const errorCode = mapPostgresCodeToError(pgErr?.code);
     const detailedCause =
         cause ??
         (operation
-            ? `${operation}${anyErr?.message ? `: ${anyErr.message}` : ""}`
-            : anyErr?.message);
+            ? `${operation}${pgErr?.message ? `: ${pgErr.message}` : ""}`
+            : pgErr?.message);
     return new ChatSDKError(errorCode, detailedCause);
 }
 
-export function getMessageByErrorCode(errorCode: ErrorCode): string {
+/**
+ * Task 9.15: Get context-aware error message based on error code and user type
+ * Guest users receive messages that explain guest-specific limitations
+ */
+export function getMessageByErrorCode(
+    errorCode: ErrorCode,
+    userType?: ErrorUserType
+): string {
+    // Task 9.15: Guest-specific error messages for common scenarios
+    if (userType === "guest") {
+        switch (errorCode) {
+            case "not_found:chat":
+                return "Chat not found. Guest chat history is temporary and may have expired. Sign in to save your chats permanently.";
+            case "not_found:document":
+                return "Document not found. Guest documents are temporary and may have expired. Sign in to save your work permanently.";
+            case "rate_limit:chat":
+            case "rate_limit:chat:daily_limit_exceeded":
+                return "Daily message limit exceeded. Sign in to increase your message allowance.";
+            case "offline:chat":
+                return "Connection lost. Guest sessions are stored temporarily - sign in to ensure your chats are saved.";
+            case "forbidden:vote:guest_cannot_vote":
+                return "Guest users cannot vote on messages. Sign in to rate responses and help improve the AI.";
+            case "bad_request:api:guest_requires_cache":
+                return "Service temporarily unavailable for guest users. Please try again later or sign in.";
+            default:
+                // Fall through to standard error messages for non-guest-specific errors
+                break;
+        }
+    }
+
     if (errorCode.includes("database")) {
         // Specific database error codes handled below; generic fallback here
         switch (errorCode) {
@@ -366,6 +392,16 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
             return "No document handler exists for the specified kind.";
         case "bad_request:document:no_chat_context":
             return "Cannot save document without existing chat context.";
+        case "bad_request:document:kind_mismatch":
+            return "Document kind cannot be changed after creation.";
+        case "bad_request:document:invalid_timestamp":
+            return "The provided timestamp is invalid or malformed.";
+        case "bad_request:api:invalid_timestamp":
+            return "The provided timestamp is invalid or malformed.";
+        case "bad_request:chat:invalid_visibility":
+            return "Invalid visibility value. Must be 'public' or 'private'.";
+        case "bad_request:api:invalid_message":
+            return "The message format is invalid or required fields are missing.";
 
         default:
             return "Something went wrong. Please try again later.";
