@@ -19,9 +19,13 @@ export type StreamingSuggestion = Omit<
 
 // Type guards for custom stream data parts
 export type DataChatTitlePart = { type: "data-chatTitle"; data: string };
+
+// Message append data can be JSON string or already-parsed message object
+export type AppendMessageData = string | Record<string, unknown>;
+
 export type DataAppendMessagePart = {
     type: "data-appendMessage";
-    data: unknown;
+    data: AppendMessageData;
 };
 export type DataUsagePart = { type: "data-usage"; data: AppUsage };
 
@@ -69,7 +73,7 @@ export type CustomUIDataTypes = {
     sheetDelta: string;
     codeDelta: string;
     suggestion: StreamingSuggestion;
-    appendMessage: string;
+    appendMessage: AppendMessageData;
     id: string;
     title: string;
     chatTitle: string;

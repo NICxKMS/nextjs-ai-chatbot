@@ -28,7 +28,7 @@ pnpm dev
 | **Cache**      | Upstash Redis                  |
 | **Auth**       | Supabase JWT + Guest Sessions  |
 | **AI**         | Vercel AI SDK with 8 providers |
-| **Monitoring** | New Relic + OpenTelemetry      |
+| **Monitoring** | Sentry + OpenTelemetry         |
 | **UI**         | shadcn/ui + Tailwind CSS       |
 
 ```mermaid
@@ -52,7 +52,7 @@ graph LR
     end
 
     subgraph Monitoring
-        NR[New Relic]
+        Sentry[Sentry]
     end
 
     Browser --> App
@@ -60,7 +60,7 @@ graph LR
     API --> PG
     API --> Redis
     API --> Providers
-    API --> NR
+    API --> Sentry
 ```
 
 ## Environment Variables
@@ -75,8 +75,8 @@ graph LR
 | `GOOGLE_GENERATIVE_AI_API_KEY` | Recommended | Google Gemini API key            |
 | `OPENAI_API_KEY`               | Optional    | OpenAI API key                   |
 | `OPENROUTER_API_KEY`           | Optional    | OpenRouter API key               |
-| `NEW_RELIC_LICENSE_KEY`        | Optional    | New Relic monitoring             |
-| `NEW_RELIC_APP_NAME`           | Optional    | App name in New Relic            |
+| `SENTRY_DSN`                   | Optional    | Sentry monitoring DSN            |
+| `NEXT_PUBLIC_SENTRY_DSN`       | Optional    | Sentry client DSN                |
 
 ## Architecture Overview
 
@@ -97,7 +97,7 @@ graph LR
        │             │             │               │
        ▼             ▼             ▼               ▼
 ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-│  PostgreSQL │ │   Upstash   │ │  AI Models  │ │  New Relic  │
+│  PostgreSQL │ │   Upstash   │ │  AI Models  │ │   Sentry    │
 │   (Neon)    │ │   Redis     │ │  (8 provs)  │ │   + OTEL    │
 └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘
 ```
@@ -109,7 +109,7 @@ graph LR
 - **Dual User Support**: Authenticated (DB) and Guest (cache-only) users
 - **Document Artifacts**: Text, code, image, and sheet generation
 - **Cache-First Architecture**: Redis ZSET with Lua scripts for O(1) operations
-- **Enterprise Monitoring**: New Relic APM with structured logging
+- **Enterprise Monitoring**: Sentry error tracking with performance traces
 
 ## Documentation
 
@@ -119,7 +119,6 @@ graph LR
 | [API Reference](./api-reference.md) | Complete endpoint documentation |
 | [Database](./database.md)           | Schema and cache patterns       |
 | [Deployment](./deployment.md)       | Production setup                |
-| [Monitoring](./monitoring.md)       | New Relic integration           |
 
 ## Development
 

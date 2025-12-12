@@ -18,14 +18,12 @@ import { getWeather } from "@/lib/ai/tools/get-weather";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
 import type { AppSession } from "@/lib/auth/session";
-import { isProductionEnvironment } from "@/lib/constants";
 import { logWarn } from "@/lib/log";
-import {
-    trackAICompletion,
-    trackStreamingMetrics,
-} from "@/lib/monitoring/dashboard";
 import type { ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
+
+// Task 9.14: AI completion timeout (55 seconds to allow for cleanup before maxDuration)
+const AI_COMPLETION_TIMEOUT_MS = 55_000;
 
 // Tool type helpers
 type ToolSetShape = {
@@ -158,11 +156,6 @@ export function executeChatCompletion(params: ChatCompletionParams) {
         onUsageCalculated,
     } = params;
 
-    // Track completion timing for New Relic metrics
-    const completionStartTime = Date.now();
-    let firstTokenTime: number | undefined;
-    let chunkCount = 0;
-
     const selectedModel = getModelById(selectedChatModel);
     const providerOptions = buildProviderOptions(selectedModel);
 
@@ -195,6 +188,9 @@ export function executeChatCompletion(params: ChatCompletionParams) {
         }),
         messages: convertToModelMessages(uiMessages),
         stopWhen: stepCountIs(5),
+        // Task 9.14: Add timeout handling for AI completions
+        // Uses AbortSignal.timeout() to prevent runaway completions
+        abortSignal: AbortSignal.timeout(AI_COMPLETION_TIMEOUT_MS),
         experimental_activeTools: enabledTools,
         experimental_transform: smoothStream<Partial<ToolSetShape>>({
             delayInMs: 2,
@@ -202,8 +198,10 @@ export function executeChatCompletion(params: ChatCompletionParams) {
         }),
         ...(tools ? { tools } : {}),
         experimental_telemetry: {
-            isEnabled: isProductionEnvironment,
-            functionId: "stream-text",
+            isEnabled: true,
+            functionId: "chat-stream-text",
+            recordInputs: true,
+            recordOutputs: true,
         },
         temperature: requestBody.settings?.sampling?.temperature,
         topP: requestBody.settings?.sampling?.topP,
@@ -216,42 +214,8 @@ export function executeChatCompletion(params: ChatCompletionParams) {
                   >,
               }
             : {}),
-        onChunk: () => {
-            chunkCount++;
-            // Track time to first token
-            if (firstTokenTime === undefined) {
-                firstTokenTime = Date.now() - completionStartTime;
-            }
-        },
         onFinish: async (callResult: { usage: LanguageModelUsage }) => {
             const usage = callResult.usage;
-            const completionDurationMs = Date.now() - completionStartTime;
-
-            // Track AI completion metrics for New Relic
-            trackAICompletion({
-                model: selectedChatModel,
-                provider: selectedModel?.providerId,
-                promptTokens: usage.inputTokens,
-                completionTokens: usage.outputTokens,
-                totalTokens: usage.totalTokens,
-                durationMs: completionDurationMs,
-                success: true,
-                isStreaming: true,
-                firstTokenMs: firstTokenTime,
-                chatId,
-                userId: session.user.id,
-            });
-
-            // Track streaming-specific metrics
-            if (firstTokenTime !== undefined) {
-                trackStreamingMetrics({
-                    model: selectedChatModel,
-                    firstTokenMs: firstTokenTime,
-                    totalDurationMs: completionDurationMs,
-                    chunkCount,
-                    totalTokens: usage.totalTokens,
-                });
-            }
 
             try {
                 const providers = await tokenlensCatalogPromise;

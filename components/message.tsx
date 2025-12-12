@@ -333,11 +333,8 @@ export const PreviewMessage = memo(
     PurePreviewMessage,
     (prevProps, nextProps) => {
         // During loading/streaming, always re-render to capture text updates
+        // This also handles isLoading state transitions (true->false or false->true)
         if (prevProps.isLoading || nextProps.isLoading) {
-            return false;
-        }
-
-        if (prevProps.isLoading !== nextProps.isLoading) {
             return false;
         }
         if (prevProps.message.id !== nextProps.message.id) {

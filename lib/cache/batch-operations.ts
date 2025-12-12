@@ -1,8 +1,10 @@
 import "server-only";
 
 import type { VisibilityType } from "@/components/visibility-selector";
+import { GUEST_CACHE_TTL_SECONDS } from "@/lib/constants";
 import { logError } from "@/lib/log";
 import type { AppUsage } from "../usage";
+import { getChatCacheKeys, getMessageScore, isGuestUserId } from "./helpers";
 import { getRedisClient } from "./redis";
 import { type CachedChatMeta, type CachedMessage, CacheKeys } from "./types";
 
@@ -13,39 +15,9 @@ import { type CachedChatMeta, type CachedMessage, CacheKeys } from "./types";
  *
  * These operations leverage ZSET structure for O(log N) appends and
  * O(log N + M) range deletions.
- */
-
-/**
- * Cache TTL constant (imported value)
- */
-const GUEST_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
-
-/**
- * Get timestamp score for a message (milliseconds since epoch)
  *
- * To ensure proper ordering when messages have the same timestamp,
- * we add a role-based offset in microseconds:
- * - user messages: +0.001 ms (to sort first)
- * - assistant messages: +0.002 ms (to sort second)
- * - system messages: +0.000 ms (to sort before user)
- *
- * This guarantees: system < user < assistant for same-timestamp messages
+ * NOTE: getMessageScore is imported from helpers.ts - single source of truth
  */
-function getMessageScore(message: CachedMessage): number {
-    const baseTimestamp = new Date(message.createdAt).getTime();
-
-    // Add role-based microsecond offset to ensure correct ordering
-    // when multiple messages share the same createdAt timestamp
-    let roleOffset = 0;
-    if (message.role === "user") {
-        roleOffset = 0.001; // User messages sort first (after system)
-    } else if (message.role === "assistant") {
-        roleOffset = 0.002; // Assistant messages sort after user
-    }
-    // system messages get 0 offset (sort before user)
-
-    return baseTimestamp + roleOffset;
-}
 
 /**
  * Lua script for atomic batch update - avoids GET round-trip
@@ -106,6 +78,16 @@ return 1
  * Creates new chat or updates existing chat atomically using ZADD for messages
  * Includes TTL application for guest users (eliminates separate EXPIRE round-trip)
  * Returns: "created" if new chat, "updated" if existing, "error" on failure
+ *
+ * FIX Issue 6.1: TTL is now at fixed position ARGV[6] for reliability
+ * ARGV layout:
+ *   [1] newMetaJson
+ *   [2] userChatsScore
+ *   [3] chatId
+ *   [4] msgCount
+ *   [5] updatesJson
+ *   [6] ttl (FIXED POSITION)
+ *   [7+] score1, msg1, score2, msg2, ...
  */
 const CREATE_OR_UPDATE_SCRIPT = `
 local metaKey = KEYS[1]
@@ -117,7 +99,7 @@ local newMetaJson = ARGV[1]
 local userChatsScore = tonumber(ARGV[2])
 local chatId = ARGV[3]
 local msgCount = tonumber(ARGV[4])
-local ttl = tonumber(ARGV[6 + msgCount * 2])
+local ttl = tonumber(ARGV[6])
 
 if existingMeta then
 	-- Update existing chat
@@ -137,8 +119,8 @@ if existingMeta then
 	-- Save updated metadata
 	redis.call('SET', metaKey, cjson.encode(data))
 	
-	-- Add messages to ZSET (ARGV[6] onwards: score1, msg1, score2, msg2, ...)
-	for i = 6, 6 + (msgCount * 2) - 1, 2 do
+	-- Add messages to ZSET (ARGV[7] onwards: score1, msg1, score2, msg2, ...)
+	for i = 7, 7 + (msgCount * 2) - 1, 2 do
 		local msgScore = tonumber(ARGV[i])
 		local msgStr = ARGV[i + 1]
 		if msgScore and msgStr then
@@ -161,8 +143,8 @@ else
 	-- Create new chat
 	redis.call('SET', metaKey, newMetaJson)
 	
-	-- Add messages to ZSET (ARGV[6] onwards: score1, msg1, score2, msg2, ...)
-	for i = 6, 6 + (msgCount * 2) - 1, 2 do
+	-- Add messages to ZSET (ARGV[7] onwards: score1, msg1, score2, msg2, ...)
+	for i = 7, 7 + (msgCount * 2) - 1, 2 do
 		local msgScore = tonumber(ARGV[i])
 		local msgStr = ARGV[i + 1]
 		if msgScore and msgStr then
@@ -210,11 +192,13 @@ export async function batchUpdateChatCache({
     }
 
     try {
-        const metaKey = CacheKeys.chatMeta(chatId, userId);
-        const msgsKey = CacheKeys.chatMessages(chatId, userId);
-        const userChatsKey = CacheKeys.userChats(userId);
+        const { metaKey, msgsKey, userChatsKey } = getChatCacheKeys(
+            chatId,
+            userId,
+            CacheKeys
+        );
         const now = new Date().toISOString();
-        const isGuest = userId.startsWith("guest:");
+        const isGuest = isGuestUserId(userId);
 
         // Prepare updates object
         const updates: { lastContext?: AppUsage; title?: string } = {};
@@ -285,12 +269,14 @@ export async function createOrUpdateChatWithMessages({
     }
 
     try {
-        const metaKey = CacheKeys.chatMeta(chatId, userId);
-        const msgsKey = CacheKeys.chatMessages(chatId, userId);
-        const userChatsKey = CacheKeys.userChats(userId);
+        const { metaKey, msgsKey, userChatsKey } = getChatCacheKeys(
+            chatId,
+            userId,
+            CacheKeys
+        );
         const now = new Date();
         const nowStr = now.toISOString();
-        const isGuest = userId.startsWith("guest:");
+        const isGuest = isGuestUserId(userId);
 
         // Prepare new metadata (used if creating new chat)
         const newMeta: CachedChatMeta = {
@@ -319,17 +305,18 @@ export async function createOrUpdateChatWithMessages({
         }
 
         // Use Lua script for atomic operation (single round-trip!)
+        // FIX Issue 6.1: TTL at fixed position ARGV[6] before message pairs
         await redis.eval(
             CREATE_OR_UPDATE_SCRIPT,
             [metaKey, msgsKey, userChatsKey],
             [
-                JSON.stringify(newMeta),
-                Date.now().toString(),
-                chatId,
-                messages.length.toString(),
-                JSON.stringify(updates),
-                ...scoreMessagePairs,
-                isGuest ? GUEST_CACHE_TTL_SECONDS.toString() : "0",
+                JSON.stringify(newMeta), // ARGV[1]
+                Date.now().toString(), // ARGV[2]
+                chatId, // ARGV[3]
+                messages.length.toString(), // ARGV[4]
+                JSON.stringify(updates), // ARGV[5]
+                isGuest ? GUEST_CACHE_TTL_SECONDS.toString() : "0", // ARGV[6] - TTL
+                ...scoreMessagePairs, // ARGV[7+]
             ]
         );
     } catch (error) {

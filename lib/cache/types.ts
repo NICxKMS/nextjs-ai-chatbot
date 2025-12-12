@@ -51,7 +51,7 @@ export type CachedMessage = {
     id: string;
     chatId: string;
     role: "user" | "assistant" | "system";
-    parts: MessagePart[] | unknown; // JSON parts - can be array or other JSON
+    parts: MessagePart[]; // JSON parts array - validated at parse time
     attachments: MessageAttachment[]; // JSON attachments
     createdAt: string; // ISO string
 };

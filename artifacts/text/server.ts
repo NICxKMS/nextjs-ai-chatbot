@@ -12,6 +12,12 @@ export const textDocumentHandler = createDocumentHandler<"text">({
             model: myProvider.languageModel("artifact-model"),
             system: "Write about the given topic. Markdown is supported. Use headings wherever appropriate.",
             experimental_transform: smoothStream({ chunking: "word" }),
+            experimental_telemetry: {
+                isEnabled: true,
+                functionId: "artifact-text-create",
+                recordInputs: true,
+                recordOutputs: true,
+            },
             prompt: title,
         });
 
@@ -40,6 +46,12 @@ export const textDocumentHandler = createDocumentHandler<"text">({
             model: myProvider.languageModel("artifact-model"),
             system: updateDocumentPrompt(document.content, "text"),
             experimental_transform: smoothStream({ chunking: "word" }),
+            experimental_telemetry: {
+                isEnabled: true,
+                functionId: "artifact-text-update",
+                recordInputs: true,
+                recordOutputs: true,
+            },
             prompt: description,
             providerOptions: {
                 openai: {

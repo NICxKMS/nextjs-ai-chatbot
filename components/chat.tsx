@@ -35,7 +35,7 @@ import {
     isDataChatTitlePart,
     type UserVote,
 } from "@/lib/types";
-import { useSettingsSnapshot } from "@/lib/ui/settings-store";
+import { useSettings } from "@/lib/ui/settings-store";
 import type { AppUsage } from "@/lib/usage";
 import { fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
 import { useDataStream } from "./data-stream-provider";
@@ -82,7 +82,8 @@ export function Chat({
     });
 
     const { setDataStream } = useDataStream();
-    const settings = useSettingsSnapshot();
+    const { settings, setSelectedModelId } = useSettings();
+    const { clearNewSessionFlag } = useAuth();
     const {
         addOptimisticChat,
         removeOptimisticChat,
@@ -95,8 +96,39 @@ export function Chat({
         initialLastContext
     );
     const [showCreditCardAlert, setShowCreditCardAlert] = useState(false);
+    // For new chats, prefer the persisted model from settings (localStorage)
+    // For existing chats, use the chat's stored model (initialChatModel)
     const [currentModelId, setCurrentModelId] = useState(initialChatModel);
     const currentModelIdRef = useRef(currentModelId);
+    // Track if we've applied the persisted model (for new chats only)
+    const hasAppliedPersistedModel = useRef(false);
+
+    // Sync persisted model selection from localStorage after hydration (new chats only)
+    useEffect(() => {
+        if (
+            !hasAppliedPersistedModel.current &&
+            initialMessages.length === 0 &&
+            settings.selectedModelId &&
+            settings.selectedModelId !== currentModelId
+        ) {
+            hasAppliedPersistedModel.current = true;
+            setCurrentModelId(settings.selectedModelId);
+        }
+    }, [settings.selectedModelId, initialMessages.length, currentModelId]);
+
+    // Ref to track message count for onFinish callback (avoids stale closure)
+    const messagesLengthRef = useRef(0);
+    // Ref to store timer IDs for cleanup
+    const titlePollTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+    // Persist model selection to localStorage for future sessions
+    const handleModelChange = useCallback(
+        (modelId: string) => {
+            setCurrentModelId(modelId);
+            setSelectedModelId(modelId);
+        },
+        [setSelectedModelId]
+    );
 
     const getCurrentModel = useCallback(
         () =>
@@ -126,6 +158,16 @@ export function Chat({
         currentModelIdRef.current = currentModelId;
     }, [currentModelId]);
 
+    // Cleanup title poll timers on unmount
+    useEffect(() => {
+        return () => {
+            for (const timerId of titlePollTimersRef.current) {
+                clearTimeout(timerId);
+            }
+            titlePollTimersRef.current = [];
+        };
+    }, []);
+
     // Adaptive throttle based on connection speed (memoized)
     const optimalThrottle = useMemo(() => {
         if (typeof navigator !== "undefined" && "connection" in navigator) {
@@ -141,141 +183,161 @@ export function Chat({
         return 100; // Default
     }, []);
 
-    const { messages, setMessages, sendMessage, status, stop, regenerate } =
-        useChat<ChatMessage>({
-            id,
-            messages: initialMessages,
-            experimental_throttle: optimalThrottle,
-            generateId: generateUUID,
-            transport: new DefaultChatTransport({
-                api: "/api/chat",
-                fetch: fetchWithErrorHandlers,
-                prepareSendMessagesRequest(request) {
-                    return {
-                        body: {
-                            id: request.id,
-                            message: request.messages.at(-1),
-                            selectedChatModel: currentModelIdRef.current,
-                            selectedVisibilityType: visibilityType,
-                            settings,
-                            ...request.body,
-                        },
-                    };
-                },
-            }),
-            onData: (dataPart) => {
-                if (settings.streamArtifacts) {
-                    setDataStream((ds) => (ds ? [...ds, dataPart] : []));
-                }
-                if (dataPart.type === "data-usage") {
-                    setUsage(dataPart.data);
-                }
-                if (isDataChatTitlePart(dataPart)) {
-                    // Update the optimistic chat title in-place from the stream.
-                    updateOptimisticChatTitle(id, dataPart.data);
-                }
-                if (isDataAppendMessagePart(dataPart)) {
-                    const data = dataPart.data;
-                    // Validate before parsing to reduce exception overhead
-                    if (typeof data === "string") {
-                        try {
-                            const message = JSON.parse(data);
-                            // Basic validation to ensure it's a valid message
-                            if (message?.id && message?.role) {
-                                setMessages((prev) => [...prev, message]);
-                            }
-                        } catch (error) {
-                            logWarn(
-                                "Failed to parse data-appendMessage",
-                                error
-                            );
+    const {
+        messages,
+        setMessages,
+        sendMessage,
+        status,
+        stop,
+        regenerate,
+        error: chatError,
+        clearError,
+    } = useChat<ChatMessage>({
+        id,
+        messages: initialMessages,
+        experimental_throttle: optimalThrottle,
+        generateId: generateUUID,
+        transport: new DefaultChatTransport({
+            api: "/api/chat",
+            fetch: fetchWithErrorHandlers,
+            prepareSendMessagesRequest(request) {
+                return {
+                    body: {
+                        id: request.id,
+                        message: request.messages.at(-1),
+                        selectedChatModel: currentModelIdRef.current,
+                        selectedVisibilityType: visibilityType,
+                        settings,
+                        ...request.body,
+                    },
+                };
+            },
+        }),
+        onData: (dataPart) => {
+            if (settings.streamArtifacts) {
+                setDataStream((ds) => (ds ? [...ds, dataPart] : []));
+            }
+            if (dataPart.type === "data-usage") {
+                setUsage(dataPart.data);
+            }
+            if (isDataChatTitlePart(dataPart)) {
+                // Update the optimistic chat title in-place from the stream.
+                updateOptimisticChatTitle(id, dataPart.data);
+            }
+            if (isDataAppendMessagePart(dataPart)) {
+                const data = dataPart.data;
+                // Validate before parsing to reduce exception overhead
+                if (typeof data === "string") {
+                    try {
+                        const message = JSON.parse(data);
+                        // Basic validation to ensure it's a valid message
+                        if (message?.id && message?.role) {
+                            setMessages((prev) => [...prev, message]);
                         }
-                    } else if (typeof data === "object" && data !== null) {
-                        // Already parsed object - validate structure
-                        const obj = data as Record<string, unknown>;
-                        if (obj.id && obj.role) {
-                            setMessages((prev) => [
-                                ...prev,
-                                data as ChatMessage,
-                            ]);
-                        }
+                    } catch (error) {
+                        logWarn("Failed to parse data-appendMessage", error);
+                    }
+                } else if (typeof data === "object" && data !== null) {
+                    // Already parsed object - validate structure
+                    const obj = data as Record<string, unknown>;
+                    if (obj.id && obj.role) {
+                        setMessages((prev) => [
+                            ...prev,
+                            data as unknown as ChatMessage,
+                        ]);
                     }
                 }
-            },
-            onFinish: (_finishData) => {
-                // OPTIMIZATION: Title is generated asynchronously in the background
-                // For new chats, poll for title update to ensure it appears in sidebar
-                // even when title generation completes after streaming ends
-                if (initialMessages.length === 0 && messages.length >= 1) {
-                    // New chat - poll for title updates with increasing delays
-                    // First check after 500ms, then 1.5s, then 3s to catch most cases
-                    const pollDelays = [500, 1500, 3000];
-                    for (const delay of pollDelays) {
-                        setTimeout(() => {
-                            // Trigger a sidebar refresh to pick up the generated title from DB/cache
-                            window.dispatchEvent(
-                                new Event("chat-title-updated")
-                            );
-                        }, delay);
-                    }
+            }
+        },
+        onFinish: (_finishData) => {
+            // OPTIMIZATION: Title is generated asynchronously in the background
+            // For new chats, poll for title update to ensure it appears in sidebar
+            // even when title generation completes after streaming ends
+            // Use ref to avoid stale closure (messages.length would be stale here)
+            if (
+                initialMessages.length === 0 &&
+                messagesLengthRef.current >= 1
+            ) {
+                // Clear any existing timers before setting new ones
+                for (const timerId of titlePollTimersRef.current) {
+                    clearTimeout(timerId);
                 }
-            },
-            onError: (error) => {
-                // Remove optimistic chat on error
-                removeOptimisticChat(id);
-                if (error instanceof ChatSDKError) {
-                    const isGatewayCreditCardError = error.message?.includes(
-                        "AI Gateway requires a valid credit card"
-                    );
+                titlePollTimersRef.current = [];
 
-                    if (isGatewayCreditCardError) {
-                        if (isVercelGatewayModel(currentModelIdRef.current)) {
-                            setShowCreditCardAlert(true);
-                            return;
-                        }
+                // New chat - poll for title updates with increasing delays
+                // First check after 500ms, then 1.5s, then 3s to catch most cases
+                const pollDelays = [500, 1500, 3000];
+                for (const delay of pollDelays) {
+                    const timerId = setTimeout(() => {
+                        // Trigger a sidebar refresh to pick up the generated title from DB/cache
+                        window.dispatchEvent(new Event("chat-title-updated"));
+                    }, delay);
+                    titlePollTimersRef.current.push(timerId);
+                }
+            }
+        },
+        onError: (error) => {
+            // Remove optimistic chat on error
+            removeOptimisticChat(id);
+            if (error instanceof ChatSDKError) {
+                const isGatewayCreditCardError = error.message?.includes(
+                    "AI Gateway requires a valid credit card"
+                );
 
-                        const currentModel = getCurrentModel();
-                        const providerName =
-                            currentModel?.providerName ?? "Model provider";
-
-                        logError("Model invocation rejected", {
-                            modelId: currentModelIdRef.current,
-                            providerName,
-                            reason: error.message,
-                            cause: error.cause,
-                        });
-
-                        toast({
-                            type: "error",
-                            description: `${providerName} rejected the request due to billing requirements. Please verify your credentials or billing status with ${providerName}.`,
-                        });
+                if (isGatewayCreditCardError) {
+                    if (isVercelGatewayModel(currentModelIdRef.current)) {
+                        setShowCreditCardAlert(true);
                         return;
                     }
 
-                    logError("Chat model error", {
+                    const currentModel = getCurrentModel();
+                    const providerName =
+                        currentModel?.providerName ?? "Model provider";
+
+                    logError("Model invocation rejected", {
                         modelId: currentModelIdRef.current,
-                        providerName: getCurrentModel()?.providerName,
-                        code: error.code,
-                        message: error.message,
+                        providerName,
+                        reason: error.message,
                         cause: error.cause,
                     });
 
                     toast({
                         type: "error",
-                        description: `${error.message}${error.cause ? ` — ${error.cause}` : ""}${error.code ? ` (code: ${error.code})` : ""}`,
+                        description: `${providerName} rejected the request due to billing requirements. Please verify your credentials or billing status with ${providerName}.`,
                     });
                     return;
                 }
 
-                logError("Unexpected chat error", error);
+                logError("Chat model error", {
+                    modelId: currentModelIdRef.current,
+                    providerName: getCurrentModel()?.providerName,
+                    code: error.code,
+                    message: error.message,
+                    cause: error.cause,
+                });
+
                 toast({
                     type: "error",
-                    description: `Unexpected error while contacting the model provider.${error instanceof Error ? ` ${error.message}` : ""}`,
+                    description: `${error.message}${error.cause ? ` — ${error.cause}` : ""}${error.code ? ` (code: ${error.code})` : ""}`,
                 });
-            },
-        });
+                return;
+            }
+
+            logError("Unexpected chat error", error);
+            toast({
+                type: "error",
+                description: `Unexpected error while contacting the model provider.${error instanceof Error ? ` ${error.message}` : ""}`,
+            });
+        },
+    });
+
+    // Keep messagesLengthRef in sync with messages for use in onFinish callback
+    useEffect(() => {
+        messagesLengthRef.current = messages.length;
+    }, [messages.length]);
 
     // Add optimistic chat when user sends first message
+    // Also clear the "new session" flag to enable history fetching
     useEffect(() => {
         if (
             status === "submitted" &&
@@ -283,6 +345,8 @@ export function Chat({
             messages.length === 1
         ) {
             addOptimisticChat(id);
+            // Clear new session flag so history will fetch on subsequent sidebar opens
+            clearNewSessionFlag();
         }
     }, [
         status,
@@ -290,6 +354,7 @@ export function Chat({
         initialMessages.length,
         id,
         addOptimisticChat,
+        clearNewSessionFlag,
     ]);
 
     // Reset artifact visibility when navigating to a different chat
@@ -302,7 +367,7 @@ export function Chat({
                 ...initialArtifactData.boundingBox,
             },
         });
-        setDataStream([]);
+        // Cleanup data stream on unmount or chat change
         return () => {
             setDataStream([]);
         };
@@ -356,7 +421,9 @@ export function Chat({
                 />
 
                 <Messages
+                    chatError={chatError}
                     chatId={id}
+                    clearError={clearError}
                     isArtifactVisible={isArtifactVisible}
                     isGuest={isGuest}
                     isReadonly={isReadonly}
@@ -376,7 +443,7 @@ export function Chat({
                             chatId={id}
                             input={input}
                             messages={messages}
-                            onModelChange={setCurrentModelId}
+                            onModelChange={handleModelChange}
                             selectedModelId={currentModelId}
                             selectedVisibilityType={visibilityType}
                             sendMessage={sendMessage}

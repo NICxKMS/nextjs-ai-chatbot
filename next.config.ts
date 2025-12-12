@@ -6,10 +6,6 @@ const nextConfig: NextConfig = {
     productionBrowserSourceMaps: false,
     reactStrictMode: false,
 
-    // Exclude newrelic from bundling - it must run as a native Node.js module
-    // This prevents Turbopack/Webpack from trying to analyze dynamic requires
-    serverExternalPackages: ["newrelic", "@newrelic/security-agent"],
-
     experimental: {
         inlineCss: true,
         optimizePackageImports: [
@@ -20,12 +16,6 @@ const nextConfig: NextConfig = {
             "@tiptap/react",
             "@ai-sdk/react",
         ],
-    },
-
-    // Include newrelic.js in serverless function bundles
-    // This ensures the New Relic config file is available at runtime on Vercel
-    outputFileTracingIncludes: {
-        "/*": ["./newrelic.js"],
     },
 
     images: {

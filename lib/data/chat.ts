@@ -1,8 +1,19 @@
 import "server-only";
 
-import { and, asc, desc, eq, gt, gte, inArray, lt } from "drizzle-orm";
+import {
+    and,
+    asc,
+    desc,
+    eq,
+    gt,
+    gte,
+    inArray,
+    lt,
+    type SQL,
+} from "drizzle-orm";
 import type { VisibilityType } from "@/components/visibility-selector";
-import { logError } from "@/lib/log";
+import { MAX_MESSAGES_LIMIT, sortMessagesByTimeAndRole } from "@/lib/constants";
+import { logError, logWarn } from "@/lib/log";
 import {
     batchUpdateChatCache,
     createOrUpdateChatWithMessages,
@@ -11,6 +22,7 @@ import { dbMessageToCachedMessage } from "../cache/helpers";
 import {
     appendMessagesToCache,
     chatToCache,
+    deleteAllChatsFromCache,
     deleteChatFromCache,
     deleteMessagesFromCacheAfterTimestamp,
     getChatFromCache,
@@ -23,10 +35,9 @@ import {
 } from "../cache/operations";
 import { incrementUserMessageCountAsync } from "../cache/quota";
 import { getRedisClient, isRedisAvailable } from "../cache/redis";
-import type { CachedMessage } from "../cache/types";
+import type { CachedChatMeta, CachedMessage } from "../cache/types";
 import { CacheKeys } from "../cache/types";
 import { db } from "../db/queries";
-import { withQueryTracking } from "../db/query-tracking";
 import type { Chat, DBMessage, MessageRow } from "../db/schema";
 import { chat, message, vote } from "../db/schema";
 import { ChatSDKError, toDatabaseError } from "../errors";
@@ -48,8 +59,8 @@ import type {
  *
  * Key principles:
  * - Cache checked FIRST for all operations (guest and auth)
- * - Cache miss for guests → return null (no DB call, no empty cache write)
- * - Cache miss for auth → single DB query, warm cache in background
+ * - Cache miss for guests ÔåÆ return null (no DB call, no empty cache write)
+ * - Cache miss for auth ÔåÆ single DB query, warm cache in background
  * - Write operations: cache always updated, DB write only for auth users
  * - Zero extra DB/cache calls compared to original implementation
  */
@@ -63,9 +74,9 @@ export const chatData = {
      *
      * Flow:
      * 1. Check cache (for both guest and auth users)
-     * 2. Cache hit → return chat metadata
-     * 3. Cache miss + guest → return null (NO DB call)
-     * 4. Cache miss + auth → query DB, warm cache in background, return
+     * 2. Cache hit ÔåÆ return chat metadata
+     * 3. Cache miss + guest ÔåÆ return null (NO DB call)
+     * 4. Cache miss + auth ÔåÆ query DB, warm cache in background, return
      *
      * @param chatId Chat UUID
      * @param ctx Data context (userId, isGuest)
@@ -77,20 +88,34 @@ export const chatData = {
         opts?: { warmCache?: boolean }
     ): Promise<Chat | null> => {
         try {
-            // Try cache first if Redis is available
+            // Task 9.10: Try cache first with error recovery
+            // If cache fails, fall back to DB-only operation for auth users
             if (isRedisAvailable()) {
-                const cached = await getChatFromCache(chatId, ctx.userId);
-                if (cached) {
-                    // Return chat metadata (without messages)
-                    return {
-                        id: cached.id,
-                        userId: cached.userId,
-                        title: cached.title,
-                        visibility: cached.visibility,
-                        createdAt: new Date(cached.createdAt),
-                        updatedAt: new Date(cached.updatedAt),
-                        lastContext: cached.lastContext,
-                    } as Chat;
+                try {
+                    const cached = await getChatFromCache(chatId, ctx.userId);
+                    if (cached) {
+                        // Return chat metadata (without messages)
+                        return {
+                            id: cached.id,
+                            userId: cached.userId,
+                            title: cached.title,
+                            visibility: cached.visibility,
+                            createdAt: new Date(cached.createdAt),
+                            updatedAt: new Date(cached.updatedAt),
+                            lastContext: cached.lastContext,
+                        } as Chat;
+                    }
+                } catch (cacheError) {
+                    // Task 9.10: Log cache error and fall through to DB for auth users
+                    logWarn("Cache read failed, falling back to DB", {
+                        chatId,
+                        error: cacheError,
+                    });
+                    // For guests, cache is the only source - return null
+                    if (ctx.isGuest) {
+                        return null;
+                    }
+                    // For auth users, continue to DB fallback below
                 }
             }
 
@@ -100,23 +125,20 @@ export const chatData = {
             }
 
             // Authenticated users: cache miss - fetch from database
-            const [chatFromDb] = await withQueryTracking(
-                "chatData.get",
-                () => db.select().from(chat).where(eq(chat.id, chatId)),
-                { chatId }
-            );
+            // SECURITY: Filter by userId to prevent unauthorized access (IDOR protection)
+            const [chatFromDb] = await db
+                .select()
+                .from(chat)
+                .where(and(eq(chat.id, chatId), eq(chat.userId, ctx.userId)));
 
             if (!chatFromDb) {
                 return null;
             }
 
-            // Warm cache in background if enabled and userId matches
+            // Warm cache in background if enabled
+            // Note: userId check already done in query, so we can warm cache directly
             const shouldWarmCache = opts?.warmCache ?? true;
-            if (
-                isRedisAvailable() &&
-                shouldWarmCache &&
-                chatFromDb.userId === ctx.userId
-            ) {
+            if (isRedisAvailable() && shouldWarmCache) {
                 // Fetch messages for cache warming (don't block)
                 // Note: Both DB fetch and warmChatCache errors are caught
                 db.select()
@@ -154,9 +176,9 @@ export const chatData = {
      *
      * Flow:
      * 1. Check cache (single GET returns chat + messages)
-     * 2. Cache hit → return both chat and messages
-     * 3. Cache miss + guest → return null (NO DB call)
-     * 4. Cache miss + auth → query DB (chat + messages), warm cache, return
+     * 2. Cache hit ÔåÆ return both chat and messages
+     * 3. Cache miss + guest ÔåÆ return null (NO DB call)
+     * 4. Cache miss + auth ÔåÆ query DB (chat + messages), warm cache, return
      *
      * @param chatId Chat UUID
      * @param ctx Data context (userId, isGuest)
@@ -167,61 +189,79 @@ export const chatData = {
         ctx: DataContext
     ): Promise<ChatWithMessages | null> => {
         try {
-            // Try cache first if Redis is available
+            // Task 9.10: Try cache first with error recovery
+            // If cache fails, fall back to DB-only operation for auth users
             if (isRedisAvailable()) {
-                const cached = await getChatFromCache(chatId, ctx.userId);
-                if (cached) {
-                    // Return BOTH chat metadata AND messages from single fetch
-                    const chatMeta = {
-                        id: cached.id,
-                        userId: cached.userId,
-                        title: cached.title,
-                        visibility: cached.visibility,
-                        createdAt: new Date(cached.createdAt),
-                        updatedAt: new Date(cached.updatedAt),
-                        lastContext: cached.lastContext,
-                    } as Chat;
+                try {
+                    const cached = await getChatFromCache(chatId, ctx.userId);
+                    if (cached) {
+                        // Return BOTH chat metadata AND messages from single fetch
+                        const chatMeta = {
+                            id: cached.id,
+                            userId: cached.userId,
+                            title: cached.title,
+                            visibility: cached.visibility,
+                            createdAt: new Date(cached.createdAt),
+                            updatedAt: new Date(cached.updatedAt),
+                            lastContext: cached.lastContext,
+                        } as Chat;
 
-                    // Deduplicate messages by ID to prevent React duplicate key errors
-                    // (can occur due to race conditions, retries, or concurrent cache warming)
-                    const uniqueMessages = Array.from(
-                        new Map(
-                            cached.messages.map((msg) => [msg.id, msg])
-                        ).values()
-                    );
-
-                    // Sort messages by timestamp with role-based tiebreaker
-                    // (defensive measure - cache should already be sorted, but ensures consistency)
-                    const sortedMessages = uniqueMessages.sort((a, b) => {
-                        const timeA = new Date(a.createdAt).getTime();
-                        const timeB = new Date(b.createdAt).getTime();
-                        if (timeA !== timeB) {
-                            return timeA - timeB;
-                        }
-                        // Role tiebreaker: system < user < assistant
-                        const roleOrder: Record<string, number> = {
-                            system: 0,
-                            user: 1,
-                            assistant: 2,
-                        };
-                        return (
-                            (roleOrder[a.role] ?? 1) - (roleOrder[b.role] ?? 1)
+                        // Deduplicate messages by ID to prevent React duplicate key errors
+                        // (can occur due to race conditions, retries, or concurrent cache warming)
+                        const uniqueMessages = Array.from(
+                            new Map(
+                                cached.messages.map((msg) => [msg.id, msg])
+                            ).values()
                         );
-                    });
 
-                    const messagesData = sortedMessages.map((msg) => ({
-                        id: msg.id,
-                        chatId: msg.chatId,
-                        role: msg.role,
-                        parts: msg.parts,
-                        attachments: msg.attachments,
-                        createdAt: new Date(msg.createdAt),
-                    })) as MessageRow[];
+                        // Sort messages using shared helper (timestamp + role tiebreaker)
+                        const sortedMessages = sortMessagesByTimeAndRole(
+                            uniqueMessages.map((msg) => ({
+                                ...msg,
+                                createdAt: new Date(msg.createdAt),
+                            }))
+                        );
 
-                    return {
-                        chat: chatMeta,
-                        messages: messagesData,
-                    };
+                        // Apply safety limit to prevent memory issues
+                        if (sortedMessages.length > MAX_MESSAGES_LIMIT) {
+                            logWarn("Message limit exceeded, truncating", {
+                                chatId,
+                                totalMessages: sortedMessages.length,
+                                limit: MAX_MESSAGES_LIMIT,
+                            });
+                        }
+                        const limitedMessages = sortedMessages.slice(
+                            -MAX_MESSAGES_LIMIT
+                        );
+
+                        const messagesData = limitedMessages.map((msg) => ({
+                            id: msg.id,
+                            chatId: msg.chatId,
+                            role: msg.role,
+                            parts: msg.parts,
+                            attachments: msg.attachments,
+                            createdAt: msg.createdAt,
+                        })) as MessageRow[];
+
+                        return {
+                            chat: chatMeta,
+                            messages: messagesData,
+                        };
+                    }
+                } catch (cacheError) {
+                    // Task 9.10: Log cache error and fall through to DB for auth users
+                    logWarn(
+                        "Cache read failed in getWithMessages, falling back to DB",
+                        {
+                            chatId,
+                            error: cacheError,
+                        }
+                    );
+                    // For guests, cache is the only source - return null
+                    if (ctx.isGuest) {
+                        return null;
+                    }
+                    // For auth users, continue to DB fallback below
                 }
             }
 
@@ -231,57 +271,50 @@ export const chatData = {
             }
 
             // Authenticated users: cache miss - fetch from database
-            const [chatFromDb] = await withQueryTracking(
-                "chatData.getWithMessages:chat",
-                () => db.select().from(chat).where(eq(chat.id, chatId)),
-                { chatId }
-            );
+            // SECURITY: Filter by userId to prevent unauthorized access (IDOR protection)
+            const [chatFromDb] = await db
+                .select()
+                .from(chat)
+                .where(and(eq(chat.id, chatId), eq(chat.userId, ctx.userId)));
 
             if (!chatFromDb) {
                 return null;
             }
 
             // Fetch messages from database
-            const messagesFromDb = await withQueryTracking(
-                "chatData.getWithMessages:messages",
-                () =>
-                    db
-                        .select()
-                        .from(message)
-                        .where(eq(message.chatId, chatId))
-                        .orderBy(asc(message.createdAt)),
-                { chatId }
-            );
+            const messagesFromDb = await db
+                .select()
+                .from(message)
+                .where(eq(message.chatId, chatId))
+                .orderBy(asc(message.createdAt));
 
-            // Warm cache in background
-            if (isRedisAvailable() && chatFromDb.userId === ctx.userId) {
+            // Warm cache in background (fire-and-forget with error logging)
+            // Note: This is intentionally non-blocking; cache warming failures don't affect the response
+            // Note: userId check already done in query, so we can warm cache directly
+            if (isRedisAvailable()) {
                 warmChatCache(
                     chatId,
                     ctx.userId,
                     chatFromDb,
                     messagesFromDb as DBMessage[]
-                ).catch((err) => logError("Cache warming failed", err));
+                ).catch((err) =>
+                    logError("Background cache warming failed", err, { chatId })
+                );
             }
 
-            // Apply role-based sorting for messages with same timestamp
-            const sortedMessages = messagesFromDb.sort((a, b) => {
-                const timeA = a.createdAt.getTime();
-                const timeB = b.createdAt.getTime();
-                if (timeA !== timeB) {
-                    return timeA - timeB;
-                }
-                // Role tiebreaker: system < user < assistant
-                const roleOrder: Record<string, number> = {
-                    system: 0,
-                    user: 1,
-                    assistant: 2,
-                };
-                return (roleOrder[a.role] ?? 1) - (roleOrder[b.role] ?? 1);
-            });
+            // Sort messages using shared helper and apply safety limit
+            const sortedMessages = sortMessagesByTimeAndRole(messagesFromDb);
+            if (sortedMessages.length > MAX_MESSAGES_LIMIT) {
+                logWarn("Message limit exceeded in DB fetch, truncating", {
+                    chatId,
+                    totalMessages: sortedMessages.length,
+                    limit: MAX_MESSAGES_LIMIT,
+                });
+            }
 
             return {
                 chat: chatFromDb,
-                messages: sortedMessages,
+                messages: sortedMessages.slice(-MAX_MESSAGES_LIMIT),
             };
         } catch (error) {
             throw toDatabaseError(
@@ -330,7 +363,9 @@ export const chatData = {
                 const cacheKeys = chatList.map((item) =>
                     CacheKeys.chatMeta(item.chatId, ctx.userId)
                 );
-                const cachedChats = await redis.mget<any[]>(...cacheKeys);
+                const cachedChats = await redis.mget<(CachedChatMeta | null)[]>(
+                    ...cacheKeys
+                );
 
                 // Convert to full chat objects
                 const chats = cachedChats
@@ -362,39 +397,26 @@ export const chatData = {
             // Authenticated users: DB query with pagination
             const extendedLimit = limit + 1;
 
-            const query = (whereCondition?: any, label?: string) =>
-                withQueryTracking(
-                    `chatData.list:${label || "query"}`,
-                    () =>
-                        db
-                            .select()
-                            .from(chat)
-                            .where(
-                                whereCondition
-                                    ? and(
-                                          whereCondition,
-                                          eq(chat.userId, ctx.userId)
-                                      )
-                                    : eq(chat.userId, ctx.userId)
-                            )
-                            .orderBy(desc(chat.createdAt))
-                            .limit(extendedLimit),
-                    { userId: ctx.userId, limit: extendedLimit }
-                );
+            const query = (whereCondition?: SQL<unknown>) =>
+                db
+                    .select()
+                    .from(chat)
+                    .where(
+                        whereCondition
+                            ? and(whereCondition, eq(chat.userId, ctx.userId))
+                            : eq(chat.userId, ctx.userId)
+                    )
+                    .orderBy(desc(chat.createdAt))
+                    .limit(extendedLimit);
 
             let filteredChats: Chat[] = [];
 
             if (startingAfter) {
-                const [selectedChat] = await withQueryTracking(
-                    "chatData.list:cursor",
-                    () =>
-                        db
-                            .select()
-                            .from(chat)
-                            .where(eq(chat.id, startingAfter))
-                            .limit(1),
-                    { cursorId: startingAfter }
-                );
+                const [selectedChat] = await db
+                    .select()
+                    .from(chat)
+                    .where(eq(chat.id, startingAfter))
+                    .limit(1);
 
                 if (!selectedChat) {
                     throw new ChatSDKError(
@@ -404,20 +426,14 @@ export const chatData = {
                 }
 
                 filteredChats = await query(
-                    gt(chat.createdAt, selectedChat.createdAt),
-                    "after"
+                    gt(chat.createdAt, selectedChat.createdAt)
                 );
             } else if (endingBefore) {
-                const [selectedChat] = await withQueryTracking(
-                    "chatData.list:cursor",
-                    () =>
-                        db
-                            .select()
-                            .from(chat)
-                            .where(eq(chat.id, endingBefore))
-                            .limit(1),
-                    { cursorId: endingBefore }
-                );
+                const [selectedChat] = await db
+                    .select()
+                    .from(chat)
+                    .where(eq(chat.id, endingBefore))
+                    .limit(1);
 
                 if (!selectedChat) {
                     throw new ChatSDKError(
@@ -427,11 +443,10 @@ export const chatData = {
                 }
 
                 filteredChats = await query(
-                    lt(chat.createdAt, selectedChat.createdAt),
-                    "before"
+                    lt(chat.createdAt, selectedChat.createdAt)
                 );
             } else {
-                filteredChats = await query(undefined, "default");
+                filteredChats = await query();
             }
 
             const hasMore = filteredChats.length > limit;
@@ -454,7 +469,7 @@ export const chatData = {
      *
      * Flow:
      * - Guest users: write to cache only
-     * - Auth users: write to DB + cache in parallel
+     * - Auth users: DB-first approach (write to DB, then cache on success)
      *
      * @param params Chat creation parameters
      * @param ctx Data context (userId, isGuest)
@@ -492,24 +507,25 @@ export const chatData = {
                 return newChat as Chat;
             }
 
-            // Authenticated users: write to DB
-            const dbPromise = withQueryTracking(
-                "chatData.create",
-                () => db.insert(chat).values(newChat),
-                { chatId: id }
-            );
+            // Authenticated users: DB-FIRST approach to prevent cache/DB inconsistency
+            // Write to database first (source of truth)
+            await db.insert(chat).values(newChat);
 
-            // Optionally skip cache (will be created later with messages)
-            const cachePromise =
-                !skipCache && isRedisAvailable()
-                    ? setChatInCache(
-                          id,
-                          ctx.userId,
-                          chatToCache(newChat as Chat, [])
-                      )
-                    : Promise.resolve();
+            // Cache update AFTER DB success (fire-and-forget for performance)
+            // If cache fails, it will be warmed on next read
+            if (!skipCache && isRedisAvailable()) {
+                setChatInCache(
+                    id,
+                    ctx.userId,
+                    chatToCache(newChat as Chat, [])
+                ).catch((err) =>
+                    logError("Cache update failed after chat creation", err, {
+                        chatId: id,
+                        err,
+                    })
+                );
+            }
 
-            await Promise.all([dbPromise, cachePromise]);
             return newChat as Chat;
         } catch (error) {
             // If the user doesn't exist, inserting a chat will violate the FK constraint.
@@ -531,55 +547,60 @@ export const chatData = {
      *
      * @param chatId Chat UUID
      * @param ctx Data context (userId, isGuest)
-     * @returns Deleted chat (or undefined for guests)
+     * @returns Deleted chat (or null for guests/not found)
      */
-    delete: async (
-        chatId: string,
-        ctx: DataContext
-    ): Promise<Chat | undefined> => {
+    delete: async (chatId: string, ctx: DataContext): Promise<Chat | null> => {
         try {
             if (ctx.isGuest) {
                 // Guest users: cache-only deletion
                 await deleteChatFromCache(chatId, ctx.userId);
-                return;
+                return null;
             }
 
-            // Authenticated users: delete from DB and cache in parallel
-            const dbPromise = (async () => {
+            // Authenticated users: use transaction for atomic delete
+            // FIX IDOR: Verify ownership by filtering on userId
+            const result = await db.transaction(async (tx) => {
+                // First verify the chat belongs to this user
+                const chatToDelete = await tx
+                    .select({ id: chat.id })
+                    .from(chat)
+                    .where(
+                        and(eq(chat.id, chatId), eq(chat.userId, ctx.userId))
+                    )
+                    .limit(1);
+
+                if (chatToDelete.length === 0) {
+                    // Chat doesn't exist or doesn't belong to user - return null
+                    return null;
+                }
+
                 // Delete votes and messages in parallel (both depend on chat, not each other)
                 await Promise.all([
-                    withQueryTracking(
-                        "chatData.delete:votes",
-                        () => db.delete(vote).where(eq(vote.chatId, chatId)),
-                        { chatId }
-                    ),
-                    withQueryTracking(
-                        "chatData.delete:messages",
-                        () =>
-                            db
-                                .delete(message)
-                                .where(eq(message.chatId, chatId)),
-                        { chatId }
-                    ),
+                    tx.delete(vote).where(eq(vote.chatId, chatId)),
+                    tx.delete(message).where(eq(message.chatId, chatId)),
                 ]);
 
                 // Then delete the chat (must be after votes/messages due to FK)
-                const deletedChats = await withQueryTracking(
-                    "chatData.delete:chat",
-                    () =>
-                        db.delete(chat).where(eq(chat.id, chatId)).returning(),
-                    { chatId }
+                const deletedChats = await tx
+                    .delete(chat)
+                    .where(
+                        and(eq(chat.id, chatId), eq(chat.userId, ctx.userId))
+                    )
+                    .returning();
+
+                return deletedChats[0] ?? null;
+            });
+
+            // Delete from cache after DB transaction succeeds
+            if (isRedisAvailable()) {
+                deleteChatFromCache(chatId, ctx.userId).catch((err) =>
+                    logError("Cache delete failed after DB delete", err, {
+                        chatId,
+                        err,
+                    })
                 );
+            }
 
-                return deletedChats[0];
-            })();
-
-            // Delete from cache in parallel (doesn't depend on DB operations)
-            const cachePromise = isRedisAvailable()
-                ? deleteChatFromCache(chatId, ctx.userId)
-                : Promise.resolve();
-
-            const [result] = await Promise.all([dbPromise, cachePromise]);
             return result;
         } catch (error) {
             throw toDatabaseError(
@@ -599,68 +620,52 @@ export const chatData = {
     deleteAll: async (ctx: DataContext): Promise<{ deletedCount: number }> => {
         try {
             if (ctx.isGuest) {
-                // Get all chats for this user (use large limit to get all)
-                const chatList = await getUserChatsFromCache(
-                    ctx.userId,
-                    1000,
-                    0
-                );
-
-                // Delete each chat from cache
-                const deletePromises = chatList.map((item) =>
-                    deleteChatFromCache(item.chatId, ctx.userId)
-                );
-
-                await Promise.all(deletePromises);
-
-                return { deletedCount: chatList.length };
+                // Use atomic Lua script to delete all chats
+                // This prevents race conditions where new chats could be created
+                // between fetching the list and deleting individual chats
+                const deletedCount = await deleteAllChatsFromCache(ctx.userId);
+                return { deletedCount };
             }
 
-            // Authenticated users: delete from DB
-            const userChats = await withQueryTracking(
-                "chatData.deleteAll:listChats",
-                () =>
-                    db
-                        .select({ id: chat.id })
-                        .from(chat)
-                        .where(eq(chat.userId, ctx.userId)),
-                { userId: ctx.userId }
-            );
+            // Authenticated users: use transaction for atomic delete
+            const deletedCount = await db.transaction(async (tx) => {
+                const userChats = await tx
+                    .select({ id: chat.id })
+                    .from(chat)
+                    .where(eq(chat.userId, ctx.userId));
 
-            if (userChats.length === 0) {
-                return { deletedCount: 0 };
+                if (userChats.length === 0) {
+                    return 0;
+                }
+
+                const chatIds = userChats.map((chatRec) => chatRec.id);
+
+                // Delete votes and messages in parallel within transaction
+                await Promise.all([
+                    tx.delete(vote).where(inArray(vote.chatId, chatIds)),
+                    tx.delete(message).where(inArray(message.chatId, chatIds)),
+                ]);
+
+                const deletedChats = await tx
+                    .delete(chat)
+                    .where(eq(chat.userId, ctx.userId))
+                    .returning();
+
+                return deletedChats.length;
+            });
+
+            // Clear cache after DB transaction succeeds (fire-and-forget)
+            // This ensures consistency even if cache was populated
+            if (isRedisAvailable()) {
+                deleteAllChatsFromCache(ctx.userId).catch((err) =>
+                    logError("Cache cleanup failed after deleteAll", err, {
+                        userId: ctx.userId,
+                        err,
+                    })
+                );
             }
 
-            const chatIds = userChats.map((chatRec) => chatRec.id);
-
-            // OPTIMIZATION: Delete votes and messages in parallel (both depend on chat, not each other)
-            await Promise.all([
-                withQueryTracking(
-                    "chatData.deleteAll:votes",
-                    () => db.delete(vote).where(inArray(vote.chatId, chatIds)),
-                    { count: chatIds.length }
-                ),
-                withQueryTracking(
-                    "chatData.deleteAll:messages",
-                    () =>
-                        db
-                            .delete(message)
-                            .where(inArray(message.chatId, chatIds)),
-                    { count: chatIds.length }
-                ),
-            ]);
-
-            const deletedChats = await withQueryTracking(
-                "chatData.deleteAll:chats",
-                () =>
-                    db
-                        .delete(chat)
-                        .where(eq(chat.userId, ctx.userId))
-                        .returning(),
-                { userId: ctx.userId }
-            );
-
-            return { deletedCount: deletedChats.length };
+            return { deletedCount };
         } catch (error) {
             throw toDatabaseError(
                 "delete_all_chats_by_user_id",
@@ -683,24 +688,28 @@ export const chatData = {
         ctx: DataContext
     ): Promise<void> => {
         try {
-            // Run cache and DB updates in parallel
-            const cachePromise = isRedisAvailable()
-                ? updateChatTitleInCache(chatId, ctx.userId, title)
-                : Promise.resolve();
+            // Guest users: cache-only
+            if (ctx.isGuest) {
+                if (isRedisAvailable()) {
+                    await updateChatTitleInCache(chatId, ctx.userId, title);
+                }
+                return;
+            }
 
-            const dbPromise = ctx.isGuest
-                ? Promise.resolve()
-                : withQueryTracking(
-                      "chatData.updateTitle",
-                      () =>
-                          db
-                              .update(chat)
-                              .set({ title, updatedAt: new Date() })
-                              .where(eq(chat.id, chatId)),
-                      { chatId }
-                  );
+            // Authenticated users: DB-first approach
+            // Update database first (source of truth)
+            // SECURITY: Filter by userId to prevent IDOR attacks
+            await db
+                .update(chat)
+                .set({ title, updatedAt: new Date() })
+                .where(and(eq(chat.id, chatId), eq(chat.userId, ctx.userId)));
 
-            await Promise.all([cachePromise, dbPromise]);
+            // Then update cache (fire-and-forget for performance)
+            if (isRedisAvailable()) {
+                updateChatTitleInCache(chatId, ctx.userId, title).catch((err) =>
+                    logError("Cache title update failed", err, { chatId })
+                );
+            }
         } catch (error) {
             throw toDatabaseError(
                 "update_chat_title",
@@ -723,24 +732,35 @@ export const chatData = {
         ctx: DataContext
     ): Promise<void> => {
         try {
-            // Run cache and DB updates in parallel
-            const cachePromise = isRedisAvailable()
-                ? updateChatVisibilityInCache(chatId, ctx.userId, visibility)
-                : Promise.resolve();
+            // Guest users: cache-only
+            if (ctx.isGuest) {
+                if (isRedisAvailable()) {
+                    await updateChatVisibilityInCache(
+                        chatId,
+                        ctx.userId,
+                        visibility
+                    );
+                }
+                return;
+            }
 
-            const dbPromise = ctx.isGuest
-                ? Promise.resolve()
-                : withQueryTracking(
-                      "chatData.updateVisibility",
-                      () =>
-                          db
-                              .update(chat)
-                              .set({ visibility, updatedAt: new Date() })
-                              .where(eq(chat.id, chatId)),
-                      { chatId }
-                  );
+            // Authenticated users: DB-first approach
+            // SECURITY: Filter by userId to prevent IDOR attacks
+            await db
+                .update(chat)
+                .set({ visibility, updatedAt: new Date() })
+                .where(and(eq(chat.id, chatId), eq(chat.userId, ctx.userId)));
 
-            await Promise.all([cachePromise, dbPromise]);
+            // Then update cache (fire-and-forget)
+            if (isRedisAvailable()) {
+                updateChatVisibilityInCache(
+                    chatId,
+                    ctx.userId,
+                    visibility
+                ).catch((err) =>
+                    logError("Cache visibility update failed", err, { chatId })
+                );
+            }
         } catch (error) {
             throw toDatabaseError(
                 "update_chat_visibility",
@@ -752,6 +772,7 @@ export const chatData = {
 
     /**
      * Update chat context (usage metadata)
+     * Note: This is a best-effort operation - failures don't block chat flow
      *
      * @param chatId Chat UUID
      * @param context Usage context
@@ -763,23 +784,34 @@ export const chatData = {
         ctx: DataContext
     ): Promise<void> => {
         try {
-            // Run cache and DB updates in parallel
-            const cachePromise = isRedisAvailable()
-                ? updateChatLastContextInCache(chatId, ctx.userId, context)
-                : Promise.resolve();
+            // Guest users: cache-only
+            if (ctx.isGuest) {
+                if (isRedisAvailable()) {
+                    await updateChatLastContextInCache(
+                        chatId,
+                        ctx.userId,
+                        context
+                    );
+                }
+                return;
+            }
 
-            const dbPromise = ctx.isGuest
-                ? Promise.resolve()
-                : db
-                      .update(chat)
-                      .set({ lastContext: context, updatedAt: new Date() })
-                      .where(eq(chat.id, chatId));
+            // Authenticated users: DB-first approach
+            // SECURITY: Filter by userId to prevent IDOR attacks
+            await db
+                .update(chat)
+                .set({ lastContext: context, updatedAt: new Date() })
+                .where(and(eq(chat.id, chatId), eq(chat.userId, ctx.userId)));
 
-            await Promise.all([cachePromise, dbPromise]);
+            // Then update cache (fire-and-forget)
+            if (isRedisAvailable()) {
+                updateChatLastContextInCache(chatId, ctx.userId, context).catch(
+                    (err) =>
+                        logError("Cache context update failed", err, { chatId })
+                );
+            }
         } catch (error) {
-            // Note: Context updates are best-effort for usage tracking
-            // Failures here should not block the main chat flow
-            const { logWarn } = await import("../log");
+            // Context updates are best-effort for usage tracking
             logWarn("Failed to update lastContext for chat (best-effort)", {
                 chatId,
                 error,
@@ -801,8 +833,8 @@ export const messageData = {
      *
      * Flow:
      * 1. Check cache (for both guest and auth users)
-     * 2. Cache hit → return messages from denormalized structure
-     * 3. Cache miss → query DB (auth only)
+     * 2. Cache hit ÔåÆ return messages from denormalized structure
+     * 3. Cache miss ÔåÆ query DB (auth only)
      *
      * @param chatId Chat UUID
      * @param ctx Data context (userId, isGuest)
@@ -817,24 +849,13 @@ export const messageData = {
             if (isRedisAvailable()) {
                 const cached = await getChatFromCache(chatId, ctx.userId);
                 if (cached) {
-                    // Sort messages by timestamp with role-based tiebreaker
-                    // (defensive measure - cache should already be sorted, but ensures consistency)
-                    const sortedMessages = [...cached.messages].sort((a, b) => {
-                        const timeA = new Date(a.createdAt).getTime();
-                        const timeB = new Date(b.createdAt).getTime();
-                        if (timeA !== timeB) {
-                            return timeA - timeB;
-                        }
-                        // Role tiebreaker: system < user < assistant
-                        const roleOrder: Record<string, number> = {
-                            system: 0,
-                            user: 1,
-                            assistant: 2,
-                        };
-                        return (
-                            (roleOrder[a.role] ?? 1) - (roleOrder[b.role] ?? 1)
-                        );
-                    });
+                    // Sort messages using shared helper
+                    const sortedMessages = sortMessagesByTimeAndRole(
+                        cached.messages.map((msg) => ({
+                            ...msg,
+                            createdAt: new Date(msg.createdAt),
+                        }))
+                    );
 
                     // Return messages from cached denormalized structure
                     return sortedMessages.map((msg) => ({
@@ -843,7 +864,7 @@ export const messageData = {
                         role: msg.role,
                         parts: msg.parts,
                         attachments: msg.attachments,
-                        createdAt: new Date(msg.createdAt),
+                        createdAt: msg.createdAt,
                     })) as MessageRow[];
                 }
             }
@@ -853,33 +874,27 @@ export const messageData = {
                 return [];
             }
 
-            // Cache miss - fetch from database (already ordered by createdAt)
-            const dbMessages = await withQueryTracking(
-                "messageData.getForChat",
-                () =>
-                    db
-                        .select()
-                        .from(message)
-                        .where(eq(message.chatId, chatId))
-                        .orderBy(asc(message.createdAt)),
-                { chatId }
-            );
+            // Cache miss - fetch from database
+            // SECURITY: Verify user owns the chat before returning messages (IDOR protection)
+            const [chatRecord] = await db
+                .select({ id: chat.id })
+                .from(chat)
+                .where(and(eq(chat.id, chatId), eq(chat.userId, ctx.userId)))
+                .limit(1);
 
-            // Apply role-based sorting for messages with same timestamp
-            return dbMessages.sort((a, b) => {
-                const timeA = a.createdAt.getTime();
-                const timeB = b.createdAt.getTime();
-                if (timeA !== timeB) {
-                    return timeA - timeB;
-                }
-                // Role tiebreaker: system < user < assistant
-                const roleOrder: Record<string, number> = {
-                    system: 0,
-                    user: 1,
-                    assistant: 2,
-                };
-                return (roleOrder[a.role] ?? 1) - (roleOrder[b.role] ?? 1);
-            });
+            if (!chatRecord) {
+                // Chat doesn't exist or user doesn't own it
+                return [];
+            }
+
+            const dbMessages = await db
+                .select()
+                .from(message)
+                .where(eq(message.chatId, chatId))
+                .orderBy(asc(message.createdAt));
+
+            // Sort messages using shared helper
+            return sortMessagesByTimeAndRole(dbMessages);
         } catch (error) {
             throw toDatabaseError(
                 "get_messages_by_chat_id",
@@ -936,22 +951,16 @@ export const messageData = {
                 return;
             }
 
-            // Authenticated users: write to DB and cache
-            const dbPromise = withQueryTracking(
-                "messageData.save",
-                () =>
-                    db
-                        .insert(message)
-                        .values(messages)
-                        .onConflictDoNothing({ target: message.id }),
-                { messageCount: messages.length }
-            );
+            // Authenticated users: DB-first approach to prevent cache/DB inconsistency
+            // Write to database first - this is the source of truth
+            await db
+                .insert(message)
+                .values(messages)
+                .onConflictDoNothing({ target: message.id });
 
-            // Update cache in parallel - use bulk operation
-            const cachePromises: Promise<void>[] = [];
+            // Only update cache after DB write succeeds
             if (isRedisAvailable() && messages.length > 0) {
-                // OPTIMIZATION: Group messages by chatId using context userId
-                // No need to fetch chats - we're saving messages for the current user
+                // Group messages by chatId
                 const messagesByChatId = new Map<string, CachedMessage[]>();
 
                 for (const msg of messages) {
@@ -969,7 +978,9 @@ export const messageData = {
                     }
                 }
 
-                // Bulk append for each chat - skip existence check as we trust the caller
+                // Bulk append for each chat - fire-and-forget for performance
+                // Cache inconsistency here is acceptable as DB is source of truth
+                const cachePromises: Promise<void>[] = [];
                 for (const [chatId, cachedMsgs] of messagesByChatId.entries()) {
                     cachePromises.push(
                         appendMessagesToCache(chatId, ctx.userId, cachedMsgs, {
@@ -977,9 +988,11 @@ export const messageData = {
                         })
                     );
                 }
+
+                // Wait for cache updates but don't fail the operation if cache fails
+                await Promise.allSettled(cachePromises);
             }
 
-            await Promise.all([dbPromise, ...cachePromises]);
             return;
         } catch (error) {
             throw toDatabaseError(
@@ -1066,102 +1079,85 @@ export const messageData = {
                 return;
             }
 
-            // Authenticated users: save to DB
-            const dbPromises: Promise<any>[] = [];
-
-            // Insert messages with proper sequencing for new chats
-            let messageInsertPromise: Promise<any>;
+            // Authenticated users: DB-FIRST approach to prevent cache/DB inconsistency
+            // CRITICAL FIX: Execute DB operations FIRST, then update cache only on success
+            // This prevents orphaned cache entries when DB write fails
 
             if (isNewChat && title && visibility) {
-                // For new chats: create chat first, then insert messages
-                // This ensures FK constraint is satisfied and prevents orphaned chats
-                messageInsertPromise = withQueryTracking(
-                    "messageData.saveWithContext:createChat",
-                    () =>
-                        db.insert(chat).values({
-                            id: chatId,
+                // For new chats: use transaction to ensure atomicity
+                // If message insert fails, the chat won't be left orphaned
+                await db.transaction(async (tx) => {
+                    await tx.insert(chat).values({
+                        id: chatId,
+                        userId: ctx.userId,
+                        title,
+                        visibility,
+                        createdAt: createdAt || new Date(),
+                        updatedAt: new Date(),
+                        lastContext: lastContext || null,
+                    });
+
+                    await tx
+                        .insert(message)
+                        .values(messages)
+                        .onConflictDoNothing({ target: message.id });
+                });
+            } else {
+                // For existing chats, insert messages and update context
+                await db
+                    .insert(message)
+                    .values(messages)
+                    .onConflictDoNothing({ target: message.id });
+
+                // Update context in DB if provided (for existing chats)
+                // SECURITY: Filter by userId to prevent IDOR attacks
+                if (lastContext) {
+                    await db
+                        .update(chat)
+                        .set({ lastContext, updatedAt: new Date() })
+                        .where(
+                            and(
+                                eq(chat.id, chatId),
+                                eq(chat.userId, ctx.userId)
+                            )
+                        );
+                }
+            }
+
+            // Cache update AFTER DB success (fire-and-forget for performance)
+            // If cache update fails, DB is source of truth and cache will be warmed on next read
+            if (isRedisAvailable()) {
+                const updateCacheFn = async () => {
+                    if (isNewChat && title && visibility) {
+                        await createOrUpdateChatWithMessages({
+                            chatId,
                             userId: ctx.userId,
                             title,
                             visibility,
-                            createdAt: createdAt || new Date(),
-                            updatedAt: new Date(),
-                            lastContext: lastContext || null,
-                        }),
-                    { chatId, isNewChat: true }
-                ).then(() =>
-                    withQueryTracking(
-                        "messageData.saveWithContext:insertMessages",
-                        () =>
-                            db
-                                .insert(message)
-                                .values(messages)
-                                .onConflictDoNothing({ target: message.id }),
-                        { chatId, messageCount: messages.length }
-                    )
-                );
-            } else {
-                // For existing chats, insert messages immediately
-                messageInsertPromise = withQueryTracking(
-                    "messageData.saveWithContext:insertMessages",
-                    () =>
-                        db
-                            .insert(message)
-                            .values(messages)
-                            .onConflictDoNothing({ target: message.id }),
-                    { chatId, messageCount: messages.length }
+                            messages: cachedMessages,
+                            lastContext,
+                            createdAt,
+                            _isNewChat: true,
+                        });
+                    } else {
+                        await batchUpdateChatCache({
+                            chatId,
+                            userId: ctx.userId,
+                            messages: cachedMessages,
+                            lastContext,
+                            title,
+                        });
+                    }
+                };
+
+                // Fire-and-forget: cache failures don't block the response
+                updateCacheFn().catch((err) =>
+                    logError("Cache update failed after DB success", err, {
+                        chatId,
+                        err,
+                    })
                 );
             }
-
-            // Update context in DB if provided (for existing chats)
-            if (lastContext && !isNewChat) {
-                dbPromises.push(
-                    withQueryTracking(
-                        "messageData.saveWithContext:updateContext",
-                        () =>
-                            db
-                                .update(chat)
-                                .set({ lastContext, updatedAt: new Date() })
-                                .where(eq(chat.id, chatId)),
-                        { chatId }
-                    )
-                );
-            }
-
-            // Optimized cache update (runs in parallel with DB operations)
-            const cachePromise = isRedisAvailable()
-                ? (async () => {
-                      if (isNewChat && title && visibility) {
-                          // For new chats, create with messages in one operation
-                          // Pass isNewChat to skip redundant existence check
-                          await createOrUpdateChatWithMessages({
-                              chatId,
-                              userId: ctx.userId,
-                              title,
-                              visibility,
-                              messages: cachedMessages,
-                              lastContext,
-                              createdAt,
-                              _isNewChat: true,
-                          });
-                      } else {
-                          // For existing chats, use batch update
-                          await batchUpdateChatCache({
-                              chatId,
-                              userId: ctx.userId,
-                              messages: cachedMessages,
-                              lastContext,
-                              title,
-                          });
-                      }
-                  })()
-                : Promise.resolve();
-
-            // Wait for all operations to complete
-            await Promise.all([
-                messageInsertPromise,
-                ...dbPromises,
-                cachePromise,
-            ]);
 
             // OPTIMIZATION: Increment quota counter for user messages (fire-and-forget)
             // Only count user messages (not assistant responses)
@@ -1206,61 +1202,46 @@ export const messageData = {
                   )
                 : Promise.resolve();
 
+            // FIX Issue 2.3: Use transaction to prevent race conditions
+            // A concurrent message insert between select and delete could leave orphaned votes
             const dbPromise = ctx.isGuest
                 ? Promise.resolve()
-                : (async () => {
-                      const messagesToDelete = await withQueryTracking(
-                          "messageData.deleteAfterTimestamp:select",
-                          () =>
-                              db
-                                  .select({ id: message.id })
-                                  .from(message)
-                                  .where(
-                                      and(
-                                          eq(message.chatId, chatId),
-                                          gte(message.createdAt, timestamp)
-                                      )
-                                  ),
-                          { chatId }
-                      );
+                : db.transaction(async (tx) => {
+                      const messagesToDelete = await tx
+                          .select({ id: message.id })
+                          .from(message)
+                          .where(
+                              and(
+                                  eq(message.chatId, chatId),
+                                  gte(message.createdAt, timestamp)
+                              )
+                          );
 
                       const messageIds = messagesToDelete.map(
                           (msgRec) => msgRec.id
                       );
 
                       if (messageIds.length > 0) {
-                          await withQueryTracking(
-                              "messageData.deleteAfterTimestamp:votes",
-                              () =>
-                                  db
-                                      .delete(vote)
-                                      .where(
-                                          and(
-                                              eq(vote.chatId, chatId),
-                                              inArray(
-                                                  vote.messageId,
-                                                  messageIds
-                                              )
-                                          )
-                                      ),
-                              { chatId, count: messageIds.length }
-                          );
+                          // Delete votes and messages within the same transaction
+                          await tx
+                              .delete(vote)
+                              .where(
+                                  and(
+                                      eq(vote.chatId, chatId),
+                                      inArray(vote.messageId, messageIds)
+                                  )
+                              );
 
-                          await withQueryTracking(
-                              "messageData.deleteAfterTimestamp:messages",
-                              () =>
-                                  db
-                                      .delete(message)
-                                      .where(
-                                          and(
-                                              eq(message.chatId, chatId),
-                                              inArray(message.id, messageIds)
-                                          )
-                                      ),
-                              { chatId, count: messageIds.length }
-                          );
+                          await tx
+                              .delete(message)
+                              .where(
+                                  and(
+                                      eq(message.chatId, chatId),
+                                      inArray(message.id, messageIds)
+                                  )
+                              );
                       }
-                  })();
+                  });
 
             await Promise.all([cachePromise, dbPromise]);
         } catch (error) {

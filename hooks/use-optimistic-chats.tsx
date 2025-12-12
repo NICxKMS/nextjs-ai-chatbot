@@ -5,6 +5,7 @@ import {
     type ReactNode,
     useCallback,
     useContext,
+    useRef,
     useState,
 } from "react";
 import { ChatSDKError } from "@/lib/errors";
@@ -14,6 +15,9 @@ type OptimisticChat = {
     title: string;
     createdAt: Date;
 };
+
+// Maximum number of optimistic chats to prevent unbounded memory growth
+const MAX_OPTIMISTIC_CHATS = 50;
 
 type OptimisticChatsContextType = {
     optimisticChats: OptimisticChat[];
@@ -30,21 +34,35 @@ export function OptimisticChatsProvider({ children }: { children: ReactNode }) {
     const [optimisticChats, setOptimisticChats] = useState<OptimisticChat[]>(
         []
     );
+    // Use Set for O(1) duplicate detection instead of Array.some() which is O(n)
+    const optimisticChatIdsRef = useRef(new Set<string>());
 
     const addOptimisticChat = useCallback((chatId: string) => {
+        // O(1) duplicate check using Set
+        if (optimisticChatIdsRef.current.has(chatId)) {
+            return;
+        }
+        optimisticChatIdsRef.current.add(chatId);
+
         setOptimisticChats((prev) => {
-            // Don't add duplicate
-            if (prev.some((chat) => chat.id === chatId)) {
-                return prev;
+            const newChat: OptimisticChat = {
+                id: chatId,
+                title: "New Chat", // Initial placeholder, will be updated when title is generated
+                createdAt: new Date(),
+            };
+            const updated = [newChat, ...prev];
+
+            // Enforce maximum size limit to prevent unbounded memory growth
+            if (updated.length > MAX_OPTIMISTIC_CHATS) {
+                // Remove oldest entries and clean up the Set
+                const removed = updated.slice(MAX_OPTIMISTIC_CHATS);
+                for (const chat of removed) {
+                    optimisticChatIdsRef.current.delete(chat.id);
+                }
+                return updated.slice(0, MAX_OPTIMISTIC_CHATS);
             }
-            return [
-                {
-                    id: chatId,
-                    title: "New Chat", // Initial placeholder, will be updated when title is generated
-                    createdAt: new Date(),
-                },
-                ...prev,
-            ];
+
+            return updated;
         });
     }, []);
 
@@ -60,6 +78,7 @@ export function OptimisticChatsProvider({ children }: { children: ReactNode }) {
     );
 
     const removeOptimisticChat = useCallback((chatId: string) => {
+        optimisticChatIdsRef.current.delete(chatId);
         setOptimisticChats((prev) => prev.filter((chat) => chat.id !== chatId));
     }, []);
 

@@ -108,7 +108,8 @@ function PureMultimodalInput({
 
     const [localStorageInput, setLocalStorageInput] = useLocalStorage(
         "input",
-        ""
+        "",
+        { initializeWithValue: false }
     );
 
     // Debounce localStorage writes to avoid excessive writes on every keystroke
@@ -117,16 +118,22 @@ function PureMultimodalInput({
         500
     );
 
+    // Track hydration initialization to run effect only once
+    const hasHydratedRef = useRef(false);
+
     useEffect(() => {
+        // Only run once after initial hydration
+        if (hasHydratedRef.current) {
+            return;
+        }
         if (textareaRef.current) {
+            hasHydratedRef.current = true;
             const domValue = textareaRef.current.value;
             // Prefer DOM value over localStorage to handle hydration
             const finalValue = domValue || localStorageInput || "";
             setInput(finalValue);
             adjustHeight();
         }
-        // Only run once after hydration
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [adjustHeight, localStorageInput, setInput]);
 
     useEffect(() => {
@@ -179,14 +186,28 @@ function PureMultimodalInput({
         resetHeight,
     ]);
 
+    // AbortController ref for cancelling uploads on unmount
+    const uploadAbortControllerRef = useRef<AbortController | null>(null);
+
+    // Cleanup uploads on unmount
+    useEffect(() => {
+        return () => {
+            uploadAbortControllerRef.current?.abort();
+        };
+    }, []);
+
     const uploadFile = useCallback(async (file: File) => {
         const formData = new FormData();
         formData.append("file", file);
+
+        // Create new AbortController for this upload batch
+        uploadAbortControllerRef.current = new AbortController();
 
         try {
             const response = await fetch("/api/files/upload", {
                 method: "POST",
                 body: formData,
+                signal: uploadAbortControllerRef.current.signal,
             });
 
             if (response.ok) {
@@ -201,7 +222,11 @@ function PureMultimodalInput({
             }
             const { error } = await response.json();
             toast.error(error);
-        } catch (_error) {
+        } catch (error) {
+            // Don't show error toast if upload was aborted (e.g., component unmount)
+            if (error instanceof Error && error.name === "AbortError") {
+                return;
+            }
             toast.error("Failed to upload file, please try again!");
         }
     }, []);
@@ -454,6 +479,9 @@ function PureModelSelectorCompact({
         (model) => model.id === optimisticModelId
     );
 
+    // Fallback to first available model if selected model not found
+    const displayModel = selectedModel ?? availableModels[0];
+
     return (
         <PromptInputModelSelect
             onValueChange={(modelName) => {
@@ -461,9 +489,14 @@ function PureModelSelectorCompact({
                 if (model) {
                     setOptimisticModelId(model.id);
                     onModelChange?.(model.id);
+                } else {
+                    // Reset to selected model if name not found (edge case)
+                    logError("Model selector: model name not found", {
+                        modelName,
+                    });
                 }
             }}
-            value={selectedModel?.name}
+            value={displayModel?.name}
         >
             <Trigger
                 className="flex h-8 items-center gap-2 rounded-lg border-0 bg-background px-2 text-foreground shadow-none transition-colors hover:bg-accent focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -471,7 +504,7 @@ function PureModelSelectorCompact({
             >
                 <CpuIcon size={16} />
                 <span className="hidden font-medium text-xs sm:block">
-                    {selectedModel?.name}
+                    {displayModel?.name}
                 </span>
                 <ChevronDownIcon size={16} />
             </Trigger>

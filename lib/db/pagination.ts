@@ -46,7 +46,11 @@ export type PaginationOptions<T> = {
     sortOrder?: "asc" | "desc";
 };
 
-export type PaginatedResult<T> = {
+/**
+ * Cursor-based paginated result for DB queries.
+ * Distinct from PaginatedResult in lib/data/base.ts which is simpler (items, hasMore only).
+ */
+export type CursorPaginatedResult<T> = {
     /** Array of records */
     data: T[];
     /** Cursor for next page (null if no more pages) */
@@ -157,7 +161,7 @@ export async function paginate<T extends Record<string, unknown>>(
         [K in keyof T]: unknown;
     },
     options: PaginationOptions<T>
-): Promise<PaginatedResult<T>> {
+): Promise<CursorPaginatedResult<T>> {
     const {
         limit,
         cursor,
@@ -264,7 +268,7 @@ export async function paginateWithCount<T extends Record<string, unknown>>(
     table: Parameters<typeof paginate<T>>[1],
     countQuery: Promise<Array<{ count: number }>>,
     options: PaginationOptions<T>
-): Promise<PaginatedResult<T>> {
+): Promise<CursorPaginatedResult<T>> {
     const [paginatedResult, countResult] = await Promise.all([
         paginate(query, table, options),
         countQuery,
@@ -280,7 +284,7 @@ export async function paginateWithCount<T extends Record<string, unknown>>(
  * Helper to create pagination response for API endpoints
  */
 export function createPaginationResponse<T>(
-    result: PaginatedResult<T>,
+    result: CursorPaginatedResult<T>,
     baseUrl: string
 ) {
     return {

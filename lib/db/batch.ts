@@ -1,6 +1,7 @@
 import "server-only";
 
 import { trace } from "@opentelemetry/api";
+import { eq, inArray } from "drizzle-orm";
 import { logError } from "@/lib/log";
 import { db } from "./queries";
 
@@ -170,10 +171,19 @@ export async function batchUpdate<T extends { id: string }>(
             const result = await db.transaction(async (tx) => {
                 let count = 0;
                 for (const { id, data } of chunk) {
+                    const tableRef = table as Parameters<typeof db.update>[0];
+                    // Note: This assumes table has an 'id' column. For tables without 'id',
+                    // use the specific table import directly instead of this generic function.
                     await tx
-                        .update(table as Parameters<typeof db.update>[0])
+                        .update(tableRef)
                         .set(data as Record<string, unknown>)
-                        .where((table as any).id.eq(id));
+                        .where(
+                            eq(
+                                (tableRef as unknown as { id: unknown })
+                                    .id as Parameters<typeof eq>[0],
+                                id
+                            )
+                        );
                     count++;
                 }
                 return count;
@@ -259,9 +269,18 @@ export async function batchDelete(
 
     for (const [index, chunk] of chunks.entries()) {
         try {
+            const tableRef = table as Parameters<typeof db.delete>[0];
+            // Note: This assumes table has an 'id' column. For tables without 'id',
+            // use the specific table import directly instead of this generic function.
             await db
-                .delete(table as Parameters<typeof db.delete>[0])
-                .where((table as any).id.in(chunk)); // Count deleted rows (if supported)
+                .delete(tableRef)
+                .where(
+                    inArray(
+                        (tableRef as unknown as { id: unknown })
+                            .id as Parameters<typeof inArray>[0],
+                        chunk
+                    )
+                );
             deleteCount += chunk.length;
 
             if (span) {

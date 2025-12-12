@@ -9,6 +9,7 @@ import { type ChatWithMessages, createContext } from "@/lib/data/base";
 import { chatData } from "@/lib/data/chat";
 import { getVotesByChatIdAndUserId } from "@/lib/db/queries";
 import type { Vote } from "@/lib/db/schema";
+import { logError } from "@/lib/log";
 import { convertToUIMessages } from "@/lib/utils";
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
@@ -32,8 +33,9 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     let result: ChatWithMessages | null;
     try {
         result = await chatData.getWithMessages(id, ctx);
-    } catch (_error) {
+    } catch (error) {
         // Database error - redirect to home with error notice
+        logError("chat_page_load_failed", error, { chatId: id });
         redirect("/?notice=chat_not_found");
     }
 
@@ -44,6 +46,12 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     const { chat, messages: messagesFromDb } = result;
 
     if (chat.visibility === "private" && session.user.id !== chat.userId) {
+        logError("chat_access_denied", undefined, {
+            chatId: id,
+            visibility: chat.visibility,
+            requestingUserId: session.user.id,
+            ownerUserId: chat.userId,
+        });
         return redirect("/?notice=chat_not_found");
     }
 
@@ -62,8 +70,9 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
                       userId: session.user.id,
                   })
                 : [];
-    } catch (_error) {
+    } catch (error) {
         // Database error fetching votes - continue without votes
+        logError("votes_fetch_failed", error, { chatId: id });
         votes = [];
     }
 

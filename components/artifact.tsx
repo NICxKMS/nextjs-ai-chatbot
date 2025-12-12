@@ -8,6 +8,7 @@ import {
     type SetStateAction,
     useCallback,
     useEffect,
+    useRef,
     useState,
 } from "react";
 import useSWR, { useSWRConfig } from "swr";
@@ -23,6 +24,7 @@ import type { Attachment, ChatMessage, UserVote } from "@/lib/types";
 import { fetcher } from "@/lib/utils";
 import { ArtifactActions } from "./artifact-actions";
 import { ArtifactCloseButton } from "./artifact-close-button";
+import { ArtifactErrorBoundary } from "./artifact-error-boundary";
 import { ArtifactMessages } from "./artifact-messages";
 import { MultimodalInput } from "./multimodal-input";
 import { Toolbar } from "./toolbar";
@@ -90,11 +92,9 @@ function PureArtifact({
 }) {
     const { artifact, setArtifact, metadata, setMetadata } = useArtifact();
 
-    const {
-        data: documents,
-        isLoading: isDocumentsFetching,
-        mutate: mutateDocuments,
-    } = useSWR<Document[]>(
+    const { data: documents, isLoading: isDocumentsFetching } = useSWR<
+        Document[]
+    >(
         artifact.documentId !== "init" && artifact.status !== "streaming"
             ? `/api/document?id=${artifact.documentId}`
             : null,
@@ -129,18 +129,26 @@ function PureArtifact({
         }
     }, [documents, setArtifact]);
 
-    useEffect(() => {
-        mutateDocuments();
-    }, [mutateDocuments]);
+    // Note: mutateDocuments is not called in a useEffect since SWR auto-revalidation
+    // handles document updates. The SWR key already depends on artifact.documentId.
 
     const { mutate } = useSWRConfig();
     const [isContentDirty, setIsContentDirty] = useState(false);
+    // Track pending save request for deduplication
+    const pendingSaveRef = useRef<AbortController | null>(null);
 
     const handleContentChange = useCallback(
         (updatedContent: string) => {
             if (!artifact) {
                 return;
             }
+
+            // Cancel any pending save to prevent race conditions
+            if (pendingSaveRef.current) {
+                pendingSaveRef.current.abort();
+            }
+            const abortController = new AbortController();
+            pendingSaveRef.current = abortController;
 
             mutate<Document[]>(
                 `/api/document?id=${artifact.documentId}`,
@@ -157,16 +165,39 @@ function PureArtifact({
                     }
 
                     if (currentDocument.content !== updatedContent) {
-                        await fetch(`/api/document?id=${artifact.documentId}`, {
-                            method: "POST",
-                            body: JSON.stringify({
-                                title: artifact.title,
-                                content: updatedContent,
-                                kind: artifact.kind,
-                            }),
-                        });
+                        try {
+                            const response = await fetch(
+                                `/api/document?id=${artifact.documentId}`,
+                                {
+                                    method: "POST",
+                                    body: JSON.stringify({
+                                        title: artifact.title,
+                                        content: updatedContent,
+                                        kind: artifact.kind,
+                                    }),
+                                    signal: abortController.signal,
+                                }
+                            );
 
-                        setIsContentDirty(false);
+                            setIsContentDirty(false);
+                            pendingSaveRef.current = null;
+
+                            // If save failed, don't update cache with optimistic data
+                            if (!response.ok) {
+                                return currentDocuments;
+                            }
+                        } catch (error) {
+                            // If request was aborted, return current data without updating
+                            if (
+                                error instanceof Error &&
+                                error.name === "AbortError"
+                            ) {
+                                return currentDocuments;
+                            }
+                            setIsContentDirty(false);
+                            pendingSaveRef.current = null;
+                            return currentDocuments;
+                        }
 
                         const newDocument = {
                             ...currentDocument,
@@ -191,7 +222,12 @@ function PureArtifact({
 
     const saveContent = useCallback(
         (updatedContent: string, debounce: boolean) => {
-            if (document && updatedContent !== document.content) {
+            // Skip save if document not loaded yet - content will be set from server when loaded
+            if (!document) {
+                return;
+            }
+
+            if (updatedContent !== document.content) {
                 setIsContentDirty(true);
 
                 if (debounce) {
@@ -488,29 +524,34 @@ function PureArtifact({
                         </div>
 
                         <div className="h-full max-w-full! items-center overflow-y-scroll bg-background dark:bg-muted">
-                            <safeArtifactDefinition.content
-                                content={
-                                    isCurrentVersion
-                                        ? artifact.content
-                                        : getDocumentContentById(
-                                              currentVersionIndex
-                                          )
-                                }
-                                currentVersionIndex={currentVersionIndex}
-                                getDocumentContentById={getDocumentContentById}
-                                isCurrentVersion={isCurrentVersion}
-                                isInline={false}
-                                isLoading={
-                                    isDocumentsFetching && !artifact.content
-                                }
-                                metadata={metadata}
-                                mode={mode}
-                                onSaveContent={saveContent}
-                                setMetadata={setMetadata}
-                                status={artifact.status}
-                                suggestions={[]}
-                                title={artifact.title}
-                            />
+                            {/* Task 9.12: Wrap artifact rendering in error boundary with fallback UI */}
+                            <ArtifactErrorBoundary>
+                                <safeArtifactDefinition.content
+                                    content={
+                                        isCurrentVersion
+                                            ? artifact.content
+                                            : getDocumentContentById(
+                                                  currentVersionIndex
+                                              )
+                                    }
+                                    currentVersionIndex={currentVersionIndex}
+                                    getDocumentContentById={
+                                        getDocumentContentById
+                                    }
+                                    isCurrentVersion={isCurrentVersion}
+                                    isInline={false}
+                                    isLoading={
+                                        isDocumentsFetching && !artifact.content
+                                    }
+                                    metadata={metadata}
+                                    mode={mode}
+                                    onSaveContent={saveContent}
+                                    setMetadata={setMetadata}
+                                    status={artifact.status}
+                                    suggestions={[]}
+                                    title={artifact.title}
+                                />
+                            </ArtifactErrorBoundary>
 
                             <AnimatePresence>
                                 {isCurrentVersion && (
@@ -559,6 +600,16 @@ export const Artifact = memo(PureArtifact, (prevProps, nextProps) => {
         return false;
     }
     if (prevProps.selectedVisibilityType !== nextProps.selectedVisibilityType) {
+        return false;
+    }
+    // Check props that affect rendering
+    if (prevProps.isReadonly !== nextProps.isReadonly) {
+        return false;
+    }
+    if (prevProps.selectedModelId !== nextProps.selectedModelId) {
+        return false;
+    }
+    if (!equal(prevProps.attachments, nextProps.attachments)) {
         return false;
     }
 

@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -72,6 +73,7 @@ export default function RootLayout({
                     {THEME_COLOR_SCRIPT}
                 </Script>
                 <SpeedInsights />
+                <Analytics />
                 <Suspense fallback={<AppShellFallback />}>
                     <AppShell>{children}</AppShell>
                 </Suspense>

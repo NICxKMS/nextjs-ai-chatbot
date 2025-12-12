@@ -3,6 +3,7 @@ import "server-only";
 import { trace } from "@opentelemetry/api";
 import { getRedisClient } from "@/lib/cache/redis";
 import { logError, logWarn } from "@/lib/log";
+import { RATE_LIMITS } from "./rate-limit-config";
 
 /**
  * ==============================================================================
@@ -422,52 +423,53 @@ export function createRateLimiter(config: Omit<RateLimitConfig, "identifier">) {
 
 /**
  * Pre-configured rate limiters for common use cases
+ * Uses centralized constants from rate-limit-config.ts
  */
 export const RateLimiters = {
-    /** Strict: 10 requests per minute */
+    /** Strict: For destructive or sensitive operations */
     strict: (identifier: string) =>
         checkRateLimit({
             strategy: "sliding_window",
-            limit: 10,
-            window: 60,
+            limit: RATE_LIMITS.STRICT.limit,
+            window: RATE_LIMITS.STRICT.window,
             identifier,
         }),
 
-    /** Standard: 100 requests per minute */
+    /** Standard: For general API calls */
     standard: (identifier: string) =>
         checkRateLimit({
             strategy: "sliding_window",
-            limit: 100,
-            window: 60,
+            limit: RATE_LIMITS.STANDARD.limit,
+            window: RATE_LIMITS.STANDARD.window,
             identifier,
         }),
 
-    /** Generous: 1000 requests per minute */
+    /** Generous: For high-volume endpoints */
     generous: (identifier: string) =>
         checkRateLimit({
             strategy: "sliding_window",
-            limit: 1000,
-            window: 60,
+            limit: RATE_LIMITS.GENEROUS.limit,
+            window: RATE_LIMITS.GENEROUS.window,
             identifier,
         }),
 
-    /** Per-user chat: 50 requests per minute */
+    /** Chat: For AI chat completions (token bucket for bursts) */
     chat: (userId: string) =>
         checkRateLimit({
             strategy: "token_bucket",
-            limit: 50,
-            window: 60,
+            limit: RATE_LIMITS.CHAT.limit,
+            window: RATE_LIMITS.CHAT.window,
             identifier: userId,
-            namespace: "chat",
+            namespace: RATE_LIMITS.CHAT.namespace,
         }),
 
-    /** File upload: 5 requests per hour */
+    /** Upload: For file uploads (very strict, per hour) */
     upload: (userId: string) =>
         checkRateLimit({
             strategy: "fixed_window",
-            limit: 5,
-            window: 3600,
+            limit: RATE_LIMITS.UPLOAD.limit,
+            window: RATE_LIMITS.UPLOAD.window,
             identifier: userId,
-            namespace: "upload",
+            namespace: RATE_LIMITS.UPLOAD.namespace,
         }),
 };

@@ -113,8 +113,14 @@ export function SidebarUserNav({ user }: { user: { email?: string | null } }) {
                                     if (!session || isGuest) {
                                         router.push("/login");
                                     } else {
-                                        getSupabaseBrowserClient()
-                                            .auth.signOut()
+                                        // Call server-side logout first to properly invalidate cookies
+                                        fetch("/api/auth/logout", {
+                                            method: "POST",
+                                            credentials: "include",
+                                        })
+                                            .then(() =>
+                                                getSupabaseBrowserClient().auth.signOut()
+                                            )
                                             .then(() => {
                                                 // Clear SWR cache to prevent stale authenticated user chats
                                                 // from appearing after logout

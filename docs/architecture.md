@@ -35,7 +35,7 @@ graph TB
     end
 
     subgraph Monitoring["Observability"]
-        NewRelic[New Relic]
+        Sentry[Sentry]
         OTEL[OpenTelemetry]
     end
 
@@ -52,7 +52,7 @@ graph TB
     Registry --> Providers
     Providers --> Tools
     API --> OTEL
-    OTEL --> NewRelic
+    OTEL --> Sentry
 ```
 
 ## Data Flow Patterns
