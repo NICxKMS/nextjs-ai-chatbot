@@ -61,8 +61,9 @@ export function SidebarUserNav({ user }: { user: { email?: string | null } }) {
                             >
                                 <Image
                                     alt={displayLabel}
-                                    className="rounded-full"
+                                    className="size-6 shrink-0 rounded-full"
                                     height={24}
+                                    priority
                                     src={`https://avatar.vercel.sh/${avatarSeed}`}
                                     width={24}
                                 />
@@ -90,7 +91,9 @@ export function SidebarUserNav({ user }: { user: { email?: string | null } }) {
                                 )
                             }
                         >
-                            {`Toggle ${resolvedTheme === "light" ? "dark" : "light"} mode`}
+                            <span suppressHydrationWarning>
+                                {`Toggle ${resolvedTheme === "light" ? "dark" : "light"} mode`}
+                            </span>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem

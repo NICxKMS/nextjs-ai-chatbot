@@ -38,9 +38,13 @@ export type SettingsStore = {
 const SettingsContext = createContext<SettingsStore | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
+    // Use initializeWithValue: false to prevent hydration mismatch
+    // This ensures the first render uses DEFAULT_SETTINGS, and localStorage
+    // is only read after hydration, preventing a flash/re-render
     const [settings, setSettings] = useLocalStorage<AppSettings>(
         SETTINGS_STORAGE_KEY,
-        DEFAULT_SETTINGS
+        DEFAULT_SETTINGS,
+        { initializeWithValue: false }
     );
 
     const value = useMemo<SettingsStore>(

@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 
 type GreetingProps = {
@@ -13,26 +12,20 @@ export const Greeting = ({ availableModels }: GreetingProps) => {
             className="mx-auto mt-4 flex size-full max-w-3xl flex-col justify-center px-4 md:mt-16 md:px-8"
             key="overview"
         >
-            <motion.div
-                animate={{ opacity: 1, y: 0 }}
-                className="font-semibold text-xl md:text-2xl"
-                exit={{ opacity: 0, y: 10 }}
-                initial={{ opacity: 0, y: 10 }}
-                transition={{ delay: 0.5 }}
+            <div
+                className="animate-fade-in-up-delayed font-semibold text-xl md:text-2xl"
+                style={{ animationDelay: "0.5s" }}
             >
                 Hello there!
-            </motion.div>
-            <motion.div
-                animate={{ opacity: 1, y: 0 }}
-                className="text-xl text-zinc-500 md:text-2xl"
-                exit={{ opacity: 0, y: 10 }}
-                initial={{ opacity: 0, y: 10 }}
-                transition={{ delay: 0.6 }}
+            </div>
+            <div
+                className="animate-fade-in-up-delayed text-xl text-zinc-500 md:text-2xl"
+                style={{ animationDelay: "0.6s" }}
             >
                 {modelCount > 0
                     ? `How can I help you today? You have access to ${modelCount} models.`
                     : "How can I help you today?"}
-            </motion.div>
+            </div>
         </div>
     );
 };

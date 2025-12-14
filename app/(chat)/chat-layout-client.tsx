@@ -7,7 +7,6 @@ import type { ReactNode } from "react";
 import { Suspense, useEffect } from "react";
 import { toast } from "sonner";
 import { DataStreamProvider } from "@/components/data-stream-provider";
-import { Loader } from "@/components/elements/loader";
 import { SidebarSkeleton } from "@/components/sidebar-skeleton";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { OptimisticChatsProvider } from "@/hooks/use-optimistic-chats";
@@ -18,7 +17,7 @@ const AppSidebar = dynamic(
         import("@/components/app-sidebar").then((mod) => ({
             default: mod.AppSidebar,
         })),
-    { ssr: false, loading: () => <SidebarSkeleton /> }
+    { loading: () => <SidebarSkeleton /> }
 );
 
 export function ChatLayoutClient({ children }: { children: ReactNode }) {
@@ -63,15 +62,8 @@ export function ChatLayoutClient({ children }: { children: ReactNode }) {
                                 <AppSidebar />
                             </Suspense>
                             <SidebarInset>
-                                <Suspense
-                                    fallback={
-                                        <div className="flex h-full w-full items-center justify-center">
-                                            <Loader size={24} />
-                                        </div>
-                                    }
-                                >
-                                    {children}
-                                </Suspense>
+                                {/* Children rendered directly - loading handled by Next.js route segments */}
+                                {children}
                             </SidebarInset>
                         </SidebarProvider>
                     </OptimisticChatsProvider>

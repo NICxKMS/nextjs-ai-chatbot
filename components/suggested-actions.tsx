@@ -1,7 +1,7 @@
 "use client";
 
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { motion } from "framer-motion";
+import type { CSSProperties } from "react";
 import { memo } from "react";
 import type { ChatMessage } from "@/lib/types";
 import { Suggestion } from "./elements/suggestion";
@@ -27,12 +27,10 @@ function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
             data-testid="suggested-actions"
         >
             {suggestedActions.map((suggestedAction, index) => (
-                <motion.div
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 20 }}
-                    initial={{ opacity: 0, y: 20 }}
+                <div
+                    className="animate-stagger-item"
                     key={suggestedAction}
-                    transition={{ delay: 0.05 * index }}
+                    style={{ "--stagger-index": index } as CSSProperties}
                 >
                     <Suggestion
                         className="h-auto w-full whitespace-normal p-3 text-left"
@@ -51,7 +49,7 @@ function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
                     >
                         {suggestedAction}
                     </Suggestion>
-                </motion.div>
+                </div>
             ))}
         </div>
     );

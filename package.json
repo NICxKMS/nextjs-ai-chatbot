@@ -16,7 +16,7 @@
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
     "test": "export PLAYWRIGHT=True && pnpm exec playwright test",
-    "analyze": "next build --analyze"
+    "analyze": "cross-env ANALYZE=true next build --webpack"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^1.0.15",
@@ -109,6 +109,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.2.2",
     "@google/genai": "^1.27.0",
+    "@next/bundle-analyzer": "^16.0.10",
     "@playwright/test": "^1.50.1",
     "@tailwindcss/postcss": "^4.1.13",
     "@tailwindcss/typography": "^0.5.15",
@@ -119,6 +120,7 @@
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "cross-env": "^10.1.0",
     "drizzle-kit": "^0.25.0",
     "postcss": "^8",
     "tailwindcss": "^4.1.13",
@@ -127,6 +129,14 @@
     "ultracite": "5.3.9"
   },
   "packageManager": "pnpm@10.20.0",
+  "browserslist": [
+    "chrome >= 105",
+    "firefox >= 104",
+    "safari >= 15.4",
+    "edge >= 105",
+    "not dead",
+    "not op_mini all"
+  ],
   "pnpm": {
     "overrides": {
       "@types/react": "19.2.7",

@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-    maximumScale: 1, // Disable auto-zoom on mobile Safari
+    maximumScale: 5, // Allow user zoom for accessibility (WCAG 2.1)
 };
 
 const geist = Geist({
@@ -68,6 +68,15 @@ export default function RootLayout({
             lang="en"
             suppressHydrationWarning
         >
+            <head>
+                {/* Preconnect to critical third-party origins for faster resource loading */}
+                <link
+                    crossOrigin="anonymous"
+                    href="https://vercel.live"
+                    rel="preconnect"
+                />
+                <link href="https://vercel.live" rel="dns-prefetch" />
+            </head>
             <body className="antialiased">
                 <Script id="theme-color" strategy="beforeInteractive">
                     {THEME_COLOR_SCRIPT}

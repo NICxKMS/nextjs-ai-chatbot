@@ -221,10 +221,52 @@ const Sidebar = forwardRef<
 			);
 		}
 
-		// Don't render anything while detecting mobile state to prevent
-		// loading sidebar content on mobile where it's not visible initially
+		// During SSR/hydration when isMobile is undefined, render the desktop layout
+		// immediately to prevent CLS. The placeholder matches the expected desktop
+		// layout structure so there's no visual shift when hydration completes.
+		// Mobile users (< md breakpoint) won't see this due to the hidden md:flex classes.
 		if (isMobile === undefined) {
-			return null;
+			return (
+				<div
+					className="group peer hidden text-sidebar-foreground md:block"
+					data-collapsible=""
+					data-side={side}
+					data-sidebar-hydrating="true"
+					data-state={state}
+					data-variant={variant}
+					ref={ref}
+				>
+					{/* Spacer div that reserves sidebar width on desktop */}
+					<div
+						className={cn(
+							"relative w-[var(--sidebar-width)] bg-transparent transition-[width] duration-200 ease-linear",
+							"group-data-[side=right]:rotate-180",
+							variant === "floating" || variant === "inset"
+								? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)_+_theme(spacing.4))]"
+								: "group-data-[collapsible=icon]:w-[var(--sidebar-width-icon)]"
+						)}
+					/>
+					{/* Render actual sidebar structure during hydration for smoother transition */}
+					<div
+						className={cn(
+							"fixed inset-y-0 z-10 hidden h-svh w-[var(--sidebar-width)] transition-[left,right,width] duration-200 ease-linear md:flex",
+							side === "left" ? "left-0" : "right-0",
+							variant === "floating" || variant === "inset"
+								? "p-2"
+								: "group-data-[side=left]:border-r group-data-[side=right]:border-l",
+							className
+						)}
+						{...props}
+					>
+						<div
+							className="flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow"
+							data-sidebar="sidebar"
+						>
+							{children}
+						</div>
+					</div>
+				</div>
+			);
 		}
 
 		if (isMobile) {
