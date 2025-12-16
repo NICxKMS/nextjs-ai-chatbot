@@ -4,6 +4,8 @@ import { getRedisClient, isRedisAvailable } from "@/lib/cache/redis";
 import { db } from "@/lib/db/queries";
 import { logError } from "@/lib/log";
 
+export const maxDuration = 10;
+
 type HealthStatus = "healthy" | "degraded" | "unhealthy";
 
 type HealthCheckResult = {
@@ -154,7 +156,12 @@ export async function GET() {
         // Return 503 only for unhealthy status
         const httpStatus = overallStatus === "unhealthy" ? 503 : 200;
 
-        return NextResponse.json(health, { status: httpStatus });
+        return NextResponse.json(health, {
+            status: httpStatus,
+            headers: {
+                "Cache-Control": "public, max-age=0",
+            },
+        });
     } catch (error) {
         logError("Health check failed", error);
 
@@ -169,6 +176,11 @@ export async function GET() {
             },
         };
 
-        return NextResponse.json(errorResponse, { status: 503 });
+        return NextResponse.json(errorResponse, {
+            status: 503,
+            headers: {
+                "Cache-Control": "public, max-age=0",
+            },
+        });
     }
 }

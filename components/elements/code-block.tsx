@@ -1,7 +1,13 @@
 "use client";
 
 import { CheckIcon, CopyIcon } from "lucide-react";
-import type { ComponentProps, HTMLAttributes, ReactNode } from "react";
+import dynamic from "next/dynamic";
+import type {
+    ComponentProps,
+    CSSProperties,
+    HTMLAttributes,
+    ReactNode,
+} from "react";
 import {
     createContext,
     useContext,
@@ -10,14 +16,50 @@ import {
     useRef,
     useState,
 } from "react";
-import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
-import {
-    oneDark,
-    oneLight,
-} from "react-syntax-highlighter/dist/esm/styles/prism";
+import type { SyntaxHighlighterProps } from "react-syntax-highlighter";
 import { Button } from "@/components/ui/button";
 import { ChatSDKError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
+
+// Type for syntax highlighter style objects
+type SyntaxStyle = { [key: string]: CSSProperties };
+
+// Lazy-load SyntaxHighlighter to reduce initial bundle (~150KB savings)
+const SyntaxHighlighter = dynamic(
+    () =>
+        import("react-syntax-highlighter").then((mod) => {
+            // Store reference for language registration
+            syntaxHighlighterRef = mod.PrismLight;
+            return mod.PrismLight;
+        }),
+    {
+        ssr: false,
+        loading: () => (
+            <pre className="m-0 overflow-auto bg-background p-4 font-mono text-foreground text-sm">
+                Loading...
+            </pre>
+        ),
+    }
+) as React.ComponentType<SyntaxHighlighterProps>;
+
+// Reference to the loaded SyntaxHighlighter for language registration
+let syntaxHighlighterRef:
+    | typeof import("react-syntax-highlighter").PrismLight
+    | null = null;
+
+// Lazy-load themes
+const getThemes = async () => {
+    const styles = await import(
+        "react-syntax-highlighter/dist/esm/styles/prism"
+    );
+    return {
+        oneDark: styles.oneDark as SyntaxStyle,
+        oneLight: styles.oneLight as SyntaxStyle,
+    };
+};
+
+// Cache for loaded themes
+let themesCache: { oneDark: SyntaxStyle; oneLight: SyntaxStyle } | null = null;
 
 // Track which languages have already been registered to avoid duplicates.
 const REGISTERED_LANGUAGES = new Set<string>();
@@ -63,6 +105,18 @@ async function registerLanguageDynamically(language: string): Promise<boolean> {
         return true;
     }
 
+    // Wait for SyntaxHighlighter to be loaded
+    if (!syntaxHighlighterRef) {
+        // Trigger load and wait
+        await import("react-syntax-highlighter").then((mod) => {
+            syntaxHighlighterRef = mod.PrismLight;
+        });
+    }
+
+    if (!syntaxHighlighterRef) {
+        return false;
+    }
+
     try {
         // Create split chunks for all prism languages; load only the requested one at runtime.
         const mod: { default?: unknown; [key: string]: unknown } = await import(
@@ -71,12 +125,7 @@ async function registerLanguageDynamically(language: string): Promise<boolean> {
         );
         const grammar = mod.default ?? mod[lang];
         if (grammar) {
-            // registerLanguage exists on PrismLight
-            const highlighter =
-                SyntaxHighlighter as typeof SyntaxHighlighter & {
-                    registerLanguage: (name: string, grammar: unknown) => void;
-                };
-            highlighter.registerLanguage(lang, grammar);
+            syntaxHighlighterRef.registerLanguage(lang, grammar);
             REGISTERED_LANGUAGES.add(lang);
             return true;
         }
@@ -136,6 +185,10 @@ function DynamicLanguageCodeBlock({
             ? normalized
             : undefined
     );
+    const [themes, setThemes] = useState<{
+        oneDark: SyntaxStyle;
+        oneLight: SyntaxStyle;
+    } | null>(themesCache);
     const mountedRef = useRef(false);
 
     useEffect(() => {
@@ -143,6 +196,21 @@ function DynamicLanguageCodeBlock({
         return () => {
             mountedRef.current = false;
         };
+    }, []);
+
+    // Load themes on mount
+    useEffect(() => {
+        if (themesCache) {
+            setThemes(themesCache);
+            return;
+        }
+        getThemes().then((loadedThemes) => {
+            if (!mountedRef.current) {
+                return;
+            }
+            themesCache = loadedThemes;
+            setThemes(loadedThemes);
+        });
     }, []);
 
     useEffect(() => {
@@ -167,6 +235,28 @@ function DynamicLanguageCodeBlock({
     }, [normalized]);
 
     const effectiveLanguage = readyLang;
+
+    // Show fallback while themes are loading
+    if (!themes) {
+        return (
+            <div
+                className={cn(
+                    "relative w-full overflow-hidden rounded-md border bg-background text-foreground",
+                    className
+                )}
+                {...props}
+            >
+                <pre className="m-0 overflow-auto bg-background p-4 font-mono text-foreground text-sm">
+                    {code}
+                </pre>
+                {children && (
+                    <div className="absolute top-2 right-2 flex items-center gap-2">
+                        {children}
+                    </div>
+                )}
+            </div>
+        );
+    }
 
     return (
         <div
@@ -199,7 +289,7 @@ function DynamicLanguageCodeBlock({
                         minWidth: "2.5rem",
                     }}
                     showLineNumbers={showLineNumbers}
-                    style={oneLight}
+                    style={themes.oneLight}
                 >
                     {code}
                 </SyntaxHighlighter>
@@ -225,7 +315,7 @@ function DynamicLanguageCodeBlock({
                         minWidth: "2.5rem",
                     }}
                     showLineNumbers={showLineNumbers}
-                    style={oneDark}
+                    style={themes.oneDark}
                 >
                     {code}
                 </SyntaxHighlighter>

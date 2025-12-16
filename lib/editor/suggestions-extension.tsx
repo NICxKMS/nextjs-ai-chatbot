@@ -77,10 +77,12 @@ export function createSuggestionWidget(
     const dom = document.createElement("span");
     const root = createRoot(dom);
 
-    dom.addEventListener("mousedown", (event) => {
+    const handleMouseDown = (event: MouseEvent) => {
         event.preventDefault();
         view.dom.blur();
-    });
+    };
+
+    dom.addEventListener("mousedown", handleMouseDown);
 
     const onApply = () => {
         const { state, dispatch } = view;
@@ -126,6 +128,7 @@ export function createSuggestionWidget(
     return {
         dom,
         destroy: () => {
+            dom.removeEventListener("mousedown", handleMouseDown);
             // Wrapping unmount in setTimeout to avoid synchronous unmounting during render
             setTimeout(() => {
                 root.unmount();
@@ -159,15 +162,27 @@ export const createDecorations = (
             Decoration.widget(
                 suggestion.selectionStart,
                 (currentView) => {
-                    const { dom } = createSuggestionWidget(
+                    const { dom, destroy } = createSuggestionWidget(
                         suggestion,
                         currentView
                     );
+                    // Store destroy on DOM element for cleanup
+                    (
+                        dom as HTMLElement & {
+                            __suggestionDestroy?: () => void;
+                        }
+                    ).__suggestionDestroy = destroy;
                     return dom;
                 },
                 {
                     suggestionId: suggestion.id,
                     type: "widget",
+                    destroy: (node) => {
+                        const dom = node as unknown as HTMLElement & {
+                            __suggestionDestroy?: () => void;
+                        };
+                        dom.__suggestionDestroy?.();
+                    },
                 }
             )
         );

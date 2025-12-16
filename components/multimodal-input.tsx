@@ -16,12 +16,9 @@ import {
     useState,
 } from "react";
 import { toast } from "sonner";
-import {
-    useDebounceCallback,
-    useLocalStorage,
-    useWindowSize,
-} from "usehooks-ts";
+import { useDebounceCallback, useLocalStorage } from "usehooks-ts";
 import { SelectItem } from "@/components/ui/select";
+import { useWindowSize } from "@/hooks/use-window-size";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 import { logError } from "@/lib/log";
 import type { Attachment, ChatMessage } from "@/lib/types";

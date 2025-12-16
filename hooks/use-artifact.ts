@@ -1,7 +1,7 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import type { UIArtifact } from "@/components/artifact";
 
@@ -33,16 +33,25 @@ type Selector<T> = (state: UIArtifact) => T;
  * const isVisible = useArtifactSelector(selectIsVisible);
  */
 export function useArtifactSelector<Selected>(selector: Selector<Selected>) {
+    const [mounted, setMounted] = useState(false);
     const { data: localArtifact } = useSWR<UIArtifact>("artifact", null, {
         fallbackData: initialArtifactData,
     });
 
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
     const selectedValue = useMemo(() => {
+        // Return initial data during SSR/before mount to prevent hydration mismatch
+        if (!mounted) {
+            return selector(initialArtifactData);
+        }
         if (!localArtifact) {
             return selector(initialArtifactData);
         }
         return selector(localArtifact);
-    }, [localArtifact, selector]);
+    }, [localArtifact, selector, mounted]);
 
     return selectedValue;
 }

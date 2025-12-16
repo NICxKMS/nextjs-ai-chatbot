@@ -33,7 +33,12 @@ export const GET = async (request: Request) => {
 
     // 3. Guest users cannot retrieve suggestions (not persisted in database)
     if (session.user.type === "guest") {
-        return Response.json([], { status: 200 });
+        return Response.json([], {
+            status: 200,
+            headers: {
+                "Cache-Control": "private, max-age=300",
+            },
+        });
     }
 
     // 4. Parameter validation - only after auth is confirmed
@@ -61,7 +66,12 @@ export const GET = async (request: Request) => {
     if (!document) {
         // Document not found or doesn't belong to user - return empty array
         // (not 404 to avoid information disclosure about document existence)
-        return Response.json([], { status: 200 });
+        return Response.json([], {
+            status: 200,
+            headers: {
+                "Cache-Control": "private, max-age=300",
+            },
+        });
     }
 
     // 7. Database query with IDOR protection (userId filter)
@@ -72,8 +82,18 @@ export const GET = async (request: Request) => {
     });
 
     if (suggestions.length === 0) {
-        return Response.json([], { status: 200 });
+        return Response.json([], {
+            status: 200,
+            headers: {
+                "Cache-Control": "private, max-age=300",
+            },
+        });
     }
 
-    return Response.json(suggestions, { status: 200 });
+    return Response.json(suggestions, {
+        status: 200,
+        headers: {
+            "Cache-Control": "private, max-age=300",
+        },
+    });
 };

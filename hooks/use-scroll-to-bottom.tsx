@@ -9,7 +9,14 @@ const SCROLL_BOTTOM_THRESHOLD = 100;
 export function useScrollToBottom() {
     const containerRef = useRef<HTMLDivElement>(null);
     const endRef = useRef<HTMLDivElement>(null);
+    // Start as true to match SSR, actual value computed in useEffect after mount
     const [isAtBottom, setIsAtBottom] = useState(true);
+    const [mounted, setMounted] = useState(false);
+
+    // Mark as mounted after first render to enable client-side scroll tracking
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const { data: scrollBehavior = false, mutate: setScrollBehavior } =
         useSWR<ScrollFlag>("messages:should-scroll", null, {
@@ -17,7 +24,8 @@ export function useScrollToBottom() {
         });
 
     const handleScroll = useCallback(() => {
-        if (!containerRef.current) {
+        // Only track scroll after mount to prevent hydration mismatch
+        if (!mounted || !containerRef.current) {
             return;
         }
         const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
@@ -26,7 +34,7 @@ export function useScrollToBottom() {
         setIsAtBottom(
             scrollTop + clientHeight >= scrollHeight - SCROLL_BOTTOM_THRESHOLD
         );
-    }, []);
+    }, [mounted]);
 
     useEffect(() => {
         if (!containerRef.current) {

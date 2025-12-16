@@ -21,10 +21,14 @@ export const PreviewAttachment = ({
             data-testid="input-attachment-preview"
         >
             {contentType?.startsWith("image") ? (
+                // Note: placeholder="blur" requires blurDataURL which must be generated
+                // at upload time for dynamic user-uploaded images. The current upload
+                // flow would need to generate base64 thumbnails to support this.
                 <Image
                     alt={name ?? "An image attachment"}
                     className="size-full object-cover"
                     height={64}
+                    sizes="64px"
                     src={url}
                     width={64}
                 />

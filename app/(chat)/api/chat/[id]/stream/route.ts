@@ -11,6 +11,8 @@ import { ChatSDKError } from "@/lib/errors";
 import { logError } from "@/lib/log";
 import type { ChatMessage } from "@/lib/types";
 
+export const maxDuration = 30;
+
 export async function GET(
     _: Request,
     { params }: { params: Promise<{ id: string }> }

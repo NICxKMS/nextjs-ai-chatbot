@@ -6,7 +6,7 @@ import { memo, useEffect, useMemo, useState } from "react";
 import DataGrid, { textEditor } from "react-data-grid";
 import { cn } from "@/lib/utils";
 
-import "react-data-grid/lib/styles.css";
+// NOTE: react-data-grid CSS is imported in app/globals.css for better bundling
 
 /** Cell value type for spreadsheet cells */
 type CellValue = string | number | boolean | null;
@@ -30,6 +30,11 @@ const MIN_COLS = 26;
 
 const PureSpreadsheetEditor = ({ content, saveContent }: SheetEditorProps) => {
     const { resolvedTheme } = useTheme();
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const parseData = useMemo(() => {
         if (!content) {
@@ -116,9 +121,13 @@ const PureSpreadsheetEditor = ({ content, saveContent }: SheetEditorProps) => {
         saveContent(newCsvContent, true);
     };
 
+    // Use safe default until mounted to prevent hydration mismatch
+    const themeClass =
+        mounted && resolvedTheme === "dark" ? "rdg-dark" : "rdg-light";
+
     return (
         <DataGrid
-            className={resolvedTheme === "dark" ? "rdg-dark" : "rdg-light"}
+            className={themeClass}
             columns={columns}
             defaultColumnOptions={{
                 resizable: true,

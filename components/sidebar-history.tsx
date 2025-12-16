@@ -1,9 +1,9 @@
 "use client";
 
 import { isToday, isYesterday, subMonths, subWeeks } from "date-fns";
-import { motion } from "framer-motion";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { GroupedVirtuoso, type GroupedVirtuosoHandle } from "react-virtuoso";
 import { toast } from "sonner";
 import useSWRInfinite from "swr/infinite";
 import {
@@ -35,6 +35,13 @@ type GroupedChats = {
     lastWeek: Chat[];
     lastMonth: Chat[];
     older: Chat[];
+};
+
+// Group metadata for GroupedVirtuoso
+type ChatGroup = {
+    label: string;
+    items: Chat[];
+    isOptimistic?: boolean;
 };
 
 export type ChatHistory = {
@@ -81,6 +88,63 @@ const groupChatsByDateWithBoundaries = (
             older: [],
         } as GroupedChats
     );
+};
+
+/**
+ * Convert grouped chats into an array of groups for GroupedVirtuoso
+ * @param groupedChats The grouped chats object
+ * @param optimisticChats Optimistic chats to include in "Today" group
+ * @returns Array of groups with labels and items
+ */
+const convertToVirtuosoGroups = (
+    groupedChats: GroupedChats | null,
+    optimisticChats: Chat[]
+): ChatGroup[] => {
+    if (!groupedChats) {
+        return [];
+    }
+
+    const groups: ChatGroup[] = [];
+
+    // Today group includes optimistic chats
+    if (groupedChats.today.length > 0 || optimisticChats.length > 0) {
+        // Create optimistic items first, then real today items
+        const todayItems = [...groupedChats.today];
+        groups.push({
+            label: "Today",
+            items: todayItems,
+            isOptimistic: optimisticChats.length > 0,
+        });
+        // Prepend optimistic group if we have any
+        if (optimisticChats.length > 0) {
+            groups.unshift({
+                label: "__optimistic__",
+                items: optimisticChats,
+                isOptimistic: true,
+            });
+        }
+    }
+
+    if (groupedChats.yesterday.length > 0) {
+        groups.push({ label: "Yesterday", items: groupedChats.yesterday });
+    }
+
+    if (groupedChats.lastWeek.length > 0) {
+        groups.push({ label: "Last 7 days", items: groupedChats.lastWeek });
+    }
+
+    if (groupedChats.lastMonth.length > 0) {
+        groups.push({ label: "Last 30 days", items: groupedChats.lastMonth });
+    }
+
+    if (groupedChats.older.length > 0) {
+        groups.push({
+            label: "Older than last month",
+            items: groupedChats.older,
+        });
+    }
+
+    return groups;
 };
 
 export function getChatHistoryPaginationKey(
@@ -287,6 +351,121 @@ export function SidebarHistory({
         return groupChatsByDateWithBoundaries(uniqueChats, dateBoundaries);
     }, [paginatedChatHistories, dateBoundaries]);
 
+    // Convert grouped chats to virtuoso format
+    const virtuosoGroups = useMemo(
+        () => convertToVirtuosoGroups(groupedChats, optimisticChats as Chat[]),
+        [groupedChats, optimisticChats]
+    );
+
+    // Calculate group counts for GroupedVirtuoso
+    const groupCounts = useMemo(
+        () => virtuosoGroups.map((group) => group.items.length),
+        [virtuosoGroups]
+    );
+
+    // Create a flat list of all chat items for index calculation
+    const flatItems = useMemo(() => {
+        return virtuosoGroups.flatMap((group) =>
+            group.items.map((chat) => ({
+                chat,
+                isOptimistic: group.label === "__optimistic__",
+            }))
+        );
+    }, [virtuosoGroups]);
+
+    // Virtuoso ref for programmatic control
+    const virtuosoRef = useRef<GroupedVirtuosoHandle>(null);
+
+    // Render group header content
+    const renderGroupContent = useCallback(
+        (index: number) => {
+            const group = virtuosoGroups[index];
+            if (!group) {
+                return null;
+            }
+            // Skip rendering header for optimistic pseudo-group (merged with Today)
+            if (group.label === "__optimistic__") {
+                return (
+                    <div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
+                        Today
+                    </div>
+                );
+            }
+            // Skip Today header if optimistic group exists (already rendered)
+            if (
+                group.label === "Today" &&
+                virtuosoGroups[0]?.label === "__optimistic__"
+            ) {
+                return null;
+            }
+            return (
+                <div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
+                    {group.label}
+                </div>
+            );
+        },
+        [virtuosoGroups]
+    );
+
+    // Render individual chat item
+    const renderItemContent = useCallback(
+        (index: number) => {
+            const item = flatItems[index];
+            if (!item) {
+                return null;
+            }
+
+            const { chat, isOptimistic } = item;
+
+            return (
+                <ChatItem
+                    chat={chat}
+                    isActive={chat.id === id}
+                    key={isOptimistic ? `optimistic-${chat.id}` : chat.id}
+                    onDelete={(chatId) => {
+                        if (isOptimistic) {
+                            // Optimistic chats can't be deleted
+                            return;
+                        }
+                        setDeleteId(chatId);
+                        setShowDeleteDialog(true);
+                    }}
+                    setOpenMobile={setOpenMobile}
+                />
+            );
+        },
+        [flatItems, id, setOpenMobile]
+    );
+
+    // Handle reaching the end of the list for infinite loading
+    const handleEndReached = useCallback(() => {
+        if (!isValidating && !hasReachedEnd) {
+            setSize((size) => size + 1);
+        }
+    }, [isValidating, hasReachedEnd, setSize]);
+
+    // Footer component for loading/end state
+    const renderFooter = useCallback(() => {
+        if (hasReachedEnd) {
+            return (
+                <div className="mt-8 flex w-full flex-row items-center justify-center gap-2 px-2 pb-4 text-sm text-zinc-500">
+                    You have reached the end of your chat history.
+                </div>
+            );
+        }
+        if (isValidating) {
+            return (
+                <div className="mt-8 flex flex-row items-center gap-2 p-2 text-zinc-500 dark:text-zinc-400">
+                    <div className="animate-spin">
+                        <LoaderIcon />
+                    </div>
+                    <div>Loading Chats...</div>
+                </div>
+            );
+        }
+        return null;
+    }, [hasReachedEnd, isValidating]);
+
     if (!user) {
         return (
             <SidebarGroup>
@@ -328,7 +507,7 @@ export function SidebarHistory({
         );
     }
 
-    if (hasEmptyChatHistory) {
+    if (hasEmptyChatHistory && optimisticChats.length === 0) {
         return (
             <SidebarGroup>
                 <SidebarGroupContent>
@@ -343,148 +522,27 @@ export function SidebarHistory({
 
     return (
         <>
-            <SidebarGroup>
-                <SidebarGroupContent>
-                    <SidebarMenu>
-                        {groupedChats && (
-                            <div className="flex flex-col gap-6">
-                                {(groupedChats.today.length > 0 ||
-                                    optimisticChats.length > 0) && (
-                                    <div>
-                                        <div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
-                                            Today
-                                        </div>
-                                        {optimisticChats.map((chat) => (
-                                            <ChatItem
-                                                chat={chat as Chat}
-                                                isActive={chat.id === id}
-                                                key={`optimistic-${chat.id}`}
-                                                onDelete={() => {
-                                                    // Optimistic chats can't be deleted
-                                                }}
-                                                setOpenMobile={setOpenMobile}
-                                            />
-                                        ))}
-                                        {groupedChats.today.map((chat) => (
-                                            <ChatItem
-                                                chat={chat}
-                                                isActive={chat.id === id}
-                                                key={chat.id}
-                                                onDelete={(chatId) => {
-                                                    setDeleteId(chatId);
-                                                    setShowDeleteDialog(true);
-                                                }}
-                                                setOpenMobile={setOpenMobile}
-                                            />
-                                        ))}
-                                    </div>
-                                )}
-
-                                {groupedChats.yesterday.length > 0 && (
-                                    <div>
-                                        <div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
-                                            Yesterday
-                                        </div>
-                                        {groupedChats.yesterday.map((chat) => (
-                                            <ChatItem
-                                                chat={chat}
-                                                isActive={chat.id === id}
-                                                key={chat.id}
-                                                onDelete={(chatId) => {
-                                                    setDeleteId(chatId);
-                                                    setShowDeleteDialog(true);
-                                                }}
-                                                setOpenMobile={setOpenMobile}
-                                            />
-                                        ))}
-                                    </div>
-                                )}
-
-                                {groupedChats.lastWeek.length > 0 && (
-                                    <div>
-                                        <div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
-                                            Last 7 days
-                                        </div>
-                                        {groupedChats.lastWeek.map((chat) => (
-                                            <ChatItem
-                                                chat={chat}
-                                                isActive={chat.id === id}
-                                                key={chat.id}
-                                                onDelete={(chatId) => {
-                                                    setDeleteId(chatId);
-                                                    setShowDeleteDialog(true);
-                                                }}
-                                                setOpenMobile={setOpenMobile}
-                                            />
-                                        ))}
-                                    </div>
-                                )}
-
-                                {groupedChats.lastMonth.length > 0 && (
-                                    <div>
-                                        <div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
-                                            Last 30 days
-                                        </div>
-                                        {groupedChats.lastMonth.map((chat) => (
-                                            <ChatItem
-                                                chat={chat}
-                                                isActive={chat.id === id}
-                                                key={chat.id}
-                                                onDelete={(chatId) => {
-                                                    setDeleteId(chatId);
-                                                    setShowDeleteDialog(true);
-                                                }}
-                                                setOpenMobile={setOpenMobile}
-                                            />
-                                        ))}
-                                    </div>
-                                )}
-
-                                {groupedChats.older.length > 0 && (
-                                    <div>
-                                        <div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
-                                            Older than last month
-                                        </div>
-                                        {groupedChats.older.map((chat) => (
-                                            <ChatItem
-                                                chat={chat}
-                                                isActive={chat.id === id}
-                                                key={chat.id}
-                                                onDelete={(chatId) => {
-                                                    setDeleteId(chatId);
-                                                    setShowDeleteDialog(true);
-                                                }}
-                                                setOpenMobile={setOpenMobile}
-                                            />
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
+            <SidebarGroup className="flex-1 overflow-hidden">
+                <SidebarGroupContent className="h-full">
+                    <SidebarMenu className="h-full">
+                        {virtuosoGroups.length > 0 && (
+                            <GroupedVirtuoso
+                                components={{
+                                    Footer: renderFooter,
+                                }}
+                                endReached={handleEndReached}
+                                groupContent={renderGroupContent}
+                                groupCounts={groupCounts}
+                                increaseViewportBy={{
+                                    top: 200,
+                                    bottom: 200,
+                                }}
+                                itemContent={renderItemContent}
+                                ref={virtuosoRef}
+                                style={{ height: "100%" }}
+                            />
                         )}
                     </SidebarMenu>
-
-                    <motion.div
-                        onViewportEnter={() => {
-                            if (!isValidating && !hasReachedEnd) {
-                                setSize((size) => size + 1);
-                            }
-                        }}
-                    />
-
-                    {hasReachedEnd ? (
-                        <div className="mt-8 flex w-full flex-row items-center justify-center gap-2 px-2 text-sm text-zinc-500">
-                            You have reached the end of your chat history.
-                        </div>
-                    ) : (
-                        isValidating && (
-                            <div className="mt-8 flex flex-row items-center gap-2 p-2 text-zinc-500 dark:text-zinc-400">
-                                <div className="animate-spin">
-                                    <LoaderIcon />
-                                </div>
-                                <div>Loading Chats...</div>
-                            </div>
-                        )
-                    )}
                 </SidebarGroupContent>
             </SidebarGroup>
 

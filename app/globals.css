@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* External library styles - imported here for better bundling (CSS-004) */
+@import "react-data-grid/lib/styles.css";
+
 /* include utility classes in streamdown */
 @source '../node_modules/streamdown/dist/index.js';
 
@@ -46,7 +49,6 @@
     --sidebar-ring: hsl(217.2 91.2% 59.8%);
     /* border radius unit */
     --radius: 0.5rem;
-    --sidebar: hsl(0 0% 98%);
 }
 
 /* define design tokens (dark mode) */
@@ -83,7 +85,6 @@
     --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
     --sidebar-border: hsl(240 3.7% 15.9%);
     --sidebar-ring: hsl(217.2 91.2% 59.8%);
-    --sidebar: hsl(240 5.9% 10%);
 }
 
 /* define theme */
@@ -159,10 +160,12 @@
     }
 }
 
+/* Progressive enhancement: text-wrap: balance (Chrome 114+, FF 121+, Safari 17.5+) */
 @utility text-balance {
     text-wrap: balance;
 }
 
+/* Deprecated but kept for iOS momentum scrolling on older devices */
 @utility -webkit-overflow-scrolling-touch {
     -webkit-overflow-scrolling: touch;
 }
@@ -175,25 +178,9 @@
     overscroll-behavior: contain;
 }
 
-@layer utilities {
-    :root {
-        --foreground-rgb: 0, 0, 0;
-        --background-start-rgb: 214, 219, 220;
-        --background-end-rgb: 255, 255, 255;
-    }
-
-    @media (prefers-color-scheme: dark) {
-        :root {
-            --foreground-rgb: 255, 255, 255;
-            --background-start-rgb: 0, 0, 0;
-            --background-end-rgb: 0, 0, 0;
-        }
-    }
-}
-
 @layer base {
     * {
-        @apply border-border;
+        @apply border-border outline-ring/50;
     }
 
     body {
@@ -290,28 +277,9 @@
     background: transparent;
 }
 
-/* firefox scrollbar styling */
+/* Progressive enhancement: Firefox scrollbar styling (Chrome 121+, Firefox) */
+/* Falls back to browser default on Safari and older browsers */
 * {
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
-}
-
-@theme inline {
-    --color-sidebar: var(--sidebar);
-    --color-sidebar-foreground: var(--sidebar-foreground);
-    --color-sidebar-primary: var(--sidebar-primary);
-    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-    --color-sidebar-accent: var(--sidebar-accent);
-    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-    --color-sidebar-border: var(--sidebar-border);
-    --color-sidebar-ring: var(--sidebar-ring);
-}
-
-@layer base {
-    * {
-        @apply border-border outline-ring/50;
-    }
-    body {
-        @apply bg-background text-foreground;
-    }
 }

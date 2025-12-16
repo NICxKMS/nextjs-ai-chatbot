@@ -4,8 +4,8 @@ import { isAfter } from "date-fns";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { useSWRConfig } from "swr";
-import { useWindowSize } from "usehooks-ts";
 import { useArtifact } from "@/hooks/use-artifact";
+import { useWindowSize } from "@/hooks/use-window-size";
 import type { Document } from "@/lib/db/schema";
 import { getDocumentTimestampByIndex } from "@/lib/utils";
 import { LoaderIcon } from "./icons";
@@ -23,9 +23,7 @@ export const VersionFooter = ({
     currentVersionIndex,
 }: VersionFooterProps) => {
     const { artifact } = useArtifact();
-
-    const { width } = useWindowSize();
-    const isMobile = width < 768;
+    const { isMobile } = useWindowSize();
 
     const { mutate } = useSWRConfig();
     const [isMutating, setIsMutating] = useState(false);

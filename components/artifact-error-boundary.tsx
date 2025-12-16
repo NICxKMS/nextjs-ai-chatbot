@@ -30,9 +30,9 @@ export class ArtifactErrorBoundary extends Component<
         return { hasError: true, error };
     }
 
-    componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-        // Log error for debugging
-        console.error("Artifact rendering error:", error, errorInfo);
+    componentDidCatch(_error: Error, _errorInfo: React.ErrorInfo): void {
+        // Error is captured by getDerivedStateFromError and displayed in UI
+        // No client-side logging needed in production
     }
 
     render(): ReactNode {

@@ -67,9 +67,11 @@ export function Console({ consoleOutputs, setConsoleOutputs }: ConsoleProps) {
         };
     }, [resize, stopResizing]);
 
+    // Scroll to bottom when console outputs change
+    // biome-ignore lint/correctness/useExhaustiveDependencies: consoleOutputs needed to trigger scroll on new output
     useEffect(() => {
         consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, []);
+    }, [consoleOutputs]);
 
     useEffect(() => {
         if (!isArtifactVisible) {
@@ -174,11 +176,15 @@ export function Console({ consoleOutputs, setConsoleOutputs }: ConsoleProps) {
                                                 <picture
                                                     key={`${consoleOutput.id}-${contentIndex}`}
                                                 >
-                                                    {/** biome-ignore lint/nursery/useImageSize: "Generated image without explicit size" */}
                                                     <img
-                                                        alt="output"
-                                                        className="w-full max-w-(--breakpoint-toast-mobile) rounded-md"
+                                                        alt="Generated console output"
+                                                        className="h-auto w-full max-w-(--breakpoint-toast-mobile) rounded-md object-contain"
+                                                        height={300}
                                                         src={content.value}
+                                                        style={{
+                                                            aspectRatio: "4/3",
+                                                        }}
+                                                        width={400}
                                                     />
                                                 </picture>
                                             ) : (
