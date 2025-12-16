@@ -49,3 +49,4 @@ yarn-error.log*
 .agent/*
 
 tsconfig.tsbuildinfo
+rework.md

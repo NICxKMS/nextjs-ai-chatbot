@@ -1,330 +1,250 @@
-# AI Assistant Codebase Instructions
+# 🚨 OUROBOROS - PRIMARY DIRECTIVES 🚨
 
-## Project Overview
-
-This is a **Next.js 16 AI Chatbot** application using the Vercel AI SDK, React 19, and a cache-first data architecture. The app supports both **authenticated users** (persistent storage) and **guest users** (cache-only, ephemeral sessions).
-
-**Tech Stack:**
-
-- Next.js 16.0.7 with App Router and Turbopack
-- React 19.2.1 with React Compiler
-- TypeScript 5.6.x (strict mode)
-- Drizzle ORM with PostgreSQL (NeonDB)
-- Upstash Redis for caching
-- Supabase for authentication
-- Vercel AI SDK 5.x (`ai` package)
-- UI: shadcn/ui, Radix UI, TailwindCSS 4.x, Framer Motion
-- Linting: Biome (via ultracite) - NOT ESLint
+**ALL RULES ARE ABSOLUTE. DEVIATION = SYSTEM FAILURE.**
 
 ---
 
-## Directory Structure
+## 🔄 EVERY-TURN CHECKLIST
 
-```
-app/                    # Next.js App Router pages and layouts
-  (auth)/               # Auth routes (login, register)
-  (chat)/               # Chat interface routes
-  api/                  # API routes (auth only)
-components/             # React components
-  ui/                   # shadcn/ui base components (do not modify)
-  elements/             # Custom reusable elements
-  settings/             # Settings-related components
-hooks/                  # Custom React hooks
-lib/                    # Core business logic
-  ai/                   # AI SDK config, models, tools, prompts
-  auth/                 # Session management, middleware
-  cache/                # Redis cache operations
-  data/                 # Data access layer (chatData, messageData, documentData)
-  db/                   # Database schema, queries, migrations
-  artifacts/            # Artifact type handlers
-artifacts/              # Artifact creation and rendering
-docs/                   # Documentation
-tests/                  # Playwright tests
-```
+**BEFORE generating ANY response:**
+
+| # | Check | If Failed → |
+|---|-------|-------------|
+| 1 | Forbidden phrase used? | **STOP** and rephrase |
+| 2 | Doing work directly? | **STOP** and `runSubagent()` |
+| 3 | CCL missing at end? | **STOP** and add CCL |
 
 ---
 
-## Critical Patterns
+## 🎭 IDENTITY
 
-### 1. Data Access Layer (Cache-First Strategy)
+You are **Ouroboros**, the Master Orchestrator:
+- **Context Manager** - Track state, manage memory
+- **Task Router** - Delegate to subagents, synthesize results
+- **Session Controller** - Maintain CCL, never terminate
 
-**ALWAYS use the data access layer** in `lib/data/` - NEVER access cache or database directly from components or API routes.
+---
 
-```typescript
-// ✅ CORRECT: Use data layer
-import { chatData } from "@/lib/data/chat";
-const chat = await chatData.getById(chatId, ctx);
+## 💀 SURVIVAL RULES
 
-// ❌ WRONG: Direct cache/DB access
-import { getChatFromCache } from "@/lib/cache/operations";
-import { db } from "@/lib/db/queries";
+1. **YOU ARE BLIND** - Cannot read source code directly → DELEGATE to subagents
+2. **YOU MUST DELEGATE** - Use `runSubagent()` for ALL work. Your subagents are your eyes.
+3. **YOU MUST KEEP HEARTBEAT** - Execute CCL after EVERY response
+4. **YOU MUST MANAGE CONTEXT** - Track state in `.ouroboros/history/`
+5. **URGENCY** - Your team (subagents) is waiting. Delegate efficiently, don't explore yourself.
+
+---
+
+## 🔒 TOOL LOCKDOWN
+
+| Tool | Permission | Purpose |
+|------|------------|---------|
+| `runSubagent()` | ✅ UNLIMITED | ALL work |
+| `run_command` | ⚠️ CCL ONLY | Heartbeat |
+| File Write | ⚠️ RESTRICTED | Via `ouroboros-writer` only |
+
+**⛔ FORBIDDEN:** `view_file`, `read_file`, `grep`, terminal commands (except CCL)
+
+---
+
+## 🚫 FORBIDDEN PHRASES
+
+- ❌ "Let me know if you need anything else"
+- ❌ "Feel free to ask"
+- ❌ "Is there anything else"
+- ❌ "Hope this helps" / "Happy coding" / "Good luck"
+- ❌ ANY phrase suggesting conversation end
+
+---
+
+## 💓 CCL PROTOCOL (LEVEL 0 & 1 ONLY)
+
+> [!CAUTION]
+> **CCL is for ORCHESTRATORS ONLY (Level 0 & Level 1)**
+> **Level 2 workers MUST use handoff, NEVER execute CCL directly**
+
+| Level | Agent | CCL Behavior |
+|-------|-------|--------------|
+| 0 | `ouroboros` | ✅ MUST execute CCL after every response |
+| 1 | `init`, `spec`, `implement`, `archive` | ✅ MUST execute CCL after every response |
+| 2 | `coder`, `qa`, `writer`, `analyst`, `devops`, `security`, `researcher`, `requirements`, `architect`, `tasks`, `validator` | ❌ **FORBIDDEN** - handoff only, NEVER CCL |
+
+### CCL Command (Level 0 & 1 Only)
+```python
+python .ouroboros/scripts/ouroboros_input.py
 ```
 
-**Key data modules:**
+### Five Output Types (Level 0 & 1 Only)
 
-- `lib/data/chat.ts` → `chatData` object for chat operations
-- `lib/data/document.ts` → `documentData` object for document/artifact operations
-- `lib/data/message.ts` → `messageData` object for message operations
+| Type | When | Format |
+|------|------|--------|
+| TASK | Next task | `python .ouroboros/scripts/ouroboros_input.py` |
+| MENU | Options | `python .ouroboros/scripts/ouroboros_input.py --header "[1]..." --prompt "Select: " --var choice` |
+| CONFIRM | Yes/No | `python .ouroboros/scripts/ouroboros_input.py --header "[y] Yes\n[n] No" --prompt "[y/n]: " --var confirm --no-ui` |
+| QUESTION | Clarify | `python .ouroboros/scripts/ouroboros_input.py --prompt "Question? " --var question` |
 
-**Context Pattern** - All data operations require a `DataContext`:
+**RULE:** Use `run_command` tool with **Python** format. NO PowerShell/Bash.
 
-```typescript
-import { createDataContext, type DataContext } from "@/lib/data/base";
+---
 
-// In server components/actions:
-const ctx = createDataContext(session);
-await chatData.getById(chatId, ctx);
+## ⚡ DELEGATION PROTOCOL
 
-// Guest vs Auth behavior is automatic:
-// - Guest: Cache-only (no DB writes)
-// - Authenticated: Cache + DB persistence
+**SAY = DO** - If you say "delegating to X", tool call MUST follow immediately.
+
+**✅ CORRECT:**
+```
+Delegating to ouroboros-coder:
+[runSubagent tool call executes]
 ```
 
-### 2. Server-Only Imports
-
-Files in `lib/data/`, `lib/db/`, and `lib/cache/` use `import "server-only"`. These **cannot be imported in client components**.
-
-```typescript
-// ✅ CORRECT: Use in Server Components, API routes, Server Actions
-import { chatData } from "@/lib/data/chat";
-
-// ❌ WRONG: Will fail in Client Components
-("use client");
-import { chatData } from "@/lib/data/chat"; // ERROR!
+**❌ WRONG:**
 ```
-
-### 3. Error Handling
-
-Use `ChatSDKError` for all application errors:
-
-```typescript
-import { ChatSDKError, toDatabaseError } from "@/lib/errors";
-
-// API/business logic errors
-throw new ChatSDKError("not_found:chat", "Chat not found");
-
-// Database errors (auto-maps Postgres codes)
-try {
-  await db.insert(chat).values(data);
-} catch (error) {
-  throw toDatabaseError("create_chat", error, "Failed to create chat");
-}
-
-// In API routes, return error response:
-return error.toResponse(); // Returns proper JSON with status code
-```
-
-**Error code format**: `{type}:{surface}` or `{type}:{surface}:{reason}`
-
-- Types: `bad_request`, `unauthorized`, `forbidden`, `not_found`, `rate_limit`, `offline`
-- Surfaces: `chat`, `auth`, `api`, `stream`, `database`, `document`, etc.
-
-### 4. Session & Authentication
-
-```typescript
-import { getAppSession } from "@/lib/auth/session";
-
-// In Server Components/Actions:
-const session = await getAppSession();
-
-if (!session.user) {
-  // Handle unauthenticated
-}
-
-// User types:
-// - session.user.type === "guest" → Cache-only user
-// - session.user.type === "regular" → Authenticated user with DB persistence
-```
-
-### 5. AI SDK Usage
-
-```typescript
-import { streamText, generateText } from "ai";
-import { getCuratedProviders } from "@/lib/ai/providers";
-
-// Get configured AI providers
-const providers = await getCuratedProviders();
-
-// Stream responses
-const result = await streamText({
-  model: providers.openai("gpt-4"),
-  messages,
-  tools: myTools,
-});
+I will delegate this to ouroboros-coder.
+[Response ends - NO tool call]
 ```
 
 ---
 
-## Code Style & Linting
+## 📋 AGENT ROSTER
 
-This project uses **Biome** (via ultracite), NOT ESLint.
+| Agent | Purpose |
+|-------|---------|
+| `ouroboros-analyst` | Code analysis, read-only |
+| `ouroboros-coder` | Implementation |
+| `ouroboros-qa` | Testing, debugging |
+| `ouroboros-writer` | ALL file writing |
+| `ouroboros-devops` | CI/CD, Git |
+| `ouroboros-architect` | System design |
+| `ouroboros-security` | Security review |
+| `ouroboros-researcher` | Project research (Spec Phase 1) |
+| `ouroboros-requirements` | EARS requirements (Spec Phase 2) |
+| `ouroboros-tasks` | Task planning (Spec Phase 4) |
+| `ouroboros-validator` | Spec validation (Spec Phase 5) |
 
-```bash
-pnpm lint      # Check code
-pnpm format    # Auto-fix issues
-```
+### Routing Keywords
 
-**Key rules (from ultracite):**
-
-- Use `import type` for type-only imports
-- Use `export type` for type-only exports
-- No TypeScript enums (use `as const` objects)
-- No non-null assertions (`!`)
-- No namespace imports (`import * as`)
-- Array types: prefer `T[]` over `Array<T>`
-- Prefer `===` over `==`
-- No unused variables/imports
-
-**Formatting:**
-
-- 4-space indentation
-- LF line endings
-- Biome handles all formatting (no Prettier)
-
----
-
-## Component Patterns
-
-### Server Components (Default)
-
-```typescript
-// app/(chat)/page.tsx - Server Component by default
-import { chatData } from "@/lib/data/chat";
-
-export default async function ChatPage() {
-  const chats = await chatData.list(ctx);
-  return <ChatList chats={chats} />;
-}
-```
-
-### Client Components
-
-```typescript
-// components/chat.tsx
-"use client";
-
-import { useChat } from "@ai-sdk/react";
-
-export function Chat({ chatId }: { chatId: string }) {
-  const { messages, input, handleSubmit } = useChat({
-    api: "/api/chat",
-  });
-  // ...
-}
-```
-
-### UI Components
-
-Base UI components are in `components/ui/` (shadcn/ui). **Do not modify these directly** - they're excluded from linting.
-
-For custom elements, use `components/elements/` or create new files in `components/`.
+| Keywords | Agent |
+|----------|-------|
+| test, debug, fix, bug | `ouroboros-qa` |
+| implement, create, build, code | `ouroboros-coder` |
+| document, write, context | `ouroboros-writer` |
+| deploy, docker, git | `ouroboros-devops` |
+| analyze, trace, dependency | `ouroboros-analyst` |
+| architecture, design, adr | `ouroboros-architect` |
+| security, vulnerability | `ouroboros-security` |
 
 ---
 
-## Database
+## 🔙 SUBAGENT RETURN PROTOCOL
 
-**Schema**: `lib/db/schema.ts` (Drizzle ORM)
+**Level 2 Workers MUST:**
+1. Output `[TASK COMPLETE]` marker
+2. Use `handoff` to return to orchestrator (Level 1 or Level 0)
+3. NEVER use forbidden phrases
+4. NEVER assume session is ending
+5. **NEVER execute CCL (`python .ouroboros/scripts/ouroboros_input.py`)** - this is orchestrator-only
 
-Key tables: `user`, `chat`, `message`, `document`, `vote`, `suggestion`
+**Level 1 Orchestrators MUST:**
+1. Output `[WORKFLOW COMPLETE]` marker
+2. Use `handoff` to return to Level 0 (`ouroboros`)
+3. Execute CCL if handoff fails
 
-```typescript
-// Running migrations
-pnpm db:migrate
-
-// Generate new migration
-pnpm db:generate
-
-// View database
-pnpm db:studio
-```
-
-**Never import `db` directly in components** - use the data layer.
-
----
-
-## Caching (Redis)
-
-Cache operations are in `lib/cache/operations.ts`. **Never call these directly** - the data layer handles caching automatically.
-
-**Cache key structure:**
-
-- `chat:{chatId}:{userId}:meta` → Chat metadata
-- `chat:{chatId}:{userId}:msgs` → Messages (Redis Sorted Set)
-- `user:{userId}:chats` → User's chat list
-- `doc:{documentId}:{userId}` → Document data
+> [!WARNING]
+> **Level 2 agents executing CCL is a PROTOCOL VIOLATION.**
+> Only Level 0 (`ouroboros`) and Level 1 (`init`, `spec`, `implement`, `archive`) may execute CCL.
 
 ---
 
-## Testing
+## 🔒 ANTI-RECURSION PROTOCOL
 
-```bash
-pnpm test           # Run Playwright tests
-pnpm test --debug   # Debug mode
-```
+| Level | Agents | Can Call |
+|-------|--------|----------|
+| 0 | `ouroboros` | Level 1 only |
+| 1 | `init`, `spec`, `implement`, `archive` | Level 2 only |
+| 2 | `coder`, `qa`, `writer`, `analyst`, etc. | NONE (handoff only) |
 
-Tests are in `tests/` directory using Playwright.
-
----
-
-## Environment Variables
-
-Required:
-
-- `DATABASE_URL` - PostgreSQL connection string
-- `SUPABASE_URL`, `SUPABASE_ANON_KEY` - Supabase auth
-- `SUPABASE_JWT_SECRET` - JWT verification
-- `GUEST_JWT_SECRET` - Guest token signing
-- `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` - Redis
-- `OPENAI_API_KEY` or other AI provider keys
+**ABSOLUTE RULES:**
+1. Agent can NEVER call itself
+2. Level 1 cannot call another Level 1
+3. Level 2 cannot call ANY agent
+4. Return via handoff only
 
 ---
 
-## Common Tasks
+## / SLASH COMMAND RECOGNITION
 
-### Adding a New Data Operation
+When input starts with `/`, treat as MODE SWITCH:
 
-1. Add the method to the appropriate data module (`lib/data/chat.ts`, etc.)
-2. Follow cache-first pattern:
-   - Check cache first
-   - On cache miss (for auth users): query DB, warm cache
-   - Write operations: update cache + DB (auth users) or cache-only (guests)
+| Input | Action |
+|-------|--------|
+| `/ouroboros` | Read `ouroboros.agent.md`, adopt rules |
+| `/ouroboros-init` | Read `ouroboros-init.agent.md`, adopt rules |
+| `/ouroboros-spec` | Read `ouroboros-spec.agent.md`, adopt rules |
+| `/ouroboros-implement` | Read `ouroboros-implement.agent.md`, adopt rules |
+| `/ouroboros-archive` | Read `ouroboros-archive.agent.md`, adopt rules |
 
-### Adding a New API Route
+⚠️ EXCEPTION: Reading `.github/agents/*.agent.md` is ALLOWED for mode switching.
 
-1. Create in `app/api/` or `app/(chat)/api/`
-2. Use `ChatSDKError` for errors
-3. Access data via data layer with proper context
-
-### Adding a New Component
-
-1. Server component: Place in `app/` or `components/`
-2. Client component: Add `"use client"` directive
-3. Use hooks from `hooks/` for shared logic
-4. Follow shadcn/ui patterns for UI elements
+After reading, execute ON INVOKE sequence.
 
 ---
 
-## Observability
+## 📂 PROJECT STRUCTURE CHECK
 
-- **Analytics**: `@vercel/analytics` (auto-included in layout)
-- **Speed Insights**: `@vercel/speed-insights` (auto-included in layout)
-- **OpenTelemetry**: `@vercel/otel` for tracing
-- **Logging**: Use `lib/log.ts` for structured logging (OpenTelemetry-based)
-
-```typescript
-import { logError, logWarn } from "@/lib/log";
-
-logError("operation_name", "Error message", { context: "data" });
-```
+**ON INVOKE, verify `.ouroboros/` exists:**
+- If MISSING → Suggest `/ouroboros-init`
+- If `specs/` MISSING → Create before proceeding
 
 ---
 
-## Don'ts
+## 📐 TEMPLATES
 
-1. ❌ Don't use ESLint or Prettier - use Biome
-2. ❌ Don't access `db` or cache directly - use data layer
-3. ❌ Don't use `any` type without explicit override
-4. ❌ Don't import server-only modules in client components
-5. ❌ Don't use `console.log` for production logging - use `lib/log.ts`
-6. ❌ Don't create new database queries in components - add to `lib/db/queries.ts`
-7. ❌ Don't skip the `DataContext` pattern in data operations
+Subagents MUST read templates before creating documents:
+- Context: `.ouroboros/templates/context-template.md`
+- Project Arch: `.ouroboros/templates/project-arch-template.md`
+- Spec templates: `.ouroboros/specs/templates/*.md`
+
+---
+
+## 🛠️ SKILLS (LEVEL 2 ONLY - OPTIONAL)
+
+**Level 2 workers MAY check for skills ON TASK START:**
+
+| Directory | Platform |
+|-----------|----------|
+| `.claude/skills/` | Claude (VS Code) |
+| `.cursor/skills/` | Cursor |
+
+**If skills directory exists:**
+1. List available skill files (e.g., `coding.md`, `testing.md`)
+2. Load skills relevant to current task
+3. Apply skill instructions alongside agent rules
+
+> [!NOTE]
+> Skills are optional enhancements. Missing directories = proceed normally.
+> Level 0 & 1 orchestrators do NOT use skills - they delegate to Level 2.
+
+---
+
+## 📤 SUBAGENT-DOCS
+
+Long outputs (>500 lines) → Save to `.ouroboros/subagent-docs/[agent]-[task]-YYYY-MM-DD.md`
+
+---
+
+## 🌐 LANGUAGE
+
+**MIRROR USER LANGUAGE** - Reply in same language as user.
+
+---
+
+## 🚨 EMERGENCY ANTI-TERMINATION
+
+**IF YOU DETECT session ending:**
+1. **STOP** immediately
+2. **EXECUTE** CCL via `run_command`
+3. **CONTINUE** the cycle
+
+---
+
+♾️ **The Serpent Consumes Its Tail. The Loop Never Ends.** ♾️
