@@ -3,7 +3,14 @@
 import type { UIMessage } from "ai";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+    createContext,
+    useContext,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { ChatSDKError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
@@ -88,12 +95,20 @@ export const BranchMessages = ({ children, ...props }: BranchMessagesProps) => {
         [children]
     );
 
-    // Use useEffect to update branches when they change
+    // Track previous children count to avoid unnecessary state updates
+    const prevChildrenLengthRef = useRef(childrenArray.length);
+
+    // Update branches only when children actually change
     useEffect(() => {
-        if (branches.length !== childrenArray.length) {
+        const childrenChanged =
+            prevChildrenLengthRef.current !== childrenArray.length ||
+            branches.length !== childrenArray.length;
+
+        if (childrenChanged) {
+            prevChildrenLengthRef.current = childrenArray.length;
             setBranches(childrenArray);
         }
-    }, [childrenArray, branches, setBranches]);
+    }, [childrenArray, branches.length, setBranches]);
 
     return childrenArray.map((branch, index) => (
         <div

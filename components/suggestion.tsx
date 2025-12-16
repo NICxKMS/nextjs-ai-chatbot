@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
-import { useWindowSize } from "usehooks-ts";
+import { useWindowSize } from "@/hooks/use-window-size";
 
 import type { UISuggestion } from "@/lib/editor/suggestions-extension";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,7 @@ export const Suggestion = ({
     artifactKind: ArtifactKind;
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
-    const { width: windowWidth } = useWindowSize();
+    const { width: windowWidth, isReady } = useWindowSize();
 
     return (
         <AnimatePresence>
@@ -71,7 +71,7 @@ export const Suggestion = ({
                     whileHover={{ scale: 1.1 }}
                 >
                     <MessageIcon
-                        size={windowWidth && windowWidth < 768 ? 16 : 14}
+                        size={isReady && windowWidth < 768 ? 16 : 14}
                     />
                 </motion.div>
             )}

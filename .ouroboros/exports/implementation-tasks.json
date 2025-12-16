@@ -1,0 +1,896 @@
+{
+  "project": "nextjs-ai-chatbot-optimization",
+  "created": "2024-12-16",
+  "lastValidated": "2024-12-16",
+  "totalTasks": 37,
+  "estimatedDuration": "3-4 weeks",
+  "auditCoverage": {
+    "totalIssues": 76,
+    "covered": 53,
+    "percentage": 69.7
+  },
+  "status": "Not Started",
+  "phases": [
+    {
+      "id": 0,
+      "name": "Critical Hydration Fixes",
+      "priority": "CRITICAL",
+      "duration": "Day 1",
+      "description": "Eliminate hydration mismatches that break the app",
+      "blocksPhases": [1, 2, 3],
+      "taskCount": 3,
+      "completedTasks": 0,
+      "tasks": [
+        {
+          "id": "0.1",
+          "title": "Fix localStorage in sidebar useState",
+          "description": "Replace localStorage.getItem in useState initializer with useEffect pattern to prevent hydration mismatch",
+          "priority": "CRITICAL",
+          "estimatedHours": 1,
+          "auditReference": "H-001",
+          "riskLevel": "Medium",
+          "status": "Not Started",
+          "files": ["components/ui/sidebar.tsx"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "No hydration warnings in console related to sidebar",
+            "Sidebar state persists correctly across page refreshes",
+            "SSR renders consistent initial state",
+            "Client-side hydration completes without errors"
+          ],
+          "implementationSteps": [
+            "Replace useState(localStorage.getItem(...)) with useState(null)",
+            "Add useEffect to read localStorage after mount",
+            "Add loading state to prevent flash of incorrect content",
+            "Test SSR output matches initial client render"
+          ],
+          "codeExample": {
+            "before": "const [open, setOpen] = useState(() => {\n  if (typeof window !== 'undefined') {\n    return localStorage.getItem('sidebar-open') === 'true';\n  }\n  return true;\n});",
+            "after": "const [open, setOpen] = useState(true);\nconst [isHydrated, setIsHydrated] = useState(false);\n\nuseEffect(() => {\n  const stored = localStorage.getItem('sidebar-open');\n  if (stored !== null) {\n    setOpen(stored === 'true');\n  }\n  setIsHydrated(true);\n}, []);"
+          }
+        },
+        {
+          "id": "0.2",
+          "title": "Replace Math.random() in Skeleton Render Keys",
+          "description": "Replace Math.random() for React keys with deterministic index-based keys to prevent hydration mismatch",
+          "priority": "CRITICAL",
+          "estimatedHours": 0.5,
+          "auditReference": "H-002",
+          "riskLevel": "Low",
+          "status": "Not Started",
+          "files": ["components/ui/sidebar.tsx"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "No Math.random() calls in render paths",
+            "Skeleton elements use stable, deterministic keys",
+            "No hydration warnings related to key mismatches"
+          ],
+          "implementationSteps": [
+            "Find all Math.random() usage in component render",
+            "Replace with index-based keys (acceptable for static lists)",
+            "Or use deterministic ID generation based on content"
+          ],
+          "codeExample": {
+            "before": "{[1, 2, 3].map(() => (\n  <Skeleton key={Math.random()} className=\"h-8\" />\n))}",
+            "after": "{[1, 2, 3].map((_, index) => (\n  <Skeleton key={`skeleton-${index}`} className=\"h-8\" />\n))}"
+          }
+        },
+        {
+          "id": "0.3",
+          "title": "Fix useLocalStorage Hook Initialization",
+          "description": "Add initializeWithValue: false option to all useLocalStorage calls to defer localStorage read to client",
+          "priority": "CRITICAL",
+          "estimatedHours": 1.5,
+          "auditReference": "H-003",
+          "riskLevel": "Medium",
+          "status": "Not Started",
+          "files": [
+            "lib/settings/provider.tsx",
+            "Any file using useLocalStorage hook"
+          ],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "All useLocalStorage calls include { initializeWithValue: false }",
+            "No hydration warnings from settings provider",
+            "Settings load correctly after hydration",
+            "Default values render on SSR"
+          ],
+          "implementationSteps": [
+            "Audit all useLocalStorage usages in codebase",
+            "Add initializeWithValue: false option to each call",
+            "Handle the undefined initial state appropriately",
+            "Add loading states where needed"
+          ],
+          "codeExample": {
+            "before": "const [settings, setSettings] = useLocalStorage('user-settings', defaultSettings);",
+            "after": "const [settings, setSettings] = useLocalStorage('user-settings', defaultSettings, {\n  initializeWithValue: false,\n});\n\nconst effectiveSettings = settings ?? defaultSettings;"
+          }
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "name": "High Priority Fixes",
+      "priority": "HIGH",
+      "duration": "Days 2-3",
+      "description": "Major performance and UX improvements",
+      "prerequisites": ["Phase 0 complete"],
+      "taskCount": 12,
+      "completedTasks": 0,
+      "tasks": [
+        {
+          "id": "1.1",
+          "title": "Create Hydration-Safe useWindowSize Hook",
+          "description": "Create/modify hook to return null during SSR with isReady boolean to indicate hydration complete",
+          "priority": "HIGH",
+          "estimatedHours": 2,
+          "auditReference": null,
+          "riskLevel": "Medium",
+          "status": "Not Started",
+          "files": [
+            "hooks/use-window-size.ts",
+            "components/chat-header.tsx",
+            "components/toolbar.tsx",
+            "components/artifact.tsx",
+            "components/document-preview.tsx",
+            "components/document.tsx"
+          ],
+          "dependencies": ["0.1", "0.2", "0.3"],
+          "acceptanceCriteria": [
+            "Hook returns null or meaningful defaults during SSR",
+            "Components handle loading state gracefully",
+            "No layout shift on hydration",
+            "CLS score < 0.1"
+          ]
+        },
+        {
+          "id": "1.2",
+          "title": "Move Mobile Detection to Edge Middleware",
+          "description": "Create middleware to detect User-Agent and set device type cookie for server-side mobile detection",
+          "priority": "HIGH",
+          "estimatedHours": 2,
+          "auditReference": null,
+          "riskLevel": "Low",
+          "status": "Not Started",
+          "files": ["middleware.ts", "hooks/use-mobile.ts", "app/layout.tsx"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "Mobile detection happens at Edge (middleware)",
+            "Device type available via cookie or header",
+            "No client-side detection for initial render",
+            "Correct layout renders on first paint"
+          ]
+        },
+        {
+          "id": "1.3",
+          "title": "Fix resolvedTheme Hydration Mismatch",
+          "description": "Use mounted state pattern from next-themes docs to render neutral state until mounted",
+          "priority": "HIGH",
+          "estimatedHours": 1.5,
+          "auditReference": null,
+          "riskLevel": "Low",
+          "status": "Not Started",
+          "files": [
+            "components/sidebar-user-nav.tsx",
+            "components/sheet-editor.tsx"
+          ],
+          "dependencies": ["0.3"],
+          "acceptanceCriteria": [
+            "No theme-related hydration warnings",
+            "No flash of wrong theme colors",
+            "Theme persists correctly"
+          ]
+        },
+        {
+          "id": "1.4",
+          "title": "Virtualize Messages List",
+          "description": "Implement @tanstack/react-virtual for message list to render only visible messages plus buffer",
+          "priority": "HIGH",
+          "estimatedHours": 3,
+          "auditReference": null,
+          "riskLevel": "Medium",
+          "status": "Not Started",
+          "files": ["components/messages.tsx", "package.json"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "Only visible messages + buffer are rendered",
+            "Smooth scrolling with 100+ messages",
+            "Auto-scroll to bottom works correctly",
+            "Message selection/interaction preserved"
+          ]
+        },
+        {
+          "id": "1.5",
+          "title": "Virtualize Sidebar History",
+          "description": "Apply virtualization pattern to sidebar chat history for smooth rendering with many items",
+          "priority": "HIGH",
+          "estimatedHours": 2,
+          "auditReference": null,
+          "riskLevel": "Low",
+          "status": "Not Started",
+          "files": ["components/sidebar-history.tsx"],
+          "dependencies": ["1.4"],
+          "acceptanceCriteria": [
+            "Sidebar renders smoothly with 500+ chat items",
+            "Search/filter still works",
+            "Active chat highlight preserved"
+          ]
+        },
+        {
+          "id": "1.6",
+          "title": "Add Image Dimensions to ImageEditor",
+          "description": "Add explicit width/height props to all Image components to prevent CLS",
+          "priority": "HIGH",
+          "estimatedHours": 1,
+          "auditReference": null,
+          "riskLevel": "Low",
+          "status": "Not Started",
+          "files": ["components/image-editor.tsx"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "All Image components have explicit dimensions",
+            "Aspect ratio preserved during load",
+            "No CLS from image loading"
+          ]
+        },
+        {
+          "id": "1.7",
+          "title": "Add Cache-Control Headers to API Routes",
+          "description": "Create cache header utility and add appropriate headers to all API routes",
+          "priority": "HIGH",
+          "estimatedHours": 2,
+          "auditReference": null,
+          "riskLevel": "Low",
+          "status": "Not Started",
+          "files": ["app/api/*/route.ts", "lib/api/cache-headers.ts (create)"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "All GET endpoints have appropriate Cache-Control",
+            "Mutable endpoints have no-store",
+            "Edge caching works for public data"
+          ]
+        },
+        {
+          "id": "1.8",
+          "title": "Add Static Asset Caching to vercel.json",
+          "description": "Configure cache headers for static assets in vercel.json",
+          "priority": "HIGH",
+          "estimatedHours": 0.5,
+          "auditReference": null,
+          "riskLevel": "Very Low",
+          "status": "Not Started",
+          "files": ["vercel.json"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "vercel.json includes cache headers config",
+            "Static assets cached for 1 year",
+            "HTML/API routes have appropriate short cache"
+          ]
+        },
+        {
+          "id": "1.9",
+          "title": "Configure Edge Runtime for Proxy Route",
+          "description": "Add Edge runtime export to proxy route for lower latency",
+          "priority": "HIGH",
+          "estimatedHours": 1,
+          "auditReference": null,
+          "riskLevel": "Low",
+          "status": "Not Started",
+          "files": ["app/api/proxy/route.ts"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "Proxy route configured for Edge runtime",
+            "No functionality regression",
+            "Lower latency for proxy requests"
+          ]
+        },
+        {
+          "id": "1.10",
+          "title": "Fix Auth State Hydration",
+          "description": "Use mounted state pattern for auth-dependent UI to prevent hydration mismatch",
+          "priority": "HIGH",
+          "estimatedHours": 2,
+          "auditReference": "CR-006",
+          "riskLevel": "Medium",
+          "status": "Not Started",
+          "files": [
+            "components/auth-provider.tsx",
+            "components/sidebar-user-nav.tsx",
+            "Any component using auth state conditionally"
+          ],
+          "dependencies": ["0.3"],
+          "acceptanceCriteria": [
+            "No auth-related hydration warnings",
+            "Correct UI renders for logged-in and logged-out states",
+            "No flash of wrong auth state"
+          ]
+        },
+        {
+          "id": "1.11",
+          "title": "Lazy-Load Syntax Highlighting",
+          "description": "Wrap syntax highlighting imports in dynamic import with loading state",
+          "priority": "HIGH",
+          "estimatedHours": 3,
+          "auditReference": "B-003",
+          "riskLevel": "Medium",
+          "status": "Not Started",
+          "files": [
+            "components/code-editor.tsx",
+            "lib/syntax/*.ts",
+            "Components using syntax highlighting"
+          ],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "Syntax highlighter loaded only when code block visible",
+            "Loading state shown while highlighter loads",
+            "No bundle regression for non-code pages"
+          ]
+        },
+        {
+          "id": "1.12",
+          "title": "Create Checkpoint - Phase 1 Verification",
+          "description": "Verification checkpoint for Phase 0 and Phase 1 completion",
+          "priority": "HIGH",
+          "estimatedHours": 2,
+          "auditReference": null,
+          "riskLevel": "None",
+          "status": "Not Started",
+          "files": [],
+          "dependencies": [
+            "1.1",
+            "1.2",
+            "1.3",
+            "1.4",
+            "1.5",
+            "1.6",
+            "1.7",
+            "1.8",
+            "1.9",
+            "1.10",
+            "1.11"
+          ],
+          "acceptanceCriteria": [
+            "All Phase 0 and Phase 1 tasks complete",
+            "No hydration warnings in production build",
+            "Lighthouse Performance > 80",
+            "CLS < 0.1",
+            "LCP < 2.5s",
+            "All existing tests pass"
+          ],
+          "verificationMetrics": {
+            "lighthousePerformance": { "target": "> 80" },
+            "cls": { "target": "< 0.1" },
+            "lcp": { "target": "< 2.5s" },
+            "fid": { "target": "< 100ms" },
+            "bundleSize": { "target": "< 200KB" },
+            "hydrationWarnings": { "target": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Medium Priority Optimization",
+      "priority": "MEDIUM",
+      "duration": "Week 2",
+      "description": "Bundle size, DX, and further performance",
+      "prerequisites": ["Phase 1 complete"],
+      "taskCount": 14,
+      "completedTasks": 0,
+      "tasks": [
+        {
+          "id": "2.1",
+          "title": "Remove Duplicate clsx/classnames Packages",
+          "description": "Replace classnames imports with clsx and remove classnames from package.json",
+          "priority": "MEDIUM",
+          "estimatedHours": 1,
+          "auditReference": null,
+          "riskLevel": "Low",
+          "status": "Not Started",
+          "files": ["package.json", "All files importing classnames"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "No classnames package in dependencies",
+            "All imports use clsx or cn utility"
+          ]
+        },
+        {
+          "id": "2.2",
+          "title": "Remove Unused @icons-pack/react-simple-icons",
+          "description": "Remove unused icon package from dependencies",
+          "priority": "MEDIUM",
+          "estimatedHours": 1,
+          "auditReference": null,
+          "riskLevel": "Low",
+          "status": "Not Started",
+          "files": ["package.json"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "Package removed if unused",
+            "Build succeeds without package"
+          ]
+        },
+        {
+          "id": "2.3",
+          "title": "Remove Console Statements from Production",
+          "description": "Replace console statements with proper logging or remove entirely",
+          "priority": "MEDIUM",
+          "estimatedHours": 1,
+          "auditReference": null,
+          "riskLevel": "Very Low",
+          "status": "Not Started",
+          "files": ["6 files with console statements"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "No console.log in production code",
+            "ESLint rule prevents future occurrences"
+          ]
+        },
+        {
+          "id": "2.4",
+          "title": "Migrate unstable_cache to use cache",
+          "description": "Replace unstable_cache with use cache directive",
+          "priority": "MEDIUM",
+          "estimatedHours": 2,
+          "auditReference": null,
+          "riskLevel": "Medium",
+          "status": "Not Started",
+          "files": ["Files using unstable_cache"],
+          "dependencies": ["Next.js 15 stable release"],
+          "acceptanceCriteria": [
+            "All unstable_cache usages replaced",
+            "Caching behavior works correctly"
+          ]
+        },
+        {
+          "id": "2.5",
+          "title": "Implement Pyodide On-Demand Loading",
+          "description": "Wrap Pyodide in dynamic import with loading state and caching",
+          "priority": "MEDIUM",
+          "estimatedHours": 3,
+          "auditReference": null,
+          "riskLevel": "Medium",
+          "status": "Not Started",
+          "files": ["Files loading Pyodide"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "Pyodide loaded only when needed",
+            "Loading state shown while loading",
+            "Instance cached after load"
+          ]
+        },
+        {
+          "id": "2.6",
+          "title": "Configure API Timeouts",
+          "description": "Add timeout configuration to API routes and next.config",
+          "priority": "MEDIUM",
+          "estimatedHours": 1,
+          "auditReference": null,
+          "riskLevel": "Low",
+          "status": "Not Started",
+          "files": ["API routes", "next.config.js"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "Timeout configuration added",
+            "Timeout errors handled gracefully"
+          ]
+        },
+        {
+          "id": "2.7",
+          "title": "Fix Context Wide Re-renders in DataStreamProvider",
+          "description": "Split context and memoize values to prevent unnecessary re-renders",
+          "priority": "MEDIUM",
+          "estimatedHours": 2,
+          "auditReference": null,
+          "riskLevel": "Medium",
+          "status": "Not Started",
+          "files": ["components/data-stream-provider.tsx"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "Context split into state vs actions",
+            "Values properly memoized",
+            "Re-renders minimized"
+          ]
+        },
+        {
+          "id": "2.8",
+          "title": "Theme System Cleanup",
+          "description": "Remove redundant theme logic and consolidate CSS variables",
+          "priority": "MEDIUM",
+          "estimatedHours": 1.5,
+          "auditReference": null,
+          "riskLevel": "Low",
+          "status": "Not Started",
+          "files": ["Theme-related components", "CSS variables"],
+          "dependencies": ["1.3"],
+          "acceptanceCriteria": [
+            "No redundant theme code",
+            "CSS variables consolidated"
+          ]
+        },
+        {
+          "id": "2.9",
+          "title": "Configure Multi-Region Deployment",
+          "description": "Configure regions in vercel.json and ensure database supports multi-region",
+          "priority": "MEDIUM",
+          "estimatedHours": 2,
+          "auditReference": null,
+          "riskLevel": "Medium",
+          "status": "Not Started",
+          "files": ["vercel.json", "Database configuration"],
+          "dependencies": ["1.8"],
+          "acceptanceCriteria": [
+            "Regions configured",
+            "Database supports multi-region",
+            "Low latency from different locations"
+          ]
+        },
+        {
+          "id": "2.10",
+          "title": "Fix Console Output Images",
+          "description": "Replace native img elements with next/image or add proper dimensions",
+          "priority": "MEDIUM",
+          "estimatedHours": 1,
+          "auditReference": "IM-002",
+          "riskLevel": "Low",
+          "status": "Not Started",
+          "files": ["components/console.tsx"],
+          "dependencies": ["1.6"],
+          "acceptanceCriteria": [
+            "No native img elements without dimensions",
+            "Images properly optimized"
+          ]
+        },
+        {
+          "id": "2.11",
+          "title": "Add Resource Hints",
+          "description": "Add preconnect/prefetch hints for API domains and font providers",
+          "priority": "MEDIUM",
+          "estimatedHours": 1,
+          "auditReference": "NET-001",
+          "riskLevel": "Low",
+          "status": "Not Started",
+          "files": ["app/layout.tsx", "app/head.tsx"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "Preconnect hints for API domains",
+            "Preconnect for font providers",
+            "DNS-prefetch for third-party services"
+          ]
+        },
+        {
+          "id": "2.12",
+          "title": "API Response Pagination",
+          "description": "Add cursor-based pagination to history API and implement infinite scroll",
+          "priority": "MEDIUM",
+          "estimatedHours": 3,
+          "auditReference": "API-002, API-005",
+          "riskLevel": "Medium",
+          "status": "Not Started",
+          "files": [
+            "app/api/history/route.ts",
+            "components/sidebar-history.tsx",
+            "Related data fetching code"
+          ],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "Cursor-based pagination implemented",
+            "Frontend requests pages",
+            "Infinite scroll or load more button works",
+            "Total count header added"
+          ]
+        },
+        {
+          "id": "2.13",
+          "title": "Fix Skeleton/Content CLS",
+          "description": "Audit and fix skeleton dimensions to match actual content",
+          "priority": "MEDIUM",
+          "estimatedHours": 2,
+          "auditReference": "CLS-002, CLS-005",
+          "riskLevel": "Low",
+          "status": "Not Started",
+          "files": [
+            "components/document-skeleton.tsx",
+            "components/sidebar-skeleton.tsx",
+            "Other skeleton components"
+          ],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "Skeleton dimensions match content",
+            "No layout shifts from skeleton to content"
+          ]
+        },
+        {
+          "id": "2.14",
+          "title": "Create Checkpoint - Phase 2 Verification",
+          "description": "Verification checkpoint for Phase 2 completion",
+          "priority": "MEDIUM",
+          "estimatedHours": 1,
+          "auditReference": null,
+          "riskLevel": "None",
+          "status": "Not Started",
+          "files": [],
+          "dependencies": [
+            "2.1",
+            "2.2",
+            "2.3",
+            "2.4",
+            "2.5",
+            "2.6",
+            "2.7",
+            "2.8",
+            "2.9",
+            "2.10",
+            "2.11",
+            "2.12",
+            "2.13"
+          ],
+          "acceptanceCriteria": [
+            "Bundle size reduced",
+            "No unused dependencies",
+            "No console.log in production"
+          ],
+          "verificationMetrics": {
+            "bundleSizeReduction": { "target": "-20%" },
+            "unusedDependencies": { "target": 0 },
+            "consoleLogs": { "target": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Low Priority Improvements",
+      "priority": "LOW",
+      "duration": "Week 3+",
+      "description": "Code quality and future-proofing",
+      "prerequisites": ["Phase 2 complete"],
+      "taskCount": 8,
+      "completedTasks": 0,
+      "tasks": [
+        {
+          "id": "3.1",
+          "title": "Remove Unused CSS Variables",
+          "description": "Audit and remove unused CSS variables from stylesheets",
+          "priority": "LOW",
+          "estimatedHours": 2,
+          "auditReference": null,
+          "riskLevel": "Low",
+          "status": "Not Started",
+          "files": ["app/globals.css", "Component CSS files"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "No unused CSS variables",
+            "Stylesheet size reduced"
+          ]
+        },
+        {
+          "id": "3.2",
+          "title": "Enable React Strict Mode",
+          "description": "Enable React Strict Mode in next.config.js",
+          "priority": "LOW",
+          "estimatedHours": 0.5,
+          "auditReference": null,
+          "riskLevel": "May reveal additional issues",
+          "status": "Not Started",
+          "files": ["next.config.js"],
+          "dependencies": ["All hydration issues fixed"],
+          "acceptanceCriteria": [
+            "React Strict Mode enabled",
+            "No additional issues revealed"
+          ]
+        },
+        {
+          "id": "3.3",
+          "title": "Set Up Bundle Analyzer",
+          "description": "Install and configure @next/bundle-analyzer",
+          "priority": "LOW",
+          "estimatedHours": 1,
+          "auditReference": null,
+          "riskLevel": "None",
+          "status": "Not Started",
+          "files": ["package.json", "next.config.js"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "Bundle analyzer installed",
+            "npm script added",
+            "Documentation provided"
+          ]
+        },
+        {
+          "id": "3.4",
+          "title": "Add PWA/Service Worker Support",
+          "description": "Add manifest.json and service worker for PWA support",
+          "priority": "LOW",
+          "estimatedHours": 4,
+          "auditReference": null,
+          "riskLevel": "Medium",
+          "status": "Not Started",
+          "files": [
+            "public/manifest.json",
+            "Service Worker file",
+            "next.config.js"
+          ],
+          "dependencies": ["All caching configured"],
+          "acceptanceCriteria": [
+            "manifest.json created",
+            "Service worker registered",
+            "Offline support works"
+          ]
+        },
+        {
+          "id": "3.5",
+          "title": "Address Remaining Lint Rule Fixes",
+          "description": "Run lint and address all warnings/errors",
+          "priority": "LOW",
+          "estimatedHours": 2,
+          "auditReference": null,
+          "riskLevel": "Very Low",
+          "status": "Not Started",
+          "files": ["Various (based on lint output)"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "No lint warnings",
+            "Stricter rules considered"
+          ]
+        },
+        {
+          "id": "3.6",
+          "title": "Review framer-motion Usage",
+          "description": "Audit framer-motion usage and replace simple animations with CSS",
+          "priority": "LOW",
+          "estimatedHours": 3,
+          "auditReference": "B-006",
+          "riskLevel": "Low",
+          "status": "Not Started",
+          "files": ["10 components using framer-motion"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "Simple animations use CSS",
+            "framer-motion kept for complex orchestration",
+            "Bundle size reduced"
+          ]
+        },
+        {
+          "id": "3.7",
+          "title": "Fix suggestions-extension Cleanup",
+          "description": "Add proper cleanup function in TipTap suggestions extension",
+          "priority": "LOW",
+          "estimatedHours": 1,
+          "auditReference": "UPDATE-001",
+          "riskLevel": "Low",
+          "status": "Not Started",
+          "files": ["lib/editor/suggestions-extension.ts"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "Cleanup function added",
+            "Event listeners properly removed",
+            "No memory leaks"
+          ]
+        },
+        {
+          "id": "3.8",
+          "title": "Add Environment Variable Documentation",
+          "description": "Document all NEXT_PUBLIC_ environment variables",
+          "priority": "LOW",
+          "estimatedHours": 1,
+          "auditReference": "BUILD-005",
+          "riskLevel": "None",
+          "status": "Not Started",
+          "files": ["README.md", ".env.example"],
+          "dependencies": [],
+          "acceptanceCriteria": [
+            "All env vars documented",
+            ".env.example updated"
+          ]
+        }
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "id": "R1",
+      "risk": "Virtualization breaks scroll behavior",
+      "likelihood": "Medium",
+      "impact": "High",
+      "mitigation": "Test thoroughly, have rollback plan",
+      "owner": "Dev"
+    },
+    {
+      "id": "R2",
+      "risk": "Edge runtime missing Node.js APIs",
+      "likelihood": "Low",
+      "impact": "Medium",
+      "mitigation": "Test all code paths before deploying",
+      "owner": "Dev"
+    },
+    {
+      "id": "R3",
+      "risk": "Cache invalidation issues",
+      "likelihood": "Medium",
+      "impact": "Medium",
+      "mitigation": "Implement cache busting, test mutations",
+      "owner": "Dev"
+    },
+    {
+      "id": "R4",
+      "risk": "Theme changes affect accessibility",
+      "likelihood": "Low",
+      "impact": "High",
+      "mitigation": "Test with screen readers, check contrast",
+      "owner": "Dev"
+    },
+    {
+      "id": "R5",
+      "risk": "Multi-region adds complexity",
+      "likelihood": "Medium",
+      "impact": "Low",
+      "mitigation": "Start with single region, add gradually",
+      "owner": "DevOps"
+    },
+    {
+      "id": "R6",
+      "risk": "Pyodide lazy loading affects UX",
+      "likelihood": "Low",
+      "impact": "Medium",
+      "mitigation": "Add loading indicators, preload on hover",
+      "owner": "Dev"
+    }
+  ],
+  "timeline": [
+    {
+      "week": 1,
+      "day": 1,
+      "phase": "Phase 0",
+      "tasks": ["0.1", "0.2", "0.3"],
+      "goal": "Zero hydration errors"
+    },
+    {
+      "week": 1,
+      "days": "2-4",
+      "phase": "Phase 1",
+      "tasks": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "1.6",
+        "1.7",
+        "1.8",
+        "1.9",
+        "1.10",
+        "1.11",
+        "1.12"
+      ],
+      "goal": "Core performance + gap fixes"
+    },
+    {
+      "week": 2,
+      "phase": "Phase 2",
+      "tasks": [
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4",
+        "2.5",
+        "2.6",
+        "2.7",
+        "2.8",
+        "2.9",
+        "2.10",
+        "2.11",
+        "2.12",
+        "2.13",
+        "2.14"
+      ],
+      "goal": "Bundle optimization + API improvements"
+    },
+    {
+      "week": "3+",
+      "phase": "Phase 3",
+      "tasks": ["3.1", "3.2", "3.3", "3.4", "3.5", "3.6", "3.7", "3.8"],
+      "goal": "Polish & maintenance"
+    }
+  ]
+}

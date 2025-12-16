@@ -61,10 +61,18 @@ export async function GET(request: Request) {
         ctx
     );
 
-    return Response.json({
-        chats: result.items,
-        hasMore: result.hasMore,
-    });
+    return Response.json(
+        {
+            chats: result.items,
+            hasMore: result.hasMore,
+        },
+        {
+            headers: {
+                "Cache-Control":
+                    "private, max-age=0, s-maxage=10, stale-while-revalidate=30",
+            },
+        }
+    );
 }
 
 export async function DELETE() {

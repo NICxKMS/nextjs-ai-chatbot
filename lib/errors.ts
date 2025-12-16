@@ -1,4 +1,5 @@
 import { isProductionEnvironment } from "@/lib/constants";
+import { logError } from "@/lib/log";
 
 export type ErrorType =
     | "bad_request"
@@ -80,7 +81,10 @@ export class ChatSDKError extends Error {
 
         // Log critical errors (server errors and offline errors)
         if (this.type === "offline" || statusCode >= 500) {
-            console.error("Critical error:", this.code, this.message);
+            logError("critical_error", {
+                code: this.code,
+                message: this.message,
+            });
         }
 
         if (visibility === "log") {

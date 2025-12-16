@@ -12,6 +12,10 @@ import {
     getClientIP,
 } from "./lib/middleware/edge-rate-limit";
 
+// Note: Next.js 16 Proxy files always run on Node.js runtime
+// Edge runtime is not configurable for proxy.ts - it runs on Vercel's edge network
+// via their internal proxy infrastructure
+
 const GUEST_COOKIE_NAME = "guest_token";
 // Cookie TTL (7 days) - how long guest identity persists
 const GUEST_COOKIE_TTL_SECONDS = GUEST_CACHE_TTL_SECONDS;
@@ -25,6 +29,10 @@ const GUEST_JWT_SECRET = process.env.GUEST_JWT_SECRET
 
 // Routes that don't need guest session creation
 const SKIP_GUEST_SESSION_PATHS = new Set(["/api/", "/login", "/register"]);
+
+// Mobile device detection pattern (covers common mobile user agents)
+const MOBILE_UA_PATTERN =
+    /mobile|android|iphone|ipad|ipod|blackberry|iemobile|opera mini|webos/i;
 
 // API routes that skip all edge rate limiting (health checks only)
 const SKIP_EDGE_RATE_LIMIT_PATHS = ["/api/health"];
@@ -143,6 +151,14 @@ export async function proxy(request: NextRequest) {
     }
 
     const response = NextResponse.next();
+
+    // Mobile detection via User-Agent header (Task 1.2)
+    const userAgent = request.headers.get("user-agent") || "";
+    const isMobileDevice = MOBILE_UA_PATTERN.test(userAgent);
+    response.headers.set(
+        "x-device-type",
+        isMobileDevice ? "mobile" : "desktop"
+    );
 
     // Skip guest session for API routes and auth pages
     if (shouldSkipGuestSession(pathname)) {

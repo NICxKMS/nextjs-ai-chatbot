@@ -28,11 +28,16 @@ function Toast(props: ToastProps) {
             return;
         }
 
+        // Cache lineHeight to avoid repeated getComputedStyle calls
+        let cachedLineHeight: number | null = null;
+
         const update = () => {
-            const lineHeight = Number.parseFloat(
-                getComputedStyle(el).lineHeight
-            );
-            const lines = Math.round(el.scrollHeight / lineHeight);
+            if (cachedLineHeight === null) {
+                cachedLineHeight = Number.parseFloat(
+                    getComputedStyle(el).lineHeight
+                );
+            }
+            const lines = Math.round(el.scrollHeight / cachedLineHeight);
             setMultiLine(lines > 1);
         };
 

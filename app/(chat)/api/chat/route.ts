@@ -4,7 +4,7 @@ import {
     JsonToSseTransformStream,
     type UIMessage,
 } from "ai";
-import { unstable_cache as cache } from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 import type { ModelCatalog } from "tokenlens/core";
 import type { VisibilityType } from "@/components/visibility-selector";
 import { executeChatCompletion } from "@/lib/ai/chat-completion";
@@ -41,22 +41,19 @@ import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
 export const maxDuration = 60;
 
-const getTokenlensCatalog = cache(
-    async (): Promise<ModelCatalog | undefined> => {
-        try {
-            const { fetchModels } = await import("tokenlens/fetch");
-            return await fetchModels();
-        } catch (err) {
-            logWarn(
-                "TokenLens: catalog fetch failed, using default catalog",
-                err
-            );
-            return; // tokenlens helpers will fall back to defaultCatalog
-        }
-    },
-    ["tokenlens-catalog"],
-    { revalidate: 24 * 60 * 60 } // 24 hours
-);
+async function getTokenlensCatalog(): Promise<ModelCatalog | undefined> {
+    "use cache";
+    cacheTag("tokenlens-catalog");
+    cacheLife("days"); // ~24 hours
+
+    try {
+        const { fetchModels } = await import("tokenlens/fetch");
+        return await fetchModels();
+    } catch (err) {
+        logWarn("TokenLens: catalog fetch failed, using default catalog", err);
+        return; // tokenlens helpers will fall back to defaultCatalog
+    }
+}
 
 export async function POST(request: Request) {
     let selectedModelId = "";

@@ -1,17 +1,15 @@
 "use client";
 
 import NextError from "next/error";
-import { useEffect } from "react";
 
 export default function GlobalError({
     error,
 }: {
     error: Error & { digest?: string };
 }) {
-    useEffect(() => {
-        // Log critical errors to console for debugging
-        console.error("Global error:", error.message, error.digest);
-    }, [error]);
+    // Error object intentionally unused - digest displayed via NextError
+    // Stack traces not exposed in production client bundle
+    console.debug(error.digest);
 
     return (
         <html lang="en">

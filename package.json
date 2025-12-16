@@ -16,7 +16,7 @@
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
     "test": "export PLAYWRIGHT=True && pnpm exec playwright test",
-    "analyze": "next build --analyze"
+    "analyze": "cross-env ANALYZE=true next build --webpack"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^1.0.15",
@@ -30,7 +30,6 @@
     "@codemirror/state": "^6.5.0",
     "@codemirror/theme-one-dark": "^6.1.2",
     "@codemirror/view": "^6.35.3",
-    "@icons-pack/react-simple-icons": "^13.7.0",
     "@openrouter/ai-sdk-provider": "^1.2.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/api-logs": "^0.200.0",
@@ -62,7 +61,6 @@
     "ai-gateway-provider": "^2.0.1",
     "babel-plugin-react-compiler": "^1.0.0",
     "class-variance-authority": "^0.7.1",
-    "classnames": "^2.5.1",
     "clsx": "^2.1.1",
     "codemirror": "^6.0.1",
     "date-fns": "^4.1.0",
@@ -88,6 +86,7 @@
     "react-dom": "19.2.1",
     "react-resizable-panels": "^2.1.7",
     "react-syntax-highlighter": "^15.6.6",
+    "react-virtuoso": "^4.17.0",
     "refractor": "4.8.1",
     "rehype-katex": "^7.0.1",
     "remark-math": "^6.0.0",
@@ -109,6 +108,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.2.2",
     "@google/genai": "^1.27.0",
+    "@next/bundle-analyzer": "^16.0.10",
     "@playwright/test": "^1.50.1",
     "@tailwindcss/postcss": "^4.1.13",
     "@tailwindcss/typography": "^0.5.15",
@@ -119,6 +119,7 @@
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "cross-env": "^10.1.0",
     "drizzle-kit": "^0.25.0",
     "postcss": "^8",
     "tailwindcss": "^4.1.13",

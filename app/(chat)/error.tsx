@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 
 type ChatErrorProps = {
@@ -12,14 +11,10 @@ type ChatErrorProps = {
 /**
  * Route-level error boundary for (chat) route group.
  * Catches runtime errors in chat pages and provides recovery options.
+ * Error digest is displayed to user; no client-side console logging in production.
  */
 export default function ChatError({ error, reset }: ChatErrorProps) {
     const router = useRouter();
-
-    useEffect(() => {
-        // Log error to console for debugging in development
-        console.error("Chat route error:", error.message, error.digest);
-    }, [error]);
 
     return (
         <div className="flex h-dvh w-full flex-col items-center justify-center gap-6 px-4">

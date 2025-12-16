@@ -73,7 +73,12 @@ export async function GET(request: Request) {
         return ownershipCheck;
     }
 
-    return Response.json(documents, { status: 200 });
+    return Response.json(documents, {
+        status: 200,
+        headers: {
+            "Cache-Control": "private, max-age=60",
+        },
+    });
 }
 
 export async function POST(request: Request) {

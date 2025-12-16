@@ -190,9 +190,10 @@ export function ModelSelector({
                 <Button
                     className="md:h-[34px] md:px-2"
                     data-testid="model-selector"
+                    suppressHydrationWarning
                     variant="outline"
                 >
-                    {selectedChatModel?.name}
+                    {selectedChatModel?.name ?? "Select model"}
                     <ChevronDownIcon />
                 </Button>
             </DropdownMenuTrigger>

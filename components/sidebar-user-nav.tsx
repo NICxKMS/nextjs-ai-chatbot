@@ -4,6 +4,7 @@ import { ChevronUp } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
 import { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
 import { useAuth } from "@/components/auth-provider";
@@ -29,6 +30,11 @@ export function SidebarUserNav({ user }: { user: { email?: string | null } }) {
     const { session, status } = useAuth();
     const { setTheme, resolvedTheme } = useTheme();
     const { mutate } = useSWRConfig();
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const isGuest = session?.user?.type === "guest";
     const isAuthenticated = Boolean(session);
@@ -42,7 +48,9 @@ export function SidebarUserNav({ user }: { user: { email?: string | null } }) {
             <SidebarMenuItem>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        {status === "loading" ? (
+                        {/* Show loading skeleton until hydrated AND auth status resolved
+                            This prevents hydration mismatch since SSR cannot know auth state */}
+                        {!mounted || status === "loading" ? (
                             <SidebarMenuButton className="h-10 justify-between bg-background data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
                                 <div className="flex flex-row gap-2">
                                     <div className="size-6 animate-pulse rounded-full bg-zinc-500/30" />
@@ -59,10 +67,14 @@ export function SidebarUserNav({ user }: { user: { email?: string | null } }) {
                                 className="h-10 bg-background data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                                 data-testid="user-nav-button"
                             >
+                                {/* Note: placeholder="blur" requires blurDataURL which cannot be
+                                    pre-generated for dynamic external avatar URLs. The avatar service
+                                    generates unique images per seed, making static blur data impossible. */}
                                 <Image
                                     alt={displayLabel}
                                     className="rounded-full"
                                     height={24}
+                                    sizes="24px"
                                     src={`https://avatar.vercel.sh/${avatarSeed}`}
                                     width={24}
                                 />
@@ -90,7 +102,9 @@ export function SidebarUserNav({ user }: { user: { email?: string | null } }) {
                                 )
                             }
                         >
-                            {`Toggle ${resolvedTheme === "light" ? "dark" : "light"} mode`}
+                            {mounted
+                                ? `Toggle ${resolvedTheme === "light" ? "dark" : "light"} mode`
+                                : "Toggle theme"}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem

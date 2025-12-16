@@ -1,4 +1,4 @@
-import cn from "classnames";
+import { cn } from "@/lib/utils";
 import { LoaderIcon } from "./icons";
 
 type ImageEditorProps = {
@@ -34,13 +34,18 @@ export function ImageEditor({
                 </div>
             ) : (
                 <picture>
-                    {/** biome-ignore lint/nursery/useImageSize: "Generated image without explicit size" */}
                     <img
                         alt={title}
-                        className={cn("h-fit w-full max-w-[800px]", {
-                            "p-0 md:p-20": !isInline,
-                        })}
+                        className={cn(
+                            "h-auto w-full max-w-[800px] object-contain",
+                            {
+                                "p-0 md:p-20": !isInline,
+                            }
+                        )}
+                        height={600}
                         src={`data:image/png;base64,${content}`}
+                        style={{ aspectRatio: "4/3" }}
+                        width={800}
                     />
                 </picture>
             )}
