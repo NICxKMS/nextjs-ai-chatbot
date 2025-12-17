@@ -1,4 +1,4 @@
-import * as React from "react"
+import { useEffect, useState } from "react";
 
 const MOBILE_BREAKPOINT = 768
 
@@ -24,20 +24,23 @@ export interface UseMobileOptions {
  */
 export function useIsMobile(options?: UseMobileOptions) {
   const { initialIsMobile } = options ?? {}
-  const [isMobile, setIsMobile] = React.useState<boolean | undefined>(
+  const [isMobile, setIsMobile] = useState<boolean | undefined>(
     initialIsMobile
   )
 
-  React.useEffect(() => {
+  useEffect(() => {
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
     const onChange = () => {
       setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
     }
     mql.addEventListener("change", onChange)
-    // Initial measurement from actual viewport (overrides server hint)
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    // Only update if different from initial value to avoid CLS
+    const actualIsMobile = window.innerWidth < MOBILE_BREAKPOINT
+    if (actualIsMobile !== initialIsMobile) {
+      setIsMobile(actualIsMobile)
+    }
     return () => mql.removeEventListener("change", onChange)
-  }, [])
+  }, [initialIsMobile])
 
   return isMobile
 }

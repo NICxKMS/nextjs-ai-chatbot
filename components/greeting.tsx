@@ -1,5 +1,5 @@
-import { motion } from "framer-motion";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
+import { motion } from "@/lib/motion";
 
 type GreetingProps = {
     availableModels?: ModelMetadata[];

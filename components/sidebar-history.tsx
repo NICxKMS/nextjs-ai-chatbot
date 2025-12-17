@@ -480,12 +480,12 @@ export function SidebarHistory({
 
     if (isLoading) {
         return (
-            <SidebarGroup>
+            <SidebarGroup className="flex-1 overflow-hidden">
                 <div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
                     Today
                 </div>
-                <SidebarGroupContent>
-                    <div aria-busy="true" className="flex flex-col">
+                <SidebarGroupContent className="h-full">
+                    <div aria-busy="true" className="flex h-full flex-col">
                         {[44, 32, 28, 64, 52].map((item) => (
                             <div
                                 className="flex h-8 items-center gap-2 rounded-md px-2"
@@ -523,8 +523,8 @@ export function SidebarHistory({
     return (
         <>
             <SidebarGroup className="flex-1 overflow-hidden">
-                <SidebarGroupContent className="h-full">
-                    <SidebarMenu className="h-full">
+                <SidebarGroupContent className="flex h-full flex-col">
+                    <SidebarMenu className="h-full min-h-0 flex-1">
                         {virtuosoGroups.length > 0 && (
                             <GroupedVirtuoso
                                 components={{

@@ -20,7 +20,6 @@ import { useOnClickOutside } from "usehooks-ts";
 import {
     Tooltip,
     TooltipContent,
-    TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ChatSDKError } from "@/lib/errors";
@@ -188,75 +187,70 @@ const ReadingLevelSelector = ({
                 </motion.div>
             ))}
 
-            <TooltipProvider>
-                <Tooltip open={!isAnimating}>
-                    <TooltipTrigger asChild>
-                        <motion.div
-                            className={cn(
-                                "absolute flex flex-row items-center rounded-full border bg-background p-3",
-                                {
-                                    "bg-primary text-primary-foreground":
-                                        currentLevel !== 2,
-                                    "bg-background text-foreground":
-                                        currentLevel === 2,
-                                }
-                            )}
-                            drag="y"
-                            dragConstraints={{
-                                top: -dragConstraints,
-                                bottom: 0,
-                            }}
-                            dragElastic={0}
-                            dragMomentum={false}
-                            onClick={() => {
-                                if (
-                                    currentLevel !== 2 &&
-                                    hasUserSelectedLevel
-                                ) {
-                                    sendMessage({
-                                        role: "user",
-                                        parts: [
-                                            {
-                                                type: "text",
-                                                text: `Please adjust the reading level to ${LEVELS[currentLevel]} level.`,
-                                            },
-                                        ],
-                                    });
+            <Tooltip open={!isAnimating}>
+                <TooltipTrigger asChild>
+                    <motion.div
+                        className={cn(
+                            "absolute flex flex-row items-center rounded-full border bg-background p-3",
+                            {
+                                "bg-primary text-primary-foreground":
+                                    currentLevel !== 2,
+                                "bg-background text-foreground":
+                                    currentLevel === 2,
+                            }
+                        )}
+                        drag="y"
+                        dragConstraints={{
+                            top: -dragConstraints,
+                            bottom: 0,
+                        }}
+                        dragElastic={0}
+                        dragMomentum={false}
+                        onClick={() => {
+                            if (currentLevel !== 2 && hasUserSelectedLevel) {
+                                sendMessage({
+                                    role: "user",
+                                    parts: [
+                                        {
+                                            type: "text",
+                                            text: `Please adjust the reading level to ${LEVELS[currentLevel]} level.`,
+                                        },
+                                    ],
+                                });
 
-                                    setSelectedTool(null);
-                                }
-                            }}
-                            onDragEnd={() => {
-                                if (currentLevel === 2) {
-                                    setSelectedTool(null);
-                                } else {
-                                    setHasUserSelectedLevel(true);
-                                }
-                            }}
-                            onDragStart={() => {
-                                setHasUserSelectedLevel(false);
-                            }}
-                            style={{ y }}
-                            transition={{ duration: 0.1 }}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                        >
-                            {currentLevel === 2 ? (
-                                <SummarizeIcon />
-                            ) : (
-                                <ArrowUpIcon />
-                            )}
-                        </motion.div>
-                    </TooltipTrigger>
-                    <TooltipContent
-                        className="rounded-2xl bg-foreground p-3 px-4 text-background text-sm"
-                        side="left"
-                        sideOffset={16}
+                                setSelectedTool(null);
+                            }
+                        }}
+                        onDragEnd={() => {
+                            if (currentLevel === 2) {
+                                setSelectedTool(null);
+                            } else {
+                                setHasUserSelectedLevel(true);
+                            }
+                        }}
+                        onDragStart={() => {
+                            setHasUserSelectedLevel(false);
+                        }}
+                        style={{ y }}
+                        transition={{ duration: 0.1 }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
                     >
-                        {LEVELS[currentLevel]}
-                    </TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
+                        {currentLevel === 2 ? (
+                            <SummarizeIcon />
+                        ) : (
+                            <ArrowUpIcon />
+                        )}
+                    </motion.div>
+                </TooltipTrigger>
+                <TooltipContent
+                    className="rounded-2xl bg-foreground p-3 px-4 text-background text-sm"
+                    side="left"
+                    sideOffset={16}
+                >
+                    {LEVELS[currentLevel]}
+                </TooltipContent>
+            </Tooltip>
         </div>
     );
 };
@@ -398,94 +392,92 @@ const PureToolbar = ({
     }
 
     return (
-        <TooltipProvider delayDuration={0}>
-            <motion.div
-                animate={
-                    isToolbarVisible
-                        ? selectedTool === "adjust-reading-level"
-                            ? {
-                                  opacity: 1,
-                                  y: 0,
-                                  height: 6 * 43,
-                                  transition: { delay: 0 },
-                                  scale: 0.95,
-                              }
-                            : {
-                                  opacity: 1,
-                                  y: 0,
-                                  height: toolsByArtifactKind.length * 50,
-                                  transition: { delay: 0 },
-                                  scale: 1,
-                              }
+        <motion.div
+            animate={
+                isToolbarVisible
+                    ? selectedTool === "adjust-reading-level"
+                        ? {
+                              opacity: 1,
+                              y: 0,
+                              height: 6 * 43,
+                              transition: { delay: 0 },
+                              scale: 0.95,
+                          }
                         : {
                               opacity: 1,
                               y: 0,
-                              height: 54,
+                              height: toolsByArtifactKind.length * 50,
                               transition: { delay: 0 },
+                              scale: 1,
                           }
+                    : {
+                          opacity: 1,
+                          y: 0,
+                          height: 54,
+                          transition: { delay: 0 },
+                      }
+            }
+            className="absolute right-6 bottom-6 flex cursor-pointer flex-col justify-end rounded-full border bg-background p-1.5 shadow-lg"
+            exit={{ opacity: 0, y: -20, transition: { duration: 0.1 } }}
+            initial={{ opacity: 0, y: -20, scale: 1 }}
+            onAnimationComplete={() => {
+                setIsAnimating(false);
+            }}
+            onAnimationStart={() => {
+                setIsAnimating(true);
+            }}
+            onHoverEnd={() => {
+                if (status === "streaming") {
+                    return;
                 }
-                className="absolute right-6 bottom-6 flex cursor-pointer flex-col justify-end rounded-full border bg-background p-1.5 shadow-lg"
-                exit={{ opacity: 0, y: -20, transition: { duration: 0.1 } }}
-                initial={{ opacity: 0, y: -20, scale: 1 }}
-                onAnimationComplete={() => {
-                    setIsAnimating(false);
-                }}
-                onAnimationStart={() => {
-                    setIsAnimating(true);
-                }}
-                onHoverEnd={() => {
-                    if (status === "streaming") {
-                        return;
-                    }
 
-                    startCloseTimer();
-                }}
-                onHoverStart={() => {
-                    if (status === "streaming") {
-                        return;
-                    }
+                startCloseTimer();
+            }}
+            onHoverStart={() => {
+                if (status === "streaming") {
+                    return;
+                }
 
-                    cancelCloseTimer();
-                    setIsToolbarVisible(true);
-                }}
-                ref={toolbarRef}
-                transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            >
-                {status === "streaming" ? (
-                    <motion.div
-                        animate={{ scale: 1.4 }}
-                        className="p-3"
-                        exit={{ scale: 1 }}
-                        initial={{ scale: 1 }}
-                        key="stop-icon"
-                        onClick={() => {
-                            stop();
-                            setMessages((messages) => messages);
-                        }}
-                    >
-                        <StopIcon />
-                    </motion.div>
-                ) : selectedTool === "adjust-reading-level" ? (
-                    <ReadingLevelSelector
-                        isAnimating={isAnimating}
-                        key="reading-level-selector"
-                        sendMessage={sendMessage}
-                        setSelectedTool={setSelectedTool}
-                    />
-                ) : (
-                    <Tools
-                        isAnimating={isAnimating}
-                        isToolbarVisible={isToolbarVisible}
-                        key="tools"
-                        selectedTool={selectedTool}
-                        sendMessage={sendMessage}
-                        setIsToolbarVisible={setIsToolbarVisible}
-                        setSelectedTool={setSelectedTool}
-                        tools={toolsByArtifactKind}
-                    />
-                )}
-            </motion.div>
-        </TooltipProvider>
+                cancelCloseTimer();
+                setIsToolbarVisible(true);
+            }}
+            ref={toolbarRef}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+        >
+            {status === "streaming" ? (
+                <motion.div
+                    animate={{ scale: 1.4 }}
+                    className="p-3"
+                    exit={{ scale: 1 }}
+                    initial={{ scale: 1 }}
+                    key="stop-icon"
+                    onClick={() => {
+                        stop();
+                        setMessages((messages) => messages);
+                    }}
+                >
+                    <StopIcon />
+                </motion.div>
+            ) : selectedTool === "adjust-reading-level" ? (
+                <ReadingLevelSelector
+                    isAnimating={isAnimating}
+                    key="reading-level-selector"
+                    sendMessage={sendMessage}
+                    setSelectedTool={setSelectedTool}
+                />
+            ) : (
+                <Tools
+                    isAnimating={isAnimating}
+                    isToolbarVisible={isToolbarVisible}
+                    key="tools"
+                    selectedTool={selectedTool}
+                    sendMessage={sendMessage}
+                    setIsToolbarVisible={setIsToolbarVisible}
+                    setSelectedTool={setSelectedTool}
+                    tools={toolsByArtifactKind}
+                />
+            )}
+        </motion.div>
     );
 };
 

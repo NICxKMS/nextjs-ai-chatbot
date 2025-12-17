@@ -1,9 +1,9 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import equal from "fast-deep-equal";
-import { AnimatePresence, motion } from "framer-motion";
 import { memo } from "react";
 import { useMessages } from "@/hooks/use-messages";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
+import { AnimatePresence, motion } from "@/lib/motion";
 import type { ChatMessage, UserVote } from "@/lib/types";
 import type { UIArtifact } from "./artifact";
 import { PreviewMessage, ThinkingMessage } from "./message";

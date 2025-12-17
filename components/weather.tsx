@@ -1,7 +1,7 @@
 "use client";
 
 import { format, isWithinInterval } from "date-fns";
-import { useEffect, useState } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 const SunIcon = ({ size = 40 }: { size?: number }) => (
@@ -319,20 +319,10 @@ export function Weather({
               })
             : true;
 
-    const [isMobile, setIsMobile] = useState(false);
+    const isMobile = useIsMobile();
 
-    useEffect(() => {
-        const handleResize = () => {
-            setIsMobile(window.innerWidth < 768);
-        };
-
-        handleResize();
-        window.addEventListener("resize", handleResize);
-
-        return () => window.removeEventListener("resize", handleResize);
-    }, []);
-
-    const hoursToShow = isMobile ? 5 : 6;
+    // Default to 6 hours while isMobile is undefined (during hydration)
+    const hoursToShow = isMobile === undefined ? 6 : isMobile ? 5 : 6;
 
     const currentTimeIndex = weatherAtLocation.hourly.time.findIndex(
         (time) => new Date(time) >= new Date(weatherAtLocation.current.time)

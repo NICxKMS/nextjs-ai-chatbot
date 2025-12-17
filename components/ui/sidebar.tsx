@@ -29,14 +29,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
     Tooltip,
     TooltipContent,
-    TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ChatSDKError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
-const SIDEBAR_STORAGE_KEY = "sidebar_state";
+const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
@@ -69,6 +68,7 @@ const SidebarProvider = forwardRef<
         defaultOpen?: boolean;
         open?: boolean;
         onOpenChange?: (open: boolean) => void;
+        initialIsMobile?: boolean;
     }
 >(
     (
@@ -76,6 +76,7 @@ const SidebarProvider = forwardRef<
             defaultOpen = true,
             open: openProp,
             onOpenChange: setOpenProp,
+            initialIsMobile,
             className,
             style,
             children,
@@ -83,30 +84,19 @@ const SidebarProvider = forwardRef<
         },
         ref
     ) => {
-        const isMobile = useIsMobile();
+        const isMobile = useIsMobile({ initialIsMobile });
         const [openMobile, setOpenMobile] = useState(false);
 
         // This is the internal state of the sidebar.
         // We use openProp and setOpenProp for control from outside the component.
-        // Initialize with defaultOpen (SSR-safe) - localStorage is read after hydration
+        // Initialize with defaultOpen (from server cookie)
         const [_open, _setOpen] = useState(defaultOpen);
-        const [isHydrated, setIsHydrated] = useState(false);
 
-        // Read from localStorage AFTER hydration to avoid SSR mismatch
+        // Persist changes to cookie
         useEffect(() => {
-            const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
-            if (stored !== null) {
-                _setOpen(stored === "true");
-            }
-            setIsHydrated(true);
-        }, []);
-
-        // Persist changes to localStorage (only after hydration to avoid overwriting)
-        useEffect(() => {
-            if (isHydrated) {
-                localStorage.setItem(SIDEBAR_STORAGE_KEY, String(_open));
-            }
-        }, [_open, isHydrated]);
+            // biome-ignore lint/suspicious/noDocumentCookie: Intentional cookie persistence for sidebar state
+            document.cookie = `${SIDEBAR_COOKIE_NAME}=${_open}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+        }, [_open]);
 
         const open = openProp ?? _open;
         const setOpen = useCallback(
@@ -164,25 +154,23 @@ const SidebarProvider = forwardRef<
 
         return (
             <SidebarContext.Provider value={contextValue}>
-                <TooltipProvider delayDuration={0}>
-                    <div
-                        className={cn(
-                            "group/sidebar-wrapper flex min-h-svh w-full has-[[data-variant=inset]]:bg-sidebar",
-                            className
-                        )}
-                        ref={ref}
-                        style={
-                            {
-                                "--sidebar-width": SIDEBAR_WIDTH,
-                                "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
-                                ...style,
-                            } as CSSProperties
-                        }
-                        {...props}
-                    >
-                        {children}
-                    </div>
-                </TooltipProvider>
+                <div
+                    className={cn(
+                        "group/sidebar-wrapper flex min-h-svh w-full has-[[data-variant=inset]]:bg-sidebar",
+                        className
+                    )}
+                    ref={ref}
+                    style={
+                        {
+                            "--sidebar-width": SIDEBAR_WIDTH,
+                            "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
+                            ...style,
+                        } as CSSProperties
+                    }
+                    {...props}
+                >
+                    {children}
+                </div>
             </SidebarContext.Provider>
         );
     }

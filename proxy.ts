@@ -17,6 +17,7 @@ import {
 // via their internal proxy infrastructure
 
 const GUEST_COOKIE_NAME = "guest_token";
+const SIDEBAR_COOKIE_NAME = "sidebar_state";
 // Cookie TTL (7 days) - how long guest identity persists
 const GUEST_COOKIE_TTL_SECONDS = GUEST_CACHE_TTL_SECONDS;
 // JWT TTL (1 hour) - how long token is valid (Task 7.6)
@@ -159,6 +160,21 @@ export async function proxy(request: NextRequest) {
         "x-device-type",
         isMobileDevice ? "mobile" : "desktop"
     );
+
+    // Sidebar state cookie handling
+    const sidebarState =
+        request.cookies.get(SIDEBAR_COOKIE_NAME)?.value ?? "true";
+    response.headers.set("x-sidebar-state", sidebarState);
+
+    // Set default sidebar cookie if not exists
+    if (!request.cookies.has(SIDEBAR_COOKIE_NAME)) {
+        response.cookies.set(SIDEBAR_COOKIE_NAME, "true", {
+            httpOnly: false,
+            sameSite: "lax",
+            path: "/",
+            maxAge: 60 * 60 * 24 * 365, // 1 year
+        });
+    }
 
     // Skip guest session for API routes and auth pages
     if (shouldSkipGuestSession(pathname)) {
