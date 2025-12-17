@@ -84,9 +84,9 @@ export function Console({ consoleOutputs, setConsoleOutputs }: ConsoleProps) {
             <div
                 aria-label="Resize console"
                 aria-orientation="horizontal"
-                aria-valuemax={maxHeight}
-                aria-valuemin={minHeight}
-                aria-valuenow={height}
+                aria-valuemax={Number(maxHeight)}
+                aria-valuemin={Number(minHeight)}
+                aria-valuenow={Number(height)}
                 className="fixed z-50 h-2 w-full cursor-ns-resize"
                 onKeyDown={(e) => {
                     if (e.key === "ArrowUp") {

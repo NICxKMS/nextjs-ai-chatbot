@@ -16,6 +16,38 @@ import {
 } from "@/components/icons";
 import { generateUUID } from "@/lib/utils";
 
+// Pyodide script loading - only loads when Python code is executed
+const PYODIDE_URL = "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js";
+let pyodideScriptPromise: Promise<void> | null = null;
+
+// Type for Pyodide loader function
+type LoadPyodideFn = (options: { indexURL: string }) => Promise<any>;
+
+function loadPyodideScript(): Promise<void> {
+    // Return existing promise if already loading/loaded
+    if (pyodideScriptPromise) {
+        return pyodideScriptPromise;
+    }
+
+    // Check if already loaded
+    const win = window as unknown as { loadPyodide?: LoadPyodideFn };
+    if (typeof win.loadPyodide === "function") {
+        return Promise.resolve();
+    }
+
+    // Create and load script
+    pyodideScriptPromise = new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = PYODIDE_URL;
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error("Failed to load Pyodide"));
+        document.head.appendChild(script);
+    });
+
+    return pyodideScriptPromise;
+}
+
 const CodeEditor = dynamic(
     () => import("@/components/code-editor").then((m) => m.CodeEditor),
     {
@@ -145,13 +177,17 @@ export const codeArtifact = new Artifact<"code", Metadata>({
                 }));
 
                 try {
-                    // @ts-expect-error - loadPyodide is not defined
-                    const currentPyodideInstance = await globalThis.loadPyodide(
-                        {
-                            indexURL:
-                                "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/",
-                        }
-                    );
+                    // Load Pyodide script on-demand (only when Python code is executed)
+                    await loadPyodideScript();
+
+                    // Use window.loadPyodide which is loaded dynamically
+                    const win = window as unknown as {
+                        loadPyodide: LoadPyodideFn;
+                    };
+                    const currentPyodideInstance = await win.loadPyodide({
+                        indexURL:
+                            "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/",
+                    });
 
                     currentPyodideInstance.setStdout({
                         batched: (output: string) => {

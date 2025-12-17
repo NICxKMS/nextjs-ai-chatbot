@@ -17,7 +17,7 @@ import {
     CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { CodeBlock } from "./code-block";
+import { Response } from "./response";
 
 export type ToolProps = ComponentProps<typeof Collapsible>;
 
@@ -107,8 +107,8 @@ export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
         <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
             Parameters
         </h4>
-        <div className="rounded-md bg-muted/50">
-            <CodeBlock code={JSON.stringify(input, null, 2)} language="json" />
+        <div className="rounded-md bg-muted/50 p-4 [&_pre]:m-0 [&_pre]:bg-transparent">
+            <Response>{`\`\`\`json\n${JSON.stringify(input, null, 2)}\n\`\`\``}</Response>
         </div>
     </div>
 );

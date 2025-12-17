@@ -1,6 +1,7 @@
 "use client";
 
 import equal from "fast-deep-equal";
+import dynamic from "next/dynamic";
 import {
     type MouseEvent,
     memo,
@@ -14,13 +15,33 @@ import { useArtifact } from "@/hooks/use-artifact";
 import type { Document } from "@/lib/db/schema";
 import { cn, fetcher } from "@/lib/utils";
 import type { ArtifactKind, UIArtifact } from "./artifact";
-import { CodeEditor } from "./code-editor";
 import { DocumentToolCall, DocumentToolResult } from "./document";
 import { InlineDocumentSkeleton } from "./document-skeleton";
 import { FileIcon, FullscreenIcon, ImageIcon, LoaderIcon } from "./icons";
-import { ImageEditor } from "./image-editor";
-import { SpreadsheetEditor } from "./sheet-editor";
-import { Editor } from "./text-editor";
+
+// Lazy load editors - they're only needed when viewing documents
+const CodeEditor = dynamic(
+    () => import("./code-editor").then((m) => ({ default: m.CodeEditor })),
+    { ssr: false }
+);
+
+const ImageEditor = dynamic(
+    () => import("./image-editor").then((m) => ({ default: m.ImageEditor })),
+    { ssr: false }
+);
+
+const SpreadsheetEditor = dynamic(
+    () =>
+        import("./sheet-editor").then((m) => ({
+            default: m.SpreadsheetEditor,
+        })),
+    { ssr: false }
+);
+
+const Editor = dynamic(
+    () => import("./text-editor").then((m) => ({ default: m.Editor })),
+    { ssr: false }
+);
 
 type DocumentLike = Pick<Document, "title" | "kind" | "content">;
 

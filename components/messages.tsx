@@ -1,9 +1,9 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import equal from "fast-deep-equal";
-import { AnimatePresence } from "framer-motion";
 import { AlertCircle, ArrowDownIcon, RotateCcw } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
+import { AnimatePresence } from "@/lib/motion";
 import type { ChatMessage, UserVote } from "@/lib/types";
 import { useSettingsSnapshot } from "@/lib/ui/settings-store";
 import { useDataStream } from "./data-stream-provider";
@@ -195,7 +195,7 @@ function PureMessages({
 
     return (
         <div
-            className="overscroll-behavior-contain -webkit-overflow-scrolling-touch relative flex-1 touch-pan-y"
+            className="overscroll-behavior-contain -webkit-overflow-scrolling-touch relative flex-1 touch-pan-y overflow-hidden"
             style={{ overflowAnchor: "none" }}
         >
             <Virtuoso

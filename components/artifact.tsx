@@ -1,7 +1,6 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { formatDistance } from "date-fns";
 import equal from "fast-deep-equal";
-import { AnimatePresence, motion } from "framer-motion";
 import {
     type Dispatch,
     memo,
@@ -21,6 +20,7 @@ import { useArtifact } from "@/hooks/use-artifact";
 import { useWindowSize } from "@/hooks/use-window-size";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 import type { Document } from "@/lib/db/schema";
+import { AnimatePresence, motion } from "@/lib/motion";
 import type { Attachment, ChatMessage, UserVote } from "@/lib/types";
 import { fetcher } from "@/lib/utils";
 import { ArtifactActions } from "./artifact-actions";

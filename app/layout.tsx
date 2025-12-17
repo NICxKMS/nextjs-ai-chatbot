@@ -8,6 +8,7 @@ import { Toaster } from "sonner";
 import { SWRConfig } from "swr";
 import { AuthProvider } from "@/components/auth-provider";
 import { ThemeProvider } from "@/components/theme-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { getAppSession } from "@/lib/auth/session";
 
 import "./globals.css";
@@ -105,22 +106,24 @@ async function AppShell({ children }: { children: React.ReactNode }) {
             disableTransitionOnChange
             enableSystem
         >
-            <Toaster position="top-center" />
-            <SWRConfig
-                value={{
-                    dedupingInterval: 10_000,
-                    revalidateOnFocus: false,
-                    revalidateOnReconnect: false,
-                    refreshWhenHidden: false,
-                    refreshWhenOffline: false,
-                    revalidateIfStale: true,
-                    // revalidateOnMount: false,
-                }}
-            >
-                <AuthProvider initialSession={initialSession}>
-                    {children}
-                </AuthProvider>
-            </SWRConfig>
+            <TooltipProvider delayDuration={0}>
+                <Toaster position="top-center" />
+                <SWRConfig
+                    value={{
+                        dedupingInterval: 10_000,
+                        revalidateOnFocus: false,
+                        revalidateOnReconnect: false,
+                        refreshWhenHidden: false,
+                        refreshWhenOffline: false,
+                        revalidateIfStale: true,
+                        // revalidateOnMount: false,
+                    }}
+                >
+                    <AuthProvider initialSession={initialSession}>
+                        {children}
+                    </AuthProvider>
+                </SWRConfig>
+            </TooltipProvider>
         </ThemeProvider>
     );
 }

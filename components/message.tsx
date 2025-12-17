@@ -1,8 +1,8 @@
 "use client";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import equal from "fast-deep-equal";
-import { motion } from "framer-motion";
 import { memo, useState } from "react";
+import { motion } from "@/lib/motion";
 import type { ChatMessage, UserVote } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
 import { DocumentToolResult } from "./document";

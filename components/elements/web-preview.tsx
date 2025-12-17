@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import {
     Tooltip,
     TooltipContent,
-    TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ChatSDKError } from "@/lib/errors";
@@ -104,25 +103,23 @@ export const WebPreviewNavigationButton = ({
     children,
     ...props
 }: WebPreviewNavigationButtonProps) => (
-    <TooltipProvider>
-        <Tooltip>
-            <TooltipTrigger asChild>
-                <Button
-                    className="size-8 p-0 hover:text-foreground"
-                    disabled={disabled}
-                    onClick={onClick}
-                    size="sm"
-                    variant="ghost"
-                    {...props}
-                >
-                    {children}
-                </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-                <p>{tooltip}</p>
-            </TooltipContent>
-        </Tooltip>
-    </TooltipProvider>
+    <Tooltip>
+        <TooltipTrigger asChild>
+            <Button
+                className="size-8 p-0 hover:text-foreground"
+                disabled={disabled}
+                onClick={onClick}
+                size="sm"
+                variant="ghost"
+                {...props}
+            >
+                {children}
+            </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+            <p>{tooltip}</p>
+        </TooltipContent>
+    </Tooltip>
 );
 
 export type WebPreviewUrlProps = ComponentProps<typeof Input>;

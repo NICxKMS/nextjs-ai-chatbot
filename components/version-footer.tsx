@@ -1,12 +1,12 @@
 "use client";
 
 import { isAfter } from "date-fns";
-import { motion } from "framer-motion";
 import { useState } from "react";
 import { useSWRConfig } from "swr";
 import { useArtifact } from "@/hooks/use-artifact";
 import { useWindowSize } from "@/hooks/use-window-size";
 import type { Document } from "@/lib/db/schema";
+import { motion } from "@/lib/motion";
 import { getDocumentTimestampByIndex } from "@/lib/utils";
 import { LoaderIcon } from "./icons";
 import { Button } from "./ui/button";
