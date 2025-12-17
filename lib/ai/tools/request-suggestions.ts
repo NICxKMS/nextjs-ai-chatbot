@@ -1,3 +1,5 @@
+import "server-only";
+
 import { streamObject, tool, type UIMessageStreamWriter } from "ai";
 import { z } from "zod";
 import type { AppSession } from "@/lib/auth/session";

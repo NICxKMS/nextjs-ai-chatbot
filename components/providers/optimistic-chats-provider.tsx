@@ -5,6 +5,7 @@ import {
     type ReactNode,
     useCallback,
     useContext,
+    useMemo,
     useRef,
     useState,
 } from "react";
@@ -85,15 +86,23 @@ export function OptimisticChatsProvider({ children }: { children: ReactNode }) {
         setOptimisticChats((prev) => prev.filter((chat) => chat.id !== chatId));
     }, []);
 
+    const contextValue = useMemo(
+        () => ({
+            optimisticChats,
+            addOptimisticChat,
+            updateOptimisticChatTitle,
+            removeOptimisticChat,
+        }),
+        [
+            optimisticChats,
+            addOptimisticChat,
+            updateOptimisticChatTitle,
+            removeOptimisticChat,
+        ]
+    );
+
     return (
-        <OptimisticChatsContext.Provider
-            value={{
-                optimisticChats,
-                addOptimisticChat,
-                updateOptimisticChatTitle,
-                removeOptimisticChat,
-            }}
-        >
+        <OptimisticChatsContext.Provider value={contextValue}>
             {children}
         </OptimisticChatsContext.Provider>
     );

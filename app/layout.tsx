@@ -2,12 +2,12 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Script from "next/script";
 import { Suspense } from "react";
 import { Toaster } from "sonner";
 import { SWRConfig } from "swr";
-import { AuthProvider } from "@/components/auth-provider";
-import { ThemeProvider } from "@/components/theme-provider";
+import { AuthProvider } from "@/components/providers/auth-provider";
+import { MotionProvider } from "@/components/providers/motion-provider";
+import { ThemeProvider } from "@/components/providers/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getAppSession } from "@/lib/auth/session";
 
@@ -69,10 +69,14 @@ export default function RootLayout({
             lang="en"
             suppressHydrationWarning
         >
+            <head>
+                <script
+                    // biome-ignore lint/security/noDangerouslySetInnerHtml: Theme color script must run before hydration
+                    dangerouslySetInnerHTML={{ __html: THEME_COLOR_SCRIPT }}
+                    id="theme-color"
+                />
+            </head>
             <body className="antialiased">
-                <Script id="theme-color" strategy="beforeInteractive">
-                    {THEME_COLOR_SCRIPT}
-                </Script>
                 <SpeedInsights />
                 <Analytics />
                 <Suspense fallback={<AppShellFallback />}>
@@ -106,24 +110,26 @@ async function AppShell({ children }: { children: React.ReactNode }) {
             disableTransitionOnChange
             enableSystem
         >
-            <TooltipProvider delayDuration={0}>
-                <Toaster position="top-center" />
-                <SWRConfig
-                    value={{
-                        dedupingInterval: 10_000,
-                        revalidateOnFocus: false,
-                        revalidateOnReconnect: false,
-                        refreshWhenHidden: false,
-                        refreshWhenOffline: false,
-                        revalidateIfStale: true,
-                        // revalidateOnMount: false,
-                    }}
-                >
-                    <AuthProvider initialSession={initialSession}>
-                        {children}
-                    </AuthProvider>
-                </SWRConfig>
-            </TooltipProvider>
+            <MotionProvider>
+                <TooltipProvider delayDuration={0}>
+                    <Toaster position="top-center" />
+                    <SWRConfig
+                        value={{
+                            dedupingInterval: 10_000,
+                            revalidateOnFocus: false,
+                            revalidateOnReconnect: false,
+                            refreshWhenHidden: false,
+                            refreshWhenOffline: false,
+                            revalidateIfStale: true,
+                            // revalidateOnMount: false,
+                        }}
+                    >
+                        <AuthProvider initialSession={initialSession}>
+                            {children}
+                        </AuthProvider>
+                    </SWRConfig>
+                </TooltipProvider>
+            </MotionProvider>
         </ThemeProvider>
     );
 }

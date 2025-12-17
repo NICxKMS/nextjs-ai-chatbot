@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import {
+    AnimatePresence,
+    motion,
+} from "@/components/providers/motion-provider";
 import { useWindowSize } from "@/hooks/use-window-size";
-import type { UISuggestion } from "@/lib/editor/suggestions-extension";
-import { AnimatePresence, motion } from "@/lib/motion";
+import type { UISuggestion } from "@/lib/editor/types";
 import { cn } from "@/lib/utils";
-import type { ArtifactKind } from "./artifact";
+import type { ArtifactKind } from "@/lib/artifacts/types";
 import { CrossIcon, MessageIcon } from "./icons";
 import { Button } from "./ui/button";
 

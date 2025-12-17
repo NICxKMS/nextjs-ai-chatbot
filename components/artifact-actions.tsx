@@ -1,7 +1,7 @@
 import { type Dispatch, memo, type SetStateAction, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { artifactDefinitions, type UIArtifact } from "./artifact";
+import { type UIArtifact, useArtifactDefinition } from "./artifact";
 import type { ArtifactActionContext } from "./create-artifact";
 import { Button } from "./ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
@@ -28,14 +28,13 @@ function PureArtifactActions({
     setMetadata,
 }: ArtifactActionsProps) {
     const [isLoading, setIsLoading] = useState(false);
-
-    const artifactDefinition = artifactDefinitions.find(
-        (definition) => definition.kind === artifact.kind
-    );
+    // Use per-kind loading - only loads the artifact definition needed for this artifact
+    const { definition: artifactDefinition, isLoading: isDefinitionsLoading } =
+        useArtifactDefinition(artifact.kind);
 
     // Gracefully handle missing artifact definition instead of crashing the React tree.
     // ChatSDKError is designed for server-side responses, not client-side rendering.
-    if (!artifactDefinition) {
+    if (isDefinitionsLoading || !artifactDefinition) {
         return null;
     }
 

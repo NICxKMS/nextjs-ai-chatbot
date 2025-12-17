@@ -17,12 +17,12 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { useDebounceCallback, useLocalStorage } from "usehooks-ts";
+import { useSettingsSnapshot } from "@/components/providers/settings-provider";
 import { SelectItem } from "@/components/ui/select";
 import { useWindowSize } from "@/hooks/use-window-size";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 import { logError } from "@/lib/log";
 import type { Attachment, ChatMessage } from "@/lib/types";
-import { useSettingsSnapshot } from "@/lib/ui/settings-store";
 import type { AppUsage } from "@/lib/usage";
 import { cn } from "@/lib/utils";
 import { Context } from "./elements/context";

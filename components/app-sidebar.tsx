@@ -6,8 +6,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
-import { useAuth } from "@/components/auth-provider";
 import { PlusIcon, TrashIcon } from "@/components/icons";
+import { useAuth } from "@/components/providers/auth-provider";
 import {
     getChatHistoryPaginationKey,
     SidebarHistory,

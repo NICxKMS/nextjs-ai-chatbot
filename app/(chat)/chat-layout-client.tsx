@@ -6,12 +6,12 @@ import Script from "next/script";
 import type { ReactNode } from "react";
 import { Suspense, useEffect } from "react";
 import { toast } from "sonner";
-import { DataStreamProvider } from "@/components/data-stream-provider";
 import { Loader } from "@/components/elements/loader";
+import { DataStreamProvider } from "@/components/providers/data-stream-provider";
+import { OptimisticChatsProvider } from "@/components/providers/optimistic-chats-provider";
+import { SettingsProvider } from "@/components/providers/settings-provider";
 import { SidebarSkeleton } from "@/components/sidebar-skeleton";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { OptimisticChatsProvider } from "@/hooks/use-optimistic-chats";
-import { SettingsProvider } from "@/lib/ui/settings-store";
 
 const AppSidebar = dynamic(
     () =>
@@ -21,7 +21,17 @@ const AppSidebar = dynamic(
     { ssr: false, loading: () => <SidebarSkeleton /> }
 );
 
-export function ChatLayoutClient({ children }: { children: ReactNode }) {
+type ChatLayoutClientProps = {
+    children: ReactNode;
+    initialIsMobile?: boolean;
+    initialSidebarOpen?: boolean;
+};
+
+export function ChatLayoutClient({
+    children,
+    initialIsMobile,
+    initialSidebarOpen = true,
+}: ChatLayoutClientProps) {
     const searchParams = useSearchParams();
 
     useEffect(() => {
@@ -58,7 +68,10 @@ export function ChatLayoutClient({ children }: { children: ReactNode }) {
             <SettingsProvider>
                 <DataStreamProvider>
                     <OptimisticChatsProvider>
-                        <SidebarProvider defaultOpen={true}>
+                        <SidebarProvider
+                            defaultOpen={initialSidebarOpen}
+                            initialIsMobile={initialIsMobile}
+                        >
                             <Suspense fallback={<SidebarSkeleton />}>
                                 <AppSidebar />
                             </Suspense>

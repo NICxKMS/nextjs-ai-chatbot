@@ -10,15 +10,14 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { memo, useEffect, useMemo, useRef } from "react";
 
-// import "katex/dist/katex.min.css";
-
 import {
     createDecorations,
     projectWithPositions,
-    type SuggestionLike,
     SuggestionsExtension,
     suggestionsPluginKey,
 } from "@/lib/editor/suggestions-extension";
+
+import type { SuggestionLike } from "@/lib/editor/types";
 
 type EditorProps = {
     content: string;

@@ -1,38 +1,15 @@
-import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
-import { motion } from "@/lib/motion";
-
-type GreetingProps = {
-    availableModels?: ModelMetadata[];
-};
-
-export const Greeting = ({ availableModels }: GreetingProps) => {
-    const modelCount = availableModels?.length ?? 0;
-
+export function Greeting() {
     return (
         <div
             className="mx-auto mt-4 flex size-full min-h-[120px] max-w-3xl flex-col justify-center px-4 md:mt-16 md:px-8"
             key="overview"
         >
-            <motion.div
-                animate={{ opacity: 1, y: 0 }}
-                className="font-semibold text-xl md:text-2xl"
-                exit={{ opacity: 0, y: 10 }}
-                initial={{ opacity: 0, y: 10 }}
-                transition={{ delay: 0.5 }}
-            >
+            <div className="greeting-line greeting-line-1 font-semibold text-xl md:text-2xl">
                 Hello there!
-            </motion.div>
-            <motion.div
-                animate={{ opacity: 1, y: 0 }}
-                className="text-xl text-zinc-500 md:text-2xl"
-                exit={{ opacity: 0, y: 10 }}
-                initial={{ opacity: 0, y: 10 }}
-                transition={{ delay: 0.6 }}
-            >
-                {modelCount > 0
-                    ? `How can I help you today? You have access to ${modelCount} models.`
-                    : "How can I help you today?"}
-            </motion.div>
+            </div>
+            <div className="greeting-line greeting-line-2 text-xl text-zinc-500 md:text-2xl">
+                How can I help you today?
+            </div>
         </div>
     );
-};
+}

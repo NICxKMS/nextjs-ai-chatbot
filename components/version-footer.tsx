@@ -3,10 +3,10 @@
 import { isAfter } from "date-fns";
 import { useState } from "react";
 import { useSWRConfig } from "swr";
+import { motion } from "@/components/providers/motion-provider";
 import { useArtifact } from "@/hooks/use-artifact";
 import { useWindowSize } from "@/hooks/use-window-size";
 import type { Document } from "@/lib/db/schema";
-import { motion } from "@/lib/motion";
 import { getDocumentTimestampByIndex } from "@/lib/utils";
 import { LoaderIcon } from "./icons";
 import { Button } from "./ui/button";

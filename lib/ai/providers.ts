@@ -1,3 +1,5 @@
+import "server-only";
+
 import { extractReasoningMiddleware, wrapLanguageModel } from "ai";
 import { isTestEnvironment } from "../constants";
 import { ChatSDKError } from "../errors";

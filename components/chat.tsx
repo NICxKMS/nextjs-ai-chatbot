@@ -6,8 +6,11 @@ import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { useAuth } from "@/components/auth-provider";
 import { ChatHeader } from "@/components/chat-header";
+import { useAuth } from "@/components/providers/auth-provider";
+import { useDataStreamDispatch } from "@/components/providers/data-stream-provider";
+import { useOptimisticChats } from "@/components/providers/optimistic-chats-provider";
+import { useSettings } from "@/components/providers/settings-provider";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -24,7 +27,6 @@ import {
     useArtifactSelector,
 } from "@/hooks/use-artifact";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
-import { useOptimisticChats } from "@/hooks/use-optimistic-chats";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 import { ChatSDKError } from "@/lib/errors";
 import { logError, logWarn } from "@/lib/log";
@@ -35,10 +37,8 @@ import {
     isDataChatTitlePart,
     type UserVote,
 } from "@/lib/types";
-import { useSettings } from "@/lib/ui/settings-store";
 import type { AppUsage } from "@/lib/usage";
 import { fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
-import { useDataStream } from "./data-stream-provider";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
 import { toast } from "./toast";
@@ -81,7 +81,7 @@ export function Chat({
         initialVisibilityType,
     });
 
-    const { setDataStream } = useDataStream();
+    const setDataStream = useDataStreamDispatch();
     const { settings, setSelectedModelId } = useSettings();
     const { clearNewSessionFlag } = useAuth();
     const {

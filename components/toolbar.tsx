@@ -1,11 +1,6 @@
 "use client";
 import type { UseChatHelpers } from "@ai-sdk/react";
-import {
-    AnimatePresence,
-    motion,
-    useMotionValue,
-    useTransform,
-} from "framer-motion";
+import { useMotionValue, useTransform } from "framer-motion";
 import { nanoid } from "nanoid";
 import {
     type Dispatch,
@@ -18,14 +13,18 @@ import {
 } from "react";
 import { useOnClickOutside } from "usehooks-ts";
 import {
+    AnimatePresence,
+    motion,
+} from "@/components/providers/motion-provider";
+import {
     Tooltip,
     TooltipContent,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
+import type { ArtifactKind } from "@/lib/artifacts/types";
 import { cn } from "@/lib/utils";
-import { type ArtifactKind, artifactDefinitions } from "./artifact";
+import { useArtifactDefinition } from "./artifact";
 import type { ArtifactToolbarItem } from "./create-artifact";
 import { ArrowUpIcon, StopIcon, SummarizeIcon } from "./icons";
 
@@ -377,12 +376,11 @@ const PureToolbar = ({
         }
     }, [status, setIsToolbarVisible]);
 
-    const artifactDefinition = artifactDefinitions.find(
-        (definition) => definition.kind === artifactKind
-    );
+    const { definition: artifactDefinition, isLoading: isDefinitionsLoading } =
+        useArtifactDefinition(artifactKind);
 
-    if (!artifactDefinition) {
-        throw new ChatSDKError("bad_request:ui:artifact_definition_not_found");
+    if (isDefinitionsLoading || !artifactDefinition) {
+        return null;
     }
 
     const toolsByArtifactKind = artifactDefinition.toolbar;

@@ -1,5 +1,7 @@
+import "server-only";
+
 import type { Geo } from "@vercel/functions";
-import type { ArtifactKind } from "@/components/artifact";
+import type { ArtifactKind } from "@/lib/artifacts/types";
 import type { ModelMetadata } from "./model-catalog-types";
 import { REASONING_MODEL_ID } from "./models";
 

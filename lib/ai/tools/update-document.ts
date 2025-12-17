@@ -1,3 +1,5 @@
+import "server-only";
+
 import { tool, type UIMessageStreamWriter } from "ai";
 import { z } from "zod";
 import { documentHandlersByArtifactKind } from "@/lib/artifacts/server";

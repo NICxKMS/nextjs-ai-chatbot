@@ -2,6 +2,11 @@
 
 import { Settings2Icon } from "lucide-react";
 import { useBoolean } from "usehooks-ts";
+import {
+    type AppSettings,
+    useSettings,
+    useSettingsSnapshot,
+} from "@/components/providers/settings-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,11 +18,6 @@ import {
     SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import {
-    type AppSettings,
-    useSettings,
-    useSettingsSnapshot,
-} from "@/lib/ui/settings-store";
 import { cn } from "@/lib/utils";
 
 export function SettingsButton({ className }: { className?: string }) {

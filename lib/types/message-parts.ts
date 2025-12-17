@@ -5,7 +5,7 @@
  * This module serves as the single source of truth for message structure types.
  */
 
-import type { ArtifactKind } from "@/components/artifact";
+import type { ArtifactKind } from "@/lib/artifacts/types";
 
 /**
  * Base interface for all message parts

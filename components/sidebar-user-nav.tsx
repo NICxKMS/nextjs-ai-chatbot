@@ -7,7 +7,7 @@ import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
-import { useAuth } from "@/components/auth-provider";
+import { useAuth } from "@/components/providers/auth-provider";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -20,7 +20,6 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { getSupabaseBrowserClient } from "@/lib/auth/client";
 import { LoaderIcon } from "./icons";
 import { getChatHistoryPaginationKey } from "./sidebar-history";
 import { toast } from "./toast";
@@ -132,8 +131,15 @@ export function SidebarUserNav({ user }: { user: { email?: string | null } }) {
                                             method: "POST",
                                             credentials: "include",
                                         })
-                                            .then(() =>
-                                                getSupabaseBrowserClient().auth.signOut()
+                                            .then(
+                                                () =>
+                                                    import("@/lib/auth/client")
+                                            )
+                                            .then(
+                                                ({
+                                                    getSupabaseBrowserClient,
+                                                }) =>
+                                                    getSupabaseBrowserClient().auth.signOut()
                                             )
                                             .then(() => {
                                                 // Clear SWR cache to prevent stale authenticated user chats

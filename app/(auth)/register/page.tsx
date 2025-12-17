@@ -6,7 +6,6 @@ import { useState } from "react";
 import { AuthForm } from "@/components/auth-form";
 import { SubmitButton } from "@/components/submit-button";
 import { toast } from "@/components/toast";
-import { getSupabaseBrowserClient } from "@/lib/auth/client";
 
 export default function Page() {
     const [email, setEmail] = useState("");
@@ -30,6 +29,7 @@ export default function Page() {
 
         setEmail(submittedEmail);
 
+        const { getSupabaseBrowserClient } = await import("@/lib/auth/client");
         const supabase = getSupabaseBrowserClient();
 
         const { data, error } = await supabase.auth.signUp({

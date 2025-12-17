@@ -10,7 +10,7 @@ import {
     RedoIcon,
     UndoIcon,
 } from "@/components/icons";
-import type { SuggestionLike } from "@/lib/editor/suggestions-extension";
+import type { SuggestionLike } from "@/lib/editor/types";
 import { getSuggestions } from "../actions";
 
 const Editor = dynamic(

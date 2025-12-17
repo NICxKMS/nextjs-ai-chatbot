@@ -1,34 +1,15 @@
 import { isProductionEnvironment } from "@/lib/constants";
 import { logError } from "@/lib/log";
+import type {
+    ErrorCode,
+    ErrorType,
+    ErrorUserType,
+    ErrorVisibility,
+    Surface,
+} from "./types";
 
-export type ErrorType =
-    | "bad_request"
-    | "unauthorized"
-    | "forbidden"
-    | "not_found"
-    | "rate_limit"
-    | "offline";
-
-export type Surface =
-    | "chat"
-    | "auth"
-    | "api"
-    | "stream"
-    | "database"
-    | "history"
-    | "vote"
-    | "document"
-    | "suggestions"
-    | "activate_gateway"
-    | "ui";
-
-// Allow a specific reason suffix for granular codes, while keeping type/surface parsing stable
-export type ErrorCode = `${ErrorType}:${Surface}${"" | `:${string}`}`;
-
-export type ErrorVisibility = "response" | "log" | "none";
-
-// Task 9.15: User type for context-aware error messages
-export type ErrorUserType = "guest" | "regular" | "unknown";
+// Re-export all types for convenience
+export * from "./types";
 
 export const visibilityBySurface: Record<Surface, ErrorVisibility> = {
     database: "response",
@@ -268,12 +249,12 @@ export function getMessageByErrorCode(
         case "rate_limit:chat:daily_limit_exceeded":
             return "Daily message limit exceeded.";
         case "forbidden:chat:owner_mismatch":
-            return "You don’t have access to this chat.";
+            return "You don't have access to this chat.";
 
         case "forbidden:vote:owner_mismatch":
-            return "You don’t have access to vote on this chat.";
+            return "You don't have access to vote on this chat.";
         case "forbidden:api:owner_mismatch":
-            return "You don’t have access to this resource.";
+            return "You don't have access to this resource.";
         case "offline:chat:unhandled":
             return "The chat service is temporarily unavailable.";
         case "not_found:vote":

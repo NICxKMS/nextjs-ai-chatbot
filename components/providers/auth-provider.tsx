@@ -10,7 +10,6 @@ import {
     useMemo,
     useState,
 } from "react";
-import { getSupabaseBrowserClient } from "@/lib/auth/client";
 import type { AppSession } from "@/lib/auth/session";
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
@@ -100,35 +99,42 @@ export function AuthProvider({
     }, []);
 
     useEffect(() => {
-        const supabase = getSupabaseBrowserClient();
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange(
-            (event: AuthChangeEvent, supabaseSession: Session | null) => {
-                if (event === "SIGNED_OUT" || !supabaseSession) {
-                    setSession(null);
-                    return;
+        let subscription: { unsubscribe: () => void } | null = null;
+
+        (async () => {
+            const { getSupabaseBrowserClient } = await import(
+                "@/lib/auth/client"
+            );
+            const supabase = getSupabaseBrowserClient();
+
+            const { data: authListener } = supabase.auth.onAuthStateChange(
+                (event: AuthChangeEvent, supabaseSession: Session | null) => {
+                    if (event === "SIGNED_OUT" || !supabaseSession) {
+                        setSession(null);
+                        return;
+                    }
+
+                    const user = supabaseSession.user;
+
+                    if (!user) {
+                        setSession(null);
+                        return;
+                    }
+
+                    setSession({
+                        user: {
+                            id: user.id,
+                            type: "regular",
+                            email: user.email ?? null,
+                        },
+                    });
                 }
-
-                const user = supabaseSession.user;
-
-                if (!user) {
-                    setSession(null);
-                    return;
-                }
-
-                setSession({
-                    user: {
-                        id: user.id,
-                        type: "regular",
-                        email: user.email ?? null,
-                    },
-                });
-            }
-        );
+            );
+            subscription = authListener?.subscription ?? null;
+        })();
 
         return () => {
-            subscription.unsubscribe();
+            subscription?.unsubscribe();
         };
     }, []);
 

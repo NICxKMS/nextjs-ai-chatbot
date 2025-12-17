@@ -283,3 +283,28 @@
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
 }
+
+/* Greeting component animations (server component compatible) */
+@keyframes greetingFadeSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.greeting-line {
+    opacity: 0;
+    animation: greetingFadeSlideUp 0.3s ease-out forwards;
+}
+
+.greeting-line-1 {
+    animation-delay: 0.5s;
+}
+
+.greeting-line-2 {
+    animation-delay: 0.6s;
+}

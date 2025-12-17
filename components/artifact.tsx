@@ -12,34 +12,211 @@ import {
 } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { useDebounceCallback } from "usehooks-ts";
-import { codeArtifact } from "@/artifacts/code/client";
-import { imageArtifact } from "@/artifacts/image/client";
-import { sheetArtifact } from "@/artifacts/sheet/client";
-import { textArtifact } from "@/artifacts/text/client";
+import {
+    AnimatePresence,
+    motion,
+} from "@/components/providers/motion-provider";
 import { useArtifact } from "@/hooks/use-artifact";
 import { useWindowSize } from "@/hooks/use-window-size";
 import type { ModelMetadata } from "@/lib/ai/model-catalog-types";
 import type { Document } from "@/lib/db/schema";
-import { AnimatePresence, motion } from "@/lib/motion";
 import type { Attachment, ChatMessage, UserVote } from "@/lib/types";
 import { fetcher } from "@/lib/utils";
 import { ArtifactActions } from "./artifact-actions";
 import { ArtifactCloseButton } from "./artifact-close-button";
 import { ArtifactErrorBoundary } from "./artifact-error-boundary";
 import { ArtifactMessages } from "./artifact-messages";
+import type { Artifact as ArtifactDefinition } from "./create-artifact";
 import { MultimodalInput } from "./multimodal-input";
 import { Toolbar } from "./toolbar";
 import { useSidebar } from "./ui/sidebar";
 import { VersionFooter } from "./version-footer";
 import type { VisibilityType } from "./visibility-selector";
 
-export const artifactDefinitions = [
-    textArtifact,
-    codeArtifact,
-    imageArtifact,
-    sheetArtifact,
-];
-export type ArtifactKind = (typeof artifactDefinitions)[number]["kind"];
+// Re-export type from shared location for backwards compatibility
+export type { ArtifactKind } from "@/lib/artifacts/types";
+import type { ArtifactKind } from "@/lib/artifacts/types";
+
+// Lazy-loaded artifact definitions cache
+let artifactDefinitionsCache: ArtifactDefinition<ArtifactKind>[] | null = null;
+let loadingPromise: Promise<ArtifactDefinition<ArtifactKind>[]> | null = null;
+
+/**
+ * Lazily load artifact definitions. Returns cached value if already loaded.
+ */
+export async function loadArtifactDefinitions(): Promise<
+    ArtifactDefinition<ArtifactKind>[]
+> {
+    if (artifactDefinitionsCache) {
+        return artifactDefinitionsCache;
+    }
+
+    if (loadingPromise) {
+        return loadingPromise;
+    }
+
+    loadingPromise = Promise.all([
+        import("@/artifacts/text/client"),
+        import("@/artifacts/code/client"),
+        import("@/artifacts/image/client"),
+        import("@/artifacts/sheet/client"),
+    ]).then(([text, code, image, sheet]) => {
+        artifactDefinitionsCache = [
+            text.textArtifact,
+            code.codeArtifact,
+            image.imageArtifact,
+            sheet.sheetArtifact,
+        ];
+        return artifactDefinitionsCache;
+    });
+
+    return loadingPromise;
+}
+
+/**
+ * Get cached artifact definitions synchronously. Returns empty array if not loaded yet.
+ * Use loadArtifactDefinitions() to ensure definitions are loaded first.
+ */
+export function getArtifactDefinitions(): ArtifactDefinition<ArtifactKind>[] {
+    return artifactDefinitionsCache ?? [];
+}
+
+/**
+ * Hook to use lazy-loaded artifact definitions (loads ALL definitions)
+ */
+export function useArtifactDefinitions(): {
+    definitions: ArtifactDefinition<ArtifactKind>[];
+    isLoading: boolean;
+} {
+    const [definitions, setDefinitions] = useState<
+        ArtifactDefinition<ArtifactKind>[]
+    >(() => artifactDefinitionsCache ?? []);
+    const [isLoading, setIsLoading] = useState(!artifactDefinitionsCache);
+
+    useEffect(() => {
+        if (artifactDefinitionsCache) {
+            setDefinitions(artifactDefinitionsCache);
+            setIsLoading(false);
+            return;
+        }
+
+        loadArtifactDefinitions().then((loaded) => {
+            setDefinitions(loaded);
+            setIsLoading(false);
+        });
+    }, []);
+
+    return { definitions, isLoading };
+}
+
+// ============================================================================
+// Per-Kind Loading (Preferred for individual artifact rendering)
+// ============================================================================
+
+// Cache per-kind definitions
+const artifactDefinitionsByKind = new Map<
+    ArtifactKind,
+    ArtifactDefinition<ArtifactKind>
+>();
+const loadingPromisesByKind = new Map<
+    ArtifactKind,
+    Promise<ArtifactDefinition<ArtifactKind>>
+>();
+
+/**
+ * Load a single artifact definition by kind (lazy, cached)
+ */
+export async function loadArtifactByKind(
+    kind: ArtifactKind
+): Promise<ArtifactDefinition<ArtifactKind>> {
+    const cached = artifactDefinitionsByKind.get(kind);
+    if (cached) {
+        return cached;
+    }
+
+    const loading = loadingPromisesByKind.get(kind);
+    if (loading) {
+        return loading;
+    }
+
+    const promise = (async () => {
+        switch (kind) {
+            case "code": {
+                const mod = await import("@/artifacts/code/client");
+                return mod.codeArtifact;
+            }
+            case "text": {
+                const mod = await import("@/artifacts/text/client");
+                return mod.textArtifact;
+            }
+            case "image": {
+                const mod = await import("@/artifacts/image/client");
+                return mod.imageArtifact;
+            }
+            case "sheet": {
+                const mod = await import("@/artifacts/sheet/client");
+                return mod.sheetArtifact;
+            }
+            default:
+                throw new Error(`Unknown artifact kind: ${kind}`);
+        }
+    })().then((definition) => {
+        artifactDefinitionsByKind.set(kind, definition);
+        loadingPromisesByKind.delete(kind);
+        return definition;
+    });
+
+    loadingPromisesByKind.set(kind, promise);
+    return promise;
+}
+
+/**
+ * Sync getter for cached definition by kind
+ */
+export function getArtifactByKind(
+    kind: ArtifactKind
+): ArtifactDefinition<ArtifactKind> | undefined {
+    return artifactDefinitionsByKind.get(kind);
+}
+
+/**
+ * Hook for loading a single artifact definition by kind (preferred for rendering)
+ */
+export function useArtifactDefinition(kind: ArtifactKind): {
+    definition: ArtifactDefinition<ArtifactKind> | null;
+    isLoading: boolean;
+} {
+    const [definition, setDefinition] =
+        useState<ArtifactDefinition<ArtifactKind> | null>(
+            () => getArtifactByKind(kind) ?? null
+        );
+    const [isLoading, setIsLoading] = useState(() => !getArtifactByKind(kind));
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const cached = getArtifactByKind(kind);
+        if (cached) {
+            setDefinition(cached);
+            setIsLoading(false);
+            return;
+        }
+
+        setIsLoading(true);
+        loadArtifactByKind(kind).then((loaded) => {
+            if (!cancelled) {
+                setDefinition(loaded);
+                setIsLoading(false);
+            }
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [kind]);
+
+    return { definition, isLoading };
+}
 
 export type UIArtifact = {
     title: string;
@@ -300,24 +477,18 @@ function PureArtifact({
         isMobile,
     } = useWindowSize();
 
-    const artifactDefinition = artifactDefinitions.find(
-        (definition) => definition.kind === artifact.kind
-    );
-
-    // Fallback to text artifact if definition not found instead of throwing
-    const safeArtifactDefinition = artifactDefinition ?? textArtifact;
+    // Use per-kind lazy-loaded artifact definition (loads ONLY the needed artifact)
+    const { definition: artifactDefinition, isLoading: isDefinitionsLoading } =
+        useArtifactDefinition(artifact.kind);
 
     useEffect(() => {
-        if (
-            artifact.documentId !== "init" &&
-            safeArtifactDefinition.initialize
-        ) {
-            safeArtifactDefinition.initialize({
+        if (artifact.documentId !== "init" && artifactDefinition?.initialize) {
+            artifactDefinition.initialize({
                 documentId: artifact.documentId,
                 setMetadata,
             });
         }
-    }, [artifact.documentId, safeArtifactDefinition, setMetadata]);
+    }, [artifact.documentId, artifactDefinition, setMetadata]);
 
     return (
         <AnimatePresence initial={false}>
@@ -530,31 +701,40 @@ function PureArtifact({
                         <div className="h-full max-w-full! items-center overflow-y-scroll bg-background dark:bg-muted">
                             {/* Task 9.12: Wrap artifact rendering in error boundary with fallback UI */}
                             <ArtifactErrorBoundary>
-                                <safeArtifactDefinition.content
-                                    content={
-                                        isCurrentVersion
-                                            ? artifact.content
-                                            : getDocumentContentById(
-                                                  currentVersionIndex
-                                              )
-                                    }
-                                    currentVersionIndex={currentVersionIndex}
-                                    getDocumentContentById={
-                                        getDocumentContentById
-                                    }
-                                    isCurrentVersion={isCurrentVersion}
-                                    isInline={false}
-                                    isLoading={
-                                        isDocumentsFetching && !artifact.content
-                                    }
-                                    metadata={metadata}
-                                    mode={mode}
-                                    onSaveContent={saveContent}
-                                    setMetadata={setMetadata}
-                                    status={artifact.status}
-                                    suggestions={[]}
-                                    title={artifact.title}
-                                />
+                                {isDefinitionsLoading || !artifactDefinition ? (
+                                    <div className="flex h-full items-center justify-center">
+                                        <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted-foreground/20 border-t-muted-foreground" />
+                                    </div>
+                                ) : (
+                                    <artifactDefinition.content
+                                        content={
+                                            isCurrentVersion
+                                                ? artifact.content
+                                                : getDocumentContentById(
+                                                      currentVersionIndex
+                                                  )
+                                        }
+                                        currentVersionIndex={
+                                            currentVersionIndex
+                                        }
+                                        getDocumentContentById={
+                                            getDocumentContentById
+                                        }
+                                        isCurrentVersion={isCurrentVersion}
+                                        isInline={false}
+                                        isLoading={
+                                            isDocumentsFetching &&
+                                            !artifact.content
+                                        }
+                                        metadata={metadata}
+                                        mode={mode}
+                                        onSaveContent={saveContent}
+                                        setMetadata={setMetadata}
+                                        status={artifact.status}
+                                        suggestions={[]}
+                                        title={artifact.title}
+                                    />
+                                )}
                             </ArtifactErrorBoundary>
 
                             <AnimatePresence>

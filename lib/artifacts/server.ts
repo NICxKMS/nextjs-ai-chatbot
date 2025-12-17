@@ -2,7 +2,7 @@ import type { UIMessageStreamWriter } from "ai";
 import { codeDocumentHandler } from "@/artifacts/code/server";
 import { sheetDocumentHandler } from "@/artifacts/sheet/server";
 import { textDocumentHandler } from "@/artifacts/text/server";
-import type { ArtifactKind } from "@/components/artifact";
+import type { ArtifactKind } from "@/lib/artifacts/types";
 import type { AppSession } from "@/lib/auth/session";
 import { createContext } from "../data/base";
 import { documentData } from "../data/document";

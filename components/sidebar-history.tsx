@@ -1,11 +1,21 @@
 "use client";
 
 import { isToday, isYesterday, subMonths, subWeeks } from "date-fns";
+import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { GroupedVirtuoso, type GroupedVirtuosoHandle } from "react-virtuoso";
+import type { GroupedVirtuosoHandle } from "react-virtuoso";
 import { toast } from "sonner";
+
+// Lazy-load react-virtuoso (~19.4KB) - only loads when sidebar renders history
+const GroupedVirtuoso = dynamic(
+    () => import("react-virtuoso").then((mod) => mod.GroupedVirtuoso),
+    { ssr: false }
+);
+
 import useSWRInfinite from "swr/infinite";
+import { useAuth } from "@/components/providers/auth-provider";
+import { useOptimisticChats } from "@/components/providers/optimistic-chats-provider";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -22,10 +32,8 @@ import {
     SidebarMenu,
     useSidebar,
 } from "@/components/ui/sidebar";
-import { useOptimisticChats } from "@/hooks/use-optimistic-chats";
 import type { Chat } from "@/lib/db/schema";
 import { fetcher } from "@/lib/utils";
-import { useAuth } from "./auth-provider";
 import { LoaderIcon } from "./icons";
 import { ChatItem } from "./sidebar-history-item";
 

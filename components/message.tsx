@@ -2,7 +2,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import equal from "fast-deep-equal";
 import { memo, useState } from "react";
-import { motion } from "@/lib/motion";
+import { motion } from "@/components/providers/motion-provider";
 import type { ChatMessage, UserVote } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
 import { DocumentToolResult } from "./document";

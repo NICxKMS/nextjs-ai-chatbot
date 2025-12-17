@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useDataStream } from "@/components/providers/data-stream-provider";
 import { initialArtifactData, useArtifact } from "@/hooks/use-artifact";
-import { artifactDefinitions } from "./artifact";
-import { useDataStream } from "./data-stream-provider";
+import { getArtifactByKind, loadArtifactByKind } from "./artifact";
 
 export function DataStreamHandler() {
     const { dataStream } = useDataStream();
@@ -14,6 +14,11 @@ export function DataStreamHandler() {
 
     // Extract artifact.kind to use as a stable dependency
     const artifactKind = artifact.kind;
+
+    // Eagerly load artifact definition for current kind when handler mounts or kind changes
+    useEffect(() => {
+        loadArtifactByKind(artifactKind);
+    }, [artifactKind]);
 
     // Reset processed index when stream is cleared or artifact kind changes
     useEffect(() => {
@@ -31,12 +36,10 @@ export function DataStreamHandler() {
         const newDeltas = dataStream.slice(lastProcessedIndex.current + 1);
         lastProcessedIndex.current = dataStream.length - 1;
 
-        for (const delta of newDeltas) {
-            const artifactDefinition = artifactDefinitions.find(
-                (currentArtifactDefinition) =>
-                    currentArtifactDefinition.kind === artifactKind
-            );
+        // Get cached definition for current kind (will be loaded by initial effect)
+        const artifactDefinition = getArtifactByKind(artifactKind);
 
+        for (const delta of newDeltas) {
             // Consolidate updates into a single setArtifact call per delta
             // to prevent double state updates and potential race conditions
             setArtifact((draftArtifact) => {

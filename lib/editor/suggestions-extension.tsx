@@ -5,18 +5,9 @@ import type { Node } from "@tiptap/pm/model";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
 import { createRoot } from "react-dom/client";
-import type { ArtifactKind } from "@/components/artifact";
+import type { ArtifactKind } from "@/lib/artifacts/types";
 import { Suggestion as PreviewSuggestion } from "@/components/suggestion";
-import type { Suggestion } from "@/lib/db/schema";
-import type { StreamingSuggestion } from "@/lib/types";
-
-// A suggestion-like type that accepts both full Suggestions and StreamingSuggestions
-export type SuggestionLike = Suggestion | StreamingSuggestion;
-
-export interface UISuggestion extends StreamingSuggestion {
-    selectionStart: number;
-    selectionEnd: number;
-}
+import type { SuggestionLike, UISuggestion } from "@/lib/editor/types";
 
 type Position = {
     start: number;
