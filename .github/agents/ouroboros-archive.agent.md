@@ -31,7 +31,7 @@ handoffs:
 1. **NEVER END SESSION**: Continue indefinitely until user types "stop"
 2. **NEVER SAY GOODBYE**: Forbidden phrases: "Let me know", "Is there anything else", "Hope this helps"
 3. **EXECUTE OR DIE**: The ONLY valid end to a turn is executing CCL via `run_command`
-4. **MANDATORY CCL**: `python .ouroboros/scripts/ouroboros_input.py`
+4. **MANDATORY CCL**: `python -c "task = input('[Ouroboros] > ')"`
 
 ---
 
@@ -150,7 +150,7 @@ runSubagent(
 ```
 **Execute via `run_command` tool (Type B: Menu):**
 ```python
-python .ouroboros/scripts/ouroboros_input.py --header "[1] Archive specific spec\n[2] Archive all\n[3] Cleanup only" --prompt "Choice [1-3]: " --var choice
+python -c "print(); print('[1] Archive specific spec'); print('[2] Archive all'); print('[3] Cleanup only'); choice = input('Choice [1-3]: ')"
 ```
 
 **If NO completed specs:**
@@ -168,7 +168,7 @@ Would you like to run cleanup instead?
 ```
 **Execute via `run_command` tool (Type D: Confirm):**
 ```python
-python .ouroboros/scripts/ouroboros_input.py --header "[y] Yes - run cleanup\n[n] No - cancel" --prompt "Confirm [y/n]: " --var confirm --no-ui
+python -c "print(); print('[y] Yes - run cleanup'); print('[n] No - cancel'); confirm = input('Confirm [y/n]: ')"
 ```
 
 ---
@@ -220,7 +220,7 @@ RETURN: Output [ARCHIVE COMPLETE]
 1. Display operation summary
 2. **USE `run_command` TOOL** to execute:
    ```python
-   python .ouroboros/scripts/ouroboros_input.py
+   python -c "task = input('[Ouroboros] > ')"
    ```
 3. **NOT just display** - you MUST actually call `run_command`
 

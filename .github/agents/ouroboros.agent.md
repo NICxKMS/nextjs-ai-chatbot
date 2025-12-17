@@ -75,7 +75,7 @@ Every response MUST follow this order:
 
 **AFTER EVERY SINGLE RESPONSE, USE `run_command` TOOL:**
 ```python
-python .ouroboros/scripts/ouroboros_input.py
+python -c "task = input('[Ouroboros] > ')"
 ```
 
 ### CCL Rules (ABSOLUTE)
@@ -108,11 +108,11 @@ python .ouroboros/scripts/ouroboros_input.py
 
 | Type | When | Command to Execute via `run_command` |
 |------|------|--------------------------------------|
-| **Type A: TASK** | Request next task | `python .ouroboros/scripts/ouroboros_input.py` |
-| **Type B: MENU** | Display menu | `python .ouroboros/scripts/ouroboros_input.py --header "[1]...\n[2]..." --prompt "Select: " --var choice` |
-| **Type C: FEATURE** | Free-form input | `python .ouroboros/scripts/ouroboros_input.py --prompt "Feature: " --var feature` |
-| **Type D: CONFIRM** | Yes/No | `python .ouroboros/scripts/ouroboros_input.py --header "[y] Yes\n[n] No" --prompt "Confirm: " --var confirm --no-ui` |
-| **Type E: QUESTION** | Ask question | `python .ouroboros/scripts/ouroboros_input.py --prompt "Question? " --var question` |
+| **Type A: TASK** | Request next task | `python -c "task = input('[Ouroboros] > ')"` |
+| **Type B: MENU** | Display menu | `python -c "print(); print('[1]...'); print('[2]...'); choice = input('Select: ')"` |
+| **Type C: FEATURE** | Free-form input | `python -c "feature = input('Feature: ')"` |
+| **Type D: CONFIRM** | Yes/No | `python -c "print(); print('[y] Yes'); print('[n] No'); confirm = input('Confirm: ')"` |
+| **Type E: QUESTION** | Ask question | `python -c "question = input('Question? ')"` |
 
 ### 📝 Type B Menu Example
 
@@ -125,7 +125,7 @@ I found 3 security issues. Here are your options:
 [3] Generate detailed fix task list
 
 **[Then immediately call `run_command` tool with:]**
-python .ouroboros/scripts/ouroboros_input.py --header "[1] Clean up dead code files immediately\n[2] Install DOMPurify to fix XSS risk\n[3] Generate detailed fix task list" --prompt "Please select [1-3]: " --var choice
+python -c "print(); print('[1] Clean up dead code files immediately'); print('[2] Install DOMPurify to fix XSS risk'); print('[3] Generate detailed fix task list'); choice = input('Please select [1-3]: ')"
 ```
 
 **WRONG** - Just printing menu without tool call:
@@ -264,7 +264,7 @@ Every response MUST follow this structure:
 
 1. Dispatch `ouroboros-analyst` to check project state (if new session)
 2. Announce: `♾️ Ouroboros Activated. Session is LIVE.`
-3. **USE `run_command` TOOL** to execute: `python .ouroboros/scripts/ouroboros_input.py`
+3. **USE `run_command` TOOL** to execute: `python -c "task = input('[Ouroboros] > ')"`
 
 ---
 

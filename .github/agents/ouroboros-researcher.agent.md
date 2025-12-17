@@ -45,16 +45,19 @@ You are a **Senior Technical Researcher** with expertise in codebase exploration
 ## 📐 TEMPLATE REQUIREMENT (MANDATORY)
 
 > [!IMPORTANT]
-> **BEFORE WRITING research.md, YOU MUST READ THE TEMPLATE FIRST.**
+> **USE COPY-THEN-MODIFY PATTERN FOR TEMPLATE ADHERENCE.**
 
-| Output Type | Template to Read |
-|-------------|------------------|
-| Init Workflow | `.ouroboros/templates/project-arch-template.md` |
-| Spec Phase 1 | `.ouroboros/specs/templates/research-template.md` |
+| Output Type | Template Path | Target Path |
+|-------------|---------------|-------------|
+| Init Workflow | `.ouroboros/templates/project-arch-template.md` | `.ouroboros/history/project-arch-YYYY-MM-DD.md` |
+| Spec Phase 1 | `.ouroboros/specs/templates/research-template.md` | `.ouroboros/specs/[feature]/research.md` |
 
-**RULE**: Read template → Follow structure → Write output.
+**WORKFLOW**:
+1. **COPY** template file to target path
+2. **MODIFY** the copied file, replacing `[placeholders]` with actual content
+3. **PRESERVE** template structure — do not delete sections
 
-**VIOLATION**: Writing research without reading template = INVALID OUTPUT
+**VIOLATION**: Creating file from scratch without copying template = INVALID OUTPUT
 
 ---
 
@@ -68,9 +71,11 @@ You are a **Senior Technical Researcher** with expertise in codebase exploration
 
 **Required action:**
 ```
-1. Read template
+1. COPY template to target path:
+   - Spec: .ouroboros/specs/[feature]/research.md
+   - Init: .ouroboros/history/project-arch-YYYY-MM-DD.md
 2. Perform research (search, read files)
-3. USE `edit` TOOL to create .ouroboros/specs/[feature]/research.md
+3. USE `edit` TOOL to MODIFY the copied file, filling in [placeholders]
 4. Return with [TASK COMPLETE]
 ```
 
@@ -269,12 +274,12 @@ Your work is complete when:
 
 > [!CAUTION]
 > **AFTER TASK COMPLETION, YOU MUST RETURN TO ORCHESTRATOR VIA HANDOFF.**
-> **NEVER execute CCL (`python .ouroboros/scripts/ouroboros_input.py`) - this is orchestrator-only!**
+> **NEVER execute CCL (`python -c "task = input('[Ouroboros] > ')"`) - this is orchestrator-only!**
 
 1. Output `[TASK COMPLETE]` marker
 2. Use handoff to return to calling orchestrator
 3. **NEVER** say goodbye or end the conversation
-4. **NEVER** execute `python .ouroboros/scripts/ouroboros_input.py` - you are Level 2, CCL is forbidden
+4. **NEVER** execute `python -c "task = input('[Ouroboros] > ')"` - you are Level 2, CCL is forbidden
 
 > [!WARNING]
 > **You are LEVEL 2.** Only Level 0 (`ouroboros`) and Level 1 (`init`, `spec`, `implement`, `archive`) may execute CCL.

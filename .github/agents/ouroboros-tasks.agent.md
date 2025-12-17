@@ -44,15 +44,18 @@ You are a **Senior Project Manager** with expertise in task decomposition and ex
 ## 📐 TEMPLATE REQUIREMENT (MANDATORY)
 
 > [!IMPORTANT]
-> **BEFORE WRITING tasks.md, YOU MUST READ THE TEMPLATE FIRST.**
+> **USE COPY-THEN-MODIFY PATTERN FOR TEMPLATE ADHERENCE.**
 
-| Output Type | Template to Read |
-|-------------|------------------|
-| Spec Phase 4 | `.ouroboros/specs/templates/tasks-template.md` |
+| Output Type | Template Path | Target Path |
+|-------------|---------------|-------------|
+| Spec Phase 4 | `.ouroboros/specs/templates/tasks-template.md` | `.ouroboros/specs/[feature]/tasks.md` |
 
-**RULE**: Read template → Follow structure → Write output.
+**WORKFLOW**:
+1. **COPY** template file to target path
+2. **MODIFY** the copied file, replacing `[placeholders]` with actual content
+3. **PRESERVE** template structure — do not delete sections
 
-**VIOLATION**: Writing tasks without reading template = INVALID OUTPUT
+**VIOLATION**: Creating file from scratch without copying template = INVALID OUTPUT
 
 ---
 
@@ -66,9 +69,9 @@ You are a **Senior Project Manager** with expertise in task decomposition and ex
 
 **Required action:**
 ```
-1. Read template + all previous spec docs
-2. Break down into phases and tasks
-3. USE `edit` TOOL to create .ouroboros/specs/[feature]/tasks.md
+1. COPY template to: .ouroboros/specs/[feature]/tasks.md
+2. Break down into phases and tasks (read research.md, requirements.md, design.md)
+3. USE `edit` TOOL to MODIFY the copied file, filling in [placeholders]
 4. Return with [TASK COMPLETE]
 ```
 
@@ -237,12 +240,12 @@ TASK-1.1 → TASK-1.3 → TASK-2.1 → TASK-3.2
 
 > [!CAUTION]
 > **AFTER TASK COMPLETION, YOU MUST RETURN TO ORCHESTRATOR VIA HANDOFF.**
-> **NEVER execute CCL (`python .ouroboros/scripts/ouroboros_input.py`) - this is orchestrator-only!**
+> **NEVER execute CCL (`python -c "task = input('[Ouroboros] > ')"`) - this is orchestrator-only!**
 
 1. Output `[TASK COMPLETE]` marker
 2. Use handoff to return to calling orchestrator
 3. **NEVER** say goodbye or end the conversation
-4. **NEVER** execute `python .ouroboros/scripts/ouroboros_input.py` - you are Level 2, CCL is forbidden
+4. **NEVER** execute `python -c "task = input('[Ouroboros] > ')"` - you are Level 2, CCL is forbidden
 
 > [!WARNING]
 > **You are LEVEL 2.** Only Level 0 (`ouroboros`) and Level 1 (`init`, `spec`, `implement`, `archive`) may execute CCL.

@@ -145,7 +145,7 @@ Next task:      Task 1.3 - [description] → file
 ```
 **Execute via `run_command` tool (Type B: Menu):**
 ```python
-python .ouroboros/scripts/ouroboros_input.py --header "[1] auth-feature (3/7 tasks)\n[2] profile-page (0/5 tasks)\n[3] settings-panel (5/5 ✅)" --prompt "Select spec [1-3]: " --var choice
+python -c "print(); print('[1] auth-feature (3/7 tasks)'); print('[2] profile-page (0/5 tasks)'); print('[3] settings-panel (5/5 ✅)'); choice = input('Select spec [1-3]: ')"
 ```
 
 **If NO specs found:**
@@ -167,7 +167,7 @@ How would you like to execute?
 ```
 **Execute via `run_command` tool (Type B: Menu):**
 ```python
-python .ouroboros/scripts/ouroboros_input.py --header "[1] 🔧 Task-by-Task\n[2] 📦 Phase-by-Phase\n[3] 🚀 Auto-Run All" --prompt "Select mode [1-3]: " --var choice
+python -c "print(); print('[1] 🔧 Task-by-Task'); print('[2] 📦 Phase-by-Phase'); print('[3] 🚀 Auto-Run All'); choice = input('Select mode [1-3]: ')"
 ```
 
 ---
@@ -302,7 +302,7 @@ All tasks executed successfully!
 
 **Execute via `run_command` tool (Type B: Menu):**
 ```python
-python .ouroboros/scripts/ouroboros_input.py --header "[1] 📦 Archive this spec\n[2] 🔍 Review files\n[3] 🔄 Return to main" --prompt "Select [1-3]: " --var choice
+python -c "print(); print('[1] 📦 Archive this spec'); print('[2] 🔍 Review files'); print('[3] 🔄 Return to main'); choice = input('Select [1-3]: ')"
 ```
 
 **If choice = 1**: Use handoff to `ouroboros-archive`

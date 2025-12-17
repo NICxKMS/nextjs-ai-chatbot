@@ -76,7 +76,7 @@ Estimated time: 1-2 minutes
 
 **Then ask for confirmation (Type D: Confirm):**
 ```python
-python .ouroboros/scripts/ouroboros_input.py --header "[y] Yes - proceed with initialization\n[n] No - cancel" --prompt "Confirm [y/n]: " --var confirm --no-ui
+python -c "print(); print('[y] Yes - proceed with initialization'); print('[n] No - cancel'); confirm = input('Confirm [y/n]: ')"
 ```
 
 **If user says 'y' or 'yes'**: Proceed to Phase 1
