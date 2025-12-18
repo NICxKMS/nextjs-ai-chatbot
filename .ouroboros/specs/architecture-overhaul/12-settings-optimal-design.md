@@ -24,39 +24,39 @@ The Settings & Configuration module manages all application configuration at thr
 
 ### 2.1 User Settings (REQ-SET-001 to REQ-SET-005)
 
-| ID | Requirement | Priority |
-|----|-------------|----------|
-| REQ-SET-001 | User preferences persist across sessions via localStorage | High |
-| REQ-SET-002 | Type-safe settings with Zod validation | High |
-| REQ-SET-003 | Real-time settings updates without page reload | High |
-| REQ-SET-004 | Settings reset to defaults capability | Medium |
-| REQ-SET-005 | Model selection persistence with server fallback | High |
+| ID          | Requirement                                               | Priority |
+| ----------- | --------------------------------------------------------- | -------- |
+| REQ-SET-001 | User preferences persist across sessions via localStorage | High     |
+| REQ-SET-002 | Type-safe settings with Zod validation                    | High     |
+| REQ-SET-003 | Real-time settings updates without page reload            | High     |
+| REQ-SET-004 | Settings reset to defaults capability                     | Medium   |
+| REQ-SET-005 | Model selection persistence with server fallback          | High     |
 
 ### 2.2 App Configuration (REQ-CFG-001 to REQ-CFG-005)
 
-| ID | Requirement | Priority |
-|----|-------------|----------|
-| REQ-CFG-001 | Environment variables validated at build/startup | High |
-| REQ-CFG-002 | Server secrets never exposed to client bundle | Critical |
-| REQ-CFG-003 | Type-safe environment variable access | High |
-| REQ-CFG-004 | Graceful degradation for optional config | Medium |
-| REQ-CFG-005 | Centralized constants management | Medium |
+| ID          | Requirement                                      | Priority |
+| ----------- | ------------------------------------------------ | -------- |
+| REQ-CFG-001 | Environment variables validated at build/startup | High     |
+| REQ-CFG-002 | Server secrets never exposed to client bundle    | Critical |
+| REQ-CFG-003 | Type-safe environment variable access            | High     |
+| REQ-CFG-004 | Graceful degradation for optional config         | Medium   |
+| REQ-CFG-005 | Centralized constants management                 | Medium   |
 
 ### 2.3 Feature Flags (REQ-FF-001 to REQ-FF-003)
 
-| ID | Requirement | Priority |
-|----|-------------|----------|
-| REQ-FF-001 | Environment-based feature toggles | High |
-| REQ-FF-002 | Runtime flag checks without rebuilds | Medium |
-| REQ-FF-003 | Type-safe flag definitions | High |
+| ID         | Requirement                          | Priority |
+| ---------- | ------------------------------------ | -------- |
+| REQ-FF-001 | Environment-based feature toggles    | High     |
+| REQ-FF-002 | Runtime flag checks without rebuilds | Medium   |
+| REQ-FF-003 | Type-safe flag definitions           | High     |
 
 ### 2.4 Validation (REQ-VAL-001 to REQ-VAL-003)
 
-| ID | Requirement | Priority |
-|----|-------------|----------|
-| REQ-VAL-001 | Zod schemas for all configuration | High |
-| REQ-VAL-002 | Startup validation with clear error messages | High |
-| REQ-VAL-003 | Runtime validation for user settings | Medium |
+| ID          | Requirement                                  | Priority |
+| ----------- | -------------------------------------------- | -------- |
+| REQ-VAL-001 | Zod schemas for all configuration            | High     |
+| REQ-VAL-002 | Startup validation with clear error messages | High     |
+| REQ-VAL-003 | Runtime validation for user settings         | Medium   |
 
 ---
 
@@ -64,14 +64,14 @@ The Settings & Configuration module manages all application configuration at thr
 
 ### 3.1 Existing Implementation
 
-| File | Purpose | Lines | Health |
-|------|---------|-------|--------|
-| `lib/settings/types.ts` | AppSettings type definition | ~20 | ✅ Good |
-| `lib/ui/settings-store.tsx` | React context + localStorage | ~90 | ✅ Good |
-| `components/settings/settings-sheet.tsx` | Settings UI | ~300 | ✅ Good |
-| `lib/constants.ts` | App constants | ~140 | ⚠️ Mixed concerns |
-| `lib/ai/constants.ts` | AI model constants | ~60 | ✅ Good |
-| `.env.example` | Env var documentation | ~95 | ✅ Good |
+| File                                     | Purpose                      | Lines | Health            |
+| ---------------------------------------- | ---------------------------- | ----- | ----------------- |
+| `lib/settings/types.ts`                  | AppSettings type definition  | ~20   | ✅ Good           |
+| `lib/ui/settings-store.tsx`              | React context + localStorage | ~90   | ✅ Good           |
+| `components/settings/settings-sheet.tsx` | Settings UI                  | ~300  | ✅ Good           |
+| `lib/constants.ts`                       | App constants                | ~140  | ⚠️ Mixed concerns |
+| `lib/ai/constants.ts`                    | AI model constants           | ~60   | ✅ Good           |
+| `.env.example`                           | Env var documentation        | ~95   | ✅ Good           |
 
 ### 3.2 Current Architecture
 
@@ -190,7 +190,7 @@ import { z } from "zod";
 const requiredEnvSchema = z.object({
   // Database (required)
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
-  
+
   // Authentication (required)
   AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 characters"),
   SUPABASE_JWT_SECRET: z.string().min(1, "SUPABASE_JWT_SECRET is required"),
@@ -201,31 +201,31 @@ const optionalEnvSchema = z.object({
   SUPABASE_URL: z.string().url().optional(),
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().optional(),
-  
+
   // Cache
   CACHE_KV_REST_API_URL: z.string().url().optional(),
   CACHE_KV_REST_API_TOKEN: z.string().optional(),
-  
+
   // Rate Limiting
   UPSTASH_REDIS_REST_URL: z.string().url().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
-  
+
   // AI Providers
   OPENAI_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
   OPENROUTER_API_KEY: z.string().optional(),
-  
+
   // Cloudflare Gateway
   CLOUDFLARE_AI_GATEWAY_ENABLED: z.coerce.boolean().default(false),
   CLOUDFLARE_AI_GATEWAY_ACCOUNT_ID: z.string().optional(),
   CLOUDFLARE_AI_GATEWAY_GATEWAY_ID: z.string().optional(),
   CLOUDFLARE_AI_GATEWAY_API_KEY: z.string().optional(),
-  
+
   // Vercel
   VERCEL_FLUID: z.string().optional(),
   BLOB_READ_WRITE_TOKEN: z.string().optional(),
-  
+
   // Feature Flags
   INCLUDE_VERCEL_MODELS: z.coerce.boolean().default(false),
 });
@@ -238,19 +238,19 @@ const envSchema = requiredEnvSchema.merge(optionalEnvSchema);
 
 function validateEnv() {
   const result = envSchema.safeParse(process.env);
-  
+
   if (!result.success) {
     const errors = result.error.flatten().fieldErrors;
     const errorMessages = Object.entries(errors)
       .map(([key, msgs]) => `  ${key}: ${msgs?.join(", ")}`)
       .join("\n");
-    
+
     throw new Error(
       `❌ Invalid environment variables:\n${errorMessages}\n\n` +
-      `See .env.example for required variables.`
+        `See .env.example for required variables.`
     );
   }
-  
+
   return result.data;
 }
 
@@ -441,8 +441,13 @@ const SETTINGS_STORAGE_KEY = "chat-sdk.settings.v2";
 
 export interface SettingsStore {
   settings: AppSettings;
-  updateSettings: (updater: (current: AppSettings) => Partial<AppSettings>) => void;
-  setSetting: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void;
+  updateSettings: (
+    updater: (current: AppSettings) => Partial<AppSettings>
+  ) => void;
+  setSetting: <K extends keyof AppSettings>(
+    key: K,
+    value: AppSettings[K]
+  ) => void;
   resetSettings: () => void;
   setSelectedModelId: (modelId: string | undefined) => void;
 }
@@ -461,10 +466,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   );
 
   // Validate settings on every access
-  const settings = useMemo(
-    () => safeParseSettings(rawSettings),
-    [rawSettings]
-  );
+  const settings = useMemo(() => safeParseSettings(rawSettings), [rawSettings]);
 
   const updateSettings = useCallback(
     (updater: (current: AppSettings) => Partial<AppSettings>) => {
@@ -563,12 +565,13 @@ export const AUTH_CONSTANTS = {
   GUEST_TOKEN_TTL_SECONDS: 60 * 60, // 1 hour
   GUEST_TOKEN_ROTATION_THRESHOLD_SECONDS: 30 * 60, // 30 minutes
   GUEST_CACHE_TTL_SECONDS: 7 * 24 * 60 * 60, // 7 days
-  
+
   // Cookie settings
   SESSION_COOKIE_MAX_AGE: 60 * 60 * 24 * 7, // 7 days
-  
+
   // Validation patterns
-  GUEST_ID_REGEX: /^guest:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+  GUEST_ID_REGEX:
+    /^guest:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
   UUID_REGEX: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
 } as const;
 
@@ -592,11 +595,11 @@ export const CACHE_CONSTANTS = {
   DEFAULT_TTL_SECONDS: 24 * 60 * 60, // 24 hours
   SHORT_TTL_SECONDS: 5 * 60, // 5 minutes
   MODEL_LIST_TTL_SECONDS: 60 * 60, // 1 hour
-  
+
   // Sizes
   MAX_CACHE_ITEMS: 1000,
   MAX_ITEM_SIZE_BYTES: 1024 * 1024, // 1MB
-  
+
   // Keys
   PREFIX: {
     CHAT: "chat:",
@@ -619,25 +622,33 @@ export const AI_CONSTANTS = {
   DEFAULT_TEMPERATURE: 0.7,
   DEFAULT_TOP_P: 0.95,
   DEFAULT_MAX_OUTPUT_TOKENS: 4096,
-  
+
   // Limits
   MAX_CONTEXT_TOKENS: 128_000,
   SYSTEM_PROMPT_RESERVE_TOKENS: 2000,
   TITLE_GENERATION_MAX_TOKENS: 80,
-  
+
   // Timeouts (ms)
   MODEL_DISCOVERY_TIMEOUT_MS: 5000,
   STREAM_TIMEOUT_MS: 30_000,
-  
+
   // Rate limits
   DEFAULT_MESSAGES_PER_MINUTE: 20,
   DEFAULT_TOKENS_PER_MINUTE: 100_000,
-  
+
   // Providers
-  SUPPORTED_PROVIDERS: ["openai", "anthropic", "google", "xai", "openrouter", "gateway"] as const,
+  SUPPORTED_PROVIDERS: [
+    "openai",
+    "anthropic",
+    "google",
+    "xai",
+    "openrouter",
+    "gateway",
+  ] as const,
 } as const;
 
-export type SupportedProviderId = (typeof AI_CONSTANTS.SUPPORTED_PROVIDERS)[number];
+export type SupportedProviderId =
+  (typeof AI_CONSTANTS.SUPPORTED_PROVIDERS)[number];
 ```
 
 ```typescript
@@ -652,14 +663,14 @@ export const APP_CONSTANTS = {
   isDevelopment: process.env.NODE_ENV === "development",
   isTest: Boolean(
     process.env.PLAYWRIGHT_TEST_BASE_URL ||
-    process.env.PLAYWRIGHT ||
-    process.env.CI_PLAYWRIGHT
+      process.env.PLAYWRIGHT ||
+      process.env.CI_PLAYWRIGHT
   ),
-  
+
   // UI
   SIDEBAR_WIDTH: 260,
   MOBILE_BREAKPOINT: 768,
-  
+
   // Pagination
   DEFAULT_PAGE_SIZE: 20,
   MAX_PAGE_SIZE: 100,
@@ -670,13 +681,13 @@ export const APP_CONSTANTS = {
 
 ## 5. Technology Stack
 
-| Technology | Purpose | Justification |
-|------------|---------|---------------|
-| **Zod** | Schema validation | Type inference, runtime validation, clear errors |
-| **React Context** | User settings state | Already used, minimal overhead |
-| **useLocalStorage** | Client persistence | From usehooks-ts, handles SSR correctly |
-| **server-only** | Bundle protection | Prevents secret leakage to client |
-| **Next.js env** | Environment handling | Built-in NEXT_PUBLIC_ client exposure |
+| Technology          | Purpose              | Justification                                    |
+| ------------------- | -------------------- | ------------------------------------------------ |
+| **Zod**             | Schema validation    | Type inference, runtime validation, clear errors |
+| **React Context**   | User settings state  | Already used, minimal overhead                   |
+| **useLocalStorage** | Client persistence   | From usehooks-ts, handles SSR correctly          |
+| **server-only**     | Bundle protection    | Prevents secret leakage to client                |
+| **Next.js env**     | Environment handling | Built-in NEXT*PUBLIC* client exposure            |
 
 ---
 
@@ -709,26 +720,26 @@ export const APP_CONSTANTS = {
 
 ### 6.2 Bundle Size Impact
 
-| Module | Client Bundle | Server Bundle |
-|--------|---------------|---------------|
-| Settings Schema | ~1KB (Zod schema) | ~1KB |
-| Settings Store | ~2KB | 0KB |
-| Constants | ~1KB | ~1KB |
-| Env Config | 0KB | ~2KB |
-| Feature Flags | 0KB | ~1KB |
-| **Total** | **~4KB** | **~5KB** |
+| Module          | Client Bundle     | Server Bundle |
+| --------------- | ----------------- | ------------- |
+| Settings Schema | ~1KB (Zod schema) | ~1KB          |
+| Settings Store  | ~2KB              | 0KB           |
+| Constants       | ~1KB              | ~1KB          |
+| Env Config      | 0KB               | ~2KB          |
+| Feature Flags   | 0KB               | ~1KB          |
+| **Total**       | **~4KB**          | **~5KB**      |
 
 ---
 
 ## 7. Simplifications (From Current State)
 
-| Simplification | Before | After |
-|----------------|--------|-------|
-| Env access | Scattered `process.env` | Centralized `env.VARIABLE` |
-| Settings types | Type-only, no validation | Zod schema with defaults |
-| Constants | Mixed in `lib/constants.ts` | Organized by domain |
-| Feature flags | Ad-hoc `process.env` checks | Typed flag system |
-| Settings version | None | Versioned storage key |
+| Simplification   | Before                      | After                      |
+| ---------------- | --------------------------- | -------------------------- |
+| Env access       | Scattered `process.env`     | Centralized `env.VARIABLE` |
+| Settings types   | Type-only, no validation    | Zod schema with defaults   |
+| Constants        | Mixed in `lib/constants.ts` | Organized by domain        |
+| Feature flags    | Ad-hoc `process.env` checks | Typed flag system          |
+| Settings version | None                        | Versioned storage key      |
 
 ---
 
@@ -741,19 +752,19 @@ graph TD
         FLAGS[lib/config/flags.ts]
         CONST[lib/config/constants/]
     end
-    
+
     subgraph "Settings Layer"
         SCHEMA[lib/settings/schema.ts]
         STORE[lib/ui/settings-store.tsx]
     end
-    
+
     subgraph "Consumers"
         AUTH[Auth Module]
         DATA[Data Layer]
         AI[AI Integration]
         UI[UI Components]
     end
-    
+
     ENV --> AUTH
     ENV --> DATA
     ENV --> AI
@@ -768,21 +779,21 @@ graph TD
 
 ### 8.1 Upstream Dependencies
 
-| Dependency | Source | Purpose |
-|------------|--------|---------|
-| Zod | npm | Schema validation |
-| usehooks-ts | npm | useLocalStorage |
-| React | npm | Context API |
+| Dependency  | Source | Purpose           |
+| ----------- | ------ | ----------------- |
+| Zod         | npm    | Schema validation |
+| usehooks-ts | npm    | useLocalStorage   |
+| React       | npm    | Context API       |
 
 ### 8.2 Downstream Consumers
 
-| Consumer | Config Used |
-|----------|-------------|
-| Auth Module | `env.AUTH_SECRET`, `AUTH_CONSTANTS` |
-| Data Layer | `env.DATABASE_URL`, `CACHE_CONSTANTS` |
+| Consumer       | Config Used                                         |
+| -------------- | --------------------------------------------------- |
+| Auth Module    | `env.AUTH_SECRET`, `AUTH_CONSTANTS`                 |
+| Data Layer     | `env.DATABASE_URL`, `CACHE_CONSTANTS`               |
 | AI Integration | `env.OPENAI_API_KEY`, `AI_CONSTANTS`, `serverFlags` |
-| Cache Layer | `env.CACHE_KV_*`, `CACHE_CONSTANTS` |
-| UI Components | `useSettings()`, `clientFlags` |
+| Cache Layer    | `env.CACHE_KV_*`, `CACHE_CONSTANTS`                 |
+| UI Components  | `useSettings()`, `clientFlags`                      |
 
 ---
 
@@ -794,30 +805,34 @@ graph TD
 // Environment configuration
 import { env, hasRedisCache, hasOpenAI } from "@/lib/config/env";
 
-env.DATABASE_URL      // string (validated)
-env.OPENAI_API_KEY    // string | undefined
-hasRedisCache         // boolean
-hasOpenAI             // boolean
+env.DATABASE_URL; // string (validated)
+env.OPENAI_API_KEY; // string | undefined
+hasRedisCache; // boolean
+hasOpenAI; // boolean
 
 // Feature flags
 import { serverFlags, isFeatureEnabled } from "@/lib/config/flags";
 
-serverFlags.INCLUDE_VERCEL_MODELS  // boolean
-isFeatureEnabled("DEBUG_MODE")      // boolean
+serverFlags.INCLUDE_VERCEL_MODELS; // boolean
+isFeatureEnabled("DEBUG_MODE"); // boolean
 
 // Constants
-import { AUTH_CONSTANTS, AI_CONSTANTS, CACHE_CONSTANTS } from "@/lib/config/constants";
+import {
+  AUTH_CONSTANTS,
+  AI_CONSTANTS,
+  CACHE_CONSTANTS,
+} from "@/lib/config/constants";
 ```
 
 ### 9.2 Client-Side API
 
 ```typescript
 // User settings
-import { 
-  useSettings, 
-  useSettingsSnapshot, 
+import {
+  useSettings,
+  useSettingsSnapshot,
   useSettingValue,
-  SettingsProvider 
+  SettingsProvider,
 } from "@/lib/ui/settings-store";
 
 const { settings, updateSettings, setSetting, resetSettings } = useSettings();
@@ -827,8 +842,8 @@ const autoScroll = useSettingValue("autoScroll");
 // Client flags
 import { clientFlags } from "@/lib/config/client-flags";
 
-clientFlags.supabaseUrl  // string
-clientFlags.appUrl       // string
+clientFlags.supabaseUrl; // string
+clientFlags.appUrl; // string
 ```
 
 ### 9.3 Type Exports
@@ -849,11 +864,11 @@ import type { SupportedProviderId } from "@/lib/config/constants";
 ```typescript
 // lib/config/env.ts
 // Validation runs ONCE at module load (startup)
-export const env = validateEnv();  // Cached in module scope
+export const env = validateEnv(); // Cached in module scope
 
 // No re-validation on each access
 function getDbUrl() {
-  return env.DATABASE_URL;  // Direct property access
+  return env.DATABASE_URL; // Direct property access
 }
 ```
 
@@ -864,10 +879,10 @@ function getDbUrl() {
 function ChatComponent() {
   // ❌ Bad: Re-renders on ANY settings change
   const { settings } = useSettings();
-  
+
   // ✅ Good: Only re-renders when autoScroll changes
   const autoScroll = useSettingValue("autoScroll");
-  
+
   return <div>Auto-scroll: {autoScroll ? "on" : "off"}</div>;
 }
 ```
@@ -925,17 +940,20 @@ lib/
 ## 12. Migration Path
 
 ### Phase 1: Add New Modules (Non-Breaking)
+
 1. Create `lib/config/env.ts` with validation
 2. Create `lib/config/flags.ts`
 3. Create `lib/settings/schema.ts`
 4. Create `lib/config/constants/` structure
 
 ### Phase 2: Migrate Consumers
+
 1. Update imports from `process.env` to `env.VARIABLE`
 2. Update settings store to use schema validation
 3. Migrate constants from `lib/constants.ts`
 
 ### Phase 3: Cleanup
+
 1. Remove `lib/constants.ts` (deprecated)
 2. Remove `lib/settings/types.ts` (merged into schema)
 3. Update documentation
@@ -988,6 +1006,7 @@ lib/
 **Description:** Validate env vars with simple if-checks at runtime.
 
 **Rejected because:**
+
 - No type inference (manual type definitions needed)
 - No compile-time safety
 - Verbose validation code
@@ -998,6 +1017,7 @@ lib/
 **Description:** Use external service for feature flags and config.
 
 **Rejected because:**
+
 - Overkill for current scale
 - Adds external dependency
 - Latency for config fetches
@@ -1008,6 +1028,7 @@ lib/
 **Description:** Persist user settings to database instead of localStorage.
 
 **Rejected because:**
+
 - Requires authentication for all settings
 - Adds database load for preference reads
 - Current localStorage approach works well
@@ -1020,9 +1041,11 @@ lib/
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **Files Created:**
+
 - [.ouroboros/specs/architecture-overhaul/12-settings-optimal-design.md](.ouroboros/specs/architecture-overhaul/12-settings-optimal-design.md)
 
 **Summary:**
+
 - Designed three-layer configuration architecture (env, flags, user settings)
 - Zod schemas for compile-time + runtime validation
 - Server-only enforcement for secrets

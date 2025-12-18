@@ -52,9 +52,10 @@ const sheetVariants = cva(
     }
 );
 
-interface SheetContentProps
-    extends ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
-        VariantProps<typeof sheetVariants> {}
+type SheetContentProps
+    extends
+ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
+    VariantProps < typeof sheetVariants > {};
 
 const SheetContent = forwardRef<
     ElementRef<typeof SheetPrimitive.Content>,

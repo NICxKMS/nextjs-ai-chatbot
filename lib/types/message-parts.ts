@@ -8,7 +8,7 @@
 import type { ArtifactKind } from "@/components/artifact";
 
 /**
- * Base interface for all message parts
+ * Base type for all message parts
  */
 type BaseMessagePart = {
     type: string;

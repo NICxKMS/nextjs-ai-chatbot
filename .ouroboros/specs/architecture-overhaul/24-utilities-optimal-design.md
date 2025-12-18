@@ -13,12 +13,14 @@
 **Business Capability**: Shared helper functions, reducing code duplication and ensuring consistent behavior.
 
 Utilities provide:
+
 - **String/data manipulation**: UUID, sanitization, formatting
 - **Network helpers**: Fetch wrappers, error handling
 - **DOM utilities**: localStorage, class names
 - **Conversion functions**: Message format transformations
 
 **Success Criteria**:
+
 - Zero duplicated utility logic
 - <3KB shared utils in client bundle
 - 100% unit test coverage for utilities
@@ -30,15 +32,16 @@ Utilities provide:
 
 ### 2.1 Current State Analysis
 
-| File | Functions | Lines | Issues |
-|------|-----------|-------|--------|
-| `lib/utils.ts` | 12 | 191 | Mixed concerns, growing |
-| `lib/errors.ts` | 5 | ~100 | Error utilities |
-| `lib/files.ts` | 3 | ~50 | File handling |
-| `lib/usage.ts` | 2 | ~30 | Usage tracking |
-| `lib/constants.ts` | - | ~20 | App constants |
+| File               | Functions | Lines | Issues                  |
+| ------------------ | --------- | ----- | ----------------------- |
+| `lib/utils.ts`     | 12        | 191   | Mixed concerns, growing |
+| `lib/errors.ts`    | 5         | ~100  | Error utilities         |
+| `lib/files.ts`     | 3         | ~50   | File handling           |
+| `lib/usage.ts`     | 2         | ~30   | Usage tracking          |
+| `lib/constants.ts` | -         | ~20   | App constants           |
 
 **Current `lib/utils.ts` Functions**:
+
 1. `cn()` - Tailwind class merging
 2. `fetcher()` - SWR fetch wrapper
 3. `fetchWithErrorHandlers()` - Enhanced fetch
@@ -52,6 +55,7 @@ Utilities provide:
 11. `getTextFromMessage()` - Text extraction
 
 **Problems Identified**:
+
 1. Mixed client/server utilities in one file
 2. No logical grouping (fetch, message, string)
 3. Some functions are domain-specific, not generic utilities
@@ -59,13 +63,13 @@ Utilities provide:
 
 ### 2.2 Categorization
 
-| Category | Functions | Environment |
-|----------|-----------|-------------|
-| **String** | `cn`, `sanitizeText`, `generateUUID` | Universal |
-| **Network** | `fetcher`, `fetchWithErrorHandlers` | Client |
-| **Storage** | `getLocalStorage` | Client |
-| **Message** | `getMostRecentUserMessage`, `getTrailingMessageId`, `convertToUIMessages`, `getTextFromMessage` | Universal |
-| **Document** | `getDocumentTimestampByIndex` | Universal |
+| Category     | Functions                                                                                       | Environment |
+| ------------ | ----------------------------------------------------------------------------------------------- | ----------- |
+| **String**   | `cn`, `sanitizeText`, `generateUUID`                                                            | Universal   |
+| **Network**  | `fetcher`, `fetchWithErrorHandlers`                                                             | Client      |
+| **Storage**  | `getLocalStorage`                                                                               | Client      |
+| **Message**  | `getMostRecentUserMessage`, `getTrailingMessageId`, `convertToUIMessages`, `getTextFromMessage` | Universal   |
+| **Document** | `getDocumentTimestampByIndex`                                                                   | Universal   |
 
 ---
 
@@ -102,6 +106,7 @@ lib/utils/
 ```
 
 **Rejected Alternative**: Keep flat `lib/utils.ts`
+
 - Hard to find functions
 - No clear server/client boundary
 - Tree-shaking less effective
@@ -120,7 +125,7 @@ export { fetcher, fetchWithErrorHandlers } from "./network";
 export { getLocalStorage } from "./storage";
 
 // Message utilities (universal)
-export { 
+export {
   getMostRecentUserMessage,
   getTrailingMessageId,
   convertToUIMessages,
@@ -145,7 +150,7 @@ export const fetcher = async (url: string) => {
 
 export async function fetchWithErrorHandlers(
   input: RequestInfo | URL,
-  init?: RequestInit,
+  init?: RequestInit
 ) {
   // ... existing implementation
 }
@@ -164,7 +169,7 @@ export function generateUUID(): string {
 }
 
 export function sanitizeText(text: string) {
-  return text.replace('<has_function_call>', '');
+  return text.replace("<has_function_call>", "");
 }
 ```
 
@@ -173,10 +178,10 @@ export function sanitizeText(text: string) {
 ```typescript
 /**
  * Merges Tailwind CSS classes with conflict resolution.
- * 
+ *
  * @param inputs - Class values (strings, arrays, objects)
  * @returns Merged class string with conflicts resolved
- * 
+ *
  * @example
  * cn("px-2 py-1", "px-4") // "py-1 px-4"
  * cn("text-red-500", condition && "text-blue-500")
@@ -202,24 +207,24 @@ import * as utils from "@/lib/utils";
 
 ### 4.2 Expected Bundle Sizes
 
-| Module | Size | Environment |
-|--------|------|-------------|
-| `string.ts` | 1.2KB | Universal |
-| `network.ts` | 0.8KB | Client |
-| `storage.ts` | 0.2KB | Client |
-| `message.ts` | 0.6KB | Universal |
-| `document.ts` | 0.1KB | Universal |
-| **Total** | **2.9KB** | - |
+| Module        | Size      | Environment |
+| ------------- | --------- | ----------- |
+| `string.ts`   | 1.2KB     | Universal   |
+| `network.ts`  | 0.8KB     | Client      |
+| `storage.ts`  | 0.2KB     | Client      |
+| `message.ts`  | 0.6KB     | Universal   |
+| `document.ts` | 0.1KB     | Universal   |
+| **Total**     | **2.9KB** | -           |
 
 ### 4.3 Dependencies per Module
 
-| Module | Dependencies |
-|--------|--------------|
-| `string.ts` | `clsx`, `tailwind-merge` |
-| `network.ts` | `@/lib/errors` |
-| `storage.ts` | None |
-| `message.ts` | `@/lib/types`, `@/lib/errors` |
-| `document.ts` | `@/lib/db/schema` |
+| Module        | Dependencies                  |
+| ------------- | ----------------------------- |
+| `string.ts`   | `clsx`, `tailwind-merge`      |
+| `network.ts`  | `@/lib/errors`                |
+| `storage.ts`  | None                          |
+| `message.ts`  | `@/lib/types`, `@/lib/errors` |
+| `document.ts` | `@/lib/db/schema`             |
 
 ---
 
@@ -227,17 +232,17 @@ import * as utils from "@/lib/utils";
 
 ### 5.1 External Dependencies
 
-| Package | Version | Purpose | Used By |
-|---------|---------|---------|---------|
-| `clsx` | ^2.x | Class conditionals | `string.ts` |
-| `tailwind-merge` | ^2.x | Tailwind conflict resolution | `string.ts` |
+| Package          | Version | Purpose                      | Used By     |
+| ---------------- | ------- | ---------------------------- | ----------- |
+| `clsx`           | ^2.x    | Class conditionals           | `string.ts` |
+| `tailwind-merge` | ^2.x    | Tailwind conflict resolution | `string.ts` |
 
 ### 5.2 Internal Dependencies
 
-| Module | Used By |
-|--------|---------|
-| `lib/errors` | `network.ts`, `message.ts` |
-| `lib/types` | `message.ts` |
+| Module          | Used By                     |
+| --------------- | --------------------------- |
+| `lib/errors`    | `network.ts`, `message.ts`  |
+| `lib/types`     | `message.ts`                |
 | `lib/db/schema` | `message.ts`, `document.ts` |
 
 ---
@@ -273,7 +278,7 @@ describe("cn", () => {
   it("merges classes", () => {
     expect(cn("px-2", "py-1")).toBe("px-2 py-1");
   });
-  
+
   it("resolves conflicts", () => {
     expect(cn("px-2", "px-4")).toBe("px-4");
   });
@@ -282,7 +287,9 @@ describe("cn", () => {
 describe("generateUUID", () => {
   it("returns valid UUID v4", () => {
     const uuid = generateUUID();
-    expect(uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+    expect(uuid).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    );
   });
 });
 ```
@@ -291,14 +298,15 @@ describe("generateUUID", () => {
 
 ## 7. Trade-off Analysis
 
-| Decision | Benefit | Cost |
-|----------|---------|------|
-| Split into modules | Better organization, tree-shaking | More files |
-| JSDoc on all | IDE hints, documentation | Initial effort |
-| Explicit client directive | Clear boundaries | Manual maintenance |
-| Keep message utils | Domain cohesion | Not pure utility |
+| Decision                  | Benefit                           | Cost               |
+| ------------------------- | --------------------------------- | ------------------ |
+| Split into modules        | Better organization, tree-shaking | More files         |
+| JSDoc on all              | IDE hints, documentation          | Initial effort     |
+| Explicit client directive | Clear boundaries                  | Manual maintenance |
+| Keep message utils        | Domain cohesion                   | Not pure utility   |
 
 **Recommendation**:
+
 - Split utilities into logical modules
 - Move message/document utils to `lib/domain/` in future
 - Keep `lib/utils/` for truly generic helpers only
@@ -306,6 +314,7 @@ describe("generateUUID", () => {
 ### 7.1 Future Considerations
 
 Consider moving domain-specific utilities:
+
 - `message.ts` → `lib/domain/message/utils.ts`
 - `document.ts` → `lib/domain/document/utils.ts`
 

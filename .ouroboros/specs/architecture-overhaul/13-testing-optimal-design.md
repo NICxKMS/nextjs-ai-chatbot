@@ -25,60 +25,60 @@ The Testing Infrastructure provides comprehensive quality assurance through a mu
 
 ### 2.1 E2E Testing (REQ-E2E-001 to REQ-E2E-006)
 
-| ID | Requirement | Priority |
-|----|-------------|----------|
-| REQ-E2E-001 | Full user journey tests (auth → chat → artifacts) | Critical |
-| REQ-E2E-002 | Page Object Model (POM) pattern for maintainability | High |
-| REQ-E2E-003 | Authenticated user fixtures with session persistence | High |
-| REQ-E2E-004 | Visual regression testing capability | Medium |
-| REQ-E2E-005 | Cross-browser testing (Chrome, Firefox, Safari) | Low |
-| REQ-E2E-006 | Mobile viewport testing | Medium |
+| ID          | Requirement                                          | Priority |
+| ----------- | ---------------------------------------------------- | -------- |
+| REQ-E2E-001 | Full user journey tests (auth → chat → artifacts)    | Critical |
+| REQ-E2E-002 | Page Object Model (POM) pattern for maintainability  | High     |
+| REQ-E2E-003 | Authenticated user fixtures with session persistence | High     |
+| REQ-E2E-004 | Visual regression testing capability                 | Medium   |
+| REQ-E2E-005 | Cross-browser testing (Chrome, Firefox, Safari)      | Low      |
+| REQ-E2E-006 | Mobile viewport testing                              | Medium   |
 
 ### 2.2 API/Route Testing (REQ-API-001 to REQ-API-005)
 
-| ID | Requirement | Priority |
-|----|-------------|----------|
-| REQ-API-001 | All API routes have test coverage | High |
+| ID          | Requirement                                                        | Priority |
+| ----------- | ------------------------------------------------------------------ | -------- |
+| REQ-API-001 | All API routes have test coverage                                  | High     |
 | REQ-API-002 | Authorization boundary testing (user A can't access user B's data) | Critical |
-| REQ-API-003 | Error response validation | High |
-| REQ-API-004 | Streaming response testing for chat endpoints | High |
-| REQ-API-005 | Rate limiting behavior verification | Medium |
+| REQ-API-003 | Error response validation                                          | High     |
+| REQ-API-004 | Streaming response testing for chat endpoints                      | High     |
+| REQ-API-005 | Rate limiting behavior verification                                | Medium   |
 
 ### 2.3 Unit Testing (REQ-UNIT-001 to REQ-UNIT-005)
 
-| ID | Requirement | Priority |
-|----|-------------|----------|
-| REQ-UNIT-001 | Utility function coverage ≥80% | High |
-| REQ-UNIT-002 | Business logic isolation testing | High |
-| REQ-UNIT-003 | Error handling path coverage | High |
-| REQ-UNIT-004 | Edge case documentation through tests | Medium |
-| REQ-UNIT-005 | Mock AI SDK responses for predictable testing | High |
+| ID           | Requirement                                   | Priority |
+| ------------ | --------------------------------------------- | -------- |
+| REQ-UNIT-001 | Utility function coverage ≥80%                | High     |
+| REQ-UNIT-002 | Business logic isolation testing              | High     |
+| REQ-UNIT-003 | Error handling path coverage                  | High     |
+| REQ-UNIT-004 | Edge case documentation through tests         | Medium   |
+| REQ-UNIT-005 | Mock AI SDK responses for predictable testing | High     |
 
 ### 2.4 Component Testing (REQ-COMP-001 to REQ-COMP-004)
 
-| ID | Requirement | Priority |
-|----|-------------|----------|
-| REQ-COMP-001 | Critical UI components have render tests | High |
-| REQ-COMP-002 | User interaction testing (click, type, submit) | High |
-| REQ-COMP-003 | Accessibility testing (ARIA, keyboard navigation) | Medium |
-| REQ-COMP-004 | Component state transitions testing | Medium |
+| ID           | Requirement                                       | Priority |
+| ------------ | ------------------------------------------------- | -------- |
+| REQ-COMP-001 | Critical UI components have render tests          | High     |
+| REQ-COMP-002 | User interaction testing (click, type, submit)    | High     |
+| REQ-COMP-003 | Accessibility testing (ARIA, keyboard navigation) | Medium   |
+| REQ-COMP-004 | Component state transitions testing               | Medium   |
 
 ### 2.5 CI/CD Integration (REQ-CI-001 to REQ-CI-004)
 
-| ID | Requirement | Priority |
-|----|-------------|----------|
-| REQ-CI-001 | Tests run on every PR | Critical |
-| REQ-CI-002 | Parallel test execution for speed | High |
-| REQ-CI-003 | Test result reporting with failure artifacts | High |
-| REQ-CI-004 | Selective test runs based on changed files | Medium |
+| ID         | Requirement                                  | Priority |
+| ---------- | -------------------------------------------- | -------- |
+| REQ-CI-001 | Tests run on every PR                        | Critical |
+| REQ-CI-002 | Parallel test execution for speed            | High     |
+| REQ-CI-003 | Test result reporting with failure artifacts | High     |
+| REQ-CI-004 | Selective test runs based on changed files   | Medium   |
 
 ### 2.6 Coverage & Reporting (REQ-COV-001 to REQ-COV-003)
 
-| ID | Requirement | Priority |
-|----|-------------|----------|
-| REQ-COV-001 | Code coverage reporting | Medium |
-| REQ-COV-002 | Test execution time tracking | Low |
-| REQ-COV-003 | Flaky test detection and reporting | Medium |
+| ID          | Requirement                        | Priority |
+| ----------- | ---------------------------------- | -------- |
+| REQ-COV-001 | Code coverage reporting            | Medium   |
+| REQ-COV-002 | Test execution time tracking       | Low      |
+| REQ-COV-003 | Flaky test detection and reporting | Medium   |
 
 ---
 
@@ -86,20 +86,20 @@ The Testing Infrastructure provides comprehensive quality assurance through a mu
 
 ### 3.1 Existing Implementation
 
-| File/Directory | Purpose | Lines | Health |
-|----------------|---------|-------|--------|
-| `playwright.config.ts` | Playwright configuration | ~108 | ✅ Good |
-| `tests/fixtures.ts` | Test user fixtures (ada, babbage, curie) | ~50 | ✅ Good |
-| `tests/helpers.ts` | Auth helpers, user generation | ~75 | ✅ Good |
-| `tests/pages/chat.ts` | ChatPage POM | ~279 | ✅ Good |
-| `tests/pages/artifact.ts` | ArtifactPage POM | ~121 | ✅ Good |
-| `tests/pages/auth.ts` | AuthPage POM | ~50 | ✅ Good |
-| `tests/prompts/basic.ts` | Test prompt definitions | ~150 | ✅ Good |
-| `tests/prompts/routes.ts` | Route test prompts | ~50 | ✅ Good |
-| `tests/prompts/utils.ts` | Prompt comparison utilities | ~305 | ⚠️ Complex |
-| `tests/e2e/*.test.ts` | E2E test files (4 files) | ~500 | ✅ Good |
-| `tests/routes/*.test.ts` | API route tests (3 files) | ~600 | ✅ Good |
-| `lib/ai/models.test.ts` | Mock AI models for testing | ~89 | ✅ Good |
+| File/Directory            | Purpose                                  | Lines | Health     |
+| ------------------------- | ---------------------------------------- | ----- | ---------- |
+| `playwright.config.ts`    | Playwright configuration                 | ~108  | ✅ Good    |
+| `tests/fixtures.ts`       | Test user fixtures (ada, babbage, curie) | ~50   | ✅ Good    |
+| `tests/helpers.ts`        | Auth helpers, user generation            | ~75   | ✅ Good    |
+| `tests/pages/chat.ts`     | ChatPage POM                             | ~279  | ✅ Good    |
+| `tests/pages/artifact.ts` | ArtifactPage POM                         | ~121  | ✅ Good    |
+| `tests/pages/auth.ts`     | AuthPage POM                             | ~50   | ✅ Good    |
+| `tests/prompts/basic.ts`  | Test prompt definitions                  | ~150  | ✅ Good    |
+| `tests/prompts/routes.ts` | Route test prompts                       | ~50   | ✅ Good    |
+| `tests/prompts/utils.ts`  | Prompt comparison utilities              | ~305  | ⚠️ Complex |
+| `tests/e2e/*.test.ts`     | E2E test files (4 files)                 | ~500  | ✅ Good    |
+| `tests/routes/*.test.ts`  | API route tests (3 files)                | ~600  | ✅ Good    |
+| `lib/ai/models.test.ts`   | Mock AI models for testing               | ~89   | ✅ Good    |
 
 ### 3.2 Current Architecture
 
@@ -156,17 +156,17 @@ The Testing Infrastructure provides comprehensive quality assurance through a mu
 ```typescript
 // Playwright fixtures extend base test with authenticated contexts
 export const test = baseTest.extend<object, Fixtures>({
-    adaContext: [
-        async ({ browser }, use, workerInfo) => {
-            const ada = await createAuthenticatedContext({
-                browser,
-                name: `ada-${workerInfo.workerIndex}-${getUnixTime(new Date())}`,
-            });
-            await use(ada);
-            await ada.context.close();
-        },
-        { scope: "worker" },  // Reused across tests in same worker
-    ],
+  adaContext: [
+    async ({ browser }, use, workerInfo) => {
+      const ada = await createAuthenticatedContext({
+        browser,
+        name: `ada-${workerInfo.workerIndex}-${getUnixTime(new Date())}`,
+      });
+      await use(ada);
+      await ada.context.close();
+    },
+    { scope: "worker" }, // Reused across tests in same worker
+  ],
 });
 
 // Page Object Model usage
@@ -298,37 +298,40 @@ project-root/
 
 ### 5.1 Testing Frameworks
 
-| Layer | Tool | Purpose |
-|-------|------|---------|
-| E2E | Playwright | Browser automation, visual testing |
-| Integration | Playwright Request API | API endpoint testing |
-| Unit | Vitest | Fast unit testing, ESM native |
-| Component | Vitest + @testing-library/react | React component testing |
-| Mocking | MSW (Mock Service Worker) | API mocking (optional) |
+| Layer       | Tool                            | Purpose                            |
+| ----------- | ------------------------------- | ---------------------------------- |
+| E2E         | Playwright                      | Browser automation, visual testing |
+| Integration | Playwright Request API          | API endpoint testing               |
+| Unit        | Vitest                          | Fast unit testing, ESM native      |
+| Component   | Vitest + @testing-library/react | React component testing            |
+| Mocking     | MSW (Mock Service Worker)       | API mocking (optional)             |
 
 ### 5.2 Decision: Vitest over Jest
 
-| Criteria | Vitest | Jest |
-|----------|--------|------|
-| ESM Support | ✅ Native | ⚠️ Experimental |
-| Speed | ✅ Faster (Vite) | Slower |
-| Next.js 16 | ✅ Better compat | ⚠️ Config heavy |
-| Watch Mode | ✅ Instant | Slower |
-| Config | ✅ Minimal | Complex |
+| Criteria    | Vitest           | Jest            |
+| ----------- | ---------------- | --------------- |
+| ESM Support | ✅ Native        | ⚠️ Experimental |
+| Speed       | ✅ Faster (Vite) | Slower          |
+| Next.js 16  | ✅ Better compat | ⚠️ Config heavy |
+| Watch Mode  | ✅ Instant       | Slower          |
+| Config      | ✅ Minimal       | Complex         |
 
 **Decision:** Use **Vitest** for unit and component tests.
 
 ### 5.3 Alternatives Considered
 
 #### ALT-001: Jest Only
+
 - **Description:** Use Jest for all unit/component tests
 - **Rejected because:** Slower, ESM configuration complexity, poor Vite ecosystem integration
 
 #### ALT-002: Cypress for E2E
+
 - **Description:** Replace Playwright with Cypress
 - **Rejected because:** Playwright already implemented, better multi-browser support, faster execution
 
 #### ALT-003: Single Test Runner
+
 - **Description:** Use Playwright for everything including unit tests
 - **Rejected because:** Playwright is overkill for unit tests, slower feedback loop
 
@@ -340,31 +343,26 @@ project-root/
 
 ```typescript
 // vitest.config.ts
-import { defineConfig } from 'vitest/config';
-import react from '@vitejs/plugin-react';
-import tsconfigPaths from 'vite-tsconfig-paths';
+import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react";
+import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
   plugins: [react(), tsconfigPaths()],
   test: {
     globals: true,
-    environment: 'jsdom',
-    setupFiles: ['./tests/setup.ts'],
+    environment: "jsdom",
+    setupFiles: ["./tests/setup.ts"],
     include: [
-      'tests/unit/**/*.test.ts',
-      'tests/components/**/*.test.tsx',
-      'lib/**/*.test.ts',
+      "tests/unit/**/*.test.ts",
+      "tests/components/**/*.test.tsx",
+      "lib/**/*.test.ts",
     ],
-    exclude: ['tests/e2e/**', 'tests/integration/**'],
+    exclude: ["tests/e2e/**", "tests/integration/**"],
     coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-      exclude: [
-        'node_modules/',
-        'tests/',
-        '**/*.d.ts',
-        '**/*.config.*',
-      ],
+      provider: "v8",
+      reporter: ["text", "json", "html"],
+      exclude: ["node_modules/", "tests/", "**/*.d.ts", "**/*.config.*"],
       thresholds: {
         global: {
           statements: 70,
@@ -375,7 +373,7 @@ export default defineConfig({
       },
     },
     // Parallel by default
-    pool: 'threads',
+    pool: "threads",
     poolOptions: {
       threads: {
         singleThread: false,
@@ -404,61 +402,59 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 4 : 8,
   reporter: [
-    ['html', { open: 'never' }],
-    ['json', { outputFile: 'test-results/results.json' }],
-    process.env.CI ? ['github'] : ['line'],
+    ["html", { open: "never" }],
+    ["json", { outputFile: "test-results/results.json" }],
+    process.env.CI ? ["github"] : ["line"],
   ],
-  
+
   use: {
     baseURL,
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    trace: "on-first-retry",
+    screenshot: "only-on-failure",
+    video: "retain-on-failure",
   },
 
   // Reduced timeouts (fix slow tests instead!)
-  timeout: 60_000,  // 60s max per test
+  timeout: 60_000, // 60s max per test
   expect: {
-    timeout: 10_000,  // 10s for assertions
+    timeout: 10_000, // 10s for assertions
   },
 
   projects: [
     // Setup project for auth
     {
-      name: 'setup',
+      name: "setup",
       testMatch: /global\.setup\.ts/,
     },
-    
+
     // E2E tests
     {
-      name: 'e2e-chrome',
+      name: "e2e-chrome",
       testMatch: /e2e\/.*.test.ts/,
-      dependencies: ['setup'],
-      use: { ...devices['Desktop Chrome'] },
+      dependencies: ["setup"],
+      use: { ...devices["Desktop Chrome"] },
     },
-    
+
     // Integration/API tests (no browser needed for most)
     {
-      name: 'integration',
+      name: "integration",
       testMatch: /integration\/.*.test.ts/,
-      dependencies: ['setup'],
-      use: { ...devices['Desktop Chrome'] },
+      dependencies: ["setup"],
+      use: { ...devices["Desktop Chrome"] },
     },
-    
+
     // Mobile viewport tests
     {
-      name: 'mobile',
+      name: "mobile",
       testMatch: /e2e\/.*.test.ts/,
-      dependencies: ['setup'],
-      use: { ...devices['iPhone 13'] },
-      grep: /@mobile/,  // Only tests tagged @mobile
+      dependencies: ["setup"],
+      use: { ...devices["iPhone 13"] },
+      grep: /@mobile/, // Only tests tagged @mobile
     },
   ],
 
   webServer: {
-    command: process.env.CI 
-      ? 'pnpm build && pnpm start' 
-      : 'pnpm dev',
+    command: process.env.CI ? "pnpm build && pnpm start" : "pnpm dev",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
@@ -510,11 +506,13 @@ export function createAuthFixture(baseName: string) {
     use: (ctx: UserContext) => Promise<void>,
     workerInfo: { workerIndex: number }
   ) => {
-    const name = `${baseName}-${workerInfo.workerIndex}-${getUnixTime(new Date())}`;
+    const name = `${baseName}-${workerInfo.workerIndex}-${getUnixTime(
+      new Date()
+    )}`;
     const ctx = await createAuthenticatedUser(browser, name);
-    
+
     await use(ctx);
-    
+
     await ctx.context.close();
   };
 }
@@ -528,14 +526,14 @@ import { expect, type Page, type Locator } from "@playwright/test";
 
 /**
  * ChatPage Page Object Model
- * 
+ *
  * Encapsulates all chat-related page interactions.
  * Methods return Promises for async operations.
  * Getters return Locators for element access.
  */
 export class ChatPage {
   readonly page: Page;
-  
+
   // Locators (cached)
   readonly sendButton: Locator;
   readonly stopButton: Locator;
@@ -603,47 +601,47 @@ export class ChatPage {
 
 ```typescript
 // tests/unit/lib/utils.test.ts
-import { describe, it, expect } from 'vitest';
-import { cn, generateUUID, sanitizeUIMessages } from '@/lib/utils';
+import { describe, it, expect } from "vitest";
+import { cn, generateUUID, sanitizeUIMessages } from "@/lib/utils";
 
-describe('cn (classNames utility)', () => {
-  it('merges class names', () => {
-    expect(cn('foo', 'bar')).toBe('foo bar');
+describe("cn (classNames utility)", () => {
+  it("merges class names", () => {
+    expect(cn("foo", "bar")).toBe("foo bar");
   });
 
-  it('handles conditional classes', () => {
-    expect(cn('foo', false && 'bar', 'baz')).toBe('foo baz');
+  it("handles conditional classes", () => {
+    expect(cn("foo", false && "bar", "baz")).toBe("foo baz");
   });
 
-  it('deduplicates Tailwind conflicts', () => {
-    expect(cn('p-4', 'p-2')).toBe('p-2');
+  it("deduplicates Tailwind conflicts", () => {
+    expect(cn("p-4", "p-2")).toBe("p-2");
   });
 });
 
-describe('generateUUID', () => {
-  it('returns valid UUID v4 format', () => {
+describe("generateUUID", () => {
+  it("returns valid UUID v4 format", () => {
     const uuid = generateUUID();
     expect(uuid).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     );
   });
 
-  it('generates unique values', () => {
+  it("generates unique values", () => {
     const uuids = new Set(Array.from({ length: 100 }, () => generateUUID()));
     expect(uuids.size).toBe(100);
   });
 });
 
-describe('sanitizeUIMessages', () => {
-  it('removes empty messages', () => {
+describe("sanitizeUIMessages", () => {
+  it("removes empty messages", () => {
     const messages = [
-      { id: '1', role: 'user', content: 'Hello' },
-      { id: '2', role: 'assistant', content: '' },
-      { id: '3', role: 'assistant', content: 'Hi!' },
+      { id: "1", role: "user", content: "Hello" },
+      { id: "2", role: "assistant", content: "" },
+      { id: "3", role: "assistant", content: "Hi!" },
     ];
     const result = sanitizeUIMessages(messages);
     expect(result).toHaveLength(2);
-    expect(result.map(m => m.id)).toEqual(['1', '3']);
+    expect(result.map((m) => m.id)).toEqual(["1", "3"]);
   });
 });
 ```
@@ -652,48 +650,48 @@ describe('sanitizeUIMessages', () => {
 
 ```typescript
 // tests/components/chat/message.test.tsx
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { Message } from '@/components/message';
+import { describe, it, expect, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { Message } from "@/components/message";
 
-describe('Message Component', () => {
+describe("Message Component", () => {
   const defaultProps = {
     message: {
-      id: '1',
-      role: 'user' as const,
-      content: 'Hello world',
+      id: "1",
+      role: "user" as const,
+      content: "Hello world",
       createdAt: new Date(),
     },
     isLoading: false,
   };
 
-  it('renders user message content', () => {
+  it("renders user message content", () => {
     render(<Message {...defaultProps} />);
-    expect(screen.getByText('Hello world')).toBeInTheDocument();
+    expect(screen.getByText("Hello world")).toBeInTheDocument();
   });
 
-  it('renders assistant message with different styling', () => {
+  it("renders assistant message with different styling", () => {
     render(
       <Message
         {...defaultProps}
-        message={{ ...defaultProps.message, role: 'assistant' }}
+        message={{ ...defaultProps.message, role: "assistant" }}
       />
     );
-    const message = screen.getByTestId('message-assistant');
+    const message = screen.getByTestId("message-assistant");
     expect(message).toBeInTheDocument();
   });
 
-  it('shows loading state', () => {
+  it("shows loading state", () => {
     render(<Message {...defaultProps} isLoading />);
-    expect(screen.getByTestId('message-loading')).toBeInTheDocument();
+    expect(screen.getByTestId("message-loading")).toBeInTheDocument();
   });
 
-  it('calls onEdit when edit button clicked', async () => {
+  it("calls onEdit when edit button clicked", async () => {
     const onEdit = vi.fn();
     render(<Message {...defaultProps} onEdit={onEdit} />);
-    
-    await userEvent.click(screen.getByRole('button', { name: /edit/i }));
+
+    await userEvent.click(screen.getByRole("button", { name: /edit/i }));
     expect(onEdit).toHaveBeenCalledWith(defaultProps.message.id);
   });
 });
@@ -703,9 +701,9 @@ describe('Message Component', () => {
 
 ```typescript
 // tests/setup.ts
-import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
-import { afterEach, vi } from 'vitest';
+import "@testing-library/jest-dom/vitest";
+import { cleanup } from "@testing-library/react";
+import { afterEach, vi } from "vitest";
 
 // Cleanup after each test
 afterEach(() => {
@@ -713,7 +711,7 @@ afterEach(() => {
 });
 
 // Mock Next.js router
-vi.mock('next/navigation', () => ({
+vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: vi.fn(),
     replace: vi.fn(),
@@ -721,11 +719,11 @@ vi.mock('next/navigation', () => ({
     back: vi.fn(),
   }),
   useSearchParams: () => new URLSearchParams(),
-  usePathname: () => '/',
+  usePathname: () => "/",
 }));
 
 // Mock window.matchMedia
-Object.defineProperty(window, 'matchMedia', {
+Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: vi.fn().mockImplementation((query) => ({
     matches: false,
@@ -756,6 +754,7 @@ global.ResizeObserver = vi.fn().mockImplementation(() => ({
 **Before:** Scattered across `fixtures.ts`, `helpers.ts`, `prompts/utils.ts`
 
 **After:**
+
 ```
 tests/
 ├── fixtures/      # All fixtures in one place
@@ -775,7 +774,10 @@ Fix the type issues instead of suppressing them:
 import type { LanguageModelV2StreamPart } from "@ai-sdk/provider";
 
 // After - properly typed
-import type { LanguageModelV2StreamPart, LanguageModelV2Prompt } from "@ai-sdk/provider";
+import type {
+  LanguageModelV2StreamPart,
+  LanguageModelV2Prompt,
+} from "@ai-sdk/provider";
 
 export function compareMessages(
   firstMessage: LanguageModelV2Prompt[number],
@@ -806,11 +808,11 @@ test('slow operation', async () => {
 
 ### 7.4 Standardize Naming Convention
 
-| Before | After |
-|--------|-------|
-| `chat.test.ts` | `chat.e2e.ts` (E2E) or `chat.test.ts` (unit) |
-| `ChatPage` in `chat.ts` | `ChatPage` in `chat.page.ts` |
-| Mixed naming | Consistent `.page.ts`, `.e2e.ts`, `.test.ts` suffixes |
+| Before                  | After                                                 |
+| ----------------------- | ----------------------------------------------------- |
+| `chat.test.ts`          | `chat.e2e.ts` (E2E) or `chat.test.ts` (unit)          |
+| `ChatPage` in `chat.ts` | `ChatPage` in `chat.page.ts`                          |
+| Mixed naming            | Consistent `.page.ts`, `.e2e.ts`, `.test.ts` suffixes |
 
 ---
 
@@ -923,8 +925,8 @@ jobs:
       - uses: pnpm/action-setup@v2
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'pnpm'
+          node-version: "20"
+          cache: "pnpm"
       - run: pnpm install
       - run: pnpm test:unit:coverage
       - uses: codecov/codecov-action@v4
@@ -938,8 +940,8 @@ jobs:
       - uses: pnpm/action-setup@v2
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'pnpm'
+          node-version: "20"
+          cache: "pnpm"
       - run: pnpm install
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
@@ -952,7 +954,7 @@ jobs:
 
   integration-tests:
     runs-on: ubuntu-latest
-    needs: [unit-tests]  # Only run if unit tests pass
+    needs: [unit-tests] # Only run if unit tests pass
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
@@ -967,11 +969,11 @@ jobs:
 ```typescript
 // Cache authenticated sessions to speed up tests
 // tests/global.setup.ts
-import { chromium, type FullConfig } from '@playwright/test';
-import fs from 'fs';
-import path from 'path';
+import { chromium, type FullConfig } from "@playwright/test";
+import fs from "fs";
+import path from "path";
 
-const SESSION_DIR = path.join(__dirname, '../playwright/.sessions');
+const SESSION_DIR = path.join(__dirname, "../playwright/.sessions");
 
 async function globalSetup(config: FullConfig) {
   // Create session directory if needed
@@ -981,21 +983,22 @@ async function globalSetup(config: FullConfig) {
 
   // Pre-create auth sessions for test users
   const browser = await chromium.launch();
-  
-  for (const user of ['ada', 'babbage', 'curie']) {
+
+  for (const user of ["ada", "babbage", "curie"]) {
     const sessionPath = path.join(SESSION_DIR, `${user}.json`);
-    
+
     // Skip if session already exists and is recent
     if (fs.existsSync(sessionPath)) {
       const stats = fs.statSync(sessionPath);
-      const hoursSinceModified = (Date.now() - stats.mtimeMs) / (1000 * 60 * 60);
+      const hoursSinceModified =
+        (Date.now() - stats.mtimeMs) / (1000 * 60 * 60);
       if (hoursSinceModified < 24) continue;
     }
 
     // Create new session
     const context = await browser.newContext();
     const page = await context.newPage();
-    
+
     // Register user and save session
     await registerUser(page, user);
     await context.storageState({ path: sessionPath });
@@ -1013,29 +1016,34 @@ export default globalSetup;
 ## 10. Migration Path
 
 ### Phase 1: Add Vitest Infrastructure (Week 1)
+
 1. Install Vitest and related dependencies
 2. Create `vitest.config.ts`
 3. Create `tests/setup.ts`
 4. Add initial unit tests for `lib/utils.ts`
 
 ### Phase 2: Unit Test Coverage (Week 2-3)
+
 1. Add unit tests for `lib/errors.ts`
 2. Add unit tests for `lib/files.ts`
 3. Add unit tests for AI prompt utilities
 4. Remove `@ts-nocheck` from `prompts/utils.ts`
 
 ### Phase 3: Component Tests (Week 3-4)
+
 1. Add component tests for `Message`
 2. Add component tests for `MultimodalInput`
 3. Add component tests for critical UI components
 
 ### Phase 4: E2E Optimization (Week 4)
+
 1. Reduce timeouts
 2. Fix `test.fixme()` tests
 3. Add global setup for auth caching
 4. Reorganize directory structure
 
 ### Phase 5: CI/CD Integration (Week 5)
+
 1. Create GitHub Actions workflow
 2. Add coverage reporting
 3. Configure test result artifacts
@@ -1075,71 +1083,71 @@ export default globalSetup;
 graph TB
     subgraph "Test Infrastructure"
         direction TB
-        
+
         subgraph "Configuration"
             PC[playwright.config.ts]
             VC[vitest.config.ts]
             TS[tests/setup.ts]
         end
-        
+
         subgraph "Fixtures & Helpers"
             F[fixtures/]
             H[helpers/]
             M[__mocks__/]
         end
-        
+
         subgraph "Page Objects"
             CP[ChatPage]
             AP[ArtifactPage]
             AuthP[AuthPage]
         end
     end
-    
+
     subgraph "Test Layers"
         direction TB
-        
+
         subgraph "E2E Tests"
             E2E_Auth[auth.e2e.ts]
             E2E_Chat[chat.e2e.ts]
             E2E_Art[artifacts.e2e.ts]
         end
-        
+
         subgraph "Integration Tests"
             INT_Chat[chat-api.test.ts]
             INT_Doc[document-api.test.ts]
         end
-        
+
         subgraph "Unit Tests"
             UNIT_Utils[utils.test.ts]
             UNIT_Errors[errors.test.ts]
         end
-        
+
         subgraph "Component Tests"
             COMP_Msg[message.test.tsx]
             COMP_Input[input.test.tsx]
         end
     end
-    
+
     PC --> E2E_Auth
     PC --> E2E_Chat
     PC --> E2E_Art
     PC --> INT_Chat
     PC --> INT_Doc
-    
+
     VC --> UNIT_Utils
     VC --> UNIT_Errors
     VC --> COMP_Msg
     VC --> COMP_Input
-    
+
     TS --> COMP_Msg
     TS --> COMP_Input
-    
+
     F --> E2E_Auth
     F --> E2E_Chat
     H --> E2E_Chat
     M --> UNIT_Utils
     M --> COMP_Msg
-    
+
     CP --> E2E_Chat
     AP --> E2E_Art
     AuthP --> E2E_Auth
@@ -1161,19 +1169,19 @@ sequenceDiagram
 
     Dev->>+Unit: pnpm test:unit
     Unit-->>-Dev: Fast feedback (~5s)
-    
+
     Dev->>+Comp: pnpm test:unit
     Comp-->>-Dev: Component feedback (~10s)
-    
+
     Dev->>+CI: git push
     CI->>Unit: Run unit tests
     CI->>Comp: Run component tests
-    
+
     alt Unit/Component Pass
         CI->>Int: Run integration tests
         Int->>App: API requests
         App-->>Int: Responses
-        
+
         alt Integration Pass
             CI->>E2E: Run E2E tests
             E2E->>App: Browser automation
@@ -1181,7 +1189,7 @@ sequenceDiagram
             E2E-->>CI: Results + artifacts
         end
     end
-    
+
     CI-->>-Dev: Test results
 ```
 
@@ -1199,15 +1207,15 @@ sequenceDiagram
 
 ## 15. Files to Create/Modify
 
-| File | Action | Priority |
-|------|--------|----------|
-| `vitest.config.ts` | Create | High |
-| `tests/setup.ts` | Create | High |
-| `tests/unit/lib/utils.test.ts` | Create | High |
-| `tests/components/chat/message.test.tsx` | Create | Medium |
-| `playwright.config.ts` | Modify (reduce timeouts) | High |
-| `tests/fixtures/index.ts` | Create (consolidate) | Medium |
-| `tests/helpers/index.ts` | Create (consolidate) | Medium |
-| `tests/prompts/utils.ts` | Modify (fix types) | Medium |
-| `.github/workflows/test.yml` | Create | High |
-| `package.json` | Modify (add scripts) | High |
+| File                                     | Action                   | Priority |
+| ---------------------------------------- | ------------------------ | -------- |
+| `vitest.config.ts`                       | Create                   | High     |
+| `tests/setup.ts`                         | Create                   | High     |
+| `tests/unit/lib/utils.test.ts`           | Create                   | High     |
+| `tests/components/chat/message.test.tsx` | Create                   | Medium   |
+| `playwright.config.ts`                   | Modify (reduce timeouts) | High     |
+| `tests/fixtures/index.ts`                | Create (consolidate)     | Medium   |
+| `tests/helpers/index.ts`                 | Create (consolidate)     | Medium   |
+| `tests/prompts/utils.ts`                 | Modify (fix types)       | Medium   |
+| `.github/workflows/test.yml`             | Create                   | High     |
+| `package.json`                           | Modify (add scripts)     | High     |

@@ -17,10 +17,12 @@ Design the model selection UI for choosing AI models, displaying capabilities, a
 ### Current Implementation
 
 **Two Variants Exist:**
+
 1. [model-selector.tsx](components/model-selector.tsx) - Full dropdown (262 lines)
 2. `ModelSelectorCompact` in [multimodal-input.tsx](components/multimodal-input.tsx#L462-L510) - Inline select
 
 **Current Features:**
+
 - Dropdown with model list grouped by provider
 - Capability badges (reasoning, vision, audio, etc.)
 - Model metadata (context window, price, release date)
@@ -30,6 +32,7 @@ Design the model selection UI for choosing AI models, displaying capabilities, a
 **Data Source:** `ModelMetadata` from `lib/ai/model-catalog-types`
 
 **Issues Identified:**
+
 1. **Duplicate Implementations**: Full and compact selectors share no code
 2. **No Search/Filter**: Hard to find models in long lists
 3. **No Favorites**: No way to pin frequently used models
@@ -40,14 +43,14 @@ Design the model selection UI for choosing AI models, displaying capabilities, a
 
 ## Key Requirements
 
-| REQ-ID | Requirement | Priority |
-|--------|-------------|----------|
-| REQ-MS-001 | Single source component with size variants | P0 |
-| REQ-MS-002 | Model search/filter by name or capability | P1 |
-| REQ-MS-003 | Capability compatibility warnings | P0 |
-| REQ-MS-004 | Persist last-used model per chat | P1 |
-| REQ-MS-005 | Model favorites/pinning | P2 |
-| REQ-MS-006 | Keyboard navigation in dropdown | P0 |
+| REQ-ID     | Requirement                                | Priority |
+| ---------- | ------------------------------------------ | -------- |
+| REQ-MS-001 | Single source component with size variants | P0       |
+| REQ-MS-002 | Model search/filter by name or capability  | P1       |
+| REQ-MS-003 | Capability compatibility warnings          | P0       |
+| REQ-MS-004 | Persist last-used model per chat           | P1       |
+| REQ-MS-005 | Model favorites/pinning                    | P2       |
+| REQ-MS-006 | Keyboard navigation in dropdown            | P0       |
 
 ---
 
@@ -81,15 +84,15 @@ interface ModelSelectorProps {
   selectedModelId: string;
   onModelChange: (modelId: string) => void;
   availableModels: ModelMetadata[];
-  
+
   // Variant control
   variant?: 'full' | 'compact';
-  
+
   // Optional features
   showSearch?: boolean;
   showCapabilities?: boolean;
   showRefresh?: boolean;
-  
+
   // Compatibility
   requiredCapabilities?: ModelCapability[];
   attachments?: Attachment[];
@@ -107,19 +110,21 @@ interface ModelSelectorProps {
 interface CompatibilityWarning {
   modelId: string;
   reason: string;
-  severity: 'error' | 'warning';
+  severity: "error" | "warning";
 }
 
 function checkCompatibility(
   model: ModelMetadata,
   attachments: Attachment[]
 ): CompatibilityWarning | null {
-  if (attachments.some(a => a.contentType.startsWith('image/')) 
-      && !model.capabilities.includes('vision')) {
+  if (
+    attachments.some((a) => a.contentType.startsWith("image/")) &&
+    !model.capabilities.includes("vision")
+  ) {
     return {
       modelId: model.id,
-      reason: 'This model does not support image attachments',
-      severity: 'error'
+      reason: "This model does not support image attachments",
+      severity: "error",
     };
   }
   return null;
@@ -154,23 +159,27 @@ function checkCompatibility(
 // Store last-used model per chat in localStorage
 
 interface ModelPreferences {
-  lastUsed: string;                    // Global default
-  chatModels: Record<string, string>;  // Per-chat overrides
-  favorites: string[];                 // Pinned models
+  lastUsed: string; // Global default
+  chatModels: Record<string, string>; // Per-chat overrides
+  favorites: string[]; // Pinned models
 }
 
 function useModelPersistence(chatId: string) {
-  const [prefs, setPrefs] = useLocalStorage<ModelPreferences>('model-prefs', {
-    lastUsed: '',
+  const [prefs, setPrefs] = useLocalStorage<ModelPreferences>("model-prefs", {
+    lastUsed: "",
     chatModels: {},
-    favorites: []
+    favorites: [],
   });
-  
+
   return {
     getModelForChat: () => prefs.chatModels[chatId] ?? prefs.lastUsed,
-    setModelForChat: (modelId: string) => { /* ... */ },
-    toggleFavorite: (modelId: string) => { /* ... */ },
-    isFavorite: (modelId: string) => prefs.favorites.includes(modelId)
+    setModelForChat: (modelId: string) => {
+      /* ... */
+    },
+    toggleFavorite: (modelId: string) => {
+      /* ... */
+    },
+    isFavorite: (modelId: string) => prefs.favorites.includes(modelId),
   };
 }
 ```
@@ -179,11 +188,11 @@ function useModelPersistence(chatId: string) {
 
 ## Bundle Strategy
 
-| Component | Strategy | Rationale |
-|-----------|----------|-----------|
-| ModelSelector | Static import | Required for chat |
-| ModelSearch | Static (small) | ~2KB, improves UX significantly |
-| ModelDropdown | Static | Core component |
+| Component     | Strategy       | Rationale                       |
+| ------------- | -------------- | ------------------------------- |
+| ModelSelector | Static import  | Required for chat               |
+| ModelSearch   | Static (small) | ~2KB, improves UX significantly |
+| ModelDropdown | Static         | Core component                  |
 
 **Target Bundle:** < 10KB gzipped
 
@@ -191,22 +200,24 @@ function useModelPersistence(chatId: string) {
 
 ## Dependencies
 
-| Dependency | Purpose | Bundle Impact |
-|------------|---------|---------------|
-| `@radix-ui/react-dropdown-menu` | Accessible dropdown | Already used |
-| `cmdk` | Command palette search (optional) | ~8KB (P2) |
-| `usehooks-ts` | localStorage persistence | Tree-shakeable |
+| Dependency                      | Purpose                           | Bundle Impact  |
+| ------------------------------- | --------------------------------- | -------------- |
+| `@radix-ui/react-dropdown-menu` | Accessible dropdown               | Already used   |
+| `cmdk`                          | Command palette search (optional) | ~8KB (P2)      |
+| `usehooks-ts`                   | localStorage persistence          | Tree-shakeable |
 
 ---
 
 ## Consequences
 
 ### Positive
+
 - **POS-001**: Unified component reduces maintenance burden
 - **POS-002**: Search improves model discovery in large catalogs
 - **POS-003**: Compatibility warnings prevent user errors
 
 ### Negative
+
 - **NEG-001**: Compact variant slightly larger due to shared code
 - **NEG-002**: Search adds ~2KB to bundle
 
@@ -215,10 +226,12 @@ function useModelPersistence(chatId: string) {
 ## Alternatives Considered
 
 ### ALT-001: Command Palette (cmdk) for Model Selection
+
 - **Description:** Use command palette pattern (⌘K) for model search
 - **Rejected because:** Adds 8KB dependency, overkill for current model count; consider for P2 if catalog grows significantly
 
 ### ALT-002: Keep Separate Components
+
 - **Description:** Maintain independent full/compact implementations
 - **Rejected because:** Duplicate logic, inconsistent behavior, harder to add features
 

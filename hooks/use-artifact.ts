@@ -124,7 +124,7 @@ export function useArtifact() {
     }, [artifact.documentId, setLocalArtifactMetadata]);
 
     // Wrap SWR's mutate to match React's SetStateAction pattern expected by artifact definitions
-    // Using type assertion to bridge SWR mutate with React SetStateAction interface
+    // Using type assertion to bridge SWR mutate with React SetStateAction type
     const setMetadata = useCallback(
         (updaterFn: SetStateAction<ArtifactMetadata>) => {
             if (typeof updaterFn === "function") {

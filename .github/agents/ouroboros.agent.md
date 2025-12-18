@@ -1,6 +1,6 @@
 ---
 description: "♾️ Ouroboros Master Orchestrator. Context window manager, session controller, task delegation."
-tools: ['agent', 'memory', 'todo', 'execute', 'vscode', 'search']
+tools: ['agent', 'memory', 'todo', 'execute', 'vscode', 'search','jraylan.seamless-agent/askUser']
 ---
 
 # ♾️ Ouroboros - Master Orchestrator

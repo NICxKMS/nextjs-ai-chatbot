@@ -19,6 +19,7 @@ Design the contextual toolbar system for artifact interactions, providing action
 **Component Size:** 497 lines - moderately complex
 
 **Current Features:**
+
 - Floating action button (FAB) pattern
 - Tool selection with hover/click states
 - Reading level slider (drag-based)
@@ -27,12 +28,14 @@ Design the contextual toolbar system for artifact interactions, providing action
 - Stop button during AI response
 
 **Architecture Pattern:**
+
 - `Tool` - Individual action button with tooltip
 - `Tools` - Container for primary + secondary tools
 - `ReadingLevelSelector` - Drag-based level picker
 - `Toolbar` - Main orchestrator (memo'd)
 
 **Issues Identified:**
+
 1. **Framer Motion Heavy**: 7 motion components, complex animations
 2. **Tight Coupling**: `artifactDefinitions` directly imported
 3. **No Keyboard Shortcuts**: All interactions require mouse
@@ -43,14 +46,14 @@ Design the contextual toolbar system for artifact interactions, providing action
 
 ## Key Requirements
 
-| REQ-ID | Requirement | Priority |
-|--------|-------------|----------|
-| REQ-TB-001 | Keyboard shortcuts for all toolbar actions | P0 |
-| REQ-TB-002 | Tool actions must work during streaming (stop only) | P0 |
-| REQ-TB-003 | Toolbar visibility state persisted in URL/session | P2 |
-| REQ-TB-004 | Custom tools per artifact type | P0 |
-| REQ-TB-005 | Accessible focus management | P1 |
-| REQ-TB-006 | Reduce animation bundle impact | P1 |
+| REQ-ID     | Requirement                                         | Priority |
+| ---------- | --------------------------------------------------- | -------- |
+| REQ-TB-001 | Keyboard shortcuts for all toolbar actions          | P0       |
+| REQ-TB-002 | Tool actions must work during streaming (stop only) | P0       |
+| REQ-TB-003 | Toolbar visibility state persisted in URL/session   | P2       |
+| REQ-TB-004 | Custom tools per artifact type                      | P0       |
+| REQ-TB-005 | Accessible focus management                         | P1       |
+| REQ-TB-006 | Reduce animation bundle impact                      | P1       |
 
 ---
 
@@ -82,14 +85,14 @@ interface ToolDefinition {
   id: string;
   label: string;
   icon: React.ComponentType;
-  shortcut?: string;           // e.g., "mod+shift+r"
+  shortcut?: string; // e.g., "mod+shift+r"
   action: (ctx: ToolContext) => void | Promise<void>;
   isAvailable?: (ctx: ToolContext) => boolean;
   isActive?: (ctx: ToolContext) => boolean;
 }
 
 interface ToolContext {
-  sendMessage: UseChatHelpers['sendMessage'];
+  sendMessage: UseChatHelpers["sendMessage"];
   artifactKind: ArtifactKind;
   isStreaming: boolean;
 }
@@ -103,10 +106,10 @@ const toolRegistry = new Map<ArtifactKind, ToolDefinition[]>();
 ```typescript
 // hooks/useToolbarShortcuts.ts
 const TOOLBAR_SHORTCUTS = {
-  'mod+shift+r': 'adjust-reading-level',
-  'mod+shift+s': 'summarize',
-  'mod+shift+e': 'explain',
-  'escape': 'close-toolbar',
+  "mod+shift+r": "adjust-reading-level",
+  "mod+shift+s": "summarize",
+  "mod+shift+e": "explain",
+  escape: "close-toolbar",
 } as const;
 
 // Uses useHotkeys from react-hotkeys-hook
@@ -156,13 +159,14 @@ const TOOLBAR_SHORTCUTS = {
 
 ## Bundle Strategy
 
-| Component | Strategy | Rationale |
-|-----------|----------|-----------|
-| Toolbar | Dynamic import | Only loaded with artifacts |
-| ToolButton | Static (within Toolbar) | Core toolbar element |
-| ReadingLevelPicker | Lazy within Toolbar | Optional feature |
+| Component          | Strategy                | Rationale                  |
+| ------------------ | ----------------------- | -------------------------- |
+| Toolbar            | Dynamic import          | Only loaded with artifacts |
+| ToolButton         | Static (within Toolbar) | Core toolbar element       |
+| ReadingLevelPicker | Lazy within Toolbar     | Optional feature           |
 
 **Animation Strategy:**
+
 - Replace `framer-motion` animations with CSS transitions
 - Keep `framer-motion` only for `AnimatePresence` (enter/exit)
 - Estimated savings: ~8KB gzipped
@@ -173,22 +177,24 @@ const TOOLBAR_SHORTCUTS = {
 
 ## Dependencies
 
-| Dependency | Purpose | Bundle Impact |
-|------------|---------|---------------|
-| `framer-motion` | AnimatePresence only | Partial import |
-| `react-hotkeys-hook` | Keyboard shortcuts | ~3KB |
-| `usehooks-ts` | Click outside detection | Tree-shakeable |
+| Dependency           | Purpose                 | Bundle Impact  |
+| -------------------- | ----------------------- | -------------- |
+| `framer-motion`      | AnimatePresence only    | Partial import |
+| `react-hotkeys-hook` | Keyboard shortcuts      | ~3KB           |
+| `usehooks-ts`        | Click outside detection | Tree-shakeable |
 
 ---
 
 ## Consequences
 
 ### Positive
+
 - **POS-001**: Keyboard shortcuts improve accessibility and power-user experience
 - **POS-002**: Tool registry enables plugin-like extensibility
 - **POS-003**: CSS animations reduce bundle size
 
 ### Negative
+
 - **NEG-001**: New dependency (`react-hotkeys-hook`) adds ~3KB
 - **NEG-002**: Reading level UX change requires user adjustment
 
@@ -197,9 +203,11 @@ const TOOLBAR_SHORTCUTS = {
 ## Alternatives Considered
 
 ### ALT-001: Keep Framer Motion for All Animations
+
 - **Rejected because:** Bundle impact too high for simple hover/scale effects
 
 ### ALT-002: Global Keyboard Shortcuts
+
 - **Rejected because:** Conflicts with OS/browser shortcuts, scope should be artifact panel
 
 ---

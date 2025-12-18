@@ -14,11 +14,13 @@
 **Business Capability**: Multi-provider LLM integration with streaming, tool calling, and usage tracking.
 
 The AI Integration Layer serves three stakeholders:
+
 1. **Users**: Fast streaming responses, multiple model choices, tool interactions (documents, weather)
 2. **Developers**: Type-safe model registry, pluggable providers, testable tool system
 3. **Operations**: Usage tracking, rate limiting, provider fallbacks, cost management
 
 **Success Criteria**:
+
 - Sub-500ms Time-to-First-Token (TTFT) for streaming responses
 - Type-safe model selection across all providers
 - Pluggable provider architecture (add providers without code changes)
@@ -32,62 +34,62 @@ The AI Integration Layer serves three stakeholders:
 
 ### 2.1 Vercel AI SDK 5.0.26 Integration
 
-| Requirement | Description |
-|-------------|-------------|
-| `streamText` | Core streaming function with UIMessage support |
-| `createProviderRegistry` | Multi-provider management |
-| `UIMessageStreamWriter` | Real-time data streaming to client |
-| `smoothStream` | Controlled word-by-word streaming |
-| `extractReasoningMiddleware` | Chain-of-thought extraction |
-| `tool()` | Type-safe tool definitions |
+| Requirement                  | Description                                    |
+| ---------------------------- | ---------------------------------------------- |
+| `streamText`                 | Core streaming function with UIMessage support |
+| `createProviderRegistry`     | Multi-provider management                      |
+| `UIMessageStreamWriter`      | Real-time data streaming to client             |
+| `smoothStream`               | Controlled word-by-word streaming              |
+| `extractReasoningMiddleware` | Chain-of-thought extraction                    |
+| `tool()`                     | Type-safe tool definitions                     |
 
 ### 2.2 Provider Support
 
-| Provider | SDK | Environment Variable | Features |
-|----------|-----|---------------------|----------|
-| OpenAI | `@ai-sdk/openai` | `OPENAI_API_KEY` | GPT-4o, o1/o3 reasoning |
-| Google | `@ai-sdk/google` | `GOOGLE_GENERATIVE_AI_API_KEY` | Gemini 2.5, Gemma 3 |
-| Vercel Gateway | `@ai-sdk/gateway` | `AI_GATEWAY_API_KEY` | Multi-provider routing |
-| OpenRouter | `@openrouter/ai-sdk-provider` | `OPENROUTER_API_KEY` | 100+ models |
-| Cloudflare Workers AI | `workers-ai-provider` | `CLOUDFLARE_*` | Edge inference |
-| Cloudflare AI Gateway | `ai-gateway-provider` | `CLOUDFLARE_AI_GATEWAY_*` | Fallback routing |
+| Provider              | SDK                           | Environment Variable           | Features                |
+| --------------------- | ----------------------------- | ------------------------------ | ----------------------- |
+| OpenAI                | `@ai-sdk/openai`              | `OPENAI_API_KEY`               | GPT-4o, o1/o3 reasoning |
+| Google                | `@ai-sdk/google`              | `GOOGLE_GENERATIVE_AI_API_KEY` | Gemini 2.5, Gemma 3     |
+| Vercel Gateway        | `@ai-sdk/gateway`             | `AI_GATEWAY_API_KEY`           | Multi-provider routing  |
+| OpenRouter            | `@openrouter/ai-sdk-provider` | `OPENROUTER_API_KEY`           | 100+ models             |
+| Cloudflare Workers AI | `workers-ai-provider`         | `CLOUDFLARE_*`                 | Edge inference          |
+| Cloudflare AI Gateway | `ai-gateway-provider`         | `CLOUDFLARE_AI_GATEWAY_*`      | Fallback routing        |
 
 ### 2.3 Streaming Requirements
 
-| Requirement | Description |
-|-------------|-------------|
-| Server-Sent Events | HTTP streaming via `createUIMessageStream` |
-| Word-Level Chunking | `smoothStream({ delayInMs: 2, chunking: "word" })` |
-| Reasoning Stream | Separate `sendReasoning: true` for chain-of-thought |
-| Tool Results | Stream tool invocation and results |
-| Usage Data | Stream token counts on completion |
+| Requirement         | Description                                         |
+| ------------------- | --------------------------------------------------- |
+| Server-Sent Events  | HTTP streaming via `createUIMessageStream`          |
+| Word-Level Chunking | `smoothStream({ delayInMs: 2, chunking: "word" })`  |
+| Reasoning Stream    | Separate `sendReasoning: true` for chain-of-thought |
+| Tool Results        | Stream tool invocation and results                  |
+| Usage Data          | Stream token counts on completion                   |
 
 ### 2.4 Tool System
 
-| Tool | Purpose | Schema |
-|------|---------|--------|
-| `getWeather` | Weather data retrieval | `{ latitude, longitude }` |
-| `createDocument` | Create artifacts (code, text, sheet) | `{ title, kind }` |
-| `updateDocument` | Modify existing artifacts | `{ id, description }` |
-| `requestSuggestions` | Generate follow-up suggestions | `{ documentId }` |
+| Tool                 | Purpose                              | Schema                    |
+| -------------------- | ------------------------------------ | ------------------------- |
+| `getWeather`         | Weather data retrieval               | `{ latitude, longitude }` |
+| `createDocument`     | Create artifacts (code, text, sheet) | `{ title, kind }`         |
+| `updateDocument`     | Modify existing artifacts            | `{ id, description }`     |
+| `requestSuggestions` | Generate follow-up suggestions       | `{ documentId }`          |
 
 ### 2.5 Usage Tracking
 
-| Requirement | Description |
-|-------------|-------------|
-| Token Counting | Input/output tokens via `LanguageModelUsage` |
-| Cost Calculation | TokenLens integration for pricing |
-| Daily Quotas | Per-user message limits |
-| Rate Limiting | Per-user requests/minute |
+| Requirement      | Description                                  |
+| ---------------- | -------------------------------------------- |
+| Token Counting   | Input/output tokens via `LanguageModelUsage` |
+| Cost Calculation | TokenLens integration for pricing            |
+| Daily Quotas     | Per-user message limits                      |
+| Rate Limiting    | Per-user requests/minute                     |
 
 ### 2.6 Reliability
 
-| Requirement | Description |
-|-------------|-------------|
-| Timeout | 55s completion timeout (before 60s maxDuration) |
-| Provider Fallback | Cloudflare AI Gateway: primary → flash-lite |
-| Model Validation | `isValidModelId()` before execution |
-| Error Boundaries | Structured `ChatSDKError` for AI failures |
+| Requirement       | Description                                     |
+| ----------------- | ----------------------------------------------- |
+| Timeout           | 55s completion timeout (before 60s maxDuration) |
+| Provider Fallback | Cloudflare AI Gateway: primary → flash-lite     |
+| Model Validation  | `isValidModelId()` before execution             |
+| Error Boundaries  | Structured `ChatSDKError` for AI failures       |
 
 ---
 
@@ -97,21 +99,22 @@ The AI Integration Layer serves three stakeholders:
 
 **lib/ai/ Directory (15 files)**
 
-| File | Lines | Purpose | Verdict |
-|------|-------|---------|---------|
-| model-registry.ts | 363 | Provider registration, model catalog | ⚠️ Good but complex |
-| chat-completion.ts | 291 | `streamText` execution, tool binding | ✅ Well-structured |
-| providers.ts | 85 | Mock vs real provider switch | ⚠️ Tightly coupled |
-| curated-models.ts | 583 | Static model definitions | ✅ Good reference data |
-| model-catalog-types.ts | 57 | Type definitions | ✅ Clean types |
-| model-discovery.ts | ? | Dynamic model discovery | ✅ Keep |
-| prompts.ts | 216 | System prompts, artifacts prompt | ✅ Clean |
-| entitlements.ts | ? | User type limits | ✅ Keep |
-| tools/*.ts | 4 files | Tool implementations | ⚠️ Coupled to dataStream |
+| File                   | Lines   | Purpose                              | Verdict                  |
+| ---------------------- | ------- | ------------------------------------ | ------------------------ |
+| model-registry.ts      | 363     | Provider registration, model catalog | ⚠️ Good but complex      |
+| chat-completion.ts     | 291     | `streamText` execution, tool binding | ✅ Well-structured       |
+| providers.ts           | 85      | Mock vs real provider switch         | ⚠️ Tightly coupled       |
+| curated-models.ts      | 583     | Static model definitions             | ✅ Good reference data   |
+| model-catalog-types.ts | 57      | Type definitions                     | ✅ Clean types           |
+| model-discovery.ts     | ?       | Dynamic model discovery              | ✅ Keep                  |
+| prompts.ts             | 216     | System prompts, artifacts prompt     | ✅ Clean                 |
+| entitlements.ts        | ?       | User type limits                     | ✅ Keep                  |
+| tools/\*.ts            | 4 files | Tool implementations                 | ⚠️ Coupled to dataStream |
 
 ### 3.2 Architectural Analysis
 
 **Strengths**:
+
 1. **Provider Registry Pattern**: `createProviderRegistry` cleanly abstracts providers
 2. **Reasoning Middleware**: Proper chain-of-thought extraction per provider
 3. **Model Metadata**: Rich `ModelMetadata` type with capabilities, modalities
@@ -119,6 +122,7 @@ The AI Integration Layer serves three stakeholders:
 5. **Test Environment Support**: Mock provider for Playwright tests
 
 **Weaknesses**:
+
 1. **Model ID Coupling**: `providerId:modelId` format leaks through abstractions
 2. **Provider Init at Module Load**: Side effects during import
 3. **Tool Context Passing**: Session/dataStream threaded through tool factories
@@ -144,13 +148,13 @@ model-registry.ts:
 
 ### 4.1 Design Principles
 
-| Principle | Implementation |
-|-----------|----------------|
-| **Lazy Initialization** | Providers initialized on first use, not import |
-| **Dependency Injection** | Tools receive context via factory pattern |
-| **Capability-Based Selection** | Select models by capability, not hardcoded ID |
-| **Provider Abstraction** | Hide `providerId:modelId` from consumers |
-| **Server-Only Guarantee** | `"server-only"` at module level |
+| Principle                      | Implementation                                 |
+| ------------------------------ | ---------------------------------------------- |
+| **Lazy Initialization**        | Providers initialized on first use, not import |
+| **Dependency Injection**       | Tools receive context via factory pattern      |
+| **Capability-Based Selection** | Select models by capability, not hardcoded ID  |
+| **Provider Abstraction**       | Hide `providerId:modelId` from consumers       |
+| **Server-Only Guarantee**      | `"server-only"` at module level                |
 
 ### 4.2 Module Structure (Optimal)
 
@@ -216,12 +220,12 @@ lib/ai/
 | Module | Max Lines | Responsibility |
 |--------|-----------|----------------|
 | providers/registry.ts | 150 | Lazy provider initialization |
-| providers/adapters/*.ts | 80 each | Provider-specific config |
+| providers/adapters/_.ts | 80 each | Provider-specific config |
 | models/registry.ts | 200 | Catalog management |
 | models/selection.ts | 100 | Capability-based selection |
 | completion/executor.ts | 150 | streamText orchestration |
 | tools/registry.ts | 100 | Tool management |
-| tools/definitions/*.ts | 80 each | Individual tools |
+| tools/definitions/_.ts | 80 each | Individual tools |
 
 ### 4.3 Provider Registry (Lazy Initialization)
 
@@ -256,7 +260,8 @@ const PROVIDER_CONFIGS: ProviderConfig[] = [
     id: "google",
     envVars: ["GOOGLE_GENERATIVE_AI_API_KEY", "GEMINI_API_KEY"],
     factory: () => {
-      const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? process.env.GEMINI_API_KEY;
+      const apiKey =
+        process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? process.env.GEMINI_API_KEY;
       if (!apiKey) return null;
       const { createGoogleGenerativeAI } = require("@ai-sdk/google");
       return createGoogleGenerativeAI({ apiKey }) as ProviderV2;
@@ -276,7 +281,8 @@ const PROVIDER_CONFIGS: ProviderConfig[] = [
     id: "vercel-gateway",
     envVars: ["AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN"],
     factory: () => {
-      if (!process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_OIDC_TOKEN) return null;
+      if (!process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_OIDC_TOKEN)
+        return null;
       const { gateway } = require("@ai-sdk/gateway");
       return gateway as ProviderV2;
     },
@@ -347,7 +353,7 @@ import { getModelCatalog } from "./registry";
 
 interface ModelSelectionCriteria {
   capabilities?: ModelCapability[];
-  requiredCapabilities?: ModelCapability[];  // Must have ALL
+  requiredCapabilities?: ModelCapability[]; // Must have ALL
   preferredProviders?: string[];
   maxContextWindow?: number;
   excludeReasoning?: boolean;
@@ -357,9 +363,11 @@ interface ModelSelectionCriteria {
  * Select best model matching criteria
  * Priority: requiredCapabilities > preferredProviders > first match
  */
-export function selectModel(criteria: ModelSelectionCriteria): ModelMetadata | null {
+export function selectModel(
+  criteria: ModelSelectionCriteria
+): ModelMetadata | null {
   const catalog = getModelCatalog();
-  
+
   let candidates = catalog.filter((model) => {
     // Filter by required capabilities
     if (criteria.requiredCapabilities) {
@@ -379,7 +387,10 @@ export function selectModel(criteria: ModelSelectionCriteria): ModelMetadata | n
 
     // Exclude pure reasoning models if requested
     if (criteria.excludeReasoning) {
-      if (model.capabilities.length === 1 && model.capabilities[0] === "reasoning") {
+      if (
+        model.capabilities.length === 1 &&
+        model.capabilities[0] === "reasoning"
+      ) {
         return false;
       }
     }
@@ -494,7 +505,10 @@ export function getEnabledToolIds(model: ModelMetadata | undefined): ToolId[] {
   if (!model) return [];
 
   // Pure reasoning models: no tools
-  if (model.capabilities.includes("reasoning") && model.capabilities.length === 1) {
+  if (
+    model.capabilities.includes("reasoning") &&
+    model.capabilities.length === 1
+  ) {
     return [];
   }
 
@@ -545,7 +559,11 @@ export function buildToolSet(context: ToolContext, enabledIds: ToolId[]) {
 ```typescript
 // lib/ai/completion/middleware.ts
 import "server-only";
-import { extractReasoningMiddleware, wrapLanguageModel, type LanguageModelV2 } from "ai";
+import {
+  extractReasoningMiddleware,
+  wrapLanguageModel,
+  type LanguageModelV2,
+} from "ai";
 import type { ModelMetadata, ReasoningType } from "../models/types";
 
 /**
@@ -557,7 +575,7 @@ const REASONING_TAG_MAP: Record<ReasoningType, string> = {
   "gemini-thinking": "think",
   "deepseek-thinking": "think",
   "internal-thinking": "think",
-  "none": "",
+  none: "",
 };
 
 /**
@@ -593,7 +611,9 @@ type ProviderOptions = Record<string, Record<string, unknown>>;
 /**
  * Build provider-specific options for reasoning models
  */
-export function buildProviderOptions(model: ModelMetadata | undefined): ProviderOptions {
+export function buildProviderOptions(
+  model: ModelMetadata | undefined
+): ProviderOptions {
   const options: ProviderOptions = {};
 
   if (!model?.reasoningType || model.reasoningType === "none") {
@@ -810,7 +830,7 @@ graph TB
     ChatUI --> DataStream
     DataStream --> ChatRoute
     ChatRoute --> Executor
-    
+
     Executor --> Middleware
     Executor --> Options
     Executor --> ModelRegistry
@@ -854,24 +874,24 @@ sequenceDiagram
     Client->>ChatRoute: POST /api/chat (messages, modelId)
     ChatRoute->>ChatRoute: Validate model ID
     ChatRoute->>ChatRoute: Auth & rate limit check
-    
+
     ChatRoute->>Executor: executeCompletion(params)
     Executor->>ProviderRegistry: getLanguageModel(modelId)
     ProviderRegistry->>ProviderRegistry: Lazy initialize if needed
     ProviderRegistry-->>Executor: LanguageModel
-    
+
     Executor->>Executor: withReasoningMiddleware(model)
     Executor->>ToolRegistry: buildToolSet(context, enabledIds)
     ToolRegistry-->>Executor: Tools
-    
+
     Executor->>LLMProvider: streamText(model, messages, tools)
-    
+
     loop Streaming Response
         LLMProvider-->>Executor: Token chunk
         Executor->>DataStream: write(chunk)
         DataStream-->>Client: SSE event
     end
-    
+
     opt Tool Call
         LLMProvider-->>Executor: Tool invocation
         Executor->>ToolRegistry: execute(tool, args)
@@ -879,7 +899,7 @@ sequenceDiagram
         ToolRegistry-->>Executor: Tool result
         Executor->>LLMProvider: Continue with result
     end
-    
+
     LLMProvider-->>Executor: Completion (usage)
     Executor->>DataStream: write(usage)
     DataStream-->>Client: SSE usage event
@@ -891,37 +911,37 @@ sequenceDiagram
 
 ### 5.1 Core Dependencies
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `ai` | 5.0.26 | Vercel AI SDK core |
-| `@ai-sdk/react` | 2.0.26 | React hooks (useChat) |
-| `@ai-sdk/openai` | 2.0.54 | OpenAI provider |
-| `@ai-sdk/google` | 2.0.24 | Google/Gemini provider |
-| `@ai-sdk/gateway` | 1.0.15 | Vercel Gateway provider |
-| `@ai-sdk/provider` | 2.0.0 | Provider interface |
-| `@openrouter/ai-sdk-provider` | 1.2.0 | OpenRouter provider |
-| `workers-ai-provider` | - | Cloudflare Workers AI |
-| `ai-gateway-provider` | 2.0.1 | Cloudflare AI Gateway |
-| `tokenlens` | - | Usage & cost tracking |
+| Package                       | Version | Purpose                 |
+| ----------------------------- | ------- | ----------------------- |
+| `ai`                          | 5.0.26  | Vercel AI SDK core      |
+| `@ai-sdk/react`               | 2.0.26  | React hooks (useChat)   |
+| `@ai-sdk/openai`              | 2.0.54  | OpenAI provider         |
+| `@ai-sdk/google`              | 2.0.24  | Google/Gemini provider  |
+| `@ai-sdk/gateway`             | 1.0.15  | Vercel Gateway provider |
+| `@ai-sdk/provider`            | 2.0.0   | Provider interface      |
+| `@openrouter/ai-sdk-provider` | 1.2.0   | OpenRouter provider     |
+| `workers-ai-provider`         | -       | Cloudflare Workers AI   |
+| `ai-gateway-provider`         | 2.0.1   | Cloudflare AI Gateway   |
+| `tokenlens`                   | -       | Usage & cost tracking   |
 
 ### 5.2 Next.js 16 Features
 
-| Feature | Usage |
-|---------|-------|
+| Feature        | Usage                          |
+| -------------- | ------------------------------ |
 | Route Handlers | `app/(chat)/api/chat/route.ts` |
-| Streaming | `createUIMessageStream` + SSE |
-| `use cache` | TokenLens catalog caching |
-| `maxDuration` | 60s function timeout |
-| Edge Runtime | Optional for chat route |
+| Streaming      | `createUIMessageStream` + SSE  |
+| `use cache`    | TokenLens catalog caching      |
+| `maxDuration`  | 60s function timeout           |
+| Edge Runtime   | Optional for chat route        |
 
 ### 5.3 Runtime Considerations
 
-| Consideration | Decision |
-|---------------|----------|
+| Consideration   | Decision                                |
+| --------------- | --------------------------------------- |
 | Default Runtime | Node.js (tool system needs file access) |
-| Edge Optional | Can enable for latency-sensitive routes |
-| Streaming | Server-Sent Events via HTTP |
-| Timeout | 55s completion, 60s route max |
+| Edge Optional   | Can enable for latency-sensitive routes |
+| Streaming       | Server-Sent Events via HTTP             |
+| Timeout         | 55s completion, 60s route max           |
 
 ---
 
@@ -985,12 +1005,12 @@ export async function GET() {
 ```mermaid
 graph TD
     AI[AI Integration]
-    
+
     AI --> Error[01-Error Handling]
     AI --> Auth[02-Authentication]
     AI --> Data[03-Data Layer]
     AI --> Cache[04-Cache Layer]
-    
+
     Error --> |ChatSDKError| AI
     Auth --> |AppSession| AI
     Data --> |saveChat, createMessage| AI
@@ -999,12 +1019,12 @@ graph TD
 
 ### 7.2 Dependency Details
 
-| Dependency | Interface | Usage |
-|------------|-----------|-------|
-| Error Handling | `ChatSDKError` | `bad_request:api:invalid_model_id`, timeout errors |
-| Authentication | `AppSession`, `getAppSession()` | User context for tools |
-| Data Layer | `chatData`, `saveChat` | Persist AI responses |
-| Cache Layer | `getUserMessageCount` | Daily quota checks |
+| Dependency     | Interface                       | Usage                                              |
+| -------------- | ------------------------------- | -------------------------------------------------- |
+| Error Handling | `ChatSDKError`                  | `bad_request:api:invalid_model_id`, timeout errors |
+| Authentication | `AppSession`, `getAppSession()` | User context for tools                             |
+| Data Layer     | `chatData`, `saveChat`          | Persist AI responses                               |
+| Cache Layer    | `getUserMessageCount`           | Daily quota checks                                 |
 
 ---
 
@@ -1045,14 +1065,18 @@ export function isValidModelId(id: string): boolean;
 export function getLanguageModel(id: string): LanguageModelV2;
 
 // Refresh model catalog
-export function refreshModelCatalog(opts?: { force?: boolean }): Promise<RefreshResult>;
+export function refreshModelCatalog(opts?: {
+  force?: boolean;
+}): Promise<RefreshResult>;
 ```
 
 ### 8.3 Model Selection API
 
 ```typescript
 // Select model by criteria
-export function selectModel(criteria: ModelSelectionCriteria): ModelMetadata | null;
+export function selectModel(
+  criteria: ModelSelectionCriteria
+): ModelMetadata | null;
 
 // Convenience selectors
 export function getDefaultChatModel(): ModelMetadata | null;
@@ -1067,7 +1091,10 @@ export function getToolingModel(): ModelMetadata | null;
 export function getEnabledToolIds(model: ModelMetadata | undefined): ToolId[];
 
 // Build tool set with context
-export function buildToolSet(context: ToolContext, enabledIds: ToolId[]): ToolSet | undefined;
+export function buildToolSet(
+  context: ToolContext,
+  enabledIds: ToolId[]
+): ToolSet | undefined;
 ```
 
 ---
@@ -1076,37 +1103,37 @@ export function buildToolSet(context: ToolContext, enabledIds: ToolId[]): ToolSe
 
 ### 9.1 Streaming Optimizations
 
-| Optimization | Implementation |
-|--------------|----------------|
-| Word-Level Chunking | `smoothStream({ chunking: "word", delayInMs: 2 })` |
-| Parallel Tool Execution | `stepCountIs(5)` allows multi-step |
-| Early Stream Start | `result.consumeStream()` before merge |
-| Backpressure | Automatic via `UIMessageStreamWriter` |
+| Optimization            | Implementation                                     |
+| ----------------------- | -------------------------------------------------- |
+| Word-Level Chunking     | `smoothStream({ chunking: "word", delayInMs: 2 })` |
+| Parallel Tool Execution | `stepCountIs(5)` allows multi-step                 |
+| Early Stream Start      | `result.consumeStream()` before merge              |
+| Backpressure            | Automatic via `UIMessageStreamWriter`              |
 
 ### 9.2 Provider Optimizations
 
-| Optimization | Implementation |
-|--------------|----------------|
-| Lazy Initialization | Providers init on first use |
-| Connection Reuse | SDK handles HTTP/2 multiplexing |
-| Provider Fallback | AI Gateway: primary → flash-lite |
-| Health Tracking | Circuit breaker for degraded providers |
+| Optimization        | Implementation                         |
+| ------------------- | -------------------------------------- |
+| Lazy Initialization | Providers init on first use            |
+| Connection Reuse    | SDK handles HTTP/2 multiplexing        |
+| Provider Fallback   | AI Gateway: primary → flash-lite       |
+| Health Tracking     | Circuit breaker for degraded providers |
 
 ### 9.3 Caching Strategy
 
-| Cache Target | Strategy | TTL |
-|--------------|----------|-----|
-| TokenLens Catalog | `use cache` + `cacheLife("days")` | ~24h |
-| Model Catalog | In-memory singleton | Until refresh |
-| Provider Registry | In-memory singleton | Application lifetime |
+| Cache Target      | Strategy                          | TTL                  |
+| ----------------- | --------------------------------- | -------------------- |
+| TokenLens Catalog | `use cache` + `cacheLife("days")` | ~24h                 |
+| Model Catalog     | In-memory singleton               | Until refresh        |
+| Provider Registry | In-memory singleton               | Application lifetime |
 
 ### 9.4 Memory Optimizations
 
-| Optimization | Implementation |
-|--------------|----------------|
+| Optimization      | Implementation                        |
+| ----------------- | ------------------------------------- |
 | Catalog Filtering | Filter by available providers at load |
-| Model Selection | Return reference, not copy |
-| Tool Instances | Create per-request, not global |
+| Model Selection   | Return reference, not copy            |
+| Tool Instances    | Create per-request, not global        |
 
 ---
 
@@ -1156,6 +1183,7 @@ export function buildToolSet(context: ToolContext, enabledIds: ToolId[]): ToolSe
 **Description**: Run chat completion on Edge runtime for lower latency.
 
 **Rejected Because**:
+
 - Tool system requires Node.js APIs (file operations for documents)
 - Provider SDKs not all Edge-compatible
 - Complex workaround needed for artifact tools
@@ -1166,6 +1194,7 @@ export function buildToolSet(context: ToolContext, enabledIds: ToolId[]): ToolSe
 **Description**: Create tool instances once at module load instead of per-request.
 
 **Rejected Because**:
+
 - Tools need request-specific context (session, dataStream, chatId)
 - Global state causes issues with concurrent requests
 - Memory leaks from stale dataStream references
@@ -1176,6 +1205,7 @@ export function buildToolSet(context: ToolContext, enabledIds: ToolId[]): ToolSe
 **Description**: Use GraphQL API for client model selection.
 
 **Rejected Because**:
+
 - Over-engineering for simple list/select operations
 - Additional dependency and complexity
 - REST endpoint sufficient for current needs
@@ -1185,14 +1215,14 @@ export function buildToolSet(context: ToolContext, enabledIds: ToolId[]): ToolSe
 
 ## 12. Success Metrics
 
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| Time-to-First-Token | <500ms (p95) | OpenTelemetry spans |
-| Streaming Latency | <50ms inter-chunk | Client-side measurement |
-| Provider Fallback Success | >99% | AI Gateway metrics |
-| Tool Execution Time | <2s per tool | OpenTelemetry spans |
-| Bundle Size (client) | 0 KB AI code | Bundle analyzer |
-| Test Coverage | >80% | Jest coverage report |
+| Metric                    | Target            | Measurement             |
+| ------------------------- | ----------------- | ----------------------- |
+| Time-to-First-Token       | <500ms (p95)      | OpenTelemetry spans     |
+| Streaming Latency         | <50ms inter-chunk | Client-side measurement |
+| Provider Fallback Success | >99%              | AI Gateway metrics      |
+| Tool Execution Time       | <2s per tool      | OpenTelemetry spans     |
+| Bundle Size (client)      | 0 KB AI code      | Bundle analyzer         |
+| Test Coverage             | >80%              | Jest coverage report    |
 
 ---
 

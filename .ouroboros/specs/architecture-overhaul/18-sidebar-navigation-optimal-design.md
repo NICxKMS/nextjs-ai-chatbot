@@ -24,14 +24,14 @@ Design an optimal, modular sidebar and navigation system that:
 
 **File Inventory:**
 
-| File | LOC | Responsibility | Issues |
-|------|-----|----------------|--------|
-| `components/ui/sidebar.tsx` | 814 | Everything (provider, 20+ components) | **Monolith** - violates SRP |
-| `components/app-sidebar.tsx` | 158 | Main sidebar composition | Delete-all dialog embedded |
-| `components/sidebar-history.tsx` | 574 | Chat history with virtualization | Complex grouping logic inline |
-| `components/sidebar-history-item.tsx` | 118 | Individual chat item | Good - focused component |
-| `components/sidebar-user-nav.tsx` | 171 | User avatar/logout menu | Logout logic embedded |
-| `components/sidebar-toggle.tsx` | 35 | Toggle button | Good - simple component |
+| File                                  | LOC | Responsibility                        | Issues                        |
+| ------------------------------------- | --- | ------------------------------------- | ----------------------------- |
+| `components/ui/sidebar.tsx`           | 814 | Everything (provider, 20+ components) | **Monolith** - violates SRP   |
+| `components/app-sidebar.tsx`          | 158 | Main sidebar composition              | Delete-all dialog embedded    |
+| `components/sidebar-history.tsx`      | 574 | Chat history with virtualization      | Complex grouping logic inline |
+| `components/sidebar-history-item.tsx` | 118 | Individual chat item                  | Good - focused component      |
+| `components/sidebar-user-nav.tsx`     | 171 | User avatar/logout menu               | Logout logic embedded         |
+| `components/sidebar-toggle.tsx`       | 35  | Toggle button                         | Good - simple component       |
 
 **Total: ~1,870 LOC across 6 files**
 
@@ -75,26 +75,26 @@ Design an optimal, modular sidebar and navigation system that:
 
 ### Functional Requirements
 
-| REQ-ID | Requirement | Priority |
-|--------|-------------|----------|
-| REQ-NAV-001 | Sidebar must collapse/expand with keyboard shortcut (Ctrl+B) | P0 |
-| REQ-NAV-002 | Chat history must virtualize 1000+ items without lag | P0 |
-| REQ-NAV-003 | Mobile sidebar must slide from left with touch gestures | P1 |
-| REQ-NAV-004 | Sidebar state must persist across sessions (cookie) | P0 |
-| REQ-NAV-005 | New chat action must reset current conversation | P0 |
-| REQ-NAV-006 | Delete individual/all chats with confirmation | P0 |
-| REQ-NAV-007 | Chat items must show visibility status (public/private) | P1 |
-| REQ-NAV-008 | Optimistic chat creation must appear immediately | P0 |
+| REQ-ID      | Requirement                                                  | Priority |
+| ----------- | ------------------------------------------------------------ | -------- |
+| REQ-NAV-001 | Sidebar must collapse/expand with keyboard shortcut (Ctrl+B) | P0       |
+| REQ-NAV-002 | Chat history must virtualize 1000+ items without lag         | P0       |
+| REQ-NAV-003 | Mobile sidebar must slide from left with touch gestures      | P1       |
+| REQ-NAV-004 | Sidebar state must persist across sessions (cookie)          | P0       |
+| REQ-NAV-005 | New chat action must reset current conversation              | P0       |
+| REQ-NAV-006 | Delete individual/all chats with confirmation                | P0       |
+| REQ-NAV-007 | Chat items must show visibility status (public/private)      | P1       |
+| REQ-NAV-008 | Optimistic chat creation must appear immediately             | P0       |
 
 ### Non-Functional Requirements
 
-| REQ-ID | Requirement | Target |
-|--------|-------------|--------|
-| REQ-NAV-NFR-001 | Sidebar initial render | < 50ms |
-| REQ-NAV-NFR-002 | Chat history scroll FPS | 60 FPS |
-| REQ-NAV-NFR-003 | Sidebar JS bundle | < 25KB gzipped |
-| REQ-NAV-NFR-004 | Touch response latency | < 100ms |
-| REQ-NAV-NFR-005 | Memory per 100 chat items | < 5MB |
+| REQ-ID          | Requirement               | Target         |
+| --------------- | ------------------------- | -------------- |
+| REQ-NAV-NFR-001 | Sidebar initial render    | < 50ms         |
+| REQ-NAV-NFR-002 | Chat history scroll FPS   | 60 FPS         |
+| REQ-NAV-NFR-003 | Sidebar JS bundle         | < 25KB gzipped |
+| REQ-NAV-NFR-004 | Touch response latency    | < 100ms        |
+| REQ-NAV-NFR-005 | Memory per 100 chat items | < 5MB          |
 
 ---
 
@@ -187,6 +187,7 @@ function SidebarContent({ children }) {
 ```
 
 **Benefits:**
+
 - Components subscribing to actions don't re-render on state changes
 - State changes only affect components that read state
 
@@ -194,20 +195,20 @@ function SidebarContent({ children }) {
 
 ```typescript
 // sidebar/chat-history/index.tsx
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense } from "react";
 
 // Lazy load virtualization library
-const VirtualizedList = lazy(() => 
-  import('./virtualized-list').then(m => ({ default: m.VirtualizedList }))
+const VirtualizedList = lazy(() =>
+  import("./virtualized-list").then((m) => ({ default: m.VirtualizedList }))
 );
 
 export function ChatHistory({ user }: { user: User | null }) {
   const { chats, isLoading, hasMore, loadMore } = useChatHistory(user);
-  
+
   if (!user) return <LoginPrompt />;
   if (isLoading) return <ChatHistorySkeleton />;
   if (chats.length === 0) return <EmptyHistory />;
-  
+
   // Only load Virtuoso when we have items
   return (
     <Suspense fallback={<ChatHistorySkeleton />}>
@@ -244,17 +245,17 @@ export function groupChatsByDate(
     weekAgo: subWeeks(now, 1),
     monthAgo: subMonths(now, 1),
   };
-  
+
   const groups: Map<string, Chat[]> = new Map([
-    ['Today', []],
-    ['Yesterday', []],
-    ['Last 7 days', []],
-    ['Last 30 days', []],
-    ['Older', []],
+    ["Today", []],
+    ["Yesterday", []],
+    ["Last 7 days", []],
+    ["Last 30 days", []],
+    ["Older", []],
   ]);
-  
+
   // ... grouping logic
-  
+
   return Array.from(groups.entries())
     .filter(([, items]) => items.length > 0)
     .map(([label, items]) => ({ label, items }));
@@ -265,19 +266,19 @@ export function groupChatsByDate(
 
 ```typescript
 // sidebar/sidebar-mobile.tsx
-'use client';
+"use client";
 
-import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { useSidebarState, useSidebarActions } from './hooks/use-sidebar';
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { useSidebarState, useSidebarActions } from "./hooks/use-sidebar";
 
 export function SidebarMobile({ children }: { children: React.ReactNode }) {
   const { openMobile } = useSidebarState();
   const { setOpenMobile } = useSidebarActions();
-  
+
   return (
     <Sheet open={openMobile} onOpenChange={setOpenMobile}>
-      <SheetContent 
-        side="left" 
+      <SheetContent
+        side="left"
         className="w-[18rem] p-0"
         // Enable touch gestures
         onPointerDown={handleTouchStart}
@@ -341,24 +342,29 @@ export function SidebarMobile({ children }: { children: React.ReactNode }) {
 
 ```typescript
 // components/app-sidebar.tsx
-import dynamic from 'next/dynamic';
-import { Sidebar, SidebarHeader, SidebarContent, SidebarFooter } from '@/components/sidebar';
+import dynamic from "next/dynamic";
+import {
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarFooter,
+} from "@/components/sidebar";
 
 // Core content - SSR enabled
-const SidebarLogo = dynamic(() => import('./sidebar/sidebar-logo'));
+const SidebarLogo = dynamic(() => import("./sidebar/sidebar-logo"));
 
 // History - client only, lazy loaded
 const ChatHistory = dynamic(
-  () => import('./sidebar/chat-history').then(m => m.ChatHistory),
-  { 
+  () => import("./sidebar/chat-history").then((m) => m.ChatHistory),
+  {
     ssr: false,
-    loading: () => <ChatHistorySkeleton /> 
+    loading: () => <ChatHistorySkeleton />,
   }
 );
 
 // User nav - client only
 const UserNav = dynamic(
-  () => import('./sidebar/user-nav').then(m => m.UserNav),
+  () => import("./sidebar/user-nav").then((m) => m.UserNav),
   { ssr: false }
 );
 ```
@@ -370,6 +376,7 @@ const UserNav = dynamic(
 ### 1. Remove Inline Dialog Definitions
 
 **Before (app-sidebar.tsx):**
+
 ```tsx
 // Dialog JSX embedded in component
 <AlertDialog open={showDeleteAllDialog}>
@@ -378,15 +385,16 @@ const UserNav = dynamic(
 ```
 
 **After:**
+
 ```tsx
 // Use centralized dialog system via Zustand
-import { useDialogStore } from '@/lib/stores/dialog-store';
+import { useDialogStore } from "@/lib/stores/dialog-store";
 
 function DeleteAllButton() {
   const { openDialog } = useDialogStore();
-  
+
   return (
-    <Button onClick={() => openDialog('delete-all-chats')}>
+    <Button onClick={() => openDialog("delete-all-chats")}>
       <TrashIcon />
     </Button>
   );
@@ -396,24 +404,26 @@ function DeleteAllButton() {
 ### 2. Extract Keyboard Shortcut Logic
 
 **Before (sidebar.tsx - inline in provider):**
+
 ```tsx
 useEffect(() => {
   const handleKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'b' && (event.metaKey || event.ctrlKey)) {
+    if (event.key === "b" && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
       toggleSidebar();
     }
   };
-  window.addEventListener('keydown', handleKeyDown);
-  return () => window.removeEventListener('keydown', handleKeyDown);
+  window.addEventListener("keydown", handleKeyDown);
+  return () => window.removeEventListener("keydown", handleKeyDown);
 }, [toggleSidebar]);
 ```
 
 **After:**
+
 ```tsx
 // hooks/use-sidebar-keyboard.ts
 export function useSidebarKeyboard(toggle: () => void) {
-  useHotkeys('mod+b', toggle, { preventDefault: true });
+  useHotkeys("mod+b", toggle, { preventDefault: true });
 }
 
 // In provider - just call the hook
@@ -423,6 +433,7 @@ useSidebarKeyboard(toggleSidebar);
 ### 3. Simplify Chat Grouping
 
 **Before (sidebar-history.tsx):**
+
 ```tsx
 // 80+ lines of grouping logic inline
 const groupedChats = useMemo(() => {
@@ -433,9 +444,10 @@ const groupedChats = useMemo(() => {
 ```
 
 **After:**
+
 ```tsx
 // Single utility import
-import { groupChatsByDate } from '@/lib/utils/chat-grouping';
+import { groupChatsByDate } from "@/lib/utils/chat-grouping";
 
 const groups = useMemo(
   () => groupChatsByDate(allChats, optimisticChats),
@@ -446,24 +458,28 @@ const groups = useMemo(
 ### 4. Consolidate User Navigation State
 
 **Before (sidebar-user-nav.tsx):**
+
 ```tsx
 // Multiple useEffect for mounted state, auth checks
 const [mounted, setMounted] = useState(false);
 useEffect(() => setMounted(true), []);
 
 // Complex conditional rendering
-{!mounted || status === 'loading' ? <Skeleton /> : <Content />}
+{
+  !mounted || status === "loading" ? <Skeleton /> : <Content />;
+}
 ```
 
 **After:**
+
 ```tsx
 // Use useHydrated hook
-import { useHydrated } from '@/hooks/use-hydrated';
+import { useHydrated } from "@/hooks/use-hydrated";
 
 function UserNav() {
   const isHydrated = useHydrated();
   const { user, isLoading } = useAuth();
-  
+
   if (!isHydrated || isLoading) return <UserNavSkeleton />;
   return <UserNavContent user={user} />;
 }
@@ -475,23 +491,23 @@ function UserNav() {
 
 ### Internal Dependencies
 
-| Dependency | Purpose | Type |
-|------------|---------|------|
-| `@/lib/stores/dialog-store` | Centralized dialog management | New |
-| `@/lib/utils/chat-grouping` | Date-based grouping utilities | New |
-| `@/hooks/use-hydrated` | SSR hydration safety | New |
-| `@/hooks/use-hotkeys` | Keyboard shortcut abstraction | New |
-| `@/components/auth-provider` | Authentication state | Existing |
-| `@/hooks/use-optimistic-chats` | Optimistic updates | Existing |
+| Dependency                     | Purpose                       | Type     |
+| ------------------------------ | ----------------------------- | -------- |
+| `@/lib/stores/dialog-store`    | Centralized dialog management | New      |
+| `@/lib/utils/chat-grouping`    | Date-based grouping utilities | New      |
+| `@/hooks/use-hydrated`         | SSR hydration safety          | New      |
+| `@/hooks/use-hotkeys`          | Keyboard shortcut abstraction | New      |
+| `@/components/auth-provider`   | Authentication state          | Existing |
+| `@/hooks/use-optimistic-chats` | Optimistic updates            | Existing |
 
 ### External Dependencies
 
-| Package | Version | Purpose | Bundle Impact |
-|---------|---------|---------|---------------|
-| `react-virtuoso` | ^4.12.x | Virtualized list | ~15KB (tree-shaken) |
-| `date-fns` | ^4.x | Date grouping | ~3KB (tree-shaken) |
-| `radix-ui/react-slot` | ^1.x | Polymorphic components | ~1KB |
-| `class-variance-authority` | ^0.7.x | Variant styling | ~2KB |
+| Package                    | Version | Purpose                | Bundle Impact       |
+| -------------------------- | ------- | ---------------------- | ------------------- |
+| `react-virtuoso`           | ^4.12.x | Virtualized list       | ~15KB (tree-shaken) |
+| `date-fns`                 | ^4.x    | Date grouping          | ~3KB (tree-shaken)  |
+| `radix-ui/react-slot`      | ^1.x    | Polymorphic components | ~1KB                |
+| `class-variance-authority` | ^0.7.x  | Variant styling        | ~2KB                |
 
 ### Dependency Graph
 
@@ -504,41 +520,41 @@ graph TD
         SS[SidebarSkeleton]
         SMB[SidebarMobile]
     end
-    
+
     subgraph "Chat History"
         CH[ChatHistory]
         CI[ChatItem]
         VL[VirtualizedList]
     end
-    
+
     subgraph "User Navigation"
         UN[UserNav]
         UM[UserMenu]
     end
-    
+
     subgraph "Shared Hooks"
         US[useSidebar]
         UH[useHydrated]
         UK[useHotkeys]
     end
-    
+
     subgraph "External"
         RV[react-virtuoso]
         DF[date-fns]
         RX[radix-ui]
     end
-    
+
     SP --> US
     SP --> UK
     SL --> SP
     SM --> SP
     SMB --> RX
-    
+
     CH --> VL
     CH --> CI
     VL --> RV
     CH --> DF
-    
+
     UN --> UH
     UN --> UM
 ```
@@ -560,14 +576,17 @@ const SidebarActionsContext = createContext<SidebarActions>(null);
 // Provider composes both
 function SidebarProvider({ children }) {
   const [state, setState] = useState(initialState);
-  
+
   // Stable action references
-  const actions = useMemo(() => ({
-    toggle: () => setState(s => ({ ...s, isOpen: !s.isOpen })),
-    setOpen: (open) => setState(s => ({ ...s, isOpen: open })),
-    setOpenMobile: (open) => setState(s => ({ ...s, openMobile: open })),
-  }), []);
-  
+  const actions = useMemo(
+    () => ({
+      toggle: () => setState((s) => ({ ...s, isOpen: !s.isOpen })),
+      setOpen: (open) => setState((s) => ({ ...s, isOpen: open })),
+      setOpenMobile: (open) => setState((s) => ({ ...s, openMobile: open })),
+    }),
+    []
+  );
+
   return (
     <SidebarActionsContext.Provider value={actions}>
       <SidebarStateContext.Provider value={state}>
@@ -589,7 +608,7 @@ function SidebarProvider({ children }) {
   // Memoized renderers
   itemContent={renderItemContent}
   groupContent={renderGroupContent}
-/>
+/>;
 
 // Memoize chat items aggressively
 const ChatItem = memo(PureChatItem, (prev, next) => {
@@ -608,12 +627,12 @@ const ChatItem = memo(PureChatItem, (prev, next) => {
 function ChatHistorySkeleton() {
   // Static widths to prevent layout shift
   const widths = [44, 32, 28, 64, 52, 38, 56, 40];
-  
+
   return (
     <div className="flex flex-col gap-1">
       {widths.map((width, i) => (
         <div key={i} className="h-8 flex items-center px-2">
-          <div 
+          <div
             className="h-4 bg-muted rounded animate-pulse"
             style={{ width: `${width}%` }}
           />
@@ -630,27 +649,31 @@ function ChatHistorySkeleton() {
 // Avoid hydration mismatch with deferred mobile detection
 function useMobileDetection() {
   const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined);
-  
+
   useEffect(() => {
-    const mql = window.matchMedia('(max-width: 768px)');
+    const mql = window.matchMedia("(max-width: 768px)");
     setIsMobile(mql.matches);
-    
+
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mql.addEventListener('change', handler);
-    return () => mql.removeEventListener('change', handler);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
   }, []);
-  
+
   return isMobile;
 }
 
 // In Sidebar component
 function Sidebar({ children }) {
   const isMobile = useMobileDetection();
-  
+
   // Render nothing until mobile state is known (prevents flash)
   if (isMobile === undefined) return null;
-  
-  return isMobile ? <MobileSidebar>{children}</MobileSidebar> : <DesktopSidebar>{children}</DesktopSidebar>;
+
+  return isMobile ? (
+    <MobileSidebar>{children}</MobileSidebar>
+  ) : (
+    <DesktopSidebar>{children}</DesktopSidebar>
+  );
 }
 ```
 
@@ -660,12 +683,15 @@ function Sidebar({ children }) {
 // Debounce cookie writes to prevent excessive I/O
 function useSidebarPersistence(isOpen: boolean) {
   const debouncedWrite = useMemo(
-    () => debounce((value: boolean) => {
-      document.cookie = `sidebar_state=${value}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
-    }, 500),
+    () =>
+      debounce((value: boolean) => {
+        document.cookie = `sidebar_state=${value}; path=/; max-age=${
+          60 * 60 * 24 * 365
+        }; samesite=lax`;
+      }, 500),
     []
   );
-  
+
   useEffect(() => {
     debouncedWrite(isOpen);
     return () => debouncedWrite.cancel();
@@ -678,6 +704,7 @@ function useSidebarPersistence(isOpen: boolean) {
 ## Migration Strategy
 
 ### Phase 1: Extract Provider & Hooks (Low Risk)
+
 1. Create `components/sidebar/` directory structure
 2. Extract `SidebarProvider` to separate file
 3. Extract hooks (`useSidebar`, `useSidebarKeyboard`)
@@ -685,18 +712,21 @@ function useSidebarPersistence(isOpen: boolean) {
 5. **Validate:** Run existing tests, verify no regressions
 
 ### Phase 2: Split Compound Components (Medium Risk)
+
 1. Move primitives (`SidebarMenu`, `SidebarMenuItem`, etc.) to `sidebar-primitives.tsx`
 2. Extract layout components (`SidebarHeader`, `SidebarContent`, `SidebarFooter`)
 3. Create barrel export in `index.ts`
 4. **Validate:** Visual regression tests, interaction tests
 
 ### Phase 3: Optimize Chat History (Medium Risk)
+
 1. Extract grouping logic to `lib/utils/chat-grouping.ts`
 2. Lazy load `react-virtuoso` bundle
 3. Add proper skeleton states
 4. **Validate:** Performance testing with 1000+ chats
 
 ### Phase 4: Implement Context Splitting (Low Risk)
+
 1. Split `SidebarContext` into state/actions
 2. Update consumers to use specific hooks
 3. **Validate:** React DevTools profiler, re-render counts
@@ -739,14 +769,17 @@ function useSidebarPersistence(isOpen: boolean) {
 ## Alternatives Considered
 
 ### ALT-001: Keep Monolith, Add Comments
+
 - **Description**: Document the 814-line file with section comments
 - **Rejected because**: Does not solve bundle size, re-render, or testability issues
 
 ### ALT-002: Full Rewrite with Zustand
+
 - **Description**: Replace context with Zustand store for sidebar state
 - **Rejected because**: Over-engineering for simple open/close state; context is sufficient
 
 ### ALT-003: Use @tanstack/virtual Instead of react-virtuoso
+
 - **Description**: Switch virtualization library
 - **Rejected because**: react-virtuoso already in use, has grouped list support, migration cost not justified
 

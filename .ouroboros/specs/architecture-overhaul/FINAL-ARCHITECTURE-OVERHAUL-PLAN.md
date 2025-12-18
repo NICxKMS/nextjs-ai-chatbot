@@ -30,14 +30,14 @@ Transform the existing AI chatbot application from a **working prototype** into 
 
 ### 1.2 Key Objectives
 
-| Objective | Metric | Current | Target |
-|-----------|--------|---------|--------|
-| Provider Depth | Nesting levels | 9 | 4 |
-| Largest Monolith | LOC | 1,256 (chat.ts) | <300 per file |
-| Initial JS Bundle | gzipped | ~350KB | <200KB |
-| Dev Rebuild | Turbopack | ~2s | <500ms |
-| Cache Read Latency | p95 | ~100ms | <50ms |
-| Code Coverage | Unit tests | 0% | >80% |
+| Objective          | Metric         | Current         | Target        |
+| ------------------ | -------------- | --------------- | ------------- |
+| Provider Depth     | Nesting levels | 9               | 4             |
+| Largest Monolith   | LOC            | 1,256 (chat.ts) | <300 per file |
+| Initial JS Bundle  | gzipped        | ~350KB          | <200KB        |
+| Dev Rebuild        | Turbopack      | ~2s             | <500ms        |
+| Cache Read Latency | p95            | ~100ms          | <50ms         |
+| Code Coverage      | Unit tests     | 0%              | >80%          |
 
 ### 1.3 Strategic Approach
 
@@ -73,36 +73,36 @@ Transform the existing AI chatbot application from a **working prototype** into 
 
 ### 2.1 Next.js 16 Features Leveraged
 
-| Feature | Usage | Impact |
-|---------|-------|--------|
-| **React Compiler** | Auto-memoization | Eliminates manual `useMemo`/`useCallback` |
-| **Turbopack** | Dev builds | <500ms rebuild times |
-| **Server Components** | Default RSC | Reduced client JS |
-| **Partial Prerendering** | Streaming shells | Faster TTFB |
-| **View Transitions** | Route animations | Native smooth transitions |
-| **Component Caching** | `cacheComponents: true` | Server component deduplication |
+| Feature                  | Usage                   | Impact                                    |
+| ------------------------ | ----------------------- | ----------------------------------------- |
+| **React Compiler**       | Auto-memoization        | Eliminates manual `useMemo`/`useCallback` |
+| **Turbopack**            | Dev builds              | <500ms rebuild times                      |
+| **Server Components**    | Default RSC             | Reduced client JS                         |
+| **Partial Prerendering** | Streaming shells        | Faster TTFB                               |
+| **View Transitions**     | Route animations        | Native smooth transitions                 |
+| **Component Caching**    | `cacheComponents: true` | Server component deduplication            |
 
 ### 2.2 Runtime Environments
 
-| Runtime | Purpose | Constraints |
-|---------|---------|-------------|
-| **Node.js (Server)** | RSC, Server Actions, API Routes | Full Node APIs, `server-only` modules |
-| **Edge** | Middleware, rate limiting | 25ms limit, no Node APIs, 128KB bundle |
-| **Client** | Interactive UI | Minimal JS, lazy loading |
+| Runtime              | Purpose                         | Constraints                            |
+| -------------------- | ------------------------------- | -------------------------------------- |
+| **Node.js (Server)** | RSC, Server Actions, API Routes | Full Node APIs, `server-only` modules  |
+| **Edge**             | Middleware, rate limiting       | 25ms limit, no Node APIs, 128KB bundle |
+| **Client**           | Interactive UI                  | Minimal JS, lazy loading               |
 
 ### 2.3 Core Dependencies
 
-| Category | Technology | Version |
-|----------|------------|---------|
-| Framework | Next.js | 16.0.10 |
-| React | React + React DOM | 19.2.3 |
-| Database | PostgreSQL (Drizzle ORM) | 0.43.x |
-| Cache | Upstash Redis | HTTP-based |
-| AI SDK | Vercel AI SDK | 5.0.26 |
-| Auth | Supabase Auth + Custom JWT | - |
-| UI | shadcn/ui + Radix | - |
-| Validation | Zod | 3.x |
-| Testing | Playwright + Vitest | - |
+| Category   | Technology                 | Version    |
+| ---------- | -------------------------- | ---------- |
+| Framework  | Next.js                    | 16.0.10    |
+| React      | React + React DOM          | 19.2.3     |
+| Database   | PostgreSQL (Drizzle ORM)   | 0.43.x     |
+| Cache      | Upstash Redis              | HTTP-based |
+| AI SDK     | Vercel AI SDK              | 5.0.26     |
+| Auth       | Supabase Auth + Custom JWT | -          |
+| UI         | shadcn/ui + Radix          | -          |
+| Validation | Zod                        | 3.x        |
+| Testing    | Playwright + Vitest        | -          |
 
 ---
 
@@ -325,13 +325,13 @@ graph TB
         ERR[01-Errors]
         AUTH[02-Authentication]
     end
-    
+
     subgraph "Phase 1: Core"
         DATA[03-Data Layer]
         CACHE[04-Cache Layer]
         AI[05-AI Integration]
     end
-    
+
     subgraph "Phase 2: Features"
         CHAT[06-Chat System]
         ART[07-Artifacts]
@@ -340,7 +340,7 @@ graph TB
         SIDE[18-Sidebar]
         INPUT[19-Multimodal Input]
     end
-    
+
     subgraph "Phase 3: Infrastructure"
         UI[08-UI Components]
         STATE[09-State Management]
@@ -358,39 +358,39 @@ graph TB
         ROUTE[25-App Routing]
         OBS[26-Observability]
     end
-    
+
     ERR --> DATA
     ERR --> AUTH
     ERR --> CACHE
     ERR --> AI
-    
+
     AUTH --> DATA
     AUTH --> CACHE
     AUTH --> API
     AUTH --> MW
-    
+
     DATA --> CHAT
     DATA --> DOC
-    
+
     CACHE --> DATA
     CACHE --> CHAT
     CACHE --> DOC
-    
+
     AI --> CHAT
     AI --> ART
-    
+
     CHAT --> MSG
     CHAT --> INPUT
     CHAT --> SIDE
-    
+
     ART --> DOC
     ART --> EDIT
     ART --> TOOL
-    
+
     UI --> CHAT
     UI --> ART
     UI --> SIDE
-    
+
     STATE --> UI
     STATE --> CHAT
 ```
@@ -489,13 +489,13 @@ graph TB
 
 ### 5.2 Lazy Loading Tiers
 
-| Tier | Trigger | Components | Strategy |
-|------|---------|------------|----------|
-| **T0: Critical** | Page load | Framework, Auth, Layout | Static import |
-| **T1: Route** | Navigation | Chat, Sidebar, Input | `next/dynamic` |
-| **T2: Visible** | In viewport | Message content, Previews | Intersection Observer |
-| **T3: Interaction** | User action | Editors, Artifact panel | `dynamic({ ssr: false })` |
-| **T4: Deferred** | Idle time | Analytics, Non-critical | `requestIdleCallback` |
+| Tier                | Trigger     | Components                | Strategy                  |
+| ------------------- | ----------- | ------------------------- | ------------------------- |
+| **T0: Critical**    | Page load   | Framework, Auth, Layout   | Static import             |
+| **T1: Route**       | Navigation  | Chat, Sidebar, Input      | `next/dynamic`            |
+| **T2: Visible**     | In viewport | Message content, Previews | Intersection Observer     |
+| **T3: Interaction** | User action | Editors, Artifact panel   | `dynamic({ ssr: false })` |
+| **T4: Deferred**    | Idle time   | Analytics, Non-critical   | `requestIdleCallback`     |
 
 ### 5.3 Code Splitting Implementation
 
@@ -516,9 +516,11 @@ const EditorLoader = {
 
 // T3: Tool renderers (message system)
 const toolRenderers = {
-  'tool-getWeather': () => import("@/shared/components/weather"),
-  'tool-createDocument': () => import("@/features/documents/components/document-tool"),
-  'tool-updateDocument': () => import("@/features/documents/components/document-tool"),
+  "tool-getWeather": () => import("@/shared/components/weather"),
+  "tool-createDocument": () =>
+    import("@/features/documents/components/document-tool"),
+  "tool-updateDocument": () =>
+    import("@/features/documents/components/document-tool"),
 };
 ```
 
@@ -528,17 +530,17 @@ const toolRenderers = {
 
 ### 6.1 Monoliths Being Split
 
-| File | Current LOC | Target | Split Into | Reduction |
-|------|-------------|--------|------------|-----------|
-| `lib/data/chat.ts` | 1,256 | <300 each | `chat/read.ts`, `chat/write.ts`, `chat/update.ts`, `chat/cache.ts`, `message/read.ts`, `message/write.ts` | -70% per file |
-| `lib/cache/operations.ts` | 1,080 | <250 each | `chat/read.ts`, `chat/write.ts`, `chat/delete.ts`, `document/operations.ts`, `user/chats.ts` | -75% per file |
-| `components/ui/sidebar.tsx` | 814 | <200 each | `sidebar-provider.tsx`, `sidebar-primitives.tsx`, `sidebar-layout.tsx`, `sidebar-menu.tsx` | -75% per file |
-| `components/artifact.tsx` | 622 | <200 each | `artifact-container.tsx`, `artifact-renderer.tsx`, `artifact-versions.tsx`, `artifact-actions.tsx` | -68% per file |
-| `components/chat.tsx` | 524 | <200 | `chat.tsx` (orchestrator), `chat-streaming.tsx`, `chat-model.tsx` | -62% per file |
-| `components/multimodal-input.tsx` | 551 | <150 each | `MultimodalInput.tsx`, `InputTextarea.tsx`, `AttachmentZone.tsx`, `AttachmentList.tsx` | -73% per file |
-| `lib/data/document.ts` | 517 | <250 each | `document/read.ts`, `document/write.ts` | -50% per file |
-| `components/toolbar.tsx` | 497 | <150 each | `Toolbar.tsx`, `ToolButton.tsx`, `ToolGroup.tsx`, `ReadingLevelPicker.tsx` | -70% per file |
-| `lib/errors.ts` | 433 | <150 each | `app-error.ts`, `messages.ts`, `mappers/postgres.ts`, `mappers/ai-provider.ts` | -65% per file |
+| File                              | Current LOC | Target    | Split Into                                                                                                | Reduction     |
+| --------------------------------- | ----------- | --------- | --------------------------------------------------------------------------------------------------------- | ------------- |
+| `lib/data/chat.ts`                | 1,256       | <300 each | `chat/read.ts`, `chat/write.ts`, `chat/update.ts`, `chat/cache.ts`, `message/read.ts`, `message/write.ts` | -70% per file |
+| `lib/cache/operations.ts`         | 1,080       | <250 each | `chat/read.ts`, `chat/write.ts`, `chat/delete.ts`, `document/operations.ts`, `user/chats.ts`              | -75% per file |
+| `components/ui/sidebar.tsx`       | 814         | <200 each | `sidebar-provider.tsx`, `sidebar-primitives.tsx`, `sidebar-layout.tsx`, `sidebar-menu.tsx`                | -75% per file |
+| `components/artifact.tsx`         | 622         | <200 each | `artifact-container.tsx`, `artifact-renderer.tsx`, `artifact-versions.tsx`, `artifact-actions.tsx`        | -68% per file |
+| `components/chat.tsx`             | 524         | <200      | `chat.tsx` (orchestrator), `chat-streaming.tsx`, `chat-model.tsx`                                         | -62% per file |
+| `components/multimodal-input.tsx` | 551         | <150 each | `MultimodalInput.tsx`, `InputTextarea.tsx`, `AttachmentZone.tsx`, `AttachmentList.tsx`                    | -73% per file |
+| `lib/data/document.ts`            | 517         | <250 each | `document/read.ts`, `document/write.ts`                                                                   | -50% per file |
+| `components/toolbar.tsx`          | 497         | <150 each | `Toolbar.tsx`, `ToolButton.tsx`, `ToolGroup.tsx`, `ReadingLevelPicker.tsx`                                | -70% per file |
+| `lib/errors.ts`                   | 433         | <150 each | `app-error.ts`, `messages.ts`, `mappers/postgres.ts`, `mappers/ai-provider.ts`                            | -65% per file |
 
 **Total Monolith LOC: ~6,294 → Target: ~2,100 (67% reduction)**
 
@@ -586,9 +588,7 @@ export function ChatProviders({ children }: Props) {
     <SettingsProvider>
       <DataStreamProvider>
         <OptimisticChatsProvider>
-          <SidebarProvider>
-            {children}
-          </SidebarProvider>
+          <SidebarProvider>{children}</SidebarProvider>
         </OptimisticChatsProvider>
       </DataStreamProvider>
     </SettingsProvider>
@@ -598,26 +598,26 @@ export function ChatProviders({ children }: Props) {
 
 ### 6.3 Legacy Code Removal
 
-| Item | Location | Reason | Action |
-|------|----------|--------|--------|
-| `ChatSDKError` naming | `lib/errors.ts` | Legacy name, not just chat | Rename to `AppError` |
-| `visibilityBySurface` | `lib/errors.ts` | Unused error visibility system | Remove |
-| Deprecated `NextError` | `global-error.tsx` | Uses deprecated component | Update to modern pattern |
-| Class error boundary | `artifact-error-boundary.tsx` | Can be functional in React 19 | Convert to functional |
-| Empty `lib/utils/` | Directory | Empty folder | Remove |
-| Duplicate artifacts | `artifacts/` + `lib/artifacts/` | Two locations | Consolidate to `features/artifacts/` |
-| Mixed `lib/ui/` | `lib/ui/` | Conflicts with `components/ui/` | Merge into appropriate locations |
+| Item                   | Location                        | Reason                          | Action                               |
+| ---------------------- | ------------------------------- | ------------------------------- | ------------------------------------ |
+| `ChatSDKError` naming  | `lib/errors.ts`                 | Legacy name, not just chat      | Rename to `AppError`                 |
+| `visibilityBySurface`  | `lib/errors.ts`                 | Unused error visibility system  | Remove                               |
+| Deprecated `NextError` | `global-error.tsx`              | Uses deprecated component       | Update to modern pattern             |
+| Class error boundary   | `artifact-error-boundary.tsx`   | Can be functional in React 19   | Convert to functional                |
+| Empty `lib/utils/`     | Directory                       | Empty folder                    | Remove                               |
+| Duplicate artifacts    | `artifacts/` + `lib/artifacts/` | Two locations                   | Consolidate to `features/artifacts/` |
+| Mixed `lib/ui/`        | `lib/ui/`                       | Conflicts with `components/ui/` | Merge into appropriate locations     |
 
 ### 6.4 Complexity Eliminated
 
-| Pattern | Current Issue | Solution |
-|---------|---------------|----------|
-| Dual Guard API | `requireAuth()` vs `requireAuthForRoute()` | Unified Result pattern |
-| Dual Validator API | `validateUUID()` vs `validateUUIDForRoute()` | Unified with result type |
-| Scattered `process.env` | 50+ direct accesses | Centralized `lib/config/env.ts` |
-| Giant switch statements | 200+ cases in error messages | Message catalog with lookup |
-| Manual cache patterns | Repeated 10+ times | Abstracted cache operations |
-| @ts-nocheck files | `tests/prompts/utils.ts` | Fix types, remove directive |
+| Pattern                 | Current Issue                                | Solution                        |
+| ----------------------- | -------------------------------------------- | ------------------------------- |
+| Dual Guard API          | `requireAuth()` vs `requireAuthForRoute()`   | Unified Result pattern          |
+| Dual Validator API      | `validateUUID()` vs `validateUUIDForRoute()` | Unified with result type        |
+| Scattered `process.env` | 50+ direct accesses                          | Centralized `lib/config/env.ts` |
+| Giant switch statements | 200+ cases in error messages                 | Message catalog with lookup     |
+| Manual cache patterns   | Repeated 10+ times                           | Abstracted cache operations     |
+| @ts-nocheck files       | `tests/prompts/utils.ts`                     | Fix types, remove directive     |
 
 ---
 
@@ -627,7 +627,7 @@ export function ChatProviders({ children }: Props) {
 
 ```typescript
 // Unified guard pattern for all contexts
-type AuthResult<T> = 
+type AuthResult<T> =
   | { success: true; data: T }
   | { success: false; error: AppError };
 
@@ -660,10 +660,7 @@ export async function GET(request: Request) {
 ```typescript
 // lib/errors/app-error.ts
 export class AppError extends Error {
-  constructor(
-    public code: ErrorCode,
-    public cause?: unknown
-  ) {
+  constructor(public code: ErrorCode, public cause?: unknown) {
     super(getErrorMessage(code));
     this.name = "AppError";
   }
@@ -701,29 +698,39 @@ export const log = {
     if (!shouldLog("debug")) return;
     logEvent("debug", message, attributes);
   },
-  
+
   info: (message: string, attributes?: Record<string, unknown>) => {
     logEvent("info", message, attributes);
   },
-  
+
   warn: (message: string, attributes?: Record<string, unknown>) => {
     logEvent("warn", message, attributes);
   },
-  
-  error: (message: string, error?: unknown, attributes?: Record<string, unknown>) => {
+
+  error: (
+    message: string,
+    error?: unknown,
+    attributes?: Record<string, unknown>
+  ) => {
     const span = trace.getActiveSpan();
     if (span) {
       span.setStatus({ code: SpanStatusCode.ERROR, message });
-      span.recordException(error instanceof Error ? error : new Error(String(error)));
+      span.recordException(
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
     logEvent("error", message, { ...attributes, error: serializeError(error) });
   },
 };
 
-function logEvent(level: string, message: string, attributes?: Record<string, unknown>) {
+function logEvent(
+  level: string,
+  message: string,
+  attributes?: Record<string, unknown>
+) {
   const ctx = getRequestContext();
   const span = trace.getActiveSpan();
-  
+
   const payload = {
     level,
     message,
@@ -731,7 +738,7 @@ function logEvent(level: string, message: string, attributes?: Record<string, un
     userId: ctx?.userId,
     ...attributes,
   };
-  
+
   span?.addEvent(message, payload);
   console[level === "debug" ? "log" : level](JSON.stringify(payload));
 }
@@ -746,7 +753,7 @@ import { redis } from "../client";
 import { CacheKeys } from "../keys";
 
 export async function getChatFromCache(
-  chatId: string, 
+  chatId: string,
   userId: string
 ): Promise<CachedChat | null> {
   return withCircuitBreaker("getChatFromCache", async () => {
@@ -754,18 +761,18 @@ export async function getChatFromCache(
       CacheKeys.chat.meta(chatId, userId),
       CacheKeys.chat.messages(chatId, userId),
     ];
-    
+
     const pipeline = redis.pipeline();
     pipeline.get(metaKey);
     pipeline.zrange(msgsKey, 0, -1);
-    
+
     const [metaResult, msgsResult] = await pipeline.exec();
-    
+
     if (!metaResult) return null;
-    
+
     return {
       ...JSON.parse(metaResult as string),
-      messages: (msgsResult as string[]).map(m => JSON.parse(m)),
+      messages: (msgsResult as string[]).map((m) => JSON.parse(m)),
     };
   });
 }
@@ -827,17 +834,18 @@ export async function getChatFromCache(
 
 **Priority: CRITICAL - All other work depends on this**
 
-| Task | Module | Effort | Dependencies |
-|------|--------|--------|--------------|
-| Refactor `lib/errors.ts` → `lib/errors/` | 01-error-handling | 3 days | None |
-| Rename `ChatSDKError` → `AppError` | 01-error-handling | 1 day | Task 1 |
-| Create unified error message catalog | 01-error-handling | 2 days | Task 1 |
-| Implement error mappers (postgres, ai) | 01-error-handling | 2 days | Task 2 |
-| Refactor `lib/auth/session.ts` | 02-authentication | 2 days | Task 1 |
-| Create unified guard pattern | 02-authentication | 2 days | Task 4 |
-| Extract Edge auth module from `proxy.ts` | 02-authentication | 1 day | Task 5 |
+| Task                                     | Module            | Effort | Dependencies |
+| ---------------------------------------- | ----------------- | ------ | ------------ |
+| Refactor `lib/errors.ts` → `lib/errors/` | 01-error-handling | 3 days | None         |
+| Rename `ChatSDKError` → `AppError`       | 01-error-handling | 1 day  | Task 1       |
+| Create unified error message catalog     | 01-error-handling | 2 days | Task 1       |
+| Implement error mappers (postgres, ai)   | 01-error-handling | 2 days | Task 2       |
+| Refactor `lib/auth/session.ts`           | 02-authentication | 2 days | Task 1       |
+| Create unified guard pattern             | 02-authentication | 2 days | Task 4       |
+| Extract Edge auth module from `proxy.ts` | 02-authentication | 1 day  | Task 5       |
 
 **Deliverables:**
+
 - [ ] `lib/errors/` module with `AppError` class
 - [ ] `lib/auth/` with `SessionManager` and unified guards
 - [ ] All existing error handling updated to new pattern
@@ -847,19 +855,20 @@ export async function getChatFromCache(
 
 **Priority: HIGH - Performance and maintainability foundation**
 
-| Task | Module | Effort | Dependencies |
-|------|--------|--------|--------------|
-| Split `lib/data/chat.ts` (1256 LOC) | 03-data-layer | 4 days | Phase 0 |
-| Split `lib/data/document.ts` (517 LOC) | 03-data-layer | 2 days | Task 1 |
-| Create `lib/data/` barrel exports | 03-data-layer | 1 day | Task 2 |
-| Split `lib/cache/operations.ts` (1080 LOC) | 04-cache-layer | 4 days | Task 1 |
-| Implement circuit breaker module | 04-cache-layer | 1 day | Task 4 |
-| Create cache key type system | 04-cache-layer | 1 day | Task 5 |
-| Restructure `lib/ai/providers/` | 05-ai-integration | 3 days | Phase 0 |
-| Implement lazy provider initialization | 05-ai-integration | 2 days | Task 7 |
-| Extract tools to `lib/ai/tools/` | 05-ai-integration | 2 days | Task 7 |
+| Task                                       | Module            | Effort | Dependencies |
+| ------------------------------------------ | ----------------- | ------ | ------------ |
+| Split `lib/data/chat.ts` (1256 LOC)        | 03-data-layer     | 4 days | Phase 0      |
+| Split `lib/data/document.ts` (517 LOC)     | 03-data-layer     | 2 days | Task 1       |
+| Create `lib/data/` barrel exports          | 03-data-layer     | 1 day  | Task 2       |
+| Split `lib/cache/operations.ts` (1080 LOC) | 04-cache-layer    | 4 days | Task 1       |
+| Implement circuit breaker module           | 04-cache-layer    | 1 day  | Task 4       |
+| Create cache key type system               | 04-cache-layer    | 1 day  | Task 5       |
+| Restructure `lib/ai/providers/`            | 05-ai-integration | 3 days | Phase 0      |
+| Implement lazy provider initialization     | 05-ai-integration | 2 days | Task 7       |
+| Extract tools to `lib/ai/tools/`           | 05-ai-integration | 2 days | Task 7       |
 
 **Deliverables:**
+
 - [ ] `lib/data/chat/` with read/write/update/cache modules
 - [ ] `lib/data/message/` with read/write/delete modules
 - [ ] `lib/cache/chat/`, `lib/cache/document/`, `lib/cache/user/`
@@ -870,22 +879,23 @@ export async function getChatFromCache(
 
 **Priority: HIGH - User-facing quality improvements**
 
-| Task | Module | Effort | Dependencies |
-|------|--------|--------|--------------|
-| Decompose `chat.tsx` (524 LOC) | 06-chat-system | 3 days | Phase 1 |
-| Extract `ChatProvider` context | 06-chat-system | 2 days | Task 1 |
-| Create `features/chat/` structure | 06-chat-system | 1 day | Task 2 |
-| Decompose `artifact.tsx` (622 LOC) | 07-artifact-system | 3 days | Phase 1 |
-| Implement artifact registry pattern | 07-artifact-system | 2 days | Task 4 |
-| Extract message parts to `messages/parts/` | 16-message-system | 2 days | Task 1 |
-| Implement tool lazy loading | 16-message-system | 2 days | Task 6 |
-| Consolidate document components | 17-document-system | 2 days | Task 4 |
-| Split `sidebar.tsx` (814 LOC) | 18-sidebar-navigation | 4 days | Task 3 |
-| Decompose `multimodal-input.tsx` | 19-multimodal-input | 3 days | Task 1 |
-| Refactor toolbar with registry | 20-toolbar-system | 2 days | Task 4 |
-| Unify model selector variants | 21-model-selector | 2 days | Task 1 |
+| Task                                       | Module                | Effort | Dependencies |
+| ------------------------------------------ | --------------------- | ------ | ------------ |
+| Decompose `chat.tsx` (524 LOC)             | 06-chat-system        | 3 days | Phase 1      |
+| Extract `ChatProvider` context             | 06-chat-system        | 2 days | Task 1       |
+| Create `features/chat/` structure          | 06-chat-system        | 1 day  | Task 2       |
+| Decompose `artifact.tsx` (622 LOC)         | 07-artifact-system    | 3 days | Phase 1      |
+| Implement artifact registry pattern        | 07-artifact-system    | 2 days | Task 4       |
+| Extract message parts to `messages/parts/` | 16-message-system     | 2 days | Task 1       |
+| Implement tool lazy loading                | 16-message-system     | 2 days | Task 6       |
+| Consolidate document components            | 17-document-system    | 2 days | Task 4       |
+| Split `sidebar.tsx` (814 LOC)              | 18-sidebar-navigation | 4 days | Task 3       |
+| Decompose `multimodal-input.tsx`           | 19-multimodal-input   | 3 days | Task 1       |
+| Refactor toolbar with registry             | 20-toolbar-system     | 2 days | Task 4       |
+| Unify model selector variants              | 21-model-selector     | 2 days | Task 1       |
 
 **Deliverables:**
+
 - [ ] `features/chat/` module with decomposed components
 - [ ] `features/artifacts/` module with registry pattern
 - [ ] `features/sidebar/` module with split provider
@@ -895,25 +905,26 @@ export async function getChatFromCache(
 
 **Priority: MEDIUM - Production readiness**
 
-| Task | Module | Effort | Dependencies |
-|------|--------|--------|--------------|
-| Flatten providers (9→4 levels) | 09-state-management | 3 days | Phase 2 |
-| Create `lib/providers/` composed providers | 09-state-management | 2 days | Task 1 |
-| Standardize API route patterns | 10-api-routes | 2 days | Phase 0 |
-| Implement Edge middleware | 11-middleware | 3 days | Phase 0 |
-| Create `lib/config/env.ts` validation | 12-settings | 2 days | None |
-| Implement feature flags | 12-settings | 1 day | Task 5 |
-| Add Vitest configuration | 13-testing | 2 days | None |
-| Create unit test templates | 13-testing | 2 days | Task 7 |
-| Optimize bundle chunks | 14-build-bundle | 3 days | Phase 2 |
-| Implement directory restructure | 15-directory | 4 days | All above |
-| Lazy load all editors | 22-editors | 2 days | Phase 2 |
-| Organize `lib/types/` | 23-types | 2 days | None |
-| Categorize utilities | 24-utilities | 1 day | None |
-| Add missing route files | 25-app-routing | 1 day | Phase 2 |
-| Add log levels and health check | 26-observability | 2 days | Phase 0 |
+| Task                                       | Module              | Effort | Dependencies |
+| ------------------------------------------ | ------------------- | ------ | ------------ |
+| Flatten providers (9→4 levels)             | 09-state-management | 3 days | Phase 2      |
+| Create `lib/providers/` composed providers | 09-state-management | 2 days | Task 1       |
+| Standardize API route patterns             | 10-api-routes       | 2 days | Phase 0      |
+| Implement Edge middleware                  | 11-middleware       | 3 days | Phase 0      |
+| Create `lib/config/env.ts` validation      | 12-settings         | 2 days | None         |
+| Implement feature flags                    | 12-settings         | 1 day  | Task 5       |
+| Add Vitest configuration                   | 13-testing          | 2 days | None         |
+| Create unit test templates                 | 13-testing          | 2 days | Task 7       |
+| Optimize bundle chunks                     | 14-build-bundle     | 3 days | Phase 2      |
+| Implement directory restructure            | 15-directory        | 4 days | All above    |
+| Lazy load all editors                      | 22-editors          | 2 days | Phase 2      |
+| Organize `lib/types/`                      | 23-types            | 2 days | None         |
+| Categorize utilities                       | 24-utilities        | 1 day  | None         |
+| Add missing route files                    | 25-app-routing      | 1 day  | Phase 2      |
+| Add log levels and health check            | 26-observability    | 2 days | Phase 0      |
 
 **Deliverables:**
+
 - [ ] Provider depth reduced to 4 levels
 - [ ] Edge middleware with rate limiting + security headers
 - [ ] Vitest setup with >80% utility coverage
@@ -922,14 +933,14 @@ export async function getChatFromCache(
 
 ### 8.6 Success Metrics
 
-| Metric | Current | Phase 0 | Phase 1 | Phase 2 | Phase 3 |
-|--------|---------|---------|---------|---------|---------|
-| Provider Depth | 9 | 9 | 9 | 6 | **4** |
-| Largest File LOC | 1,256 | 1,256 | **<300** | <300 | <300 |
-| Initial Bundle | ~350KB | ~350KB | ~320KB | ~250KB | **<200KB** |
-| Unit Test Coverage | 0% | 5% | 30% | 50% | **>80%** |
-| Edge Middleware | ❌ | ❌ | ❌ | ❌ | **✅** |
-| Feature Modules | 0 | 0 | 0 | **5** | 5 |
+| Metric             | Current | Phase 0 | Phase 1  | Phase 2 | Phase 3    |
+| ------------------ | ------- | ------- | -------- | ------- | ---------- |
+| Provider Depth     | 9       | 9       | 9        | 6       | **4**      |
+| Largest File LOC   | 1,256   | 1,256   | **<300** | <300    | <300       |
+| Initial Bundle     | ~350KB  | ~350KB  | ~320KB   | ~250KB  | **<200KB** |
+| Unit Test Coverage | 0%      | 5%      | 30%      | 50%     | **>80%**   |
+| Edge Middleware    | ❌      | ❌      | ❌       | ❌      | **✅**     |
+| Feature Modules    | 0       | 0       | 0        | **5**   | 5          |
 
 ---
 
@@ -937,35 +948,35 @@ export async function getChatFromCache(
 
 ### 9.1 Design Documents
 
-| # | Module | Document | Priority |
-|---|--------|----------|----------|
-| 00 | Master Task List | [00-MASTER-TASK-LIST.md](00-MASTER-TASK-LIST.md) | - |
-| 01 | Error Handling | [01-error-handling-optimal-design.md](01-error-handling-optimal-design.md) | P0 |
-| 02 | Authentication | [02-authentication-optimal-design.md](02-authentication-optimal-design.md) | P0 |
-| 03 | Data Layer | [03-data-layer-optimal-design.md](03-data-layer-optimal-design.md) | P0 |
-| 04 | Cache Layer | [04-cache-layer-optimal-design.md](04-cache-layer-optimal-design.md) | P0 |
-| 05 | AI Integration | [05-ai-integration-optimal-design.md](05-ai-integration-optimal-design.md) | P1 |
-| 06 | Chat System | [06-chat-system-optimal-design.md](06-chat-system-optimal-design.md) | P1 |
-| 07 | Artifact System | [07-artifact-system-optimal-design.md](07-artifact-system-optimal-design.md) | P1 |
-| 08 | UI Components | [08-ui-components-optimal-design.md](08-ui-components-optimal-design.md) | P2 |
-| 09 | State Management | [09-state-management-optimal-design.md](09-state-management-optimal-design.md) | P2 |
-| 10 | API Routes | [10-api-routes-optimal-design.md](10-api-routes-optimal-design.md) | P2 |
-| 11 | Middleware | [11-middleware-optimal-design.md](11-middleware-optimal-design.md) | P2 |
-| 12 | Settings | [12-settings-optimal-design.md](12-settings-optimal-design.md) | P2 |
-| 13 | Testing | [13-testing-optimal-design.md](13-testing-optimal-design.md) | P3 |
-| 14 | Build & Bundle | [14-build-bundle-optimal-design.md](14-build-bundle-optimal-design.md) | P3 |
-| 15 | Directory Structure | [15-directory-structure-optimal-design.md](15-directory-structure-optimal-design.md) | P3 |
-| 16 | Message System | [16-message-system-optimal-design.md](16-message-system-optimal-design.md) | P1 |
-| 17 | Document System | [17-document-system-optimal-design.md](17-document-system-optimal-design.md) | P1 |
-| 18 | Sidebar Navigation | [18-sidebar-navigation-optimal-design.md](18-sidebar-navigation-optimal-design.md) | P1 |
-| 19 | Multimodal Input | [19-multimodal-input-optimal-design.md](19-multimodal-input-optimal-design.md) | P2 |
-| 20 | Toolbar System | [20-toolbar-system-optimal-design.md](20-toolbar-system-optimal-design.md) | P2 |
-| 21 | Model Selector | [21-model-selector-optimal-design.md](21-model-selector-optimal-design.md) | P2 |
-| 22 | Editors | [22-editors-optimal-design.md](22-editors-optimal-design.md) | P2 |
-| 23 | Types System | [23-types-system-optimal-design.md](23-types-system-optimal-design.md) | P3 |
-| 24 | Utilities | [24-utilities-optimal-design.md](24-utilities-optimal-design.md) | P3 |
-| 25 | App Routing | [25-app-routing-optimal-design.md](25-app-routing-optimal-design.md) | P3 |
-| 26 | Observability | [26-observability-optimal-design.md](26-observability-optimal-design.md) | P3 |
+| #   | Module              | Document                                                                             | Priority |
+| --- | ------------------- | ------------------------------------------------------------------------------------ | -------- |
+| 00  | Master Task List    | [00-MASTER-TASK-LIST.md](00-MASTER-TASK-LIST.md)                                     | -        |
+| 01  | Error Handling      | [01-error-handling-optimal-design.md](01-error-handling-optimal-design.md)           | P0       |
+| 02  | Authentication      | [02-authentication-optimal-design.md](02-authentication-optimal-design.md)           | P0       |
+| 03  | Data Layer          | [03-data-layer-optimal-design.md](03-data-layer-optimal-design.md)                   | P0       |
+| 04  | Cache Layer         | [04-cache-layer-optimal-design.md](04-cache-layer-optimal-design.md)                 | P0       |
+| 05  | AI Integration      | [05-ai-integration-optimal-design.md](05-ai-integration-optimal-design.md)           | P1       |
+| 06  | Chat System         | [06-chat-system-optimal-design.md](06-chat-system-optimal-design.md)                 | P1       |
+| 07  | Artifact System     | [07-artifact-system-optimal-design.md](07-artifact-system-optimal-design.md)         | P1       |
+| 08  | UI Components       | [08-ui-components-optimal-design.md](08-ui-components-optimal-design.md)             | P2       |
+| 09  | State Management    | [09-state-management-optimal-design.md](09-state-management-optimal-design.md)       | P2       |
+| 10  | API Routes          | [10-api-routes-optimal-design.md](10-api-routes-optimal-design.md)                   | P2       |
+| 11  | Middleware          | [11-middleware-optimal-design.md](11-middleware-optimal-design.md)                   | P2       |
+| 12  | Settings            | [12-settings-optimal-design.md](12-settings-optimal-design.md)                       | P2       |
+| 13  | Testing             | [13-testing-optimal-design.md](13-testing-optimal-design.md)                         | P3       |
+| 14  | Build & Bundle      | [14-build-bundle-optimal-design.md](14-build-bundle-optimal-design.md)               | P3       |
+| 15  | Directory Structure | [15-directory-structure-optimal-design.md](15-directory-structure-optimal-design.md) | P3       |
+| 16  | Message System      | [16-message-system-optimal-design.md](16-message-system-optimal-design.md)           | P1       |
+| 17  | Document System     | [17-document-system-optimal-design.md](17-document-system-optimal-design.md)         | P1       |
+| 18  | Sidebar Navigation  | [18-sidebar-navigation-optimal-design.md](18-sidebar-navigation-optimal-design.md)   | P1       |
+| 19  | Multimodal Input    | [19-multimodal-input-optimal-design.md](19-multimodal-input-optimal-design.md)       | P2       |
+| 20  | Toolbar System      | [20-toolbar-system-optimal-design.md](20-toolbar-system-optimal-design.md)           | P2       |
+| 21  | Model Selector      | [21-model-selector-optimal-design.md](21-model-selector-optimal-design.md)           | P2       |
+| 22  | Editors             | [22-editors-optimal-design.md](22-editors-optimal-design.md)                         | P2       |
+| 23  | Types System        | [23-types-system-optimal-design.md](23-types-system-optimal-design.md)               | P3       |
+| 24  | Utilities           | [24-utilities-optimal-design.md](24-utilities-optimal-design.md)                     | P3       |
+| 25  | App Routing         | [25-app-routing-optimal-design.md](25-app-routing-optimal-design.md)                 | P3       |
+| 26  | Observability       | [26-observability-optimal-design.md](26-observability-optimal-design.md)             | P3       |
 
 ### 9.2 External References
 
@@ -982,14 +993,14 @@ export async function getChatFromCache(
 
 ### A.1 File Naming Conventions
 
-| Pattern | Usage | Example |
-|---------|-------|---------|
-| `*.tsx` | React components | `chat.tsx` |
-| `*.ts` | TypeScript modules | `session.ts` |
-| `*.server.ts` | Server-only code | `chat-actions.server.ts` |
-| `*.client.ts` | Client-only code | `supabase.client.ts` |
-| `*.test.ts` | Unit tests | `utils.test.ts` |
-| `*.schema.ts` | Zod validation schemas | `chat.schema.ts` |
+| Pattern       | Usage                  | Example                  |
+| ------------- | ---------------------- | ------------------------ |
+| `*.tsx`       | React components       | `chat.tsx`               |
+| `*.ts`        | TypeScript modules     | `session.ts`             |
+| `*.server.ts` | Server-only code       | `chat-actions.server.ts` |
+| `*.client.ts` | Client-only code       | `supabase.client.ts`     |
+| `*.test.ts`   | Unit tests             | `utils.test.ts`          |
+| `*.schema.ts` | Zod validation schemas | `chat.schema.ts`         |
 
 ### A.2 Import Aliases
 
@@ -1029,4 +1040,4 @@ pnpm db:studio             # Open Drizzle Studio
 
 ---
 
-*Generated by Ouroboros Architect for Next.js 16.0.10 Architecture Overhaul*
+_Generated by Ouroboros Architect for Next.js 16.0.10 Architecture Overhaul_

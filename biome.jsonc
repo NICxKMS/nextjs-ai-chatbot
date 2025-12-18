@@ -16,6 +16,11 @@
   },
   "linter": {
     "rules": {
+      "performance": {
+        /* Barrel files are intentional architectural pattern per architecture-overhaul specs */
+        "noBarrelFile": "off",
+        "noReExportAll": "off"
+      },
       "suspicious": {
         /* Needs more work to fix */
         "noExplicitAny": "off",

@@ -12,19 +12,20 @@ Define the optimal App Router architecture for Next.js 16 with Turbopack, establ
 
 ## Requirements
 
-| ID | Requirement |
-|----|-------------|
+| ID      | Requirement                                                  |
+| ------- | ------------------------------------------------------------ |
 | REQ-R01 | Route groups organize routes without affecting URL structure |
-| REQ-R02 | Layouts share UI efficiently across related routes |
-| REQ-R03 | Loading states provide immediate visual feedback |
-| REQ-R04 | Error boundaries isolate failures per route segment |
-| REQ-R05 | Parallel routes enable independent loading when applicable |
+| REQ-R02 | Layouts share UI efficiently across related routes           |
+| REQ-R03 | Loading states provide immediate visual feedback             |
+| REQ-R04 | Error boundaries isolate failures per route segment          |
+| REQ-R05 | Parallel routes enable independent loading when applicable   |
 
 ---
 
 ## Current Architecture Analysis
 
 ### Route Structure
+
 ```
 app/
 ├── layout.tsx              # Root: Providers, fonts, analytics
@@ -43,12 +44,14 @@ app/
 ```
 
 ### Strengths
+
 - **POS-001**: Route groups `(auth)`, `(chat)` cleanly separate concerns
 - **POS-002**: Nested layouts prevent provider re-mounting
 - **POS-003**: Loading/error files at route group level provide good UX
 - **POS-004**: Server Components for layouts optimize hydration
 
 ### Issues
+
 - **NEG-001**: No parallel routes for sidebar/main content independence
 - **NEG-002**: Missing not-found.tsx at route group level
 - **NEG-003**: No explicit route segment config exports
@@ -58,14 +61,19 @@ app/
 ## Design Decision
 
 ### Option 1: Enhanced Current Pattern (SELECTED)
+
 Improve existing structure with missing pieces.
 
 ### Option 2: Parallel Routes
+
 Use `@sidebar` and `@main` parallel routes.
+
 - **Rejected**: Over-engineering for current sidebar toggle behavior. Parallel routes better suit truly independent data fetching.
 
 ### Option 3: Intercepting Routes
+
 Add intercepting routes for modals.
+
 - **Rejected**: No current modal-based navigation requirements.
 
 ---
@@ -79,7 +87,9 @@ Add intercepting routes for modals.
 export default async function Layout({ children }) {
   const headersList = await headers();
   const isMobile = headersList.get("x-device-type") === "mobile";
-  return <ChatLayoutClient initialIsMobile={isMobile}>{children}</ChatLayoutClient>;
+  return (
+    <ChatLayoutClient initialIsMobile={isMobile}>{children}</ChatLayoutClient>
+  );
 }
 ```
 
@@ -100,11 +110,11 @@ app/
 
 ```typescript
 // app/(chat)/chat/[id]/page.tsx
-export const dynamic = 'force-dynamic';    // Real-time chat data
-export const revalidate = 0;               // No ISR caching
+export const dynamic = "force-dynamic"; // Real-time chat data
+export const revalidate = 0; // No ISR caching
 
 // app/(auth)/login/page.tsx
-export const dynamic = 'force-static';     // Static auth forms
+export const dynamic = "force-static"; // Static auth forms
 ```
 
 ### Loading State Hierarchy
@@ -115,7 +125,7 @@ graph TD
     B --> C[(chat) loading.tsx]
     B --> D[(auth) loading.tsx]
     C --> E[/chat/[id] loading.tsx]
-    
+
     style C fill:#4CAF50
     style E fill:#8BC34A
 ```
@@ -127,11 +137,13 @@ graph TD
 ## Consequences
 
 ### Positive
+
 - **POS-001**: Granular loading states per route segment
 - **POS-002**: Isolated error recovery without full page refresh
 - **POS-003**: TypeScript-first route config validation
 
 ### Negative
+
 - **NEG-001**: More files to maintain
 - **NEG-002**: Must ensure consistent styling across loading states
 

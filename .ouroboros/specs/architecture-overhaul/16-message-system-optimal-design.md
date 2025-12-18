@@ -21,22 +21,23 @@ The Message System is responsible for rendering, displaying, editing, and managi
 
 ## 2. Key Requirements
 
-| ID | Requirement | Priority |
-|----|-------------|----------|
-| REQ-MSG-001 | Render streaming messages with <50ms update latency | Critical |
+| ID          | Requirement                                                 | Priority |
+| ----------- | ----------------------------------------------------------- | -------- |
+| REQ-MSG-001 | Render streaming messages with <50ms update latency         | Critical |
 | REQ-MSG-002 | Support multi-part messages (text, reasoning, tools, files) | Critical |
-| REQ-MSG-003 | Virtualized rendering for 1000+ message conversations | High |
-| REQ-MSG-004 | Edit user messages with trailing message deletion | High |
-| REQ-MSG-005 | Copy/Vote actions on assistant messages | Medium |
-| REQ-MSG-006 | Prevent unnecessary re-renders during streaming | Critical |
-| REQ-MSG-007 | Auto-scroll behavior with user override | Medium |
-| REQ-MSG-008 | Reasoning collapse/expand with streaming detection | Medium |
+| REQ-MSG-003 | Virtualized rendering for 1000+ message conversations       | High     |
+| REQ-MSG-004 | Edit user messages with trailing message deletion           | High     |
+| REQ-MSG-005 | Copy/Vote actions on assistant messages                     | Medium   |
+| REQ-MSG-006 | Prevent unnecessary re-renders during streaming             | Critical |
+| REQ-MSG-007 | Auto-scroll behavior with user override                     | Medium   |
+| REQ-MSG-008 | Reasoning collapse/expand with streaming detection          | Medium   |
 
 ---
 
 ## 3. Current State Notes
 
 ### Architecture
+
 ```
 components/
 ├── messages.tsx          # Container with Virtuoso + memo
@@ -53,13 +54,13 @@ components/
 
 ### Issues Identified
 
-| Issue | Impact | Evidence |
-|-------|--------|----------|
-| **Monolithic message.tsx** | Hard to maintain, 387 lines | Single file handles all part types |
-| **Inline tool renderers** | No code reuse, duplicated error handling | tool-getWeather, tool-createDocument inline |
-| **Complex memo logic** | Fragile, easy to break | 15+ conditions in PreviewMessage memo |
-| **Mixed concerns** | View/Edit mode in single component | mode state changes cause full re-renders |
-| **No lazy loading** | All tool UI loaded upfront | DocumentPreview, Weather always bundled |
+| Issue                      | Impact                                   | Evidence                                    |
+| -------------------------- | ---------------------------------------- | ------------------------------------------- |
+| **Monolithic message.tsx** | Hard to maintain, 387 lines              | Single file handles all part types          |
+| **Inline tool renderers**  | No code reuse, duplicated error handling | tool-getWeather, tool-createDocument inline |
+| **Complex memo logic**     | Fragile, easy to break                   | 15+ conditions in PreviewMessage memo       |
+| **Mixed concerns**         | View/Edit mode in single component       | mode state changes cause full re-renders    |
+| **No lazy loading**        | All tool UI loaded upfront               | DocumentPreview, Weather always bundled     |
 
 ---
 
@@ -72,33 +73,33 @@ graph TB
     subgraph Container["Messages Container"]
         ML[MessagesListVirtualized]
     end
-    
+
     subgraph MessageLayer["Message Layer"]
         MI[MessageItem]
         MV[MessageView]
         ME[MessageEditMode]
     end
-    
+
     subgraph Parts["Part Renderers"]
         TP[TextPart]
         RP[ReasoningPart]
         FP[FilePart]
         TLP[ToolPartLoader]
     end
-    
+
     subgraph Tools["Lazy Tool Renderers"]
         WR[WeatherRenderer]
         DR[DocumentRenderer]
         SR[SuggestionsRenderer]
     end
-    
+
     subgraph Actions["Actions Layer"]
         MA[MessageActions]
         CA[CopyAction]
         VA[VoteActions]
         EA[EditAction]
     end
-    
+
     ML --> MI
     MI --> MV
     MI --> ME
@@ -124,7 +125,7 @@ sequenceDiagram
     participant ML as MessagesList
     participant MI as MessageItem
     participant PR as PartRenderer
-    
+
     DS->>UC: streaming delta
     UC->>ML: messages update
     ML->>ML: Virtuoso renders visible
@@ -165,36 +166,40 @@ components/
 
 ### 5.1 Critical Path (Initial Bundle)
 
-| Module | Size Target | Rationale |
-|--------|-------------|-----------|
-| messages-list.tsx | <5KB | Core virtualization |
-| message-item.tsx | <3KB | Wrapper only |
-| message-view.tsx | <4KB | Part delegation |
-| text-part.tsx | <2KB | Most common part |
+| Module            | Size Target | Rationale           |
+| ----------------- | ----------- | ------------------- |
+| messages-list.tsx | <5KB        | Core virtualization |
+| message-item.tsx  | <3KB        | Wrapper only        |
+| message-view.tsx  | <4KB        | Part delegation     |
+| text-part.tsx     | <2KB        | Most common part    |
 
 ### 5.2 Lazy-Loaded Modules
 
-| Module | Load Trigger | Expected Size |
-|--------|--------------|---------------|
-| message-edit.tsx | Edit button click | ~3KB |
-| reasoning-part.tsx | reasoning part exists | ~4KB |
-| tool-part-loader.tsx | tool part exists | ~2KB (loader) |
-| weather-tool.tsx | tool-getWeather | ~3KB |
-| document-tool.tsx | tool-*Document | ~8KB |
+| Module               | Load Trigger          | Expected Size |
+| -------------------- | --------------------- | ------------- |
+| message-edit.tsx     | Edit button click     | ~3KB          |
+| reasoning-part.tsx   | reasoning part exists | ~4KB          |
+| tool-part-loader.tsx | tool part exists      | ~2KB (loader) |
+| weather-tool.tsx     | tool-getWeather       | ~3KB          |
+| document-tool.tsx    | tool-\*Document       | ~8KB          |
 
 ### 5.3 Dynamic Import Pattern
 
 ```typescript
 // tool-part-loader.tsx
 const toolRenderers = {
-  'tool-getWeather': () => import('@/components/tools/weather-tool'),
-  'tool-createDocument': () => import('@/components/tools/document-tool'),
-  'tool-updateDocument': () => import('@/components/tools/document-tool'),
-  'tool-requestSuggestions': () => import('@/components/tools/suggestions-tool'),
+  "tool-getWeather": () => import("@/components/tools/weather-tool"),
+  "tool-createDocument": () => import("@/components/tools/document-tool"),
+  "tool-updateDocument": () => import("@/components/tools/document-tool"),
+  "tool-requestSuggestions": () =>
+    import("@/components/tools/suggestions-tool"),
 } as const;
 
 export function ToolPartLoader({ part }: { part: ToolUIPart }) {
-  const Renderer = lazy(() => toolRenderers[part.type]?.() ?? Promise.resolve({ default: UnknownTool }));
+  const Renderer = lazy(
+    () =>
+      toolRenderers[part.type]?.() ?? Promise.resolve({ default: UnknownTool })
+  );
   return (
     <Suspense fallback={<ToolSkeleton type={part.type} />}>
       <Renderer part={part} />
@@ -211,20 +216,29 @@ export function ToolPartLoader({ part }: { part: ToolUIPart }) {
 
 ```typescript
 // Simplified memo - delegate complexity to parts
-export const MessageItem = memo(function MessageItem({ message, ...props }) {
-  return message.role === 'user' 
-    ? <UserMessage message={message} {...props} />
-    : <AssistantMessage message={message} {...props} />;
-}, (prev, next) => {
-  // Simple equality - parts handle their own memo
-  return prev.message.id === next.message.id 
-    && prev.isLoading === next.isLoading;
-});
+export const MessageItem = memo(
+  function MessageItem({ message, ...props }) {
+    return message.role === "user" ? (
+      <UserMessage message={message} {...props} />
+    ) : (
+      <AssistantMessage message={message} {...props} />
+    );
+  },
+  (prev, next) => {
+    // Simple equality - parts handle their own memo
+    return (
+      prev.message.id === next.message.id && prev.isLoading === next.isLoading
+    );
+  }
+);
 
 // Part-level memo
-export const TextPart = memo(function TextPart({ text }) {
-  return <Response>{text}</Response>;
-}, (prev, next) => prev.text === next.text);
+export const TextPart = memo(
+  function TextPart({ text }) {
+    return <Response>{text}</Response>;
+  },
+  (prev, next) => prev.text === next.text
+);
 ```
 
 ### 6.2 Virtualization Config
@@ -232,22 +246,22 @@ export const TextPart = memo(function TextPart({ text }) {
 ```typescript
 // Optimized Virtuoso settings
 <Virtuoso
-  increaseViewportBy={{ top: 400, bottom: 400 }}  // Prerender buffer
-  overscan={3}                                     // Items to render beyond viewport
-  defaultItemHeight={120}                          // Estimated height for CLS
-  computeItemKey={(_, msg) => msg.id}             // Stable keys
+  increaseViewportBy={{ top: 400, bottom: 400 }} // Prerender buffer
+  overscan={3} // Items to render beyond viewport
+  defaultItemHeight={120} // Estimated height for CLS
+  computeItemKey={(_, msg) => msg.id} // Stable keys
   itemContent={itemContent}
 />
 ```
 
 ### 6.3 Streaming Optimization
 
-| Technique | Implementation | Benefit |
-|-----------|----------------|---------|
-| **Batched updates** | `requestAnimationFrame` wrapping | Reduce render frequency |
-| **Stable references** | `useCallback` for itemContent | Prevent Virtuoso re-renders |
-| **Part isolation** | Each part memos independently | Surgical re-renders |
-| **Artifact visibility skip** | Skip render when hidden | Zero cost when artifact open |
+| Technique                    | Implementation                   | Benefit                      |
+| ---------------------------- | -------------------------------- | ---------------------------- |
+| **Batched updates**          | `requestAnimationFrame` wrapping | Reduce render frequency      |
+| **Stable references**        | `useCallback` for itemContent    | Prevent Virtuoso re-renders  |
+| **Part isolation**           | Each part memos independently    | Surgical re-renders          |
+| **Artifact visibility skip** | Skip render when hidden          | Zero cost when artifact open |
 
 ---
 
@@ -255,12 +269,12 @@ export const TextPart = memo(function TextPart({ text }) {
 
 ### 7.1 Remove Redundancies
 
-| Current | Proposed | Rationale |
-|---------|----------|-----------|
-| `message.tsx` (387 lines) | Split into 5 files | Single responsibility |
-| Inline tool switch/case | Tool registry pattern | Extensible, lazy |
-| Duplicate error UI | Shared `ToolError` component | DRY |
-| Complex memo conditions | Part-level memoization | Simpler, composable |
+| Current                   | Proposed                     | Rationale             |
+| ------------------------- | ---------------------------- | --------------------- |
+| `message.tsx` (387 lines) | Split into 5 files           | Single responsibility |
+| Inline tool switch/case   | Tool registry pattern        | Extensible, lazy      |
+| Duplicate error UI        | Shared `ToolError` component | DRY                   |
+| Complex memo conditions   | Part-level memoization       | Simpler, composable   |
 
 ### 7.2 Unified Part Interface
 
@@ -277,7 +291,7 @@ const partRenderers: PartRenderer<any>[] = [
   textPartRenderer,
   reasoningPartRenderer,
   filePartRenderer,
-  toolPartRenderer,  // Handles all tool-* types
+  toolPartRenderer, // Handles all tool-* types
 ];
 ```
 
@@ -287,12 +301,24 @@ const partRenderers: PartRenderer<any>[] = [
 // Clean separation - no mode state in MessageItem
 function MessageItem({ message, isReadonly, ...props }) {
   const [isEditing, setIsEditing] = useState(false);
-  
-  if (isEditing && message.role === 'user') {
-    return <MessageEdit message={message} onClose={() => setIsEditing(false)} {...props} />;
+
+  if (isEditing && message.role === "user") {
+    return (
+      <MessageEdit
+        message={message}
+        onClose={() => setIsEditing(false)}
+        {...props}
+      />
+    );
   }
-  
-  return <MessageView message={message} onEdit={() => setIsEditing(true)} {...props} />;
+
+  return (
+    <MessageView
+      message={message}
+      onEdit={() => setIsEditing(true)}
+      {...props}
+    />
+  );
 }
 ```
 
@@ -302,21 +328,21 @@ function MessageItem({ message, isReadonly, ...props }) {
 
 ### 8.1 Internal Dependencies
 
-| Dependency | Type | Purpose |
-|------------|------|---------|
-| `lib/types.ts` | Type | ChatMessage, ChatTools |
-| `hooks/use-scroll-to-bottom.tsx` | Hook | Scroll behavior |
-| `components/data-stream-provider.tsx` | Context | Stream subscription |
-| `components/elements/response.tsx` | Component | Markdown rendering |
+| Dependency                            | Type      | Purpose                |
+| ------------------------------------- | --------- | ---------------------- |
+| `lib/types.ts`                        | Type      | ChatMessage, ChatTools |
+| `hooks/use-scroll-to-bottom.tsx`      | Hook      | Scroll behavior        |
+| `components/data-stream-provider.tsx` | Context   | Stream subscription    |
+| `components/elements/response.tsx`    | Component | Markdown rendering     |
 
 ### 8.2 External Dependencies
 
-| Package | Version | Purpose | Bundle Impact |
-|---------|---------|---------|---------------|
-| `react-virtuoso` | ^4.x | Virtualized list | ~15KB gzipped |
-| `streamdown` | ^0.x | Streaming markdown | ~8KB gzipped |
-| `framer-motion` | ^11.x | Animations | Tree-shakeable |
-| `fast-deep-equal` | ^3.x | Memo comparison | ~0.3KB |
+| Package           | Version | Purpose            | Bundle Impact  |
+| ----------------- | ------- | ------------------ | -------------- |
+| `react-virtuoso`  | ^4.x    | Virtualized list   | ~15KB gzipped  |
+| `streamdown`      | ^0.x    | Streaming markdown | ~8KB gzipped   |
+| `framer-motion`   | ^11.x   | Animations         | Tree-shakeable |
+| `fast-deep-equal` | ^3.x    | Memo comparison    | ~0.3KB         |
 
 ### 8.3 Dependency Optimization
 
@@ -334,6 +360,7 @@ function MessageItem({ message, isReadonly, ...props }) {
 ## 9. Migration Strategy
 
 ### Phase 1: Extract Components (Non-Breaking)
+
 1. Create `components/messages/` directory
 2. Extract `MessageView` from `message.tsx`
 3. Extract `MessageEdit` from `message.tsx`
@@ -341,16 +368,19 @@ function MessageItem({ message, isReadonly, ...props }) {
 5. Keep old `message.tsx` as facade
 
 ### Phase 2: Implement Lazy Loading
+
 1. Create `tools/` directory with lazy components
 2. Implement `ToolPartLoader` with dynamic imports
 3. Add Suspense boundaries with skeletons
 
 ### Phase 3: Optimize Memoization
+
 1. Simplify top-level memo logic
 2. Add part-level memoization
 3. Profile and validate performance
 
 ### Phase 4: Clean Up
+
 1. Remove facade/old components
 2. Update imports across codebase
 3. Document new architecture
@@ -360,29 +390,38 @@ function MessageItem({ message, isReadonly, ...props }) {
 ## 10. Trade-off Analysis
 
 ### Option 1: Incremental Refactor (SELECTED)
+
 **Pros:**
+
 - POS-001: No breaking changes during migration
 - POS-002: Can validate performance at each step
 - POS-003: Rollback possible at any phase
 
 **Cons:**
+
 - NEG-001: Longer total migration time
 - NEG-002: Temporary code duplication
 
 ### Option 2: Full Rewrite
+
 **Pros:**
+
 - ALT-001: Cleaner final result
 - ALT-002: Faster if done correctly
 
 **Cons:**
+
 - Rejected: High risk of regressions
 - Rejected: Blocks other work during rewrite
 
 ### Option 3: Keep Current Structure
+
 **Pros:**
+
 - ALT-003: Zero effort
 
 **Cons:**
+
 - Rejected: Technical debt accumulates
 - Rejected: Performance issues remain
 
@@ -390,13 +429,13 @@ function MessageItem({ message, isReadonly, ...props }) {
 
 ## 11. Success Metrics
 
-| Metric | Current | Target | Measurement |
-|--------|---------|--------|-------------|
-| message.tsx lines | 387 | <100 (facade) | LOC count |
-| Initial bundle (messages) | ~25KB | <15KB | Bundle analyzer |
-| Streaming render time | ~16ms | <8ms | React DevTools |
-| Memory (1000 messages) | TBD | <50MB | Chrome DevTools |
-| Part re-renders | Full message | Single part | React Profiler |
+| Metric                    | Current      | Target        | Measurement     |
+| ------------------------- | ------------ | ------------- | --------------- |
+| message.tsx lines         | 387          | <100 (facade) | LOC count       |
+| Initial bundle (messages) | ~25KB        | <15KB         | Bundle analyzer |
+| Streaming render time     | ~16ms        | <8ms          | React DevTools  |
+| Memory (1000 messages)    | TBD          | <50MB         | Chrome DevTools |
+| Part re-renders           | Full message | Single part   | React Profiler  |
 
 ---
 
@@ -409,7 +448,7 @@ flowchart LR
     subgraph Input
         M[ChatMessage]
     end
-    
+
     subgraph Processing
         M --> P{Part Type?}
         P -->|text| T[TextPart]
@@ -417,7 +456,7 @@ flowchart LR
         P -->|file| F[FilePart]
         P -->|tool-*| TL[ToolLoader]
     end
-    
+
     subgraph Output
         T --> DOM[DOM Update]
         R --> DOM

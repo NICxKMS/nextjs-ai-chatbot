@@ -24,13 +24,13 @@ Establish a cohesive, performant, and maintainable UI component architecture for
 
 **Component Inventory:**
 
-| Category | Count | Location |
-|----------|-------|----------|
-| Base UI (shadcn/ui) | 22 | `components/ui/` |
-| Feature Components | 32 | `components/` |
-| Element Components | 16 | `components/elements/` |
-| Settings Components | 1 | `components/settings/` |
-| **Total** | **71** | - |
+| Category            | Count  | Location               |
+| ------------------- | ------ | ---------------------- |
+| Base UI (shadcn/ui) | 22     | `components/ui/`       |
+| Feature Components  | 32     | `components/`          |
+| Element Components  | 16     | `components/elements/` |
+| Settings Components | 1      | `components/settings/` |
+| **Total**           | **71** | -                      |
 
 **Provider Hierarchy (Current - 6 levels deep):**
 
@@ -51,6 +51,7 @@ RootLayout
 **Issues Identified:**
 
 1. **Deep Provider Nesting**: 9 levels of context providers causing:
+
    - Potential re-render cascades
    - Difficult debugging in React DevTools
    - Complex dependency chains
@@ -69,22 +70,22 @@ RootLayout
 
 ### Functional Requirements
 
-| REQ-ID | Requirement | Priority |
-|--------|-------------|----------|
-| REQ-UI-001 | All interactive components must be keyboard accessible | P0 |
-| REQ-UI-002 | Theme switching must not cause layout shift | P0 |
-| REQ-UI-003 | Components must support RTL layouts | P1 |
-| REQ-UI-004 | Toast notifications must be screen-reader announced | P0 |
-| REQ-UI-005 | Form components must support native validation | P1 |
+| REQ-ID     | Requirement                                            | Priority |
+| ---------- | ------------------------------------------------------ | -------- |
+| REQ-UI-001 | All interactive components must be keyboard accessible | P0       |
+| REQ-UI-002 | Theme switching must not cause layout shift            | P0       |
+| REQ-UI-003 | Components must support RTL layouts                    | P1       |
+| REQ-UI-004 | Toast notifications must be screen-reader announced    | P0       |
+| REQ-UI-005 | Form components must support native validation         | P1       |
 
 ### Non-Functional Requirements
 
-| REQ-ID | Requirement | Target |
-|--------|-------------|--------|
-| REQ-UI-NFR-001 | First Contentful Paint | < 1.2s |
-| REQ-UI-NFR-002 | Largest Contentful Paint | < 2.5s |
-| REQ-UI-NFR-003 | Component JS bundle | < 50KB per route |
-| REQ-UI-NFR-004 | Provider depth | ≤ 4 levels |
+| REQ-ID         | Requirement                 | Target                     |
+| -------------- | --------------------------- | -------------------------- |
+| REQ-UI-NFR-001 | First Contentful Paint      | < 1.2s                     |
+| REQ-UI-NFR-002 | Largest Contentful Paint    | < 2.5s                     |
+| REQ-UI-NFR-003 | Component JS bundle         | < 50KB per route           |
+| REQ-UI-NFR-004 | Provider depth              | ≤ 4 levels                 |
 | REQ-UI-NFR-005 | Re-render on context change | Only subscribed components |
 
 ---
@@ -191,7 +192,7 @@ export function AppProviders({ children, initialSession }: AppProvidersProps) {
 }
 
 // lib/providers/chat-providers.tsx
-"use client";
+("use client");
 
 import { SettingsProvider } from "@/lib/ui/settings-store";
 import { DataStreamProvider } from "@/components/data-stream-provider";
@@ -203,7 +204,10 @@ type ChatProvidersProps = {
   defaultSidebarOpen?: boolean;
 };
 
-export function ChatProviders({ children, defaultSidebarOpen = true }: ChatProvidersProps) {
+export function ChatProviders({
+  children,
+  defaultSidebarOpen = true,
+}: ChatProvidersProps) {
   return (
     <SettingsProvider>
       <DataStreamProvider>
@@ -248,14 +252,14 @@ export function ChatProviders({ children, defaultSidebarOpen = true }: ChatProvi
 
 **Component Boundary Matrix:**
 
-| Component | Current | Proposed | Rationale |
-|-----------|---------|----------|-----------|
-| `Greeting` | Client | Server | Static text, no interactivity |
-| `ChatHeader` | Client | Hybrid | Actions need client, title is static |
-| `Icons` | Mixed | Server | SVG components, zero JS |
-| `Message` | Client | Client | Complex interactions required |
-| `SidebarHistoryItem` | Client | Client | Needs click handlers |
-| `VersionFooter` | Client | Server | Static version display |
+| Component            | Current | Proposed | Rationale                            |
+| -------------------- | ------- | -------- | ------------------------------------ |
+| `Greeting`           | Client  | Server   | Static text, no interactivity        |
+| `ChatHeader`         | Client  | Hybrid   | Actions need client, title is static |
+| `Icons`              | Mixed   | Server   | SVG components, zero JS              |
+| `Message`            | Client  | Client   | Complex interactions required        |
+| `SidebarHistoryItem` | Client  | Client   | Needs click handlers                 |
+| `VersionFooter`      | Client  | Server   | Static version display               |
 
 ### 4. Theme System Architecture
 
@@ -312,13 +316,13 @@ export function ChatProviders({ children, defaultSidebarOpen = true }: ChatProvi
 // Proposed: Split into compound components
 
 // components/ui/sidebar/index.tsx
-export { Sidebar } from './sidebar';
-export { SidebarProvider, useSidebar } from './sidebar-context';
-export { SidebarHeader } from './sidebar-header';
-export { SidebarContent } from './sidebar-content';
-export { SidebarFooter } from './sidebar-footer';
-export { SidebarMenu, SidebarMenuItem } from './sidebar-menu';
-export { SidebarTrigger } from './sidebar-trigger';
+export { Sidebar } from "./sidebar";
+export { SidebarProvider, useSidebar } from "./sidebar-context";
+export { SidebarHeader } from "./sidebar-header";
+export { SidebarContent } from "./sidebar-content";
+export { SidebarFooter } from "./sidebar-footer";
+export { SidebarMenu, SidebarMenuItem } from "./sidebar-menu";
+export { SidebarTrigger } from "./sidebar-trigger";
 ```
 
 **Pattern 2: Render Props for Flexibility**
@@ -327,12 +331,10 @@ export { SidebarTrigger } from './sidebar-trigger';
 // components/ui/select.tsx
 <Select>
   <SelectTrigger>
-    {({ open, value }) => (
-      <span>{value || 'Select...'}</span>
-    )}
+    {({ open, value }) => <span>{value || "Select..."}</span>}
   </SelectTrigger>
   <SelectContent>
-    {items.map(item => (
+    {items.map((item) => (
       <SelectItem key={item.id} value={item.id}>
         {item.label}
       </SelectItem>
@@ -345,36 +347,36 @@ export { SidebarTrigger } from './sidebar-trigger';
 
 ```typescript
 // Using Radix Slot for component composition
-import { Slot } from '@radix-ui/react-slot';
+import { Slot } from "@radix-ui/react-slot";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   asChild?: boolean;
 }
 
 const Button = ({ asChild, ...props }: ButtonProps) => {
-  const Comp = asChild ? Slot : 'button';
+  const Comp = asChild ? Slot : "button";
   return <Comp {...props} />;
 };
 
 // Usage: Button renders as Link
 <Button asChild>
   <Link href="/home">Go Home</Link>
-</Button>
+</Button>;
 ```
 
 ---
 
 ## Technology Stack
 
-| Layer | Technology | Version | Purpose |
-|-------|------------|---------|---------|
-| Styling | Tailwind CSS | v4.x | Utility-first CSS |
-| Components | shadcn/ui | Latest | Accessible component primitives |
-| Primitives | Radix UI | Latest | Headless accessible components |
-| Animations | Framer Motion | v11.x | Declarative animations |
-| Icons | Lucide React | Latest | Consistent icon set |
-| Variants | CVA | Latest | Type-safe component variants |
-| Theme | next-themes | v0.4.x | Dark/light mode handling |
+| Layer      | Technology    | Version | Purpose                         |
+| ---------- | ------------- | ------- | ------------------------------- |
+| Styling    | Tailwind CSS  | v4.x    | Utility-first CSS               |
+| Components | shadcn/ui     | Latest  | Accessible component primitives |
+| Primitives | Radix UI      | Latest  | Headless accessible components  |
+| Animations | Framer Motion | v11.x   | Declarative animations          |
+| Icons      | Lucide React  | Latest  | Consistent icon set             |
+| Variants   | CVA           | Latest  | Type-safe component variants    |
+| Theme      | next-themes   | v0.4.x  | Dark/light mode handling        |
 
 **Design System Configuration:**
 
@@ -409,15 +411,15 @@ const Button = ({ asChild, ...props }: ButtonProps) => {
 const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: [
-      'lucide-react',
-      '@radix-ui/react-icons',
-      'framer-motion',
-      'date-fns',
+      "lucide-react",
+      "@radix-ui/react-icons",
+      "framer-motion",
+      "date-fns",
     ],
   },
   modularizeImports: {
-    'lucide-react': {
-      transform: 'lucide-react/dist/esm/icons/{{kebabCase member}}',
+    "lucide-react": {
+      transform: "lucide-react/dist/esm/icons/{{kebabCase member}}",
     },
   },
 };
@@ -459,10 +461,10 @@ const nextConfig: NextConfig = {
 ```typescript
 // Tier 3: Interaction-triggered loading
 const CodeEditor = dynamic(
-  () => import('@/components/code-editor').then(m => m.CodeEditor),
-  { 
+  () => import("@/components/code-editor").then((m) => m.CodeEditor),
+  {
     ssr: false,
-    loading: () => <CodeEditorSkeleton />
+    loading: () => <CodeEditorSkeleton />,
   }
 );
 
@@ -470,7 +472,7 @@ const CodeEditor = dynamic(
 const LazyComponent = ({ children }: { children: React.ReactNode }) => {
   const [isVisible, setIsVisible] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -479,13 +481,13 @@ const LazyComponent = ({ children }: { children: React.ReactNode }) => {
           observer.disconnect();
         }
       },
-      { rootMargin: '100px' }
+      { rootMargin: "100px" }
     );
-    
+
     if (ref.current) observer.observe(ref.current);
     return () => observer.disconnect();
   }, []);
-  
+
   return <div ref={ref}>{isVisible ? children : <Skeleton />}</div>;
 };
 ```
@@ -496,13 +498,13 @@ const LazyComponent = ({ children }: { children: React.ReactNode }) => {
 
 ### Current Issues → Proposed Solutions
 
-| Issue | Current State | Proposed Solution | Impact |
-|-------|--------------|-------------------|--------|
-| Provider Depth | 9 levels | 4 levels (composed) | -55% depth |
-| Sidebar Size | 814 lines | ~150 lines (split) | Better maintainability |
-| Client Overuse | 40+ client components | ~25 (hybrid pattern) | Smaller JS bundle |
-| No Icons Server | All client icons | Server component icons | Zero JS icons |
-| Duplicate Context | Split state/dispatch | Unified where possible | Simpler mental model |
+| Issue             | Current State         | Proposed Solution      | Impact                 |
+| ----------------- | --------------------- | ---------------------- | ---------------------- |
+| Provider Depth    | 9 levels              | 4 levels (composed)    | -55% depth             |
+| Sidebar Size      | 814 lines             | ~150 lines (split)     | Better maintainability |
+| Client Overuse    | 40+ client components | ~25 (hybrid pattern)   | Smaller JS bundle      |
+| No Icons Server   | All client icons      | Server component icons | Zero JS icons          |
+| Duplicate Context | Split state/dispatch  | Unified where possible | Simpler mental model   |
 
 ### Provider Composition Pattern
 
@@ -569,17 +571,17 @@ graph TD
         Elements[components/elements/*]
         Features[components/*]
     end
-    
+
     subgraph "Hooks Layer"
         Hooks[hooks/*]
     end
-    
+
     subgraph "Library Layer"
         Utils[lib/utils.ts]
         Motion[lib/motion.tsx]
         UIStore[lib/ui/settings-store.tsx]
     end
-    
+
     Features --> UI
     Features --> Elements
     Features --> Hooks
@@ -591,16 +593,16 @@ graph TD
 
 ### External Dependencies
 
-| Package | Purpose | Bundle Impact |
-|---------|---------|---------------|
-| `next-themes` | Theme switching | ~2KB |
-| `class-variance-authority` | Variant management | ~1KB |
-| `clsx` + `tailwind-merge` | Class composition | ~3KB |
-| `@radix-ui/*` | Accessible primitives | Tree-shaken |
-| `lucide-react` | Icons | Tree-shaken per icon |
-| `framer-motion` | Animations | ~30KB (split) |
-| `react-virtuoso` | List virtualization | ~15KB |
-| `sonner` | Toast notifications | ~5KB |
+| Package                    | Purpose               | Bundle Impact        |
+| -------------------------- | --------------------- | -------------------- |
+| `next-themes`              | Theme switching       | ~2KB                 |
+| `class-variance-authority` | Variant management    | ~1KB                 |
+| `clsx` + `tailwind-merge`  | Class composition     | ~3KB                 |
+| `@radix-ui/*`              | Accessible primitives | Tree-shaken          |
+| `lucide-react`             | Icons                 | Tree-shaken per icon |
+| `framer-motion`            | Animations            | ~30KB (split)        |
+| `react-virtuoso`           | List virtualization   | ~15KB                |
+| `sonner`                   | Toast notifications   | ~5KB                 |
 
 ---
 
@@ -610,15 +612,26 @@ graph TD
 
 ```typescript
 // components/ui/index.ts (barrel export)
-export { Button, buttonVariants } from './button';
-export { Input } from './input';
-export { Label } from './label';
-export { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
-export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip';
+export { Button, buttonVariants } from "./button";
+export { Input } from "./input";
+export { Label } from "./label";
+export {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./select";
+export {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./tooltip";
 // ... other exports
 
 // Usage
-import { Button, Input, Select } from '@/components/ui';
+import { Button, Input, Select } from "@/components/ui";
 ```
 
 ### Design Token Exports
@@ -627,21 +640,21 @@ import { Button, Input, Select } from '@/components/ui';
 // lib/design-tokens.ts
 export const tokens = {
   colors: {
-    primary: 'hsl(var(--primary))',
-    secondary: 'hsl(var(--secondary))',
+    primary: "hsl(var(--primary))",
+    secondary: "hsl(var(--secondary))",
     // ...
   },
   spacing: {
-    xs: '0.25rem',
-    sm: '0.5rem',
-    md: '1rem',
-    lg: '1.5rem',
-    xl: '2rem',
+    xs: "0.25rem",
+    sm: "0.5rem",
+    md: "1rem",
+    lg: "1.5rem",
+    xl: "2rem",
   },
   radius: {
-    sm: 'calc(var(--radius) - 4px)',
-    md: 'calc(var(--radius) - 2px)',
-    lg: 'var(--radius)',
+    sm: "calc(var(--radius) - 4px)",
+    md: "calc(var(--radius) - 2px)",
+    lg: "var(--radius)",
   },
 } as const;
 ```
@@ -650,11 +663,14 @@ export const tokens = {
 
 ```typescript
 // hooks/index.ts
-export { useArtifact, useArtifactSelector } from './use-artifact';
-export { useChatVisibility } from './use-chat-visibility';
-export { useIsMobile } from './use-mobile';
-export { useOptimisticChats, OptimisticChatsProvider } from './use-optimistic-chats';
-export { useScrollToBottom } from './use-scroll-to-bottom';
+export { useArtifact, useArtifactSelector } from "./use-artifact";
+export { useChatVisibility } from "./use-chat-visibility";
+export { useIsMobile } from "./use-mobile";
+export {
+  useOptimisticChats,
+  OptimisticChatsProvider,
+} from "./use-optimistic-chats";
+export { useScrollToBottom } from "./use-scroll-to-bottom";
 ```
 
 ---
@@ -665,15 +681,18 @@ export { useScrollToBottom } from './use-scroll-to-bottom';
 
 ```typescript
 // Component memoization with custom comparator
-const Message = memo(function Message({ message, vote }: MessageProps) {
-  // Component implementation
-}, (prevProps, nextProps) => {
-  return (
-    prevProps.message.id === nextProps.message.id &&
-    prevProps.message.content === nextProps.message.content &&
-    prevProps.vote?.value === nextProps.vote?.value
-  );
-});
+const Message = memo(
+  function Message({ message, vote }: MessageProps) {
+    // Component implementation
+  },
+  (prevProps, nextProps) => {
+    return (
+      prevProps.message.id === nextProps.message.id &&
+      prevProps.message.content === nextProps.message.content &&
+      prevProps.vote?.value === nextProps.vote?.value
+    );
+  }
+);
 
 // Selector memoization for context
 const selectIsVisible = (state: UIArtifact) => state.isVisible;
@@ -691,7 +710,7 @@ const isVisible = useArtifactSelector(selectIsVisible); // Stable selector
     <PreviewMessage
       key={message.id}
       message={message}
-      vote={votes?.find(v => v.messageId === message.id)}
+      vote={votes?.find((v) => v.messageId === message.id)}
     />
   )}
   atBottomStateChange={handleAtBottomStateChange}
@@ -705,32 +724,34 @@ const isVisible = useArtifactSelector(selectIsVisible); // Stable selector
 // DataStreamProvider splits state and dispatch
 // Components using dispatch don't re-render on state changes
 const DataStreamStateContext = createContext<DataStreamState | null>(null);
-const DataStreamDispatchContext = createContext<DataStreamDispatch | null>(null);
+const DataStreamDispatchContext = createContext<DataStreamDispatch | null>(
+  null
+);
 
 // Usage
-const state = useDataStreamState();     // Re-renders on state change
+const state = useDataStreamState(); // Re-renders on state change
 const dispatch = useDataStreamDispatch(); // Never re-renders
 ```
 
 ### 4. Render Optimization Checklist
 
-| Technique | Applied To | Benefit |
-|-----------|------------|---------|
-| `React.memo` | Message, PreviewMessage | Prevent re-renders |
-| `useMemo` | Complex computations | Cache expensive calcs |
-| `useCallback` | Event handlers | Stable references |
-| Split contexts | DataStreamProvider | Granular subscriptions |
-| Virtualization | Messages list | Render only visible |
-| `key` strategy | Lists | Efficient reconciliation |
+| Technique      | Applied To              | Benefit                  |
+| -------------- | ----------------------- | ------------------------ |
+| `React.memo`   | Message, PreviewMessage | Prevent re-renders       |
+| `useMemo`      | Complex computations    | Cache expensive calcs    |
+| `useCallback`  | Event handlers          | Stable references        |
+| Split contexts | DataStreamProvider      | Granular subscriptions   |
+| Virtualization | Messages list           | Render only visible      |
+| `key` strategy | Lists                   | Efficient reconciliation |
 
 ### 5. Bundle Size Targets
 
-| Route | Current (est.) | Target | Strategy |
-|-------|---------------|--------|----------|
-| `/` (home) | ~120KB | < 80KB | Server greeting, lazy sidebar |
-| `/chat/[id]` | ~200KB | < 150KB | Split editors, virtualize |
-| `/login` | ~60KB | < 40KB | Minimal client JS |
-| Artifact open | +150KB | +100KB | True on-demand loading |
+| Route         | Current (est.) | Target  | Strategy                      |
+| ------------- | -------------- | ------- | ----------------------------- |
+| `/` (home)    | ~120KB         | < 80KB  | Server greeting, lazy sidebar |
+| `/chat/[id]`  | ~200KB         | < 150KB | Split editors, virtualize     |
+| `/login`      | ~60KB          | < 40KB  | Minimal client JS             |
+| Artifact open | +150KB         | +100KB  | True on-demand loading        |
 
 ---
 
@@ -791,6 +812,7 @@ const dispatch = useDataStreamDispatch(); // Never re-renders
 
 ```markdown
 For each component migration:
+
 - [ ] Identify if it needs browser APIs (→ client)
 - [ ] Identify if it has event handlers (→ client)
 - [ ] Identify if it uses hooks (→ client)

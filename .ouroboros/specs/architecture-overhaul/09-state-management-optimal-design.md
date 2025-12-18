@@ -40,26 +40,26 @@ RootLayout (Server)
 
 **Custom Hooks Inventory (7 in `/hooks/`):**
 
-| Hook | Purpose | State Type | Dependencies |
-|------|---------|------------|--------------|
-| `useArtifact` | Artifact UI state via SWR cache | Local + Cache | SWR |
-| `useArtifactSelector` | Optimized artifact reads | Derived | SWR |
-| `useChatVisibility` | Chat visibility status | Server + Local | SWR, SWRInfinite |
-| `useMessages` | Message list scroll state | Local | useScrollToBottom |
-| `useMobile` | Responsive breakpoint | Local | - |
-| `useOptimisticChats` | Optimistic chat entries | Local | Context |
-| `useScrollToBottom` | Auto-scroll behavior | Local + Cache | SWR |
+| Hook                  | Purpose                         | State Type     | Dependencies      |
+| --------------------- | ------------------------------- | -------------- | ----------------- |
+| `useArtifact`         | Artifact UI state via SWR cache | Local + Cache  | SWR               |
+| `useArtifactSelector` | Optimized artifact reads        | Derived        | SWR               |
+| `useChatVisibility`   | Chat visibility status          | Server + Local | SWR, SWRInfinite  |
+| `useMessages`         | Message list scroll state       | Local          | useScrollToBottom |
+| `useMobile`           | Responsive breakpoint           | Local          | -                 |
+| `useOptimisticChats`  | Optimistic chat entries         | Local          | Context           |
+| `useScrollToBottom`   | Auto-scroll behavior            | Local + Cache  | SWR               |
 
 **Context Providers Inventory (6 total):**
 
-| Provider | Location | Purpose | Re-render Risk |
-|----------|----------|---------|----------------|
-| `AuthProvider` | `components/auth-provider.tsx` | Session state | High (160 lines) |
-| `ThemeProvider` | `components/theme-provider.tsx` | Dark/light mode | Low |
-| `DataStreamProvider` | `components/data-stream-provider.tsx` | SSE stream data | Medium |
-| `SettingsProvider` | `lib/ui/settings-store.tsx` | User preferences | Medium |
-| `OptimisticChatsProvider` | `hooks/use-optimistic-chats.tsx` | Pending chats | Medium |
-| `SidebarProvider` | `components/ui/sidebar.tsx` | Sidebar open state | Low |
+| Provider                  | Location                              | Purpose            | Re-render Risk   |
+| ------------------------- | ------------------------------------- | ------------------ | ---------------- |
+| `AuthProvider`            | `components/auth-provider.tsx`        | Session state      | High (160 lines) |
+| `ThemeProvider`           | `components/theme-provider.tsx`       | Dark/light mode    | Low              |
+| `DataStreamProvider`      | `components/data-stream-provider.tsx` | SSE stream data    | Medium           |
+| `SettingsProvider`        | `lib/ui/settings-store.tsx`           | User preferences   | Medium           |
+| `OptimisticChatsProvider` | `hooks/use-optimistic-chats.tsx`      | Pending chats      | Medium           |
+| `SidebarProvider`         | `components/ui/sidebar.tsx`           | Sidebar open state | Low              |
 
 **Issues Identified:**
 
@@ -81,24 +81,24 @@ RootLayout (Server)
 
 ### Functional Requirements
 
-| REQ-ID | Requirement | Priority |
-|--------|-------------|----------|
-| REQ-SM-001 | Auth state must be accessible throughout app | P0 |
-| REQ-SM-002 | Settings must persist to localStorage | P0 |
-| REQ-SM-003 | Chat history must support infinite scroll pagination | P1 |
-| REQ-SM-004 | Optimistic updates must rollback on server error | P0 |
-| REQ-SM-005 | Stream data must be consumed without blocking UI | P0 |
-| REQ-SM-006 | Sidebar state must persist across sessions | P1 |
+| REQ-ID     | Requirement                                          | Priority |
+| ---------- | ---------------------------------------------------- | -------- |
+| REQ-SM-001 | Auth state must be accessible throughout app         | P0       |
+| REQ-SM-002 | Settings must persist to localStorage                | P0       |
+| REQ-SM-003 | Chat history must support infinite scroll pagination | P1       |
+| REQ-SM-004 | Optimistic updates must rollback on server error     | P0       |
+| REQ-SM-005 | Stream data must be consumed without blocking UI     | P0       |
+| REQ-SM-006 | Sidebar state must persist across sessions           | P1       |
 
 ### Non-Functional Requirements
 
-| REQ-ID | Requirement | Target |
-|--------|-------------|--------|
-| REQ-SM-NFR-001 | Provider depth | ≤ 4 levels |
-| REQ-SM-NFR-002 | Context re-renders | Only subscribed components |
-| REQ-SM-NFR-003 | SWR cache deduplication | 10s minimum |
-| REQ-SM-NFR-004 | Optimistic update latency | < 50ms perceived |
-| REQ-SM-NFR-005 | Memory for streaming state | < 5MB per chat |
+| REQ-ID         | Requirement                | Target                     |
+| -------------- | -------------------------- | -------------------------- |
+| REQ-SM-NFR-001 | Provider depth             | ≤ 4 levels                 |
+| REQ-SM-NFR-002 | Context re-renders         | Only subscribed components |
+| REQ-SM-NFR-003 | SWR cache deduplication    | 10s minimum                |
+| REQ-SM-NFR-004 | Optimistic update latency  | < 50ms perceived           |
+| REQ-SM-NFR-005 | Memory for streaming state | < 5MB per chat             |
 
 ---
 
@@ -239,9 +239,7 @@ export function ChatProviders({ children }: { children: React.ReactNode }) {
   return (
     <SettingsProvider>
       <DataStreamProvider>
-        <OptimisticChatsProvider>
-          {children}
-        </OptimisticChatsProvider>
+        <OptimisticChatsProvider>{children}</OptimisticChatsProvider>
       </DataStreamProvider>
     </SettingsProvider>
   );
@@ -255,10 +253,10 @@ export function ChatProviders({ children }: { children: React.ReactNode }) {
 ```tsx
 // ❌ Current: All consumers re-render on ANY change
 type AuthContextValue = {
-  session: AppSession | null;      // Changes on login/logout
-  status: AuthStatus;              // Changes with session
-  isNewSession: boolean;           // Changes once per session
-  setSession: (s) => void;         // Stable
+  session: AppSession | null; // Changes on login/logout
+  status: AuthStatus; // Changes with session
+  isNewSession: boolean; // Changes once per session
+  setSession: (s) => void; // Stable
   clearNewSessionFlag: () => void; // Stable
 };
 ```
@@ -286,10 +284,18 @@ type AuthActionsContext = {
 };
 
 // Hooks for granular subscription
-export function useAuthSession() { return useContext(AuthStateContext); }
-export function useAuthStatus() { return useContext(AuthStateContext).status; }
-export function useAuthFlags() { return useContext(AuthFlagsContext); }
-export function useAuthActions() { return useContext(AuthActionsContext); }
+export function useAuthSession() {
+  return useContext(AuthStateContext);
+}
+export function useAuthStatus() {
+  return useContext(AuthStateContext).status;
+}
+export function useAuthFlags() {
+  return useContext(AuthFlagsContext);
+}
+export function useAuthActions() {
+  return useContext(AuthActionsContext);
+}
 
 // Backward-compatible combined hook
 export function useAuth() {
@@ -309,16 +315,18 @@ export function useAuth() {
 export const SWR_KEYS = {
   // Auth
   session: "auth:session",
-  
+
   // Chat
-  chatHistory: (cursor?: string) => 
-    cursor ? `/api/history?ending_before=${cursor}&limit=20` : "/api/history?limit=20",
+  chatHistory: (cursor?: string) =>
+    cursor
+      ? `/api/history?ending_before=${cursor}&limit=20`
+      : "/api/history?limit=20",
   chatVisibility: (chatId: string) => `chat:${chatId}:visibility`,
-  
+
   // Artifact (local cache, no fetcher)
   artifact: "artifact:current",
   artifactMetadata: (docId: string) => `artifact:metadata:${docId}`,
-  
+
   // UI State (local cache, no fetcher)
   scrollBehavior: "ui:scroll-behavior",
 } as const;
@@ -338,19 +346,15 @@ export async function updateChatVisibilityOptimistic(
   updateFn: () => Promise<void>
 ) {
   const key = SWR_KEYS.chatVisibility(chatId);
-  
+
   // Optimistic update
-  await mutate(
-    key,
-    newVisibility,
-    {
-      optimisticData: newVisibility,
-      rollbackOnError: true,
-      populateCache: true,
-      revalidate: false,
-    }
-  );
-  
+  await mutate(key, newVisibility, {
+    optimisticData: newVisibility,
+    rollbackOnError: true,
+    populateCache: true,
+    revalidate: false,
+  });
+
   try {
     await updateFn();
     // Revalidate after server confirms
@@ -429,7 +433,7 @@ export function useOptimisticChats() {
         userId: "", // Placeholder
         visibility: "private",
       };
-      
+
       mutate(
         OPTIMISTIC_CHATS_KEY,
         (current: Chat[] = []) => [newChat, ...current].slice(0, 50),
@@ -481,7 +485,13 @@ The `DataStreamProvider` correctly splits state/dispatch contexts. Enhancement:
 // components/data-stream-provider.tsx (Enhanced)
 "use client";
 
-import { createContext, useCallback, useContext, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useRef,
+  useState,
+} from "react";
 import type { DataUIPart } from "ai";
 import type { CustomUIDataTypes } from "@/lib/types";
 
@@ -493,26 +503,31 @@ type DataStreamDispatch = {
 };
 
 const DataStreamStateContext = createContext<DataStreamState | null>(null);
-const DataStreamDispatchContext = createContext<DataStreamDispatch | null>(null);
+const DataStreamDispatchContext = createContext<DataStreamDispatch | null>(
+  null
+);
 
-export function DataStreamProvider({ children }: { children: React.ReactNode }) {
+export function DataStreamProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [dataStream, setDataStream] = useState<DataStreamState>([]);
-  
+
   // Stable dispatch functions
-  const append = useCallback(
-    (part: DataUIPart<CustomUIDataTypes>) => {
-      setDataStream((prev) => [...prev, part]);
-    },
-    []
-  );
-  
+  const append = useCallback((part: DataUIPart<CustomUIDataTypes>) => {
+    setDataStream((prev) => [...prev, part]);
+  }, []);
+
   const clear = useCallback(() => {
     setDataStream([]);
   }, []);
 
   return (
     <DataStreamStateContext.Provider value={dataStream}>
-      <DataStreamDispatchContext.Provider value={{ append, clear, setStream: setDataStream }}>
+      <DataStreamDispatchContext.Provider
+        value={{ append, clear, setStream: setDataStream }}
+      >
         {children}
       </DataStreamDispatchContext.Provider>
     </DataStreamStateContext.Provider>
@@ -549,7 +564,13 @@ export function useDataStream() {
 // lib/ui/settings-store.tsx (Enhanced)
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useSyncExternalStore,
+} from "react";
 import type { AppSettings } from "@/lib/settings/types";
 
 const STORAGE_KEY = "chat-sdk.settings";
@@ -590,7 +611,7 @@ export function useSettings() {
     store.getSnapshot,
     store.getServerSnapshot
   );
-  
+
   return {
     settings,
     updateSettings: store.update,
@@ -613,14 +634,14 @@ export function useSettingSelector<T>(selector: (s: AppSettings) => T): T {
 
 ## Technology Stack
 
-| Category | Technology | Purpose |
-|----------|------------|---------|
-| Server State | SWR 2.x | Caching, revalidation, optimistic mutations |
-| Client State | React Context | Theme, sidebar, cross-cutting concerns |
-| Persisted State | localStorage + useSyncExternalStore | Settings persistence |
-| Streaming State | useState + useCallback | High-frequency data stream |
-| Form State | React Hook Form (existing) | Form validation |
-| URL State | Next.js useSearchParams | Query parameters |
+| Category        | Technology                          | Purpose                                     |
+| --------------- | ----------------------------------- | ------------------------------------------- |
+| Server State    | SWR 2.x                             | Caching, revalidation, optimistic mutations |
+| Client State    | React Context                       | Theme, sidebar, cross-cutting concerns      |
+| Persisted State | localStorage + useSyncExternalStore | Settings persistence                        |
+| Streaming State | useState + useCallback              | High-frequency data stream                  |
+| Form State      | React Hook Form (existing)          | Form validation                             |
+| URL State       | Next.js useSearchParams             | Query parameters                            |
 
 ---
 
@@ -648,13 +669,13 @@ export { useOptimisticChats } from "./optimistic-chats";
 
 **Estimated Bundle Impact:**
 
-| Module | Current | After Optimization |
-|--------|---------|-------------------|
-| Auth Provider | 4.2 KB | 3.1 KB (split contexts) |
-| Settings Store | 2.8 KB | 2.4 KB (external store) |
-| Optimistic Chats | 2.1 KB | 1.4 KB (SWR-based) |
-| Data Stream | 1.6 KB | 1.8 KB (enhanced dispatch) |
-| **Total** | **10.7 KB** | **8.7 KB** |
+| Module           | Current     | After Optimization         |
+| ---------------- | ----------- | -------------------------- |
+| Auth Provider    | 4.2 KB      | 3.1 KB (split contexts)    |
+| Settings Store   | 2.8 KB      | 2.4 KB (external store)    |
+| Optimistic Chats | 2.1 KB      | 1.4 KB (SWR-based)         |
+| Data Stream      | 1.6 KB      | 1.8 KB (enhanced dispatch) |
+| **Total**        | **10.7 KB** | **8.7 KB**                 |
 
 ---
 
@@ -662,26 +683,26 @@ export { useOptimisticChats } from "./optimistic-chats";
 
 ### 1. Reduce Provider Depth (9 → 4)
 
-| Current | Proposed |
-|---------|----------|
-| 9 nested levels | 4 levels with composition |
+| Current                        | Proposed                   |
+| ------------------------------ | -------------------------- |
+| 9 nested levels                | 4 levels with composition  |
 | 6 separate provider components | 3 composed provider groups |
 
 ### 2. Consolidate Hooks
 
-| Current | Proposed | Action |
-|---------|----------|--------|
-| `useOptimisticChats` (Context) | `useOptimisticChats` (SWR) | Rewrite |
-| `useChatVisibility` (SWR + SWRInfinite) | `useChatVisibility` (SWR) | Simplify |
-| `useArtifact` + `useArtifactSelector` | Keep as-is (already optimized) | None |
-| `useScrollToBottom` (SWR cache hack) | `useScrollToBottom` (local state) | Simplify |
+| Current                                 | Proposed                          | Action   |
+| --------------------------------------- | --------------------------------- | -------- |
+| `useOptimisticChats` (Context)          | `useOptimisticChats` (SWR)        | Rewrite  |
+| `useChatVisibility` (SWR + SWRInfinite) | `useChatVisibility` (SWR)         | Simplify |
+| `useArtifact` + `useArtifactSelector`   | Keep as-is (already optimized)    | None     |
+| `useScrollToBottom` (SWR cache hack)    | `useScrollToBottom` (local state) | Simplify |
 
 ### 3. Remove Redundant State
 
-| State | Current Location | Proposed |
-|-------|------------------|----------|
-| `isNewSession` | Auth context | SWR key or URL param |
-| `bootstrapAttempted` | Auth provider | Ref (no context) |
+| State                   | Current Location   | Proposed             |
+| ----------------------- | ------------------ | -------------------- |
+| `isNewSession`          | Auth context       | SWR key or URL param |
+| `bootstrapAttempted`    | Auth provider      | Ref (no context)     |
 | Optimistic chat IDs Set | useRef in provider | Remove (SWR handles) |
 
 ---
@@ -695,24 +716,24 @@ graph TD
         NextThemes[next-themes]
         UsehooksTS[usehooks-ts]
     end
-    
+
     subgraph "Internal Dependencies"
         Auth[Auth Layer - P1.1]
         Data[Data Layer - P1.2]
         Cache[Cache Layer - P1.3]
     end
-    
+
     subgraph "State Management"
         RootProviders[Root Providers]
         ChatProviders[Chat Providers]
         Hooks[Custom Hooks]
     end
-    
+
     SWR --> RootProviders
     SWR --> Hooks
     NextThemes --> RootProviders
     UsehooksTS --> ChatProviders
-    
+
     Auth --> RootProviders
     Data --> Hooks
     Cache --> Hooks
@@ -736,10 +757,10 @@ export { ChatProviders } from "./chat-providers";
 // lib/state/index.ts
 
 // Auth (split)
-export { useAuth } from "./auth";           // Backward compatible
-export { useAuthSession } from "./auth";    // Session only
-export { useAuthStatus } from "./auth";     // Status only
-export { useAuthActions } from "./auth";    // Actions only
+export { useAuth } from "./auth"; // Backward compatible
+export { useAuthSession } from "./auth"; // Session only
+export { useAuthStatus } from "./auth"; // Status only
+export { useAuthActions } from "./auth"; // Actions only
 
 // Settings (selective)
 export { useSettings } from "./settings";
@@ -771,12 +792,12 @@ export { SWR_KEYS } from "./swr-keys";
 
 ### 1. Prevent Unnecessary Re-renders
 
-| Technique | Applied To | Impact |
-|-----------|-----------|--------|
-| Context splitting | Auth, DataStream | 60% fewer re-renders |
-| Stable callbacks | All dispatch contexts | No child re-renders |
-| Memoized selectors | Settings, Artifact | Selective updates |
-| SWR deduplication | All server state | No duplicate fetches |
+| Technique          | Applied To            | Impact               |
+| ------------------ | --------------------- | -------------------- |
+| Context splitting  | Auth, DataStream      | 60% fewer re-renders |
+| Stable callbacks   | All dispatch contexts | No child re-renders  |
+| Memoized selectors | Settings, Artifact    | Selective updates    |
+| SWR deduplication  | All server state      | No duplicate fetches |
 
 ### 2. Memory Management
 

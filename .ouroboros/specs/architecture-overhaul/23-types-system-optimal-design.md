@@ -13,12 +13,14 @@
 **Business Capability**: Type safety, developer experience, and runtime validation across the application.
 
 The types system provides:
+
 - **Compile-time safety**: Catch errors before runtime
 - **Documentation**: Self-documenting interfaces
 - **Validation**: Runtime schema validation with Zod
 - **Inference**: Reduce boilerplate via inference
 
 **Success Criteria**:
+
 - Zero `any` types in application code
 - Single source of truth per domain type
 - <2KB types-only bundle overhead
@@ -30,15 +32,16 @@ The types system provides:
 
 ### 2.1 Current State Analysis
 
-| Location | Types | Issues |
-|----------|-------|--------|
-| `lib/types.ts` | Chat, Message, UI types | Growing monolith (105 lines) |
-| `lib/types/message-parts.ts` | Message part union | Comprehensive but isolated |
-| `lib/db/schema.ts` | Drizzle schema types | Inferred from schema |
-| `components/*.tsx` | Inline prop types | Duplicated across files |
-| `lib/ai/tools/*.ts` | Tool schemas | Zod schemas scattered |
+| Location                     | Types                   | Issues                       |
+| ---------------------------- | ----------------------- | ---------------------------- |
+| `lib/types.ts`               | Chat, Message, UI types | Growing monolith (105 lines) |
+| `lib/types/message-parts.ts` | Message part union      | Comprehensive but isolated   |
+| `lib/db/schema.ts`           | Drizzle schema types    | Inferred from schema         |
+| `components/*.tsx`           | Inline prop types       | Duplicated across files      |
+| `lib/ai/tools/*.ts`          | Tool schemas            | Zod schemas scattered        |
 
 **Problems Identified**:
+
 1. Mixed concerns in `lib/types.ts` (UI + API + streaming)
 2. Duplicated prop types (e.g., `EditorProps` variations)
 3. No clear separation: domain vs utility vs UI types
@@ -46,13 +49,13 @@ The types system provides:
 
 ### 2.2 Type Categories
 
-| Category | Purpose | Location |
-|----------|---------|----------|
-| **Domain Types** | Core business entities | `lib/types/domain/` |
-| **API Types** | Request/response contracts | `lib/types/api/` |
-| **UI Types** | Component props, state | `lib/types/ui/` |
-| **Utility Types** | Helpers, inference | `lib/types/utils.ts` |
-| **Validation Schemas** | Runtime validation | Co-located with types |
+| Category               | Purpose                    | Location              |
+| ---------------------- | -------------------------- | --------------------- |
+| **Domain Types**       | Core business entities     | `lib/types/domain/`   |
+| **API Types**          | Request/response contracts | `lib/types/api/`      |
+| **UI Types**           | Component props, state     | `lib/types/ui/`       |
+| **Utility Types**      | Helpers, inference         | `lib/types/utils.ts`  |
+| **Validation Schemas** | Runtime validation         | Co-located with types |
 
 ---
 
@@ -91,6 +94,7 @@ lib/types/
 ```
 
 **Rejected Alternative**: Keep flat `lib/types.ts`
+
 - Becomes unmaintainable at scale
 - No clear ownership boundaries
 - Difficult to tree-shake
@@ -190,12 +194,12 @@ const validateChat = async (data: unknown) => {
 
 ### 4.3 Expected Impact
 
-| Metric | Before | After |
-|--------|--------|-------|
-| Type files | 3 | 12 |
-| Type-only imports | ~40% | ~95% |
-| Schema bundle | 15KB (always) | 15KB (lazy) |
-| IDE autocomplete | Slow | Fast |
+| Metric            | Before        | After       |
+| ----------------- | ------------- | ----------- |
+| Type files        | 3             | 12          |
+| Type-only imports | ~40%          | ~95%        |
+| Schema bundle     | 15KB (always) | 15KB (lazy) |
+| IDE autocomplete  | Slow          | Fast        |
 
 ---
 
@@ -203,18 +207,18 @@ const validateChat = async (data: unknown) => {
 
 ### 5.1 External Dependencies
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `zod` | ^3.x | Runtime validation |
-| `typescript` | ^5.x | Type system |
+| Package      | Version | Purpose            |
+| ------------ | ------- | ------------------ |
+| `zod`        | ^3.x    | Runtime validation |
+| `typescript` | ^5.x    | Type system        |
 
 ### 5.2 Internal Dependencies
 
-| Module | Purpose |
-|--------|---------|
-| `lib/db/schema` | Drizzle types (source of truth) |
-| `ai` (Vercel) | `UIMessage`, `InferUITool` |
-| `components/artifact` | `ArtifactKind` enum |
+| Module                | Purpose                         |
+| --------------------- | ------------------------------- |
+| `lib/db/schema`       | Drizzle types (source of truth) |
+| `ai` (Vercel)         | `UIMessage`, `InferUITool`      |
+| `components/artifact` | `ArtifactKind` enum             |
 
 ---
 
@@ -244,25 +248,26 @@ import type { ChatMessage } from "@/lib/types/ui/chat-ui";
 
 ### 6.3 Co-location Rules
 
-| Type | Co-located With |
-|------|-----------------|
-| Component props | Component file (inline) |
-| API request/response | Route handler file |
-| Domain entities | `lib/types/domain/` |
-| Shared UI types | `lib/types/ui/` |
+| Type                 | Co-located With         |
+| -------------------- | ----------------------- |
+| Component props      | Component file (inline) |
+| API request/response | Route handler file      |
+| Domain entities      | `lib/types/domain/`     |
+| Shared UI types      | `lib/types/ui/`         |
 
 ---
 
 ## 7. Trade-off Analysis
 
-| Decision | Benefit | Cost |
-|----------|---------|------|
-| Domain-driven folders | Clear ownership, scalable | More files to navigate |
-| Zod inference | Single source of truth | Zod as hard dependency |
-| Barrel exports | Clean import paths | Potential tree-shake issues |
-| Type-only imports | Zero runtime cost | Manual enforcement needed |
+| Decision              | Benefit                   | Cost                        |
+| --------------------- | ------------------------- | --------------------------- |
+| Domain-driven folders | Clear ownership, scalable | More files to navigate      |
+| Zod inference         | Single source of truth    | Zod as hard dependency      |
+| Barrel exports        | Clean import paths        | Potential tree-shake issues |
+| Type-only imports     | Zero runtime cost         | Manual enforcement needed   |
 
-**Recommended**: 
+**Recommended**:
+
 - Accept folder structure complexity for maintainability
 - Keep Zod for validation (already in use)
 - Use `verbatimModuleSyntax` in tsconfig to enforce type imports

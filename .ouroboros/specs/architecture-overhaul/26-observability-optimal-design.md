@@ -12,13 +12,13 @@ Define the observability architecture for instrumentation, logging, error tracki
 
 ## Requirements
 
-| ID | Requirement |
-|----|-------------|
-| REQ-O01 | Structured logging with request correlation |
+| ID      | Requirement                                       |
+| ------- | ------------------------------------------------- |
+| REQ-O01 | Structured logging with request correlation       |
 | REQ-O02 | OpenTelemetry integration for distributed tracing |
-| REQ-O03 | Global error handlers for unhandled exceptions |
-| REQ-O04 | Performance monitoring via Vercel tools |
-| REQ-O05 | Environment-aware logging levels |
+| REQ-O03 | Global error handlers for unhandled exceptions    |
+| REQ-O04 | Performance monitoring via Vercel tools           |
+| REQ-O05 | Environment-aware logging levels                  |
 
 ---
 
@@ -26,12 +26,12 @@ Define the observability architecture for instrumentation, logging, error tracki
 
 ### Components
 
-| File | Role |
-|------|------|
-| `instrumentation.ts` | OTel registration, global error handlers |
-| `instrumentation-client.ts` | Client-side instrumentation (if any) |
-| `lib/log.ts` | Centralized logging with OTel span events |
-| `lib/request-context.ts` | Request ID/user ID correlation |
+| File                        | Role                                      |
+| --------------------------- | ----------------------------------------- |
+| `instrumentation.ts`        | OTel registration, global error handlers  |
+| `instrumentation-client.ts` | Client-side instrumentation (if any)      |
+| `lib/log.ts`                | Centralized logging with OTel span events |
+| `lib/request-context.ts`    | Request ID/user ID correlation            |
 
 ### Current Flow
 
@@ -42,7 +42,7 @@ sequenceDiagram
     participant M as Middleware
     participant L as lib/log.ts
     participant O as OpenTelemetry
-    
+
     R->>I: register() on cold start
     I->>O: registerOTel({serviceName})
     R->>M: Set requestId, userId
@@ -51,12 +51,14 @@ sequenceDiagram
 ```
 
 ### Strengths
+
 - **POS-001**: OpenTelemetry via `@vercel/otel` for tracing
 - **POS-002**: Automatic request context injection
 - **POS-003**: Global handlers for unhandledRejection/uncaughtException
 - **POS-004**: Server-only logging (client is no-op)
 
 ### Issues
+
 - **NEG-001**: No log level configuration per environment
 - **NEG-002**: Missing client error boundary reporting
 - **NEG-003**: No explicit sampling configuration
@@ -66,14 +68,19 @@ sequenceDiagram
 ## Design Decision
 
 ### Option 1: Enhanced Current Pattern (SELECTED)
+
 Extend existing OTel + custom logging with configuration.
 
 ### Option 2: Third-party Error Tracking (Sentry)
+
 Add Sentry for error tracking alongside OTel.
+
 - **Rejected**: Vercel's native observability sufficient for current scale. Sentry adds complexity and cost.
 
 ### Option 3: Custom Metrics Service
+
 Build custom metrics collection.
+
 - **Rejected**: SpeedInsights + Analytics already provide metrics. Custom service is over-engineering.
 
 ---
@@ -86,7 +93,7 @@ Build custom metrics collection.
 // instrumentation.ts (Server)
 export function register() {
   registerOTel({ serviceName: "ai-assistant" });
-  
+
   if (process.env.NEXT_RUNTIME === "nodejs") {
     // Context injection
     // Global error handlers
@@ -109,7 +116,7 @@ graph LR
         B --> D[OTel Span Events]
         D --> E[Vercel Observability]
     end
-    
+
     subgraph Client
         F[Component] --> G[Error Boundary]
         G --> H[Console/No-op]
@@ -127,7 +134,7 @@ const LOG_LEVELS: Record<string, number> = {
   error: 3,
 };
 
-const currentLevel = LOG_LEVELS[process.env.LOG_LEVEL ?? 'info'];
+const currentLevel = LOG_LEVELS[process.env.LOG_LEVEL ?? "info"];
 
 function shouldLog(level: LogLevel): boolean {
   return LOG_LEVELS[level] >= currentLevel;
@@ -136,13 +143,13 @@ function shouldLog(level: LogLevel): boolean {
 
 ### Error Tracking Layers
 
-| Layer | Handler | Purpose |
-|-------|---------|---------|
-| Route | `error.tsx` | User-facing recovery UI |
-| Root | `global-error.tsx` | Catch-all with digest |
-| Process | `unhandledRejection` | Async failures |
-| Process | `uncaughtException` | Sync failures |
-| OTel | Span status | Trace correlation |
+| Layer   | Handler              | Purpose                 |
+| ------- | -------------------- | ----------------------- |
+| Route   | `error.tsx`          | User-facing recovery UI |
+| Root    | `global-error.tsx`   | Catch-all with digest   |
+| Process | `unhandledRejection` | Async failures          |
+| Process | `uncaughtException`  | Sync failures           |
+| OTel    | Span status          | Trace correlation       |
 
 ### Performance Monitoring Stack
 
@@ -163,11 +170,13 @@ function shouldLog(level: LogLevel): boolean {
 ## Consequences
 
 ### Positive
+
 - **POS-001**: Zero external dependencies beyond Vercel stack
 - **POS-002**: Automatic trace correlation via request context
 - **POS-003**: Production-safe (no client-side logging leaks)
 
 ### Negative
+
 - **NEG-001**: Vendor lock-in to Vercel observability
 - **NEG-002**: No real-time alerting without Vercel Pro features
 
@@ -186,7 +195,7 @@ function shouldLog(level: LogLevel): boolean {
 // app/api/health/route.ts
 export async function GET() {
   return Response.json({
-    status: 'ok',
+    status: "ok",
     timestamp: Date.now(),
     version: process.env.NEXT_PUBLIC_VERSION,
   });

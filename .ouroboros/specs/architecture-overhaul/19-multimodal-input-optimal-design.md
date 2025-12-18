@@ -19,6 +19,7 @@ Design the multimodal input system for handling file uploads, image attachments,
 **Component Size:** 551 lines - oversized, multiple responsibilities
 
 **Current Features:**
+
 - File upload via hidden input + FormData
 - Attachment preview with remove capability
 - Model-aware attachment disabling (reasoning models)
@@ -27,6 +28,7 @@ Design the multimodal input system for handling file uploads, image attachments,
 - Embedded model selector (compact variant)
 
 **Issues Identified:**
+
 1. **Monolithic Component**: Input, attachments, model selector, context all in one file
 2. **No Upload Progress**: Missing progress indicators for large files
 3. **No Drag-and-Drop**: File selection only via button
@@ -37,15 +39,15 @@ Design the multimodal input system for handling file uploads, image attachments,
 
 ## Key Requirements
 
-| REQ-ID | Requirement | Priority |
-|--------|-------------|----------|
-| REQ-MMI-001 | File uploads via button and drag-and-drop | P0 |
-| REQ-MMI-002 | Upload progress indication | P1 |
-| REQ-MMI-003 | Image preview with remove action | P0 |
-| REQ-MMI-004 | Model-aware attachment validation | P0 |
-| REQ-MMI-005 | Input persistence across page reloads | P1 |
-| REQ-MMI-006 | Voice input (speech-to-text) | P2 |
-| REQ-MMI-007 | Keyboard shortcuts (Ctrl+Enter submit) | P1 |
+| REQ-ID      | Requirement                               | Priority |
+| ----------- | ----------------------------------------- | -------- |
+| REQ-MMI-001 | File uploads via button and drag-and-drop | P0       |
+| REQ-MMI-002 | Upload progress indication                | P1       |
+| REQ-MMI-003 | Image preview with remove action          | P0       |
+| REQ-MMI-004 | Model-aware attachment validation         | P0       |
+| REQ-MMI-005 | Input persistence across page reloads     | P1       |
+| REQ-MMI-006 | Voice input (speech-to-text)              | P2       |
+| REQ-MMI-007 | Keyboard shortcuts (Ctrl+Enter submit)    | P1       |
 
 ---
 
@@ -103,13 +105,16 @@ multimodal-input/
 ```typescript
 // hooks/useFileUpload.ts
 interface UploadState {
-  files: Map<string, {
-    file: File;
-    progress: number;
-    status: 'pending' | 'uploading' | 'complete' | 'error';
-    result?: Attachment;
-    error?: string;
-  }>;
+  files: Map<
+    string,
+    {
+      file: File;
+      progress: number;
+      status: "pending" | "uploading" | "complete" | "error";
+      result?: Attachment;
+      error?: string;
+    }
+  >;
 }
 
 interface UseFileUploadReturn {
@@ -140,12 +145,12 @@ interface UseVoiceInputReturn {
 
 ## Bundle Strategy
 
-| Component | Strategy | Rationale |
-|-----------|----------|-----------|
-| MultimodalInput | Static import | Core chat feature |
-| AttachmentZone | Static import | Always needed |
-| VoiceInput | Dynamic import | Optional feature, not all browsers |
-| UploadProgress | Static import | Small, always visible during upload |
+| Component       | Strategy       | Rationale                           |
+| --------------- | -------------- | ----------------------------------- |
+| MultimodalInput | Static import  | Core chat feature                   |
+| AttachmentZone  | Static import  | Always needed                       |
+| VoiceInput      | Dynamic import | Optional feature, not all browsers  |
+| UploadProgress  | Static import  | Small, always visible during upload |
 
 **Target Bundle:** < 15KB gzipped for core, +5KB for voice input
 
@@ -153,22 +158,24 @@ interface UseVoiceInputReturn {
 
 ## Dependencies
 
-| Dependency | Purpose | Bundle Impact |
-|------------|---------|---------------|
-| `usehooks-ts` | localStorage, debounce | Tree-shakeable |
-| `fast-deep-equal` | Memo comparison | ~1KB |
-| Web Speech API | Voice input | Native (0KB) |
+| Dependency        | Purpose                | Bundle Impact  |
+| ----------------- | ---------------------- | -------------- |
+| `usehooks-ts`     | localStorage, debounce | Tree-shakeable |
+| `fast-deep-equal` | Memo comparison        | ~1KB           |
+| Web Speech API    | Voice input            | Native (0KB)   |
 
 ---
 
 ## Consequences
 
 ### Positive
+
 - **POS-001**: Decomposed components enable targeted optimization
 - **POS-002**: Upload progress improves UX for large files
 - **POS-003**: Drag-drop reduces friction for file attachment
 
 ### Negative
+
 - **NEG-001**: More files to maintain (mitigated by clear boundaries)
 - **NEG-002**: Voice input browser support varies
 

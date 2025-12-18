@@ -14,11 +14,13 @@
 **Business Capability**: High-performance caching layer for sub-50ms reads.
 
 The Cache Layer serves three stakeholders:
+
 1. **Users**: Near-instant data retrieval (<50ms), graceful degradation when cache unavailable
 2. **Developers**: Type-safe cache operations, clear patterns, predictable behavior
 3. **Operations**: Circuit breaker protection, TTL management, resource efficiency
 
 **Success Criteria**:
+
 - <50ms cache reads (p95)
 - Zero client bundle pollution (`"server-only"` enforcement)
 - Graceful degradation when Redis unavailable
@@ -31,49 +33,49 @@ The Cache Layer serves three stakeholders:
 
 ### 2.1 Redis Integration
 
-| Requirement | Description |
-|-------------|-------------|
-| Upstash Redis | HTTP-based, Edge-compatible |
-| Connection Singleton | Global instance, HMR-safe |
-| Environment Config | `CACHE_KV_REST_API_URL` + `CACHE_KV_REST_API_TOKEN` |
-| Graceful Unavailability | Return null/empty when Redis missing |
+| Requirement             | Description                                         |
+| ----------------------- | --------------------------------------------------- |
+| Upstash Redis           | HTTP-based, Edge-compatible                         |
+| Connection Singleton    | Global instance, HMR-safe                           |
+| Environment Config      | `CACHE_KV_REST_API_URL` + `CACHE_KV_REST_API_TOKEN` |
+| Graceful Unavailability | Return null/empty when Redis missing                |
 
 ### 2.2 Caching Strategies
 
-| Pattern | Use Case |
-|---------|----------|
-| Cache-Aside | Read: cache → miss → DB → populate cache |
-| Write-Through | Write: DB → cache update |
-| Guest-Only | Guest users: cache-only (no DB) |
-| TTL-Based | Guest data auto-expires (GUEST_CACHE_TTL_SECONDS) |
+| Pattern       | Use Case                                          |
+| ------------- | ------------------------------------------------- |
+| Cache-Aside   | Read: cache → miss → DB → populate cache          |
+| Write-Through | Write: DB → cache update                          |
+| Guest-Only    | Guest users: cache-only (no DB)                   |
+| TTL-Based     | Guest data auto-expires (GUEST_CACHE_TTL_SECONDS) |
 
 ### 2.3 Data Structures
 
-| Data Type | Redis Structure | Rationale |
-|-----------|----------------|-----------|
-| Chat Metadata | STRING (JSON) | Fast O(1) access |
-| Chat Messages | ZSET (score=timestamp) | O(log N) append, O(log N + M) range delete |
-| User Chat List | ZSET (score=updatedAt) | Sorted pagination |
-| Documents | STRING (JSON) | Simple versioned storage |
-| Quota Counters | STRING (atomic INCRBY) | Rate limiting |
+| Data Type      | Redis Structure        | Rationale                                  |
+| -------------- | ---------------------- | ------------------------------------------ |
+| Chat Metadata  | STRING (JSON)          | Fast O(1) access                           |
+| Chat Messages  | ZSET (score=timestamp) | O(log N) append, O(log N + M) range delete |
+| User Chat List | ZSET (score=updatedAt) | Sorted pagination                          |
+| Documents      | STRING (JSON)          | Simple versioned storage                   |
+| Quota Counters | STRING (atomic INCRBY) | Rate limiting                              |
 
 ### 2.4 Reliability
 
-| Requirement | Description |
-|-------------|-------------|
+| Requirement     | Description                                        |
+| --------------- | -------------------------------------------------- |
 | Circuit Breaker | Open after 5 consecutive failures, reset after 30s |
-| Retry Logic | Exponential backoff for critical operations |
-| Error Isolation | Cache failures never block DB operations |
-| Logging | Structured error logging with context |
+| Retry Logic     | Exponential backoff for critical operations        |
+| Error Isolation | Cache failures never block DB operations           |
+| Logging         | Structured error logging with context              |
 
 ### 2.5 Performance
 
-| Requirement | Description |
-|-------------|-------------|
-| Pipelining | Batch multiple commands in single round-trip |
-| Lua Scripts | Atomic multi-step operations |
-| Lazy Deletion | ZREMRANGEBYSCORE vs iteration |
-| Connection Reuse | Singleton pattern for HTTP client |
+| Requirement      | Description                                  |
+| ---------------- | -------------------------------------------- |
+| Pipelining       | Batch multiple commands in single round-trip |
+| Lua Scripts      | Atomic multi-step operations                 |
+| Lazy Deletion    | ZREMRANGEBYSCORE vs iteration                |
+| Connection Reuse | Singleton pattern for HTTP client            |
 
 ---
 
@@ -83,18 +85,19 @@ The Cache Layer serves three stakeholders:
 
 **lib/cache/ Directory (6 files)**
 
-| File | Lines | Purpose | Verdict |
-|------|-------|---------|---------|
-| operations.ts | **1080** | All cache CRUD operations | 🔴 **MONOLITH** - must split |
-| batch-operations.ts | 326 | Lua-based batch ops | ⚠️ Merge with chat-cache |
-| helpers.ts | 183 | Conversion & key utilities | ✅ Keep, rename |
-| types.ts | 98 | Cache type definitions | ✅ Keep as-is |
-| redis.ts | 33 | Client singleton | ✅ Keep as-is |
-| quota.ts | 186 | Rate limit counters | ✅ Keep as-is |
+| File                | Lines    | Purpose                    | Verdict                      |
+| ------------------- | -------- | -------------------------- | ---------------------------- |
+| operations.ts       | **1080** | All cache CRUD operations  | 🔴 **MONOLITH** - must split |
+| batch-operations.ts | 326      | Lua-based batch ops        | ⚠️ Merge with chat-cache     |
+| helpers.ts          | 183      | Conversion & key utilities | ✅ Keep, rename              |
+| types.ts            | 98       | Cache type definitions     | ✅ Keep as-is                |
+| redis.ts            | 33       | Client singleton           | ✅ Keep as-is                |
+| quota.ts            | 186      | Rate limit counters        | ✅ Keep as-is                |
 
 ### 3.2 Problem Analysis: operations.ts (1080 lines)
 
 **Current Structure** (identified sections):
+
 ```
 Lines 1-79:    Circuit breaker implementation
 Lines 80-200:  Chat read operations (getChatFromCache, getChatMetaFromCache)
@@ -108,6 +111,7 @@ Lines 1000-1080: Conversion helpers & cache warming
 ```
 
 **Issues Identified**:
+
 1. **Mixed Concerns**: Chat, document, and utility code in one file
 2. **Duplicate Patterns**: Same circuit breaker check in every function
 3. **Scattered Lua Scripts**: Embedded scripts make code hard to test
@@ -178,17 +182,19 @@ export const CacheKeys = {
   // Chat keys - namespaced by userId for IDOR protection
   chat: {
     meta: (chatId: string, userId: string) => `chat:${chatId}:${userId}:meta`,
-    messages: (chatId: string, userId: string) => `chat:${chatId}:${userId}:msgs`,
+    messages: (chatId: string, userId: string) =>
+      `chat:${chatId}:${userId}:msgs`,
   },
-  
+
   // User keys - user-level aggregations
   user: {
     chats: (userId: string) => `user:${userId}:chats`,
     quota: (userId: string, date: string) => `quota:{${userId}}:${date}`,
   },
-  
+
   // Document keys
-  document: (documentId: string, userId: string) => `document:${documentId}:${userId}`,
+  document: (documentId: string, userId: string) =>
+    `document:${documentId}:${userId}`,
 } as const;
 
 // Type-safe key helpers
@@ -231,7 +237,7 @@ const CONFIG = {
 
 export function isCircuitOpen(): boolean {
   if (!state.openedAt) return false;
-  
+
   if (Date.now() - state.openedAt > CONFIG.resetMs) {
     state.openedAt = null;
     state.failures = 0;
@@ -243,8 +249,11 @@ export function isCircuitOpen(): boolean {
 
 export function recordFailure(operation: string, error: unknown): void {
   state.failures++;
-  logError(`Redis ${operation} failed (${state.failures}/${CONFIG.threshold})`, error);
-  
+  logError(
+    `Redis ${operation} failed (${state.failures}/${CONFIG.threshold})`,
+    error
+  );
+
   if (state.failures >= CONFIG.threshold && !state.openedAt) {
     state.openedAt = Date.now();
     logError("Redis circuit breaker OPENED", { resetAfterMs: CONFIG.resetMs });
@@ -264,7 +273,7 @@ export function withCircuitBreaker<T>(
   fn: () => Promise<T>
 ): Promise<T> {
   if (isCircuitOpen()) return Promise.resolve(fallback);
-  
+
   return fn()
     .then((result) => {
       recordSuccess();
@@ -298,7 +307,7 @@ export async function getChatFromCache(
 
   return withCircuitBreaker("getChatFromCache", null, async () => {
     const keys = getChatKeys(chatId, userId);
-    
+
     const [meta, messagesRaw] = await Promise.all([
       redis.get<CachedChatMeta>(keys.metaKey),
       opts?.maxMessages
@@ -535,18 +544,18 @@ export { warmChatCache, warmDocumentCache } from "./utils/warming";
 
 ### 5.1 Core Dependencies
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| @upstash/redis | 1.35.6 | HTTP-based Redis client |
+| Package        | Version | Purpose                 |
+| -------------- | ------- | ----------------------- |
+| @upstash/redis | 1.35.6  | HTTP-based Redis client |
 
 ### 5.2 Runtime Compatibility
 
-| Environment | Supported | Notes |
-|-------------|-----------|-------|
-| Node.js Runtime | ✅ | Full feature support |
-| Edge Runtime | ✅ | HTTP-based, no TCP needed |
-| Serverless | ✅ | Stateless, connection per request |
-| Vercel Fluid | ✅ | Persistent connections via singleton |
+| Environment     | Supported | Notes                                |
+| --------------- | --------- | ------------------------------------ |
+| Node.js Runtime | ✅        | Full feature support                 |
+| Edge Runtime    | ✅        | HTTP-based, no TCP needed            |
+| Serverless      | ✅        | Stateless, connection per request    |
+| Vercel Fluid    | ✅        | Persistent connections via singleton |
 
 ### 5.3 Next.js Integration
 
@@ -567,6 +576,7 @@ import "server-only";
 ### 6.1 Server-Only Enforcement
 
 **ALL cache files MUST start with**:
+
 ```typescript
 import "server-only";
 ```
@@ -600,23 +610,25 @@ export type CachedChat = { ... };
 
 ### 7.1 Breaking Up operations.ts (1080 lines)
 
-| Current | After Refactor | Benefit |
-|---------|----------------|---------|
-| 1 file, 1080 lines | 12 files, <250 lines each | Maintainability |
-| Mixed concerns | Single responsibility | Testability |
-| Embedded Lua scripts | Centralized scripts.ts | Reusability |
-| Repeated circuit breaker checks | `withCircuitBreaker` HOF | DRY |
-| Inline error handling | Consistent error wrapper | Predictability |
+| Current                         | After Refactor            | Benefit         |
+| ------------------------------- | ------------------------- | --------------- |
+| 1 file, 1080 lines              | 12 files, <250 lines each | Maintainability |
+| Mixed concerns                  | Single responsibility     | Testability     |
+| Embedded Lua scripts            | Centralized scripts.ts    | Reusability     |
+| Repeated circuit breaker checks | `withCircuitBreaker` HOF  | DRY             |
+| Inline error handling           | Consistent error wrapper  | Predictability  |
 
 ### 7.2 Removing batch-operations.ts (326 lines)
 
 **Merge into chat/write.ts**:
+
 - `batchUpdateChat` → `appendMessagesToCache` with updates
 - `createOrUpdateChat` → `setChatInCache` with upsert logic
 
 ### 7.3 Simplified API
 
 **Before** (scattered exports):
+
 ```typescript
 import { getChatFromCache } from "@/lib/cache/operations";
 import { batchUpdateChat } from "@/lib/cache/batch-operations";
@@ -624,11 +636,12 @@ import { getUserMessageCount } from "@/lib/cache/quota";
 ```
 
 **After** (unified exports):
+
 ```typescript
-import { 
-  getChatFromCache, 
-  appendMessagesToCache, 
-  getUserMessageCount 
+import {
+  getChatFromCache,
+  appendMessagesToCache,
+  getUserMessageCount,
 } from "@/lib/cache";
 ```
 
@@ -645,20 +658,20 @@ graph TD
         A --> C[document/]
         A --> D[user/]
         A --> E[quota/]
-        
+
         B --> F[client.ts]
         B --> G[circuit-breaker.ts]
         B --> H[keys.ts]
         B --> I[types.ts]
         B --> J[utils/]
-        
+
         C --> F
         C --> G
         D --> F
         D --> G
         E --> F
     end
-    
+
     subgraph "External"
         F --> K[@upstash/redis]
         G --> L[lib/log]
@@ -667,20 +680,20 @@ graph TD
 
 ### 8.2 Upstream Dependencies
 
-| Module | Depends On |
-|--------|-----------|
-| lib/cache | lib/log (logging) |
-| lib/cache | lib/constants (TTL values) |
+| Module    | Depends On                           |
+| --------- | ------------------------------------ |
+| lib/cache | lib/log (logging)                    |
+| lib/cache | lib/constants (TTL values)           |
 | lib/cache | 01-error-handling (future: AppError) |
 
 ### 8.3 Downstream Consumers
 
-| Consumer | Uses |
-|----------|------|
-| lib/data/chat.ts | Chat cache operations |
+| Consumer             | Uses                      |
+| -------------------- | ------------------------- |
+| lib/data/chat.ts     | Chat cache operations     |
 | lib/data/document.ts | Document cache operations |
-| lib/api/ (routes) | Quota operations |
-| app/(chat)/ | Cache warming |
+| lib/api/ (routes)    | Quota operations          |
+| app/(chat)/          | Cache warming             |
 
 ---
 
@@ -690,40 +703,104 @@ graph TD
 
 ```typescript
 // Read operations
-function getChatFromCache(chatId: string, userId: string, opts?: { maxMessages?: number }): Promise<CachedChat | null>;
-function getChatMetaFromCache(chatId: string, userId: string): Promise<CachedChatMeta | null>;
-function getLastMessagesFromCache(chatId: string, userId: string, count: number): Promise<CachedMessage[]>;
+function getChatFromCache(
+  chatId: string,
+  userId: string,
+  opts?: { maxMessages?: number }
+): Promise<CachedChat | null>;
+function getChatMetaFromCache(
+  chatId: string,
+  userId: string
+): Promise<CachedChatMeta | null>;
+function getLastMessagesFromCache(
+  chatId: string,
+  userId: string,
+  count: number
+): Promise<CachedMessage[]>;
 
 // Write operations
-function setChatInCache(chatId: string, userId: string, chat: CachedChat): Promise<void>;
-function appendMessageToCache(chatId: string, userId: string, message: CachedMessage, opts?: { skipExistenceCheck?: boolean }): Promise<void>;
-function appendMessagesToCache(chatId: string, userId: string, messages: CachedMessage[], opts?: { skipExistenceCheck?: boolean }): Promise<void>;
+function setChatInCache(
+  chatId: string,
+  userId: string,
+  chat: CachedChat
+): Promise<void>;
+function appendMessageToCache(
+  chatId: string,
+  userId: string,
+  message: CachedMessage,
+  opts?: { skipExistenceCheck?: boolean }
+): Promise<void>;
+function appendMessagesToCache(
+  chatId: string,
+  userId: string,
+  messages: CachedMessage[],
+  opts?: { skipExistenceCheck?: boolean }
+): Promise<void>;
 
 // Update operations
-function updateChatTitleInCache(chatId: string, userId: string, title: string): Promise<void>;
-function updateChatVisibilityInCache(chatId: string, userId: string, visibility: VisibilityType): Promise<void>;
-function updateChatLastContextInCache(chatId: string, userId: string, context: AppUsage): Promise<void>;
+function updateChatTitleInCache(
+  chatId: string,
+  userId: string,
+  title: string
+): Promise<void>;
+function updateChatVisibilityInCache(
+  chatId: string,
+  userId: string,
+  visibility: VisibilityType
+): Promise<void>;
+function updateChatLastContextInCache(
+  chatId: string,
+  userId: string,
+  context: AppUsage
+): Promise<void>;
 
 // Delete operations
-function deleteChatFromCache(chatId: string, userId: string, maxRetries?: number): Promise<void>;
-function deleteMessagesFromCacheAfterTimestamp(chatId: string, userId: string, timestamp: Date): Promise<void>;
+function deleteChatFromCache(
+  chatId: string,
+  userId: string,
+  maxRetries?: number
+): Promise<void>;
+function deleteMessagesFromCacheAfterTimestamp(
+  chatId: string,
+  userId: string,
+  timestamp: Date
+): Promise<void>;
 function deleteAllChatsFromCache(userId: string): Promise<number>;
 ```
 
 ### 9.2 Document Cache API
 
 ```typescript
-function getDocumentFromCache(documentId: string, userId: string): Promise<CachedDocument | null>;
-function setDocumentInCache(documentId: string, userId: string, document: CachedDocument): Promise<void>;
-function appendDocumentVersionToCache(documentId: string, userId: string, version: DocumentVersion, opts?: { chatId?: string }): Promise<void>;
-function deleteDocumentVersionsFromCacheAfterTimestamp(documentId: string, userId: string, timestamp: Date): Promise<void>;
+function getDocumentFromCache(
+  documentId: string,
+  userId: string
+): Promise<CachedDocument | null>;
+function setDocumentInCache(
+  documentId: string,
+  userId: string,
+  document: CachedDocument
+): Promise<void>;
+function appendDocumentVersionToCache(
+  documentId: string,
+  userId: string,
+  version: DocumentVersion,
+  opts?: { chatId?: string }
+): Promise<void>;
+function deleteDocumentVersionsFromCacheAfterTimestamp(
+  documentId: string,
+  userId: string,
+  timestamp: Date
+): Promise<void>;
 ```
 
 ### 9.3 Quota API
 
 ```typescript
 function getUserMessageCount(userId: string): Promise<number>;
-function incrementUserMessageCount(userId: string, delta?: number): Promise<number>;
+function incrementUserMessageCount(
+  userId: string,
+  delta?: number
+): Promise<number>;
 function setUserMessageCount(userId: string, count: number): Promise<void>;
 ```
 
@@ -732,8 +809,17 @@ function setUserMessageCount(userId: string, count: number): Promise<void>;
 ```typescript
 function chatToCache(chat: Chat, messages: DBMessage[]): CachedChat;
 function documentsToCache(documents: Document[]): CachedDocument | null;
-function warmChatCache(chatId: string, userId: string, chat: Chat, messages: DBMessage[]): Promise<void>;
-function warmDocumentCache(documentId: string, userId: string, documents: Document[]): Promise<void>;
+function warmChatCache(
+  chatId: string,
+  userId: string,
+  chat: Chat,
+  messages: DBMessage[]
+): Promise<void>;
+function warmDocumentCache(
+  documentId: string,
+  userId: string,
+  documents: Document[]
+): Promise<void>;
 ```
 
 ---
@@ -753,20 +839,20 @@ await pipeline.exec(); // Single round-trip!
 
 ### 10.2 Lua Scripts (Atomic Operations)
 
-| Operation | Without Lua | With Lua |
-|-----------|-------------|----------|
-| Append message | GET + SET + ZADD (3 RTT) | EVAL (1 RTT) |
-| Delete after timestamp | GET + filter + SET (3 RTT) | ZREMRANGEBYSCORE (1 RTT) |
-| Increment quota | GET + INCRBY + EXPIRE (3 RTT) | EVAL (1 RTT) |
+| Operation              | Without Lua                   | With Lua                 |
+| ---------------------- | ----------------------------- | ------------------------ |
+| Append message         | GET + SET + ZADD (3 RTT)      | EVAL (1 RTT)             |
+| Delete after timestamp | GET + filter + SET (3 RTT)    | ZREMRANGEBYSCORE (1 RTT) |
+| Increment quota        | GET + INCRBY + EXPIRE (3 RTT) | EVAL (1 RTT)             |
 
 ### 10.3 ZSET Advantages for Messages
 
-| Operation | List Complexity | ZSET Complexity |
-|-----------|-----------------|-----------------|
-| Append message | O(1) RPUSH | O(log N) ZADD |
-| Delete after timestamp | O(N) filter | O(log N + M) ZREMRANGEBYSCORE |
-| Get last N | O(N) LRANGE | O(log N + M) ZRANGE |
-| Count messages | O(N) LLEN | O(1) ZCARD |
+| Operation              | List Complexity | ZSET Complexity               |
+| ---------------------- | --------------- | ----------------------------- |
+| Append message         | O(1) RPUSH      | O(log N) ZADD                 |
+| Delete after timestamp | O(N) filter     | O(log N + M) ZREMRANGEBYSCORE |
+| Get last N             | O(N) LRANGE     | O(log N + M) ZRANGE           |
+| Count messages         | O(N) LLEN       | O(1) ZCARD                    |
 
 **Winner**: ZSET for delete-heavy workloads (message regeneration)
 
@@ -813,7 +899,7 @@ sequenceDiagram
 
     Client->>API: GET /chat/{id}
     API->>Cache: getChatFromCache(id)
-    
+
     alt Cache Hit
         Cache-->>API: CachedChat
         API-->>Client: 200 OK (fast)
@@ -862,45 +948,45 @@ graph TD
     subgraph "Public API"
         INDEX[lib/cache/index.ts]
     end
-    
+
     subgraph "Feature Modules"
         CHAT[chat/]
         DOC[document/]
         USER[user/]
         QUOTA[quota/]
     end
-    
+
     subgraph "Core Infrastructure"
         CLIENT[client.ts]
         CB[circuit-breaker.ts]
         KEYS[keys.ts]
         TYPES[types.ts]
     end
-    
+
     subgraph "Utilities"
         CONV[utils/conversions.ts]
         HELP[utils/helpers.ts]
         WARM[utils/warming.ts]
     end
-    
+
     INDEX --> CHAT
     INDEX --> DOC
     INDEX --> USER
     INDEX --> QUOTA
-    
+
     CHAT --> CLIENT
     CHAT --> CB
     CHAT --> KEYS
     CHAT --> HELP
-    
+
     DOC --> CLIENT
     DOC --> CB
     DOC --> KEYS
-    
+
     USER --> CLIENT
     USER --> CB
     USER --> KEYS
-    
+
     QUOTA --> CLIENT
 ```
 
@@ -990,29 +1076,35 @@ export const mockRedis = {
 ### Status: ACCEPTED
 
 ### Context
+
 Messages need efficient append, time-based deletion (regeneration), and ordered retrieval.
 
 ### Decision
+
 Use Redis ZSET with timestamp scores for message storage.
 
 ### Consequences
 
 #### Positive
+
 - **POS-001**: O(log N + M) range deletion vs O(N) List filtering
 - **POS-002**: Natural timestamp ordering without secondary index
 - **POS-003**: Efficient "last N messages" queries
 
 #### Negative
+
 - **NEG-001**: O(log N) append vs O(1) List RPUSH
 - **NEG-002**: Slightly higher memory overhead for scores
 
 ### Alternatives Considered
 
 #### ALT-001: Redis List
+
 - Description: RPUSH for append, LRANGE for retrieval
 - Rejected because: Deletion requires O(N) filtering via Lua script
 
 #### ALT-002: Redis Stream
+
 - Description: XADD for append, XRANGE for retrieval
 - Rejected because: Overkill for simple message storage, more complex API
 
