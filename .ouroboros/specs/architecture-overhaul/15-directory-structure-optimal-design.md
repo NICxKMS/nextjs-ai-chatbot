@@ -9,7 +9,8 @@
 
 ## Context
 
-The Next.js 16.0.10 application with Turbopack requires an optimal directory structure that balances:
+The Next.js 16.1.0 application with Turbopack requires an optimal directory structure that balances:
+
 - Feature cohesion vs layer separation
 - Server/Client/Edge boundary clarity
 - Import performance and tree-shaking
@@ -51,20 +52,21 @@ nextjs-ai-chatbot/
 
 ### Key Problems Identified
 
-| Issue | Impact | Severity |
-|-------|--------|----------|
-| Flat components/ with 40+ files | Hard to navigate, poor DX | HIGH |
-| Duplicate locations (artifacts, ui) | Confusion, inconsistent imports | HIGH |
-| No Server/Client file convention | Runtime boundary confusion | MEDIUM |
-| Empty folders (lib/utils) | Misleading structure | LOW |
-| Hooks not co-located | Feature fragmentation | MEDIUM |
-| No barrel file strategy | Import verbosity | MEDIUM |
+| Issue                               | Impact                          | Severity |
+| ----------------------------------- | ------------------------------- | -------- |
+| Flat components/ with 40+ files     | Hard to navigate, poor DX       | HIGH     |
+| Duplicate locations (artifacts, ui) | Confusion, inconsistent imports | HIGH     |
+| No Server/Client file convention    | Runtime boundary confusion      | MEDIUM   |
+| Empty folders (lib/utils)           | Misleading structure            | LOW      |
+| Hooks not co-located                | Feature fragmentation           | MEDIUM   |
+| No barrel file strategy             | Import verbosity                | MEDIUM   |
 
 ---
 
 ## Decision
 
 Adopt a **Hybrid Feature-Layer Architecture** that:
+
 1. Groups features in `features/` directory
 2. Maintains shared infrastructure in `lib/`
 3. Uses explicit `*.client.ts` and `*.server.ts` suffixes
@@ -349,23 +351,23 @@ nextjs-ai-chatbot/
 
 ```typescript
 // Feature imports (explicit paths)
-import { Chat, ChatHeader } from '@/features/chat';
-import { useMessages } from '@/features/chat/hooks/use-messages';
+import { Chat, ChatHeader } from "@/features/chat";
+import { useMessages } from "@/features/chat/hooks/use-messages";
 
 // UI primitives (barrel file)
-import { Button, Card, Input } from '@/ui';
+import { Button, Card, Input } from "@/ui";
 
 // Shared components
-import { ModelSelector } from '@/shared/components/model-selector';
+import { ModelSelector } from "@/shared/components/model-selector";
 
 // Infrastructure
-import { cacheGet, cacheSet } from '@/lib/cache';
+import { cacheGet, cacheSet } from "@/lib/cache";
 
 // Types
-import type { Message, Chat } from '@/types';
+import type { Message, Chat } from "@/types";
 
 // Config
-import { API_RATE_LIMIT } from '@/config/constants';
+import { API_RATE_LIMIT } from "@/config/constants";
 ```
 
 ---
@@ -374,28 +376,28 @@ import { API_RATE_LIMIT } from '@/config/constants';
 
 ### Naming Convention
 
-| Suffix | Environment | Example |
-|--------|-------------|---------|
-| `.server.ts` | Server-only | `session.server.ts` |
-| `.client.ts` | Client-only | `auth.client.ts` |
-| `.edge.ts` | Edge runtime | `rate-limit.edge.ts` |
-| (none) | Universal/Shared | `utils.ts` |
+| Suffix       | Environment      | Example              |
+| ------------ | ---------------- | -------------------- |
+| `.server.ts` | Server-only      | `session.server.ts`  |
+| `.client.ts` | Client-only      | `auth.client.ts`     |
+| `.edge.ts`   | Edge runtime     | `rate-limit.edge.ts` |
+| (none)       | Universal/Shared | `utils.ts`           |
 
 ### Implementation Rules
 
 ```typescript
 // session.server.ts - Server-only code
 // This file should NEVER be imported on client
-import 'server-only';  // Next.js build-time guard
+import "server-only"; // Next.js build-time guard
 
 export async function getSession() {
   // Server-side session logic
 }
 
 // auth.client.ts - Client-only code
-'use client';
+("use client");
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
 export function useAuth() {
   // Client-side auth hooks
@@ -408,19 +410,19 @@ export function useAuth() {
 // .eslintrc.js
 module.exports = {
   rules: {
-    'import/no-restricted-paths': [
-      'error',
+    "import/no-restricted-paths": [
+      "error",
       {
         zones: [
           {
-            target: './app/**/*.tsx',
-            from: './**/*.server.ts',
-            message: 'Cannot import server files in client components'
-          }
-        ]
-      }
-    ]
-  }
+            target: "./app/**/*.tsx",
+            from: "./**/*.server.ts",
+            message: "Cannot import server files in client components",
+          },
+        ],
+      },
+    ],
+  },
 };
 ```
 
@@ -433,13 +435,13 @@ module.exports = {
 ```typescript
 // ❌ BAD: Imports everything even if you need one item
 // ui/index.ts
-export * from './button';
-export * from './card';
-export * from './input';
+export * from "./button";
+export * from "./card";
+export * from "./input";
 // ... 20 more exports
 
 // Consumer
-import { Button } from '@/ui';  // Bundles ALL 20+ components
+import { Button } from "@/ui"; // Bundles ALL 20+ components
 ```
 
 ### Solution: Selective Re-exports
@@ -447,24 +449,24 @@ import { Button } from '@/ui';  // Bundles ALL 20+ components
 ```typescript
 // ✅ GOOD: Named exports only
 // ui/index.ts
-export { Button, buttonVariants } from './button';
-export { Card, CardHeader, CardContent } from './card';
-export { Input } from './input';
+export { Button, buttonVariants } from "./button";
+export { Card, CardHeader, CardContent } from "./card";
+export { Input } from "./input";
 // Only re-export commonly used items
 
 // For less common items, import directly
-import { Carousel } from '@/ui/carousel';
+import { Carousel } from "@/ui/carousel";
 ```
 
 ### Barrel File Strategy by Directory
 
-| Directory | Strategy | Reason |
-|-----------|----------|--------|
-| `ui/` | Selective barrel | High reuse, need tree-shaking |
-| `features/*/` | Feature barrel | Encapsulation |
-| `lib/*/` | Module barrel | Internal cohesion |
-| `types/` | Full barrel | Types are zero-cost |
-| `shared/components/` | NO barrel | Each component is distinct |
+| Directory            | Strategy         | Reason                        |
+| -------------------- | ---------------- | ----------------------------- |
+| `ui/`                | Selective barrel | High reuse, need tree-shaking |
+| `features/*/`        | Feature barrel   | Encapsulation                 |
+| `lib/*/`             | Module barrel    | Internal cohesion             |
+| `types/`             | Full barrel      | Types are zero-cost           |
+| `shared/components/` | NO barrel        | Each component is distinct    |
 
 ### Next.js 16 Turbopack Optimization
 
@@ -473,9 +475,9 @@ import { Carousel } from '@/ui/carousel';
 const nextConfig = {
   experimental: {
     optimizePackageImports: [
-      '@/ui',           // Enable tree-shaking for UI
-      '@/lib/cache',    // Cache utilities
-      '@/lib/db',       // Database utilities
+      "@/ui", // Enable tree-shaking for UI
+      "@/lib/cache", // Cache utilities
+      "@/lib/db", // Database utilities
     ],
   },
 };
@@ -501,25 +503,28 @@ const nextConfig = {
 
 ### Mitigations
 
-| Risk | Mitigation |
-|------|------------|
-| Migration complexity | Incremental migration script |
-| Import breakage | Update all imports via codemod |
-| Convention drift | ESLint rules + PR checks |
+| Risk                 | Mitigation                     |
+| -------------------- | ------------------------------ |
+| Migration complexity | Incremental migration script   |
+| Import breakage      | Update all imports via codemod |
+| Convention drift     | ESLint rules + PR checks       |
 
 ---
 
 ## Alternatives Considered
 
 ### ALT-001: Pure Layer-Based (Current)
+
 - **Description**: Keep all components in `components/`, all hooks in `hooks/`
 - **Rejected because**: Poor scalability, no feature cohesion
 
 ### ALT-002: Pure Feature-Based
+
 - **Description**: Everything including UI primitives in feature folders
 - **Rejected because**: Duplicates shared components, violates DRY
 
 ### ALT-003: Next.js Colocation Only
+
 - **Description**: Put components alongside routes in `app/`
 - **Rejected because**: Bloats app directory, mixes routing with logic
 
@@ -532,7 +537,7 @@ graph TD
     subgraph App["app/ (Routes)"]
         Routes[Page Components]
     end
-    
+
     subgraph Features["features/"]
         Chat[chat/]
         Artifacts[artifacts/]
@@ -541,18 +546,18 @@ graph TD
         Settings[settings/]
         Documents[documents/]
     end
-    
+
     subgraph Shared["shared/"]
         SharedComponents[components/]
         SharedHooks[hooks/]
         Providers[providers/]
         Elements[elements/]
     end
-    
+
     subgraph UI["ui/"]
         Primitives[UI Primitives]
     end
-    
+
     subgraph Lib["lib/"]
         AI[ai/]
         Data[data/]
@@ -564,15 +569,15 @@ graph TD
         Errors[errors/]
         Utils[utils/]
     end
-    
+
     subgraph Types["types/"]
         GlobalTypes[Type Definitions]
     end
-    
+
     subgraph Config["config/"]
         Constants[Configuration]
     end
-    
+
     Routes --> Features
     Routes --> Shared
     Features --> UI
@@ -582,7 +587,7 @@ graph TD
     Shared --> Lib
     Lib --> Types
     Lib --> Config
-    
+
     %% Dependency Rules
     UI -.->|"NO deps"| Features
     Types -.->|"NO deps"| Features
@@ -590,15 +595,15 @@ graph TD
 
 ### Dependency Rules
 
-| From | Can Import | Cannot Import |
-|------|------------|---------------|
-| `app/` | features, shared, ui, lib, types, config | - |
-| `features/` | shared, ui, lib, types, config | other features (except via events) |
-| `shared/` | ui, lib, types, config | features |
-| `ui/` | lib/utils only, types | features, shared, lib/* |
-| `lib/` | other lib/*, types, config | features, shared, ui |
-| `types/` | - | anything |
-| `config/` | types | anything else |
+| From        | Can Import                               | Cannot Import                      |
+| ----------- | ---------------------------------------- | ---------------------------------- |
+| `app/`      | features, shared, ui, lib, types, config | -                                  |
+| `features/` | shared, ui, lib, types, config           | other features (except via events) |
+| `shared/`   | ui, lib, types, config                   | features                           |
+| `ui/`       | lib/utils only, types                    | features, shared, lib/\*           |
+| `lib/`      | other lib/\*, types, config              | features, shared, ui               |
+| `types/`    | -                                        | anything                           |
+| `config/`   | types                                    | anything else                      |
 
 ---
 
@@ -609,7 +614,7 @@ graph TD
 ```typescript
 // Explicit chunks via dynamic imports
 const ArtifactEditor = dynamic(
-  () => import('@/features/artifacts/editors/code-editor'),
+  () => import("@/features/artifacts/editors/code-editor"),
   { loading: () => <EditorSkeleton /> }
 );
 ```
@@ -637,22 +642,26 @@ pnpm dlx @next/bundle-analyzer
 ## Migration Plan
 
 ### Phase 1: Create Structure (Day 1)
+
 1. Create `features/`, `shared/`, `ui/`, `types/`, `config/` directories
 2. Update `tsconfig.json` with new path aliases
 3. Add ESLint import rules
 
 ### Phase 2: Move Files (Day 1-2)
+
 1. Move UI primitives to `ui/`
 2. Group feature components into `features/*/`
 3. Move shared items to `shared/`
 4. Consolidate types to `types/`
 
 ### Phase 3: Update Imports (Day 2-3)
+
 1. Run codemod to update all imports
 2. Fix any circular dependencies
 3. Verify build passes
 
 ### Phase 4: Cleanup (Day 3)
+
 1. Remove empty directories
 2. Add barrel files
 3. Update documentation
@@ -665,19 +674,19 @@ pnpm dlx @next/bundle-analyzer
 
 ```javascript
 // transform.js (jscodeshift)
-module.exports = function(fileInfo, api) {
+module.exports = function (fileInfo, api) {
   const j = api.jscodeshift;
-  
+
   const importMap = {
-    '@/components/ui/button': '@/ui',
-    '@/components/chat': '@/features/chat',
-    '@/hooks/use-messages': '@/features/chat/hooks/use-messages',
+    "@/components/ui/button": "@/ui",
+    "@/components/chat": "@/features/chat",
+    "@/hooks/use-messages": "@/features/chat/hooks/use-messages",
     // ... more mappings
   };
-  
+
   return j(fileInfo.source)
     .find(j.ImportDeclaration)
-    .forEach(path => {
+    .forEach((path) => {
       const source = path.node.source.value;
       if (importMap[source]) {
         path.node.source.value = importMap[source];
@@ -688,6 +697,7 @@ module.exports = function(fileInfo, api) {
 ```
 
 ### Run codemod:
+
 ```bash
 npx jscodeshift -t transform.js --extensions=ts,tsx ./app ./lib
 ```
