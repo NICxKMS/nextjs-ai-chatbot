@@ -1,7 +1,7 @@
 # Phase 2: Features
 
 **Status:** 🔄 In Progress
-**Progress:** 40% (2/5 features complete)
+**Progress:** 60% (3/5 complete)
 **Started:** 2025-12-20
 
 ## Goals
@@ -9,7 +9,7 @@
 - [x] Chat feature ✅ COMPLETE
 - [ ] Artifacts feature
 - [x] Sidebar feature ✅ COMPLETE
-- [ ] Auth UI feature
+- [x] Auth UI feature ✅ COMPLETE
 - [ ] Documents feature
 
 ## Exit Gate
@@ -20,11 +20,15 @@
 
 - feature-001-chat-system.md ✅ (100%)
 - feature-003-sidebar.md ✅ (100%)
+- feature-004-auth-ui.md ✅ (100%)
+
+## In Progress Tasks
+
+(none)
 
 ## Remaining Tasks
 
 - feature-002-artifacts.md
-- feature-004-auth-ui.md
 - feature-005-documents.md
 
 ## Dependencies
