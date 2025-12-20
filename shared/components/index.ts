@@ -3,5 +3,8 @@
  * @module shared/components
  */
 
-// Shared component exports will be added as components are implemented
-export {};
+// UI primitives
+export * from "./ui";
+
+// Chat elements
+export * from "./elements";

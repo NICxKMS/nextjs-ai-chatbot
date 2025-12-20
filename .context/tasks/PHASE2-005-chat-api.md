@@ -18,10 +18,10 @@
 
 ## OldApp References
 
-| OldApp File | What Extracted |
-|-------------|----------------|
-| oldapp/app/(chat)/api/chat/route.ts | Streaming, errors, persistence |
-| oldapp/app/(chat)/api/chat/schema.ts | Zod validation schema |
+| OldApp File                          | What Extracted                 |
+| ------------------------------------ | ------------------------------ |
+| oldapp/app/(chat)/api/chat/route.ts  | Streaming, errors, persistence |
+| oldapp/app/(chat)/api/chat/schema.ts | Zod validation schema          |
 
 ## Files Created
 

@@ -7,8 +7,9 @@
 ## What Was Done
 
 Analyzed 4 source files for Chat API implementation:
+
 - 05-streaming-data-optimal-design.md (1206 lines)
-- 10-api-routes-optimal-design.md (877 lines)  
+- 10-api-routes-optimal-design.md (877 lines)
 - oldapp/app/(chat)/api/chat/route.ts (467 lines)
 - nextjs-16.1.0-guide.md (306 lines)
 
@@ -23,11 +24,11 @@ Analyzed 4 source files for Chat API implementation:
 
 ## OldApp References
 
-| OldApp File | What Extracted |
-|-------------|----------------|
-| oldapp/app/(chat)/api/chat/route.ts | Streaming pattern, error handling |
-| oldapp/app/(chat)/api/chat/schema.ts | Request validation schema |
-| oldapp/lib/ai/chat-stream-types.ts | Custom UI data types |
+| OldApp File                          | What Extracted                    |
+| ------------------------------------ | --------------------------------- |
+| oldapp/app/(chat)/api/chat/route.ts  | Streaming pattern, error handling |
+| oldapp/app/(chat)/api/chat/schema.ts | Request validation schema         |
+| oldapp/lib/ai/chat-stream-types.ts   | Custom UI data types              |
 
 ## Resume Instructions
 

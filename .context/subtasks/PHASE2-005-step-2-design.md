@@ -7,6 +7,7 @@
 ## What Was Done
 
 Designed and implemented Chat API route:
+
 - Request schema with Zod validation
 - AI SDK 5.0 streaming pattern
 - Error handling integration
@@ -18,12 +19,12 @@ Designed and implemented Chat API route:
 
 ## Design Decisions
 
-| Decision | Rationale |
-|----------|-----------|
-| createUIMessageStream | AI SDK 5.0 pattern for type-safe streaming |
-| Parallel title generation | Non-blocking UX improvement |
-| Custom data parts | Match oldapp behavior |
-| Direct db for ownership | Avoid DataContext complexity |
+| Decision                  | Rationale                                  |
+| ------------------------- | ------------------------------------------ |
+| createUIMessageStream     | AI SDK 5.0 pattern for type-safe streaming |
+| Parallel title generation | Non-blocking UX improvement                |
+| Custom data parts         | Match oldapp behavior                      |
+| Direct db for ownership   | Avoid DataContext complexity               |
 
 ## Resume Instructions
 

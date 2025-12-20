@@ -7,6 +7,7 @@
 ## What Was Done
 
 Implemented app/api/chat/route.ts with:
+
 - POST handler: Auth, validation, streaming, persistence
 - DELETE handler: Auth, ownership check, cascade delete
 - AI SDK 5.0: createUIMessageStream + JsonToSseTransformStream
@@ -19,9 +20,9 @@ Implemented app/api/chat/route.ts with:
 
 ## OldApp References
 
-| OldApp File | What Extracted |
-|-------------|----------------|
-| oldapp/app/(chat)/api/chat/route.ts | Streaming pattern |
+| OldApp File                          | What Extracted    |
+| ------------------------------------ | ----------------- |
+| oldapp/app/(chat)/api/chat/route.ts  | Streaming pattern |
 | oldapp/app/(chat)/api/chat/schema.ts | Validation schema |
 
 ## Verification

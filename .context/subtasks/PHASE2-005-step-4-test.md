@@ -7,6 +7,7 @@
 ## What I'm Doing
 
 Testing Chat API endpoint:
+
 - Manual test via dev server
 - Verify streaming works
 - Verify persistence
