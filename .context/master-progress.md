@@ -2,14 +2,14 @@
 
 **Project:** nextjs-ai-chatbot
 **Last Updated:** 2025-12-20
-**Overall Progress:** 15%
+**Overall Progress:** 18%
 **Current Phase:** Phase 1 - Foundation (in progress)
 
 ## Phase Summary
 
 | Phase                | Status | Progress |
 | -------------------- | ------ | -------- |
-| Phase 1: Foundation  | 🔄     | 55%      |
+| Phase 1: Foundation  | 🔄     | 70%      |
 | Phase 2: Features    | ⏳     | 0%       |
 | Phase 3: Integration | ⏳     | 0%       |
 | Phase 4: Migration   | ⏳     | 0%       |
@@ -27,10 +27,15 @@
   - Auth guards (requireAuth, verifyOwnership, requireNonGuest)
   - Route guards (requireAuthForRoute, verifyOwnershipForRoute)
   - Supabase browser client
+- ✅ **FOUNDATION-004: Data Layer Module** (2025-12-20)
+  - Drizzle client + connection pool
+  - Schema: user, chat, message, vote, document tables
+  - Transaction wrapper with logging
+  - Repository layer: chatData, messageData, userData, voteData, documentData
 
 ## Active Work
 
 → FOUNDATION-002: Logging (mostly complete, needs integration)
-→ FOUNDATION-004: Data Layer (next major task)
+→ FOUNDATION-005: Cache Layer (next major task)
 
 → See `state.json` for current position

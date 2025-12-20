@@ -5,6 +5,7 @@
 **Spec:** 02-authentication-optimal-design.md
 
 ## Files Created
+
 - lib/auth/types.ts - Type definitions
 - lib/auth/cookies.ts - Cookie configuration
 - lib/auth/jwt.ts - JWT utilities
@@ -14,11 +15,13 @@
 - lib/auth/index.ts - Public API exports
 
 ## Key Exports
+
 - SessionManager, getAppSession
 - requireAuth, verifyOwnership, requireNonGuest
 - requireAuthForRoute, verifyOwnershipForRoute
 - getSupabaseBrowserClient
 
 ## Verification
+
 - Typecheck: ✅ PASS
 - Build: ✅ PASS
