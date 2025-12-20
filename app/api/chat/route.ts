@@ -5,6 +5,7 @@
  * Handles streaming AI responses using Vercel AI SDK.
  * Uses createUIMessageStream for rich data streaming (title, usage, etc).
  * Supports multiple providers (OpenAI, Anthropic, Google).
+ * Includes AI tools for document/artifact creation and updates.
  *
  * @module app/api/chat/route
  */
@@ -13,10 +14,12 @@ import {
   streamText,
   convertToModelMessages,
   createUIMessageStream,
+  stepCountIs,
   type UIMessage,
 } from 'ai';
 import type { LanguageModelV2 } from '@ai-sdk/provider';
 import { getSession } from '@/lib/auth';
+import type { AppSession } from '@/lib/auth/types';
 import { AppError, validationError } from '@/lib/errors';
 import {
   getOpenAI,
@@ -25,7 +28,9 @@ import {
   isValidModel,
   DEFAULT_MODEL_ID,
   MODEL_REGISTRY,
+  getTools,
 } from '@/lib/ai';
+import { generateUUID } from '@/lib/utils';
 
 // =============================================================================
 // MODEL INSTANTIATION
@@ -63,7 +68,13 @@ Guidelines:
 - Be concise but thorough
 - Use markdown formatting when appropriate
 - If you're unsure about something, say so
-- Break down complex topics into digestible parts`;
+- Break down complex topics into digestible parts
+
+Document/Artifact Guidelines:
+- Use createDocument for substantial content (>10 lines) like code, documentation, or spreadsheets
+- Use updateDocument to modify existing documents when the user asks for changes
+- For simple inline responses, respond directly without creating a document
+- Supported document kinds: text (markdown), code (programming), sheet (spreadsheets)`;
 
 // =============================================================================
 // TITLE GENERATION
@@ -134,6 +145,15 @@ export async function POST(request: Request): Promise<Response> {
     // Check if this is a new chat (only 1 user message)
     const isNewChat = messages.filter((m) => m.role === 'user').length === 1;
 
+    // Create session for tools (use real session or create guest session)
+    const toolSession: AppSession = session ?? {
+      user: {
+        id: `guest:${generateUUID()}`,
+        type: 'guest',
+        email: null,
+      },
+    };
+
     // Create streaming response with data parts
     const stream = createUIMessageStream({
       execute: async ({ writer }) => {
@@ -150,11 +170,20 @@ export async function POST(request: Request): Promise<Response> {
           }
         }
 
+        // Get AI tools with current session and stream writer
+        const tools = getTools({
+          session: toolSession,
+          dataStream: writer,
+          chatId,
+        });
+
         // Stream the AI response
         const result = streamText({
           model,
           messages: coreMessages,
           system: SYSTEM_PROMPT,
+          tools,
+          stopWhen: stepCountIs(5), // Allow multi-step tool calls
           onFinish: async ({ text, usage }) => {
             // Stream usage data
             if (usage) {

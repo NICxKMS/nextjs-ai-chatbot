@@ -33,3 +33,14 @@ export {
   updateChatContext,
   touchChat,
 } from './chat';
+
+// Document data
+export { documentData } from './documents';
+export {
+  getDocument,
+  getAllDocuments,
+  saveDocument,
+  deleteDocumentsAfterTimestamp,
+  getDocumentSuggestions,
+} from './documents';
+export type { DocumentSaveParams } from './documents';

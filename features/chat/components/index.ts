@@ -34,6 +34,10 @@ export type {
   DataUsageType,
 } from './data-stream-handler';
 
+// Artifact Wrapper
+export { ArtifactWrapper } from './artifact-wrapper';
+export type { ArtifactWrapperProps } from './artifact-wrapper';
+
 // Layout
 export { ChatContainer } from './chat-container';
 export type { ChatContainerProps } from './chat-container';

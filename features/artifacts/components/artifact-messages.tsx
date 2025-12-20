@@ -1,0 +1,129 @@
+'use client';
+
+import equal from 'fast-deep-equal';
+import { memo, useEffect, useRef, useState } from 'react';
+import type { UseChatHelpers } from '@ai-sdk/react';
+
+import { AnimatePresence, m as motion } from 'framer-motion';
+import type { UIArtifact } from '../types';
+
+type ArtifactMessagesProps = {
+  chatId: string;
+  // biome-ignore lint/suspicious/noExplicitAny: UseChatHelpers generic type is complex
+  status: UseChatHelpers<any>['status'];
+  votes: Array<{ messageId: string; vote: 'up' | 'down' }> | undefined;
+  messages: Array<{
+    id: string;
+    role: string;
+    content: string;
+    parts?: Array<{ type: string; text?: string }>;
+  }>;
+  // biome-ignore lint/suspicious/noExplicitAny: UseChatHelpers generic type is complex
+  setMessages: UseChatHelpers<any>['setMessages'];
+  // biome-ignore lint/suspicious/noExplicitAny: UseChatHelpers generic type is complex
+  regenerate: UseChatHelpers<any>['regenerate'];
+  isReadonly: boolean;
+  artifactStatus: UIArtifact['status'];
+};
+
+function PureArtifactMessages({
+  chatId,
+  status,
+  votes,
+  messages,
+  setMessages,
+  regenerate,
+  isReadonly,
+}: ArtifactMessagesProps) {
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [hasSentMessage, setHasSentMessage] = useState(false);
+
+  // Track when user sends a message
+  useEffect(() => {
+    if (status === 'submitted') {
+      setHasSentMessage(true);
+    }
+  }, [status]);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (isAtBottom && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isAtBottom]);
+
+  const handleScroll = () => {
+    if (!messagesContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+    setIsAtBottom(isNearBottom);
+  };
+
+  return (
+    <div
+      className="flex h-full flex-col items-center gap-4 overflow-y-scroll px-4 pt-20"
+      ref={messagesContainerRef}
+      onScroll={handleScroll}
+    >
+      {messages.map((message, index) => (
+        <div
+          key={message.id}
+          className={`w-full rounded-lg p-3 text-sm ${
+            message.role === 'user'
+              ? 'ml-auto max-w-[80%] bg-primary text-primary-foreground'
+              : 'mr-auto max-w-[80%] bg-muted'
+          }`}
+        >
+          {message.content ||
+            message.parts?.find((p) => p.type === 'text')?.text ||
+            ''}
+        </div>
+      ))}
+
+      <AnimatePresence mode="wait">
+        {status === 'submitted' && (
+          <motion.div
+            key="thinking"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="flex items-center gap-2 text-muted-foreground text-sm"
+          >
+            <div className="size-2 animate-pulse rounded-full bg-muted-foreground" />
+            Thinking...
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <motion.div
+        className="min-h-[24px] min-w-[24px] shrink-0"
+        ref={messagesEndRef}
+      />
+    </div>
+  );
+}
+
+function areEqual(prevProps: ArtifactMessagesProps, nextProps: ArtifactMessagesProps) {
+  if (prevProps.artifactStatus === 'streaming' && nextProps.artifactStatus === 'streaming') {
+    return true;
+  }
+
+  if (prevProps.status !== nextProps.status) {
+    return false;
+  }
+  if (prevProps.status && nextProps.status) {
+    return false;
+  }
+  if (prevProps.messages.length !== nextProps.messages.length) {
+    return false;
+  }
+  if (!equal(prevProps.votes, nextProps.votes)) {
+    return false;
+  }
+
+  return true;
+}
+
+export const ArtifactMessages = memo(PureArtifactMessages, areEqual);

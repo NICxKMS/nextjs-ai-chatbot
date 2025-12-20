@@ -16,3 +16,13 @@ export {
   getModelById,
   isValidModel,
 } from './models';
+
+// Tools
+export {
+  createDocument,
+  updateDocument,
+  getTools,
+  type CreateDocumentToolProps,
+  type UpdateDocumentToolProps,
+  type GetToolsProps,
+} from './tools';
