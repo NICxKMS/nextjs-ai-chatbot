@@ -1,7 +1,12 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
     "target": "ESNext",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -18,20 +23,46 @@
         "name": "next"
       }
     ],
-    "paths": {
-      "@/*": ["./*"]
-    },
     "strictNullChecks": true,
     "noUncheckedIndexedAccess": true,
-    "incremental": true
+    "incremental": true,
+    "paths": {
+      "@/*": [
+        "./*"
+      ],
+      "@/lib/*": [
+        "./lib/*"
+      ],
+      "@/components/*": [
+        "./components/*"
+      ],
+      "@/features/*": [
+        "./features/*"
+      ],
+      "@/shared/*": [
+        "./shared/*"
+      ],
+      "@/ui/*": [
+        "./ui/*"
+      ],
+      "@/types/*": [
+        "./types/*"
+      ],
+      "@/config/*": [
+        "./config/*"
+      ]
+    }
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "lib/editor/diff.js"
+    ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "scripts", "tests", ".next"]
+  "exclude": [
+    "node_modules",
+    "oldapp",
+    ".next"
+  ]
 }
