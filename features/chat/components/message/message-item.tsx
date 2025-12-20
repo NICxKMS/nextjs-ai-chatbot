@@ -152,7 +152,7 @@ export const MessageItem = memo(function MessageItem({
         isAssistant && 'justify-start'
       )}
       data-role={message.role}
-      data-testid={`message-${message.role}`}
+      data-testid={isUser ? 'user-message' : 'assistant-message'}
     >
       {/* Avatar - only shown for assistant/system messages */}
       {!isUser && (

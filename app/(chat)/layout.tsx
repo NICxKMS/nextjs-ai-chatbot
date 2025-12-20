@@ -2,24 +2,29 @@
  * Chat Layout
  *
  * Provides the base layout structure for all chat pages.
- * Includes sidebar and main content area.
+ * Includes sidebar, providers, and main content area.
  *
  * @module app/(chat)/layout
  */
 
+import { cookies, headers } from 'next/headers';
 import type { PropsWithChildren } from 'react';
-import { SidebarProvider, OptimisticChatsProvider } from '@/features/sidebar';
-import { SidebarContainer } from './sidebar-container';
+import { ChatLayoutClient } from './chat-layout-client';
 
-export default function ChatLayout({ children }: PropsWithChildren) {
+export default async function ChatLayout({ children }: PropsWithChildren) {
+  const headersList = await headers();
+  const cookieStore = await cookies();
+
+  // Detect mobile from header (set by middleware)
+  const isMobile = headersList.get('x-device-type') === 'mobile';
+  
+  // Get sidebar state from cookie, default to open on desktop
+  const sidebarCookie = cookieStore.get('sidebar:state')?.value;
+  const defaultSidebarOpen = isMobile ? false : sidebarCookie !== 'false';
+
   return (
-    <SidebarProvider defaultOpen={true}>
-      <OptimisticChatsProvider>
-        <div className="flex h-screen">
-          <SidebarContainer />
-          <main className="flex-1 flex flex-col min-w-0">{children}</main>
-        </div>
-      </OptimisticChatsProvider>
-    </SidebarProvider>
+    <ChatLayoutClient defaultSidebarOpen={defaultSidebarOpen}>
+      {children}
+    </ChatLayoutClient>
   );
 }

@@ -8,6 +8,19 @@
 // Providers
 export { getOpenAI, getAnthropic, getGoogle } from './providers';
 
+// Mock Provider (for testing)
+export {
+  MockLanguageModel,
+  createMockModel,
+  configureMockProvider,
+  resetMockProvider,
+  addMockResponse,
+  clearMockResponses,
+  shouldUseMockAI,
+  getModelWithMockFallback,
+  type MockProviderConfig,
+} from './mock-provider';
+
 // Models
 export {
   MODEL_REGISTRY,

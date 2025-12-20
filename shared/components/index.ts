@@ -5,6 +5,7 @@
 
 export { Button, buttonVariants, type ButtonProps } from './button';
 export { Textarea } from './textarea';
+export { ThemeProvider } from './theme-provider';
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './tooltip';
 export {
   DropdownMenu,

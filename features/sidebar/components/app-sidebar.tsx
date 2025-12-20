@@ -80,6 +80,7 @@ export function AppSidebar({
         'transition-transform duration-200',
         state.isMobile && 'absolute z-50 left-0 top-0 shadow-lg'
       )}
+      data-testid="app-sidebar"
     >
       {/* Header */}
       <div className="p-2 border-b">
@@ -88,7 +89,7 @@ export function AppSidebar({
             <BotIcon className="h-5 w-5" />
             <span>AI Chat</span>
           </Link>
-          <button onClick={onNewChat} className="p-2 rounded-lg hover:bg-muted" aria-label="New chat">
+          <button onClick={onNewChat} className="p-2 rounded-lg hover:bg-muted" aria-label="New chat" data-testid="new-chat-button">
             <PlusIcon className="h-4 w-4" />
           </button>
         </div>

@@ -113,6 +113,7 @@ const ChatMessagesList = memo(function ChatMessagesList({
     <div
       className="relative flex-1 overflow-hidden"
       style={{ overflowAnchor: 'none' }}
+      data-testid="messages-container"
     >
       <Virtuoso
         ref={virtuosoRef}

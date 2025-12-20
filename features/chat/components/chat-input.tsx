@@ -240,7 +240,7 @@ export function ChatInput({ disabled, placeholder }: ChatInputProps) {
             disabled={isLoading || isDisabled}
             rows={1}
             className="min-h-[44px] max-h-[200px] grow resize-none border-none bg-transparent p-2 text-sm outline-none ring-0 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-50"
-            data-testid="multimodal-input"
+            data-testid="chat-input"
             autoFocus
           />
         </div>

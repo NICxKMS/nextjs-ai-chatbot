@@ -19,6 +19,12 @@ import type {
   SourcePart,
 } from '../../types';
 import { cn } from '@/lib/utils';
+import { MarkdownRenderer } from '../markdown-renderer';
+import {
+  Reasoning,
+  ReasoningTrigger,
+  ReasoningContent,
+} from '../reasoning';
 import {
   DocumentPreview,
   DocumentToolCall,
@@ -144,24 +150,6 @@ function AlertCircleIcon({ className }: { className?: string }) {
   );
 }
 
-function BrainIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z" />
-      <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z" />
-    </svg>
-  );
-}
-
 function ChevronDownIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -202,11 +190,10 @@ function LinkIcon({ className }: { className?: string }) {
 // =============================================================================
 
 /**
- * Renders text content with prose styling.
+ * Renders text content with markdown/LaTeX support.
  */
 function TextPartView({
   text,
-  isStreaming,
   className,
 }: {
   text: string;
@@ -214,16 +201,14 @@ function TextPartView({
   className?: string;
 }) {
   return (
-    <div
+    <MarkdownRenderer
       className={cn(
-        'prose prose-sm dark:prose-invert max-w-none break-words',
-        isStreaming && 'animate-pulse',
+        'break-words',
         className
       )}
     >
-      {/* Simple text for now - markdown rendering can be added later */}
       {text}
-    </div>
+    </MarkdownRenderer>
   );
 }
 
@@ -442,7 +427,7 @@ function ToolResultPartView({
 }
 
 /**
- * Renders chain-of-thought reasoning display.
+ * Renders chain-of-thought reasoning display with collapsible UI and duration tracking.
  */
 function ReasoningPartView({
   reasoning,
@@ -453,44 +438,15 @@ function ReasoningPartView({
   isStreaming?: boolean;
   className?: string;
 }) {
-  const [isExpanded, setIsExpanded] = useState(true);
-
   return (
-    <div
-      className={cn(
-        'rounded-lg border border-dashed bg-amber-50 dark:bg-amber-950/20 my-2 overflow-hidden',
-        className
-      )}
+    <Reasoning
+      className={className}
+      isStreaming={isStreaming}
+      defaultOpen={true}
     >
-      <button
-        type="button"
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="flex w-full items-center gap-2 p-3 text-left hover:bg-amber-100/50 dark:hover:bg-amber-950/30 transition-colors"
-      >
-        <BrainIcon className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-        <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
-          {isStreaming ? 'Thinking...' : 'Reasoning'}
-        </span>
-        <ChevronDownIcon
-          className={cn(
-            'h-4 w-4 text-amber-700 dark:text-amber-400 transition-transform ml-auto',
-            isExpanded && 'rotate-180'
-          )}
-        />
-      </button>
-      {isExpanded && (
-        <div className="border-t border-dashed border-amber-200 dark:border-amber-800 p-3">
-          <div
-            className={cn(
-              'text-sm text-muted-foreground whitespace-pre-wrap',
-              isStreaming && 'animate-pulse'
-            )}
-          >
-            {reasoning}
-          </div>
-        </div>
-      )}
-    </div>
+      <ReasoningTrigger />
+      <ReasoningContent>{reasoning}</ReasoningContent>
+    </Reasoning>
   );
 }
 

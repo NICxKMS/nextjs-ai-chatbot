@@ -6,7 +6,7 @@
  */
 import 'server-only';
 
-import { smoothStream, streamText } from 'ai';
+import { smoothStream, streamText, type LanguageModel } from 'ai';
 
 import { getOpenAI } from '@/lib/ai/providers';
 import { createDocumentHandler } from './base';
@@ -33,7 +33,7 @@ export const textDocumentHandler = createDocumentHandler<'text'>({
     let draftContent = '';
 
     const { fullStream } = streamText({
-      model: getOpenAI()('gpt-4o-mini'),
+      model: getOpenAI()('gpt-4o-mini') as unknown as LanguageModel,
       system: TEXT_SYSTEM_PROMPT,
       prompt: title,
       experimental_transform: smoothStream({ chunking: 'word' }),
@@ -58,7 +58,7 @@ export const textDocumentHandler = createDocumentHandler<'text'>({
     let draftContent = '';
 
     const { fullStream } = streamText({
-      model: getOpenAI()('gpt-4o-mini'),
+      model: getOpenAI()('gpt-4o-mini') as unknown as LanguageModel,
       system: createUpdatePrompt(document.content),
       prompt: description,
       experimental_transform: smoothStream({ chunking: 'word' }),
