@@ -48,10 +48,9 @@ export const codeDocumentHandler = createDocumentHandler<'code'>({
 
   onCreateDocument: async ({ title, dataStream }) => {
     let draftContent = '';
-    const openai = getOpenAI();
 
     const { fullStream } = streamObject({
-      model: openai('gpt-4o-mini'),
+      model: getOpenAI()('gpt-4o-mini'),
       system: CODE_SYSTEM_PROMPT,
       prompt: title,
       schema: codeSchema,
@@ -77,10 +76,9 @@ export const codeDocumentHandler = createDocumentHandler<'code'>({
 
   onUpdateDocument: async ({ document, description, dataStream }) => {
     let draftContent = '';
-    const openai = getOpenAI();
 
     const { fullStream } = streamObject({
-      model: openai('gpt-4o-mini'),
+      model: getOpenAI()('gpt-4o-mini'),
       system: createUpdatePrompt(document.content),
       prompt: description,
       schema: codeSchema,

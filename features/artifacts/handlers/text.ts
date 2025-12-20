@@ -31,10 +31,9 @@ export const textDocumentHandler = createDocumentHandler<'text'>({
 
   onCreateDocument: async ({ title, dataStream }) => {
     let draftContent = '';
-    const openai = getOpenAI();
 
     const { fullStream } = streamText({
-      model: openai('gpt-4o-mini'),
+      model: getOpenAI()('gpt-4o-mini'),
       system: TEXT_SYSTEM_PROMPT,
       prompt: title,
       experimental_transform: smoothStream({ chunking: 'word' }),
@@ -57,10 +56,9 @@ export const textDocumentHandler = createDocumentHandler<'text'>({
 
   onUpdateDocument: async ({ document, description, dataStream }) => {
     let draftContent = '';
-    const openai = getOpenAI();
 
     const { fullStream } = streamText({
-      model: openai('gpt-4o-mini'),
+      model: getOpenAI()('gpt-4o-mini'),
       system: createUpdatePrompt(document.content),
       prompt: description,
       experimental_transform: smoothStream({ chunking: 'word' }),

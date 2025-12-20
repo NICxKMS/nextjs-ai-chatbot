@@ -16,8 +16,8 @@ import {
   createUIMessageStream,
   stepCountIs,
   type UIMessage,
+  type LanguageModel,
 } from 'ai';
-import type { LanguageModelV2 } from '@ai-sdk/provider';
 import { getSession } from '@/lib/auth';
 import type { AppSession } from '@/lib/auth/types';
 import { AppError, validationError } from '@/lib/errors';
@@ -40,7 +40,7 @@ import { generateUUID } from '@/lib/utils';
  * Get the language model instance for a given model ID
  * Uses lazy initialization to only instantiate the provider when needed
  */
-function getModel(modelId: string):LanguageModelV2 {
+function getModel(modelId: string): LanguageModel {
   const metadata = MODEL_REGISTRY[modelId];
   if (!metadata) {
     throw validationError(`Invalid model: ${modelId}`);
