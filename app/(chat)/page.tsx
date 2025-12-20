@@ -1,9 +1,18 @@
-export default function NewChatPage() {
+import { getAppSession } from '@/lib/auth';
+import { ChatContainer } from '@/features/chat';
+
+export default async function NewChatPage() {
+  const session = await getAppSession();
+  
+  // Generate new chat ID
+  const chatId = crypto.randomUUID();
+  
   return (
-    <div className="flex h-full flex-col items-center justify-center">
-      <h1 className="text-3xl font-bold mb-4">New Chat</h1>
-      <p className="text-gray-500">Start a new conversation</p>
-      {/* Chat interface will be added */}
-    </div>
+    <ChatContainer
+      chatId={chatId}
+      initialMessages={[]}
+      modelId="gpt-4o"
+      isGuest={!session?.user.id}
+    />
   );
 }
