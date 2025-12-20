@@ -25,6 +25,7 @@ import {
   DocumentToolResult,
 } from '@/features/documents';
 import type { ArtifactKind } from '@/features/artifacts';
+import { Weather, type WeatherAtLocation } from '../weather';
 
 // =============================================================================
 // CONSTANTS
@@ -36,6 +37,9 @@ const DOCUMENT_TOOL_NAMES = [
   'updateDocument',
   'requestSuggestions',
 ] as const;
+
+/** Weather tool name */
+const WEATHER_TOOL_NAME = 'getWeather' as const;
 
 type DocumentToolName = (typeof DOCUMENT_TOOL_NAMES)[number];
 
@@ -61,6 +65,11 @@ export interface MessagePartProps {
 /** Check if a tool name is a document tool */
 function isDocumentTool(toolName: string): toolName is DocumentToolName {
   return DOCUMENT_TOOL_NAMES.includes(toolName as DocumentToolName);
+}
+
+/** Check if a tool name is the weather tool */
+function isWeatherTool(toolName: string): boolean {
+  return toolName === WEATHER_TOOL_NAME;
 }
 
 /** Get document operation type from tool name */
@@ -299,6 +308,7 @@ function ToolCallPartView({
 /**
  * Renders a tool result display.
  * For document tools, renders DocumentPreview or DocumentToolResult.
+ * For weather tool, renders Weather component.
  */
 function ToolResultPartView({
   toolCallId,
@@ -309,6 +319,30 @@ function ToolResultPartView({
   className,
 }: ToolResultPart & { isReadonly?: boolean; className?: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Handle weather tool results
+  if (isWeatherTool(toolName)) {
+    const resultObj = result as Record<string, unknown> | null;
+
+    // Check for error in result
+    if (resultObj && 'error' in resultObj) {
+      return (
+        <div
+          className={cn(
+            'rounded-lg border border-red-200 bg-red-50 p-4 text-red-500 dark:border-red-800 dark:bg-red-950/50',
+            className
+          )}
+        >
+          Weather Error: {String(resultObj.error)}
+        </div>
+      );
+    }
+
+    // Render Weather component with the data
+    if (resultObj) {
+      return <Weather weatherAtLocation={resultObj as WeatherAtLocation} />;
+    }
+  }
 
   // Handle document tool results specially
   if (isDocumentTool(toolName)) {

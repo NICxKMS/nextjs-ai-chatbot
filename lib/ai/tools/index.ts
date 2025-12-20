@@ -12,10 +12,14 @@ import type { UIMessageStreamWriter } from 'ai';
 import type { AppSession } from '@/lib/auth/types';
 import { createDocument, type CreateDocumentToolProps } from './create-document';
 import { updateDocument, type UpdateDocumentToolProps } from './update-document';
+import { getWeather } from './get-weather';
+import { requestSuggestions, type RequestSuggestionsToolProps } from './request-suggestions';
 
 // Re-export tools and types
 export { createDocument, type CreateDocumentToolProps } from './create-document';
 export { updateDocument, type UpdateDocumentToolProps } from './update-document';
+export { getWeather, type WeatherAtLocation } from './get-weather';
+export { requestSuggestions, type RequestSuggestionsToolProps } from './request-suggestions';
 
 // =============================================================================
 // TYPES
@@ -59,5 +63,7 @@ export function getTools({ session, dataStream, chatId }: GetToolsProps) {
   return {
     createDocument: createDocument({ session, dataStream, chatId }),
     updateDocument: updateDocument({ session, dataStream }),
+    getWeather: getWeather,
+    requestSuggestions: requestSuggestions({ session, dataStream }),
   };
 }

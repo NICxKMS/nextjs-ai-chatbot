@@ -207,6 +207,20 @@ export const documentData = {
   },
 } as const;
 
+/**
+ * Save suggestions to database
+ */
+export async function saveSuggestions(
+  suggestions: Suggestion[]
+): Promise<void> {
+  if (suggestions.length === 0) {
+    return;
+  }
+
+  const db = getDb();
+  await db.insert(suggestion).values(suggestions);
+}
+
 // Re-export individual functions for tree-shaking
 export const getDocument = documentData.get;
 export const getAllDocuments = documentData.getAll;
