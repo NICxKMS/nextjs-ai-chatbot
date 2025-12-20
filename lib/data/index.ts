@@ -42,5 +42,6 @@ export {
   saveDocument,
   deleteDocumentsAfterTimestamp,
   getDocumentSuggestions,
+  saveSuggestions,
 } from './documents';
 export type { DocumentSaveParams } from './documents';

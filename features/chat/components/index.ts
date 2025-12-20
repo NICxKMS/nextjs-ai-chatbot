@@ -97,3 +97,13 @@ export type {
   SubmitButtonProps,
   StopButtonProps,
 } from './input';
+
+// P1 Components
+export { MessageEditor } from './message-editor';
+export type { MessageEditorProps } from './message-editor';
+
+export { SuggestedActions } from './suggested-actions';
+export type { SuggestedActionsProps } from './suggested-actions';
+
+export { VisibilitySelector } from './visibility-selector';
+export type { VisibilitySelectorProps } from './visibility-selector';

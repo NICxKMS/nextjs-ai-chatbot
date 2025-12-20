@@ -4,5 +4,33 @@
  */
 
 export { Button, buttonVariants, type ButtonProps } from './button';
+export { Textarea } from './textarea';
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './tooltip';
-export { CrossIcon, LoaderIcon, StopIcon, ArrowUpIcon, SummarizeIcon } from './icons';
+export {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuCheckboxItem,
+  DropdownMenuRadioItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuGroup,
+  DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuRadioGroup,
+} from './dropdown-menu';
+export {
+  CrossIcon,
+  LoaderIcon,
+  StopIcon,
+  ArrowUpIcon,
+  SummarizeIcon,
+  ChevronDownIcon,
+  CheckCircleFillIcon,
+  GlobeIcon,
+  LockIcon,
+} from './icons';
