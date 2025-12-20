@@ -54,21 +54,11 @@ export {
 // Utils
 export { DataStreamHandler, type DataStreamHandlerProps } from './utils/stream-handler';
 
-// Handlers
-export {
-  createDocumentHandler,
-  textDocumentHandler,
-  codeDocumentHandler,
-  sheetDocumentHandler,
-  documentHandlersByArtifactKind,
-  type DocumentHandler,
-  type DocumentHandlerConfig,
-  type CreateDocumentCallbackProps,
-  type UpdateDocumentCallbackProps,
-} from './handlers';
-
-// Actions
+// Actions (server actions are safe to import in client components)
 export { getSuggestions } from './actions';
+
+// NOTE: Server-only exports (handlers) are in './server.ts'
+// Import from '@/features/artifacts/server' for server code
 
 // Main Components
 export {

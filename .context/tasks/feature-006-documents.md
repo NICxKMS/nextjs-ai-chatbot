@@ -12,6 +12,7 @@ Document management feature for the chat application. Handles document attachmen
 ## Implementation Notes
 
 Most of the Documents feature work was completed during the Artifacts phase:
+
 - Document preview components integrated with artifact system
 - Document handlers share infrastructure with artifacts
 - Preview components render inline within chat messages
@@ -19,16 +20,19 @@ Most of the Documents feature work was completed during the Artifacts phase:
 ## Components Created
 
 ### Data Layer (lib/data/documents/)
+
 - `queries.ts` - Document CRUD operations
 - `types.ts` - Document type definitions
 - `index.ts` - Public exports
 
 ### Feature Components (features/documents/)
+
 - `components/` - Document-specific UI components
 - `types.ts` - Feature-level types
 - `index.ts` - Feature exports
 
 ### Integration Points
+
 - Chat message rendering with document previews
 - Artifact system document handlers
 - API routes for document operations

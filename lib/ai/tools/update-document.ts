@@ -11,7 +11,7 @@
 import { tool, type UIMessageStreamWriter } from 'ai';
 import { z } from 'zod';
 
-import { documentHandlersByArtifactKind } from '@/features/artifacts/handlers';
+import { documentHandlersByArtifactKind } from '@/features/artifacts/server';
 import type { AppSession } from '@/lib/auth/types';
 import { createContext } from '@/lib/data/base';
 import { documentData } from '@/lib/data/documents';

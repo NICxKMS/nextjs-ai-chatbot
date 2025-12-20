@@ -162,9 +162,9 @@ export function Console({ consoleOutputs, setConsoleOutputs, isArtifactVisible =
       <div
         aria-label="Resize console"
         aria-orientation="horizontal"
-        aria-valuemax={maxHeight}
-        aria-valuemin={minHeight}
-        aria-valuenow={height}
+        aria-valuemax={Number(maxHeight)}
+        aria-valuemin={Number(minHeight)}
+        aria-valuenow={Number(height)}
         className="fixed z-50 h-2 w-full cursor-ns-resize"
         onKeyDown={(e) => {
           if (e.key === 'ArrowUp') {
@@ -196,6 +196,7 @@ export function Console({ consoleOutputs, setConsoleOutputs, isArtifactVisible =
             <div>Console</div>
           </div>
           <button
+            aria-label="Close console"
             className="size-fit p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
             onClick={() => setConsoleOutputs([])}
             type="button"

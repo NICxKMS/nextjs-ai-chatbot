@@ -14,7 +14,7 @@ import { z } from 'zod';
 import {
   artifactKinds,
   documentHandlersByArtifactKind,
-} from '@/features/artifacts/handlers';
+} from '@/features/artifacts/server';
 import type { AppSession } from '@/lib/auth/types';
 import { AppError } from '@/lib/errors';
 import { generateUUID } from '@/lib/utils';
