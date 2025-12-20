@@ -15,6 +15,7 @@ import { ChatHeader } from './chat-header';
 import { ChatMessages } from './chat-messages';
 import { ChatInput } from './chat-input';
 import { ChatErrorBoundary } from './chat-error-boundary';
+import { ArtifactWrapper } from './artifact-wrapper';
 import type { ChatProps, MessageVote, ChatMessage } from '../types';
 
 // =============================================================================
@@ -30,6 +31,8 @@ export interface FullChatProps extends ChatProps {
   votes?: MessageVote[];
   /** Callback when user initiates a new chat */
   onNewChat?: () => void;
+  /** Visibility type for the chat */
+  selectedVisibilityType?: 'private' | 'public';
 }
 
 // =============================================================================
@@ -66,7 +69,14 @@ export function Chat({
   isReadonly = false,
   votes = [],
   onNewChat,
+  selectedVisibilityType = 'private',
 }: FullChatProps) {
+  // Convert votes to the format expected by components
+  const formattedVotes = votes.map((v) => ({
+    messageId: v.messageId,
+    vote: v.vote,
+  }));
+
   return (
     <ChatErrorBoundary>
       <ChatProvider
@@ -80,6 +90,13 @@ export function Chat({
           <ChatMessages votes={votes} isReadonly={isReadonly} />
           <ChatInput />
         </ChatContainer>
+
+        {/* Artifact panel - renders alongside chat when visible */}
+        <ArtifactWrapper
+          votes={formattedVotes}
+          isReadonly={isReadonly}
+          selectedVisibilityType={selectedVisibilityType}
+        />
       </ChatProvider>
     </ChatErrorBoundary>
   );
