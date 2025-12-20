@@ -34,6 +34,7 @@ yarn-error.log*
 
 .env
 .vercel
+.env.local.remote
 .env*.local
 
 # Playwright
@@ -51,8 +52,9 @@ tsconfig.tsbuildinfo
 rework.md
 
 promptarch.md
-# prompt.md
+prompt.md
 # prompt copy.md
 # prompt copy 2.md
 prompt-genome/
 prompt-initial-newarch-impl.md
+ULTIMATE-AI-CODING-AGENT-PROMPT.md
