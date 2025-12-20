@@ -1,69 +1,80 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
-import { useChatActions, useIsStreaming, useChatStatus } from '../hooks';
+import { useState, useCallback } from 'react';
+import {
+  PromptInput,
+  PromptInputTextarea,
+  PromptInputToolbar,
+  PromptInputTools,
+  PromptInputSubmit,
+} from '@/shared/components/elements';
+import { useChatActions, useChatStatus } from '../hooks';
 
-export function ChatInput() {
+export interface ChatInputProps {
+  chatId?: string;
+  isDisabled?: boolean;
+}
+
+export function ChatInput({ chatId, isDisabled: externalDisabled }: ChatInputProps) {
   const [input, setInput] = useState('');
   const { sendMessage, stop } = useChatActions();
-  const isStreaming = useIsStreaming();
   const status = useChatStatus();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const isDisabled = status === 'submitted' || status === 'streaming';
+  const isSubmitting = status === 'submitted';
+  const isStreaming = status === 'streaming';
+  const isDisabled = externalDisabled || isSubmitting || isStreaming;
+  const canSubmit = input.trim().length > 0 && !isDisabled;
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const trimmedInput = input.trim();
-    if (!trimmedInput || isDisabled) return;
-
-    setInput('');
-    
-    await sendMessage({ text: trimmedInput });
-  }, [input, isDisabled, sendMessage]);
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
       e.preventDefault();
-      handleSubmit(e as unknown as React.FormEvent);
+
+      const trimmedInput = input.trim();
+      if (!trimmedInput || isDisabled) return;
+
+      setInput('');
+      await sendMessage({ text: trimmedInput });
+    },
+    [input, isDisabled, sendMessage]
+  );
+
+  const handleStopClick = useCallback(() => {
+    if (isStreaming) {
+      stop();
     }
-  }, [handleSubmit]);
+  }, [isStreaming, stop]);
 
   return (
-    <form onSubmit={handleSubmit} className="border-t p-4">
+    <div className="border-t p-4">
       <div className="mx-auto max-w-3xl">
-        <div className="flex gap-2">
-          <textarea
-            ref={textareaRef}
+        <PromptInput onSubmit={handleSubmit}>
+          <PromptInputTextarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
             placeholder="Send a message..."
-            className="flex-1 resize-none rounded-lg border bg-background px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary"
-            rows={1}
             disabled={isDisabled}
+            rows={1}
           />
-          
-          {isStreaming ? (
-            <button
-              type="button"
-              onClick={stop}
-              className="rounded-lg bg-destructive px-4 py-2 text-destructive-foreground"
-            >
-              Stop
-            </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={!input.trim() || isDisabled}
-              className="rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
-            >
-              Send
-            </button>
-          )}
-        </div>
+          <PromptInputToolbar>
+            <PromptInputTools />
+            {isStreaming ? (
+              <PromptInputSubmit
+                type="button"
+                onClick={handleStopClick}
+                status="streaming"
+                variant="destructive"
+                aria-label="Stop generating"
+              />
+            ) : (
+              <PromptInputSubmit
+                disabled={!canSubmit}
+                status={isSubmitting ? 'submitted' : 'ready'}
+                aria-label="Send message"
+              />
+            )}
+          </PromptInputToolbar>
+        </PromptInput>
       </div>
-    </form>
+    </div>
   );
 }

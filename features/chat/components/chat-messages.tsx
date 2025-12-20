@@ -39,7 +39,8 @@ export function ChatMessages() {
           <MessageItem 
             key={message.id} 
             message={message}
-            isLast={index === messages.length - 1}
+            isLatest={index === messages.length - 1}
+            isStreaming={status === 'streaming' && index === messages.length - 1}
           />
         ))}
         

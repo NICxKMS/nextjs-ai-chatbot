@@ -31,7 +31,11 @@ export {
   ChatMessages,
   ChatInput,
   MessageItem,
+  ThinkingMessage,
+  MessageActions,
+  Greeting,
 } from './components';
+export type { MessageItemProps, ChatInputProps, MessageActionsProps, GreetingProps } from './components';
 
 // Server Actions
 export {
