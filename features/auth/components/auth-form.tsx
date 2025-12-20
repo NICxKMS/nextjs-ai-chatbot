@@ -107,6 +107,7 @@ function SubmitButton({
       className="relative"
       disabled={isDisabled}
       type={pending ? 'button' : 'submit'}
+      data-testid="submit-button"
     >
       {children}
 
@@ -165,7 +166,7 @@ export function AuthForm({
         </div>
 
         {/* Form */}
-        <Form action={onSubmit} className="flex flex-col gap-4 px-4 sm:px-16">
+        <Form action={onSubmit} className="flex flex-col gap-4 px-4 sm:px-16" data-testid="auth-form">
           {/* Email Field */}
           <div className="flex flex-col gap-2">
             <Label
@@ -184,6 +185,7 @@ export function AuthForm({
               placeholder="user@acme.com"
               required
               type="email"
+              data-testid="email-input"
             />
           </div>
 
@@ -201,6 +203,7 @@ export function AuthForm({
               name="password"
               required
               type="password"
+              data-testid="password-input"
             />
           </div>
 

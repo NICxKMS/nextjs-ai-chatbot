@@ -86,6 +86,7 @@ export function ModelSelector({
         disabled={disabled}
         className="appearance-none bg-transparent border border-border rounded-md px-3 py-1.5 pr-8 text-sm font-medium cursor-pointer hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
         aria-label="Select AI model"
+        data-testid="model-selector"
       >
         {models.length === 0 ? (
           <option value="">No models available</option>

@@ -8,9 +8,11 @@
  */
 
 import { notFound, redirect } from 'next/navigation';
-import { Chat } from '@/features/chat';
+
+import { Chat, DataStreamHandler } from '@/features/chat';
+import { getAvailableModels, DEFAULT_MODEL_ID } from '@/lib/ai';
 import { getSession } from '@/lib/auth';
-import { chatData, createContext } from '@/lib/data';
+import { chatData, createContext, voteData } from '@/lib/data';
 import { convertToUIMessages } from '@/lib/utils';
 import type { UIMessage } from '@ai-sdk/react';
 
@@ -25,52 +27,66 @@ export default async function ChatPage({ params }: ChatPageProps) {
   const session = await getSession();
   const user = session?.user;
 
-  // If no session and not a guest chat, redirect to login
-  if (!user && !id.startsWith('guest-')) {
+  // If no session, redirect to login
+  if (!user) {
     redirect('/login');
   }
 
   // Create data context
-  const ctx = user
-    ? createContext(user.id, user.type)
-    : null;
+  const ctx = createContext(user.id, user.type);
 
-  // Try to load existing chat
-  const chatWithMessages = ctx ? await chatData.getWithMessages(id, ctx) : null;
+  // Try to load existing chat with messages
+  const chatWithMessages = await chatData.getWithMessages(id, ctx);
 
-  // If chat doesn't exist and not a new guest chat
-  if (!chatWithMessages && !id.startsWith('guest-')) {
+  // If chat doesn't exist, show 404
+  if (!chatWithMessages) {
     notFound();
   }
 
-  // Extract chat and messages
-  const chat = chatWithMessages?.chat;
-  const rawMessages = chatWithMessages?.messages ?? [];
+  const { chat, messages: rawMessages } = chatWithMessages;
+
+  // Check authorization - private chats are owner-only
+  if (chat.visibility === 'private' && chat.userId !== user.id) {
+    redirect('/?notice=chat_not_found');
+  }
 
   // Convert to UI messages format
   const messages = convertToUIMessages(rawMessages) as UIMessage[];
 
   // Determine readonly state
-  const isReadonly = chat?.userId !== user?.id;
+  const isReadonly = chat.userId !== user.id;
 
-  // Get model from lastContext if available
-  const lastContext = chat?.lastContext as { modelId?: string } | null;
-  const selectedModelId = lastContext?.modelId;
+  // Get model from lastContext or use default
+  const lastContext = chat.lastContext as { modelId?: string } | null;
+  const selectedModelId = lastContext?.modelId ?? DEFAULT_MODEL_ID;
 
-  // TODO: Load votes when vote data layer is implemented
-  const votes: Array<{
-    chatId: string;
-    messageId: string;
-    vote: 'up' | 'down';
-  }> = [];
+  // Load votes for authenticated (non-guest) users
+  let votes: Array<{ chatId: string; messageId: string; vote: 'up' | 'down' }> = [];
+  if (rawMessages.length >= 2 && user.type !== 'guest') {
+    try {
+      const dbVotes = await voteData.getByChatId(id, ctx);
+      votes = dbVotes.map((v) => ({
+        chatId: v.chatId,
+        messageId: v.messageId,
+        vote: v.isUpvoted ? 'up' : 'down',
+      }));
+    } catch {
+      // Continue without votes on error
+      votes = [];
+    }
+  }
 
   return (
-    <Chat
-      id={id}
-      initialMessages={messages}
-      selectedModelId={selectedModelId}
-      isReadonly={isReadonly}
-      votes={votes}
-    />
+    <>
+      <Chat
+        id={chat.id}
+        initialMessages={messages}
+        selectedModelId={selectedModelId}
+        isReadonly={isReadonly}
+        votes={votes}
+        selectedVisibilityType={chat.visibility}
+      />
+      <DataStreamHandler />
+    </>
   );
 }

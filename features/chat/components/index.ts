@@ -107,3 +107,15 @@ export type { SuggestedActionsProps } from './suggested-actions';
 
 export { VisibilitySelector } from './visibility-selector';
 export type { VisibilitySelectorProps } from './visibility-selector';
+
+// Markdown Renderer
+export { MarkdownRenderer } from './markdown-renderer';
+export type { MarkdownRendererProps } from './markdown-renderer';
+
+// Reasoning
+export { Reasoning, ReasoningTrigger, ReasoningContent } from './reasoning';
+export type {
+  ReasoningProps,
+  ReasoningTriggerProps,
+  ReasoningContentProps,
+} from './reasoning';

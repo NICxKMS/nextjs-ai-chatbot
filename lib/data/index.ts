@@ -45,3 +45,13 @@ export {
   saveSuggestions,
 } from './documents';
 export type { DocumentSaveParams } from './documents';
+
+// Vote data
+export { voteData } from './votes';
+export {
+  getVote,
+  getVotesByChatId,
+  saveVote,
+  deleteVote,
+} from './votes';
+export type { VoteType, SaveVoteParams } from './votes';

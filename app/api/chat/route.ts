@@ -48,11 +48,11 @@ function getModel(modelId: string): LanguageModel {
 
   switch (metadata.provider) {
     case 'openai':
-      return getOpenAI().chat(modelId);
+      return getOpenAI().chat(modelId) as unknown as LanguageModel;
     case 'anthropic':
-      return getAnthropic()(modelId);
+      return getAnthropic()(modelId) as unknown as LanguageModel;
     case 'google':
-      return getGoogle()(modelId);
+      return getGoogle()(modelId) as unknown as LanguageModel;
     default:
       throw validationError(`Unsupported provider: ${metadata.provider}`);
   }

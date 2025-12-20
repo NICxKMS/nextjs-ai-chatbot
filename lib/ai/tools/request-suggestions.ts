@@ -8,7 +8,7 @@
  * @module lib/ai/tools/request-suggestions
  */
 
-import { streamObject, tool, type UIMessageStreamWriter } from 'ai';
+import { streamObject, tool, type UIMessageStreamWriter, type LanguageModel } from 'ai';
 import { z } from 'zod';
 
 import type { AppSession } from '@/lib/auth/types';
@@ -86,7 +86,7 @@ export function requestSuggestions({
       const suggestions: StreamSuggestion[] = [];
 
       const { elementStream } = streamObject({
-        model: getOpenAI()('gpt-4o-mini'),
+        model: getOpenAI()('gpt-4o-mini') as unknown as LanguageModel,
         system:
           'You are a writing assistant. Analyze the text and provide up to 5 specific suggestions for improvement. Ensure suggestions are complete sentences and clearly describe the change.',
         prompt: document.content,

@@ -27,7 +27,7 @@ export function SidebarHistory({
   // Merge optimistic chats with server chats
   const allChats = useMemo(() => {
     const optimisticIds = new Set(optimisticChats.map((c) => c.id));
-    const serverChats = chats.filter((c) => !optimisticIds.has(c.id));
+    const serverChats = (chats ?? []).filter((c) => c && !optimisticIds.has(c.id));
     return [...optimisticChats, ...serverChats];
   }, [optimisticChats, chats]);
 
@@ -51,24 +51,26 @@ export function SidebarHistory({
   const flatChats = groups.flatMap((g) => g.chats);
 
   return (
-    <GroupedVirtuoso
-      groupCounts={groupCounts}
-      groupContent={(index) => {
-        const group = groups[index];
-        return (
-          <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase sticky top-0 bg-background">
-            {group?.label ?? 'Unknown'}
-          </div>
-        );
-      }}
-      itemContent={(index) => {
-        const chat = flatChats[index];
-        if (!chat) return null;
-        return <SidebarHistoryItem chat={chat} onDelete={onDeleteChat} />;
-      }}
-      endReached={() => hasMore && onLoadMore?.()}
-      className="flex-1"
-    />
+    <div data-testid="chat-history" className="flex-1 overflow-hidden">
+      <GroupedVirtuoso
+        groupCounts={groupCounts}
+        groupContent={(index) => {
+          const group = groups[index];
+          return (
+            <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase sticky top-0 bg-background">
+              {group?.label ?? 'Unknown'}
+            </div>
+          );
+        }}
+        itemContent={(index) => {
+          const chat = flatChats[index];
+          if (!chat) return null;
+          return <SidebarHistoryItem chat={chat} onDelete={onDeleteChat} />;
+        }}
+        endReached={() => hasMore && onLoadMore?.()}
+        className="h-full"
+      />
+    </div>
   );
 }
 
