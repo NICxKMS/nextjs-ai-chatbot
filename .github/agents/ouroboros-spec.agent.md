@@ -90,9 +90,9 @@ before we move to the next phase.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-**Then ask for feature name (Type C: Feature):**
+**Then ask for feature name (Type C: Feature with Question):**
 ```python
-python .ouroboros/scripts/ouroboros_input.py --header "[1] auth-system\n[2] payment-flow\n[3] Custom..." --prompt "Feature [1-3 or name]: " --var feature
+python .ouroboros/scripts/ouroboros_input.py --question "📋 Select or enter feature name for spec creation:" --header "[1] auth-system\n[2] payment-flow\n[3] Custom..." --prompt "Feature [1-3 or name]: " --var feature
 ```
 
 **After receiving feature name:**
@@ -184,7 +184,7 @@ Read: .ouroboros/specs/[feature-name]/research.md
    
    a. **Execute CCL MENU:**
    ```python
-   python .ouroboros/scripts/ouroboros_input.py --header "[1] Option A\n[2] Option B\n[3] Custom..." --prompt "Select: " --var choice
+   python .ouroboros/scripts/ouroboros_input.py --question "❓ [CLQ-XXX Question content]" --header "[1] Option A\n[2] Option B\n[3] Custom..." --prompt "Select: " --var choice
    ```
 
 
@@ -362,9 +362,9 @@ All 5 phases are complete and validated.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-**Execute via `run_command` tool (Type B: Menu):**
+**Execute via `run_command` tool (Type B: Menu with Question):**
 ```python
-python .ouroboros/scripts/ouroboros_input.py --header "[1] ⚙️ /ouroboros-implement\n[2] 📝 Revise\n[3] 🔄 /ouroboros" --prompt "Select [1-3]: " --var choice
+python .ouroboros/scripts/ouroboros_input.py --question "✅ Spec document complete! Select next action:" --header "[1] ⚙️ /ouroboros-implement\n[2] 📝 Revise\n[3] 🔄 /ouroboros" --prompt "Select [1-3]: " --var choice
 ```
 
 **If choice = 1**: Use handoff to `ouroboros-implement`

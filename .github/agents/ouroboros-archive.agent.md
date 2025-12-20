@@ -148,9 +148,9 @@ runSubagent(
    - history: 2 files > 7 days (will archive)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
-**Execute via `run_command` tool (Type B: Menu):**
+**Execute via `run_command` tool (Type B: Menu with Question):**
 ```python
-python .ouroboros/scripts/ouroboros_input.py --header "[1] Archive specific spec\n[2] Archive all\n[3] Cleanup only" --prompt "Choice [1-3]: " --var choice
+python .ouroboros/scripts/ouroboros_input.py --question "📦 Found archivable specs. Select action:" --header "[1] Archive specific spec\n[2] Archive all\n[3] Cleanup only" --prompt "Choice [1-3]: " --var choice
 ```
 
 **If NO completed specs:**
@@ -166,9 +166,9 @@ Would you like to run cleanup instead?
    - Archive old history files (> 7 days)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
-**Execute via `run_command` tool (Type D: Confirm):**
+**Execute via `run_command` tool (Type D: Confirm with Question):**
 ```python
-python .ouroboros/scripts/ouroboros_input.py --header "[y] Yes - run cleanup\n[n] No - cancel" --prompt "Confirm [y/n]: " --var confirm --no-ui
+python .ouroboros/scripts/ouroboros_input.py --question "🧹 No completed specs found. Run cleanup tasks? (Delete old subagent-docs, archive old history files)" --header "[y] Yes - run cleanup\n[n] No - cancel" --prompt "Confirm [y/n]: " --var confirm
 ```
 
 ---
