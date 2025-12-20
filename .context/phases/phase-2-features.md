@@ -1,24 +1,31 @@
 # Phase 2: Features
 
-**Status:** ⏳ Not Started  
-**Progress:** 0%
-**Started:** TBD
+**Status:** 🔄 In Progress
+**Progress:** 40% (2/5 features complete)
+**Started:** 2025-12-20
 
 ## Goals
 
-- [ ] Chat feature (chat system, messages, multimodal input)
-- [ ] Artifacts feature (editors, renderers)
-- [ ] Sidebar feature (navigation, chat history)
-- [ ] Auth UI feature (login, register forms)
-- [ ] Documents feature (CRUD, versions)
+- [x] Chat feature ✅ COMPLETE
+- [ ] Artifacts feature
+- [x] Sidebar feature ✅ COMPLETE
+- [ ] Auth UI feature
+- [ ] Documents feature
 
 ## Exit Gate
 
 80%+ test coverage, all 5 steps complete per feature
 
-## Tasks
+## Completed Tasks
 
-- TBD (to be created when starting Phase 2)
+- feature-001-chat-system.md ✅ (100%)
+- feature-003-sidebar.md ✅ (100%)
+
+## Remaining Tasks
+
+- feature-002-artifacts.md
+- feature-004-auth-ui.md
+- feature-005-documents.md
 
 ## Dependencies
 

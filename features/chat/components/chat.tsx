@@ -1,0 +1,86 @@
+/**
+ * Main Chat Component
+ *
+ * Composes all chat sub-components into a cohesive chat experience.
+ * This is the primary entry point for rendering a complete chat interface.
+ *
+ * @module features/chat/components/chat
+ */
+
+'use client';
+
+import { ChatProvider } from './chat-provider';
+import { ChatContainer } from './chat-container';
+import { ChatHeader } from './chat-header';
+import { ChatMessages } from './chat-messages';
+import { ChatInput } from './chat-input';
+import { ChatErrorBoundary } from './chat-error-boundary';
+import type { ChatProps, MessageVote, ChatMessage } from '../types';
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
+/**
+ * Full props for the main Chat component.
+ * Extends base ChatProps with additional composition-level props.
+ */
+export interface FullChatProps extends ChatProps {
+  /** Message votes for displaying upvote/downvote state */
+  votes?: MessageVote[];
+  /** Callback when user initiates a new chat */
+  onNewChat?: () => void;
+}
+
+// =============================================================================
+// COMPONENT
+// =============================================================================
+
+/**
+ * Main Chat component that orchestrates the complete chat experience.
+ *
+ * @remarks
+ * Composition structure:
+ * - ChatErrorBoundary: Catches and handles errors gracefully
+ * - ChatProvider: Manages chat state and actions via context
+ * - ChatContainer: Provides responsive layout structure
+ * - ChatHeader: Title, model selector, and action buttons
+ * - ChatMessages: Virtualized message list
+ * - ChatInput: Multimodal input with attachments
+ *
+ * @example
+ * ```tsx
+ * <Chat
+ *   id="chat-123"
+ *   initialMessages={messages}
+ *   selectedModelId="gpt-4"
+ *   votes={votes}
+ *   onNewChat={() => router.push('/chat')}
+ * />
+ * ```
+ */
+export function Chat({
+  id,
+  initialMessages = [],
+  selectedModelId,
+  isReadonly = false,
+  votes = [],
+  onNewChat,
+}: FullChatProps) {
+  return (
+    <ChatErrorBoundary>
+      <ChatProvider
+        chatId={id}
+        initialMessages={initialMessages}
+        selectedModelId={selectedModelId}
+        isReadonly={isReadonly}
+      >
+        <ChatContainer>
+          <ChatHeader onNewChat={onNewChat} />
+          <ChatMessages votes={votes} isReadonly={isReadonly} />
+          <ChatInput />
+        </ChatContainer>
+      </ChatProvider>
+    </ChatErrorBoundary>
+  );
+}
