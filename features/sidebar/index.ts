@@ -1,7 +1,20 @@
-/**
- * Sidebar Feature Module
- * @module features/sidebar
- */
+// Context & Providers
+export { SidebarProvider, useSidebarState, useSidebarActions } from './context';
+export { OptimisticChatsProvider, useOptimisticChats, useChatHistory } from './hooks';
 
-// Feature exports will be added as components are implemented
-export {};
+// Components
+export { AppSidebar, ChatHistory, ChatHistoryItem, SidebarUserNav } from './components';
+
+// Server Actions
+export { deleteChat, deleteAllChats, renameChat } from './actions';
+
+// Types
+export type {
+  ChatItem,
+  ChatHistory as ChatHistoryType,
+  OptimisticChat,
+  DateGroup,
+  GroupedChats,
+  SidebarState,
+  SidebarActions,
+} from './types';
