@@ -1,0 +1,114 @@
+'use client';
+
+import { memo, useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import type { ChatHistoryItem as ChatHistoryItemType } from '../types';
+import { cn } from '@/lib/utils';
+
+function MessageIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+    </svg>
+  );
+}
+
+function GlobeIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+      <path d="M2 12h20" />
+    </svg>
+  );
+}
+
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M3 6h18" />
+      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+    </svg>
+  );
+}
+
+export interface SidebarHistoryItemProps {
+  chat: ChatHistoryItemType;
+  onDelete?: (id: string) => void;
+}
+
+export const SidebarHistoryItem = memo(function SidebarHistoryItem({
+  chat,
+  onDelete,
+}: SidebarHistoryItemProps) {
+  const pathname = usePathname();
+  const isActive = pathname === `/chat/${chat.id}`;
+  const [showActions, setShowActions] = useState(false);
+
+  return (
+    <div
+      className="relative group"
+      onMouseEnter={() => setShowActions(true)}
+      onMouseLeave={() => setShowActions(false)}
+    >
+      <Link
+        href={`/chat/${chat.id}`}
+        className={cn(
+          'flex items-center gap-2 px-3 py-2 rounded-lg text-sm truncate',
+          'hover:bg-muted transition-colors',
+          isActive && 'bg-muted font-medium'
+        )}
+      >
+        <MessageIcon className="h-4 w-4 shrink-0" />
+        <span className="truncate">{chat.title || 'New Chat'}</span>
+        {chat.visibility === 'public' && (
+          <GlobeIcon className="h-3 w-3 shrink-0 text-muted-foreground" />
+        )}
+      </Link>
+
+      {showActions && (
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              onDelete?.(chat.id);
+            }}
+            className="p-1 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive"
+            aria-label="Delete chat"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+});
