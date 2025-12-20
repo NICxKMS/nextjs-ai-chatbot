@@ -2,14 +2,14 @@
 
 **Project:** nextjs-ai-chatbot
 **Last Updated:** 2025-12-20
-**Overall Progress:** 18%
+**Overall Progress:** 21%
 **Current Phase:** Phase 1 - Foundation (in progress)
 
 ## Phase Summary
 
 | Phase                | Status | Progress |
 | -------------------- | ------ | -------- |
-| Phase 1: Foundation  | 🔄     | 70%      |
+| Phase 1: Foundation  | 🔄     | 85%      |
 | Phase 2: Features    | ⏳     | 0%       |
 | Phase 3: Integration | ⏳     | 0%       |
 | Phase 4: Migration   | ⏳     | 0%       |
@@ -32,10 +32,15 @@
   - Schema: user, chat, message, vote, document tables
   - Transaction wrapper with logging
   - Repository layer: chatData, messageData, userData, voteData, documentData
+- ✅ **FOUNDATION-005: Cache Layer Module** (2025-12-20)
+  - Upstash Redis client singleton
+  - Circuit breaker pattern for resilience
+  - Cache key patterns
+  - Cache operations: chat meta, messages, user quota
 
 ## Active Work
 
 → FOUNDATION-002: Logging (mostly complete, needs integration)
-→ FOUNDATION-005: Cache Layer (next major task)
+→ FOUNDATION-006: Types System (next major task)
 
 → See `state.json` for current position
