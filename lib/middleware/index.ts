@@ -1,7 +1,3 @@
-/**
- * Middleware Infrastructure
- * @module lib/middleware
- */
-
-// Middleware exports will be added as middleware modules are implemented
-export {};
+export { composeMiddleware, type MiddlewareHandler } from './compose';
+export { rateLimit } from './rate-limit';
+export { securityHeaders, cors } from './security';
