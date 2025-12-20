@@ -19,6 +19,25 @@ import type {
   SourcePart,
 } from '../../types';
 import { cn } from '@/lib/utils';
+import {
+  DocumentPreview,
+  DocumentToolCall,
+  DocumentToolResult,
+} from '@/features/documents';
+import type { ArtifactKind } from '@/features/artifacts';
+
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+
+/** Document-related tool names */
+const DOCUMENT_TOOL_NAMES = [
+  'createDocument',
+  'updateDocument',
+  'requestSuggestions',
+] as const;
+
+type DocumentToolName = (typeof DOCUMENT_TOOL_NAMES)[number];
 
 // =============================================================================
 // TYPES
@@ -29,8 +48,33 @@ export interface MessagePartProps {
   part: MessagePartType;
   /** Whether this part is currently being streamed */
   isStreaming?: boolean;
+  /** Whether the chat is in readonly mode (e.g., shared chat) */
+  isReadonly?: boolean;
   /** Optional additional class names */
   className?: string;
+}
+
+// =============================================================================
+// HELPERS
+// =============================================================================
+
+/** Check if a tool name is a document tool */
+function isDocumentTool(toolName: string): toolName is DocumentToolName {
+  return DOCUMENT_TOOL_NAMES.includes(toolName as DocumentToolName);
+}
+
+/** Get document operation type from tool name */
+function getDocumentOperationType(
+  toolName: DocumentToolName
+): 'create' | 'update' | 'request-suggestions' {
+  switch (toolName) {
+    case 'createDocument':
+      return 'create';
+    case 'updateDocument':
+      return 'update';
+    case 'requestSuggestions':
+      return 'request-suggestions';
+  }
 }
 
 // =============================================================================
@@ -176,14 +220,44 @@ function TextPartView({
 
 /**
  * Renders a tool call invocation display.
+ * For document tools, delegates to DocumentToolCall component.
  */
 function ToolCallPartView({
   toolCallId,
   toolName,
   args,
+  isReadonly,
   className,
-}: ToolCallPart & { className?: string }) {
+}: ToolCallPart & { isReadonly?: boolean; className?: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Handle document tool calls specially
+  if (isDocumentTool(toolName)) {
+    const operationType = getDocumentOperationType(toolName);
+
+    // Build args based on tool type
+    const docArgs =
+      toolName === 'createDocument'
+        ? {
+            title: (args as Record<string, unknown>).title as string,
+            kind: (args as Record<string, unknown>).kind as ArtifactKind,
+          }
+        : toolName === 'updateDocument'
+          ? {
+              id: (args as Record<string, unknown>).id as string,
+              description: (args as Record<string, unknown>)
+                .description as string,
+            }
+          : { documentId: (args as Record<string, unknown>).documentId as string };
+
+    return (
+      <DocumentToolCall
+        type={operationType}
+        args={docArgs}
+        isReadonly={isReadonly}
+      />
+    );
+  }
 
   return (
     <div
@@ -224,16 +298,71 @@ function ToolCallPartView({
 
 /**
  * Renders a tool result display.
+ * For document tools, renders DocumentPreview or DocumentToolResult.
  */
 function ToolResultPartView({
   toolCallId,
   toolName,
   result,
   isError,
+  isReadonly,
   className,
-}: ToolResultPart & { className?: string }) {
+}: ToolResultPart & { isReadonly?: boolean; className?: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
+  // Handle document tool results specially
+  if (isDocumentTool(toolName)) {
+    const resultObj = result as Record<string, unknown> | null;
+
+    // Check for error in result
+    if (resultObj && 'error' in resultObj) {
+      return (
+        <div
+          className={cn(
+            'rounded-lg border border-red-200 bg-red-50 p-4 text-red-500 dark:border-red-800 dark:bg-red-950/50',
+            className
+          )}
+        >
+          Error with document: {String(resultObj.error)}
+        </div>
+      );
+    }
+
+    // For createDocument and updateDocument, show DocumentPreview
+    if (toolName === 'createDocument' || toolName === 'updateDocument') {
+      return (
+        <DocumentPreview
+          isReadonly={isReadonly}
+          result={
+            resultObj
+              ? {
+                  id: resultObj.id as string | undefined,
+                  title: resultObj.title as string | undefined,
+                  kind: resultObj.kind as string | undefined,
+                }
+              : undefined
+          }
+        />
+      );
+    }
+
+    // For requestSuggestions, show DocumentToolResult
+    if (toolName === 'requestSuggestions' && resultObj) {
+      return (
+        <DocumentToolResult
+          type="request-suggestions"
+          result={{
+            id: resultObj.id as string,
+            title: resultObj.title as string,
+            kind: resultObj.kind as ArtifactKind,
+          }}
+          isReadonly={isReadonly}
+        />
+      );
+    }
+  }
+
+  // Default tool result display
   return (
     <div
       className={cn(
@@ -379,6 +508,9 @@ function SourcePartView({
  * - `reasoning`: Chain-of-thought reasoning display (collapsible)
  * - `source`: Citation/source references with links
  *
+ * Document-related tool calls (createDocument, updateDocument, requestSuggestions)
+ * are rendered using specialized DocumentPreview and DocumentToolCall components.
+ *
  * @example
  * ```tsx
  * <MessagePart part={{ type: 'text', text: 'Hello!' }} />
@@ -389,6 +521,7 @@ function SourcePartView({
 export const MessagePart = memo(function MessagePart({
   part,
   isStreaming,
+  isReadonly,
   className,
 }: MessagePartProps) {
   switch (part.type) {
@@ -408,6 +541,7 @@ export const MessagePart = memo(function MessagePart({
           toolCallId={part.toolCallId}
           toolName={part.toolName}
           args={part.args}
+          isReadonly={isReadonly}
           className={className}
         />
       );
@@ -420,6 +554,7 @@ export const MessagePart = memo(function MessagePart({
           toolName={part.toolName}
           result={part.result}
           isError={part.isError}
+          isReadonly={isReadonly}
           className={className}
         />
       );
