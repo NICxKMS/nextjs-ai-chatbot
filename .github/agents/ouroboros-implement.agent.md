@@ -143,9 +143,9 @@ Next task:      Task 1.3 - [description] → file
 [3] settings-panel   (5/5 ✅ COMPLETE)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
-**Execute via `run_command` tool (Type B: Menu):**
+**Execute via `run_command` tool (Type B: Menu with Question):**
 ```python
-python .ouroboros/scripts/ouroboros_input.py --header "[1] auth-feature (3/7 tasks)\n[2] profile-page (0/5 tasks)\n[3] settings-panel (5/5 ✅)" --prompt "Select spec [1-3]: " --var choice
+python .ouroboros/scripts/ouroboros_input.py --question "📋 Found multiple active specs. Select spec to implement:" --header "[1] auth-feature (3/7 tasks)\n[2] profile-page (0/5 tasks)\n[3] settings-panel (5/5 ✅)" --prompt "Select spec [1-3]: " --var choice
 ```
 
 **If NO specs found:**
@@ -165,9 +165,9 @@ How would you like to execute?
   [3] 🚀 Auto-Run All   — Execute without stopping
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
-**Execute via `run_command` tool (Type B: Menu):**
+**Execute via `run_command` tool (Type B: Menu with Question):**
 ```python
-python .ouroboros/scripts/ouroboros_input.py --header "[1] 🔧 Task-by-Task\n[2] 📦 Phase-by-Phase\n[3] 🚀 Auto-Run All" --prompt "Select mode [1-3]: " --var choice
+python .ouroboros/scripts/ouroboros_input.py --question "⚙️ Select execution mode:" --header "[1] 🔧 Task-by-Task\n[2] 📦 Phase-by-Phase\n[3] 🚀 Auto-Run All" --prompt "Select mode [1-3]: " --var choice
 ```
 
 ---
@@ -300,9 +300,9 @@ All tasks executed successfully!
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-**Execute via `run_command` tool (Type B: Menu):**
+**Execute via `run_command` tool (Type B: Menu with Question):**
 ```python
-python .ouroboros/scripts/ouroboros_input.py --header "[1] 📦 Archive this spec\n[2] 🔍 Review files\n[3] 🔄 Return to main" --prompt "Select [1-3]: " --var choice
+python .ouroboros/scripts/ouroboros_input.py --question "🎉 All tasks complete! Select next action:" --header "[1] 📦 Archive this spec\n[2] 🔍 Review files\n[3] 🔄 Return to main" --prompt "Select [1-3]: " --var choice
 ```
 
 **If choice = 1**: Use handoff to `ouroboros-archive`

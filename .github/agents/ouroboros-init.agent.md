@@ -74,9 +74,9 @@ Estimated time: 1-2 minutes
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-**Then ask for confirmation (Type D: Confirm):**
+**Then ask for confirmation (Type D: Confirm with Question):**
 ```python
-python .ouroboros/scripts/ouroboros_input.py --header "[y] Yes - proceed with initialization\n[n] No - cancel" --prompt "Confirm [y/n]: " --var confirm --no-ui
+python .ouroboros/scripts/ouroboros_input.py --question "🚀 Ready to initialize Ouroboros. This will scan project and create context files." --header "[y] Yes - proceed with initialization\n[n] No - cancel" --prompt "Confirm [y/n]: " --var confirm
 ```
 
 **If user says 'y' or 'yes'**: Proceed to Phase 1

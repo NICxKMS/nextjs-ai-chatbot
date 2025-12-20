@@ -1034,6 +1034,142 @@ pnpm db:studio             # Open Drizzle Studio
 
 ---
 
+## Appendix B: Critical Implementation Rules
+
+### B.1 PRE-TASK CHECKLIST (MANDATORY)
+
+> ⚠️ **EVERY task/phase/continuance MUST begin with this checklist. NO EXCEPTIONS.**
+
+| #   | Action                          | File/Location                                |
+| --- | ------------------------------- | -------------------------------------------- |
+| 1   | [ ] Read core instructions      | `prompt-genome/ULTIMATE-FINAL-PROMPT.md`     |
+| 2   | [ ] Read this architecture plan | `FINAL-ARCHITECTURE-OVERHAUL-PLAN.md`        |
+| 3   | [ ] Read relevant module spec   | `XX-module-optimal-design.md`                |
+| 4   | [ ] Read current progress       | `.context/state.json`                        |
+| 5   | [ ] Read active task/subtask    | Path from `state.json → active.task/subtask` |
+
+**FAILURE TO COMPLETE CHECKLIST = PROTOCOL VIOLATION**
+
+### B.2 UI VISUAL PARITY (ABSOLUTE RULE)
+
+> ⚠️ **The NewApp MUST be visually IDENTICAL to OldApp. This is NON-NEGOTIABLE.**
+
+| Aspect               | Requirement             |
+| -------------------- | ----------------------- |
+| **Theme**            | EXACT CLONE from OldApp |
+| **Colors**           | EXACT CLONE from OldApp |
+| **Fonts**            | EXACT CLONE from OldApp |
+| **Spacing**          | EXACT CLONE from OldApp |
+| **Animations**       | EXACT CLONE from OldApp |
+| **Component Output** | PIXEL-PERFECT match     |
+| **User Experience**  | IDENTICAL to OldApp     |
+
+**ONLY architecture/implementation changes under the hood.**
+**Use React DevTools to compare component output between OldApp and NewApp.**
+
+### B.3 VERCEL AI SDK ELEMENTS (COPY & ADAPT)
+
+These OldApp elements are **AI/LLM rendering components** built on Vercel AI SDK.
+They handle streaming responses, tool calls, reasoning, and message display.
+**Directly copy** then adapt to new architecture.
+
+#### Primary AI Elements (`oldapp/components/elements/`)
+
+| File                  | Purpose                                          |
+| --------------------- | ------------------------------------------------ |
+| `actions.tsx`         | AI action buttons and tool invocation UI         |
+| `branch.tsx`          | Conversation branching/forking UI                |
+| `context.tsx`         | Context display for AI conversations             |
+| `conversation.tsx`    | Full conversation thread renderer                |
+| `image.tsx`           | AI-generated image display                       |
+| `inline-citation.tsx` | Inline source citations from AI                  |
+| `loader.tsx`          | Streaming/loading states for AI responses        |
+| `message.tsx`         | Individual AI/user message rendering             |
+| `prompt-input.tsx`    | User prompt input with AI features               |
+| `reasoning.tsx`       | AI reasoning/thinking display (chain-of-thought) |
+| `response.tsx`        | AI response container and streaming              |
+| `source.tsx`          | Source/reference display from AI                 |
+| `suggestion.tsx`      | AI-generated suggestions UI                      |
+| `task.tsx`            | Task/action tracking from AI                     |
+| `tool.tsx`            | Tool call display and results                    |
+| `web-preview.tsx`     | Web content preview from AI                      |
+
+#### Supporting AI Infrastructure
+
+| OldApp File                                  | Purpose                 |
+| -------------------------------------------- | ----------------------- |
+| `oldapp/components/data-stream-handler.tsx`  | Data stream handling    |
+| `oldapp/components/data-stream-provider.tsx` | Data stream context     |
+| `oldapp/artifacts/actions.ts`                | Artifact server actions |
+| `oldapp/app/api/chat/route.ts`               | Chat streaming patterns |
+
+**COPY the implementation → ADAPT to new architecture patterns.**
+**DO NOT rewrite from scratch if OldApp pattern is correct.**
+
+### B.4 SPEC-READING ENFORCEMENT
+
+> ⚠️ **Before implementing module X, you MUST complete this sequence.**
+
+1. [ ] **Read** this document — Find section for module X
+2. [ ] **Read** `XX-module-name-optimal-design.md` — **COMPLETELY**
+3. [ ] **Note** all interfaces, patterns, constraints
+4. [ ] **Reference** spec section numbers in code comments
+5. [ ] **If spec unclear** → ASK before implementing, DO NOT GUESS
+
+```typescript
+// Example code comment referencing spec:
+// Ref: 02-authentication-optimal-design.md §3.2 - JWT Token Structure
+// Ref: FINAL-ARCHITECTURE-OVERHAUL-PLAN.md §2.3 - Core Dependencies
+```
+
+### B.5 CONTEXT/PROGRESS TRACKER FORMAT
+
+**File:** `.context/state.json`
+
+```json
+{
+  "session_id": "uuid-v4-here",
+  "updated_at": "2025-01-15T14:32:00Z",
+  "status": "active",
+  "active": {
+    "phase": "phases/phase-2-features.md",
+    "task": "tasks/auth-003-validation.md",
+    "subtask": "subtasks/auth-003-step-3-implement.md"
+  },
+  "progress": {
+    "phases_complete": 1,
+    "tasks_complete": 5,
+    "current_task_progress": "60%"
+  },
+  "last_action": "Implemented validateCredentials() function",
+  "next_action": "Add password strength validation",
+  "safe_to_interrupt": true
+}
+```
+
+**UPDATE RULES:**
+
+- **BEFORE starting task**: `status: "active"`, `safe_to_interrupt: false`
+- **AFTER completing task**: Update `progress` counts, `safe_to_interrupt: true`
+- **ALWAYS**: Update `last_action` and `next_action`
+- **On session end**: `status: "paused"`, `safe_to_interrupt: true`
+
+### B.6 ON PROJECT/FEATURE START (MANDATORY)
+
+**BEFORE writing any code:**
+
+1. **Create** `.ouroboros/specs/[feature]/00-MASTER-TASK-LIST.md`
+2. **Break down** ALL tasks with:
+   - Task ID (e.g., `AUTH-001`, `CHAT-015`)
+   - Description (clear, actionable)
+   - Dependencies (which tasks must complete first)
+   - Estimated effort (S/M/L/XL)
+   - Status: `Not Started` | `In Progress` | `Complete` | `Blocked`
+3. **Order** tasks by dependency graph
+4. **Update** this list BEFORE and AFTER each task
+
+---
+
 **Document Status**: COMPLETE  
 **Ready for Implementation**: ✅ YES  
 **Next Action**: Begin Phase 0 - Foundation
