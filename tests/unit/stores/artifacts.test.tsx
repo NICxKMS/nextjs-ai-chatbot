@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { renderHook, act, waitFor } from "@testing-library/react";
-import { SWRConfig } from "swr";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { SWRConfig } from "swr";
+import { describe, expect, it } from "vitest";
 import {
+    initialArtifactData,
     useArtifact,
     useArtifactSelector,
-    initialArtifactData,
 } from "@/features/artifacts/hooks/use-artifact";
 import type { UIArtifact } from "@/features/artifacts/types";
 

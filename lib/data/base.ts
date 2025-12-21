@@ -4,8 +4,8 @@
  */
 import "server-only";
 
-import type { DataContext } from "./types";
 import type { UserType } from "@/lib/auth/types";
+import type { DataContext } from "./types";
 
 /**
  * Check if user is a guest

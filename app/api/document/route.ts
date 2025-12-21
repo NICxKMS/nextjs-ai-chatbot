@@ -5,11 +5,11 @@
  * Handles document CRUD operations.
  */
 
+import type { ArtifactKind } from "@/features/artifacts/types";
 import { getSession } from "@/lib/auth/session";
 import { createContext } from "@/lib/data/base";
 import { documentData } from "@/lib/data/documents";
 import { AppError } from "@/lib/errors";
-import type { ArtifactKind } from "@/features/artifacts/types";
 import { documentPostSchema } from "./schema";
 
 // Optimize for Vercel Fluid Compute
@@ -229,7 +229,7 @@ export async function DELETE(request: Request) {
     }
 
     const timestampDate = new Date(timestamp);
-    if (isNaN(timestampDate.getTime())) {
+    if (Number.isNaN(timestampDate.getTime())) {
         return new AppError({
             code: "validation:invalid_format",
             message: "Invalid timestamp format",

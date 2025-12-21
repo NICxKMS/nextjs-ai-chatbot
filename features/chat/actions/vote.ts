@@ -16,21 +16,21 @@ import type { VoteType } from "../types";
 // TYPES
 // =============================================================================
 
-export interface VoteInput {
+export type VoteInput = {
     /** Chat session identifier */
     chatId: string;
     /** Message identifier */
     messageId: string;
     /** Vote type (up or down) */
     vote: VoteType;
-}
+};
 
-export interface VoteResult {
+export type VoteResult = {
     /** Whether the vote operation succeeded */
     success: boolean;
     /** Error message if operation failed */
     error?: string;
-}
+};
 
 // =============================================================================
 // SERVER ACTIONS

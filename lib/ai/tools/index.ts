@@ -10,34 +10,25 @@
 import type { UIMessageStreamWriter } from "ai";
 
 import type { AppSession } from "@/lib/auth/types";
-import {
-    createDocument,
-    type CreateDocumentToolProps,
-} from "./create-document";
-import {
-    updateDocument,
-    type UpdateDocumentToolProps,
-} from "./update-document";
+import { createDocument } from "./create-document";
 import { getWeather } from "./get-weather";
-import {
-    requestSuggestions,
-    type RequestSuggestionsToolProps,
-} from "./request-suggestions";
+import { requestSuggestions } from "./request-suggestions";
+import { updateDocument } from "./update-document";
 
 // Re-export tools and types
 export {
-    createDocument,
     type CreateDocumentToolProps,
+    createDocument,
 } from "./create-document";
-export {
-    updateDocument,
-    type UpdateDocumentToolProps,
-} from "./update-document";
 export { getWeather, type WeatherAtLocation } from "./get-weather";
 export {
-    requestSuggestions,
     type RequestSuggestionsToolProps,
+    requestSuggestions,
 } from "./request-suggestions";
+export {
+    type UpdateDocumentToolProps,
+    updateDocument,
+} from "./update-document";
 
 // =============================================================================
 // TYPES
@@ -46,14 +37,14 @@ export {
 /**
  * Props for getting all available tools.
  */
-export interface GetToolsProps {
+export type GetToolsProps = {
     /** Current user session */
     session: AppSession;
     /** UI message stream writer for sending artifact data */
     dataStream: UIMessageStreamWriter;
     /** Chat ID for associating documents */
     chatId: string;
-}
+};
 
 // =============================================================================
 // TOOL REGISTRY
@@ -81,7 +72,7 @@ export function getTools({ session, dataStream, chatId }: GetToolsProps) {
     return {
         createDocument: createDocument({ session, dataStream, chatId }),
         updateDocument: updateDocument({ session, dataStream }),
-        getWeather: getWeather,
+        getWeather,
         requestSuggestions: requestSuggestions({ session, dataStream }),
     };
 }

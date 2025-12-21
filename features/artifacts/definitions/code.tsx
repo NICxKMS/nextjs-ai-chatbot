@@ -1,23 +1,22 @@
 "use client";
 
+import {
+    ClipboardCopy,
+    FileText,
+    MessageSquare,
+    Play,
+    Redo,
+    Undo,
+} from "lucide-react";
 import dynamic from "next/dynamic";
 import { toast } from "sonner";
-import {
-    Play,
-    ClipboardCopy,
-    Undo,
-    Redo,
-    MessageSquare,
-    FileText,
-} from "lucide-react";
-
-import { Artifact } from "./base";
 import { Console } from "../components/editors";
 import type {
     ArtifactContentProps,
     ConsoleOutput,
     ConsoleOutputContent,
 } from "../types";
+import { Artifact } from "./base";
 
 // ============================================================================
 // Dynamic Imports
@@ -162,9 +161,9 @@ export const codeArtifact = new Artifact<"code", CodeMetadata>({
                 <div className="px-1">
                     <CodeEditor
                         content={content}
-                        status={status}
-                        onSaveContent={onSaveContent}
                         isCurrentVersion={isCurrentVersion}
+                        onSaveContent={onSaveContent}
+                        status={status}
                     />
                 </div>
 

@@ -9,21 +9,21 @@
  * @module features/chat/hooks/use-messages
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ChatStatus } from "../types";
-import { useScrollToBottom } from "./use-scroll-to-bottom";
 import type { UseScrollToBottomReturn } from "./use-scroll-to-bottom";
+import { useScrollToBottom } from "./use-scroll-to-bottom";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-export interface UseMessagesOptions {
+export type UseMessagesOptions = {
     /** Current chat status from AI SDK */
     status: ChatStatus;
     /** Optional callback when a message is sent */
     onMessageSent?: () => void;
-}
+};
 
 export interface UseMessagesReturn extends UseScrollToBottomReturn {
     /** Whether a message has been sent in this session */

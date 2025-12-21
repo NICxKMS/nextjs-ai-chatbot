@@ -26,14 +26,14 @@ import { generateUUID } from "@/lib/utils";
 /**
  * Props for creating the createDocument tool.
  */
-export interface CreateDocumentToolProps {
+export type CreateDocumentToolProps = {
     /** Current user session */
     session: AppSession;
     /** UI message stream writer for sending artifact data */
     dataStream: UIMessageStreamWriter;
     /** Chat ID for associating the document */
     chatId: string;
-}
+};
 
 // =============================================================================
 // TOOL

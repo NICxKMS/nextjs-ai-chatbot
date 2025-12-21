@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, act, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useScrollToBottom } from "@/features/chat/hooks/use-scroll-to-bottom";
 
 // Mock SWR
 vi.mock("swr", () => ({
-    default: vi.fn((key, fetcher, options) => ({
+    default: vi.fn((_key, _fetcher, _options) => ({
         data: false,
         mutate: vi.fn(),
     })),

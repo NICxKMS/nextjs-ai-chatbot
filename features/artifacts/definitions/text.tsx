@@ -1,18 +1,17 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { toast } from "sonner";
 import {
     ClipboardCopy,
-    Undo,
-    Redo,
     History,
-    Pen,
     MessageSquare,
+    Pen,
+    Redo,
+    Undo,
 } from "lucide-react";
-
-import { Artifact } from "./base";
+import dynamic from "next/dynamic";
+import { toast } from "sonner";
 import type { ArtifactContentProps } from "../types";
+import { Artifact } from "./base";
 
 // ============================================================================
 // Dynamic Imports
@@ -81,9 +80,9 @@ export const textArtifact = new Artifact<"text", undefined>({
             <div className="flex flex-row px-4 py-8 md:p-20">
                 <TextEditor
                     content={content}
-                    status={status}
-                    onContentChange={onSaveContent}
                     isCurrentVersion={isCurrentVersion}
+                    onContentChange={onSaveContent}
+                    status={status}
                 />
             </div>
         );

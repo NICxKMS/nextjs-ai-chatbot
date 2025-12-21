@@ -7,8 +7,8 @@
 import "server-only";
 
 import * as read from "./read";
-import * as write from "./write";
 import * as update from "./update";
+import * as write from "./write";
 
 /**
  * Chat data access object
@@ -36,18 +36,16 @@ export const chatData = {
 
 // Re-export individual functions for tree-shaking
 export {
+    chatExists,
     getChat,
+    getChatCount,
     getChatWithMessages,
     listChats,
-    chatExists,
-    getChatCount,
 } from "./read";
-
-export { createChat, deleteChat, deleteAllChats } from "./write";
-
 export {
+    touchChat,
+    updateChatContext,
     updateChatTitle,
     updateChatVisibility,
-    updateChatContext,
-    touchChat,
 } from "./update";
+export { createChat, deleteAllChats, deleteChat } from "./write";

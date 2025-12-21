@@ -12,13 +12,13 @@ export const maxDuration = 10;
 
 type HealthStatus = "healthy" | "degraded" | "unhealthy";
 
-interface HealthCheckResult {
+type HealthCheckResult = {
     status: HealthStatus;
     latency?: number;
     error?: string;
-}
+};
 
-interface HealthResponse {
+type HealthResponse = {
     status: HealthStatus;
     timestamp: string;
     checks: {
@@ -26,7 +26,7 @@ interface HealthResponse {
         environment: HealthCheckResult;
         cache: HealthCheckResult;
     };
-}
+};
 
 /**
  * Check PostgreSQL database connectivity

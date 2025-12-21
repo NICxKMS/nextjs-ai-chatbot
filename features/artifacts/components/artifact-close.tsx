@@ -1,10 +1,10 @@
 "use client";
 
-import { memo } from "react";
 import { X } from "lucide-react";
+import { memo } from "react";
 
 import { Button } from "@/shared/components";
-import { useArtifact, initialArtifactData } from "../hooks";
+import { initialArtifactData, useArtifact } from "../hooks";
 
 function PureArtifactClose() {
     const { setArtifact } = useArtifact();

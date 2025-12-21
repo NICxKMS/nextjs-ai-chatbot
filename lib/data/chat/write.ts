@@ -4,12 +4,12 @@
  */
 import "server-only";
 
-import { eq, and } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { getDb, schema, withTransaction } from "@/lib/db";
 import type { Chat, NewChat, Visibility } from "@/lib/db";
-import type { DataContext } from "../types";
+import { getDb, schema, withTransaction } from "@/lib/db";
 import { requireNonGuest } from "../base";
+import type { DataContext } from "../types";
 
 const { chat, message, vote } = schema;
 

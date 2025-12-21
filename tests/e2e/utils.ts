@@ -147,7 +147,7 @@ export async function disableMockAI(page: Page): Promise<void> {
 export async function waitForMessage(
     page: Page,
     role: "user" | "assistant",
-    timeout = 10000
+    timeout = 10_000
 ): Promise<void> {
     const selector =
         role === "user" ? SELECTORS.USER_MESSAGE : SELECTORS.ASSISTANT_MESSAGE;
@@ -177,7 +177,7 @@ export async function waitForChatReady(
  */
 export async function waitForResponseComplete(
     page: Page,
-    timeout = 30000
+    timeout = 30_000
 ): Promise<void> {
     // Wait for stop button to disappear (generation complete)
     await page.waitForSelector(SELECTORS.STOP_BUTTON, {

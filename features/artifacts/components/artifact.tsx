@@ -3,6 +3,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { formatDistance } from "date-fns";
 import equal from "fast-deep-equal";
+import { AnimatePresence, m as motion } from "framer-motion";
 import {
     type Dispatch,
     memo,
@@ -14,12 +15,10 @@ import {
 } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { useDebounceCallback } from "usehooks-ts";
-import { AnimatePresence, m as motion } from "framer-motion";
-
-import { useArtifact } from "../hooks";
 import { useWindowSize } from "@/shared/hooks";
 import { useSidebar } from "@/shared/ui/sidebar";
 import { artifactRegistry } from "../definitions/base";
+import { useArtifact } from "../hooks";
 import { ArtifactActions } from "./artifact-actions";
 import { ArtifactClose } from "./artifact-close";
 import { ArtifactErrorBoundary } from "./artifact-error";
@@ -40,7 +39,9 @@ type Document = {
 
 const fetcher = async (url: string) => {
     const response = await fetch(url);
-    if (!response.ok) throw new Error("Failed to fetch");
+    if (!response.ok) {
+        throw new Error("Failed to fetch");
+    }
     return response.json();
 };
 
@@ -402,10 +403,7 @@ function PureArtifact({
                                     {/* TODO: Add MultimodalInput from features/chat when available */}
                                     <div className="w-full rounded-lg border bg-background p-3 dark:bg-muted">
                                         <input
-                                            type="text"
-                                            placeholder="Type a message..."
                                             className="w-full bg-transparent text-sm outline-none"
-                                            value={input}
                                             onChange={(e) =>
                                                 setInput(e.target.value)
                                             }
@@ -421,6 +419,9 @@ function PureArtifact({
                                                     setInput("");
                                                 }
                                             }}
+                                            placeholder="Type a message..."
+                                            type="text"
+                                            value={input}
                                         />
                                     </div>
                                 </div>

@@ -16,19 +16,19 @@ import { AppError } from "@/lib/errors";
 // TYPES
 // =============================================================================
 
-export interface DeleteTrailingMessagesInput {
+export type DeleteTrailingMessagesInput = {
     /** Chat session identifier */
     chatId: string;
     /** Delete messages created after this timestamp */
     createdAt: string;
-}
+};
 
-export interface DeleteTrailingMessagesResult {
+export type DeleteTrailingMessagesResult = {
     /** Whether the operation succeeded */
     success: boolean;
     /** Error message if operation failed */
     error?: string;
-}
+};
 
 // =============================================================================
 // SERVER ACTIONS

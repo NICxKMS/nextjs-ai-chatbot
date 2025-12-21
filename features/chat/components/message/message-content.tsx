@@ -9,15 +9,15 @@
 
 "use client";
 
+import { cn } from "@/lib/utils";
 import type { ChatMessage, MessagePart as MessagePartType } from "../../types";
 import { MessagePart } from "./message-part";
-import { cn } from "@/lib/utils";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-export interface MessageContentProps {
+export type MessageContentProps = {
     /** The message to render content from */
     message: ChatMessage;
     /** Whether the message is currently being streamed */
@@ -26,7 +26,7 @@ export interface MessageContentProps {
     isUser?: boolean;
     /** Optional additional class names */
     className?: string;
-}
+};
 
 // =============================================================================
 // HELPERS
@@ -37,7 +37,9 @@ export interface MessageContentProps {
  * Handles the differences between AI SDK types and our defined types.
  */
 function normalizeMessagePart(part: unknown): MessagePartType | null {
-    if (!part || typeof part !== "object") return null;
+    if (!part || typeof part !== "object") {
+        return null;
+    }
 
     const p = part as Record<string, unknown>;
 
@@ -166,12 +168,12 @@ export function MessageContent({
                         <div className="space-y-2">
                             {textParts.map((part, index) => (
                                 <MessagePart
-                                    key={`${message.id}-text-${index}`}
-                                    part={part}
                                     isStreaming={
                                         isStreaming &&
                                         index === textParts.length - 1
                                     }
+                                    key={`${message.id}-text-${index}`}
+                                    part={part}
                                 />
                             ))}
                         </div>
@@ -181,11 +183,11 @@ export function MessageContent({
                 {/* Render other parts (reasoning, tool calls, etc.) */}
                 {otherParts.map((part, index) => (
                     <MessagePart
-                        key={`${message.id}-part-${index}`}
-                        part={part}
                         isStreaming={
                             isStreaming && index === otherParts.length - 1
                         }
+                        key={`${message.id}-part-${index}`}
+                        part={part}
                     />
                 ))}
             </div>

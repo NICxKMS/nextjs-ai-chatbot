@@ -9,10 +9,10 @@
  */
 
 import {
+    type LanguageModel,
     streamObject,
     tool,
     type UIMessageStreamWriter,
-    type LanguageModel,
 } from "ai";
 import { z } from "zod";
 
@@ -30,12 +30,12 @@ import { getOpenAI } from "../providers";
 /**
  * Props for creating the requestSuggestions tool.
  */
-export interface RequestSuggestionsToolProps {
+export type RequestSuggestionsToolProps = {
     /** Current user session */
     session: AppSession;
     /** UI message stream writer for sending suggestion data */
     dataStream: UIMessageStreamWriter;
-}
+};
 
 /**
  * Suggestion without user/timestamp fields (streamed to client).

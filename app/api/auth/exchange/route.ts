@@ -10,14 +10,14 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import {
+    GUEST_TOKEN_COOKIE,
     getCookieOptions,
     isProductionEnvironment,
     SUPABASE_COOKIE_TTL_SECONDS,
-    GUEST_TOKEN_COOKIE,
 } from "@/lib/auth/constants";
 import { getSupabaseCookieName } from "@/lib/auth/cookies";
-import { AppError, authError, validationError } from "@/lib/errors";
 import type { AppUser } from "@/lib/auth/types";
+import { authError, validationError } from "@/lib/errors";
 
 /**
  * Exchange Supabase access token for session cookie

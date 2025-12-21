@@ -10,15 +10,15 @@ import Link from "next/link";
 
 export default function ChatNotFound() {
     return (
-        <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-            <h2 className="text-xl font-semibold mb-2">Chat not found</h2>
-            <p className="text-muted-foreground mb-4">
+        <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+            <h2 className="mb-2 font-semibold text-xl">Chat not found</h2>
+            <p className="mb-4 text-muted-foreground">
                 This chat doesn&apos;t exist or you don&apos;t have access to
                 it.
             </p>
             <Link
+                className="rounded-lg bg-primary px-4 py-2 text-primary-foreground"
                 href="/"
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg"
             >
                 Start new chat
             </Link>

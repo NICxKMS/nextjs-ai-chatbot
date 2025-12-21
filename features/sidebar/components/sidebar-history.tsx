@@ -2,18 +2,18 @@
 
 import { useMemo } from "react";
 import { GroupedVirtuoso } from "react-virtuoso";
+import { useOptimisticChats } from "../hooks";
 import type { ChatHistoryItem } from "../types";
 import { groupChatsByDate } from "../utils";
 import { SidebarHistoryItem } from "./sidebar-history-item";
-import { useOptimisticChats } from "../hooks";
 
-export interface SidebarHistoryProps {
+export type SidebarHistoryProps = {
     chats: ChatHistoryItem[];
     isLoading?: boolean;
     onDeleteChat?: (id: string) => void;
     onLoadMore?: () => void;
     hasMore?: boolean;
-}
+};
 
 export function SidebarHistory({
     chats,
@@ -42,7 +42,7 @@ export function SidebarHistory({
 
     if (allChats.length === 0) {
         return (
-            <div className="p-4 text-sm text-zinc-500 dark:text-zinc-400 text-center">
+            <div className="p-4 text-center text-sm text-zinc-500 dark:text-zinc-400">
                 No chats yet. Start a conversation!
             </div>
         );
@@ -53,20 +53,24 @@ export function SidebarHistory({
     const flatChats = groups.flatMap((g) => g.chats);
 
     return (
-        <div data-testid="chat-history" className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden" data-testid="chat-history">
             <GroupedVirtuoso
-                groupCounts={groupCounts}
+                className="h-full"
+                endReached={() => hasMore && onLoadMore?.()}
                 groupContent={(index) => {
                     const group = groups[index];
                     return (
-                        <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase sticky top-0 bg-background">
+                        <div className="sticky top-0 bg-background px-3 py-2 font-medium text-muted-foreground text-xs uppercase">
                             {group?.label ?? "Unknown"}
                         </div>
                     );
                 }}
+                groupCounts={groupCounts}
                 itemContent={(index) => {
                     const chat = flatChats[index];
-                    if (!chat) return null;
+                    if (!chat) {
+                        return null;
+                    }
                     return (
                         <SidebarHistoryItem
                             chat={chat}
@@ -74,8 +78,6 @@ export function SidebarHistory({
                         />
                     );
                 }}
-                endReached={() => hasMore && onLoadMore?.()}
-                className="h-full"
             />
         </div>
     );
@@ -86,8 +88,8 @@ function SidebarHistorySkeleton() {
         <div className="space-y-2 p-2">
             {[1, 2, 3, 4, 5].map((i) => (
                 <div
+                    className="h-8 animate-pulse rounded-lg bg-muted"
                     key={i}
-                    className="h-8 bg-muted rounded-lg animate-pulse"
                 />
             ))}
         </div>

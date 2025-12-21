@@ -31,13 +31,12 @@ export const fetcher = async (url: string) => {
             }
 
             const err = new ChatSDKError(code, cause);
-            if (typeof window !== "undefined") {
-                if (
-                    typeof code === "string" &&
-                    code.startsWith("not_found:chat")
-                ) {
-                    window.location.replace("/?notice=chat_not_found");
-                }
+            if (
+                typeof window !== "undefined" &&
+                typeof code === "string" &&
+                code.startsWith("not_found:chat")
+            ) {
+                window.location.replace("/?notice=chat_not_found");
             }
             throw err;
         }
@@ -84,13 +83,12 @@ export async function fetchWithErrorHandlers(
             }
 
             const err = new ChatSDKError(code, cause);
-            if (typeof window !== "undefined") {
-                if (
-                    typeof code === "string" &&
-                    code.startsWith("not_found:chat")
-                ) {
-                    window.location.replace("/?notice=chat_not_found");
-                }
+            if (
+                typeof window !== "undefined" &&
+                typeof code === "string" &&
+                code.startsWith("not_found:chat")
+            ) {
+                window.location.replace("/?notice=chat_not_found");
             }
             throw err;
         }

@@ -1,10 +1,10 @@
 import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 
-export interface UserContext {
+export type UserContext = {
     context: BrowserContext;
     page: Page;
-}
+};
 
 /**
  * Generate random test user credentials

@@ -6,14 +6,14 @@
  */
 
 import { z } from "zod";
-import { requireAuthForRoute, isAuthResponse } from "@/lib/auth";
-import { voteData } from "@/lib/data/votes";
+import { isAuthResponse, requireAuthForRoute } from "@/lib/auth";
 import { chatData } from "@/lib/data/chat";
+import { voteData } from "@/lib/data/votes";
 import {
     AppError,
-    validationError,
-    notFoundError,
     forbiddenError,
+    notFoundError,
+    validationError,
 } from "@/lib/errors";
 
 export const maxDuration = 10;

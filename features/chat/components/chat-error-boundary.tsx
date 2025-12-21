@@ -9,33 +9,33 @@
 
 "use client";
 
-import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AlertCircle } from "lucide-react";
+import { Component, type ErrorInfo, type ReactNode } from "react";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-interface ChatErrorBoundaryProps {
+type ChatErrorBoundaryProps = {
     /** Child components to render */
     children: ReactNode;
     /** Optional custom fallback UI */
     fallback?: ReactNode;
-}
+};
 
-interface ChatErrorBoundaryState {
+type ChatErrorBoundaryState = {
     hasError: boolean;
     error: Error | null;
-}
+};
 
 // =============================================================================
 // ERROR FALLBACK COMPONENT
 // =============================================================================
 
-interface ChatErrorFallbackProps {
+type ChatErrorFallbackProps = {
     error: Error | null;
     onRetry: () => void;
-}
+};
 
 /**
  * Default error fallback UI for the chat.
@@ -43,17 +43,17 @@ interface ChatErrorFallbackProps {
  */
 function ChatErrorFallback({ error, onRetry }: ChatErrorFallbackProps) {
     return (
-        <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-            <div className="text-destructive mb-4">
+        <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+            <div className="mb-4 text-destructive">
                 <AlertCircle className="h-12 w-12" />
             </div>
-            <h2 className="text-xl font-semibold mb-2">Something went wrong</h2>
-            <p className="text-muted-foreground mb-4 max-w-md">
+            <h2 className="mb-2 font-semibold text-xl">Something went wrong</h2>
+            <p className="mb-4 max-w-md text-muted-foreground">
                 {error?.message || "An unexpected error occurred in the chat"}
             </p>
             <button
+                className="rounded-lg bg-primary px-4 py-2 text-primary-foreground transition-colors hover:bg-primary/90"
                 onClick={onRetry}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
             >
                 Try again
             </button>

@@ -9,7 +9,7 @@ test.describe("Sidebar", () => {
     test.describe("Sidebar Toggle", () => {
         test("should have sidebar toggle button", async ({ page }) => {
             const sidebarToggle = page.getByTestId("sidebar-toggle-button");
-            await expect(sidebarToggle).toBeVisible({ timeout: 10000 });
+            await expect(sidebarToggle).toBeVisible({ timeout: 10_000 });
         });
 
         test("should toggle sidebar visibility on click", async ({ page }) => {
@@ -58,7 +58,7 @@ test.describe("Sidebar", () => {
             await input.fill("Test message for sidebar history");
             await sendButton.click();
 
-            await page.waitForURL(/\/chat\/[a-zA-Z0-9-]+/, { timeout: 30000 });
+            await page.waitForURL(/\/chat\/[a-zA-Z0-9-]+/, { timeout: 30_000 });
 
             // Open sidebar
             const sidebarToggle = page.getByTestId("sidebar-toggle-button");
@@ -68,7 +68,7 @@ test.describe("Sidebar", () => {
 
             // Check for history items
             const historyItem = page.getByTestId("chat-history-item").first();
-            await expect(historyItem).toBeVisible({ timeout: 10000 });
+            await expect(historyItem).toBeVisible({ timeout: 10_000 });
         });
 
         test("should navigate to chat when clicking history item", async ({
@@ -81,8 +81,8 @@ test.describe("Sidebar", () => {
             await input.fill("Message for navigation test");
             await sendButton.click();
 
-            await page.waitForURL(/\/chat\/[a-zA-Z0-9-]+/, { timeout: 30000 });
-            const chatUrl = page.url();
+            await page.waitForURL(/\/chat\/[a-zA-Z0-9-]+/, { timeout: 30_000 });
+            const _chatUrl = page.url();
 
             // Go to home
             await page.goto("/");
@@ -102,7 +102,7 @@ test.describe("Sidebar", () => {
             ) {
                 await historyItem.click();
                 await page.waitForURL(/\/chat\/[a-zA-Z0-9-]+/, {
-                    timeout: 10000,
+                    timeout: 10_000,
                 });
             }
         });
@@ -132,7 +132,7 @@ test.describe("Sidebar", () => {
             await input.fill("Create chat first");
             await sendButton.click();
 
-            await page.waitForURL(/\/chat\/[a-zA-Z0-9-]+/, { timeout: 30000 });
+            await page.waitForURL(/\/chat\/[a-zA-Z0-9-]+/, { timeout: 30_000 });
 
             // Open sidebar and click new chat
             const sidebarToggle = page.getByTestId("sidebar-toggle-button");
@@ -178,7 +178,7 @@ test.describe("Sidebar", () => {
             await input.fill("Chat to test delete");
             await sendButton.click();
 
-            await page.waitForURL(/\/chat\/[a-zA-Z0-9-]+/, { timeout: 30000 });
+            await page.waitForURL(/\/chat\/[a-zA-Z0-9-]+/, { timeout: 30_000 });
 
             // Open sidebar
             const sidebarToggle = page.getByTestId("sidebar-toggle-button");

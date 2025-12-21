@@ -7,19 +7,18 @@
  * @module features/settings
  */
 
-// Store exports
-export {
-    useSettings,
-    useSettingsSnapshot,
-    DEFAULT_SETTINGS,
-    type AppSettings,
-    type SamplingSettings,
-    type SettingsStore,
-} from "./stores/settings-store";
-
 // Component exports
 export {
     SettingsButton,
     SettingsIconButton,
     SettingsSheet,
 } from "./components/settings-sheet";
+// Store exports
+export {
+    type AppSettings,
+    DEFAULT_SETTINGS,
+    type SamplingSettings,
+    type SettingsStore,
+    useSettings,
+    useSettingsSnapshot,
+} from "./stores/settings-store";

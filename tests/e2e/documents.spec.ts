@@ -20,7 +20,7 @@ test.describe("Documents", () => {
             await page.waitForResponse(
                 (res) =>
                     res.url().includes("/api/chat") && res.status() === 200,
-                { timeout: 30000 }
+                { timeout: 30_000 }
             );
 
             // Document preview may appear based on AI response
@@ -43,7 +43,7 @@ test.describe("Documents", () => {
             await page.waitForResponse(
                 (res) =>
                     res.url().includes("/api/chat") && res.status() === 200,
-                { timeout: 30000 }
+                { timeout: 30_000 }
             );
 
             const documentPreview = page.getByTestId("document-preview");
@@ -55,7 +55,7 @@ test.describe("Documents", () => {
                 await documentPreview.click();
 
                 const artifact = page.getByTestId("artifact");
-                await expect(artifact).toBeVisible({ timeout: 10000 });
+                await expect(artifact).toBeVisible({ timeout: 10_000 });
             }
         });
     });
@@ -73,7 +73,7 @@ test.describe("Documents", () => {
             await page.waitForResponse(
                 (res) =>
                     res.url().includes("/api/chat") && res.status() === 200,
-                { timeout: 30000 }
+                { timeout: 30_000 }
             );
 
             // Tool call display may appear
@@ -104,7 +104,7 @@ test.describe("Documents", () => {
             await page.waitForResponse(
                 (res) =>
                     res.url().includes("/api/chat") && res.status() === 200,
-                { timeout: 30000 }
+                { timeout: 30_000 }
             );
         });
     });
@@ -120,11 +120,11 @@ test.describe("Documents", () => {
             await page.waitForResponse(
                 (res) =>
                     res.url().includes("/api/chat") && res.status() === 200,
-                { timeout: 30000 }
+                { timeout: 30_000 }
             );
 
             const assistantMessage = page.getByTestId("message-assistant");
-            await expect(assistantMessage).toBeVisible({ timeout: 30000 });
+            await expect(assistantMessage).toBeVisible({ timeout: 30_000 });
         });
 
         test("should handle text document type", async ({ page }) => {
@@ -137,11 +137,11 @@ test.describe("Documents", () => {
             await page.waitForResponse(
                 (res) =>
                     res.url().includes("/api/chat") && res.status() === 200,
-                { timeout: 30000 }
+                { timeout: 30_000 }
             );
 
             const assistantMessage = page.getByTestId("message-assistant");
-            await expect(assistantMessage).toBeVisible({ timeout: 30000 });
+            await expect(assistantMessage).toBeVisible({ timeout: 30_000 });
         });
     });
 });

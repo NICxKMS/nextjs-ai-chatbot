@@ -2,12 +2,12 @@
 
 import { memo } from "react";
 
-export interface CodePreviewProps {
+export type CodePreviewProps = {
     /** Code content to preview */
     content: string;
     /** Maximum lines to display (default: 8) */
     maxLines?: number;
-}
+};
 
 /**
  * Code document preview renderer.
@@ -26,7 +26,7 @@ function CodePreviewComponent({ content, maxLines = 8 }: CodePreviewProps) {
                     {truncated}
                 </code>
                 {hasMore && (
-                    <div className="mt-2 text-zinc-500 text-xs">
+                    <div className="mt-2 text-xs text-zinc-500">
                         +{lines.length - maxLines} more lines
                     </div>
                 )}

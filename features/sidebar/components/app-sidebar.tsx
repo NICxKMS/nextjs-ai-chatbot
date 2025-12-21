@@ -2,23 +2,12 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { SidebarHistory } from "./sidebar-history";
-import { SidebarUserNav } from "./sidebar-user-nav";
-import type { ChatHistoryItem } from "../types";
 import { Button } from "@/shared/components/button";
 import {
     Tooltip,
     TooltipContent,
     TooltipTrigger,
 } from "@/shared/components/tooltip";
-import {
-    Sidebar,
-    SidebarContent,
-    SidebarFooter,
-    SidebarHeader,
-    SidebarMenu,
-    useSidebar,
-} from "@/shared/ui/sidebar";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -29,18 +18,29 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/shared/ui/alert-dialog";
+import {
+    Sidebar,
+    SidebarContent,
+    SidebarFooter,
+    SidebarHeader,
+    SidebarMenu,
+    useSidebar,
+} from "@/shared/ui/sidebar";
+import type { ChatHistoryItem } from "../types";
+import { SidebarHistory } from "./sidebar-history";
+import { SidebarUserNav } from "./sidebar-user-nav";
 
 function PlusIcon({ className }: { className?: string }) {
     return (
         <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
+            className={className}
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={className}
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
         >
             <path d="M5 12h14" />
             <path d="M12 5v14" />
@@ -51,14 +51,14 @@ function PlusIcon({ className }: { className?: string }) {
 function TrashIcon({ className }: { className?: string }) {
     return (
         <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
+            className={className}
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={className}
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
         >
             <path d="M3 6h18" />
             <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
@@ -67,7 +67,7 @@ function TrashIcon({ className }: { className?: string }) {
     );
 }
 
-export interface AppSidebarProps {
+export type AppSidebarProps = {
     chats?: ChatHistoryItem[];
     isLoading?: boolean;
     user?: { email?: string; name?: string };
@@ -77,7 +77,7 @@ export interface AppSidebarProps {
     onSignOut?: () => void;
     onLoadMore?: () => void;
     hasMore?: boolean;
-}
+};
 
 export function AppSidebar({
     chats = [],
@@ -127,12 +127,12 @@ export function AppSidebar({
                                         <TooltipTrigger asChild>
                                             <Button
                                                 className="h-8 p-1 md:h-fit md:p-2"
+                                                data-testid="delete-all-chats-button"
                                                 onClick={() =>
                                                     setShowDeleteAllDialog(true)
                                                 }
                                                 type="button"
                                                 variant="ghost"
-                                                data-testid="delete-all-chats-button"
                                             >
                                                 <TrashIcon className="size-4" />
                                             </Button>
@@ -149,10 +149,10 @@ export function AppSidebar({
                                     <TooltipTrigger asChild>
                                         <Button
                                             className="h-8 p-1 md:h-fit md:p-2"
+                                            data-testid="new-chat-button"
                                             onClick={handleNewChat}
                                             type="button"
                                             variant="ghost"
-                                            data-testid="new-chat-button"
                                         >
                                             <PlusIcon className="size-4" />
                                         </Button>
@@ -171,20 +171,20 @@ export function AppSidebar({
                 <SidebarContent>
                     <SidebarHistory
                         chats={chats}
+                        hasMore={hasMore}
                         isLoading={isLoading}
                         onDeleteChat={onDeleteChat}
                         onLoadMore={onLoadMore}
-                        hasMore={hasMore}
                     />
                 </SidebarContent>
                 <SidebarFooter>
-                    <SidebarUserNav user={user} onSignOut={onSignOut} />
+                    <SidebarUserNav onSignOut={onSignOut} user={user} />
                 </SidebarFooter>
             </Sidebar>
 
             <AlertDialog
-                open={showDeleteAllDialog}
                 onOpenChange={setShowDeleteAllDialog}
+                open={showDeleteAllDialog}
             >
                 <AlertDialogContent>
                     <AlertDialogHeader>

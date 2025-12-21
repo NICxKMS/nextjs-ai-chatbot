@@ -9,8 +9,9 @@
 
 "use client";
 
-import { useMemo, useOptimistic, useState } from "react";
 import { RefreshCw } from "lucide-react";
+import { useMemo, useOptimistic, useState } from "react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/shared/components/button";
 import {
     DropdownMenu,
@@ -18,12 +19,11 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/shared/components/dropdown-menu";
-import { Badge } from "@/shared/ui/badge";
 import {
     CheckCircleFillIcon,
     ChevronDownIcon,
 } from "@/shared/components/icons";
-import { cn } from "@/lib/utils";
+import { Badge } from "@/shared/ui/badge";
 import type { ModelMetadata } from "../types";
 
 /**
@@ -94,11 +94,11 @@ const providerDisplayNames: Record<string, string> = {
 /**
  * Group models by provider
  */
-interface ProviderGroup {
+type ProviderGroup = {
     providerId: string;
     displayName: string;
     models: ModelMetadata[];
-}
+};
 
 function groupModelsByProvider(models: ModelMetadata[]): ProviderGroup[] {
     const grouped = models.reduce<Record<string, ProviderGroup>>(
@@ -163,8 +163,8 @@ function ModelRow({
                                 if (badge === "featured") {
                                     return (
                                         <Badge
-                                            variant="secondary"
                                             className="text-xs"
+                                            variant="secondary"
                                         >
                                             Featured
                                         </Badge>
@@ -173,8 +173,8 @@ function ModelRow({
                                 if (badge === "new") {
                                     return (
                                         <Badge
-                                            variant="outline"
                                             className="text-xs"
+                                            variant="outline"
                                         >
                                             New
                                         </Badge>
@@ -230,7 +230,7 @@ function ModelRow({
 /**
  * Props for the ModelSelector component.
  */
-export interface ModelSelectorProps {
+export type ModelSelectorProps = {
     /** Currently selected model ID */
     value: string;
     /** List of available models */
@@ -243,7 +243,7 @@ export interface ModelSelectorProps {
     className?: string;
     /** Optional callback to refresh the model list */
     onRefresh?: () => void | Promise<void>;
-}
+};
 
 /**
  * Rich dropdown selector for choosing the AI model.
@@ -321,8 +321,6 @@ export function ModelSelector({
                     <div>Choose a model</div>
                     {onRefresh && (
                         <Button
-                            variant="ghost"
-                            size="sm"
                             className="h-6 px-2 text-xs"
                             disabled={isRefreshing}
                             onClick={async (e) => {
@@ -334,6 +332,8 @@ export function ModelSelector({
                                     setIsRefreshing(false);
                                 }
                             }}
+                            size="sm"
+                            variant="ghost"
                         >
                             <RefreshCw
                                 className={cn(
@@ -362,11 +362,11 @@ export function ModelSelector({
                         <div className="flex flex-col gap-1.5">
                             {providerGroup.models.map((model) => (
                                 <ModelRow
+                                    disabled={disabled}
+                                    isSelected={model.id === optimisticModelId}
                                     key={model.id}
                                     model={model}
-                                    isSelected={model.id === optimisticModelId}
                                     onSelect={handleSelect}
-                                    disabled={disabled}
                                 />
                             ))}
                         </div>

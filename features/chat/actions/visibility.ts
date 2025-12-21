@@ -17,19 +17,19 @@ import type { VisibilityType } from "../types";
 // TYPES
 // =============================================================================
 
-export interface UpdateVisibilityInput {
+export type UpdateVisibilityInput = {
     /** Chat session identifier */
     chatId: string;
     /** New visibility type */
     visibility: VisibilityType;
-}
+};
 
-export interface UpdateVisibilityResult {
+export type UpdateVisibilityResult = {
     /** Whether the operation succeeded */
     success: boolean;
     /** Error message if operation failed */
     error?: string;
-}
+};
 
 // =============================================================================
 // SERVER ACTIONS

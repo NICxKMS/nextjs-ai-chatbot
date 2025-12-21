@@ -13,12 +13,12 @@ import { useControllableState } from "@radix-ui/react-use-controllable-state";
 import { BrainIcon, ChevronDownIcon } from "lucide-react";
 import type { ComponentProps } from "react";
 import { createContext, memo, useContext, useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 import {
     Collapsible,
     CollapsibleContent,
     CollapsibleTrigger,
 } from "@/shared/ui/collapsible";
-import { cn } from "@/lib/utils";
 import { MarkdownRenderer } from "./markdown-renderer";
 
 // =============================================================================
@@ -35,12 +35,12 @@ const MS_IN_S = 1000;
 // TYPES
 // =============================================================================
 
-interface ReasoningContextValue {
+type ReasoningContextValue = {
     isStreaming: boolean;
     isOpen: boolean;
     setIsOpen: (open: boolean) => void;
     duration: number;
-}
+};
 
 export interface ReasoningProps extends ComponentProps<typeof Collapsible> {
     /** Whether reasoning is currently streaming */

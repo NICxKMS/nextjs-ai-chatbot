@@ -24,12 +24,12 @@ import { AppError } from "@/lib/errors";
 /**
  * Props for creating the updateDocument tool.
  */
-export interface UpdateDocumentToolProps {
+export type UpdateDocumentToolProps = {
     /** Current user session */
     session: AppSession;
     /** UI message stream writer for sending artifact data */
     dataStream: UIMessageStreamWriter;
-}
+};
 
 // =============================================================================
 // TOOL

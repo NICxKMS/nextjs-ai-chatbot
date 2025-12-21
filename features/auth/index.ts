@@ -3,16 +3,16 @@
  * @module features/auth
  */
 
+export { AuthBootstrap } from "./components/auth-bootstrap";
+export { AuthForm } from "./components/auth-form";
 // Components
 export { AuthProvider, useAuth } from "./components/auth-provider";
-export { AuthForm } from "./components/auth-form";
-export { AuthBootstrap } from "./components/auth-bootstrap";
 
 // Types
 export type {
-    AuthState,
     AuthActions,
     AuthContextValue,
     AuthFormMode,
     AuthFormProps,
+    AuthState,
 } from "./types";

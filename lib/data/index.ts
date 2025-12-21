@@ -5,53 +5,49 @@
  * @module lib/data
  */
 
+// Base utilities
+export { createContext, isGuest, requireNonGuest } from "./base";
+// Chat data
+export {
+    chatData,
+    chatExists,
+    createChat,
+    deleteAllChats,
+    deleteChat,
+    getChat,
+    getChatCount,
+    getChatWithMessages,
+    listChats,
+    touchChat,
+    updateChatContext,
+    updateChatTitle,
+    updateChatVisibility,
+} from "./chat";
+export type { DocumentSaveParams } from "./documents";
+// Document data
+export {
+    deleteDocumentsAfterTimestamp,
+    documentData,
+    getAllDocuments,
+    getDocument,
+    getDocumentSuggestions,
+    saveDocument,
+    saveSuggestions,
+} from "./documents";
 // Types
 export type {
     DataContext,
-    PaginationParams,
-    PaginatedResult,
     OperationResult,
+    PaginatedResult,
+    PaginationParams,
 } from "./types";
 export { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "./types";
-
-// Base utilities
-export { isGuest, createContext, requireNonGuest } from "./base";
-
-// Chat data
-export { chatData } from "./chat";
-export {
-    getChat,
-    getChatWithMessages,
-    listChats,
-    chatExists,
-    getChatCount,
-    createChat,
-    deleteChat,
-    deleteAllChats,
-    updateChatTitle,
-    updateChatVisibility,
-    updateChatContext,
-    touchChat,
-} from "./chat";
-
-// Document data
-export { documentData } from "./documents";
-export {
-    getDocument,
-    getAllDocuments,
-    saveDocument,
-    deleteDocumentsAfterTimestamp,
-    getDocumentSuggestions,
-    saveSuggestions,
-} from "./documents";
-export type { DocumentSaveParams } from "./documents";
-
+export type { SaveVoteParams, VoteType } from "./votes";
 // Vote data
-export { voteData } from "./votes";
 export {
+    deleteVote,
     getVote,
     getVotesByChatId,
     saveVote,
-    deleteVote,
+    voteData,
 } from "./votes";
-export type { VoteType, SaveVoteParams } from "./votes";

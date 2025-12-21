@@ -7,8 +7,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "biome lint .",
-    "format": "biome format . --write",
+    "lint": "npx ultracite check",
+    "format": "npx ultracite fix --unsafe",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:unit": "vitest",
@@ -88,6 +88,7 @@
     "streamdown": "^1.6.10",
     "swr": "^2.3.8",
     "tailwind-merge": "^3.0.0",
+    "ultracite": "^5.3.9",
     "usehooks-ts": "^3.1.0",
     "zod": "^3.24.0",
     "zustand": "^5.0.9"
@@ -111,6 +112,7 @@
     "tailwindcss": "^4.1.13",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.7.0",
+    "ultracite": "5.3.9",
     "vitest": "^3.0.0"
   }
 }

@@ -58,7 +58,9 @@ export function getChatCacheKeys(chatId: string, userId: string) {
  * Parse entity ID from cache key
  */
 export function parseKeyId(key: string, prefix: string): string | null {
-    if (!key.startsWith(prefix)) return null;
+    if (!key.startsWith(prefix)) {
+        return null;
+    }
     const parts = key.slice(prefix.length).split(":");
     return parts[0] || null;
 }

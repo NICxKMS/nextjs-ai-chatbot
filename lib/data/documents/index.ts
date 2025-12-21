@@ -6,26 +6,25 @@
  */
 import "server-only";
 
-import { eq, and, asc, gt } from "drizzle-orm";
-
-import { getDb } from "@/lib/db";
-import { document, suggestion } from "@/lib/db/schema";
-import type { Document, Suggestion } from "@/lib/db/schema";
-import type { DataContext } from "../types";
-import { isGuest } from "../base";
+import { and, asc, eq, gt } from "drizzle-orm";
 import type { ArtifactKind } from "@/features/artifacts/types";
+import { getDb } from "@/lib/db";
+import type { Document, Suggestion } from "@/lib/db/schema";
+import { document, suggestion } from "@/lib/db/schema";
 import { AppError } from "@/lib/errors";
+import { isGuest } from "../base";
+import type { DataContext } from "../types";
 
 /**
  * Document save parameters
  */
-export interface DocumentSaveParams {
+export type DocumentSaveParams = {
     id: string;
     chatId: string;
     title: string;
     kind: ArtifactKind;
     content: string;
-}
+};
 
 /**
  * Document data access object

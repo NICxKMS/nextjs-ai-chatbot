@@ -1,20 +1,19 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-
+import { initialArtifactData, useArtifact } from "../hooks/use-artifact";
 import type {
     ArtifactDefinition,
     ArtifactKind,
     ArtifactStreamPart,
     UIArtifact,
 } from "../types";
-import { initialArtifactData, useArtifact } from "../hooks/use-artifact";
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export interface DataStreamHandlerProps {
+export type DataStreamHandlerProps = {
     /**
      * Array of stream parts from the AI data stream.
      * Each part contains a type and associated data.
@@ -25,7 +24,7 @@ export interface DataStreamHandlerProps {
      * Used to find the appropriate handler for each artifact kind.
      */
     artifactDefinitions: ArtifactDefinition[];
-}
+};
 
 // ============================================================================
 // Stream Part Processors

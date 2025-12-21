@@ -9,29 +9,29 @@
 
 "use client";
 
-import { useMemo, useRef, useCallback } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
-import type { VisibilityType } from "../types";
 import { updateChatVisibility } from "../actions";
+import type { VisibilityType } from "../types";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-export interface UseChatVisibilityOptions {
+export type UseChatVisibilityOptions = {
     /** Chat session identifier */
     chatId: string;
     /** Initial visibility type */
     initialVisibilityType: VisibilityType;
-}
+};
 
-export interface UseChatVisibilityReturn {
+export type UseChatVisibilityReturn = {
     /** Current visibility type */
     visibilityType: VisibilityType;
     /** Function to update visibility */
     setVisibilityType: (visibility: VisibilityType) => Promise<void>;
-}
+};
 
 // =============================================================================
 // HOOK

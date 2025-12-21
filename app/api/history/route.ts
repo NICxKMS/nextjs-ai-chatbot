@@ -6,7 +6,7 @@
  * @module app/api/history/route
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { chatData, createContext } from "@/lib/data";
 import { AppError } from "@/lib/errors";
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 
         // Get pagination params
         const { searchParams } = new URL(request.url);
-        const limit = parseInt(searchParams.get("limit") || "20", 10);
+        const limit = Number.parseInt(searchParams.get("limit") || "20", 10);
 
         // Fetch chats using the data layer
         const result = await chatData.list(ctx, { limit });
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     }
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE(_request: NextRequest) {
     try {
         const session = await getSession();
         if (!session?.user?.id) {

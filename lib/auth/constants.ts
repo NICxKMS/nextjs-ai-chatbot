@@ -6,7 +6,7 @@
  */
 
 /** Cookie TTL in seconds (7 days) */
-export const GUEST_CACHE_TTL_SECONDS = 604800;
+export const GUEST_CACHE_TTL_SECONDS = 604_800;
 
 /** JWT expiration in seconds (1 hour) */
 export const JWT_EXPIRATION_SECONDS = 3600;

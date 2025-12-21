@@ -9,21 +9,15 @@
 
 "use client";
 
-import { memo, useCallback } from "react";
 import { m as motion } from "framer-motion";
+import { memo, useCallback } from "react";
 import { toast } from "sonner";
 import { useCopyToClipboard } from "usehooks-ts";
-
-import type {
-    ChatMessage,
-    MessageVote,
-    VoteType,
-    MessageItemProps,
-} from "../../types";
+import { cn } from "@/lib/utils";
+import type { ChatMessage, MessageItemProps, VoteType } from "../../types";
+import { MessageActions } from "./message-actions";
 import { MessageAvatar } from "./message-avatar";
 import { MessageContent } from "./message-content";
-import { MessageActions } from "./message-actions";
-import { cn } from "@/lib/utils";
 
 // =============================================================================
 // HELPERS
@@ -63,19 +57,29 @@ function messageItemEqual(
     next: MessageItemProps
 ): boolean {
     // Compare message identity
-    if (prev.message.id !== next.message.id) return false;
+    if (prev.message.id !== next.message.id) {
+        return false;
+    }
 
     // Compare parts if present
     if ("parts" in prev.message && "parts" in next.message) {
         const prevParts = prev.message.parts;
         const nextParts = next.message.parts;
-        if (prevParts?.length !== nextParts?.length) return false;
+        if (prevParts?.length !== nextParts?.length) {
+            return false;
+        }
     }
 
     // Compare other props
-    if (prev.vote?.vote !== next.vote?.vote) return false;
-    if (prev.isReadonly !== next.isReadonly) return false;
-    if (prev.isStreaming !== next.isStreaming) return false;
+    if (prev.vote?.vote !== next.vote?.vote) {
+        return false;
+    }
+    if (prev.isReadonly !== next.isReadonly) {
+        return false;
+    }
+    if (prev.isStreaming !== next.isStreaming) {
+        return false;
+    }
 
     return true;
 }
@@ -156,18 +160,18 @@ export const MessageItem = memo(function MessageItem({
 
     return (
         <motion.div
+            animate={{ opacity: 1 }}
             className={cn(
                 "group/message flex w-full items-start gap-2 md:gap-3",
                 isUser && "justify-end",
                 isAssistant && "justify-start"
             )}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
             data-role={message.role}
             data-testid={isUser ? "message-user" : "message-assistant"}
+            initial={{ opacity: 0 }}
         >
             {/* Avatar - only shown for assistant/system messages */}
-            {!isUser && <MessageAvatar role={message.role} className="-mt-1" />}
+            {!isUser && <MessageAvatar className="-mt-1" role={message.role} />}
 
             {/* Content and actions wrapper */}
             <div
@@ -184,30 +188,30 @@ export const MessageItem = memo(function MessageItem({
             >
                 {/* Message content */}
                 <MessageContent
-                    message={message}
                     isStreaming={isStreaming}
                     isUser={isUser}
+                    message={message}
                 />
 
                 {/* Actions - shown on hover for assistant messages */}
                 {isAssistant && !isReadonly && !isStreaming && (
                     <MessageActions
-                        messageId={message.id}
-                        vote={vote}
-                        onVote={handleVote}
-                        onCopy={handleCopy}
                         className="opacity-0 transition-opacity group-hover/message:opacity-100"
+                        messageId={message.id}
+                        onCopy={handleCopy}
+                        onVote={handleVote}
+                        vote={vote}
                     />
                 )}
 
                 {/* Actions for user messages - edit and copy on hover */}
                 {isUser && !isReadonly && (
                     <MessageActions
-                        messageId={message.id}
-                        showEdit
-                        onEdit={onEdit ? handleEdit : undefined}
-                        onCopy={handleCopy}
                         className="opacity-0 transition-opacity group-hover/message:opacity-100"
+                        messageId={message.id}
+                        onCopy={handleCopy}
+                        onEdit={onEdit ? handleEdit : undefined}
+                        showEdit
                     />
                 )}
             </div>

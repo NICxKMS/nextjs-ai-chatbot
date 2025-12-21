@@ -9,17 +9,17 @@ import type { Chat, Message, Suggestion } from "./schema";
 
 // Re-export select types (read-only, no DB connection)
 export type {
-    User,
     Chat,
-    Message,
-    Vote,
     Document,
+    Message,
     Suggestion,
+    User,
     Visibility,
+    Vote,
 } from "./schema";
 
 // Message parts type (for AI SDK compatibility)
-export interface MessagePart {
+export type MessagePart = {
     type: "text" | "image" | "file" | "tool-call" | "tool-result";
     text?: string;
     image?: string;
@@ -29,16 +29,16 @@ export interface MessagePart {
     toolName?: string;
     args?: unknown;
     result?: unknown;
-}
+};
 
 // Chat with messages type
-export interface ChatWithMessages {
+export type ChatWithMessages = {
     chat: Chat;
     messages: Message[];
-}
+};
 
 // Document with suggestions type
-export interface DocumentWithSuggestions {
+export type DocumentWithSuggestions = {
     document: Document;
     suggestions: Suggestion[];
-}
+};

@@ -3,11 +3,11 @@
 import useSWRInfinite from "swr/infinite";
 import type { ChatHistoryItem } from "../types";
 
-interface HistoryResponse {
+type HistoryResponse = {
     chats: ChatHistoryItem[];
     hasMore: boolean;
     nextCursor?: string;
-}
+};
 
 const fetcher = (url: string): Promise<HistoryResponse> =>
     fetch(url).then((res) => res.json());
@@ -17,10 +17,14 @@ const getKey = (
     previousPageData: HistoryResponse | null
 ): string | null => {
     // Reached the end
-    if (previousPageData && !previousPageData.hasMore) return null;
+    if (previousPageData && !previousPageData.hasMore) {
+        return null;
+    }
 
     // First page
-    if (pageIndex === 0) return "/api/history?limit=20";
+    if (pageIndex === 0) {
+        return "/api/history?limit=20";
+    }
 
     // Add cursor for subsequent pages
     return `/api/history?limit=20&cursor=${previousPageData?.nextCursor}`;

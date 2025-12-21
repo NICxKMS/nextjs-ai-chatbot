@@ -6,9 +6,9 @@
  */
 
 import { nanoid } from "nanoid";
-import type { AppSession, AuthResult } from "./types";
-import { getSessionManager } from "./session";
 import { authError, forbiddenError } from "@/lib/errors";
+import { getSessionManager } from "./session";
+import type { AppSession, AuthResult } from "./types";
 
 type Surface = "chat" | "document" | "history" | "vote" | "api";
 

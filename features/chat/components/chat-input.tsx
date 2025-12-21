@@ -10,22 +10,22 @@
 "use client";
 
 import {
-    useRef,
-    useState,
+    type ChangeEvent,
+    type FormEvent,
+    type KeyboardEvent,
     useCallback,
     useEffect,
-    type ChangeEvent,
-    type KeyboardEvent,
-    type FormEvent,
+    useRef,
+    useState,
 } from "react";
 import { toast } from "sonner";
 import { useChatHelpers, useChatMetadata, useModelState } from "../hooks";
-import type { ChatInputProps, Attachment } from "../types";
+import type { Attachment, ChatInputProps } from "../types";
 import {
     AttachmentButton,
     AttachmentPreviews,
-    SubmitButton,
     StopButton,
+    SubmitButton,
 } from "./input";
 import { ModelSelectorCompact } from "./model-selector-compact";
 import { SuggestedActions } from "./suggested-actions";
@@ -82,7 +82,7 @@ export function ChatInput({ disabled, placeholder }: ChatInputProps) {
             setInput(savedInput);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [input]);
 
     // Save to localStorage on change (debounced 500ms)
     useEffect(() => {
@@ -128,11 +128,11 @@ export function ChatInput({ disabled, placeholder }: ChatInputProps) {
 
                 const { error } = await response.json();
                 toast.error(error || "Failed to upload file");
-            } catch (error) {
+            } catch (_error) {
                 toast.error("Failed to upload file, please try again!");
             }
 
-            return undefined;
+            return;
         },
         []
     );
@@ -143,7 +143,9 @@ export function ChatInput({ disabled, placeholder }: ChatInputProps) {
     const handleFileChange = useCallback(
         async (event: ChangeEvent<HTMLInputElement>) => {
             const files = Array.from(event.target.files || []);
-            if (files.length === 0) return;
+            if (files.length === 0) {
+                return;
+            }
 
             setUploadQueue(files.map((file) => file.name));
 
@@ -189,7 +191,9 @@ export function ChatInput({ disabled, placeholder }: ChatInputProps) {
         (e: FormEvent) => {
             e.preventDefault();
 
-            if (!canSubmit) return;
+            if (!canSubmit) {
+                return;
+            }
 
             if (status !== "ready") {
                 toast.error(
@@ -259,19 +263,19 @@ export function ChatInput({ disabled, placeholder }: ChatInputProps) {
 
             {/* Hidden file input */}
             <input
-                ref={fileInputRef}
-                type="file"
-                multiple
                 accept={ACCEPTED_FILE_TYPES}
-                onChange={handleFileChange}
-                className="fixed -top-4 -left-4 size-0.5 opacity-0 pointer-events-none"
-                tabIndex={-1}
                 aria-label="Upload attachments"
+                className="-top-4 -left-4 pointer-events-none fixed size-0.5 opacity-0"
+                multiple
+                onChange={handleFileChange}
+                ref={fileInputRef}
+                tabIndex={-1}
+                type="file"
             />
 
             <form
-                onSubmit={handleSubmit}
                 className="rounded-xl border border-border bg-background p-3 shadow-xs transition-all duration-200 focus-within:border-border hover:border-muted-foreground/50"
+                onSubmit={handleSubmit}
             >
                 {/* Attachment previews */}
                 <AttachmentPreviews
@@ -283,16 +287,16 @@ export function ChatInput({ disabled, placeholder }: ChatInputProps) {
                 {/* Input area */}
                 <div className="flex flex-row items-start gap-1 sm:gap-2">
                     <textarea
-                        ref={textareaRef}
-                        value={input}
+                        autoFocus
+                        className="max-h-[200px] min-h-[44px] grow resize-none border-none bg-transparent p-2 text-sm outline-none ring-0 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-50"
+                        data-testid="chat-input"
+                        disabled={isLoading || isDisabled}
                         onChange={handleInputChange}
                         onKeyDown={handleKeyDown}
                         placeholder={placeholder ?? "Send a message..."}
-                        disabled={isLoading || isDisabled}
+                        ref={textareaRef}
                         rows={1}
-                        className="min-h-[44px] max-h-[200px] grow resize-none border-none bg-transparent p-2 text-sm outline-none ring-0 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-50"
-                        data-testid="chat-input"
-                        autoFocus
+                        value={input}
                     />
                 </div>
 
@@ -300,14 +304,14 @@ export function ChatInput({ disabled, placeholder }: ChatInputProps) {
                 <div className="flex items-center justify-between pt-2">
                     <div className="flex items-center gap-2">
                         <AttachmentButton
-                            onClick={handleAttachClick}
                             disabled={isLoading || isDisabled}
+                            onClick={handleAttachClick}
                         />
                         <ModelSelectorCompact
-                            models={availableModels}
-                            selectedModelId={currentModelId}
-                            onModelChange={setModelId}
                             disabled={isLoading || isDisabled}
+                            models={availableModels}
+                            onModelChange={setModelId}
+                            selectedModelId={currentModelId}
                         />
                     </div>
 
@@ -322,7 +326,7 @@ export function ChatInput({ disabled, placeholder }: ChatInputProps) {
 
             {/* Guest mode indicator */}
             {isGuest && (
-                <p className="text-center text-xs text-muted-foreground">
+                <p className="text-center text-muted-foreground text-xs">
                     Sign in to save your conversations
                 </p>
             )}

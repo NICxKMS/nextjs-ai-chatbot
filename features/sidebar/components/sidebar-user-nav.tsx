@@ -15,14 +15,14 @@ import {
 function SunIcon({ className }: { className?: string }) {
     return (
         <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
+            className={className}
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={className}
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
         >
             <circle cx="12" cy="12" r="4" />
             <path d="M12 2v2" />
@@ -40,14 +40,14 @@ function SunIcon({ className }: { className?: string }) {
 function MoonIcon({ className }: { className?: string }) {
     return (
         <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
+            className={className}
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={className}
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
         >
             <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
         </svg>
@@ -57,14 +57,14 @@ function MoonIcon({ className }: { className?: string }) {
 function LogOutIcon({ className }: { className?: string }) {
     return (
         <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
+            className={className}
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={className}
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
         >
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
             <polyline points="16 17 21 12 16 7" />
@@ -73,7 +73,7 @@ function LogOutIcon({ className }: { className?: string }) {
     );
 }
 
-export interface SidebarUserNavProps {
+export type SidebarUserNavProps = {
     user?: {
         email?: string;
         name?: string;
@@ -81,7 +81,7 @@ export interface SidebarUserNavProps {
     isLoading?: boolean;
     onSignOut?: () => void;
     onSignIn?: () => void;
-}
+};
 
 export function SidebarUserNav({
     user,
@@ -102,32 +102,32 @@ export function SidebarUserNav({
     if (isLoading) {
         return (
             <div className="flex items-center gap-2 px-2 py-1.5">
-                <div className="size-8 rounded-full bg-muted animate-pulse" />
-                <div className="flex flex-col gap-1 flex-1">
-                    <div className="h-3 w-20 bg-muted animate-pulse rounded" />
-                    <div className="h-2 w-24 bg-muted animate-pulse rounded" />
+                <div className="size-8 animate-pulse rounded-full bg-muted" />
+                <div className="flex flex-1 flex-col gap-1">
+                    <div className="h-3 w-20 animate-pulse rounded bg-muted" />
+                    <div className="h-2 w-24 animate-pulse rounded bg-muted" />
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="p-2 border-t" data-testid="user-nav-dropdown">
+        <div className="border-t p-2" data-testid="user-nav-dropdown">
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <button className="flex items-center gap-2 w-full p-2 rounded-md hover:bg-muted">
+                    <button className="flex w-full items-center gap-2 rounded-md p-2 hover:bg-muted">
                         <Image
-                            src={`https://avatar.vercel.sh/${avatarSeed}`}
                             alt={displayLabel || "User Avatar"}
-                            width={32}
-                            height={32}
                             className="rounded-full"
+                            height={32}
+                            src={`https://avatar.vercel.sh/${avatarSeed}`}
+                            width={32}
                         />
-                        <div className="text-sm text-left flex-1 min-w-0">
-                            <div className="font-medium truncate">
+                        <div className="min-w-0 flex-1 text-left text-sm">
+                            <div className="truncate font-medium">
                                 {isGuest ? "Guest" : user?.name || "User"}
                             </div>
-                            <div className="text-xs text-muted-foreground truncate">
+                            <div className="truncate text-muted-foreground text-xs">
                                 {displayLabel}
                             </div>
                         </div>

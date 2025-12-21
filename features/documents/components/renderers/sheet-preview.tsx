@@ -2,12 +2,12 @@
 
 import { memo, useMemo } from "react";
 
-export interface SheetPreviewProps {
+export type SheetPreviewProps = {
     /** Sheet content (CSV or JSON) to preview */
     content: string;
     /** Maximum rows to display (default: 5) */
     maxRows?: number;
-}
+};
 
 /**
  * Sheet document preview renderer.
@@ -52,7 +52,7 @@ function SheetPreviewComponent({ content, maxRows = 5 }: SheetPreviewProps) {
 
     if (headers.length === 0) {
         return (
-            <div className="text-sm text-muted-foreground">
+            <div className="text-muted-foreground text-sm">
                 Empty or invalid sheet data
             </div>
         );
@@ -65,8 +65,8 @@ function SheetPreviewComponent({ content, maxRows = 5 }: SheetPreviewProps) {
                     <tr>
                         {headers.slice(0, 4).map((header, i) => (
                             <th
+                                className="border-r border-b px-2 py-1.5 text-left font-medium last:border-r-0 dark:border-zinc-700"
                                 key={i}
-                                className="border-b border-r px-2 py-1.5 text-left font-medium dark:border-zinc-700 last:border-r-0"
                             >
                                 {header}
                             </th>
@@ -81,13 +81,13 @@ function SheetPreviewComponent({ content, maxRows = 5 }: SheetPreviewProps) {
                 <tbody>
                     {rows.map((row, rowIdx) => (
                         <tr
-                            key={rowIdx}
                             className="border-b last:border-b-0 dark:border-zinc-700"
+                            key={rowIdx}
                         >
                             {row.slice(0, 4).map((cell, cellIdx) => (
                                 <td
+                                    className="max-w-[120px] truncate border-r px-2 py-1.5 last:border-r-0 dark:border-zinc-700"
                                     key={cellIdx}
-                                    className="border-r px-2 py-1.5 dark:border-zinc-700 last:border-r-0 truncate max-w-[120px]"
                                 >
                                     {cell}
                                 </td>
@@ -102,7 +102,7 @@ function SheetPreviewComponent({ content, maxRows = 5 }: SheetPreviewProps) {
                 </tbody>
             </table>
             {totalRows > maxRows && (
-                <div className="bg-muted px-2 py-1 text-xs text-muted-foreground border-t dark:border-zinc-700">
+                <div className="border-t bg-muted px-2 py-1 text-muted-foreground text-xs dark:border-zinc-700">
                     Showing {maxRows} of {totalRows} rows
                 </div>
             )}

@@ -8,51 +8,50 @@
 import "server-only";
 
 import type { UIMessageStreamWriter } from "ai";
-
-import type { ArtifactKind } from "../types";
-import type { Document } from "@/lib/db/schema";
 import type { AppSession } from "@/lib/auth/types";
 import { createContext } from "@/lib/data/base";
 import { documentData } from "@/lib/data/documents";
+import type { Document } from "@/lib/db/schema";
+import type { ArtifactKind } from "../types";
 
 /**
  * Props for creating a new document
  */
-export interface CreateDocumentCallbackProps {
+export type CreateDocumentCallbackProps = {
     id: string;
     title: string;
     dataStream: UIMessageStreamWriter;
     session: AppSession;
     chatId: string;
-}
+};
 
 /**
  * Props for updating an existing document
  */
-export interface UpdateDocumentCallbackProps {
+export type UpdateDocumentCallbackProps = {
     document: Document;
     description: string;
     dataStream: UIMessageStreamWriter;
     session: AppSession;
-}
+};
 
 /**
  * Document handler interface
  */
-export interface DocumentHandler<T = ArtifactKind> {
+export type DocumentHandler<T = ArtifactKind> = {
     kind: T;
     onCreateDocument: (args: CreateDocumentCallbackProps) => Promise<void>;
     onUpdateDocument: (args: UpdateDocumentCallbackProps) => Promise<void>;
-}
+};
 
 /**
  * Configuration for creating a document handler
  */
-export interface DocumentHandlerConfig<T extends ArtifactKind> {
+export type DocumentHandlerConfig<T extends ArtifactKind> = {
     kind: T;
     onCreateDocument: (params: CreateDocumentCallbackProps) => Promise<string>;
     onUpdateDocument: (params: UpdateDocumentCallbackProps) => Promise<string>;
-}
+};
 
 /**
  * Create a document handler with automatic database saving

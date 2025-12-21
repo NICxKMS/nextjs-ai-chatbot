@@ -23,7 +23,7 @@ export const MODEL_REGISTRY: Record<string, ModelMetadata> = {
             supportsImages: true,
             supportsTools: true,
             supportsReasoning: false,
-            maxTokens: 128000,
+            maxTokens: 128_000,
         },
     },
     "gpt-4o-mini": {
@@ -35,7 +35,7 @@ export const MODEL_REGISTRY: Record<string, ModelMetadata> = {
             supportsImages: true,
             supportsTools: true,
             supportsReasoning: false,
-            maxTokens: 128000,
+            maxTokens: 128_000,
         },
     },
     "claude-3-5-sonnet-20241022": {
@@ -47,7 +47,7 @@ export const MODEL_REGISTRY: Record<string, ModelMetadata> = {
             supportsImages: true,
             supportsTools: true,
             supportsReasoning: false,
-            maxTokens: 200000,
+            maxTokens: 200_000,
         },
     },
     "gemini-2.0-flash-exp": {
@@ -59,7 +59,7 @@ export const MODEL_REGISTRY: Record<string, ModelMetadata> = {
             supportsImages: true,
             supportsTools: true,
             supportsReasoning: false,
-            maxTokens: 1048576,
+            maxTokens: 1_048_576,
         },
     },
 } as const;

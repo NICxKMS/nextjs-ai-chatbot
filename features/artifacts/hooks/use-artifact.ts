@@ -4,7 +4,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 
-import type { ArtifactKind, UIArtifact } from "../types";
+import type { UIArtifact } from "../types";
 
 // ============================================================================
 // Initial State
@@ -102,7 +102,7 @@ type ArtifactMetadata = unknown;
 /**
  * Return type for useArtifact hook.
  */
-export interface UseArtifactReturn {
+export type UseArtifactReturn = {
     /** Current artifact state */
     artifact: UIArtifact;
     /** Update artifact state */
@@ -113,7 +113,7 @@ export interface UseArtifactReturn {
     metadata: ArtifactMetadata;
     /** Update artifact metadata */
     setMetadata: Dispatch<SetStateAction<ArtifactMetadata>>;
-}
+};
 
 /**
  * Main hook for artifact state management.

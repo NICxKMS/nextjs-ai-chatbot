@@ -9,15 +9,15 @@
 
 "use client";
 
+import type { DataUIPart } from "ai";
 import {
     createContext,
+    type Dispatch,
+    type ReactNode,
+    type SetStateAction,
     useContext,
     useState,
-    type ReactNode,
-    type Dispatch,
-    type SetStateAction,
 } from "react";
-import type { DataUIPart } from "ai";
 
 // =============================================================================
 // TYPES
@@ -33,14 +33,14 @@ export type DataStreamPart = DataUIPart<Record<string, unknown>>;
 // CONTEXT
 // =============================================================================
 
-interface DataStreamContextValue {
+type DataStreamContextValue = {
     /** Current data stream parts from AI response */
     dataStream: DataStreamPart[];
     /** Setter for data stream - used by DataStreamHandler */
     setDataStream: Dispatch<SetStateAction<DataStreamPart[]>>;
     /** Clear the data stream (reset to empty array) */
     clearDataStream: () => void;
-}
+};
 
 const DataStreamContext = createContext<DataStreamContextValue | null>(null);
 DataStreamContext.displayName = "DataStreamContext";
@@ -49,9 +49,9 @@ DataStreamContext.displayName = "DataStreamContext";
 // PROVIDER COMPONENT
 // =============================================================================
 
-export interface DataStreamProviderProps {
+export type DataStreamProviderProps = {
     children: ReactNode;
-}
+};
 
 /**
  * DataStreamProvider - Manages streaming data parts from AI SDK.

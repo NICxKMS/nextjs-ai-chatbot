@@ -10,23 +10,21 @@
 "use client";
 
 import { memo, useState } from "react";
-import type {
-    MessagePart as MessagePartType,
-    TextPart,
-    ToolCallPart,
-    ToolResultPart,
-    ReasoningPart,
-    SourcePart,
-} from "../../types";
-import { cn } from "@/lib/utils";
-import { MarkdownRenderer } from "../markdown-renderer";
-import { Reasoning, ReasoningTrigger, ReasoningContent } from "../reasoning";
+import type { ArtifactKind } from "@/features/artifacts";
 import {
     DocumentPreview,
     DocumentToolCall,
     DocumentToolResult,
 } from "@/features/documents";
-import type { ArtifactKind } from "@/features/artifacts";
+import { cn } from "@/lib/utils";
+import type {
+    MessagePart as MessagePartType,
+    SourcePart,
+    ToolCallPart,
+    ToolResultPart,
+} from "../../types";
+import { MarkdownRenderer } from "../markdown-renderer";
+import { Reasoning, ReasoningContent, ReasoningTrigger } from "../reasoning";
 import { Weather, type WeatherAtLocation } from "../weather";
 
 // =============================================================================
@@ -49,7 +47,7 @@ type DocumentToolName = (typeof DOCUMENT_TOOL_NAMES)[number];
 // TYPES
 // =============================================================================
 
-export interface MessagePartProps {
+export type MessagePartProps = {
     /** The message part to render */
     part: MessagePartType;
     /** Whether this part is currently being streamed */
@@ -58,7 +56,7 @@ export interface MessagePartProps {
     isReadonly?: boolean;
     /** Optional additional class names */
     className?: string;
-}
+};
 
 // =============================================================================
 // HELPERS
@@ -95,14 +93,14 @@ function getDocumentOperationType(
 function WrenchIcon({ className }: { className?: string }) {
     return (
         <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
+            className={className}
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={className}
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
         >
             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
         </svg>
@@ -112,14 +110,14 @@ function WrenchIcon({ className }: { className?: string }) {
 function CheckCircleIcon({ className }: { className?: string }) {
     return (
         <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
+            className={className}
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={className}
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
         >
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
             <polyline points="22 4 12 14.01 9 11.01" />
@@ -130,18 +128,18 @@ function CheckCircleIcon({ className }: { className?: string }) {
 function AlertCircleIcon({ className }: { className?: string }) {
     return (
         <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
+            className={className}
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={className}
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
         >
             <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
+            <line x1="12" x2="12" y1="8" y2="12" />
+            <line x1="12" x2="12.01" y1="16" y2="16" />
         </svg>
     );
 }
@@ -149,14 +147,14 @@ function AlertCircleIcon({ className }: { className?: string }) {
 function ChevronDownIcon({ className }: { className?: string }) {
     return (
         <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
+            className={className}
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={className}
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
         >
             <polyline points="6 9 12 15 18 9" />
         </svg>
@@ -166,14 +164,14 @@ function ChevronDownIcon({ className }: { className?: string }) {
 function LinkIcon({ className }: { className?: string }) {
     return (
         <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
+            className={className}
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={className}
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
         >
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
@@ -241,9 +239,9 @@ function ToolCallPartView({
 
         return (
             <DocumentToolCall
-                type={operationType}
                 args={docArgs}
                 isReadonly={isReadonly}
+                type={operationType}
             />
         );
     }
@@ -251,16 +249,16 @@ function ToolCallPartView({
     return (
         <div
             className={cn(
-                "rounded-lg border bg-muted/50 my-2 overflow-hidden",
+                "my-2 overflow-hidden rounded-lg border bg-muted/50",
                 className
             )}
         >
             <button
-                type="button"
+                className="flex w-full items-center justify-between gap-2 p-3 text-left transition-colors hover:bg-muted/70"
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="flex w-full items-center justify-between gap-2 p-3 text-left hover:bg-muted/70 transition-colors"
+                type="button"
             >
-                <div className="flex items-center gap-2 text-sm font-medium">
+                <div className="flex items-center gap-2 font-medium text-sm">
                     <WrenchIcon className="h-4 w-4 text-muted-foreground" />
                     <span>{toolName}</span>
                 </div>
@@ -273,10 +271,10 @@ function ToolCallPartView({
             </button>
             {isExpanded && (
                 <div className="border-t bg-muted/30 p-3">
-                    <div className="text-xs text-muted-foreground uppercase tracking-wide mb-2">
+                    <div className="mb-2 text-muted-foreground text-xs uppercase tracking-wide">
                         Parameters
                     </div>
-                    <pre className="text-xs overflow-x-auto bg-background/50 rounded p-2">
+                    <pre className="overflow-x-auto rounded bg-background/50 p-2 text-xs">
                         {JSON.stringify(args, null, 2)}
                     </pre>
                 </div>
@@ -366,13 +364,13 @@ function ToolResultPartView({
         if (toolName === "requestSuggestions" && resultObj) {
             return (
                 <DocumentToolResult
-                    type="request-suggestions"
+                    isReadonly={isReadonly}
                     result={{
                         id: resultObj.id as string,
                         title: resultObj.title as string,
                         kind: resultObj.kind as ArtifactKind,
                     }}
-                    isReadonly={isReadonly}
+                    type="request-suggestions"
                 />
             );
         }
@@ -382,7 +380,7 @@ function ToolResultPartView({
     return (
         <div
             className={cn(
-                "rounded-lg border my-2 overflow-hidden",
+                "my-2 overflow-hidden rounded-lg border",
                 isError
                     ? "border-destructive bg-destructive/10"
                     : "bg-muted/50",
@@ -390,14 +388,14 @@ function ToolResultPartView({
             )}
         >
             <button
-                type="button"
-                onClick={() => setIsExpanded(!isExpanded)}
                 className={cn(
                     "flex w-full items-center justify-between gap-2 p-3 text-left transition-colors",
                     isError ? "hover:bg-destructive/20" : "hover:bg-muted/70"
                 )}
+                onClick={() => setIsExpanded(!isExpanded)}
+                type="button"
             >
-                <div className="flex items-center gap-2 text-sm font-medium">
+                <div className="flex items-center gap-2 font-medium text-sm">
                     {isError ? (
                         <AlertCircleIcon className="h-4 w-4 text-destructive" />
                     ) : (
@@ -414,7 +412,7 @@ function ToolResultPartView({
             </button>
             {isExpanded && (
                 <div className="border-t p-3">
-                    <pre className="text-xs overflow-x-auto bg-background/50 rounded p-2">
+                    <pre className="overflow-x-auto rounded bg-background/50 p-2 text-xs">
                         {typeof result === "string"
                             ? result
                             : JSON.stringify(result, null, 2)}
@@ -440,8 +438,8 @@ function ReasoningPartView({
     return (
         <Reasoning
             className={className}
-            isStreaming={isStreaming}
             defaultOpen={true}
+            isStreaming={isStreaming}
         >
             <ReasoningTrigger />
             <ReasoningContent>{reasoning}</ReasoningContent>
@@ -462,17 +460,17 @@ function SourcePartView({
     return (
         <div
             className={cn(
-                "inline-flex items-center gap-1 text-xs text-muted-foreground",
+                "inline-flex items-center gap-1 text-muted-foreground text-xs",
                 className
             )}
         >
             <LinkIcon className="h-3 w-3" />
             {source.url ? (
                 <a
+                    className="transition-colors hover:text-foreground hover:underline"
                     href={source.url}
-                    target="_blank"
                     rel="noopener noreferrer"
-                    className="hover:underline hover:text-foreground transition-colors"
+                    target="_blank"
                 >
                     {source.title || source.url}
                 </a>
@@ -517,49 +515,49 @@ export const MessagePart = memo(function MessagePart({
         case "text":
             return (
                 <TextPartView
-                    text={part.text}
-                    isStreaming={isStreaming}
                     className={className}
+                    isStreaming={isStreaming}
+                    text={part.text}
                 />
             );
 
         case "tool-call":
             return (
                 <ToolCallPartView
-                    type={part.type}
+                    args={part.args}
+                    className={className}
+                    isReadonly={isReadonly}
                     toolCallId={part.toolCallId}
                     toolName={part.toolName}
-                    args={part.args}
-                    isReadonly={isReadonly}
-                    className={className}
+                    type={part.type}
                 />
             );
 
         case "tool-result":
             return (
                 <ToolResultPartView
-                    type={part.type}
-                    toolCallId={part.toolCallId}
-                    toolName={part.toolName}
-                    result={part.result}
+                    className={className}
                     isError={part.isError}
                     isReadonly={isReadonly}
-                    className={className}
+                    result={part.result}
+                    toolCallId={part.toolCallId}
+                    toolName={part.toolName}
+                    type={part.type}
                 />
             );
 
         case "reasoning":
             return (
                 <ReasoningPartView
-                    reasoning={part.reasoning}
-                    isStreaming={isStreaming}
                     className={className}
+                    isStreaming={isStreaming}
+                    reasoning={part.reasoning}
                 />
             );
 
         case "source":
             return (
-                <SourcePartView source={part.source} className={className} />
+                <SourcePartView className={className} source={part.source} />
             );
 
         default:

@@ -6,8 +6,8 @@
  */
 
 import * as jose from "jose";
-import type { GuestTokenPayload, JWTPayload } from "./types";
 import { JWT_EXPIRATION_SECONDS, JWT_ISSUER } from "./constants";
+import type { GuestTokenPayload, JWTPayload } from "./types";
 
 /**
  * Get the JWT secret from environment
@@ -84,7 +84,9 @@ export async function verifyGuestToken(
  * Check if a token needs rotation (< 30 min remaining)
  */
 export function needsRotation(payload: GuestTokenPayload): boolean {
-    if (!payload.exp) return true;
+    if (!payload.exp) {
+        return true;
+    }
 
     const now = Math.floor(Date.now() / 1000);
     const timeRemaining = payload.exp - now;

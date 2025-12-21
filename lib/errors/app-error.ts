@@ -3,13 +3,13 @@
  * Ref: 01-error-handling-optimal-design.md §4
  */
 
+import { getMessage } from "./messages";
 import type {
+    ActionResult,
+    AppErrorOptions,
     ErrorCode,
     ErrorSeverity,
-    AppErrorOptions,
-    ActionResult,
 } from "./types";
-import { getMessage } from "./messages";
 import { inferStatusCode } from "./utils";
 
 export class AppError extends Error {

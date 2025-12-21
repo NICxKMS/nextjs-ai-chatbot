@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 
 const MOBILE_BREAKPOINT = 768;
 
-export interface UseMobileOptions {
+export type UseMobileOptions = {
     /** Initial mobile state from server (via x-device-type header) */
     initialIsMobile?: boolean;
-}
+};
 
 /**
  * Hook to detect mobile viewport.

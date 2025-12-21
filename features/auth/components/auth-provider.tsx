@@ -1,18 +1,17 @@
 "use client";
 
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import {
     createContext,
+    type ReactNode,
     useCallback,
     useContext,
     useEffect,
     useMemo,
     useState,
-    type ReactNode,
 } from "react";
-import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
-
-import { getSupabaseBrowserClient } from "@/lib/auth/client";
 import type { AppSession } from "@/lib/auth";
+import { getSupabaseBrowserClient } from "@/lib/auth/client";
 import type { AuthContextValue } from "../types";
 
 // ============================================================================
@@ -26,11 +25,11 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 // Ref: oldapp/components/auth-provider.tsx
 // ============================================================================
 
-export interface AuthProviderProps {
+export type AuthProviderProps = {
     /** Initial session from server */
     initialSession: AppSession | null;
     children: ReactNode;
-}
+};
 
 /**
  * React Context provider for authentication state
@@ -97,14 +96,7 @@ export function AuthProvider({ initialSession, children }: AuthProviderProps) {
             setSession,
             clearNewSessionFlag,
         }),
-        [
-            session,
-            isAuthenticated,
-            isGuest,
-            isLoading,
-            isNewSession,
-            clearNewSessionFlag,
-        ]
+        [session, isAuthenticated, isGuest, isNewSession, clearNewSessionFlag]
     );
 
     return (

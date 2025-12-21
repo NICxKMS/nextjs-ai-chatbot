@@ -1,14 +1,13 @@
 "use client";
 
 import { isAfter } from "date-fns";
+import { m as motion } from "framer-motion";
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useSWRConfig } from "swr";
-import { Loader2 } from "lucide-react";
-import { m as motion } from "framer-motion";
-
-import { useArtifact } from "../hooks";
-import { useWindowSize } from "@/shared/hooks";
 import { Button } from "@/shared/components";
+import { useWindowSize } from "@/shared/hooks";
+import { useArtifact } from "../hooks";
 
 type Document = {
     id: string;
@@ -29,7 +28,9 @@ function getDocumentTimestampByIndex(
     documents: Document[],
     index: number
 ): string {
-    if (!documents || !documents[index]) return "";
+    if (!documents || !documents[index]) {
+        return "";
+    }
     return documents[index].createdAt.toISOString();
 }
 

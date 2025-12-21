@@ -5,31 +5,31 @@
 
 export type UserType = "guest" | "regular";
 
-export interface AppUser {
+export type AppUser = {
     id: string;
     type: UserType;
     email?: string | null;
-}
+};
 
-export interface AppSession {
+export type AppSession = {
     user: AppUser;
-}
+};
 
 export type AuthState =
     | { status: "loading" }
     | { status: "authenticated"; session: AppSession }
     | { status: "unauthenticated" };
 
-export interface AuthResult {
+export type AuthResult = {
     session: AppSession;
     ctx: DataContext;
-}
+};
 
-export interface DataContext {
+export type DataContext = {
     userId: string;
     userType: UserType;
     requestId?: string;
-}
+};
 
 export interface GuestTokenPayload extends JWTPayload {
     sub: string; // 'guest:{uuid}'
@@ -38,10 +38,10 @@ export interface GuestTokenPayload extends JWTPayload {
     exp: number;
 }
 
-export interface JWTPayload {
+export type JWTPayload = {
     sub: string;
     aud?: string | string[];
     iat?: number;
     exp?: number;
     [key: string]: unknown;
-}
+};

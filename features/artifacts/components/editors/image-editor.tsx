@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 // Types
 // ============================================================================
 
-export interface ImageEditorProps {
+export type ImageEditorProps = {
     /** Display title for the image alt text */
     title: string;
     /** Base64 encoded image content */
@@ -17,7 +17,7 @@ export interface ImageEditorProps {
     status: "streaming" | "idle";
     /** Whether to display inline (smaller) or full-size */
     isInline?: boolean;
-}
+};
 
 // ============================================================================
 // Icons

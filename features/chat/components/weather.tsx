@@ -10,8 +10,8 @@
 "use client";
 
 import { format, isWithinInterval } from "date-fns";
-import { useIsMobile } from "@/shared/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/shared/hooks/use-mobile";
 
 // =============================================================================
 // ICONS
@@ -243,9 +243,9 @@ function n(num: number): number {
 // COMPONENT
 // =============================================================================
 
-export interface WeatherProps {
+export type WeatherProps = {
     weatherAtLocation?: WeatherAtLocation;
-}
+};
 
 /**
  * Weather display component.

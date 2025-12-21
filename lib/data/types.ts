@@ -9,30 +9,30 @@ import type { UserType } from "@/lib/auth/types";
  * Context for data operations
  * Includes user info and request metadata
  */
-export interface DataContext {
+export type DataContext = {
     userId: string;
     userType: UserType;
     requestId?: string;
-}
+};
 
 /**
  * Pagination parameters for cursor-based pagination
  */
-export interface PaginationParams {
+export type PaginationParams = {
     limit: number;
     startingAfter?: string | null;
     endingBefore?: string | null;
-}
+};
 
 /**
  * Paginated result wrapper
  */
-export interface PaginatedResult<T> {
+export type PaginatedResult<T> = {
     items: T[];
     hasMore: boolean;
     nextCursor?: string;
     prevCursor?: string;
-}
+};
 
 /**
  * Operation result for mutations

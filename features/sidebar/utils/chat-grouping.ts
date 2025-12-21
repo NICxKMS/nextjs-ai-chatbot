@@ -1,5 +1,5 @@
-import { isToday, isYesterday, subWeeks, isAfter } from "date-fns";
-import type { ChatHistoryItem, ChatGroup } from "../types";
+import { isAfter, isToday, isYesterday, subWeeks } from "date-fns";
+import type { ChatGroup, ChatHistoryItem } from "../types";
 
 const GROUP_LABELS = [
     "Today",
@@ -38,7 +38,7 @@ export function groupChatsByDate(
             groupKey = "Older";
         }
 
-        groups.get(groupKey)!.push(chat);
+        groups.get(groupKey)?.push(chat);
     }
 
     // Filter out empty groups and return in order

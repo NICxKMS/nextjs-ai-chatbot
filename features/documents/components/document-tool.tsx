@@ -2,9 +2,8 @@
 
 import { memo, useCallback } from "react";
 import { toast } from "sonner";
-
-import { useArtifact } from "@/features/artifacts";
 import type { ArtifactKind } from "@/features/artifacts";
+import { useArtifact } from "@/features/artifacts";
 
 // =============================================================================
 // ICONS
@@ -124,7 +123,7 @@ function LoaderIcon({ size = 16 }: { size?: number }) {
 
 export type DocumentOperationType = "create" | "update" | "request-suggestions";
 
-export interface DocumentToolResultProps {
+export type DocumentToolResultProps = {
     type: DocumentOperationType;
     result: {
         id: string;
@@ -132,16 +131,16 @@ export interface DocumentToolResultProps {
         kind: ArtifactKind;
     };
     isReadonly?: boolean;
-}
+};
 
-export interface DocumentToolCallProps {
+export type DocumentToolCallProps = {
     type: DocumentOperationType;
     args:
         | { title: string; kind: ArtifactKind }
         | { id: string; description: string }
         | { documentId: string };
     isReadonly?: boolean;
-}
+};
 
 // =============================================================================
 // HELPER
@@ -212,9 +211,9 @@ function PureDocumentToolResult({
 
     return (
         <button
-            type="button"
             className="flex w-fit cursor-pointer flex-row items-start gap-3 rounded-xl border bg-background px-3 py-2"
             onClick={handleClick}
+            type="button"
         >
             <div className="mt-1 text-muted-foreground">
                 {type === "create" ? (
@@ -290,9 +289,9 @@ function PureDocumentToolCall({
 
     return (
         <button
-            type="button"
-            className="cursor-pointer flex w-fit flex-row items-start justify-between gap-3 rounded-xl border px-3 py-2"
+            className="flex w-fit cursor-pointer flex-row items-start justify-between gap-3 rounded-xl border px-3 py-2"
             onClick={handleClick}
+            type="button"
         >
             <div className="flex flex-row items-start gap-3">
                 <div className="mt-1 text-zinc-500">

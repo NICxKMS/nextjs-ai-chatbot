@@ -11,97 +11,90 @@
 // =============================================================================
 
 export type {
-    // AI SDK re-exports
-    UIMessage,
-    ChatRequestOptions,
-    ChatMessage,
-    // Status & Helpers
-    ChatStatus,
-    ChatHelpers,
     // Attachment & Message
     Attachment,
+    ChatHelpers,
+    ChatInputProps,
+    ChatMessage,
+    ChatMessagesProps,
+    // Component props
+    ChatProps,
+    ChatRequestOptions,
+    // Status & Helpers
+    ChatStatus,
     CreateMessage,
-    // Message parts
-    TextPart,
-    ToolCallPart,
-    ToolResultPart,
-    ReasoningPart,
-    SourcePart,
+    DeleteMessagesParams,
+    // Server action types
+    GenerateTitleParams,
+    MessageItemProps,
     MessagePart,
+    MessageVote,
     // Model types
     ModelCapabilities,
     ModelMetadata,
     ModelState,
-    // Vote types
-    VoteType,
-    MessageVote,
-    // Component props
-    ChatProps,
-    ChatMessagesProps,
-    MessageItemProps,
-    ChatInputProps,
-    // Server action types
-    GenerateTitleParams,
-    DeleteMessagesParams,
+    ReasoningPart,
+    SourcePart,
+    // Message parts
+    TextPart,
+    ToolCallPart,
+    ToolResultPart,
+    // AI SDK re-exports
+    UIMessage,
     UpdateVisibilityParams,
     // Visibility
     VisibilityType,
+    // Vote types
+    VoteType,
 } from "./types";
 
 // =============================================================================
 // COMPONENT EXPORTS
 // =============================================================================
 
+export type {
+    ChatContainerProps,
+    ChatHeaderProps,
+    ChatProviderProps,
+    DataStreamHandlerProps,
+    DataStreamPart,
+    DataStreamProviderProps,
+    DataUsageType,
+    FullChatProps,
+    ModelSelectorProps,
+    NewChatButtonProps,
+    SidebarToggleProps,
+    UseDataStreamHandlerOptions,
+} from "./components";
 // Main Chat component (primary export)
-export { Chat } from "./components";
-export type { FullChatProps } from "./components";
-
 // Error Boundary
-export { ChatErrorBoundary } from "./components";
-
-export { ChatProvider } from "./components";
-export type { ChatProviderProps } from "./components";
-
-export { DataStreamProvider, useDataStream } from "./components";
-export type { DataStreamProviderProps, DataStreamPart } from "./components";
-
 export {
+    Chat,
+    ChatContainer,
+    ChatErrorBoundary,
+    ChatHeader,
+    ChatProvider,
     DataStreamHandler,
-    useDataStreamHandler,
+    DataStreamProvider,
+    isDataAppendMessagePart,
     isDataChatTitlePart,
     isDataUsagePart,
-    isDataAppendMessagePart,
+    ModelSelector,
+    NewChatButton,
+    SidebarToggle,
+    useDataStream,
+    useDataStreamHandler,
 } from "./components";
-export type {
-    DataStreamHandlerProps,
-    UseDataStreamHandlerOptions,
-    DataUsageType,
-} from "./components";
-
-export { ChatContainer } from "./components";
-export type { ChatContainerProps } from "./components";
-
-export { ChatHeader } from "./components";
-export type { ChatHeaderProps } from "./components";
-
-export { ModelSelector } from "./components";
-export type { ModelSelectorProps } from "./components";
-
-export { SidebarToggle } from "./components";
-export type { SidebarToggleProps } from "./components";
-
-export { NewChatButton } from "./components";
-export type { NewChatButtonProps } from "./components";
 
 // =============================================================================
 // HOOK EXPORTS
 // =============================================================================
 
-export { useChatHelpers, useModelState, useChatMetadata } from "./hooks";
+export { useChatHelpers, useChatMetadata, useModelState } from "./hooks";
 
 // =============================================================================
 // ACTION EXPORTS
 // =============================================================================
 
-export { voteOnMessage, removeVote } from "./actions";
 export type { VoteInput, VoteResult } from "./actions";
+export { removeVote, voteOnMessage } from "./actions";

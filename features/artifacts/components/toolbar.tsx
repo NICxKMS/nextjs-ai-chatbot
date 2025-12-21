@@ -10,24 +10,24 @@ import {
 import { nanoid } from "nanoid";
 import {
     type Dispatch,
+    type KeyboardEvent,
     memo,
     type ReactNode,
     type SetStateAction,
     useEffect,
     useRef,
     useState,
-    type KeyboardEvent,
 } from "react";
 import { useOnClickOutside } from "usehooks-ts";
 
 import { cn } from "@/lib/utils";
 import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
     ArrowUpIcon,
     StopIcon,
     SummarizeIcon,
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
 } from "@/shared/components";
 import { artifactRegistry } from "../definitions/base";
 import type { ArtifactKind, ArtifactToolbarItem } from "../types";

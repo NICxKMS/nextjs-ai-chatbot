@@ -6,7 +6,7 @@
  */
 import "server-only";
 
-import { streamObject, type LanguageModel } from "ai";
+import { type LanguageModel, streamObject } from "ai";
 import { z } from "zod";
 
 import { getOpenAI } from "@/lib/ai/providers";

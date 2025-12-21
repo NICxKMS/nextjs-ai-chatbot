@@ -1,8 +1,8 @@
 "use client";
 
+import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { PanelLeft } from "lucide-react";
-import { Slot } from "@radix-ui/react-slot";
 import {
     type ComponentProps,
     type CSSProperties,
@@ -15,7 +15,15 @@ import {
     useMemo,
     useState,
 } from "react";
+import { AppError } from "@/lib/errors";
+import { cn } from "@/lib/utils";
 import { Button } from "@/shared/components/button";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/shared/components/tooltip";
+import { useIsMobile } from "@/shared/hooks/use-mobile";
 import { Input } from "@/shared/ui/input";
 import { Separator } from "@/shared/ui/separator";
 import {
@@ -26,14 +34,6 @@ import {
     SheetTitle,
 } from "@/shared/ui/sheet";
 import { Skeleton } from "@/shared/ui/skeleton";
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
-} from "@/shared/components/tooltip";
-import { useIsMobile } from "@/shared/hooks/use-mobile";
-import { AppError } from "@/lib/errors";
-import { cn } from "@/lib/utils";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_WIDTH = "16rem";

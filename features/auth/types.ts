@@ -6,19 +6,19 @@
 import type { AppSession, AppUser } from "@/lib/auth";
 
 /** Current authentication state */
-export interface AuthState {
+export type AuthState = {
     user: AppUser | null;
     isAuthenticated: boolean;
     isGuest: boolean;
     isLoading: boolean;
-}
+};
 
 /** Actions available for authentication */
-export interface AuthActions {
+export type AuthActions = {
     login: (email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
     refreshSession: () => Promise<void>;
-}
+};
 
 /** Combined context value for AuthProvider */
 export interface AuthContextValue extends AuthState {
@@ -36,10 +36,10 @@ export interface AuthContextValue extends AuthState {
 export type AuthFormMode = "login" | "register";
 
 /** Props for AuthForm component */
-export interface AuthFormProps {
+export type AuthFormProps = {
     mode: AuthFormMode;
     onSubmit: (formData: FormData) => void | Promise<void>;
     defaultEmail?: string;
     isLoading?: boolean;
     isSuccessful?: boolean;
-}
+};

@@ -3,19 +3,19 @@
  * @module features/artifacts/components/editors
  */
 
-export { ImageEditor, type ImageEditorProps } from "./image-editor";
-export { TextEditor, type TextEditorProps } from "./text-editor";
 export { CodeEditor, type CodeEditorProps } from "./code-editor";
-export { SheetEditor, type SheetEditorProps } from "./sheet-editor";
 export {
     Console,
-    type ConsoleProps,
     type ConsoleOutput,
     type ConsoleOutputContent,
+    type ConsoleProps,
 } from "./console";
 export {
-    DiffView,
-    type DiffViewProps,
     DiffType,
     type DiffTypeValue,
+    DiffView,
+    type DiffViewProps,
 } from "./diff-view";
+export { ImageEditor, type ImageEditorProps } from "./image-editor";
+export { SheetEditor, type SheetEditorProps } from "./sheet-editor";
+export { TextEditor, type TextEditorProps } from "./text-editor";

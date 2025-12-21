@@ -3,4 +3,4 @@
  * Ref: 01-error-handling-optimal-design.md §7
  */
 
-export { mapPostgresError, isPostgresError } from "./postgres";
+export { isPostgresError, mapPostgresError } from "./postgres";
