@@ -24,6 +24,7 @@ interface HealthResponse {
   checks: {
     database: HealthCheckResult;
     environment: HealthCheckResult;
+    cache: HealthCheckResult;
   };
 }
 
@@ -57,6 +58,18 @@ async function checkDatabaseHealth(): Promise<HealthCheckResult> {
       error: error instanceof Error ? error.message : 'Database query failed',
     };
   }
+}
+
+/**
+ * Check cache health (memory cache is always healthy)
+ */
+function checkCacheHealth(): HealthCheckResult {
+  // Using in-memory cache which is always available
+  // If Redis is added later, implement actual connection check here
+  return {
+    status: 'healthy',
+    latency: 0,
+  };
 }
 
 /**
@@ -102,14 +115,16 @@ function determineOverallStatus(
  */
 export async function GET(): Promise<Response> {
   try {
-    const [dbHealth, envHealth] = await Promise.all([
+    const [dbHealth, envHealth, cacheHealth] = await Promise.all([
       checkDatabaseHealth(),
       Promise.resolve(checkEnvironmentHealth()),
+      Promise.resolve(checkCacheHealth()),
     ]);
 
     const checks = {
       database: dbHealth,
       environment: envHealth,
+      cache: cacheHealth,
     };
 
     const overallStatus = determineOverallStatus(checks);
@@ -135,6 +150,7 @@ export async function GET(): Promise<Response> {
       checks: {
         database: { status: 'unhealthy', error: 'Check failed' },
         environment: { status: 'unhealthy', error: 'Check failed' },
+        cache: { status: 'unhealthy', error: 'Check failed' },
       },
     };
 

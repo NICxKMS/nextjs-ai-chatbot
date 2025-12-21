@@ -76,11 +76,14 @@ export { ChatMessages, ChatMessagesArea } from './chat-messages';
 
 // Greeting/Empty state
 export { ChatGreeting } from './chat-greeting';
-export type { ChatGreetingProps } from './chat-greeting';
 
 // Input components
 export { ChatInput } from './chat-input';
 export type { ChatInputProps } from '../types';
+
+// Chat Context
+export { ChatContext } from './chat-context';
+export type { ChatContextProps, ChatUsage } from './chat-context';
 
 // Input sub-components
 export {

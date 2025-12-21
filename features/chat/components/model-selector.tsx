@@ -1,33 +1,198 @@
 /**
  * ModelSelector Component
  *
- * Dropdown selector for choosing the AI model for chat.
+ * Rich dropdown selector for choosing the AI model for chat.
+ * Groups models by provider and shows description, capabilities, badges.
  *
  * @module features/chat/components/model-selector
  */
 
 'use client';
 
+import { useMemo, useOptimistic, useState } from 'react';
+import { RefreshCw } from 'lucide-react';
+import { Button } from '@/shared/components/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/shared/components/dropdown-menu';
+import { Badge } from '@/shared/ui/badge';
+import { CheckCircleFillIcon, ChevronDownIcon } from '@/shared/components/icons';
+import { cn } from '@/lib/utils';
 import type { ModelMetadata } from '../types';
 
 /**
- * Chevron down icon for the selector.
+ * Featured model IDs - these are curated/flagship models
  */
-function ChevronDownIcon({ className }: { className?: string }) {
+const FEATURED_MODEL_IDS = [
+  'gpt-4o',
+  'gpt-4-turbo',
+  'claude-3-5-sonnet',
+  'claude-3-opus',
+  'gemini-1.5-pro',
+  'gemini-2.0-flash',
+];
+
+/**
+ * New model IDs - recently released models
+ */
+const NEW_MODEL_IDS = [
+  'gpt-4o-mini',
+  'claude-3-5-haiku',
+  'gemini-2.0-flash-exp',
+  'o1',
+  'o1-mini',
+  'o3-mini',
+];
+
+/**
+ * Get badge type for a model based on its ID
+ */
+function getModelBadge(modelId: string): 'featured' | 'new' | null {
+  const normalizedId = modelId.toLowerCase();
+  
+  if (FEATURED_MODEL_IDS.some((id) => normalizedId.includes(id.toLowerCase()))) {
+    return 'featured';
+  }
+  
+  if (NEW_MODEL_IDS.some((id) => normalizedId.includes(id.toLowerCase()))) {
+    return 'new';
+  }
+  
+  return null;
+}
+
+/**
+ * Capability labels for display
+ */
+const capabilityLabels: Record<string, string> = {
+  supportsImages: 'Vision',
+  supportsTools: 'Tools',
+  supportsReasoning: 'Reasoning',
+};
+
+/**
+ * Provider display names
+ */
+const providerDisplayNames: Record<string, string> = {
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  google: 'Google',
+  mistral: 'Mistral',
+  groq: 'Groq',
+  perplexity: 'Perplexity',
+  xai: 'xAI',
+};
+
+/**
+ * Group models by provider
+ */
+interface ProviderGroup {
+  providerId: string;
+  displayName: string;
+  models: ModelMetadata[];
+}
+
+function groupModelsByProvider(models: ModelMetadata[]): ProviderGroup[] {
+  const grouped = models.reduce<Record<string, ProviderGroup>>((acc, model) => {
+    const providerId = model.provider;
+    if (!acc[providerId]) {
+      acc[providerId] = {
+        providerId,
+        displayName: providerDisplayNames[providerId] || providerId,
+        models: [],
+      };
+    }
+    acc[providerId].models.push(model);
+    return acc;
+  }, {});
+
+  return Object.values(grouped).sort((a, b) => a.displayName.localeCompare(b.displayName));
+}
+
+/**
+ * Render a single model row in the dropdown
+ */
+function ModelRow({
+  model,
+  isSelected,
+  onSelect,
+  disabled,
+}: {
+  model: ModelMetadata;
+  isSelected: boolean;
+  onSelect: (modelId: string) => void;
+  disabled: boolean;
+}) {
+  const capabilities = model.capabilities
+    ? Object.entries(model.capabilities)
+        .filter(([key, value]) => value === true && capabilityLabels[key])
+        .map(([key]) => capabilityLabels[key])
+    : [];
+
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
+    <DropdownMenuItem
+      asChild
+      data-active={isSelected}
+      data-testid={`model-selector-item-${model.id}`}
+      disabled={disabled}
+      onSelect={() => onSelect(model.id)}
     >
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
+      <button className="group/item flex w-full flex-col gap-2" type="button">
+        <div className="flex w-full flex-row items-center justify-between">
+          <div className="flex flex-col items-start gap-1 text-left">
+            <span className="flex items-center gap-2 font-medium text-sm sm:text-base">
+              {model.name}
+              {(() => {
+                const badge = getModelBadge(model.id);
+                if (badge === 'featured') {
+                  return (
+                    <Badge variant="secondary" className="text-xs">
+                      Featured
+                    </Badge>
+                  );
+                }
+                if (badge === 'new') {
+                  return (
+                    <Badge variant="outline" className="text-xs">
+                      New
+                    </Badge>
+                  );
+                }
+                return null;
+              })()}
+            </span>
+            {model.description && (
+              <span className="line-clamp-2 text-muted-foreground text-xs">{model.description}</span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="text-foreground opacity-0 group-data-[active=true]/item:opacity-100">
+              <CheckCircleFillIcon />
+            </div>
+          </div>
+        </div>
+
+        {(capabilities.length > 0 || model.capabilities?.maxTokens) && (
+          <div className="flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
+            <span>{providerDisplayNames[model.provider] || model.provider}</span>
+
+            {model.capabilities?.maxTokens && (
+              <span>• Context {model.capabilities.maxTokens.toLocaleString()} tokens</span>
+            )}
+
+            {capabilities.map((capability) => (
+              <span className="rounded bg-muted px-2 py-0.5" key={capability}>
+                {capability}
+              </span>
+            ))}
+          </div>
+        )}
+      </button>
+    </DropdownMenuItem>
   );
 }
 
@@ -45,14 +210,19 @@ export interface ModelSelectorProps {
   disabled?: boolean;
   /** Optional additional CSS classes */
   className?: string;
+  /** Optional callback to refresh the model list */
+  onRefresh?: () => void | Promise<void>;
 }
 
 /**
- * Dropdown selector for choosing the AI model.
+ * Rich dropdown selector for choosing the AI model.
  *
- * @remarks
- * Uses native select for accessibility and simplicity.
- * Can be enhanced with Radix UI Select later for custom styling.
+ * Features:
+ * - Groups models by provider
+ * - Shows description and capabilities
+ * - Capability badges (Vision, Tools, Reasoning)
+ * - Context window info
+ * - Rich dropdown styling
  *
  * @example
  * ```tsx
@@ -70,35 +240,96 @@ export function ModelSelector({
   onChange,
   disabled = false,
   className = '',
+  onRefresh,
 }: ModelSelectorProps) {
-  const handleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    onChange(event.target.value);
+  const [open, setOpen] = useState(false);
+  const [optimisticModelId, setOptimisticModelId] = useOptimistic(value);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const groupedCatalog = useMemo(() => groupModelsByProvider(models), [models]);
+
+  const selectedModel = useMemo(
+    () => models.find((model) => model.id === optimisticModelId),
+    [optimisticModelId, models]
+  );
+
+  const handleSelect = (modelId: string) => {
+    setOpen(false);
+    setOptimisticModelId(modelId);
+    onChange(modelId);
   };
 
-  // Find current model for display
-  const currentModel = models.find((m) => m.id === value);
-
   return (
-    <div className={`relative inline-flex items-center ${className}`.trim()}>
-      <select
-        value={value}
-        onChange={handleChange}
-        disabled={disabled}
-        className="appearance-none bg-transparent border border-border rounded-md px-3 py-1.5 pr-8 text-sm font-medium cursor-pointer hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
-        aria-label="Select AI model"
-        data-testid="model-selector"
-      >
-        {models.length === 0 ? (
-          <option value="">No models available</option>
-        ) : (
-          models.map((model) => (
-            <option key={model.id} value={model.id}>
-              {model.name}
-            </option>
-          ))
+    <DropdownMenu onOpenChange={setOpen} open={open}>
+      <DropdownMenuTrigger
+        asChild
+        className={cn(
+          'w-fit data-[state=open]:bg-accent data-[state=open]:text-accent-foreground',
+          className
         )}
-      </select>
-      <ChevronDownIcon className="absolute right-2 h-4 w-4 pointer-events-none text-muted-foreground" />
-    </div>
+        disabled={disabled}
+      >
+        <Button
+          className="md:h-[34px] md:px-2"
+          data-testid="model-selector"
+          suppressHydrationWarning
+          variant="outline"
+        >
+          {selectedModel?.name ?? 'Select model'}
+          <ChevronDownIcon />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className="max-h-[420px] min-w-[360px] max-w-[93vw] overflow-y-auto sm:min-w-[420px]"
+      >
+        <div className="flex items-center justify-between px-2 pt-1 pb-2 text-muted-foreground text-xs">
+          <div>Choose a model</div>
+          {onRefresh && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs"
+              disabled={isRefreshing}
+              onClick={async (e) => {
+                e.stopPropagation();
+                setIsRefreshing(true);
+                try {
+                  await onRefresh();
+                } finally {
+                  setIsRefreshing(false);
+                }
+              }}
+            >
+              <RefreshCw className={cn('mr-1 size-3', isRefreshing && 'animate-spin')} />
+              {isRefreshing ? 'Refreshing…' : 'Refresh'}
+            </Button>
+          )}
+        </div>
+
+        {groupedCatalog.map((providerGroup) => (
+          <div className="border-border/70 border-t px-2 py-2" key={providerGroup.providerId}>
+            <div className="mb-1 flex items-center justify-between font-medium text-sm">
+              <span>{providerGroup.displayName}</span>
+              <span className="text-muted-foreground text-xs">
+                {providerGroup.models.length} model{providerGroup.models.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              {providerGroup.models.map((model) => (
+                <ModelRow
+                  key={model.id}
+                  model={model}
+                  isSelected={model.id === optimisticModelId}
+                  onSelect={handleSelect}
+                  disabled={disabled}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

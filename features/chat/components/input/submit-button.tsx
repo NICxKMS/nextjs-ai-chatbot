@@ -37,9 +37,9 @@ export function SubmitButton({ disabled }: SubmitButtonProps) {
       disabled={disabled}
       className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground flex items-center justify-center"
       aria-label="Send message"
-      data-testid="submit-button"
+      data-testid="send-button"
     >
-      <ArrowUp className="h-4 w-4" />
+      <ArrowUp className="size-4" />
     </button>
   );
 }

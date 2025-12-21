@@ -16,7 +16,8 @@ import { Suspense, useEffect } from 'react';
 import { toast } from 'sonner';
 
 import { DataStreamProvider } from '@/features/chat';
-import { SidebarProvider, OptimisticChatsProvider } from '@/features/sidebar';
+import { OptimisticChatsProvider } from '@/features/sidebar';
+import { SidebarInset, SidebarProvider } from '@/shared/ui/sidebar';
 import { SidebarContainer } from './sidebar-container';
 
 // Skeleton for sidebar loading state
@@ -100,16 +101,14 @@ export function ChatLayoutClient({
               <NoticeHandler />
             </Suspense>
 
-            <div className="flex h-screen">
-              <Suspense fallback={<SidebarSkeleton />}>
-                <SidebarContainer />
+            <Suspense fallback={<SidebarSkeleton />}>
+              <SidebarContainer />
+            </Suspense>
+            <SidebarInset>
+              <Suspense fallback={<ContentLoader />}>
+                {children}
               </Suspense>
-              <main className="flex-1 flex flex-col min-w-0">
-                <Suspense fallback={<ContentLoader />}>
-                  {children}
-                </Suspense>
-              </main>
-            </div>
+            </SidebarInset>
           </OptimisticChatsProvider>
         </SidebarProvider>
       </DataStreamProvider>

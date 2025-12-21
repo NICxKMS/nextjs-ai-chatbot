@@ -9,6 +9,8 @@
 
 'use client';
 
+import { cn } from '@/lib/utils';
+
 /**
  * Props for the ChatContainer component.
  */
@@ -42,7 +44,11 @@ export function ChatContainer({
 }: ChatContainerProps) {
   return (
     <div
-      className={`flex flex-col h-full min-h-0 bg-background ${className}`.trim()}
+      className={cn(
+        'flex h-dvh min-w-0 flex-col bg-background',
+        'overscroll-contain touch-pan-y',
+        className
+      )}
       role="main"
       aria-label="Chat interface"
     >

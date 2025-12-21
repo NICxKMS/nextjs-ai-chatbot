@@ -84,13 +84,15 @@ export const vote = pgTable(
     chatId: uuid('chatId')
       .notNull()
       .references(() => chat.id),
-    messageId: uuid('messageId').notNull(),
+    messageId: uuid('messageId')
+      .notNull()
+      .references(() => message.id),
     userId: uuid('userId')
       .notNull()
       .references(() => user.id),
     isUpvoted: boolean('isUpvoted').notNull(),
   },
-  (table) => [primaryKey({ columns: [table.chatId, table.messageId] })]
+  (table) => [primaryKey({ columns: [table.chatId, table.messageId, table.userId] })]
 );
 
 // Document table
@@ -99,6 +101,7 @@ export const document = pgTable(
   {
     id: uuid('id').notNull().defaultRandom(),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
     title: text('title').notNull(),
     content: text('content'),
     kind: documentKindEnum('kind').notNull().default('text'),

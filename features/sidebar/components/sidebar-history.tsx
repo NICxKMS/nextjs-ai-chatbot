@@ -40,7 +40,7 @@ export function SidebarHistory({
 
   if (allChats.length === 0) {
     return (
-      <div className="p-4 text-sm text-muted-foreground text-center">
+      <div className="p-4 text-sm text-zinc-500 dark:text-zinc-400 text-center">
         No chats yet. Start a conversation!
       </div>
     );

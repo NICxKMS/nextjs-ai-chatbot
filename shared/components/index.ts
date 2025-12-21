@@ -34,4 +34,6 @@ export {
   CheckCircleFillIcon,
   GlobeIcon,
   LockIcon,
+  WarningIcon,
 } from './icons';
+export { toast, Toaster, type ToastProps } from './toast';
