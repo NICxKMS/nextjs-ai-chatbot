@@ -18,7 +18,8 @@ import { z } from "zod";
 
 import type { AppSession } from "@/lib/auth/types";
 import { createContext, isGuest } from "@/lib/data/base";
-import { documentData, saveSuggestions } from "@/lib/data/documents";
+import { getDocumentCached } from "@/lib/data/cached";
+import { saveSuggestions } from "@/lib/data/documents";
 import type { Suggestion } from "@/lib/db/schema";
 import { generateUUID } from "@/lib/utils";
 
@@ -82,7 +83,7 @@ export function requestSuggestions({
         }),
         execute: async ({ documentId }) => {
             const ctx = createContext(session.user.id, session.user.type);
-            const document = await documentData.get(documentId, ctx);
+            const document = await getDocumentCached(documentId, ctx);
 
             if (!document || !document.content) {
                 return {

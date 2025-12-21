@@ -113,12 +113,14 @@ export async function getChatFromCache(
  * @param chatId - Chat identifier
  * @param userId - User identifier
  * @param updates - Partial updates to apply
+ * @param isGuest - Whether user is a guest (affects TTL)
  * @returns Updated chat metadata or null if not found
  */
 export async function updateChatInCache(
     chatId: string,
     userId: string,
-    updates: Partial<CachedChatMeta>
+    updates: Partial<CachedChatMeta>,
+    isGuest: boolean = false
 ): Promise<CachedChatMeta | null> {
     return withCircuitBreaker(
         "updateChatInCache",
@@ -130,16 +132,18 @@ export async function updateChatInCache(
 
             const metaKey = CacheKeys.chatMeta(chatId, userId);
             const nowISO = new Date().toISOString();
+            const ttl = getGuestTTL(isGuest);
 
             try {
                 const result = await redis.eval(
                     UPDATE_METADATA_SCRIPT,
                     [metaKey],
-                    [serialize(updates), nowISO]
+                    [serialize(updates), nowISO, ttl.toString()]
                 );
 
-                if (typeof result === "string") {
-                    return deserializeChat(result);
+                // Result could be string (raw) or object (Upstash auto-parsed)
+                if (result) {
+                    return deserializeChat(result as string);
                 }
                 return null;
             } catch {

@@ -165,7 +165,7 @@ return redis.call('ZCARD', msgsKey)
  * Atomic GET-modify-SET for chat metadata.
  *
  * KEYS: [metaKey]
- * ARGV: [updatesJSON, nowISO]
+ * ARGV: [updatesJSON, nowISO, ttl]
  *
  * Returns: Updated metadata JSON
  */
@@ -174,6 +174,7 @@ export const UPDATE_METADATA_SCRIPT = `
 local metaKey = KEYS[1]
 local updatesJSON = ARGV[1]
 local nowISO = ARGV[2]
+local ttl = tonumber(ARGV[3])
 
 -- Get current metadata
 local metaJSON = redis.call('GET', metaKey)
@@ -196,9 +197,13 @@ end
 meta.version = (meta.version or 0) + 1
 meta.updatedAt = nowISO
 
--- Save updated metadata
+-- Save updated metadata with TTL refresh
 local updatedJSON = cjson.encode(meta)
-redis.call('SET', metaKey, updatedJSON)
+if ttl > 0 then
+  redis.call('SET', metaKey, updatedJSON, 'EX', ttl)
+else
+  redis.call('SET', metaKey, updatedJSON)
+end
 
 return updatedJSON
 `;

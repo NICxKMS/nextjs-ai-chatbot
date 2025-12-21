@@ -93,11 +93,13 @@ export async function createDocumentInCache(
                 ]
             );
 
-            // Add to user's document list
-            await redis.zadd(userDocsKey, { score, member: meta.id });
+            // Add to user's document list with atomic TTL
+            const pipeline = redis.pipeline();
+            pipeline.zadd(userDocsKey, { score, member: meta.id });
             if (ttl > 0) {
-                await redis.expire(userDocsKey, ttl);
+                pipeline.expire(userDocsKey, ttl);
             }
+            await pipeline.exec();
 
             return typeof result === "number" && result >= 1;
         },
@@ -338,8 +340,13 @@ export async function appendVersionToCache(
                 ]
             );
 
-            // Update score in user's document list
-            await redis.zadd(userDocsKey, { score, member: documentId });
+            // Update score in user's document list with atomic TTL
+            const pipeline = redis.pipeline();
+            pipeline.zadd(userDocsKey, { score, member: documentId });
+            if (ttl > 0) {
+                pipeline.expire(userDocsKey, ttl);
+            }
+            await pipeline.exec();
 
             return typeof result === "number" && result >= 1;
         },

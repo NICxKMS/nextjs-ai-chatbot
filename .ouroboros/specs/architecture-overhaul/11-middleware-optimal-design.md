@@ -26,13 +26,13 @@ flowchart LR
             AUTH[Auth Check]
         end
     end
-    
+
     subgraph Origin["Node.js Runtime"]
         API[API Routes]
         RSC[React Server Components]
         SA[Server Actions]
     end
-    
+
     Client -->|Request| MW
     MW --> IP --> RL --> SEC --> LOG --> AUTH
     AUTH -->|"Pass"| API
@@ -43,12 +43,14 @@ flowchart LR
 ```
 
 **Why Edge Middleware?**
+
 1. **Latency**: Sub-10ms response for blocked requests (no cold start)
 2. **Security**: Block malicious requests before origin processing
 3. **Cost**: Reduce origin compute for rate-limited/unauthorized requests
 4. **Observability**: Single point for request logging and tracing
 
 **Success Criteria**:
+
 - <5ms middleware execution time (P95)
 - Zero false-positive rate limit blocks
 - 100% request correlation via `X-Request-ID`
@@ -61,53 +63,53 @@ flowchart LR
 
 ### 2.1 Edge Runtime Constraints
 
-| Constraint | Impact | Solution |
-|------------|--------|----------|
-| No Node.js APIs | Can't use `fs`, `crypto`, etc. | Use Web Crypto API, fetch-based clients |
-| No `server-only` | Can't import Node modules | Separate Edge-compatible modules |
-| 25ms execution limit | Must be fast | Minimal logic, async operations |
-| 128KB bundle limit | Keep dependencies small | Tree-shake, no heavy libs |
-| No AsyncLocalStorage | Can't use Node context | Headers-based context propagation |
+| Constraint           | Impact                         | Solution                                |
+| -------------------- | ------------------------------ | --------------------------------------- |
+| No Node.js APIs      | Can't use `fs`, `crypto`, etc. | Use Web Crypto API, fetch-based clients |
+| No `server-only`     | Can't import Node modules      | Separate Edge-compatible modules        |
+| 25ms execution limit | Must be fast                   | Minimal logic, async operations         |
+| 128KB bundle limit   | Keep dependencies small        | Tree-shake, no heavy libs               |
+| No AsyncLocalStorage | Can't use Node context         | Headers-based context propagation       |
 
 ### 2.2 Rate Limiting
 
-| Requirement | Description |
-|-------------|-------------|
-| Edge-Compatible | Upstash Redis via HTTP (fetch-based) |
-| Route-Specific | Different limits per endpoint type |
-| Fail-Open/Closed | Configurable per endpoint criticality |
-| IP Extraction | Support X-Forwarded-For, X-Real-IP |
-| Burst Handling | Sliding window for smooth limiting |
-| Response Headers | X-RateLimit-* headers for client awareness |
+| Requirement      | Description                                 |
+| ---------------- | ------------------------------------------- |
+| Edge-Compatible  | Upstash Redis via HTTP (fetch-based)        |
+| Route-Specific   | Different limits per endpoint type          |
+| Fail-Open/Closed | Configurable per endpoint criticality       |
+| IP Extraction    | Support X-Forwarded-For, X-Real-IP          |
+| Burst Handling   | Sliding window for smooth limiting          |
+| Response Headers | X-RateLimit-\* headers for client awareness |
 
 ### 2.3 Security Headers
 
-| Header | Purpose |
-|--------|---------|
-| `X-Frame-Options: DENY` | Prevent clickjacking |
-| `X-Content-Type-Options: nosniff` | Prevent MIME sniffing |
-| `X-XSS-Protection: 1; mode=block` | XSS protection (legacy) |
-| `Referrer-Policy: strict-origin-when-cross-origin` | Privacy |
-| `Permissions-Policy` | Disable unnecessary browser features |
-| `Content-Security-Policy` | Script/style sources (report-only initially) |
+| Header                                             | Purpose                                      |
+| -------------------------------------------------- | -------------------------------------------- |
+| `X-Frame-Options: DENY`                            | Prevent clickjacking                         |
+| `X-Content-Type-Options: nosniff`                  | Prevent MIME sniffing                        |
+| `X-XSS-Protection: 1; mode=block`                  | XSS protection (legacy)                      |
+| `Referrer-Policy: strict-origin-when-cross-origin` | Privacy                                      |
+| `Permissions-Policy`                               | Disable unnecessary browser features         |
+| `Content-Security-Policy`                          | Script/style sources (report-only initially) |
 
 ### 2.4 Request Context Propagation
 
-| Requirement | Description |
-|-------------|-------------|
-| Request ID Generation | UUID v4 at Edge, propagate via header |
-| Header Propagation | `X-Request-ID` header added to all requests |
-| Correlation | Same ID used in logs, responses, downstream |
-| Origin Extraction | Read existing header if present (from proxy) |
+| Requirement           | Description                                  |
+| --------------------- | -------------------------------------------- |
+| Request ID Generation | UUID v4 at Edge, propagate via header        |
+| Header Propagation    | `X-Request-ID` header added to all requests  |
+| Correlation           | Same ID used in logs, responses, downstream  |
+| Origin Extraction     | Read existing header if present (from proxy) |
 
 ### 2.5 Auth Pre-Check (Optional)
 
-| Requirement | Description |
-|-------------|-------------|
-| Session Validation | Quick cookie presence check |
-| Protected Routes | Redirect unauthenticated to login |
-| Public Routes | Skip auth check for marketing/docs |
-| Guest Allowance | Allow guest sessions for specific routes |
+| Requirement        | Description                              |
+| ------------------ | ---------------------------------------- |
+| Session Validation | Quick cookie presence check              |
+| Protected Routes   | Redirect unauthenticated to login        |
+| Public Routes      | Skip auth check for marketing/docs       |
+| Guest Allowance    | Allow guest sessions for specific routes |
 
 ---
 
@@ -128,6 +130,7 @@ lib/middleware/
 ### 3.2 What Exists
 
 **Edge Rate Limiting** (edge-rate-limit.ts):
+
 ```typescript
 // ✅ Strengths:
 - Upstash @upstash/ratelimit for Edge
@@ -143,16 +146,18 @@ lib/middleware/
 ```
 
 **Rate Limit Config** (rate-limit-config.ts):
+
 ```typescript
 RATE_LIMITS = {
-    EDGE_API: { limit: 100, window: 60, prefix: "edge:api" },
-    EDGE_STRICT: { limit: 10, window: 60, prefix: "edge:strict" },
-    EDGE_AUTH: { limit: 20, window: 60, prefix: "edge:auth" },
-    // ... Node.js specific limits
-}
+  EDGE_API: { limit: 100, window: 60, prefix: "edge:api" },
+  EDGE_STRICT: { limit: 10, window: 60, prefix: "edge:strict" },
+  EDGE_AUTH: { limit: 20, window: 60, prefix: "edge:auth" },
+  // ... Node.js specific limits
+};
 ```
 
 **Request Context** (request-context.ts):
+
 ```typescript
 // ✅ Strengths:
 - AsyncLocalStorage for request scope
@@ -166,13 +171,13 @@ RATE_LIMITS = {
 
 ### 3.3 Gaps
 
-| Gap | Impact |
-|-----|--------|
-| No middleware.ts | Rate limiting not applied at Edge |
-| No security headers | Missing basic protections |
-| No Edge request ID | Context not set at Edge |
-| No path-based routing | All requests treated same |
-| No auth pre-check | Auth happens at route level |
+| Gap                   | Impact                            |
+| --------------------- | --------------------------------- |
+| No middleware.ts      | Rate limiting not applied at Edge |
+| No security headers   | Missing basic protections         |
+| No Edge request ID    | Context not set at Edge           |
+| No path-based routing | All requests treated same         |
+| No auth pre-check     | Auth happens at route level       |
 
 ---
 
@@ -189,27 +194,33 @@ RATE_LIMITS = {
 ```typescript
 // Each middleware returns NextResponse or undefined (continue)
 type MiddlewareFn = (
-    request: NextRequest,
-    event: NextFetchEvent
-) => NextResponse | Response | undefined | Promise<NextResponse | Response | undefined>;
+  request: NextRequest,
+  event: NextFetchEvent
+) =>
+  | NextResponse
+  | Response
+  | undefined
+  | Promise<NextResponse | Response | undefined>;
 
 // Compose middleware in order
 function composeMiddleware(...middlewares: MiddlewareFn[]) {
-    return async (request: NextRequest, event: NextFetchEvent) => {
-        for (const mw of middlewares) {
-            const response = await mw(request, event);
-            if (response) return response; // Short-circuit
-        }
-        return NextResponse.next(); // Continue to origin
-    };
+  return async (request: NextRequest, event: NextFetchEvent) => {
+    for (const mw of middlewares) {
+      const response = await mw(request, event);
+      if (response) return response; // Short-circuit
+    }
+    return NextResponse.next(); // Continue to origin
+  };
 }
 ```
 
 **Alternatives Considered**:
+
 - **ALT-001: Monolithic middleware** - Single function with all logic → Rejected: Hard to test, maintain
 - **ALT-002: Middleware stack pattern** - Express-style next() calls → Rejected: Doesn't fit Next.js model
 
 **Consequences**:
+
 - **POS-001**: Each middleware independently testable
 - **POS-002**: Easy to reorder or disable middleware
 - **POS-003**: Clear separation of concerns
@@ -231,7 +242,7 @@ sequenceDiagram
     participant E as Edge Middleware
     participant O as Origin (Node.js)
     participant L as Logger
-    
+
     C->>E: Request (no ID)
     E->>E: Generate UUID
     E->>O: Request + X-Request-ID header
@@ -240,22 +251,24 @@ sequenceDiagram
 ```
 
 **Alternatives Considered**:
+
 - **ALT-001: Client-generated ID** → Rejected: Can't trust client
 - **ALT-002: Origin-generated ID** → Rejected: Edge logs miss correlation
 
 **Implementation**:
+
 ```typescript
 function requestIdMiddleware(request: NextRequest): NextResponse | undefined {
-    const existingId = request.headers.get('x-request-id');
-    const requestId = existingId || crypto.randomUUID();
-    
-    // Clone request with header
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-request-id', requestId);
-    
-    return NextResponse.next({
-        request: { headers: requestHeaders }
-    });
+  const existingId = request.headers.get("x-request-id");
+  const requestId = existingId || crypto.randomUUID();
+
+  // Clone request with header
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-request-id", requestId);
+
+  return NextResponse.next({
+    request: { headers: requestHeaders },
+  });
 }
 ```
 
@@ -271,32 +284,33 @@ function requestIdMiddleware(request: NextRequest): NextResponse | undefined {
 
 ```typescript
 const ROUTE_RATE_LIMITS: RouteRateLimitConfig[] = [
-    // Auth routes - strict, fail-closed
-    { pattern: /^\/api\/auth\//, tier: 'auth', failClosed: true },
-    
-    // Chat streaming - moderate, fail-open
-    { pattern: /^\/api\/chat/, tier: 'chat', failClosed: false },
-    
-    // File uploads - very strict
-    { pattern: /^\/api\/files/, tier: 'upload', failClosed: false },
-    
-    // General API - standard limits
-    { pattern: /^\/api\//, tier: 'api', failClosed: false },
-    
-    // Public routes - generous
-    { pattern: /^\//, tier: 'generous', failClosed: false },
+  // Auth routes - strict, fail-closed
+  { pattern: /^\/api\/auth\//, tier: "auth", failClosed: true },
+
+  // Chat streaming - moderate, fail-open
+  { pattern: /^\/api\/chat/, tier: "chat", failClosed: false },
+
+  // File uploads - very strict
+  { pattern: /^\/api\/files/, tier: "upload", failClosed: false },
+
+  // General API - standard limits
+  { pattern: /^\/api\//, tier: "api", failClosed: false },
+
+  // Public routes - generous
+  { pattern: /^\//, tier: "generous", failClosed: false },
 ];
 ```
 
 **Tier Definitions** (using existing config):
+
 ```typescript
 const TIERS = {
-    auth: RATE_LIMITS.EDGE_AUTH,      // 20/min, fail-closed
-    strict: RATE_LIMITS.EDGE_STRICT,  // 10/min
-    chat: { limit: 50, window: 60 },  // 50/min
-    api: RATE_LIMITS.EDGE_API,        // 100/min
-    upload: { limit: 10, window: 3600 }, // 10/hour
-    generous: { limit: 1000, window: 60 }, // 1000/min
+  auth: RATE_LIMITS.EDGE_AUTH, // 20/min, fail-closed
+  strict: RATE_LIMITS.EDGE_STRICT, // 10/min
+  chat: { limit: 50, window: 60 }, // 50/min
+  api: RATE_LIMITS.EDGE_API, // 100/min
+  upload: { limit: 10, window: 3600 }, // 10/hour
+  generous: { limit: 1000, window: 60 }, // 1000/min
 };
 ```
 
@@ -312,30 +326,31 @@ const TIERS = {
 
 ```typescript
 const SECURITY_HEADERS: Record<string, string> = {
-    'X-Frame-Options': 'DENY',
-    'X-Content-Type-Options': 'nosniff',
-    'X-XSS-Protection': '1; mode=block',
-    'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  "X-Frame-Options": "DENY",
+  "X-Content-Type-Options": "nosniff",
+  "X-XSS-Protection": "1; mode=block",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
 };
 
 // Optional: CSP for HTML responses only
-const CSP_HEADER = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';";
+const CSP_HEADER =
+  "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';";
 
 function securityHeadersMiddleware(
-    request: NextRequest, 
-    response: NextResponse
+  request: NextRequest,
+  response: NextResponse
 ): NextResponse {
-    for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
-        response.headers.set(key, value);
-    }
-    
-    // CSP only for HTML responses
-    if (request.headers.get('accept')?.includes('text/html')) {
-        response.headers.set('Content-Security-Policy-Report-Only', CSP_HEADER);
-    }
-    
-    return response;
+  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+    response.headers.set(key, value);
+  }
+
+  // CSP only for HTML responses
+  if (request.headers.get("accept")?.includes("text/html")) {
+    response.headers.set("Content-Security-Policy-Report-Only", CSP_HEADER);
+  }
+
+  return response;
 }
 ```
 
@@ -373,27 +388,27 @@ lib/middleware/
 
 ### 5.1 Edge Runtime
 
-| Component | Technology | Rationale |
-|-----------|------------|-----------|
-| Rate Limiting | @upstash/ratelimit | Edge-native, Redis HTTP API |
-| Redis | Upstash Redis | Serverless, Edge-compatible |
-| UUID Generation | Web Crypto API | crypto.randomUUID() - Edge native |
-| Pattern Matching | URLPattern | Native Web API |
+| Component        | Technology         | Rationale                         |
+| ---------------- | ------------------ | --------------------------------- |
+| Rate Limiting    | @upstash/ratelimit | Edge-native, Redis HTTP API       |
+| Redis            | Upstash Redis      | Serverless, Edge-compatible       |
+| UUID Generation  | Web Crypto API     | crypto.randomUUID() - Edge native |
+| Pattern Matching | URLPattern         | Native Web API                    |
 
 ### 5.2 Node.js Runtime
 
-| Component | Technology | Rationale |
-|-----------|------------|-----------|
+| Component       | Technology        | Rationale                      |
+| --------------- | ----------------- | ------------------------------ |
 | Request Context | AsyncLocalStorage | Node.js native, request-scoped |
-| Rate Limiting | ioredis | Full Redis protocol support |
-| Deduplication | Redis + in-memory | Distributed + fast path |
+| Rate Limiting   | ioredis           | Full Redis protocol support    |
+| Deduplication   | Redis + in-memory | Distributed + fast path        |
 
 ### 5.3 Shared
 
-| Component | Technology | Rationale |
-|-----------|------------|-----------|
-| Rate Limit Config | TypeScript constants | Single source of truth |
-| Types | Shared type definitions | Type safety across runtimes |
+| Component         | Technology              | Rationale                   |
+| ----------------- | ----------------------- | --------------------------- |
+| Rate Limit Config | TypeScript constants    | Single source of truth      |
+| Types             | Shared type definitions | Type safety across runtimes |
 
 ---
 
@@ -403,14 +418,15 @@ lib/middleware/
 
 **Target**: <50KB gzipped for middleware bundle
 
-| Dependency | Size (gzipped) | Action |
-|------------|----------------|--------|
-| @upstash/ratelimit | ~8KB | Keep - Essential |
-| @upstash/redis | ~5KB | Keep - Required by ratelimit |
-| crypto (Web API) | 0KB | Native - No bundle impact |
-| URLPattern | 0KB | Native - No bundle impact |
+| Dependency         | Size (gzipped) | Action                       |
+| ------------------ | -------------- | ---------------------------- |
+| @upstash/ratelimit | ~8KB           | Keep - Essential             |
+| @upstash/redis     | ~5KB           | Keep - Required by ratelimit |
+| crypto (Web API)   | 0KB            | Native - No bundle impact    |
+| URLPattern         | 0KB            | Native - No bundle impact    |
 
 **Forbidden in Edge**:
+
 - ❌ `server-only` imports
 - ❌ AsyncLocalStorage
 - ❌ Node.js `crypto` module
@@ -422,10 +438,10 @@ lib/middleware/
 ```typescript
 // middleware.ts - Edge entry point
 // Only import Edge-compatible modules
-import { composeMiddleware } from './lib/middleware/edge/compose';
-import { rateLimitMiddleware } from './lib/middleware/edge/rate-limit';
-import { securityHeadersMiddleware } from './lib/middleware/edge/security-headers';
-import { requestIdMiddleware } from './lib/middleware/edge/request-id';
+import { composeMiddleware } from "./lib/middleware/edge/compose";
+import { rateLimitMiddleware } from "./lib/middleware/edge/rate-limit";
+import { securityHeadersMiddleware } from "./lib/middleware/edge/security-headers";
+import { requestIdMiddleware } from "./lib/middleware/edge/request-id";
 
 // Do NOT import:
 // import { checkRateLimit } from './lib/middleware/node/rate-limit'; ❌
@@ -437,21 +453,21 @@ import { requestIdMiddleware } from './lib/middleware/edge/request-id';
 
 ### 7.1 Removed Complexity
 
-| Current | Simplified |
-|---------|------------|
-| Dual rate-limit files | Split by runtime (edge/ vs node/) |
-| Mixed Edge/Node code | Clear separation in directories |
-| No middleware.ts | Single entry point with composition |
-| Scattered security headers | Centralized in middleware |
+| Current                    | Simplified                          |
+| -------------------------- | ----------------------------------- |
+| Dual rate-limit files      | Split by runtime (edge/ vs node/)   |
+| Mixed Edge/Node code       | Clear separation in directories     |
+| No middleware.ts           | Single entry point with composition |
+| Scattered security headers | Centralized in middleware           |
 
 ### 7.2 Deferred Features
 
-| Feature | Reason | When |
-|---------|--------|------|
-| Bot detection | Requires ML/heuristics | Future iteration |
-| Geo-blocking | Not currently needed | On-demand |
-| A/B testing routing | Out of scope | Separate initiative |
-| WAF integration | Handled by Vercel | N/A |
+| Feature             | Reason                 | When                |
+| ------------------- | ---------------------- | ------------------- |
+| Bot detection       | Requires ML/heuristics | Future iteration    |
+| Geo-blocking        | Not currently needed   | On-demand           |
+| A/B testing routing | Out of scope           | Separate initiative |
+| WAF integration     | Handled by Vercel      | N/A                 |
 
 ---
 
@@ -459,18 +475,18 @@ import { requestIdMiddleware } from './lib/middleware/edge/request-id';
 
 ### 8.1 Upstream Dependencies
 
-| Module | Depends On | Interface |
-|--------|------------|-----------|
-| `lib/middleware/edge/rate-limit.ts` | Upstash Redis | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` env vars |
-| `lib/middleware/config/rate-limits.ts` | None | Exports `RATE_LIMITS` constant |
+| Module                                 | Depends On    | Interface                                                   |
+| -------------------------------------- | ------------- | ----------------------------------------------------------- |
+| `lib/middleware/edge/rate-limit.ts`    | Upstash Redis | `CACHE_KV_REST_API_URL`, `CACHE_KV_REST_API_TOKEN` env vars |
+| `lib/middleware/config/rate-limits.ts` | None          | Exports `RATE_LIMITS` constant                              |
 
 ### 8.2 Downstream Dependents
 
-| Module | Used By | Interface |
-|--------|---------|-----------|
-| Request ID header | All API routes, logging | `X-Request-ID` header |
-| Rate limit headers | Client error handling | `X-RateLimit-*` headers |
-| Security headers | Browser security | Standard security headers |
+| Module             | Used By                 | Interface                 |
+| ------------------ | ----------------------- | ------------------------- |
+| Request ID header  | All API routes, logging | `X-Request-ID` header     |
+| Rate limit headers | Client error handling   | `X-RateLimit-*` headers   |
+| Security headers   | Browser security        | Standard security headers |
 
 ### 8.3 Integration with Auth (02-authentication)
 
@@ -480,12 +496,12 @@ flowchart LR
         MW[Middleware]
         RL[Rate Limit]
     end
-    
+
     subgraph Origin
         Guard[requireAuth]
         Session[getSession]
     end
-    
+
     MW --> RL
     RL -->|"X-Request-ID"| Guard
     Guard --> Session
@@ -518,25 +534,25 @@ const result = await checkRateLimit({ ...RATE_LIMITS.CHAT, identifier });
 
 ```typescript
 // middleware.ts
-import { NextRequest, NextResponse, NextFetchEvent } from 'next/server';
-import { composeMiddleware } from '@/lib/middleware/edge/compose';
-import { requestIdMiddleware } from '@/lib/middleware/edge/request-id';
-import { rateLimitMiddleware } from '@/lib/middleware/edge/rate-limit';
-import { securityHeadersMiddleware } from '@/lib/middleware/edge/security-headers';
-import { loggingMiddleware } from '@/lib/middleware/edge/logging';
+import { NextRequest, NextResponse, NextFetchEvent } from "next/server";
+import { composeMiddleware } from "@/lib/middleware/edge/compose";
+import { requestIdMiddleware } from "@/lib/middleware/edge/request-id";
+import { rateLimitMiddleware } from "@/lib/middleware/edge/rate-limit";
+import { securityHeadersMiddleware } from "@/lib/middleware/edge/security-headers";
+import { loggingMiddleware } from "@/lib/middleware/edge/logging";
 
 export const middleware = composeMiddleware(
-    requestIdMiddleware,      // 1. Generate/extract request ID
-    loggingMiddleware,        // 2. Log request start
-    rateLimitMiddleware,      // 3. Check rate limits
-    securityHeadersMiddleware // 4. Add security headers
+  requestIdMiddleware, // 1. Generate/extract request ID
+  loggingMiddleware, // 2. Log request start
+  rateLimitMiddleware, // 3. Check rate limits
+  securityHeadersMiddleware // 4. Add security headers
 );
 
 export const config = {
-    matcher: [
-        // Match all paths except static files
-        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-    ],
+  matcher: [
+    // Match all paths except static files
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };
 ```
 
@@ -545,53 +561,67 @@ export const config = {
 ```typescript
 // lib/middleware/edge/compose.ts
 export type MiddlewareFn = (
-    request: NextRequest,
-    event: NextFetchEvent
-) => NextResponse | Response | undefined | Promise<NextResponse | Response | undefined>;
+  request: NextRequest,
+  event: NextFetchEvent
+) =>
+  | NextResponse
+  | Response
+  | undefined
+  | Promise<NextResponse | Response | undefined>;
 
-export function composeMiddleware(...middlewares: MiddlewareFn[]): 
-    (request: NextRequest, event: NextFetchEvent) => Promise<NextResponse>;
+export function composeMiddleware(
+  ...middlewares: MiddlewareFn[]
+): (request: NextRequest, event: NextFetchEvent) => Promise<NextResponse>;
 
 // lib/middleware/edge/rate-limit.ts
 export type EdgeRateLimitOptions = {
-    identifier: string;
-    limit: number;
-    windowSeconds: number;
-    prefix?: string;
-    failClosed?: boolean;
+  identifier: string;
+  limit: number;
+  windowSeconds: number;
+  prefix?: string;
+  failClosed?: boolean;
 };
 
 export type EdgeRateLimitResult = {
-    allowed: boolean;
-    remaining: number;
-    limit: number;
-    retryAfter?: number;
+  allowed: boolean;
+  remaining: number;
+  limit: number;
+  retryAfter?: number;
 };
 
 export function rateLimitMiddleware(
-    request: NextRequest,
-    event: NextFetchEvent
+  request: NextRequest,
+  event: NextFetchEvent
 ): Promise<NextResponse | undefined>;
 
-export function checkEdgeRateLimit(options: EdgeRateLimitOptions): Promise<EdgeRateLimitResult>;
+export function checkEdgeRateLimit(
+  options: EdgeRateLimitOptions
+): Promise<EdgeRateLimitResult>;
 export function getClientIP(request: Request): string;
 
 // lib/middleware/edge/security-headers.ts
 export const SECURITY_HEADERS: Record<string, string>;
-export function securityHeadersMiddleware(request: NextRequest): NextResponse | undefined;
+export function securityHeadersMiddleware(
+  request: NextRequest
+): NextResponse | undefined;
 
 // lib/middleware/edge/request-id.ts
-export function requestIdMiddleware(request: NextRequest): NextResponse | undefined;
+export function requestIdMiddleware(
+  request: NextRequest
+): NextResponse | undefined;
 export function getRequestId(request: NextRequest): string;
 
 // lib/middleware/edge/logging.ts
-export function loggingMiddleware(request: NextRequest, event: NextFetchEvent): undefined;
+export function loggingMiddleware(
+  request: NextRequest,
+  event: NextFetchEvent
+): undefined;
 
 // lib/middleware/edge/routes.ts
 export type RouteRateLimitConfig = {
-    pattern: RegExp;
-    tier: keyof typeof RATE_LIMITS;
-    failClosed: boolean;
+  pattern: RegExp;
+  tier: keyof typeof RATE_LIMITS;
+  failClosed: boolean;
 };
 
 export function matchRoute(pathname: string): RouteRateLimitConfig | undefined;
@@ -623,6 +653,7 @@ export function getRequestId(): string | undefined;
 ### 9.4 Response Headers Contract
 
 **Rate Limit Headers** (on 429 response):
+
 ```http
 HTTP/1.1 429 Too Many Requests
 X-RateLimit-Limit: 100
@@ -635,11 +666,13 @@ Content-Type: application/json
 ```
 
 **Request ID Header** (on all responses):
+
 ```http
 X-Request-ID: 550e8400-e29b-41d4-a716-446655440000
 ```
 
 **Security Headers** (on all responses):
+
 ```http
 X-Frame-Options: DENY
 X-Content-Type-Options: nosniff
@@ -656,13 +689,13 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 
 **Target**: <5ms P95 execution time
 
-| Operation | Budget | Strategy |
-|-----------|--------|----------|
+| Operation             | Budget | Strategy                    |
+| --------------------- | ------ | --------------------------- |
 | Request ID generation | <0.1ms | crypto.randomUUID() is fast |
-| Route matching | <0.5ms | Pre-compiled RegExp |
-| Rate limit check | <3ms | Upstash HTTP API |
-| Header setting | <0.1ms | Simple assignment |
-| Total | <4ms | Buffer for variance |
+| Route matching        | <0.5ms | Pre-compiled RegExp         |
+| Rate limit check      | <3ms   | Upstash HTTP API            |
+| Header setting        | <0.1ms | Simple assignment           |
+| Total                 | <4ms   | Buffer for variance         |
 
 ### 10.2 Cold Start Mitigation
 
@@ -671,18 +704,18 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 let rateLimiter: Ratelimit | null = null;
 
 function getRateLimiter(): Ratelimit | null {
-    if (rateLimiter) return rateLimiter;
-    
-    const redis = getEdgeRedis();
-    if (!redis) return null;
-    
-    rateLimiter = new Ratelimit({
-        redis,
-        limiter: Ratelimit.slidingWindow(100, '60s'),
-        analytics: false, // Disable in production for speed
-    });
-    
-    return rateLimiter;
+  if (rateLimiter) return rateLimiter;
+
+  const redis = getEdgeRedis();
+  if (!redis) return null;
+
+  rateLimiter = new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(100, "60s"),
+    analytics: false, // Disable in production for speed
+  });
+
+  return rateLimiter;
 }
 ```
 
@@ -691,12 +724,12 @@ function getRateLimiter(): Ratelimit | null {
 ```typescript
 // Skip middleware for static assets (handled by matcher, but double-check)
 const SKIP_PATTERNS = [
-    /^\/(_next|static)\//,
-    /\.(ico|png|jpg|jpeg|gif|svg|webp|woff|woff2)$/,
+  /^\/(_next|static)\//,
+  /\.(ico|png|jpg|jpeg|gif|svg|webp|woff|woff2)$/,
 ];
 
 function shouldSkip(pathname: string): boolean {
-    return SKIP_PATTERNS.some(p => p.test(pathname));
+  return SKIP_PATTERNS.some((p) => p.test(pathname));
 }
 ```
 
@@ -704,36 +737,38 @@ function shouldSkip(pathname: string): boolean {
 
 ```typescript
 // For non-critical paths, allow request if rate limiting fails
-async function rateLimitMiddleware(request: NextRequest): Promise<NextResponse | undefined> {
-    const route = matchRoute(request.nextUrl.pathname);
-    
-    try {
-        const result = await checkEdgeRateLimit({
-            identifier: getClientIP(request),
-            limit: route.limit,
-            windowSeconds: route.window,
-            failClosed: route.failClosed,
-        });
-        
-        if (!result.allowed) {
-            return new NextResponse(
-                JSON.stringify({ error: 'Rate limit exceeded' }),
-                { status: 429, headers: rateLimitHeaders(result) }
-            );
-        }
-    } catch (error) {
-        // Log error but don't block request (fail-open)
-        console.error('Rate limit check failed:', error);
-        // For auth routes, fail-closed
-        if (route.failClosed) {
-            return new NextResponse(
-                JSON.stringify({ error: 'Service temporarily unavailable' }),
-                { status: 503 }
-            );
-        }
+async function rateLimitMiddleware(
+  request: NextRequest
+): Promise<NextResponse | undefined> {
+  const route = matchRoute(request.nextUrl.pathname);
+
+  try {
+    const result = await checkEdgeRateLimit({
+      identifier: getClientIP(request),
+      limit: route.limit,
+      windowSeconds: route.window,
+      failClosed: route.failClosed,
+    });
+
+    if (!result.allowed) {
+      return new NextResponse(
+        JSON.stringify({ error: "Rate limit exceeded" }),
+        { status: 429, headers: rateLimitHeaders(result) }
+      );
     }
-    
-    return undefined; // Continue to origin
+  } catch (error) {
+    // Log error but don't block request (fail-open)
+    console.error("Rate limit check failed:", error);
+    // For auth routes, fail-closed
+    if (route.failClosed) {
+      return new NextResponse(
+        JSON.stringify({ error: "Service temporarily unavailable" }),
+        { status: 503 }
+      );
+    }
+  }
+
+  return undefined; // Continue to origin
 }
 ```
 
@@ -742,24 +777,24 @@ async function rateLimitMiddleware(request: NextRequest): Promise<NextResponse |
 ```typescript
 // Use waitUntil for non-blocking analytics
 export function loggingMiddleware(
-    request: NextRequest,
-    event: NextFetchEvent
+  request: NextRequest,
+  event: NextFetchEvent
 ): undefined {
-    const requestId = getRequestId(request);
-    const pathname = request.nextUrl.pathname;
-    const ip = getClientIP(request);
-    
-    // Don't block response for analytics
-    event.waitUntil(
-        logRequestAsync({
-            requestId,
-            pathname,
-            ip,
-            timestamp: Date.now(),
-        })
-    );
-    
-    return undefined; // Continue chain
+  const requestId = getRequestId(request);
+  const pathname = request.nextUrl.pathname;
+  const ip = getClientIP(request);
+
+  // Don't block response for analytics
+  event.waitUntil(
+    logRequestAsync({
+      requestId,
+      pathname,
+      ip,
+      timestamp: Date.now(),
+    })
+  );
+
+  return undefined; // Continue chain
 }
 ```
 
@@ -789,22 +824,22 @@ gantt
 
 ### Task Breakdown
 
-| Task | File | Effort | Dependencies |
-|------|------|--------|--------------|
-| T1: Create edge/ directory | `lib/middleware/edge/` | 0.5h | None |
-| T2: Create node/ directory | `lib/middleware/node/` | 0.5h | None |
-| T3: Move rate-limit config | `lib/middleware/config/rate-limits.ts` | 1h | T1, T2 |
-| T4: Implement compose.ts | `lib/middleware/edge/compose.ts` | 2h | T1 |
-| T5: Implement request-id.ts | `lib/middleware/edge/request-id.ts` | 1h | T1 |
-| T6: Implement security-headers.ts | `lib/middleware/edge/security-headers.ts` | 1h | T1 |
-| T7: Implement logging.ts | `lib/middleware/edge/logging.ts` | 1h | T5 |
-| T8: Implement routes.ts | `lib/middleware/edge/routes.ts` | 2h | T3 |
-| T9: Refactor edge rate limit | `lib/middleware/edge/rate-limit.ts` | 3h | T3, T8 |
-| T10: Create middleware.ts | `middleware.ts` | 2h | T4-T9 |
-| T11: Move Node.js modules | `lib/middleware/node/*.ts` | 2h | T3 |
-| T12: Update imports | All consumers | 2h | T11 |
-| T13: Integration tests | `tests/middleware/` | 4h | T10 |
-| T14: Performance validation | Manual testing | 2h | T13 |
+| Task                              | File                                      | Effort | Dependencies |
+| --------------------------------- | ----------------------------------------- | ------ | ------------ |
+| T1: Create edge/ directory        | `lib/middleware/edge/`                    | 0.5h   | None         |
+| T2: Create node/ directory        | `lib/middleware/node/`                    | 0.5h   | None         |
+| T3: Move rate-limit config        | `lib/middleware/config/rate-limits.ts`    | 1h     | T1, T2       |
+| T4: Implement compose.ts          | `lib/middleware/edge/compose.ts`          | 2h     | T1           |
+| T5: Implement request-id.ts       | `lib/middleware/edge/request-id.ts`       | 1h     | T1           |
+| T6: Implement security-headers.ts | `lib/middleware/edge/security-headers.ts` | 1h     | T1           |
+| T7: Implement logging.ts          | `lib/middleware/edge/logging.ts`          | 1h     | T5           |
+| T8: Implement routes.ts           | `lib/middleware/edge/routes.ts`           | 2h     | T3           |
+| T9: Refactor edge rate limit      | `lib/middleware/edge/rate-limit.ts`       | 3h     | T3, T8       |
+| T10: Create middleware.ts         | `middleware.ts`                           | 2h     | T4-T9        |
+| T11: Move Node.js modules         | `lib/middleware/node/*.ts`                | 2h     | T3           |
+| T12: Update imports               | All consumers                             | 2h     | T11          |
+| T13: Integration tests            | `tests/middleware/`                       | 4h     | T10          |
+| T14: Performance validation       | Manual testing                            | 2h     | T13          |
 
 **Total Estimated Effort**: ~24h (3 developer days)
 
@@ -816,24 +851,24 @@ gantt
 
 ```typescript
 // tests/middleware/compose.test.ts
-describe('composeMiddleware', () => {
-    it('executes middleware in order', async () => {});
-    it('short-circuits on response', async () => {});
-    it('continues on undefined', async () => {});
+describe("composeMiddleware", () => {
+  it("executes middleware in order", async () => {});
+  it("short-circuits on response", async () => {});
+  it("continues on undefined", async () => {});
 });
 
 // tests/middleware/rate-limit.test.ts
-describe('rateLimitMiddleware', () => {
-    it('allows requests under limit', async () => {});
-    it('blocks requests over limit', async () => {});
-    it('fails open when Redis unavailable', async () => {});
-    it('fails closed for auth routes', async () => {});
+describe("rateLimitMiddleware", () => {
+  it("allows requests under limit", async () => {});
+  it("blocks requests over limit", async () => {});
+  it("fails open when Redis unavailable", async () => {});
+  it("fails closed for auth routes", async () => {});
 });
 
 // tests/middleware/security-headers.test.ts
-describe('securityHeadersMiddleware', () => {
-    it('adds all security headers', async () => {});
-    it('adds CSP for HTML requests', async () => {});
+describe("securityHeadersMiddleware", () => {
+  it("adds all security headers", async () => {});
+  it("adds CSP for HTML requests", async () => {});
 });
 ```
 
@@ -841,25 +876,27 @@ describe('securityHeadersMiddleware', () => {
 
 ```typescript
 // tests/e2e/middleware.spec.ts
-test.describe('Middleware', () => {
-    test('adds X-Request-ID to all responses', async ({ request }) => {
-        const response = await request.get('/api/health');
-        expect(response.headers()['x-request-id']).toMatch(/^[a-f0-9-]{36}$/);
-    });
-    
-    test('returns 429 on rate limit exceeded', async ({ request }) => {
-        // Send 100+ requests rapidly
-        const responses = await Promise.all(
-            Array(150).fill(null).map(() => request.get('/api/health'))
-        );
-        const rateLimited = responses.filter(r => r.status() === 429);
-        expect(rateLimited.length).toBeGreaterThan(0);
-    });
-    
-    test('includes security headers', async ({ request }) => {
-        const response = await request.get('/');
-        expect(response.headers()['x-frame-options']).toBe('DENY');
-    });
+test.describe("Middleware", () => {
+  test("adds X-Request-ID to all responses", async ({ request }) => {
+    const response = await request.get("/api/health");
+    expect(response.headers()["x-request-id"]).toMatch(/^[a-f0-9-]{36}$/);
+  });
+
+  test("returns 429 on rate limit exceeded", async ({ request }) => {
+    // Send 100+ requests rapidly
+    const responses = await Promise.all(
+      Array(150)
+        .fill(null)
+        .map(() => request.get("/api/health"))
+    );
+    const rateLimited = responses.filter((r) => r.status() === 429);
+    expect(rateLimited.length).toBeGreaterThan(0);
+  });
+
+  test("includes security headers", async ({ request }) => {
+    const response = await request.get("/");
+    expect(response.headers()["x-frame-options"]).toBe("DENY");
+  });
 });
 ```
 
@@ -869,12 +906,12 @@ test.describe('Middleware', () => {
 
 ### 13.1 Metrics
 
-| Metric | Type | Labels |
-|--------|------|--------|
-| `middleware_duration_ms` | Histogram | `route`, `status` |
-| `rate_limit_blocked_total` | Counter | `route`, `tier` |
-| `rate_limit_allowed_total` | Counter | `route`, `tier` |
-| `middleware_errors_total` | Counter | `route`, `error_type` |
+| Metric                     | Type      | Labels                |
+| -------------------------- | --------- | --------------------- |
+| `middleware_duration_ms`   | Histogram | `route`, `status`     |
+| `rate_limit_blocked_total` | Counter   | `route`, `tier`       |
+| `rate_limit_allowed_total` | Counter   | `route`, `tier`       |
+| `middleware_errors_total`  | Counter   | `route`, `error_type` |
 
 ### 13.2 Logging
 
@@ -892,11 +929,11 @@ test.describe('Middleware', () => {
 
 ### 13.3 Alerting
 
-| Alert | Condition | Action |
-|-------|-----------|--------|
-| High rate limit blocks | >50/min for 5min | Investigate abuse |
-| Middleware errors | >10/min | Check Redis connectivity |
-| Slow middleware | P95 >10ms | Review code, check Redis latency |
+| Alert                  | Condition        | Action                           |
+| ---------------------- | ---------------- | -------------------------------- |
+| High rate limit blocks | >50/min for 5min | Investigate abuse                |
+| Middleware errors      | >10/min          | Check Redis connectivity         |
+| Slow middleware        | P95 >10ms        | Review code, check Redis latency |
 
 ---
 
@@ -927,18 +964,18 @@ test.describe('Middleware', () => {
 ```typescript
 // middleware.ts - Emergency bypass
 export const config = {
-    matcher: [
-        // Empty matcher = middleware disabled
-        // '/((?!_next/static|...).*)',
-    ],
+  matcher: [
+    // Empty matcher = middleware disabled
+    // '/((?!_next/static|...).*)',
+  ],
 };
 
 // Or conditionally disable:
 export function middleware(request: NextRequest) {
-    if (process.env.MIDDLEWARE_DISABLED === 'true') {
-        return NextResponse.next();
-    }
-    // ... normal logic
+  if (process.env.MIDDLEWARE_DISABLED === "true") {
+    return NextResponse.next();
+  }
+  // ... normal logic
 }
 ```
 
@@ -946,13 +983,13 @@ export function middleware(request: NextRequest) {
 
 ## 15. Success Metrics
 
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| Middleware P95 latency | <5ms | Vercel Analytics |
-| False-positive rate limit | <0.1% | Log analysis |
-| Security header coverage | 100% | Automated testing |
-| Request ID correlation | 100% | Log sampling |
-| Cold start impact | <50ms | Vercel cold start metrics |
+| Metric                    | Target | Measurement               |
+| ------------------------- | ------ | ------------------------- |
+| Middleware P95 latency    | <5ms   | Vercel Analytics          |
+| False-positive rate limit | <0.1%  | Log analysis              |
+| Security header coverage  | 100%   | Automated testing         |
+| Request ID correlation    | 100%   | Log sampling              |
+| Cold start impact         | <50ms  | Vercel cold start metrics |
 
 ---
 

@@ -7,6 +7,7 @@
 
 import { sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
+import { getRedis, isRedisAvailable } from "@/lib/cache";
 
 export const maxDuration = 10;
 
@@ -64,15 +65,57 @@ async function checkDatabaseHealth(): Promise<HealthCheckResult> {
 }
 
 /**
- * Check cache health (memory cache is always healthy)
+ * Check cache health with actual Redis ping
  */
-function checkCacheHealth(): HealthCheckResult {
-    // Using in-memory cache which is always available
-    // If Redis is added later, implement actual connection check here
-    return {
-        status: "healthy",
-        latency: 0,
-    };
+async function checkCacheHealth(): Promise<HealthCheckResult> {
+    // Check if Redis is configured
+    if (!isRedisAvailable()) {
+        return {
+            status: "degraded",
+            latency: 0,
+            error: "Redis not configured",
+        };
+    }
+
+    try {
+        const redis = getRedis();
+        if (!redis) {
+            return {
+                status: "degraded",
+                latency: 0,
+                error: "Redis client unavailable",
+            };
+        }
+
+        const startTime = Date.now();
+        const pong = await redis.ping();
+        const latency = Date.now() - startTime;
+
+        if (pong !== "PONG") {
+            return {
+                status: "unhealthy",
+                latency,
+                error: "Unexpected PING response",
+            };
+        }
+
+        // Warn if latency > 500ms
+        if (latency > 500) {
+            return {
+                status: "degraded",
+                latency,
+                error: "High cache latency",
+            };
+        }
+
+        return { status: "healthy", latency };
+    } catch (error) {
+        return {
+            status: "degraded",
+            latency: 0,
+            error: error instanceof Error ? error.message : "Cache check failed",
+        };
+    }
 }
 
 /**
@@ -121,7 +164,7 @@ export async function GET(): Promise<Response> {
         const [dbHealth, envHealth, cacheHealth] = await Promise.all([
             checkDatabaseHealth(),
             Promise.resolve(checkEnvironmentHealth()),
-            Promise.resolve(checkCacheHealth()),
+            checkCacheHealth(),
         ]);
 
         const checks = {

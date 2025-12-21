@@ -105,6 +105,20 @@ export const CacheKeys = {
      * @see lib/auth/session.ts for session management
      */
     session: (userId: string) => `session:${userId}`,
+
+    /**
+     * Vote cache key
+     * Format: vote:{chatId}:{messageId}:{userId}
+     */
+    vote: (chatId: string, messageId: string, userId: string) =>
+        `vote:${chatId}:${messageId}:${userId}`,
+
+    /**
+     * Suggestions cache key
+     * Format: suggestions:{documentId}:{userId}
+     */
+    suggestions: (documentId: string, userId: string) =>
+        `suggestions:${documentId}:${userId}`,
 } as const;
 
 /**

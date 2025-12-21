@@ -120,7 +120,7 @@ export const voteData = {
                 isUpvoted,
             })
             .onConflictDoUpdate({
-                target: [vote.chatId, vote.messageId],
+                target: [vote.chatId, vote.messageId, vote.userId],
                 set: { isUpvoted },
             })
             .returning();

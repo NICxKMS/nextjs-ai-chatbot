@@ -12,7 +12,7 @@ import { notFound, redirect } from "next/navigation";
 import { Chat, DataStreamHandler } from "@/features/chat";
 import { DEFAULT_MODEL_ID } from "@/lib/ai";
 import { getSession } from "@/lib/auth";
-import { chatData, createContext, voteData } from "@/lib/data";
+import { createContext, getChatWithMessagesCached, voteDb } from "@/lib/data";
 import { convertToUIMessages } from "@/lib/utils";
 
 type ChatPageProps = {
@@ -35,7 +35,7 @@ export default async function ChatPage({ params }: ChatPageProps) {
     const ctx = createContext(user.id, user.type);
 
     // Try to load existing chat with messages
-    const chatWithMessages = await chatData.getWithMessages(id, ctx);
+    const chatWithMessages = await getChatWithMessagesCached(id, ctx);
 
     // If chat doesn't exist, show 404
     if (!chatWithMessages) {
@@ -67,8 +67,8 @@ export default async function ChatPage({ params }: ChatPageProps) {
     }> = [];
     if (rawMessages.length >= 2 && user.type !== "guest") {
         try {
-            const dbVotes = await voteData.getByChatId(id, ctx);
-            votes = dbVotes.map((v) => ({
+            const dbVotes = await voteDb.getVotesByChatId(id, ctx);
+            votes = dbVotes.map((v: { chatId: string; messageId: string; isUpvoted: boolean }) => ({
                 chatId: v.chatId,
                 messageId: v.messageId,
                 vote: v.isUpvoted ? "up" : "down",

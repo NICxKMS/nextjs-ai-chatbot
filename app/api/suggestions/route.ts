@@ -7,7 +7,7 @@
 
 import { z } from "zod";
 import { isAuthResponse, requireAuthForRoute } from "@/lib/auth";
-import { documentData } from "@/lib/data/documents";
+import { getDocumentCached, getSuggestionsCached } from "@/lib/data";
 import { validationError } from "@/lib/errors";
 
 export const maxDuration = 10;
@@ -49,7 +49,7 @@ export async function GET(request: Request): Promise<Response> {
     }
 
     // 4. Verify document exists and belongs to user (IDOR protection)
-    const doc = await documentData.get(documentId, ctx);
+    const doc = await getDocumentCached(documentId, ctx);
     if (!doc) {
         // Return empty array to avoid information disclosure
         return Response.json([], {
@@ -59,7 +59,7 @@ export async function GET(request: Request): Promise<Response> {
     }
 
     // 5. Get suggestions for document
-    const suggestions = await documentData.getSuggestions(documentId, ctx);
+    const suggestions = await getSuggestionsCached(documentId, ctx);
 
     return Response.json(suggestions, {
         status: 200,

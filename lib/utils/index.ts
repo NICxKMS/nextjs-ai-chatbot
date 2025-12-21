@@ -8,6 +8,7 @@
 
 export { cn } from "./cn";
 export { fetchWithErrorHandlers } from "./network";
+export { logger, type LogLevel, type LogContext, type LogEntry, type Logger } from "./logger";
 
 /**
  * Generate a cryptographically secure UUID v4

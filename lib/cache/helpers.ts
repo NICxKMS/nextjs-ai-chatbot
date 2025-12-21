@@ -61,16 +61,29 @@ export function serialize<T>(value: T): string {
 
 /**
  * Deserialize value from Redis storage
+ *
+ * Note: Upstash Redis auto-deserializes JSON values when retrieving.
+ * This function handles both cases:
+ * - If value is already an object (Upstash auto-deserialized), return as-is
+ * - If value is a string (from Lua scripts or raw storage), parse it
  */
-export function deserialize<T>(value: string | null): T | null {
-    if (!value) {
+export function deserialize<T>(value: unknown): T | null {
+    if (value === null || value === undefined) {
         return null;
     }
-    try {
-        return JSON.parse(value) as T;
-    } catch {
-        return null;
+    // If already an object (Upstash auto-deserialized), return as-is
+    if (typeof value === "object") {
+        return value as T;
     }
+    // If string, try to parse
+    if (typeof value === "string") {
+        try {
+            return JSON.parse(value) as T;
+        } catch {
+            return null;
+        }
+    }
+    return null;
 }
 
 /**

@@ -4,8 +4,8 @@
  */
 import "server-only";
 
+import { randomUUID } from "crypto";
 import { and, eq } from "drizzle-orm";
-import { nanoid } from "nanoid";
 import type { Chat, NewChat, Visibility } from "@/lib/db";
 import { getDb, schema, withTransaction } from "@/lib/db";
 import { requireNonGuest } from "../base";
@@ -27,7 +27,7 @@ export async function createChat(
 
     const db = getDb();
     const newChat: NewChat = {
-        id: nanoid(),
+        id: randomUUID(),
         userId: ctx.userId,
         title: data.title,
         visibility: data.visibility ?? "private",
