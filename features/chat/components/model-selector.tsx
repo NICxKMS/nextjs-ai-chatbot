@@ -11,6 +11,7 @@
 
 import { RefreshCw } from "lucide-react";
 import { useMemo, useOptimistic, useState } from "react";
+import { useSettings } from "@/features/settings/stores/settings-store";
 import { cn } from "@/lib/utils";
 import { Button } from "@/shared/components/button";
 import {
@@ -130,17 +131,21 @@ function ModelRow({
     isSelected,
     onSelect,
     disabled,
+    displayMode,
 }: {
     model: ModelMetadata;
     isSelected: boolean;
     onSelect: (modelId: string) => void;
     disabled: boolean;
+    displayMode: "compact" | "detailed";
 }) {
     const capabilities = model.capabilities
         ? Object.entries(model.capabilities)
               .filter(([key, value]) => value === true && capabilityLabels[key])
               .map(([key]) => capabilityLabels[key])
         : [];
+
+    const isDetailed = displayMode === "detailed";
 
     return (
         <DropdownMenuItem
@@ -183,7 +188,7 @@ function ModelRow({
                                 return null;
                             })()}
                         </span>
-                        {model.description && (
+                        {isDetailed && model.description && (
                             <span className="line-clamp-2 text-muted-foreground text-xs">
                                 {model.description}
                             </span>
@@ -197,31 +202,33 @@ function ModelRow({
                     </div>
                 </div>
 
-                {(capabilities.length > 0 || model.capabilities?.maxTokens) && (
-                    <div className="flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
-                        <span>
-                            {providerDisplayNames[model.provider] ||
-                                model.provider}
-                        </span>
-
-                        {model.capabilities?.maxTokens && (
+                {isDetailed &&
+                    (capabilities.length > 0 ||
+                        model.capabilities?.maxTokens) && (
+                        <div className="flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
                             <span>
-                                • Context{" "}
-                                {model.capabilities.maxTokens.toLocaleString()}{" "}
-                                tokens
+                                {providerDisplayNames[model.provider] ||
+                                    model.provider}
                             </span>
-                        )}
 
-                        {capabilities.map((capability) => (
-                            <span
-                                className="rounded bg-muted px-2 py-0.5"
-                                key={capability}
-                            >
-                                {capability}
-                            </span>
-                        ))}
-                    </div>
-                )}
+                            {model.capabilities?.maxTokens && (
+                                <span>
+                                    • Context{" "}
+                                    {model.capabilities.maxTokens.toLocaleString()}{" "}
+                                    tokens
+                                </span>
+                            )}
+
+                            {capabilities.map((capability) => (
+                                <span
+                                    className="rounded bg-muted px-2 py-0.5"
+                                    key={capability}
+                                >
+                                    {capability}
+                                </span>
+                            ))}
+                        </div>
+                    )}
             </button>
         </DropdownMenuItem>
     );
@@ -276,6 +283,9 @@ export function ModelSelector({
     const [open, setOpen] = useState(false);
     const [optimisticModelId, setOptimisticModelId] = useOptimistic(value);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const modelSelectorDisplayMode = useSettings(
+        (state) => state.modelSelectorDisplayMode
+    );
 
     const groupedCatalog = useMemo(
         () => groupModelsByProvider(models),
@@ -363,6 +373,7 @@ export function ModelSelector({
                             {providerGroup.models.map((model) => (
                                 <ModelRow
                                     disabled={disabled}
+                                    displayMode={modelSelectorDisplayMode}
                                     isSelected={model.id === optimisticModelId}
                                     key={model.id}
                                     model={model}

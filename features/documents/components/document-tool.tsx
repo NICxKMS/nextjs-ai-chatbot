@@ -2,6 +2,7 @@
 
 import { memo, useCallback } from "react";
 import { toast } from "sonner";
+import { Loader } from "@/components/ai-elements/loader";
 import type { ArtifactKind } from "@/features/artifacts";
 import { useArtifact } from "@/features/artifacts";
 
@@ -62,57 +63,6 @@ function MessageIcon({ size = 16 }: { size?: number }) {
                 fill="currentColor"
                 fillRule="evenodd"
             />
-        </svg>
-    );
-}
-
-function LoaderIcon({ size = 16 }: { size?: number }) {
-    return (
-        <svg
-            height={size}
-            strokeLinejoin="round"
-            style={{ color: "currentcolor" }}
-            viewBox="0 0 16 16"
-            width={size}
-        >
-            <g clipPath="url(#clip0_2393_1490)">
-                <path d="M8 0V4" stroke="currentColor" strokeWidth="1.5" />
-                <path
-                    d="M8 16V12"
-                    opacity="0.5"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                />
-                <path
-                    d="M3.29773 1.52783L5.64887 4.7639"
-                    opacity="0.9"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                />
-                <path
-                    d="M12.7023 1.52783L10.3511 4.7639"
-                    opacity="0.1"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                />
-                <path
-                    d="M12.7023 14.472L10.3511 11.236"
-                    opacity="0.4"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                />
-                <path
-                    d="M3.29773 14.472L5.64887 11.236"
-                    opacity="0.6"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                />
-            </g>
-            <defs>
-                <clipPath id="clip0_2393_1490">
-                    <rect fill="white" height="16" width="16" />
-                </clipPath>
-            </defs>
         </svg>
     );
 }
@@ -309,8 +259,8 @@ function PureDocumentToolCall({
                 </div>
             </div>
 
-            <div className="mt-1 animate-spin">
-                <LoaderIcon />
+            <div className="mt-1">
+                <Loader />
             </div>
         </button>
     );

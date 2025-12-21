@@ -17,6 +17,7 @@ export {
 export {
     type AppSettings,
     DEFAULT_SETTINGS,
+    type ModelSelectorDisplayMode,
     type SamplingSettings,
     type SettingsStore,
     useSettings,

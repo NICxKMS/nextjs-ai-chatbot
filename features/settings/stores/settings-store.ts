@@ -13,6 +13,13 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 /**
+ * Display mode for the model selector.
+ * - "compact": Just model name
+ * - "detailed": Model name + provider + capabilities
+ */
+export type ModelSelectorDisplayMode = "compact" | "detailed";
+
+/**
  * Sampling settings for AI model configuration.
  */
 export type SamplingSettings = {
@@ -34,6 +41,7 @@ export type AppSettings = {
     streamArtifacts: boolean;
     autoScroll: boolean;
     selectedModelId?: string;
+    modelSelectorDisplayMode: ModelSelectorDisplayMode;
 };
 
 /**
@@ -47,6 +55,7 @@ type SettingsActions = {
     setStreamArtifacts: (value: boolean) => void;
     setAutoScroll: (value: boolean) => void;
     setSelectedModelId: (modelId: string | undefined) => void;
+    setModelSelectorDisplayMode: (mode: ModelSelectorDisplayMode) => void;
     resetSettings: () => void;
 };
 
@@ -69,6 +78,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     streamArtifacts: true,
     autoScroll: true,
     selectedModelId: undefined,
+    modelSelectorDisplayMode: "compact",
 };
 
 /**
@@ -94,6 +104,8 @@ export const useSettings = create<SettingsStore>()(
                         streamArtifacts: state.streamArtifacts,
                         autoScroll: state.autoScroll,
                         selectedModelId: state.selectedModelId,
+                        modelSelectorDisplayMode:
+                            state.modelSelectorDisplayMode,
                     };
                     return updater(current);
                 }),
@@ -113,6 +125,9 @@ export const useSettings = create<SettingsStore>()(
 
             setSelectedModelId: (modelId) => set({ selectedModelId: modelId }),
 
+            setModelSelectorDisplayMode: (mode) =>
+                set({ modelSelectorDisplayMode: mode }),
+
             resetSettings: () => set(DEFAULT_SETTINGS),
         }),
         {
@@ -124,6 +139,7 @@ export const useSettings = create<SettingsStore>()(
                 streamArtifacts: state.streamArtifacts,
                 autoScroll: state.autoScroll,
                 selectedModelId: state.selectedModelId,
+                modelSelectorDisplayMode: state.modelSelectorDisplayMode,
             }),
         }
     )
@@ -140,5 +156,6 @@ export function useSettingsSnapshot(): AppSettings {
         streamArtifacts: state.streamArtifacts,
         autoScroll: state.autoScroll,
         selectedModelId: state.selectedModelId,
+        modelSelectorDisplayMode: state.modelSelectorDisplayMode,
     }));
 }

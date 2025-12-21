@@ -6,6 +6,17 @@
  * @module features/chat/components
  */
 
+export type {
+    ReasoningContentProps,
+    ReasoningProps,
+    ReasoningTriggerProps,
+} from "@/components/ai-elements/reasoning";
+// Reasoning (re-exported from AI Elements)
+export {
+    Reasoning,
+    ReasoningContent,
+    ReasoningTrigger,
+} from "@/components/ai-elements/reasoning";
 export type { ChatInputProps } from "../types";
 export type { ArtifactWrapperProps } from "./artifact-wrapper";
 // Artifact Wrapper
@@ -91,13 +102,6 @@ export type { ModelSelectorProps } from "./model-selector";
 export { ModelSelector } from "./model-selector";
 export type { NewChatButtonProps } from "./new-chat-button";
 export { NewChatButton } from "./new-chat-button";
-export type {
-    ReasoningContentProps,
-    ReasoningProps,
-    ReasoningTriggerProps,
-} from "./reasoning";
-// Reasoning
-export { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning";
 export type { SidebarToggleProps } from "./sidebar-toggle";
 export { SidebarToggle } from "./sidebar-toggle";
 export type { SuggestedActionsProps } from "./suggested-actions";
