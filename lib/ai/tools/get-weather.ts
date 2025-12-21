@@ -8,50 +8,50 @@
  * @module lib/ai/tools/get-weather
  */
 
-import { tool } from 'ai';
-import { z } from 'zod';
+import { tool } from "ai";
+import { z } from "zod";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
 export interface WeatherAtLocation {
-  latitude: number;
-  longitude: number;
-  generationtime_ms: number;
-  utc_offset_seconds: number;
-  timezone: string;
-  timezone_abbreviation: string;
-  elevation: number;
-  cityName?: string;
-  current_units: {
-    time: string;
-    interval: string;
-    temperature_2m: string;
-  };
-  current: {
-    time: string;
-    interval: number;
-    temperature_2m: number;
-  };
-  hourly_units: {
-    time: string;
-    temperature_2m: string;
-  };
-  hourly: {
-    time: string[];
-    temperature_2m: number[];
-  };
-  daily_units: {
-    time: string;
-    sunrise: string;
-    sunset: string;
-  };
-  daily: {
-    time: string[];
-    sunrise: string[];
-    sunset: string[];
-  };
+    latitude: number;
+    longitude: number;
+    generationtime_ms: number;
+    utc_offset_seconds: number;
+    timezone: string;
+    timezone_abbreviation: string;
+    elevation: number;
+    cityName?: string;
+    current_units: {
+        time: string;
+        interval: string;
+        temperature_2m: string;
+    };
+    current: {
+        time: string;
+        interval: number;
+        temperature_2m: number;
+    };
+    hourly_units: {
+        time: string;
+        temperature_2m: string;
+    };
+    hourly: {
+        time: string[];
+        temperature_2m: number[];
+    };
+    daily_units: {
+        time: string;
+        sunrise: string;
+        sunset: string;
+    };
+    daily: {
+        time: string[];
+        sunrise: string[];
+        sunset: string[];
+    };
 }
 
 // =============================================================================
@@ -59,31 +59,31 @@ export interface WeatherAtLocation {
 // =============================================================================
 
 async function geocodeCity(
-  city: string
+    city: string
 ): Promise<{ latitude: number; longitude: number } | null> {
-  try {
-    const response = await fetch(
-      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`
-    );
+    try {
+        const response = await fetch(
+            `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`
+        );
 
-    if (!response.ok) {
-      return null;
+        if (!response.ok) {
+            return null;
+        }
+
+        const data = await response.json();
+
+        if (!data.results || data.results.length === 0) {
+            return null;
+        }
+
+        const result = data.results[0];
+        return {
+            latitude: result.latitude,
+            longitude: result.longitude,
+        };
+    } catch {
+        return null;
     }
-
-    const data = await response.json();
-
-    if (!data.results || data.results.length === 0) {
-      return null;
-    }
-
-    const result = data.results[0];
-    return {
-      latitude: result.latitude,
-      longitude: result.longitude,
-    };
-  } catch {
-    return null;
-  }
 }
 
 // =============================================================================
@@ -105,47 +105,49 @@ async function geocodeCity(
  * ```
  */
 export const getWeather = tool({
-  description:
-    'Get the current weather at a location. You can provide either coordinates or a city name.',
-  inputSchema: z.union([
-    z.object({
-      latitude: z.number(),
-      longitude: z.number(),
-    }),
-    z.object({
-      city: z
-        .string()
-        .describe("City name (e.g., 'San Francisco', 'New York', 'London')"),
-    }),
-  ]),
-  execute: async (input) => {
-    let latitude: number;
-    let longitude: number;
+    description:
+        "Get the current weather at a location. You can provide either coordinates or a city name.",
+    inputSchema: z.union([
+        z.object({
+            latitude: z.number(),
+            longitude: z.number(),
+        }),
+        z.object({
+            city: z
+                .string()
+                .describe(
+                    "City name (e.g., 'San Francisco', 'New York', 'London')"
+                ),
+        }),
+    ]),
+    execute: async (input) => {
+        let latitude: number;
+        let longitude: number;
 
-    if ('city' in input) {
-      const coords = await geocodeCity(input.city);
-      if (!coords) {
-        return {
-          error: `Could not find coordinates for "${input.city}". Please check the city name.`,
-        };
-      }
-      latitude = coords.latitude;
-      longitude = coords.longitude;
-    } else {
-      latitude = input.latitude;
-      longitude = input.longitude;
-    }
+        if ("city" in input) {
+            const coords = await geocodeCity(input.city);
+            if (!coords) {
+                return {
+                    error: `Could not find coordinates for "${input.city}". Please check the city name.`,
+                };
+            }
+            latitude = coords.latitude;
+            longitude = coords.longitude;
+        } else {
+            latitude = input.latitude;
+            longitude = input.longitude;
+        }
 
-    const response = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m&hourly=temperature_2m&daily=sunrise,sunset&timezone=auto`
-    );
+        const response = await fetch(
+            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m&hourly=temperature_2m&daily=sunrise,sunset&timezone=auto`
+        );
 
-    const weatherData = await response.json();
+        const weatherData = await response.json();
 
-    if ('city' in input) {
-      weatherData.cityName = input.city;
-    }
+        if ("city" in input) {
+            weatherData.cityName = input.city;
+        }
 
-    return weatherData;
-  },
+        return weatherData;
+    },
 });

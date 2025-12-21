@@ -5,90 +5,90 @@
  * Convenience functions for creating common errors
  */
 
-import { AppError } from './app-error';
-import type { ErrorCode } from './types';
+import { AppError } from "./app-error";
+import type { ErrorCode } from "./types";
 
 /**
  * Create an authentication error
  */
 export function authError(
-  reason: string = 'unauthorized',
-  context?: Record<string, unknown>
+    reason: string = "unauthorized",
+    context?: Record<string, unknown>
 ): AppError {
-  return new AppError({
-    code: `auth:${reason}` as ErrorCode,
-    context,
-  });
+    return new AppError({
+        code: `auth:${reason}` as ErrorCode,
+        context,
+    });
 }
 
 /**
  * Create a validation error
  */
 export function validationError(
-  message: string,
-  context?: Record<string, unknown>
+    message: string,
+    context?: Record<string, unknown>
 ): AppError {
-  return new AppError({
-    code: 'validation:invalid_input',
-    message,
-    context,
-  });
+    return new AppError({
+        code: "validation:invalid_input",
+        message,
+        context,
+    });
 }
 
 /**
  * Create a not found error
  */
 export function notFoundError(
-  resource: string,
-  context?: Record<string, unknown>
+    resource: string,
+    context?: Record<string, unknown>
 ): AppError {
-  return new AppError({
-    code: `resource:not_found:${resource}` as ErrorCode,
-    context,
-  });
+    return new AppError({
+        code: `resource:not_found:${resource}` as ErrorCode,
+        context,
+    });
 }
 
 /**
  * Create a rate limit error
  */
 export function rateLimitError(
-  retryAfter?: number,
-  context?: Record<string, unknown>
+    retryAfter?: number,
+    context?: Record<string, unknown>
 ): AppError {
-  return new AppError({
-    code: 'rate_limit:exceeded',
-    context: {
-      ...context,
-      retryAfter,
-    },
-  });
+    return new AppError({
+        code: "rate_limit:exceeded",
+        context: {
+            ...context,
+            retryAfter,
+        },
+    });
 }
 
 /**
  * Create a forbidden/access denied error
  */
 export function forbiddenError(
-  resource?: string,
-  context?: Record<string, unknown>
+    resource?: string,
+    context?: Record<string, unknown>
 ): AppError {
-  return new AppError({
-    code: resource
-      ? (`resource:access_denied:${resource}` as ErrorCode)
-      : 'auth:forbidden',
-    context,
-  });
+    return new AppError({
+        code: resource
+            ? (`resource:access_denied:${resource}` as ErrorCode)
+            : "auth:forbidden",
+        context,
+    });
 }
 
 /**
  * Create an external service error
  */
 export function externalError(
-  service: string,
-  context?: Record<string, unknown>
+    service: string,
+    context?: Record<string, unknown>
 ): AppError {
-  return new AppError({
-    code: `external:${service}` as ErrorCode,
-    severity: 'error',
-    context,
-  });
+    return new AppError({
+        code: `external:${service}` as ErrorCode,
+        severity: "error",
+        context,
+    });
 }

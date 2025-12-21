@@ -7,30 +7,30 @@
  * @module features/chat/hooks/use-chat-visibility
  */
 
-'use client';
+"use client";
 
-import { useMemo, useRef, useCallback } from 'react';
-import { toast } from 'sonner';
-import useSWR from 'swr';
-import type { VisibilityType } from '../types';
-import { updateChatVisibility } from '../actions';
+import { useMemo, useRef, useCallback } from "react";
+import { toast } from "sonner";
+import useSWR from "swr";
+import type { VisibilityType } from "../types";
+import { updateChatVisibility } from "../actions";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
 export interface UseChatVisibilityOptions {
-  /** Chat session identifier */
-  chatId: string;
-  /** Initial visibility type */
-  initialVisibilityType: VisibilityType;
+    /** Chat session identifier */
+    chatId: string;
+    /** Initial visibility type */
+    initialVisibilityType: VisibilityType;
 }
 
 export interface UseChatVisibilityReturn {
-  /** Current visibility type */
-  visibilityType: VisibilityType;
-  /** Function to update visibility */
-  setVisibilityType: (visibility: VisibilityType) => Promise<void>;
+    /** Current visibility type */
+    visibilityType: VisibilityType;
+    /** Function to update visibility */
+    setVisibilityType: (visibility: VisibilityType) => Promise<void>;
 }
 
 // =============================================================================
@@ -57,64 +57,66 @@ export interface UseChatVisibilityReturn {
  * ```
  */
 export function useChatVisibility({
-  chatId,
-  initialVisibilityType,
+    chatId,
+    initialVisibilityType,
 }: UseChatVisibilityOptions): UseChatVisibilityReturn {
-  // Track pending visibility update for request deduplication
-  const pendingUpdateRef = useRef<AbortController | null>(null);
+    // Track pending visibility update for request deduplication
+    const pendingUpdateRef = useRef<AbortController | null>(null);
 
-  // Local visibility state with SWR caching
-  const { data: localVisibility, mutate: setLocalVisibility } = useSWR(
-    `${chatId}-visibility`,
-    null,
-    {
-      fallbackData: initialVisibilityType,
-    }
-  );
-
-  // Memoized visibility type
-  const visibilityType = useMemo(() => {
-    return localVisibility ?? initialVisibilityType;
-  }, [localVisibility, initialVisibilityType]);
-
-  // Update visibility with optimistic update
-  const setVisibilityType = useCallback(
-    async (updatedVisibilityType: VisibilityType) => {
-      // Cancel any pending visibility update to prevent race conditions
-      if (pendingUpdateRef.current) {
-        pendingUpdateRef.current.abort();
-      }
-      pendingUpdateRef.current = new AbortController();
-
-      const previousVisibility = localVisibility;
-
-      // Optimistic update
-      setLocalVisibility(updatedVisibilityType);
-
-      try {
-        const result = await updateChatVisibility({
-          chatId,
-          visibility: updatedVisibilityType,
-        });
-
-        if (!result.success) {
-          throw new Error(result.error || 'Failed to update visibility');
+    // Local visibility state with SWR caching
+    const { data: localVisibility, mutate: setLocalVisibility } = useSWR(
+        `${chatId}-visibility`,
+        null,
+        {
+            fallbackData: initialVisibilityType,
         }
-      } catch (error) {
-        // Don't rollback if this request was aborted (superseded by newer request)
-        if (error instanceof Error && error.name === 'AbortError') {
-          return;
-        }
+    );
 
-        // Rollback optimistic update on failure
-        setLocalVisibility(previousVisibility);
-        toast.error('Failed to update visibility');
-      } finally {
-        pendingUpdateRef.current = null;
-      }
-    },
-    [chatId, localVisibility, setLocalVisibility]
-  );
+    // Memoized visibility type
+    const visibilityType = useMemo(() => {
+        return localVisibility ?? initialVisibilityType;
+    }, [localVisibility, initialVisibilityType]);
 
-  return { visibilityType, setVisibilityType };
+    // Update visibility with optimistic update
+    const setVisibilityType = useCallback(
+        async (updatedVisibilityType: VisibilityType) => {
+            // Cancel any pending visibility update to prevent race conditions
+            if (pendingUpdateRef.current) {
+                pendingUpdateRef.current.abort();
+            }
+            pendingUpdateRef.current = new AbortController();
+
+            const previousVisibility = localVisibility;
+
+            // Optimistic update
+            setLocalVisibility(updatedVisibilityType);
+
+            try {
+                const result = await updateChatVisibility({
+                    chatId,
+                    visibility: updatedVisibilityType,
+                });
+
+                if (!result.success) {
+                    throw new Error(
+                        result.error || "Failed to update visibility"
+                    );
+                }
+            } catch (error) {
+                // Don't rollback if this request was aborted (superseded by newer request)
+                if (error instanceof Error && error.name === "AbortError") {
+                    return;
+                }
+
+                // Rollback optimistic update on failure
+                setLocalVisibility(previousVisibility);
+                toast.error("Failed to update visibility");
+            } finally {
+                pendingUpdateRef.current = null;
+            }
+        },
+        [chatId, localVisibility, setLocalVisibility]
+    );
+
+    return { visibilityType, setVisibilityType };
 }

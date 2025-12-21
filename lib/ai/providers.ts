@@ -8,20 +8,20 @@
  * @module lib/ai/providers
  */
 
-import { createOpenAI } from '@ai-sdk/openai';
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createOpenAI } from "@ai-sdk/openai";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 
 /**
  * Get OpenAI provider instance
  * @throws Error if OPENAI_API_KEY is not configured
  */
 export function getOpenAI() {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error('OPENAI_API_KEY not configured');
-  }
-  return createOpenAI({ apiKey });
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+        throw new Error("OPENAI_API_KEY not configured");
+    }
+    return createOpenAI({ apiKey });
 }
 
 /**
@@ -29,11 +29,11 @@ export function getOpenAI() {
  * @throws Error if ANTHROPIC_API_KEY is not configured
  */
 export function getAnthropic() {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error('ANTHROPIC_API_KEY not configured');
-  }
-  return createAnthropic({ apiKey });
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+        throw new Error("ANTHROPIC_API_KEY not configured");
+    }
+    return createAnthropic({ apiKey });
 }
 
 /**
@@ -41,9 +41,9 @@ export function getAnthropic() {
  * @throws Error if GOOGLE_GENERATIVE_AI_API_KEY is not configured
  */
 export function getGoogle() {
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  if (!apiKey) {
-    throw new Error('GOOGLE_GENERATIVE_AI_API_KEY not configured');
-  }
-  return createGoogleGenerativeAI({ apiKey });
+    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    if (!apiKey) {
+        throw new Error("GOOGLE_GENERATIVE_AI_API_KEY not configured");
+    }
+    return createGoogleGenerativeAI({ apiKey });
 }

@@ -1,4 +1,4 @@
-import { Toaster } from 'sonner';
+import { Toaster } from "sonner";
 
 /**
  * Auth Layout
@@ -8,14 +8,14 @@ import { Toaster } from 'sonner';
  * Dark background, centered content.
  */
 export default function AuthLayout({
-  children,
+    children,
 }: {
-  children: React.ReactNode;
+    children: React.ReactNode;
 }) {
-  return (
-    <div className="flex min-h-dvh w-full flex-col bg-background">
-      {children}
-      <Toaster position="top-center" />
-    </div>
-  );
+    return (
+        <div className="flex min-h-dvh w-full flex-col bg-background">
+            {children}
+            <Toaster position="top-center" />
+        </div>
+    );
 }

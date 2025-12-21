@@ -7,18 +7,18 @@
  * @module features/chat/components/chat-container
  */
 
-'use client';
+"use client";
 
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
 
 /**
  * Props for the ChatContainer component.
  */
 export interface ChatContainerProps {
-  /** Child components (header, messages, input) */
-  children: React.ReactNode;
-  /** Optional additional CSS classes */
-  className?: string;
+    /** Child components (header, messages, input) */
+    children: React.ReactNode;
+    /** Optional additional CSS classes */
+    className?: string;
 }
 
 /**
@@ -39,20 +39,20 @@ export interface ChatContainerProps {
  * ```
  */
 export function ChatContainer({
-  children,
-  className = '',
+    children,
+    className = "",
 }: ChatContainerProps) {
-  return (
-    <div
-      className={cn(
-        'flex h-dvh min-w-0 flex-col bg-background',
-        'overscroll-contain touch-pan-y',
-        className
-      )}
-      role="main"
-      aria-label="Chat interface"
-    >
-      {children}
-    </div>
-  );
+    return (
+        <div
+            className={cn(
+                "flex h-dvh min-w-0 flex-col bg-background",
+                "overscroll-contain touch-pan-y",
+                className
+            )}
+            role="main"
+            aria-label="Chat interface"
+        >
+            {children}
+        </div>
+    );
 }

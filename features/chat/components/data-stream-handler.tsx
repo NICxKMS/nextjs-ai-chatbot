@@ -7,10 +7,10 @@
  * @module features/chat/components/data-stream-handler
  */
 
-'use client';
+"use client";
 
-import { useCallback } from 'react';
-import type { DataStreamPart } from './data-stream-provider';
+import { useCallback } from "react";
+import type { DataStreamPart } from "./data-stream-provider";
 
 // =============================================================================
 // TYPES
@@ -20,33 +20,33 @@ import type { DataStreamPart } from './data-stream-provider';
  * Token usage data from AI response.
  */
 export interface DataUsageType {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
 }
 
 /**
  * Chat title update data part.
  */
 interface DataChatTitlePart {
-  type: 'data-chatTitle';
-  data: string;
+    type: "data-chatTitle";
+    data: string;
 }
 
 /**
  * Usage data part.
  */
 interface DataUsagePart {
-  type: 'data-usage';
-  data: DataUsageType;
+    type: "data-usage";
+    data: DataUsageType;
 }
 
 /**
  * Append message data part.
  */
 interface DataAppendMessagePart {
-  type: 'data-appendMessage';
-  data: string | Record<string, unknown>;
+    type: "data-appendMessage";
+    data: string | Record<string, unknown>;
 }
 
 // =============================================================================
@@ -57,35 +57,37 @@ interface DataAppendMessagePart {
  * Type guard for chat title data part.
  */
 export function isDataChatTitlePart(part: unknown): part is DataChatTitlePart {
-  return (
-    typeof part === 'object' &&
-    part !== null &&
-    (part as DataChatTitlePart).type === 'data-chatTitle' &&
-    typeof (part as DataChatTitlePart).data === 'string'
-  );
+    return (
+        typeof part === "object" &&
+        part !== null &&
+        (part as DataChatTitlePart).type === "data-chatTitle" &&
+        typeof (part as DataChatTitlePart).data === "string"
+    );
 }
 
 /**
  * Type guard for usage data part.
  */
 export function isDataUsagePart(part: unknown): part is DataUsagePart {
-  return (
-    typeof part === 'object' &&
-    part !== null &&
-    (part as DataUsagePart).type === 'data-usage' &&
-    typeof (part as DataUsagePart).data === 'object'
-  );
+    return (
+        typeof part === "object" &&
+        part !== null &&
+        (part as DataUsagePart).type === "data-usage" &&
+        typeof (part as DataUsagePart).data === "object"
+    );
 }
 
 /**
  * Type guard for append message data part.
  */
-export function isDataAppendMessagePart(part: unknown): part is DataAppendMessagePart {
-  return (
-    typeof part === 'object' &&
-    part !== null &&
-    (part as DataAppendMessagePart).type === 'data-appendMessage'
-  );
+export function isDataAppendMessagePart(
+    part: unknown
+): part is DataAppendMessagePart {
+    return (
+        typeof part === "object" &&
+        part !== null &&
+        (part as DataAppendMessagePart).type === "data-appendMessage"
+    );
 }
 
 // =============================================================================
@@ -93,14 +95,16 @@ export function isDataAppendMessagePart(part: unknown): part is DataAppendMessag
 // =============================================================================
 
 export interface UseDataStreamHandlerOptions {
-  /** Callback when chat title is updated */
-  onTitleUpdate?: (title: string) => void;
-  /** Callback when usage data is received */
-  onUsageUpdate?: (usage: DataUsageType) => void;
-  /** Callback to update data stream state */
-  setDataStream?: (updater: (prev: DataStreamPart[]) => DataStreamPart[]) => void;
-  /** Whether to enable artifact streaming */
-  streamArtifacts?: boolean;
+    /** Callback when chat title is updated */
+    onTitleUpdate?: (title: string) => void;
+    /** Callback when usage data is received */
+    onUsageUpdate?: (usage: DataUsageType) => void;
+    /** Callback to update data stream state */
+    setDataStream?: (
+        updater: (prev: DataStreamPart[]) => DataStreamPart[]
+    ) => void;
+    /** Whether to enable artifact streaming */
+    streamArtifacts?: boolean;
 }
 
 /**
@@ -126,32 +130,32 @@ export interface UseDataStreamHandlerOptions {
  * ```
  */
 export function useDataStreamHandler({
-  onTitleUpdate,
-  onUsageUpdate,
-  setDataStream,
-  streamArtifacts = true,
+    onTitleUpdate,
+    onUsageUpdate,
+    setDataStream,
+    streamArtifacts = true,
 }: UseDataStreamHandlerOptions = {}) {
-  const handleData = useCallback(
-    (dataPart: DataStreamPart) => {
-      // Store for artifact processing
-      if (streamArtifacts && setDataStream) {
-        setDataStream((ds) => [...ds, dataPart]);
-      }
+    const handleData = useCallback(
+        (dataPart: DataStreamPart) => {
+            // Store for artifact processing
+            if (streamArtifacts && setDataStream) {
+                setDataStream((ds) => [...ds, dataPart]);
+            }
 
-      // Handle title updates
-      if (isDataChatTitlePart(dataPart)) {
-        onTitleUpdate?.(dataPart.data);
-      }
+            // Handle title updates
+            if (isDataChatTitlePart(dataPart)) {
+                onTitleUpdate?.(dataPart.data);
+            }
 
-      // Handle usage tracking
-      if (isDataUsagePart(dataPart)) {
-        onUsageUpdate?.(dataPart.data);
-      }
-    },
-    [setDataStream, onTitleUpdate, onUsageUpdate, streamArtifacts]
-  );
+            // Handle usage tracking
+            if (isDataUsagePart(dataPart)) {
+                onUsageUpdate?.(dataPart.data);
+            }
+        },
+        [setDataStream, onTitleUpdate, onUsageUpdate, streamArtifacts]
+    );
 
-  return handleData;
+    return handleData;
 }
 
 // =============================================================================
@@ -159,12 +163,12 @@ export function useDataStreamHandler({
 // =============================================================================
 
 export interface DataStreamHandlerProps {
-  /** Callback when chat title is updated */
-  onTitleUpdate?: (title: string) => void;
-  /** Callback when usage data is received */
-  onUsageUpdate?: (usage: DataUsageType) => void;
-  /** Whether to enable artifact streaming */
-  streamArtifacts?: boolean;
+    /** Callback when chat title is updated */
+    onTitleUpdate?: (title: string) => void;
+    /** Callback when usage data is received */
+    onUsageUpdate?: (usage: DataUsageType) => void;
+    /** Whether to enable artifact streaming */
+    streamArtifacts?: boolean;
 }
 
 /**
@@ -177,7 +181,7 @@ export interface DataStreamHandlerProps {
  * @deprecated Use useDataStreamHandler hook instead
  */
 export function DataStreamHandler(_props: DataStreamHandlerProps): null {
-  // Data stream processing is handled via useChat's onData callback
-  // using the useDataStreamHandler hook
-  return null;
+    // Data stream processing is handled via useChat's onData callback
+    // using the useDataStreamHandler hook
+    return null;
 }

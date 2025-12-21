@@ -9,17 +9,17 @@
 
 // Store exports
 export {
-  useSettings,
-  useSettingsSnapshot,
-  DEFAULT_SETTINGS,
-  type AppSettings,
-  type SamplingSettings,
-  type SettingsStore,
-} from './stores/settings-store';
+    useSettings,
+    useSettingsSnapshot,
+    DEFAULT_SETTINGS,
+    type AppSettings,
+    type SamplingSettings,
+    type SettingsStore,
+} from "./stores/settings-store";
 
 // Component exports
 export {
-  SettingsButton,
-  SettingsIconButton,
-  SettingsSheet,
-} from './components/settings-sheet';
+    SettingsButton,
+    SettingsIconButton,
+    SettingsSheet,
+} from "./components/settings-sheet";

@@ -7,21 +7,21 @@
  * @module features/chat/components/message/message-avatar
  */
 
-'use client';
+"use client";
 
-import { Settings, User } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { SparklesIcon } from '@/shared/components/icons';
+import { Settings, User } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { SparklesIcon } from "@/shared/components/icons";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
 export interface MessageAvatarProps {
-  /** The role of the message sender */
-  role: 'user' | 'assistant' | 'system';
-  /** Optional additional class names */
-  className?: string;
+    /** The role of the message sender */
+    role: "user" | "assistant" | "system";
+    /** Optional additional class names */
+    className?: string;
 }
 
 // =============================================================================
@@ -42,20 +42,20 @@ export interface MessageAvatarProps {
  * ```
  */
 export function MessageAvatar({ role, className }: MessageAvatarProps) {
-  return (
-    <div
-      className={cn(
-        'flex size-8 shrink-0 items-center justify-center rounded-full',
-        role === 'user' && 'bg-[#006cff] text-white',
-        role === 'assistant' && 'bg-background ring-1 ring-border',
-        role === 'system' && 'bg-secondary text-secondary-foreground',
-        className
-      )}
-      data-role={role}
-    >
-      {role === 'user' && <User className="size-4" />}
-      {role === 'assistant' && <SparklesIcon size={14} />}
-      {role === 'system' && <Settings className="size-4" />}
-    </div>
-  );
+    return (
+        <div
+            className={cn(
+                "flex size-8 shrink-0 items-center justify-center rounded-full",
+                role === "user" && "bg-[#006cff] text-white",
+                role === "assistant" && "bg-background ring-1 ring-border",
+                role === "system" && "bg-secondary text-secondary-foreground",
+                className
+            )}
+            data-role={role}
+        >
+            {role === "user" && <User className="size-4" />}
+            {role === "assistant" && <SparklesIcon size={14} />}
+            {role === "system" && <Settings className="size-4" />}
+        </div>
+    );
 }

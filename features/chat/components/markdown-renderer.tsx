@@ -7,13 +7,13 @@
  * @module features/chat/components/markdown-renderer
  */
 
-'use client';
+"use client";
 
-import { type ComponentProps, memo } from 'react';
-import rehypeKatex from 'rehype-katex';
-import remarkMath from 'remark-math';
-import { Streamdown } from 'streamdown';
-import { cn } from '@/lib/utils';
+import { type ComponentProps, memo } from "react";
+import rehypeKatex from "rehype-katex";
+import remarkMath from "remark-math";
+import { Streamdown } from "streamdown";
+import { cn } from "@/lib/utils";
 
 // =============================================================================
 // TYPES
@@ -21,11 +21,12 @@ import { cn } from '@/lib/utils';
 
 type StreamdownProps = ComponentProps<typeof Streamdown>;
 
-export interface MarkdownRendererProps extends Omit<StreamdownProps, 'children'> {
-  /** The markdown content to render */
-  children: string;
-  /** Optional additional class names */
-  className?: string;
+export interface MarkdownRendererProps
+    extends Omit<StreamdownProps, "children"> {
+    /** The markdown content to render */
+    children: string;
+    /** Optional additional class names */
+    className?: string;
 }
 
 // =============================================================================
@@ -55,41 +56,51 @@ export interface MarkdownRendererProps extends Omit<StreamdownProps, 'children'>
  * ```
  */
 export const MarkdownRenderer = memo(
-  ({ className, remarkPlugins, rehypePlugins, children, ...props }: MarkdownRendererProps) => {
-    // Configure remark plugins for math support
-    const remarkPluginsList = [
-      [remarkMath, { singleDollarTextMath: true }] as const,
-      ...(remarkPlugins && Array.isArray(remarkPlugins) ? remarkPlugins : []),
-    ] as Parameters<typeof Streamdown>[0]['remarkPlugins'];
+    ({
+        className,
+        remarkPlugins,
+        rehypePlugins,
+        children,
+        ...props
+    }: MarkdownRendererProps) => {
+        // Configure remark plugins for math support
+        const remarkPluginsList = [
+            [remarkMath, { singleDollarTextMath: true }] as const,
+            ...(remarkPlugins && Array.isArray(remarkPlugins)
+                ? remarkPlugins
+                : []),
+        ] as Parameters<typeof Streamdown>[0]["remarkPlugins"];
 
-    // Configure rehype plugins for KaTeX rendering
-    const rehypePluginsList = [
-      [rehypeKatex, { singleDollarTextMath: true }] as const,
-      ...(rehypePlugins && Array.isArray(rehypePlugins) ? rehypePlugins : []),
-    ] as Parameters<typeof Streamdown>[0]['rehypePlugins'];
+        // Configure rehype plugins for KaTeX rendering
+        const rehypePluginsList = [
+            [rehypeKatex, { singleDollarTextMath: true }] as const,
+            ...(rehypePlugins && Array.isArray(rehypePlugins)
+                ? rehypePlugins
+                : []),
+        ] as Parameters<typeof Streamdown>[0]["rehypePlugins"];
 
-    return (
-      <Streamdown
-        className={cn(
-          // Base prose styling
-          'prose prose-sm dark:prose-invert max-w-none',
-          // Reset margins for first/last children
-          '[&>*:first-child]:mt-0 [&>*:last-child]:mb-0',
-          // Code block styling
-          '[&_code]:whitespace-pre-wrap [&_code]:break-words',
-          '[&_pre]:max-w-full [&_pre]:overflow-x-auto',
-          // Custom styling
-          className
-        )}
-        rehypePlugins={rehypePluginsList}
-        remarkPlugins={remarkPluginsList}
-        {...props}
-      >
-        {children}
-      </Streamdown>
-    );
-  },
-  (prevProps, nextProps) => prevProps.children === nextProps.children
+        return (
+            <Streamdown
+                className={cn(
+                    // Base prose styling
+                    "prose prose-sm dark:prose-invert max-w-none",
+                    // Reset margins for first/last children
+                    "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+                    // Code block styling
+                    "[&_code]:whitespace-pre-wrap [&_code]:break-words",
+                    "[&_pre]:max-w-full [&_pre]:overflow-x-auto",
+                    // Custom styling
+                    className
+                )}
+                rehypePlugins={rehypePluginsList}
+                remarkPlugins={remarkPluginsList}
+                {...props}
+            >
+                {children}
+            </Streamdown>
+        );
+    },
+    (prevProps, nextProps) => prevProps.children === nextProps.children
 );
 
-MarkdownRenderer.displayName = 'MarkdownRenderer';
+MarkdownRenderer.displayName = "MarkdownRenderer";

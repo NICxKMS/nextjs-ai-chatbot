@@ -4,12 +4,12 @@
  *
  * Extracted from OldApp: oldapp/lib/db/transactions.ts
  */
-import 'server-only';
+import "server-only";
 
-import { getPoolDb } from './client';
+import { getPoolDb } from "./client";
 
 export type Transaction = Parameters<
-  Parameters<ReturnType<typeof getPoolDb>['transaction']>[0]
+    Parameters<ReturnType<typeof getPoolDb>["transaction"]>[0]
 >[0];
 
 /**
@@ -17,21 +17,21 @@ export type Transaction = Parameters<
  * Automatically rolls back on error
  */
 export async function withTransaction<T>(
-  fn: (tx: Transaction) => Promise<T>,
-  operation = 'transaction'
+    fn: (tx: Transaction) => Promise<T>,
+    operation = "transaction"
 ): Promise<T> {
-  const db = getPoolDb();
+    const db = getPoolDb();
 
-  try {
-    const result = await db.transaction(async (tx) => {
-      return fn(tx);
-    });
-    return result;
-  } catch (error) {
-    // Log transaction failure
-    console.error(`Transaction failed [${operation}]:`, error);
-    throw error;
-  }
+    try {
+        const result = await db.transaction(async (tx) => {
+            return fn(tx);
+        });
+        return result;
+    } catch (error) {
+        // Log transaction failure
+        console.error(`Transaction failed [${operation}]:`, error);
+        throw error;
+    }
 }
 
 /**
@@ -39,12 +39,12 @@ export async function withTransaction<T>(
  * Useful for operations where failure is acceptable
  */
 export async function withTransactionSafe<T>(
-  fn: (tx: Transaction) => Promise<T>,
-  operation = 'transaction'
+    fn: (tx: Transaction) => Promise<T>,
+    operation = "transaction"
 ): Promise<T | null> {
-  try {
-    return await withTransaction(fn, operation);
-  } catch {
-    return null;
-  }
+    try {
+        return await withTransaction(fn, operation);
+    } catch {
+        return null;
+    }
 }

@@ -1,4 +1,4 @@
-'use server';
+"use server";
 
 /**
  * Vote Server Actions
@@ -8,28 +8,28 @@
  * @module features/chat/actions/vote
  */
 
-import { getSession } from '@/lib/auth';
-import { AppError } from '@/lib/errors';
-import type { VoteType } from '../types';
+import { getSession } from "@/lib/auth";
+import { AppError } from "@/lib/errors";
+import type { VoteType } from "../types";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
 export interface VoteInput {
-  /** Chat session identifier */
-  chatId: string;
-  /** Message identifier */
-  messageId: string;
-  /** Vote type (up or down) */
-  vote: VoteType;
+    /** Chat session identifier */
+    chatId: string;
+    /** Message identifier */
+    messageId: string;
+    /** Vote type (up or down) */
+    vote: VoteType;
 }
 
 export interface VoteResult {
-  /** Whether the vote operation succeeded */
-  success: boolean;
-  /** Error message if operation failed */
-  error?: string;
+    /** Whether the vote operation succeeded */
+    success: boolean;
+    /** Error message if operation failed */
+    error?: string;
 }
 
 // =============================================================================
@@ -56,51 +56,51 @@ export interface VoteResult {
  * ```
  */
 export async function voteOnMessage(input: VoteInput): Promise<VoteResult> {
-  try {
-    // 1. Verify session
-    const session = await getSession();
-    if (!session?.user?.id) {
-      throw new AppError({
-        code: 'auth:unauthorized',
-        message: 'Must be logged in to vote',
-      });
+    try {
+        // 1. Verify session
+        const session = await getSession();
+        if (!session?.user?.id) {
+            throw new AppError({
+                code: "auth:unauthorized",
+                message: "Must be logged in to vote",
+            });
+        }
+
+        // 2. Validate input
+        if (!input.chatId || !input.messageId || !input.vote) {
+            throw new AppError({
+                code: "validation:invalid_input",
+                message: "Invalid vote data",
+            });
+        }
+
+        if (input.vote !== "up" && input.vote !== "down") {
+            throw new AppError({
+                code: "validation:invalid_input",
+                message: "Vote must be up or down",
+            });
+        }
+
+        // 3. Check if user owns the chat or has access
+        // For now, allow voting on any message the user can see
+
+        // 4. Upsert vote in database
+        // TODO: Add chatData.write.upsertVote() when implementing full data layer
+        console.log("[Vote] Saving vote:", {
+            userId: session.user.id,
+            chatId: input.chatId,
+            messageId: input.messageId,
+            vote: input.vote,
+        });
+
+        return { success: true };
+    } catch (error) {
+        if (error instanceof AppError) {
+            return { success: false, error: error.message };
+        }
+        console.error("[Vote] Failed to save vote:", error);
+        return { success: false, error: "Failed to save vote" };
     }
-
-    // 2. Validate input
-    if (!input.chatId || !input.messageId || !input.vote) {
-      throw new AppError({
-        code: 'validation:invalid_input',
-        message: 'Invalid vote data',
-      });
-    }
-
-    if (input.vote !== 'up' && input.vote !== 'down') {
-      throw new AppError({
-        code: 'validation:invalid_input',
-        message: 'Vote must be up or down',
-      });
-    }
-
-    // 3. Check if user owns the chat or has access
-    // For now, allow voting on any message the user can see
-
-    // 4. Upsert vote in database
-    // TODO: Add chatData.write.upsertVote() when implementing full data layer
-    console.log('[Vote] Saving vote:', {
-      userId: session.user.id,
-      chatId: input.chatId,
-      messageId: input.messageId,
-      vote: input.vote,
-    });
-
-    return { success: true };
-  } catch (error) {
-    if (error instanceof AppError) {
-      return { success: false, error: error.message };
-    }
-    console.error('[Vote] Failed to save vote:', error);
-    return { success: false, error: 'Failed to save vote' };
-  }
 }
 
 /**
@@ -120,41 +120,41 @@ export async function voteOnMessage(input: VoteInput): Promise<VoteResult> {
  * ```
  */
 export async function removeVote(
-  chatId: string,
-  messageId: string
+    chatId: string,
+    messageId: string
 ): Promise<VoteResult> {
-  try {
-    // 1. Verify session
-    const session = await getSession();
-    if (!session?.user?.id) {
-      throw new AppError({
-        code: 'auth:unauthorized',
-        message: 'Must be logged in',
-      });
-    }
+    try {
+        // 1. Verify session
+        const session = await getSession();
+        if (!session?.user?.id) {
+            throw new AppError({
+                code: "auth:unauthorized",
+                message: "Must be logged in",
+            });
+        }
 
-    // 2. Validate input
-    if (!chatId || !messageId) {
-      throw new AppError({
-        code: 'validation:invalid_input',
-        message: 'Missing chatId or messageId',
-      });
-    }
+        // 2. Validate input
+        if (!chatId || !messageId) {
+            throw new AppError({
+                code: "validation:invalid_input",
+                message: "Missing chatId or messageId",
+            });
+        }
 
-    // 3. Remove vote from database
-    // TODO: Add chatData.write.removeVote() when implementing full data layer
-    console.log('[Vote] Removing vote:', {
-      userId: session.user.id,
-      chatId,
-      messageId,
-    });
+        // 3. Remove vote from database
+        // TODO: Add chatData.write.removeVote() when implementing full data layer
+        console.log("[Vote] Removing vote:", {
+            userId: session.user.id,
+            chatId,
+            messageId,
+        });
 
-    return { success: true };
-  } catch (error) {
-    if (error instanceof AppError) {
-      return { success: false, error: error.message };
+        return { success: true };
+    } catch (error) {
+        if (error instanceof AppError) {
+            return { success: false, error: error.message };
+        }
+        console.error("[Vote] Failed to remove vote:", error);
+        return { success: false, error: "Failed to remove vote" };
     }
-    console.error('[Vote] Failed to remove vote:', error);
-    return { success: false, error: 'Failed to remove vote' };
-  }
 }

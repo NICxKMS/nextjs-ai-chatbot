@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 /**
  * Messages Hook
@@ -9,27 +9,27 @@
  * @module features/chat/hooks/use-messages
  */
 
-import { useEffect, useState, useCallback } from 'react';
-import type { ChatStatus } from '../types';
-import { useScrollToBottom } from './use-scroll-to-bottom';
-import type { UseScrollToBottomReturn } from './use-scroll-to-bottom';
+import { useEffect, useState, useCallback } from "react";
+import type { ChatStatus } from "../types";
+import { useScrollToBottom } from "./use-scroll-to-bottom";
+import type { UseScrollToBottomReturn } from "./use-scroll-to-bottom";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
 export interface UseMessagesOptions {
-  /** Current chat status from AI SDK */
-  status: ChatStatus;
-  /** Optional callback when a message is sent */
-  onMessageSent?: () => void;
+    /** Current chat status from AI SDK */
+    status: ChatStatus;
+    /** Optional callback when a message is sent */
+    onMessageSent?: () => void;
 }
 
 export interface UseMessagesReturn extends UseScrollToBottomReturn {
-  /** Whether a message has been sent in this session */
-  hasSentMessage: boolean;
-  /** Reset the sent message state */
-  resetSentState: () => void;
+    /** Whether a message has been sent in this session */
+    hasSentMessage: boolean;
+    /** Reset the sent message state */
+    resetSentState: () => void;
 }
 
 // =============================================================================
@@ -67,42 +67,42 @@ export interface UseMessagesReturn extends UseScrollToBottomReturn {
  * ```
  */
 export function useMessages({
-  status,
-  onMessageSent,
+    status,
+    onMessageSent,
 }: UseMessagesOptions): UseMessagesReturn {
-  const {
-    containerRef,
-    endRef,
-    isAtBottom,
-    scrollToBottom,
-    onViewportEnter,
-    onViewportLeave,
-  } = useScrollToBottom();
+    const {
+        containerRef,
+        endRef,
+        isAtBottom,
+        scrollToBottom,
+        onViewportEnter,
+        onViewportLeave,
+    } = useScrollToBottom();
 
-  // Track if user has sent a message in this session
-  const [hasSentMessage, setHasSentMessage] = useState(false);
+    // Track if user has sent a message in this session
+    const [hasSentMessage, setHasSentMessage] = useState(false);
 
-  // Detect when a message is submitted
-  useEffect(() => {
-    if (status === 'submitted') {
-      setHasSentMessage(true);
-      onMessageSent?.();
-    }
-  }, [status, onMessageSent]);
+    // Detect when a message is submitted
+    useEffect(() => {
+        if (status === "submitted") {
+            setHasSentMessage(true);
+            onMessageSent?.();
+        }
+    }, [status, onMessageSent]);
 
-  // Reset sent state (useful for new chat sessions)
-  const resetSentState = useCallback(() => {
-    setHasSentMessage(false);
-  }, []);
+    // Reset sent state (useful for new chat sessions)
+    const resetSentState = useCallback(() => {
+        setHasSentMessage(false);
+    }, []);
 
-  return {
-    containerRef,
-    endRef,
-    isAtBottom,
-    scrollToBottom,
-    onViewportEnter,
-    onViewportLeave,
-    hasSentMessage,
-    resetSentState,
-  };
+    return {
+        containerRef,
+        endRef,
+        isAtBottom,
+        scrollToBottom,
+        onViewportEnter,
+        onViewportLeave,
+        hasSentMessage,
+        resetSentState,
+    };
 }

@@ -7,8 +7,8 @@
  * @module features/chat/types
  */
 
-import type { UseChatHelpers } from '@ai-sdk/react';
-import type { UIMessage, ChatRequestOptions } from 'ai';
+import type { UseChatHelpers } from "@ai-sdk/react";
+import type { UIMessage, ChatRequestOptions } from "ai";
 
 // =============================================================================
 // RE-EXPORTS FROM AI SDK
@@ -30,7 +30,7 @@ export type ChatMessage = UIMessage;
  * Chat status - matches AI SDK's useChat status.
  * Don't redefine what AI SDK already provides.
  */
-export type ChatStatus = 'submitted' | 'streaming' | 'ready' | 'error';
+export type ChatStatus = "submitted" | "streaming" | "ready" | "error";
 
 /**
  * UseChatHelpers type from AI SDK - the return type of useChat hook.
@@ -47,12 +47,12 @@ export type ChatHelpers = UseChatHelpers<ChatMessage>;
  * Extended version compatible with AI SDK's Attachment.
  */
 export interface Attachment {
-  /** Display name of the attachment */
-  name: string;
-  /** URL or data URI of the attachment content */
-  url: string;
-  /** MIME content type (e.g., 'image/png', 'application/pdf') */
-  contentType: string;
+    /** Display name of the attachment */
+    name: string;
+    /** URL or data URI of the attachment content */
+    url: string;
+    /** MIME content type (e.g., 'image/png', 'application/pdf') */
+    contentType: string;
 }
 
 // =============================================================================
@@ -64,12 +64,12 @@ export interface Attachment {
  * Used when creating new messages to send to the chat.
  */
 export interface CreateMessage {
-  /** Message content */
-  content: string;
-  /** Optional role (defaults to 'user') */
-  role?: 'user' | 'assistant' | 'system';
-  /** Optional attachments */
-  attachments?: Attachment[];
+    /** Message content */
+    content: string;
+    /** Optional role (defaults to 'user') */
+    role?: "user" | "assistant" | "system";
+    /** Optional attachments */
+    attachments?: Attachment[];
 }
 
 // =============================================================================
@@ -80,120 +80,120 @@ export interface CreateMessage {
  * Text content part of a message.
  */
 export interface TextPart {
-  type: 'text';
-  /** The text content */
-  text: string;
+    type: "text";
+    /** The text content */
+    text: string;
 }
 
 /**
  * Tool call part representing an AI tool invocation.
  */
 export interface ToolCallPart {
-  type: 'tool-call';
-  /** Unique identifier for this tool call */
-  toolCallId: string;
-  /** Name of the tool being called */
-  toolName: string;
-  /** Arguments passed to the tool */
-  args: Record<string, unknown>;
+    type: "tool-call";
+    /** Unique identifier for this tool call */
+    toolCallId: string;
+    /** Name of the tool being called */
+    toolName: string;
+    /** Arguments passed to the tool */
+    args: Record<string, unknown>;
 }
 
 /**
  * Tool result part representing the outcome of a tool call.
  */
 export interface ToolResultPart {
-  type: 'tool-result';
-  /** Identifier linking to the original tool call */
-  toolCallId: string;
-  /** Name of the tool that was called */
-  toolName: string;
-  /** Result returned by the tool */
-  result: unknown;
-  /** Whether the tool execution resulted in an error */
-  isError?: boolean;
+    type: "tool-result";
+    /** Identifier linking to the original tool call */
+    toolCallId: string;
+    /** Name of the tool that was called */
+    toolName: string;
+    /** Result returned by the tool */
+    result: unknown;
+    /** Whether the tool execution resulted in an error */
+    isError?: boolean;
 }
 
 /**
  * Reasoning part for displaying AI's chain-of-thought.
  */
 export interface ReasoningPart {
-  type: 'reasoning';
-  /** The reasoning/thinking text */
-  reasoning: string;
-  /** Additional structured details about the reasoning */
-  details?: unknown[];
+    type: "reasoning";
+    /** The reasoning/thinking text */
+    reasoning: string;
+    /** Additional structured details about the reasoning */
+    details?: unknown[];
 }
 
 /**
  * Source/citation part for referencing external content.
  */
 export interface SourcePart {
-  type: 'source';
-  /** Source metadata */
-  source: {
-    /** Type of source */
-    sourceType: 'url' | 'file';
-    /** Unique identifier for the source */
-    id: string;
-    /** URL of the source (for url type) */
-    url?: string;
-    /** Display title for the source */
-    title?: string;
-    /** Additional provider-specific metadata */
-    providerMetadata?: Record<string, unknown>;
-  };
+    type: "source";
+    /** Source metadata */
+    source: {
+        /** Type of source */
+        sourceType: "url" | "file";
+        /** Unique identifier for the source */
+        id: string;
+        /** URL of the source (for url type) */
+        url?: string;
+        /** Display title for the source */
+        title?: string;
+        /** Additional provider-specific metadata */
+        providerMetadata?: Record<string, unknown>;
+    };
 }
 
 /**
  * Union of all message part types for type-safe rendering.
  */
 export type MessagePart =
-  | TextPart
-  | ToolCallPart
-  | ToolResultPart
-  | ReasoningPart
-  | SourcePart;
+    | TextPart
+    | ToolCallPart
+    | ToolResultPart
+    | ReasoningPart
+    | SourcePart;
 
 /**
  * Model capability flags.
  */
 export interface ModelCapabilities {
-  /** Whether the model can process image inputs */
-  supportsImages: boolean;
-  /** Whether the model supports tool/function calling */
-  supportsTools: boolean;
-  /** Whether the model supports reasoning/thinking mode */
-  supportsReasoning: boolean;
-  /** Maximum output token limit */
-  maxTokens?: number;
+    /** Whether the model can process image inputs */
+    supportsImages: boolean;
+    /** Whether the model supports tool/function calling */
+    supportsTools: boolean;
+    /** Whether the model supports reasoning/thinking mode */
+    supportsReasoning: boolean;
+    /** Maximum output token limit */
+    maxTokens?: number;
 }
 
 /**
  * Metadata for an AI model.
  */
 export interface ModelMetadata {
-  /** Unique identifier for the model */
-  id: string;
-  /** Human-readable display name */
-  name: string;
-  /** Provider name (e.g., 'openai', 'anthropic') */
-  provider: string;
-  /** Optional description of the model */
-  description?: string;
-  /** Optional capability flags */
-  capabilities?: ModelCapabilities;
+    /** Unique identifier for the model */
+    id: string;
+    /** Human-readable display name */
+    name: string;
+    /** Provider name (e.g., 'openai', 'anthropic') */
+    provider: string;
+    /** Optional description of the model */
+    description?: string;
+    /** Optional capability flags */
+    capabilities?: ModelCapabilities;
 }
 
 /**
  * Model selection state interface.
  */
 export interface ModelState {
-  /** Currently selected model identifier */
-  currentModelId: string;
-  /** List of available models */
-  availableModels: ModelMetadata[];
-  /** Function to change the selected model */
-  setModelId: (id: string) => void;
+    /** Currently selected model identifier */
+    currentModelId: string;
+    /** List of available models */
+    availableModels: ModelMetadata[];
+    /** Function to change the selected model */
+    setModelId: (id: string) => void;
 }
 
 // =============================================================================
@@ -203,18 +203,18 @@ export interface ModelState {
 /**
  * Type of vote a user can give to a message.
  */
-export type VoteType = 'up' | 'down';
+export type VoteType = "up" | "down";
 
 /**
  * Represents a user's vote on a message.
  */
 export interface MessageVote {
-  /** Chat session identifier */
-  chatId: string;
-  /** Message identifier */
-  messageId: string;
-  /** The vote type */
-  vote: VoteType;
+    /** Chat session identifier */
+    chatId: string;
+    /** Message identifier */
+    messageId: string;
+    /** The vote type */
+    vote: VoteType;
 }
 
 // =============================================================================
@@ -225,54 +225,54 @@ export interface MessageVote {
  * Props for the main Chat component.
  */
 export interface ChatProps {
-  /** Unique identifier for the chat session */
-  id: string;
-  /** Optional initial messages to populate the chat */
-  initialMessages?: ChatMessage[];
-  /** Optional pre-selected model identifier */
-  selectedModelId?: string;
-  /** Whether the chat is in read-only mode */
-  isReadonly?: boolean;
+    /** Unique identifier for the chat session */
+    id: string;
+    /** Optional initial messages to populate the chat */
+    initialMessages?: ChatMessage[];
+    /** Optional pre-selected model identifier */
+    selectedModelId?: string;
+    /** Whether the chat is in read-only mode */
+    isReadonly?: boolean;
 }
 
 /**
  * Props for the ChatMessages component.
  */
 export interface ChatMessagesProps {
-  /** Array of votes for messages in the chat */
-  votes?: MessageVote[];
-  /** Whether the chat is in read-only mode */
-  isReadonly?: boolean;
+    /** Array of votes for messages in the chat */
+    votes?: MessageVote[];
+    /** Whether the chat is in read-only mode */
+    isReadonly?: boolean;
 }
 
 /**
  * Props for individual message item components.
  */
 export interface MessageItemProps {
-  /** The message to render */
-  message: ChatMessage;
-  /** Optional vote on this message */
-  vote?: MessageVote;
-  /** Whether the chat is in read-only mode */
-  isReadonly?: boolean;
-  /** Whether this message is currently being streamed */
-  isStreaming?: boolean;
-  /** Callback when user votes on the message */
-  onVote?: (vote: VoteType) => void;
-  /** Callback when user edits the message content */
-  onEdit?: (content: string) => void;
-  /** Callback when user copies the message */
-  onCopy?: () => void;
+    /** The message to render */
+    message: ChatMessage;
+    /** Optional vote on this message */
+    vote?: MessageVote;
+    /** Whether the chat is in read-only mode */
+    isReadonly?: boolean;
+    /** Whether this message is currently being streamed */
+    isStreaming?: boolean;
+    /** Callback when user votes on the message */
+    onVote?: (vote: VoteType) => void;
+    /** Callback when user edits the message content */
+    onEdit?: (content: string) => void;
+    /** Callback when user copies the message */
+    onCopy?: () => void;
 }
 
 /**
  * Props for the chat input component.
  */
 export interface ChatInputProps {
-  /** Whether input is disabled */
-  disabled?: boolean;
-  /** Placeholder text for the input */
-  placeholder?: string;
+    /** Whether input is disabled */
+    disabled?: boolean;
+    /** Placeholder text for the input */
+    placeholder?: string;
 }
 
 // =============================================================================
@@ -283,28 +283,28 @@ export interface ChatInputProps {
  * Parameters for generating a chat title.
  */
 export interface GenerateTitleParams {
-  /** The message to generate a title from */
-  message: string;
+    /** The message to generate a title from */
+    message: string;
 }
 
 /**
  * Parameters for deleting messages after a timestamp.
  */
 export interface DeleteMessagesParams {
-  /** Chat session identifier */
-  chatId: string;
-  /** Delete messages created after this timestamp */
-  afterTimestamp: Date;
+    /** Chat session identifier */
+    chatId: string;
+    /** Delete messages created after this timestamp */
+    afterTimestamp: Date;
 }
 
 /**
  * Parameters for updating chat visibility.
  */
 export interface UpdateVisibilityParams {
-  /** Chat session identifier */
-  chatId: string;
-  /** New visibility setting */
-  visibility: 'public' | 'private';
+    /** Chat session identifier */
+    chatId: string;
+    /** New visibility setting */
+    visibility: "public" | "private";
 }
 
 // =============================================================================
@@ -314,4 +314,4 @@ export interface UpdateVisibilityParams {
 /**
  * Chat visibility options.
  */
-export type VisibilityType = 'public' | 'private';
+export type VisibilityType = "public" | "private";

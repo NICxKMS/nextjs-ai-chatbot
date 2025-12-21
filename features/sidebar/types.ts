@@ -1,27 +1,27 @@
 export interface ChatHistoryItem {
-  id: string;
-  title: string;
-  createdAt: Date;
-  visibility: 'public' | 'private';
-  userId: string;
+    id: string;
+    title: string;
+    createdAt: Date;
+    visibility: "public" | "private";
+    userId: string;
 }
 
 export interface ChatGroup {
-  label: string;
-  chats: ChatHistoryItem[];
+    label: string;
+    chats: ChatHistoryItem[];
 }
 
-export type VisibilityType = 'public' | 'private';
+export type VisibilityType = "public" | "private";
 
 export interface SidebarState {
-  isOpen: boolean;
-  isMobile: boolean;
+    isOpen: boolean;
+    isMobile: boolean;
 }
 
 export interface SidebarContext {
-  state: SidebarState;
-  open: () => void;
-  close: () => void;
-  toggle: () => void;
-  setIsMobile: (isMobile: boolean) => void;
+    state: SidebarState;
+    open: () => void;
+    close: () => void;
+    toggle: () => void;
+    setIsMobile: (isMobile: boolean) => void;
 }

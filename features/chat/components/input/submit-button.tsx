@@ -6,16 +6,16 @@
  * @module features/chat/components/input/submit-button
  */
 
-'use client';
+"use client";
 
-import { ArrowUp } from 'lucide-react';
+import { ArrowUp } from "lucide-react";
 
 /**
  * Props for the SubmitButton component.
  */
 export interface SubmitButtonProps {
-  /** Whether the button is disabled */
-  disabled?: boolean;
+    /** Whether the button is disabled */
+    disabled?: boolean;
 }
 
 /**
@@ -31,15 +31,15 @@ export interface SubmitButtonProps {
  * ```
  */
 export function SubmitButton({ disabled }: SubmitButtonProps) {
-  return (
-    <button
-      type="submit"
-      disabled={disabled}
-      className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground flex items-center justify-center"
-      aria-label="Send message"
-      data-testid="send-button"
-    >
-      <ArrowUp className="size-4" />
-    </button>
-  );
+    return (
+        <button
+            type="submit"
+            disabled={disabled}
+            className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground flex items-center justify-center"
+            aria-label="Send message"
+            data-testid="send-button"
+        >
+            <ArrowUp className="size-4" />
+        </button>
+    );
 }

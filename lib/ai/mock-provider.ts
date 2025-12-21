@@ -10,33 +10,33 @@
  */
 
 import type {
-  LanguageModelV2,
-  LanguageModelV2CallOptions,
-  LanguageModelV2StreamPart,
-} from '@ai-sdk/provider';
+    LanguageModelV2,
+    LanguageModelV2CallOptions,
+    LanguageModelV2StreamPart,
+} from "@ai-sdk/provider";
 
 /**
  * Configuration for the mock provider.
  */
 export interface MockProviderConfig {
-  /** Default response text for non-configured prompts */
-  defaultResponse?: string;
-  /** Map of prompt patterns to responses */
-  responseMap?: Map<RegExp, string>;
-  /** Simulated delay in milliseconds */
-  delay?: number;
-  /** Whether to simulate streaming */
-  simulateStreaming?: boolean;
+    /** Default response text for non-configured prompts */
+    defaultResponse?: string;
+    /** Map of prompt patterns to responses */
+    responseMap?: Map<RegExp, string>;
+    /** Simulated delay in milliseconds */
+    delay?: number;
+    /** Whether to simulate streaming */
+    simulateStreaming?: boolean;
 }
 
 /**
  * Default configuration for the mock provider.
  */
 const DEFAULT_CONFIG: Required<MockProviderConfig> = {
-  defaultResponse: 'This is a mock AI response for testing purposes.',
-  responseMap: new Map(),
-  delay: 100,
-  simulateStreaming: true,
+    defaultResponse: "This is a mock AI response for testing purposes.",
+    responseMap: new Map(),
+    delay: 100,
+    simulateStreaming: true,
 };
 
 /**
@@ -59,14 +59,14 @@ let globalConfig: Required<MockProviderConfig> = { ...DEFAULT_CONFIG };
  * ```
  */
 export function configureMockProvider(config: MockProviderConfig): void {
-  globalConfig = { ...DEFAULT_CONFIG, ...config };
+    globalConfig = { ...DEFAULT_CONFIG, ...config };
 }
 
 /**
  * Reset mock provider to default configuration.
  */
 export function resetMockProvider(): void {
-  globalConfig = { ...DEFAULT_CONFIG };
+    globalConfig = { ...DEFAULT_CONFIG };
 }
 
 /**
@@ -81,55 +81,59 @@ export function resetMockProvider(): void {
  * ```
  */
 export function addMockResponse(pattern: RegExp, response: string): void {
-  globalConfig.responseMap.set(pattern, response);
+    globalConfig.responseMap.set(pattern, response);
 }
 
 /**
  * Clear all response mappings.
  */
 export function clearMockResponses(): void {
-  globalConfig.responseMap.clear();
+    globalConfig.responseMap.clear();
 }
 
 /**
  * Get response text for a given prompt.
  */
 function getResponseForPrompt(prompt: string): string {
-  for (const [pattern, response] of globalConfig.responseMap) {
-    if (pattern.test(prompt)) {
-      return response;
+    for (const [pattern, response] of globalConfig.responseMap) {
+        if (pattern.test(prompt)) {
+            return response;
+        }
     }
-  }
-  return globalConfig.defaultResponse;
+    return globalConfig.defaultResponse;
 }
 
 /**
  * Extract text from messages for pattern matching.
  */
 function extractPromptText(options: LanguageModelV2CallOptions): string {
-  const messages = options.prompt;
-  if (!messages || !Array.isArray(messages)) return '';
+    const messages = options.prompt;
+    if (!messages || !Array.isArray(messages)) return "";
 
-  return messages
-    .map((msg) => {
-      if (Array.isArray(msg.content)) {
-        return msg.content
-          .filter((part): part is { type: 'text'; text: string } =>
-            typeof part === 'object' && part !== null && part.type === 'text' && 'text' in part
-          )
-          .map((part) => (part as { text: string }).text)
-          .join(' ');
-      }
-      return '';
-    })
-    .join(' ');
+    return messages
+        .map((msg) => {
+            if (Array.isArray(msg.content)) {
+                return msg.content
+                    .filter(
+                        (part): part is { type: "text"; text: string } =>
+                            typeof part === "object" &&
+                            part !== null &&
+                            part.type === "text" &&
+                            "text" in part
+                    )
+                    .map((part) => (part as { text: string }).text)
+                    .join(" ");
+            }
+            return "";
+        })
+        .join(" ");
 }
 
 /**
  * Create a delay promise.
  */
 function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -139,91 +143,91 @@ function delay(ms: number): Promise<void> {
  * Returns predefined responses based on configuration.
  */
 export class MockLanguageModel implements LanguageModelV2 {
-  readonly specificationVersion = 'v2' as const;
-  readonly provider = 'mock';
-  readonly modelId: string;
-  readonly defaultObjectGenerationMode = 'json' as const;
-  readonly supportedUrls: Record<string, RegExp[]> = {};
+    readonly specificationVersion = "v2" as const;
+    readonly provider = "mock";
+    readonly modelId: string;
+    readonly defaultObjectGenerationMode = "json" as const;
+    readonly supportedUrls: Record<string, RegExp[]> = {};
 
-  constructor(modelId = 'mock-model') {
-    this.modelId = modelId;
-  }
-
-  async doGenerate(options: LanguageModelV2CallOptions) {
-    const promptText = extractPromptText(options);
-    const responseText = getResponseForPrompt(promptText);
-
-    if (globalConfig.delay > 0) {
-      await delay(globalConfig.delay);
+    constructor(modelId = "mock-model") {
+        this.modelId = modelId;
     }
 
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: responseText,
-        },
-      ],
-      finishReason: 'stop' as const,
-      usage: {
-        inputTokens: promptText.length,
-        outputTokens: responseText.length,
-        totalTokens: promptText.length + responseText.length,
-      },
-      warnings: [] as never[],
-    };
-  }
+    async doGenerate(options: LanguageModelV2CallOptions) {
+        const promptText = extractPromptText(options);
+        const responseText = getResponseForPrompt(promptText);
 
-  async doStream(options: LanguageModelV2CallOptions) {
-    const promptText = extractPromptText(options);
-    const responseText = getResponseForPrompt(promptText);
-    const partId = `part-${Date.now()}`;
-
-    const stream = new ReadableStream<LanguageModelV2StreamPart>({
-      async start(controller) {
-        if (globalConfig.simulateStreaming) {
-          // Simulate streaming by sending text in chunks
-          const chunkSize = 10;
-          for (let i = 0; i < responseText.length; i += chunkSize) {
-            const chunk = responseText.slice(i, i + chunkSize);
-            controller.enqueue({
-              type: 'text-delta',
-              id: partId,
-              delta: chunk,
-            });
-
-            if (globalConfig.delay > 0) {
-              await delay(globalConfig.delay / 10);
-            }
-          }
-        } else {
-          // Send all at once
-          controller.enqueue({
-            type: 'text-delta',
-            id: partId,
-            delta: responseText,
-          });
+        if (globalConfig.delay > 0) {
+            await delay(globalConfig.delay);
         }
 
-        controller.enqueue({
-          type: 'finish',
-          finishReason: 'stop',
-          usage: {
-            inputTokens: promptText.length,
-            outputTokens: responseText.length,
-            totalTokens: promptText.length + responseText.length,
-          },
-          providerMetadata: undefined,
+        return {
+            content: [
+                {
+                    type: "text" as const,
+                    text: responseText,
+                },
+            ],
+            finishReason: "stop" as const,
+            usage: {
+                inputTokens: promptText.length,
+                outputTokens: responseText.length,
+                totalTokens: promptText.length + responseText.length,
+            },
+            warnings: [] as never[],
+        };
+    }
+
+    async doStream(options: LanguageModelV2CallOptions) {
+        const promptText = extractPromptText(options);
+        const responseText = getResponseForPrompt(promptText);
+        const partId = `part-${Date.now()}`;
+
+        const stream = new ReadableStream<LanguageModelV2StreamPart>({
+            async start(controller) {
+                if (globalConfig.simulateStreaming) {
+                    // Simulate streaming by sending text in chunks
+                    const chunkSize = 10;
+                    for (let i = 0; i < responseText.length; i += chunkSize) {
+                        const chunk = responseText.slice(i, i + chunkSize);
+                        controller.enqueue({
+                            type: "text-delta",
+                            id: partId,
+                            delta: chunk,
+                        });
+
+                        if (globalConfig.delay > 0) {
+                            await delay(globalConfig.delay / 10);
+                        }
+                    }
+                } else {
+                    // Send all at once
+                    controller.enqueue({
+                        type: "text-delta",
+                        id: partId,
+                        delta: responseText,
+                    });
+                }
+
+                controller.enqueue({
+                    type: "finish",
+                    finishReason: "stop",
+                    usage: {
+                        inputTokens: promptText.length,
+                        outputTokens: responseText.length,
+                        totalTokens: promptText.length + responseText.length,
+                    },
+                    providerMetadata: undefined,
+                });
+
+                controller.close();
+            },
         });
 
-        controller.close();
-      },
-    });
-
-    return {
-      stream,
-    };
-  }
+        return {
+            stream,
+        };
+    }
 }
 
 /**
@@ -232,7 +236,7 @@ export class MockLanguageModel implements LanguageModelV2 {
  * @returns true if USE_MOCK_AI environment variable is set to 'true'
  */
 export function shouldUseMockAI(): boolean {
-  return process.env.USE_MOCK_AI === 'true';
+    return process.env.USE_MOCK_AI === "true";
 }
 
 /**
@@ -247,8 +251,8 @@ export function shouldUseMockAI(): boolean {
  * const response = await generateText({ model, prompt: 'Hello' });
  * ```
  */
-export function createMockModel(modelId = 'mock-model'): MockLanguageModel {
-  return new MockLanguageModel(modelId);
+export function createMockModel(modelId = "mock-model"): MockLanguageModel {
+    return new MockLanguageModel(modelId);
 }
 
 /**
@@ -270,11 +274,11 @@ export function createMockModel(modelId = 'mock-model'): MockLanguageModel {
  * ```
  */
 export function getModelWithMockFallback<T extends LanguageModelV2>(
-  realModelFactory: () => T,
-  mockModelId?: string
+    realModelFactory: () => T,
+    mockModelId?: string
 ): T | MockLanguageModel {
-  if (shouldUseMockAI()) {
-    return createMockModel(mockModelId);
-  }
-  return realModelFactory();
+    if (shouldUseMockAI()) {
+        return createMockModel(mockModelId);
+    }
+    return realModelFactory();
 }

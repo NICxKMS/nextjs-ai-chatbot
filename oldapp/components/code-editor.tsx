@@ -29,14 +29,16 @@ function loadCodeMirrorModules(): Promise<CodeMirrorModules> {
         import("codemirror"),
         import("@codemirror/lang-python"),
         import("@codemirror/theme-one-dark"),
-    ]).then(([stateModule, viewModule, cmModule, pythonModule, themeModule]) => ({
-        EditorState: stateModule.EditorState,
-        Transaction: stateModule.Transaction,
-        EditorView: viewModule.EditorView,
-        basicSetup: cmModule.basicSetup,
-        python: pythonModule.python,
-        oneDark: themeModule.oneDark,
-    }));
+    ]).then(
+        ([stateModule, viewModule, cmModule, pythonModule, themeModule]) => ({
+            EditorState: stateModule.EditorState,
+            Transaction: stateModule.Transaction,
+            EditorView: viewModule.EditorView,
+            basicSetup: cmModule.basicSetup,
+            python: pythonModule.python,
+            oneDark: themeModule.oneDark,
+        })
+    );
 
     return codeMirrorModulesPromise;
 }
@@ -66,7 +68,8 @@ function PureCodeEditor({ content, onSaveContent, status }: EditorProps) {
             return;
         }
 
-        const { EditorState, EditorView, basicSetup, python, oneDark } = modules;
+        const { EditorState, EditorView, basicSetup, python, oneDark } =
+            modules;
 
         const startState = EditorState.create({
             doc: content,
@@ -94,7 +97,14 @@ function PureCodeEditor({ content, onSaveContent, status }: EditorProps) {
             return;
         }
 
-        const { EditorState, Transaction, EditorView, basicSetup, python, oneDark } = modules;
+        const {
+            EditorState,
+            Transaction,
+            EditorView,
+            basicSetup,
+            python,
+            oneDark,
+        } = modules;
 
         const updateListener = EditorView.updateListener.of((update) => {
             if (update.docChanged) {

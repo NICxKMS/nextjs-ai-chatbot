@@ -7,17 +7,17 @@
  * @module features/chat/components/chat
  */
 
-'use client';
+"use client";
 
-import { ChatProvider } from './chat-provider';
-import { ChatContainer } from './chat-container';
-import { ChatHeader } from './chat-header';
-import { useSidebar } from '@/shared/ui/sidebar';
-import { ChatMessages } from './chat-messages';
-import { ChatInput } from './chat-input';
-import { ChatErrorBoundary } from './chat-error-boundary';
-import { ArtifactWrapper } from './artifact-wrapper';
-import type { ChatProps, MessageVote, ChatMessage } from '../types';
+import { ChatProvider } from "./chat-provider";
+import { ChatContainer } from "./chat-container";
+import { ChatHeader } from "./chat-header";
+import { useSidebar } from "@/shared/ui/sidebar";
+import { ChatMessages } from "./chat-messages";
+import { ChatInput } from "./chat-input";
+import { ChatErrorBoundary } from "./chat-error-boundary";
+import { ArtifactWrapper } from "./artifact-wrapper";
+import type { ChatProps, MessageVote, ChatMessage } from "../types";
 
 // =============================================================================
 // TYPES
@@ -28,12 +28,12 @@ import type { ChatProps, MessageVote, ChatMessage } from '../types';
  * Extends base ChatProps with additional composition-level props.
  */
 export interface FullChatProps extends ChatProps {
-  /** Message votes for displaying upvote/downvote state */
-  votes?: MessageVote[];
-  /** Callback when user initiates a new chat */
-  onNewChat?: () => void;
-  /** Visibility type for the chat */
-  selectedVisibilityType?: 'private' | 'public';
+    /** Message votes for displaying upvote/downvote state */
+    votes?: MessageVote[];
+    /** Callback when user initiates a new chat */
+    onNewChat?: () => void;
+    /** Visibility type for the chat */
+    selectedVisibilityType?: "private" | "public";
 }
 
 // =============================================================================
@@ -64,49 +64,49 @@ export interface FullChatProps extends ChatProps {
  * ```
  */
 export function Chat({
-  id,
-  initialMessages = [],
-  selectedModelId,
-  isReadonly = false,
-  votes = [],
-  onNewChat,
-  selectedVisibilityType = 'private',
+    id,
+    initialMessages = [],
+    selectedModelId,
+    isReadonly = false,
+    votes = [],
+    onNewChat,
+    selectedVisibilityType = "private",
 }: FullChatProps) {
-  // Convert votes to the format expected by components
-  const formattedVotes = votes.map((v) => ({
-    messageId: v.messageId,
-    vote: v.vote,
-  }));
+    // Convert votes to the format expected by components
+    const formattedVotes = votes.map((v) => ({
+        messageId: v.messageId,
+        vote: v.vote,
+    }));
 
-  const { toggleSidebar } = useSidebar();
+    const { toggleSidebar } = useSidebar();
 
-  return (
-    <ChatErrorBoundary>
-      <ChatProvider
-        chatId={id}
-        initialMessages={initialMessages}
-        selectedModelId={selectedModelId}
-        isReadonly={isReadonly}
-      >
-        <ChatContainer>
-          <ChatHeader 
-            onNewChat={onNewChat} 
-            selectedVisibilityType={selectedVisibilityType}
-            onToggleSidebar={toggleSidebar}
-          />
-          <ChatMessages votes={votes} isReadonly={isReadonly} />
-          <div className="sticky bottom-0 z-10 mx-auto flex w-full max-w-4xl gap-2 bg-background px-2 pb-3 md:px-4 md:pb-4">
-            <ChatInput />
-          </div>
-        </ChatContainer>
+    return (
+        <ChatErrorBoundary>
+            <ChatProvider
+                chatId={id}
+                initialMessages={initialMessages}
+                selectedModelId={selectedModelId}
+                isReadonly={isReadonly}
+            >
+                <ChatContainer>
+                    <ChatHeader
+                        onNewChat={onNewChat}
+                        selectedVisibilityType={selectedVisibilityType}
+                        onToggleSidebar={toggleSidebar}
+                    />
+                    <ChatMessages votes={votes} isReadonly={isReadonly} />
+                    <div className="sticky bottom-0 z-10 mx-auto flex w-full max-w-4xl gap-2 bg-background px-2 pb-3 md:px-4 md:pb-4">
+                        <ChatInput />
+                    </div>
+                </ChatContainer>
 
-        {/* Artifact panel - renders alongside chat when visible */}
-        <ArtifactWrapper
-          votes={formattedVotes}
-          isReadonly={isReadonly}
-          selectedVisibilityType={selectedVisibilityType}
-        />
-      </ChatProvider>
-    </ChatErrorBoundary>
-  );
+                {/* Artifact panel - renders alongside chat when visible */}
+                <ArtifactWrapper
+                    votes={formattedVotes}
+                    isReadonly={isReadonly}
+                    selectedVisibilityType={selectedVisibilityType}
+                />
+            </ChatProvider>
+        </ChatErrorBoundary>
+    );
 }

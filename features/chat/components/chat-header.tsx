@@ -7,28 +7,28 @@
  * @module features/chat/components/chat-header
  */
 
-'use client';
+"use client";
 
-import { memo } from 'react';
-import { SettingsIconButton } from '@/features/settings';
-import { useChatMetadata } from '../hooks';
-import type { VisibilityType } from '../types';
-import { NewChatButton } from './new-chat-button';
-import { SidebarToggle } from './sidebar-toggle';
-import { VisibilitySelector } from './visibility-selector';
+import { memo } from "react";
+import { SettingsIconButton } from "@/features/settings";
+import { useChatMetadata } from "../hooks";
+import type { VisibilityType } from "../types";
+import { NewChatButton } from "./new-chat-button";
+import { SidebarToggle } from "./sidebar-toggle";
+import { VisibilitySelector } from "./visibility-selector";
 
 /**
  * Props for the ChatHeader component.
  */
 export interface ChatHeaderProps {
-  /** Callback when new chat button is clicked */
-  onNewChat?: () => void;
-  /** Callback when sidebar toggle is clicked */
-  onToggleSidebar?: () => void;
-  /** Optional additional CSS classes */
-  className?: string;
-  /** Selected visibility type for the chat */
-  selectedVisibilityType?: VisibilityType;
+    /** Callback when new chat button is clicked */
+    onNewChat?: () => void;
+    /** Callback when sidebar toggle is clicked */
+    onToggleSidebar?: () => void;
+    /** Optional additional CSS classes */
+    className?: string;
+    /** Selected visibility type for the chat */
+    selectedVisibilityType?: VisibilityType;
 }
 
 /**
@@ -36,59 +36,59 @@ export interface ChatHeaderProps {
  * Separated for memoization optimization.
  */
 function PureChatHeader({
-  onNewChat,
-  onToggleSidebar,
-  className = '',
-  isReadonly,
-  chatId,
-  selectedVisibilityType,
+    onNewChat,
+    onToggleSidebar,
+    className = "",
+    isReadonly,
+    chatId,
+    selectedVisibilityType,
 }: ChatHeaderProps & {
-  isReadonly: boolean;
-  chatId: string;
+    isReadonly: boolean;
+    chatId: string;
 }) {
-  // Only show visibility selector for existing chats (non-empty chatId that isn't a new chat placeholder)
-  const isExistingChat = chatId && chatId !== 'new';
+    // Only show visibility selector for existing chats (non-empty chatId that isn't a new chat placeholder)
+    const isExistingChat = chatId && chatId !== "new";
 
-  return (
-    <header
-      className={`sticky top-0 z-10 flex items-center justify-between gap-2 bg-background px-2 py-1.5 md:px-2 ${className}`.trim()}
-      role="banner"
-    >
-      {/* Sidebar toggle - left */}
-      <SidebarToggle onClick={onToggleSidebar} />
+    return (
+        <header
+            className={`sticky top-0 z-10 flex items-center justify-between gap-2 bg-background px-2 py-1.5 md:px-2 ${className}`.trim()}
+            role="banner"
+        >
+            {/* Sidebar toggle - left */}
+            <SidebarToggle onClick={onToggleSidebar} />
 
-      {/* Actions - right */}
-      <div className="flex items-center gap-1">
-        {/* Visibility selector - only for existing chats */}
-        {isExistingChat && !isReadonly && selectedVisibilityType && (
-          <VisibilitySelector
-            chatId={chatId}
-            selectedVisibilityType={selectedVisibilityType}
-          />
-        )}
-        {!isReadonly && (
-          <>
-            <SettingsIconButton />
-            <NewChatButton onClick={onNewChat} />
-          </>
-        )}
-      </div>
-    </header>
-  );
+            {/* Actions - right */}
+            <div className="flex items-center gap-1">
+                {/* Visibility selector - only for existing chats */}
+                {isExistingChat && !isReadonly && selectedVisibilityType && (
+                    <VisibilitySelector
+                        chatId={chatId}
+                        selectedVisibilityType={selectedVisibilityType}
+                    />
+                )}
+                {!isReadonly && (
+                    <>
+                        <SettingsIconButton />
+                        <NewChatButton onClick={onNewChat} />
+                    </>
+                )}
+            </div>
+        </header>
+    );
 }
 
 /**
  * Memoized pure header to prevent unnecessary re-renders.
  */
 const MemoizedPureChatHeader = memo(PureChatHeader, (prevProps, nextProps) => {
-  return (
-    prevProps.isReadonly === nextProps.isReadonly &&
-    prevProps.onNewChat === nextProps.onNewChat &&
-    prevProps.onToggleSidebar === nextProps.onToggleSidebar &&
-    prevProps.className === nextProps.className &&
-    prevProps.chatId === nextProps.chatId &&
-    prevProps.selectedVisibilityType === nextProps.selectedVisibilityType
-  );
+    return (
+        prevProps.isReadonly === nextProps.isReadonly &&
+        prevProps.onNewChat === nextProps.onNewChat &&
+        prevProps.onToggleSidebar === nextProps.onToggleSidebar &&
+        prevProps.className === nextProps.className &&
+        prevProps.chatId === nextProps.chatId &&
+        prevProps.selectedVisibilityType === nextProps.selectedVisibilityType
+    );
 });
 
 /**
@@ -113,21 +113,21 @@ const MemoizedPureChatHeader = memo(PureChatHeader, (prevProps, nextProps) => {
  * ```
  */
 export function ChatHeader({
-  onNewChat,
-  onToggleSidebar,
-  className,
-  selectedVisibilityType,
+    onNewChat,
+    onToggleSidebar,
+    className,
+    selectedVisibilityType,
 }: ChatHeaderProps) {
-  const { isReadonly, chatId } = useChatMetadata();
+    const { isReadonly, chatId } = useChatMetadata();
 
-  return (
-    <MemoizedPureChatHeader
-      onNewChat={onNewChat}
-      onToggleSidebar={onToggleSidebar}
-      className={className}
-      isReadonly={isReadonly}
-      chatId={chatId}
-      selectedVisibilityType={selectedVisibilityType}
-    />
-  );
+    return (
+        <MemoizedPureChatHeader
+            onNewChat={onNewChat}
+            onToggleSidebar={onToggleSidebar}
+            className={className}
+            isReadonly={isReadonly}
+            chatId={chatId}
+            selectedVisibilityType={selectedVisibilityType}
+        />
+    );
 }

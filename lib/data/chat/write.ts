@@ -2,14 +2,14 @@
  * Chat Write Operations
  * Ref: 03-data-layer-optimal-design.md §9.2
  */
-import 'server-only';
+import "server-only";
 
-import { eq, and } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
-import { getDb, schema, withTransaction } from '@/lib/db';
-import type { Chat, NewChat, Visibility } from '@/lib/db';
-import type { DataContext } from '../types';
-import { requireNonGuest } from '../base';
+import { eq, and } from "drizzle-orm";
+import { nanoid } from "nanoid";
+import { getDb, schema, withTransaction } from "@/lib/db";
+import type { Chat, NewChat, Visibility } from "@/lib/db";
+import type { DataContext } from "../types";
+import { requireNonGuest } from "../base";
 
 const { chat, message, vote } = schema;
 
@@ -17,29 +17,29 @@ const { chat, message, vote } = schema;
  * Create a new chat
  */
 export async function createChat(
-  data: {
-    title: string;
-    visibility?: Visibility;
-  },
-  ctx: DataContext
+    data: {
+        title: string;
+        visibility?: Visibility;
+    },
+    ctx: DataContext
 ): Promise<Chat> {
-  requireNonGuest(ctx);
+    requireNonGuest(ctx);
 
-  const db = getDb();
-  const newChat: NewChat = {
-    id: nanoid(),
-    userId: ctx.userId,
-    title: data.title,
-    visibility: data.visibility ?? 'private',
-  };
+    const db = getDb();
+    const newChat: NewChat = {
+        id: nanoid(),
+        userId: ctx.userId,
+        title: data.title,
+        visibility: data.visibility ?? "private",
+    };
 
-  const [result] = await db.insert(chat).values(newChat).returning();
+    const [result] = await db.insert(chat).values(newChat).returning();
 
-  if (!result) {
-    throw new Error('Failed to create chat');
-  }
+    if (!result) {
+        throw new Error("Failed to create chat");
+    }
 
-  return result;
+    return result;
 }
 
 /**
@@ -47,63 +47,63 @@ export async function createChat(
  * Uses transaction to ensure atomicity
  */
 export async function deleteChat(
-  chatId: string,
-  ctx: DataContext
+    chatId: string,
+    ctx: DataContext
 ): Promise<boolean> {
-  requireNonGuest(ctx);
+    requireNonGuest(ctx);
 
-  return withTransaction(async (tx) => {
-    // Verify ownership first
-    const [existingChat] = await tx
-      .select({ id: chat.id })
-      .from(chat)
-      .where(and(eq(chat.id, chatId), eq(chat.userId, ctx.userId)));
+    return withTransaction(async (tx) => {
+        // Verify ownership first
+        const [existingChat] = await tx
+            .select({ id: chat.id })
+            .from(chat)
+            .where(and(eq(chat.id, chatId), eq(chat.userId, ctx.userId)));
 
-    if (!existingChat) {
-      return false;
-    }
+        if (!existingChat) {
+            return false;
+        }
 
-    // Delete related entities
-    await Promise.all([
-      tx.delete(vote).where(eq(vote.chatId, chatId)),
-      tx.delete(message).where(eq(message.chatId, chatId)),
-    ]);
+        // Delete related entities
+        await Promise.all([
+            tx.delete(vote).where(eq(vote.chatId, chatId)),
+            tx.delete(message).where(eq(message.chatId, chatId)),
+        ]);
 
-    // Delete chat
-    await tx.delete(chat).where(eq(chat.id, chatId));
+        // Delete chat
+        await tx.delete(chat).where(eq(chat.id, chatId));
 
-    return true;
-  }, 'deleteChat');
+        return true;
+    }, "deleteChat");
 }
 
 /**
  * Delete all chats for a user
  */
 export async function deleteAllChats(ctx: DataContext): Promise<number> {
-  requireNonGuest(ctx);
+    requireNonGuest(ctx);
 
-  return withTransaction(async (tx) => {
-    // Get all chat IDs for user
-    const userChats = await tx
-      .select({ id: chat.id })
-      .from(chat)
-      .where(eq(chat.userId, ctx.userId));
+    return withTransaction(async (tx) => {
+        // Get all chat IDs for user
+        const userChats = await tx
+            .select({ id: chat.id })
+            .from(chat)
+            .where(eq(chat.userId, ctx.userId));
 
-    if (userChats.length === 0) {
-      return 0;
-    }
+        if (userChats.length === 0) {
+            return 0;
+        }
 
-    const chatIds = userChats.map((c) => c.id);
+        const chatIds = userChats.map((c) => c.id);
 
-    // Delete all related data
-    for (const chatId of chatIds) {
-      await tx.delete(vote).where(eq(vote.chatId, chatId));
-      await tx.delete(message).where(eq(message.chatId, chatId));
-    }
+        // Delete all related data
+        for (const chatId of chatIds) {
+            await tx.delete(vote).where(eq(vote.chatId, chatId));
+            await tx.delete(message).where(eq(message.chatId, chatId));
+        }
 
-    // Delete all chats
-    await tx.delete(chat).where(eq(chat.userId, ctx.userId));
+        // Delete all chats
+        await tx.delete(chat).where(eq(chat.userId, ctx.userId));
 
-    return chatIds.length;
-  }, 'deleteAllChats');
+        return chatIds.length;
+    }, "deleteAllChats");
 }

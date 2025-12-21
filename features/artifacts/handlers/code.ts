@@ -4,13 +4,13 @@
  *
  * Handles streaming code document generation and updates.
  */
-import 'server-only';
+import "server-only";
 
-import { streamObject, type LanguageModel } from 'ai';
-import { z } from 'zod';
+import { streamObject, type LanguageModel } from "ai";
+import { z } from "zod";
 
-import { getOpenAI } from '@/lib/ai/providers';
-import { createDocumentHandler } from './base';
+import { getOpenAI } from "@/lib/ai/providers";
+import { createDocumentHandler } from "./base";
 
 const CODE_SYSTEM_PROMPT = `
 Generate self-contained, executable Python code.
@@ -28,7 +28,7 @@ Generate self-contained, executable Python code.
  * Create update prompt for code documents
  */
 function createUpdatePrompt(currentContent: string | null): string {
-  return `Update the code snippet below based on the user's request.
+    return `Update the code snippet below based on the user's request.
     
 ${currentContent}`;
 }
@@ -37,68 +37,68 @@ ${currentContent}`;
  * Code response schema for structured output
  */
 const codeSchema = z.object({
-  code: z.string(),
+    code: z.string(),
 });
 
 /**
  * Code document handler for streaming code generation
  */
-export const codeDocumentHandler = createDocumentHandler<'code'>({
-  kind: 'code',
+export const codeDocumentHandler = createDocumentHandler<"code">({
+    kind: "code",
 
-  onCreateDocument: async ({ title, dataStream }) => {
-    let draftContent = '';
+    onCreateDocument: async ({ title, dataStream }) => {
+        let draftContent = "";
 
-    const { fullStream } = streamObject({
-      model: getOpenAI()('gpt-4o-mini') as unknown as LanguageModel,
-      system: CODE_SYSTEM_PROMPT,
-      prompt: title,
-      schema: codeSchema,
-    });
+        const { fullStream } = streamObject({
+            model: getOpenAI()("gpt-4o-mini") as unknown as LanguageModel,
+            system: CODE_SYSTEM_PROMPT,
+            prompt: title,
+            schema: codeSchema,
+        });
 
-    for await (const delta of fullStream) {
-      if (delta.type === 'object') {
-        const { object } = delta;
-        const { code } = object;
+        for await (const delta of fullStream) {
+            if (delta.type === "object") {
+                const { object } = delta;
+                const { code } = object;
 
-        if (code) {
-          dataStream.write({
-            type: 'data-codeDelta',
-            data: code,
-          });
-          draftContent = code;
+                if (code) {
+                    dataStream.write({
+                        type: "data-codeDelta",
+                        data: code,
+                    });
+                    draftContent = code;
+                }
+            }
         }
-      }
-    }
 
-    return draftContent;
-  },
+        return draftContent;
+    },
 
-  onUpdateDocument: async ({ document, description, dataStream }) => {
-    let draftContent = '';
+    onUpdateDocument: async ({ document, description, dataStream }) => {
+        let draftContent = "";
 
-    const { fullStream } = streamObject({
-      model: getOpenAI()('gpt-4o-mini') as unknown as LanguageModel,
-      system: createUpdatePrompt(document.content),
-      prompt: description,
-      schema: codeSchema,
-    });
+        const { fullStream } = streamObject({
+            model: getOpenAI()("gpt-4o-mini") as unknown as LanguageModel,
+            system: createUpdatePrompt(document.content),
+            prompt: description,
+            schema: codeSchema,
+        });
 
-    for await (const delta of fullStream) {
-      if (delta.type === 'object') {
-        const { object } = delta;
-        const { code } = object;
+        for await (const delta of fullStream) {
+            if (delta.type === "object") {
+                const { object } = delta;
+                const { code } = object;
 
-        if (code) {
-          dataStream.write({
-            type: 'data-codeDelta',
-            data: code,
-          });
-          draftContent = code;
+                if (code) {
+                    dataStream.write({
+                        type: "data-codeDelta",
+                        data: code,
+                    });
+                    draftContent = code;
+                }
+            }
         }
-      }
-    }
 
-    return draftContent;
-  },
+        return draftContent;
+    },
 });

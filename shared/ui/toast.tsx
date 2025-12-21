@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { toast as sonnerToast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { toast as sonnerToast } from "sonner";
+import { cn } from "@/lib/utils";
 
 // ============================================================================
 // Icons for Toast
@@ -10,53 +10,53 @@ import { cn } from '@/lib/utils';
 // ============================================================================
 
 const CheckCircleFillIcon = ({ size = 16 }: { size?: number }) => {
-  return (
-    <svg
-      height={size}
-      strokeLinejoin="round"
-      style={{ color: 'currentcolor' }}
-      viewBox="0 0 16 16"
-      width={size}
-    >
-      <path
-        clipRule="evenodd"
-        d="M16 8C16 12.4183 12.4183 16 8 16C3.58172 16 0 12.4183 0 8C0 3.58172 3.58172 0 8 0C12.4183 0 16 3.58172 16 8ZM11.5303 6.53033L12.0607 6L11 4.93934L10.4697 5.46967L6.5 9.43934L5.53033 8.46967L5 7.93934L3.93934 9L4.46967 9.53033L5.96967 11.0303C6.26256 11.3232 6.73744 11.3232 7.03033 11.0303L11.5303 6.53033Z"
-        fill="currentColor"
-        fillRule="evenodd"
-      />
-    </svg>
-  );
+    return (
+        <svg
+            height={size}
+            strokeLinejoin="round"
+            style={{ color: "currentcolor" }}
+            viewBox="0 0 16 16"
+            width={size}
+        >
+            <path
+                clipRule="evenodd"
+                d="M16 8C16 12.4183 12.4183 16 8 16C3.58172 16 0 12.4183 0 8C0 3.58172 3.58172 0 8 0C12.4183 0 16 3.58172 16 8ZM11.5303 6.53033L12.0607 6L11 4.93934L10.4697 5.46967L6.5 9.43934L5.53033 8.46967L5 7.93934L3.93934 9L4.46967 9.53033L5.96967 11.0303C6.26256 11.3232 6.73744 11.3232 7.03033 11.0303L11.5303 6.53033Z"
+                fill="currentColor"
+                fillRule="evenodd"
+            />
+        </svg>
+    );
 };
 
 const WarningIcon = ({ size = 16 }: { size?: number }) => {
-  return (
-    <svg
-      height={size}
-      strokeLinejoin="round"
-      style={{ color: 'currentcolor' }}
-      viewBox="0 0 16 16"
-      width={size}
-    >
-      <path
-        clipRule="evenodd"
-        d="M8.55846 0.5C9.13413 0.5 9.65902 0.829456 9.90929 1.34788L15.8073 13.5653C16.1279 14.2293 15.6441 15 14.9068 15H1.09316C0.355835 15 -0.127943 14.2293 0.192608 13.5653L6.09065 1.34787C6.34092 0.829454 6.86581 0.5 7.44148 0.5H8.55846ZM8.74997 4.75V5.5V8V8.75H7.24997V8V5.5V4.75H8.74997ZM7.99997 12C8.55226 12 8.99997 11.5523 8.99997 11C8.99997 10.4477 8.55226 10 7.99997 10C7.44769 10 6.99997 10.4477 6.99997 11C6.99997 11.5523 7.44769 12 7.99997 12Z"
-        fill="currentColor"
-        fillRule="evenodd"
-      />
-    </svg>
-  );
+    return (
+        <svg
+            height={size}
+            strokeLinejoin="round"
+            style={{ color: "currentcolor" }}
+            viewBox="0 0 16 16"
+            width={size}
+        >
+            <path
+                clipRule="evenodd"
+                d="M8.55846 0.5C9.13413 0.5 9.65902 0.829456 9.90929 1.34788L15.8073 13.5653C16.1279 14.2293 15.6441 15 14.9068 15H1.09316C0.355835 15 -0.127943 14.2293 0.192608 13.5653L6.09065 1.34787C6.34092 0.829454 6.86581 0.5 7.44148 0.5H8.55846ZM8.74997 4.75V5.5V8V8.75H7.24997V8V5.5V4.75H8.74997ZM7.99997 12C8.55226 12 8.99997 11.5523 8.99997 11C8.99997 10.4477 8.55226 10 7.99997 10C7.44769 10 6.99997 10.4477 6.99997 11C6.99997 11.5523 7.44769 12 7.99997 12Z"
+                fill="currentColor"
+                fillRule="evenodd"
+            />
+        </svg>
+    );
 };
 
 // ============================================================================
 // Toast Types
 // ============================================================================
 
-type ToastType = 'success' | 'error';
+type ToastType = "success" | "error";
 
 type ToastProps = {
-  id: string | number;
-  type: ToastType;
-  description: string;
+    id: string | number;
+    type: ToastType;
+    description: string;
 };
 
 // ============================================================================
@@ -64,8 +64,8 @@ type ToastProps = {
 // ============================================================================
 
 const iconsByType: Record<ToastType, ReactNode> = {
-  success: <CheckCircleFillIcon />,
-  error: <WarningIcon />,
+    success: <CheckCircleFillIcon />,
+    error: <WarningIcon />,
 };
 
 // ============================================================================
@@ -73,10 +73,10 @@ const iconsByType: Record<ToastType, ReactNode> = {
 // Ref: oldapp/components/toast.tsx
 // ============================================================================
 
-export function toast(props: Omit<ToastProps, 'id'>) {
-  return sonnerToast.custom((id) => (
-    <Toast description={props.description} id={id} type={props.type} />
-  ));
+export function toast(props: Omit<ToastProps, "id">) {
+    return sonnerToast.custom((id) => (
+        <Toast description={props.description} id={id} type={props.type} />
+    ));
 }
 
 // ============================================================================
@@ -84,58 +84,60 @@ export function toast(props: Omit<ToastProps, 'id'>) {
 // ============================================================================
 
 function Toast(props: ToastProps) {
-  const { id, type, description } = props;
+    const { id, type, description } = props;
 
-  const descriptionRef = useRef<HTMLDivElement>(null);
-  const [multiLine, setMultiLine] = useState(false);
+    const descriptionRef = useRef<HTMLDivElement>(null);
+    const [multiLine, setMultiLine] = useState(false);
 
-  useEffect(() => {
-    const el = descriptionRef.current;
-    if (!el) {
-      return;
-    }
+    useEffect(() => {
+        const el = descriptionRef.current;
+        if (!el) {
+            return;
+        }
 
-    // Cache lineHeight to avoid repeated getComputedStyle calls
-    let cachedLineHeight: number | null = null;
+        // Cache lineHeight to avoid repeated getComputedStyle calls
+        let cachedLineHeight: number | null = null;
 
-    const update = () => {
-      if (cachedLineHeight === null) {
-        cachedLineHeight = Number.parseFloat(getComputedStyle(el).lineHeight);
-      }
-      const lines = Math.round(el.scrollHeight / cachedLineHeight);
-      setMultiLine(lines > 1);
-    };
+        const update = () => {
+            if (cachedLineHeight === null) {
+                cachedLineHeight = Number.parseFloat(
+                    getComputedStyle(el).lineHeight
+                );
+            }
+            const lines = Math.round(el.scrollHeight / cachedLineHeight);
+            setMultiLine(lines > 1);
+        };
 
-    update(); // initial check
-    const ro = new ResizeObserver(update); // re-check on width changes
-    ro.observe(el);
+        update(); // initial check
+        const ro = new ResizeObserver(update); // re-check on width changes
+        ro.observe(el);
 
-    return () => ro.disconnect();
-  }, []);
+        return () => ro.disconnect();
+    }, []);
 
-  return (
-    <div className="flex toast-mobile:w-[356px] w-full justify-center">
-      <div
-        className={cn(
-          'flex toast-mobile:w-fit w-full flex-row gap-3 rounded-lg bg-zinc-100 p-3',
-          multiLine ? 'items-start' : 'items-center'
-        )}
-        data-testid="toast"
-        key={id}
-      >
-        <div
-          className={cn(
-            'data-[type=error]:text-red-600 data-[type=success]:text-green-600',
-            { 'pt-1': multiLine }
-          )}
-          data-type={type}
-        >
-          {iconsByType[type]}
+    return (
+        <div className="flex toast-mobile:w-[356px] w-full justify-center">
+            <div
+                className={cn(
+                    "flex toast-mobile:w-fit w-full flex-row gap-3 rounded-lg bg-zinc-100 p-3",
+                    multiLine ? "items-start" : "items-center"
+                )}
+                data-testid="toast"
+                key={id}
+            >
+                <div
+                    className={cn(
+                        "data-[type=error]:text-red-600 data-[type=success]:text-green-600",
+                        { "pt-1": multiLine }
+                    )}
+                    data-type={type}
+                >
+                    {iconsByType[type]}
+                </div>
+                <div className="text-sm text-zinc-950" ref={descriptionRef}>
+                    {description}
+                </div>
+            </div>
         </div>
-        <div className="text-sm text-zinc-950" ref={descriptionRef}>
-          {description}
-        </div>
-      </div>
-    </div>
-  );
+    );
 }

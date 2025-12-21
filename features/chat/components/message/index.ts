@@ -7,18 +7,18 @@
  */
 
 // Main message component
-export { MessageItem } from './message-item';
-export type { MessageItemProps } from '../../types';
+export { MessageItem } from "./message-item";
+export type { MessageItemProps } from "../../types";
 
 // Sub-components
-export { MessageAvatar } from './message-avatar';
-export type { MessageAvatarProps } from './message-avatar';
+export { MessageAvatar } from "./message-avatar";
+export type { MessageAvatarProps } from "./message-avatar";
 
-export { MessageContent } from './message-content';
-export type { MessageContentProps } from './message-content';
+export { MessageContent } from "./message-content";
+export type { MessageContentProps } from "./message-content";
 
-export { MessagePart } from './message-part';
-export type { MessagePartProps } from './message-part';
+export { MessagePart } from "./message-part";
+export type { MessagePartProps } from "./message-part";
 
-export { MessageActions } from './message-actions';
-export type { MessageActionsProps } from './message-actions';
+export { MessageActions } from "./message-actions";
+export type { MessageActionsProps } from "./message-actions";
