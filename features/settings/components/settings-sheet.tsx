@@ -11,10 +11,10 @@
 
 import { Settings2Icon } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { Button } from "@/shared/components/button";
 import { Textarea } from "@/shared/components/textarea";
-import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import {
     Sheet,

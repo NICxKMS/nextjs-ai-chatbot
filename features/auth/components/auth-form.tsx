@@ -5,6 +5,7 @@ import Link from "next/link";
 import { type ComponentProps, forwardRef } from "react";
 import { useFormStatus } from "react-dom";
 
+import { Loader } from "@/components/ai-elements/loader";
 import { cn } from "@/lib/utils";
 import type { AuthFormProps } from "../types";
 
@@ -65,28 +66,6 @@ const Button = forwardRef<HTMLButtonElement, ComponentProps<"button">>(
 Button.displayName = "Button";
 
 // ============================================================================
-// Loader Icon
-// Ref: oldapp/components/icons.tsx
-// ============================================================================
-
-function LoaderIcon() {
-    return (
-        <svg
-            className="size-4"
-            fill="none"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-        >
-            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-        </svg>
-    );
-}
-
-// ============================================================================
 // Submit Button
 // Ref: oldapp/components/submit-button.tsx
 // ============================================================================
@@ -112,8 +91,8 @@ function SubmitButton({
             {children}
 
             {isDisabled && (
-                <span className="absolute right-4 animate-spin">
-                    <LoaderIcon />
+                <span className="absolute right-4">
+                    <Loader size={16} />
                 </span>
             )}
 

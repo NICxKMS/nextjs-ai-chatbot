@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { GroupedVirtuoso } from "react-virtuoso";
+import { SkeletonShimmer } from "@/shared/components/ai";
 import { useOptimisticChats } from "../hooks";
 import type { ChatHistoryItem } from "../types";
 import { groupChatsByDate } from "../utils";
@@ -83,13 +84,18 @@ export function SidebarHistory({
     );
 }
 
+/**
+ * Sidebar history loading skeleton using SkeletonShimmer wrapper.
+ */
 function SidebarHistorySkeleton() {
     return (
         <div className="space-y-2 p-2">
             {[1, 2, 3, 4, 5].map((i) => (
-                <div
-                    className="h-8 animate-pulse rounded-lg bg-muted"
+                <SkeletonShimmer
+                    height={32}
                     key={i}
+                    shape="rectangle"
+                    width="100%"
                 />
             ))}
         </div>

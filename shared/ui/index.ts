@@ -1,8 +1,43 @@
 /**
  * Shared UI Components - Public API
  * @module shared/ui
+ *
+ * Note: Several components are re-exported from @/components/ui to avoid duplication.
+ * The following are re-exported: Badge, Card, Collapsible, Input, Progress, ScrollArea, Select, Separator
  */
 
+// Re-exported from components/ui
+export { Badge, type BadgeProps, badgeVariants } from "@/components/ui/badge";
+export {
+    Card,
+    CardAction,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card";
+export {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+export { Input } from "@/components/ui/input";
+export { Progress } from "@/components/ui/progress";
+export { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+export {
+    Select,
+    SelectContent,
+    SelectGroup,
+    SelectItem,
+    SelectLabel,
+    SelectScrollDownButton,
+    SelectScrollUpButton,
+    SelectSeparator,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+export { Separator } from "@/components/ui/separator";
 export {
     AlertDialog,
     AlertDialogAction,
@@ -17,37 +52,7 @@ export {
     AlertDialogTrigger,
 } from "./alert-dialog";
 export { Avatar, AvatarFallback, AvatarImage } from "./avatar";
-export { Badge, type BadgeProps, badgeVariants } from "./badge";
-export {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from "./card";
-export {
-    Collapsible,
-    CollapsibleContent,
-    CollapsibleTrigger,
-} from "./collapsible";
-export { Input, type InputProps } from "./input";
 export { Label } from "./label";
-export { Progress } from "./progress";
-export { ScrollArea, ScrollBar } from "./scroll-area";
-export {
-    Select,
-    SelectContent,
-    SelectGroup,
-    SelectItem,
-    SelectLabel,
-    SelectScrollDownButton,
-    SelectScrollUpButton,
-    SelectSeparator,
-    SelectTrigger,
-    SelectValue,
-} from "./select";
-export { Separator } from "./separator";
 export {
     Sheet,
     SheetClose,

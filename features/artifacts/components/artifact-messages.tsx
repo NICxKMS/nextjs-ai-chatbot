@@ -2,13 +2,12 @@
 
 import type { UseChatHelpers } from "@ai-sdk/react";
 import equal from "fast-deep-equal";
-import { AnimatePresence, m as motion } from "framer-motion";
 import { memo, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "@/lib/motion";
 import type { UIArtifact } from "../types";
 
 type ArtifactMessagesProps = {
     chatId: string;
-    // biome-ignore lint/suspicious/noExplicitAny: UseChatHelpers generic type is complex
     status: UseChatHelpers<any>["status"];
     votes: Array<{ messageId: string; vote: "up" | "down" }> | undefined;
     messages: Array<{
@@ -17,9 +16,7 @@ type ArtifactMessagesProps = {
         content: string;
         parts?: Array<{ type: string; text?: string }>;
     }>;
-    // biome-ignore lint/suspicious/noExplicitAny: UseChatHelpers generic type is complex
     setMessages: UseChatHelpers<any>["setMessages"];
-    // biome-ignore lint/suspicious/noExplicitAny: UseChatHelpers generic type is complex
     regenerate: UseChatHelpers<any>["regenerate"];
     isReadonly: boolean;
     artifactStatus: UIArtifact["status"];

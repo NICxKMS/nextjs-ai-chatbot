@@ -22,6 +22,11 @@ import {
     DocumentToolResult,
 } from "@/features/documents";
 import { cn } from "@/lib/utils";
+import {
+    detectSourceType,
+    Source,
+    type SourceType,
+} from "@/shared/components/ai";
 import type {
     MessagePart as MessagePartType,
     SourcePart,
@@ -161,24 +166,6 @@ function ChevronDownIcon({ className }: { className?: string }) {
             xmlns="http://www.w3.org/2000/svg"
         >
             <polyline points="6 9 12 15 18 9" />
-        </svg>
-    );
-}
-
-function LinkIcon({ className }: { className?: string }) {
-    return (
-        <svg
-            className={className}
-            fill="none"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-        >
-            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
         </svg>
     );
 }
@@ -452,7 +439,8 @@ function ReasoningPartView({
 }
 
 /**
- * Renders a source citation reference.
+ * Renders a source citation reference using the enhanced Source wrapper.
+ * Provides type-based styling with automatic icon selection.
  */
 function SourcePartView({
     source,
@@ -461,27 +449,19 @@ function SourcePartView({
     source: SourcePart["source"];
     className?: string;
 }) {
+    // Determine source type from URL or sourceType field
+    const sourceType: SourceType =
+        source.sourceType === "url"
+            ? detectSourceType(source.url ?? "")
+            : "file";
+
     return (
-        <div
-            className={cn(
-                "inline-flex items-center gap-1 text-muted-foreground text-xs",
-                className
-            )}
-        >
-            <LinkIcon className="h-3 w-3" />
-            {source.url ? (
-                <a
-                    className="transition-colors hover:text-foreground hover:underline"
-                    href={source.url}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                >
-                    {source.title || source.url}
-                </a>
-            ) : (
-                <span>{source.title || source.id}</span>
-            )}
-        </div>
+        <Source
+            className={cn("inline-flex", className)}
+            href={source.url}
+            sourceType={sourceType}
+            title={source.title ?? source.url ?? source.id}
+        />
     );
 }
 

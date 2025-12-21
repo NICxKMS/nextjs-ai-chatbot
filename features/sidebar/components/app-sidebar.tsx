@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Button } from "@/shared/components/button";
+import { Button } from "@/components/ui/button";
 import {
     Tooltip,
     TooltipContent,

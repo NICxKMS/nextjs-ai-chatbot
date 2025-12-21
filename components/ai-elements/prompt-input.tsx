@@ -154,6 +154,7 @@ export function PromptInputProvider({
         (FileUIPart & { id: string })[]
     >([]);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+    // biome-ignore lint/suspicious/noEmptyBlockStatements: initialized as no-op, replaced at runtime
     const openRef = useRef<() => void>(() => {});
 
     const add = useCallback((files: File[] | FileList) => {
@@ -310,6 +311,7 @@ export function PromptInputAttachment({
                     <div className="relative size-5 shrink-0">
                         <div className="absolute inset-0 flex size-5 items-center justify-center overflow-hidden rounded bg-background transition-opacity group-hover:opacity-0">
                             {isImage ? (
+                                // biome-ignore lint/performance/noImgElement: blob URLs not supported by Next.js Image
                                 <img
                                     alt={filename || "attachment"}
                                     className="size-5 object-cover"
@@ -345,6 +347,7 @@ export function PromptInputAttachment({
                 <div className="w-auto space-y-3">
                     {isImage && (
                         <div className="flex max-h-96 w-96 items-center justify-center overflow-hidden rounded-md border">
+                            {/* biome-ignore lint/performance/noImgElement: blob URLs not supported by Next.js Image */}
                             <img
                                 alt={filename || "attachment preview"}
                                 className="max-h-full max-w-full object-contain"
@@ -1119,10 +1122,10 @@ interface SpeechRecognitionErrorEvent extends Event {
 
 declare global {
     type Window = {
-        SpeechRecognition: {
+        SpeechRecognition?: {
             new (): SpeechRecognition;
         };
-        webkitSpeechRecognition: {
+        webkitSpeechRecognition?: {
             new (): SpeechRecognition;
         };
     };
@@ -1153,9 +1156,13 @@ export const PromptInputSpeechButton = ({
             ("SpeechRecognition" in window ||
                 "webkitSpeechRecognition" in window)
         ) {
-            const SpeechRecognition =
-                window.SpeechRecognition || window.webkitSpeechRecognition;
-            const speechRecognition = new SpeechRecognition();
+            const SpeechRecognitionConstructor =
+                window.SpeechRecognition ?? window.webkitSpeechRecognition;
+            if (!SpeechRecognitionConstructor) {
+                return;
+            }
+
+            const speechRecognition = new SpeechRecognitionConstructor();
 
             speechRecognition.continuous = true;
             speechRecognition.interimResults = true;
@@ -1169,7 +1176,7 @@ export const PromptInputSpeechButton = ({
                 setIsListening(false);
             };
 
-            speechRecognition.onresult = (event) => {
+            speechRecognition.onresult = (event: SpeechRecognitionEvent) => {
                 let finalTranscript = "";
 
                 for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -1195,7 +1202,9 @@ export const PromptInputSpeechButton = ({
                 }
             };
 
-            speechRecognition.onerror = (event) => {
+            speechRecognition.onerror = (
+                event: SpeechRecognitionErrorEvent
+            ) => {
                 console.error("Speech recognition error:", event.error);
                 setIsListening(false);
             };
