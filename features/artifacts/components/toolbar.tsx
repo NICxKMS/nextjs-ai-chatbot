@@ -40,9 +40,7 @@ type ToolProps = {
     isToolbarVisible?: boolean;
     setIsToolbarVisible?: Dispatch<SetStateAction<boolean>>;
     isAnimating: boolean;
-    // biome-ignore lint/suspicious/noExplicitAny: UseChatHelpers generic type is complex
     sendMessage: UseChatHelpers<any>["sendMessage"];
-    // biome-ignore lint/suspicious/noExplicitAny: Flexible onClick handler
     onClick: (context: any) => void;
 };
 
@@ -142,7 +140,6 @@ const ReadingLevelSelector = ({
 }: {
     setSelectedTool: Dispatch<SetStateAction<string | null>>;
     isAnimating: boolean;
-    // biome-ignore lint/suspicious/noExplicitAny: UseChatHelpers generic type is complex
     sendMessage: UseChatHelpers<any>["sendMessage"];
 }) => {
     const LEVELS = [
@@ -269,7 +266,6 @@ export const Tools = ({
     isToolbarVisible: boolean;
     selectedTool: string | null;
     setSelectedTool: Dispatch<SetStateAction<string | null>>;
-    // biome-ignore lint/suspicious/noExplicitAny: UseChatHelpers generic type is complex
     sendMessage: UseChatHelpers<any>["sendMessage"];
     isAnimating: boolean;
     setIsToolbarVisible: Dispatch<SetStateAction<boolean>>;
@@ -330,13 +326,9 @@ const PureToolbar = ({
 }: {
     isToolbarVisible: boolean;
     setIsToolbarVisible: Dispatch<SetStateAction<boolean>>;
-    // biome-ignore lint/suspicious/noExplicitAny: UseChatHelpers generic type is complex
     status: UseChatHelpers<any>["status"];
-    // biome-ignore lint/suspicious/noExplicitAny: UseChatHelpers generic type is complex
     sendMessage: UseChatHelpers<any>["sendMessage"];
-    // biome-ignore lint/suspicious/noExplicitAny: UseChatHelpers generic type is complex
     stop: UseChatHelpers<any>["stop"];
-    // biome-ignore lint/suspicious/noExplicitAny: UseChatHelpers generic type is complex
     setMessages: UseChatHelpers<any>["setMessages"];
     artifactKind: ArtifactKind;
 }) => {

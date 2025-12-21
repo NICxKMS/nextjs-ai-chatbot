@@ -75,8 +75,8 @@ export async function GET(request: Request): Promise<Response> {
 
     const sessionManager = getSessionManager();
 
-    // Get or create session
-    const { session, isNew } = await sessionManager.getOrCreateSession();
+    // Get or create session (we just need to ensure a session exists)
+    await sessionManager.getOrCreateSession();
 
     // Redirect with session info in search params if needed
     const redirect = new URL(safeRedirectUrl, url.origin);

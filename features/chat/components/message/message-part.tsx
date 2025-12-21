@@ -92,6 +92,8 @@ function getDocumentOperationType(
             return "update";
         case "requestSuggestions":
             return "request-suggestions";
+        default:
+            return "create";
     }
 }
 

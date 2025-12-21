@@ -145,7 +145,6 @@ const Carousel = forwardRef<
                     canScrollNext,
                 }}
             >
-                {/* biome-ignore lint/a11y/useSemanticElements: aria-roledescription="carousel" requires explicit role */}
                 <div
                     aria-roledescription="carousel"
                     className={cn("relative", className)}
@@ -189,7 +188,6 @@ const CarouselItem = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
         const { orientation } = useCarousel();
 
         return (
-            // biome-ignore lint/a11y/useSemanticElements: role="group" per WAI-ARIA carousel pattern
             <div
                 aria-roledescription="slide"
                 className={cn(

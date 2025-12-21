@@ -153,7 +153,6 @@ export function SkeletonShimmer({
                             // Make last line shorter for natural look
                             i === lines - 1 && "w-3/4"
                         )}
-                        // biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton lines, order never changes
                         key={i}
                         style={{
                             ...style,

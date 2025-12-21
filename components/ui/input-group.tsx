@@ -61,18 +61,28 @@ function InputGroupAddon({
     align = "inline-start",
     ...props
 }: React.ComponentProps<"div"> & VariantProps<typeof inputGroupAddonVariants>) {
+    const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        if ((e.target as HTMLElement).closest("button")) {
+            return;
+        }
+        e.currentTarget.parentElement?.querySelector("input")?.focus();
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (e.key === "Enter" || e.key === " ") {
+            e.currentTarget.parentElement?.querySelector("input")?.focus();
+        }
+    };
+
     return (
         <div
             className={cn(inputGroupAddonVariants({ align }), className)}
             data-align={align}
             data-slot="input-group-addon"
-            onClick={(e) => {
-                if ((e.target as HTMLElement).closest("button")) {
-                    return;
-                }
-                e.currentTarget.parentElement?.querySelector("input")?.focus();
-            }}
+            onClick={handleClick}
+            onKeyDown={handleKeyDown}
             role="group"
+            tabIndex={-1}
             {...props}
         />
     );

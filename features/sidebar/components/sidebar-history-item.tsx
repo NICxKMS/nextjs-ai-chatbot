@@ -12,7 +12,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { memo, useState } from "react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -22,7 +21,8 @@ import {
     DropdownMenuSubContent,
     DropdownMenuSubTrigger,
     DropdownMenuTrigger,
-} from "@/shared/components/dropdown-menu";
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import type { ChatHistoryItem as ChatHistoryItemType } from "../types";
 
 type VisibilityType = "public" | "private";
@@ -115,6 +115,7 @@ export const SidebarHistoryItem = memo(function SidebarHistoryItem({
                         <button
                             aria-label="More options"
                             className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                            type="button"
                         >
                             <MoreHorizontal className="h-4 w-4" />
                         </button>

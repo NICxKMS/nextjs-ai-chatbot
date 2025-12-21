@@ -152,7 +152,6 @@ function DiffViewInner({
     modules,
 }: DiffViewInnerProps) {
     const {
-        Editor,
         Extension,
         Mark,
         Table,

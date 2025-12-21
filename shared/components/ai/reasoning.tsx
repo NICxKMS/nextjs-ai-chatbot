@@ -10,9 +10,9 @@
 // Re-export everything from the base component
 export {
     Reasoning,
-    type ReasoningProps,
     ReasoningContent,
     type ReasoningContentProps,
+    type ReasoningProps,
     ReasoningTrigger,
     type ReasoningTriggerProps,
     useReasoning,

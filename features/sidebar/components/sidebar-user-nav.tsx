@@ -10,7 +10,7 @@ import {
     DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from "@/shared/components/dropdown-menu";
+} from "@/components/ui/dropdown-menu";
 
 function SunIcon({ className }: { className?: string }) {
     return (
@@ -115,7 +115,10 @@ export function SidebarUserNav({
         <div className="border-t p-2" data-testid="user-nav-dropdown">
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <button className="flex w-full items-center gap-2 rounded-md p-2 hover:bg-muted">
+                    <button
+                        className="flex w-full items-center gap-2 rounded-md p-2 hover:bg-muted"
+                        type="button"
+                    >
                         <Image
                             alt={displayLabel || "User Avatar"}
                             className="rounded-full"

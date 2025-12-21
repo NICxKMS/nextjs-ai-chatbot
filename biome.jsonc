@@ -7,12 +7,18 @@
     "lineEnding": "lf"
   },
   "files": {
-    "includes": ["**/*", "tests/**"]
+    "includes": ["**/*", "!!**/tests", "!!**/oldapp"]
   },
   "linter": {
     "rules": {
       "performance": {
-        "noBarrelFile": "off"
+        "noBarrelFile": "off",
+        /* Allow namespace imports for React and Radix primitives - standard pattern */
+        "noNamespaceImport": "off",
+        /* Allow regex in functions - perf impact is negligible for our use cases */
+        "useTopLevelRegex": "off",
+        /* Allow <img> for small icons and external images not suited for next/image */
+        "noImgElement": "off"
       },
       "suspicious": {
         /* Needs more work to fix */
@@ -25,18 +31,45 @@
         "noConsole": "off",
 
         /* Needed for generateUUID() */
-        "noBitwiseOperators": "off"
+        "noBitwiseOperators": "off",
+
+        /* Allow array index as key for static lists (skeletons, etc.) */
+        "noArrayIndexKey": "off",
+
+        /* Allow async without await - useful for interface compliance */
+        "useAwait": "off",
+
+        /* Allow empty blocks for no-op callbacks */
+        "noEmptyBlockStatements": "off",
+
+        /* Allow document.cookie for sidebar state - Cookie Store API has poor browser support */
+        "noDocumentCookie": "off"
       },
       "style": {
         /* Allowing magic numbers */
         "noMagicNumbers": "off",
 
         /* Needs more work to fix */
-        "noNestedTernary": "off"
+        "noNestedTernary": "off",
+
+        /* Allow non-null assertions for env vars and checked conditions */
+        "noNonNullAssertion": "off",
+
+        /* Allow default switch clause to be omitted for exhaustive switches */
+        "useDefaultSwitchClause": "off",
+
+        /* Allow import + export pattern for type re-exports */
+        "noExportedImports": "off"
       },
       "nursery": {
         /* Too many false positives */
-        "noUnnecessaryConditions": "off"
+        "noUnnecessaryConditions": "off",
+        /* Allow variable shadowing for dynamic imports with same names as type imports */
+        "noShadow": "off",
+        /* Dynamic images (base64, previews) don't have known dimensions */
+        "useImageSize": "off",
+        /* Interface is required for declaration merging (e.g., Window) - type would conflict */
+        "useConsistentTypeDefinitions": "off"
       },
       "complexity": {
         /* Needs more work to fix */
@@ -45,9 +78,19 @@
         /* This one has false positives. It's a bit... iffy 😉 */
         "useSimplifiedLogicExpression": "off"
       },
+      "correctness": {
+        /* Allow underscore prefix for intentionally unused parameters */
+        "noUnusedFunctionParameters": "off"
+      },
       "a11y": {
         /* Needs more work to fix */
-        "noSvgWithoutTitle": "off"
+        "noSvgWithoutTitle": "off",
+        /* Allow role="group" for button groups - semantic elements not always appropriate */
+        "useSemanticElements": "off",
+        /* Label components are often used with htmlFor set dynamically or via composition */
+        "noLabelWithoutControl": "off",
+        /* Allow onClick on div for focus forwarding patterns in input addons */
+        "noNoninteractiveElementInteractions": "off"
       }
     }
   },

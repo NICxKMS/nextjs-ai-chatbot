@@ -8,7 +8,6 @@
  */
 
 import type { UseChatHelpers } from "@ai-sdk/react";
-import type { ChatRequestOptions, UIMessage } from "ai";
 
 // =============================================================================
 // RE-EXPORTS FROM AI SDK
@@ -18,7 +17,10 @@ import type { ChatRequestOptions, UIMessage } from "ai";
  * Re-export core AI SDK types directly.
  * These are the canonical types from the Vercel AI SDK.
  */
-export type { UIMessage, ChatRequestOptions };
+export type { ChatRequestOptions, UIMessage } from "ai";
+
+// Import UIMessage for local usage only (re-exported above)
+import type { UIMessage } from "ai";
 
 /**
  * ChatMessage type - uses UIMessage directly.
