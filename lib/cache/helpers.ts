@@ -6,6 +6,13 @@
  */
 import "server-only";
 
+import {
+    GUEST_CACHE_TTL_SECONDS,
+    AUTH_CHAT_DATA_TTL_SECONDS,
+    GUEST_SESSION_TTL_SECONDS,
+    AUTH_SESSION_TTL_SECONDS,
+} from "./constants";
+
 /**
  * Check if userId is a guest user
  * Guest IDs don't have hyphens (nanoid format)
@@ -67,9 +74,10 @@ export function deserialize<T>(value: string | null): T | null {
 }
 
 /**
- * Convert Date to Unix timestamp (seconds)
+ * Convert Date to Unix timestamp in seconds
+ * Use for TTL calculations and standard Unix time comparisons
  */
-export function toUnixTimestamp(date: Date | string | number): number {
+export function toUnixTimestampSeconds(date: Date | string | number): number {
     if (typeof date === "number") {
         return Math.floor(date / 1000);
     }
@@ -78,8 +86,56 @@ export function toUnixTimestamp(date: Date | string | number): number {
 }
 
 /**
+ * Convert Date to Unix timestamp in milliseconds
+ * Use for ZSET scores where millisecond precision is needed
+ */
+export function toUnixTimestampMs(date: Date | string | number): number {
+    if (typeof date === "number") {
+        return date;
+    }
+    const d = typeof date === "string" ? new Date(date) : date;
+    return d.getTime();
+}
+
+/**
+ * Convert Date to Unix timestamp (seconds)
+ * @deprecated Use toUnixTimestampSeconds for clarity
+ */
+export function toUnixTimestamp(date: Date | string | number): number {
+    return toUnixTimestampSeconds(date);
+}
+
+/**
  * Convert Unix timestamp (seconds) to Date
  */
 export function fromUnixTimestamp(timestamp: number): Date {
     return new Date(timestamp * 1000);
+}
+
+/**
+ * Get appropriate TTL based on user type
+ */
+export function getTTLForUser(
+    isGuest: boolean,
+    entityType: "chat" | "session" = "chat"
+): number {
+    if (entityType === "session") {
+        return isGuest ? GUEST_SESSION_TTL_SECONDS : AUTH_SESSION_TTL_SECONDS;
+    }
+    return isGuest ? GUEST_CACHE_TTL_SECONDS : AUTH_CHAT_DATA_TTL_SECONDS;
+}
+
+/**
+ * Get TTL in seconds (for Lua scripts)
+ */
+export function getGuestTTL(isGuest: boolean): number {
+    return isGuest ? GUEST_CACHE_TTL_SECONDS : AUTH_CHAT_DATA_TTL_SECONDS;
+}
+
+/**
+ * Apply guest-specific TTL (legacy compat)
+ * Returns undefined for authenticated users (no expiry)
+ */
+export function applyGuestTTL(isGuest: boolean): number | undefined {
+    return isGuest ? GUEST_CACHE_TTL_SECONDS : undefined;
 }

@@ -32,6 +32,8 @@ export {
     parseMessageScore,
     serialize,
     toUnixTimestamp,
+    toUnixTimestampMs,
+    toUnixTimestampSeconds,
 } from "./helpers";
 // Keys
 export { CacheKeys, getChatCacheKeys, parseKeyId } from "./keys";
