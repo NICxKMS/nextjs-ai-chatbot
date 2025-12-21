@@ -13,8 +13,8 @@ import { Settings2Icon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { Textarea } from "@/shared/components/textarea";
 import { Label } from "@/shared/ui/label";
 import {
     Sheet,

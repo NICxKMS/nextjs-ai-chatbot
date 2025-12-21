@@ -40,7 +40,7 @@ export const sheetArtifact = new Artifact<"sheet", undefined>({
     content: ({
         content,
         status,
-        currentVersionIndex,
+        currentVersionIndex: _currentVersionIndex,
         isCurrentVersion,
         onSaveContent,
     }: ArtifactContentProps<undefined>) => {

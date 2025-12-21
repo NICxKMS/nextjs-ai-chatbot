@@ -82,7 +82,6 @@ export async function GET(
     const mostRecentMessage = messages.at(-1);
 
     const emptyDataStream = createUIMessageStream<ChatMessage>({
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: "Needs to exist"
         execute: () => {},
     });
 

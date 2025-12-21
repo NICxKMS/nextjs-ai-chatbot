@@ -16,8 +16,6 @@ export const Image = ({
     mediaType,
     ...props
 }: ImageProps) => (
-    // biome-ignore lint/nursery/useImageSize: dynamic base64 dimensions
-    // biome-ignore lint/performance/noImgElement: data URLs not supported by Next.js Image
     <img
         {...props}
         alt={props.alt ?? "AI generated image"}

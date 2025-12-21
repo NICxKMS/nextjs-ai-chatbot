@@ -23,6 +23,7 @@ export default function ChatError({
             <button
                 className="rounded-lg bg-primary px-4 py-2 text-primary-foreground"
                 onClick={reset}
+                type="button"
             >
                 Try again
             </button>

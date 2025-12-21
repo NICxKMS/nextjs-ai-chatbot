@@ -1,8 +1,11 @@
 /**
  * Shared Components - Public API
  * @module shared/components
+ *
+ * Note: DropdownMenu and Textarea are re-exported from @/components/ui to avoid duplication.
  */
 
+// Re-exported from components/ui (to avoid duplication)
 export {
     DropdownMenu,
     DropdownMenuCheckboxItem,
@@ -19,7 +22,10 @@ export {
     DropdownMenuSubContent,
     DropdownMenuSubTrigger,
     DropdownMenuTrigger,
-} from "./dropdown-menu";
+} from "@/components/ui/dropdown-menu";
+export { Textarea } from "@/components/ui/textarea";
+
+// Custom shared components
 export {
     ArrowUpIcon,
     CheckCircleFillIcon,
@@ -30,7 +36,6 @@ export {
     SummarizeIcon,
     WarningIcon,
 } from "./icons";
-export { Textarea } from "./textarea";
 export { ThemeProvider } from "./theme-provider";
 export {
     Tooltip,

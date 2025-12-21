@@ -185,7 +185,7 @@ const ChatMessagesList = memo(function ChatMessagesList({
  * ```
  */
 export function ChatMessages({ votes, isReadonly }: ChatMessagesProps) {
-    const { messages, sendMessage } = useChatHelpers();
+    const { messages } = useChatHelpers();
 
     // Show greeting when no messages
     if (messages.length === 0) {

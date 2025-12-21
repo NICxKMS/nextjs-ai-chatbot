@@ -54,6 +54,7 @@ function ChatErrorFallback({ error, onRetry }: ChatErrorFallbackProps) {
             <button
                 className="rounded-lg bg-primary px-4 py-2 text-primary-foreground transition-colors hover:bg-primary/90"
                 onClick={onRetry}
+                type="button"
             >
                 Try again
             </button>

@@ -39,6 +39,7 @@ export function SidebarToggle() {
                         "focus:outline-none focus:ring-2 focus:ring-primary"
                     )}
                     onClick={toggle}
+                    type="button"
                 >
                     <SidebarLeftIcon size={20} />
                 </button>

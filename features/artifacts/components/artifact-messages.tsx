@@ -23,13 +23,13 @@ type ArtifactMessagesProps = {
 };
 
 function PureArtifactMessages({
-    chatId,
+    chatId: _chatId,
     status,
-    votes,
+    votes: _votes,
     messages,
-    setMessages,
-    regenerate,
-    isReadonly,
+    setMessages: _setMessages,
+    regenerate: _regenerate,
+    isReadonly: _isReadonly,
 }: ArtifactMessagesProps) {
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);

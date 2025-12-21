@@ -154,7 +154,6 @@ export function PromptInputProvider({
         (FileUIPart & { id: string })[]
     >([]);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
-    // biome-ignore lint/suspicious/noEmptyBlockStatements: initialized as no-op, replaced at runtime
     const openRef = useRef<() => void>(() => {});
 
     const add = useCallback((files: File[] | FileList) => {
@@ -311,7 +310,6 @@ export function PromptInputAttachment({
                     <div className="relative size-5 shrink-0">
                         <div className="absolute inset-0 flex size-5 items-center justify-center overflow-hidden rounded bg-background transition-opacity group-hover:opacity-0">
                             {isImage ? (
-                                // biome-ignore lint/performance/noImgElement: blob URLs not supported by Next.js Image
                                 <img
                                     alt={filename || "attachment"}
                                     className="size-5 object-cover"
@@ -347,7 +345,6 @@ export function PromptInputAttachment({
                 <div className="w-auto space-y-3">
                     {isImage && (
                         <div className="flex max-h-96 w-96 items-center justify-center overflow-hidden rounded-md border">
-                            {/* biome-ignore lint/performance/noImgElement: blob URLs not supported by Next.js Image */}
                             <img
                                 alt={filename || "attachment preview"}
                                 className="max-h-full max-w-full object-contain"
@@ -1120,15 +1117,13 @@ interface SpeechRecognitionErrorEvent extends Event {
     error: string;
 }
 
+type SpeechRecognitionConstructor = new () => SpeechRecognition;
+
 declare global {
-    type Window = {
-        SpeechRecognition?: {
-            new (): SpeechRecognition;
-        };
-        webkitSpeechRecognition?: {
-            new (): SpeechRecognition;
-        };
-    };
+    interface Window {
+        SpeechRecognition?: SpeechRecognitionConstructor;
+        webkitSpeechRecognition?: SpeechRecognitionConstructor;
+    }
 }
 
 export type PromptInputSpeechButtonProps = ComponentProps<
