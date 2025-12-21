@@ -21,7 +21,6 @@ import { createContext, isGuest } from "@/lib/data/base";
 import { documentData, saveSuggestions } from "@/lib/data/documents";
 import type { Suggestion } from "@/lib/db/schema";
 import { generateUUID } from "@/lib/utils";
-import { getOpenAI } from "../providers";
 
 // =============================================================================
 // TYPES
@@ -31,6 +30,8 @@ import { getOpenAI } from "../providers";
  * Props for creating the requestSuggestions tool.
  */
 export type RequestSuggestionsToolProps = {
+    /** Language model to use for generating suggestions */
+    model: LanguageModel;
     /** Current user session */
     session: AppSession;
     /** UI message stream writer for sending suggestion data */
@@ -67,6 +68,7 @@ type StreamSuggestion = Omit<
  * ```
  */
 export function requestSuggestions({
+    model,
     session,
     dataStream,
 }: RequestSuggestionsToolProps) {
@@ -91,7 +93,7 @@ export function requestSuggestions({
             const suggestions: StreamSuggestion[] = [];
 
             const { elementStream } = streamObject({
-                model: getOpenAI()("gpt-4o-mini") as unknown as LanguageModel,
+                model,
                 system: "You are a writing assistant. Analyze the text and provide up to 5 specific suggestions for improvement. Ensure suggestions are complete sentences and clearly describe the change.",
                 prompt: document.content,
                 output: "array",

@@ -8,7 +8,6 @@ import "server-only";
 
 import { type LanguageModel, smoothStream, streamText } from "ai";
 
-import { getOpenAI } from "@/lib/ai/providers";
 import { createDocumentHandler } from "./base";
 
 const TEXT_SYSTEM_PROMPT =
@@ -29,11 +28,11 @@ ${currentContent}`;
 export const textDocumentHandler = createDocumentHandler<"text">({
     kind: "text",
 
-    onCreateDocument: async ({ title, dataStream }) => {
+    onCreateDocument: async ({ title, dataStream, model }) => {
         let draftContent = "";
 
         const { fullStream } = streamText({
-            model: getOpenAI()("gpt-4o-mini") as unknown as LanguageModel,
+            model,
             system: TEXT_SYSTEM_PROMPT,
             prompt: title,
             experimental_transform: smoothStream({ chunking: "word" }),
@@ -54,11 +53,11 @@ export const textDocumentHandler = createDocumentHandler<"text">({
         return draftContent;
     },
 
-    onUpdateDocument: async ({ document, description, dataStream }) => {
+    onUpdateDocument: async ({ document, description, dataStream, model }) => {
         let draftContent = "";
 
         const { fullStream } = streamText({
-            model: getOpenAI()("gpt-4o-mini") as unknown as LanguageModel,
+            model,
             system: createUpdatePrompt(document.content),
             prompt: description,
             experimental_transform: smoothStream({ chunking: "word" }),

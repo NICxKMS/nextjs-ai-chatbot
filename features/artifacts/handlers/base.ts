@@ -7,7 +7,7 @@
  */
 import "server-only";
 
-import type { UIMessageStreamWriter } from "ai";
+import type { LanguageModel, UIMessageStreamWriter } from "ai";
 import type { AppSession } from "@/lib/auth/types";
 import { createContext } from "@/lib/data/base";
 import { documentData } from "@/lib/data/documents";
@@ -23,6 +23,7 @@ export type CreateDocumentCallbackProps = {
     dataStream: UIMessageStreamWriter;
     session: AppSession;
     chatId: string;
+    model: LanguageModel;
 };
 
 /**
@@ -33,6 +34,7 @@ export type UpdateDocumentCallbackProps = {
     description: string;
     dataStream: UIMessageStreamWriter;
     session: AppSession;
+    model: LanguageModel;
 };
 
 /**
@@ -72,6 +74,7 @@ export function createDocumentHandler<T extends ArtifactKind>(
                 dataStream: args.dataStream,
                 session: args.session,
                 chatId: args.chatId,
+                model: args.model,
             });
 
             // Save to database if user is authenticated
@@ -99,6 +102,7 @@ export function createDocumentHandler<T extends ArtifactKind>(
                 description: args.description,
                 dataStream: args.dataStream,
                 session: args.session,
+                model: args.model,
             });
 
             // Save to database if user is authenticated

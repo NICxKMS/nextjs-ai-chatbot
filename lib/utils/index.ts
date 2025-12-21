@@ -7,6 +7,7 @@
  */
 
 export { cn } from "./cn";
+export { fetchWithErrorHandlers } from "./network";
 
 /**
  * Generate a cryptographically secure UUID v4
