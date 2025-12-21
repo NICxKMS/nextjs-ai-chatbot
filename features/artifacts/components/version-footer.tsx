@@ -1,11 +1,11 @@
 "use client";
 
 import { isAfter } from "date-fns";
-import { m as motion } from "framer-motion";
 import { useState } from "react";
 import { useSWRConfig } from "swr";
 import { Loader } from "@/components/ai-elements/loader";
-import { Button } from "@/shared/components";
+import { Button } from "@/components/ui/button";
+import { motion } from "@/lib/motion";
 import { useWindowSize } from "@/shared/hooks";
 import { useArtifact } from "../hooks";
 

@@ -2,34 +2,9 @@
 
 import { type ReactNode, useEffect, useState } from "react";
 
+import { Loader } from "@/components/ai-elements/loader";
 import type { AppSession } from "@/lib/auth";
 import { useAuth } from "./auth-provider";
-
-// ============================================================================
-// Loader Component
-// ============================================================================
-
-function LoadingSpinner() {
-    return (
-        <div className="flex h-dvh w-screen items-center justify-center bg-background">
-            <div className="flex flex-col items-center gap-4">
-                <svg
-                    className="size-8 animate-spin text-muted-foreground"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                >
-                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                </svg>
-                <p className="text-muted-foreground text-sm">Loading...</p>
-            </div>
-        </div>
-    );
-}
 
 // ============================================================================
 // AuthBootstrap Component
@@ -98,7 +73,14 @@ export function AuthBootstrap({ children }: AuthBootstrapProps) {
 
     // Show loading spinner while bootstrapping
     if (isBootstrapping) {
-        return <LoadingSpinner />;
+        return (
+            <div className="flex h-dvh w-screen items-center justify-center bg-background">
+                <div className="flex flex-col items-center gap-4">
+                    <Loader className="text-muted-foreground" size={32} />
+                    <p className="text-muted-foreground text-sm">Loading...</p>
+                </div>
+            </div>
+        );
     }
 
     return <>{children}</>;

@@ -10,9 +10,9 @@
 "use client";
 
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { m as motion } from "framer-motion";
 import { memo, useMemo } from "react";
 import { Suggestion } from "@/components/ai-elements/suggestion";
+import { motion } from "@/lib/motion";
 import type { ChatMessage, VisibilityType } from "../types";
 
 // =============================================================================

@@ -15,17 +15,17 @@ import {
     useMemo,
     useState,
 } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import { AppError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
-import { Button } from "@/shared/components/button";
 import {
     Tooltip,
     TooltipContent,
     TooltipTrigger,
 } from "@/shared/components/tooltip";
 import { useIsMobile } from "@/shared/hooks/use-mobile";
-import { Input } from "@/shared/ui/input";
-import { Separator } from "@/shared/ui/separator";
 import {
     Sheet,
     SheetContent,

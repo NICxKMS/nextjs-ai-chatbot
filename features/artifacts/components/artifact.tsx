@@ -3,7 +3,6 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { formatDistance } from "date-fns";
 import equal from "fast-deep-equal";
-import { AnimatePresence, m as motion } from "framer-motion";
 import {
     type Dispatch,
     memo,
@@ -15,6 +14,7 @@ import {
 } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { useDebounceCallback } from "usehooks-ts";
+import { AnimatePresence, motion } from "@/lib/motion";
 import { useWindowSize } from "@/shared/hooks";
 import { useSidebar } from "@/shared/ui/sidebar";
 import { artifactRegistry } from "../definitions/base";
@@ -49,9 +49,7 @@ type ArtifactProps = {
     chatId: string;
     input: string;
     setInput: Dispatch<SetStateAction<string>>;
-    // biome-ignore lint/suspicious/noExplicitAny: UseChatHelpers generic type is complex
     status: UseChatHelpers<any>["status"];
-    // biome-ignore lint/suspicious/noExplicitAny: UseChatHelpers generic type is complex
     stop: UseChatHelpers<any>["stop"];
     attachments: Array<{ name: string; contentType: string; url: string }>;
     setAttachments: Dispatch<
@@ -65,12 +63,9 @@ type ArtifactProps = {
         content: string;
         parts?: Array<{ type: string; text?: string }>;
     }>;
-    // biome-ignore lint/suspicious/noExplicitAny: UseChatHelpers generic type is complex
     setMessages: UseChatHelpers<any>["setMessages"];
     votes: Array<{ messageId: string; vote: "up" | "down" }> | undefined;
-    // biome-ignore lint/suspicious/noExplicitAny: UseChatHelpers generic type is complex
     sendMessage: UseChatHelpers<any>["sendMessage"];
-    // biome-ignore lint/suspicious/noExplicitAny: UseChatHelpers generic type is complex
     regenerate: UseChatHelpers<any>["regenerate"];
     isReadonly: boolean;
     selectedVisibilityType: VisibilityType;

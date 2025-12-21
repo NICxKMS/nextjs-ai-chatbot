@@ -1,6 +1,16 @@
 "use client";
 
-import { AnimatePresence, domAnimation, LazyMotion, m } from "framer-motion";
+import { domAnimation, LazyMotion } from "framer-motion";
+
+export {
+    AnimatePresence,
+    domAnimation,
+    LazyMotion,
+    m as motion,
+    useMotionValue,
+    useTransform,
+} from "framer-motion";
+
 import type { ReactNode } from "react";
 
 export function MotionProvider({ children }: { children: ReactNode }) {
@@ -10,5 +20,3 @@ export function MotionProvider({ children }: { children: ReactNode }) {
         </LazyMotion>
     );
 }
-
-export { AnimatePresence, m as motion };

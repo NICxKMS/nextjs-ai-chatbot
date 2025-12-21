@@ -1,12 +1,6 @@
 "use client";
 
 import type { UseChatHelpers } from "@ai-sdk/react";
-import {
-    AnimatePresence,
-    m as motion,
-    useMotionValue,
-    useTransform,
-} from "framer-motion";
 import { nanoid } from "nanoid";
 import {
     type Dispatch,
@@ -19,6 +13,12 @@ import {
     useState,
 } from "react";
 import { useOnClickOutside } from "usehooks-ts";
+import {
+    AnimatePresence,
+    motion,
+    useMotionValue,
+    useTransform,
+} from "@/lib/motion";
 
 import { cn } from "@/lib/utils";
 import {

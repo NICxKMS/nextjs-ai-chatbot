@@ -9,10 +9,10 @@
 
 "use client";
 
-import { m as motion } from "framer-motion";
 import { memo, useCallback } from "react";
 import { toast } from "sonner";
 import { useCopyToClipboard } from "usehooks-ts";
+import { motion } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import type { ChatMessage, MessageItemProps, VoteType } from "../../types";
 import { MessageActions } from "./message-actions";

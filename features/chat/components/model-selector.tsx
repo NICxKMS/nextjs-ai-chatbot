@@ -11,9 +11,10 @@
 
 import { RefreshCw } from "lucide-react";
 import { useMemo, useOptimistic, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useSettings } from "@/features/settings/stores/settings-store";
 import { cn } from "@/lib/utils";
-import { Button } from "@/shared/components/button";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -24,7 +25,6 @@ import {
     CheckCircleFillIcon,
     ChevronDownIcon,
 } from "@/shared/components/icons";
-import { Badge } from "@/shared/ui/badge";
 import type { ModelMetadata } from "../types";
 
 /**

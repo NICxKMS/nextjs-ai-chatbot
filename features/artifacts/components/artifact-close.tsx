@@ -3,7 +3,7 @@
 import { X } from "lucide-react";
 import { memo } from "react";
 
-import { Button } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { initialArtifactData, useArtifact } from "../hooks";
 
 function PureArtifactClose() {

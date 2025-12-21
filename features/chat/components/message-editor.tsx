@@ -19,7 +19,8 @@ import {
     useState,
 } from "react";
 import { toast } from "sonner";
-import { Button, Textarea } from "@/shared/components";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/shared/components";
 import { deleteTrailingMessages } from "../actions";
 import type { ChatMessage } from "../types";
 
