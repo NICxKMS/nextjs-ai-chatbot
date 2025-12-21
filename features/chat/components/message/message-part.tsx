@@ -10,6 +10,11 @@
 "use client";
 
 import { memo, useState } from "react";
+import {
+    Reasoning,
+    ReasoningContent,
+    ReasoningTrigger,
+} from "@/components/ai-elements/reasoning";
 import type { ArtifactKind } from "@/features/artifacts";
 import {
     DocumentPreview,
@@ -24,7 +29,6 @@ import type {
     ToolResultPart,
 } from "../../types";
 import { MarkdownRenderer } from "../markdown-renderer";
-import { Reasoning, ReasoningContent, ReasoningTrigger } from "../reasoning";
 import { Weather, type WeatherAtLocation } from "../weather";
 
 // =============================================================================

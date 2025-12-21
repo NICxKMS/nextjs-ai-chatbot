@@ -2,9 +2,9 @@
 
 import { isAfter } from "date-fns";
 import { m as motion } from "framer-motion";
-import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useSWRConfig } from "swr";
+import { Loader } from "@/components/ai-elements/loader";
 import { Button } from "@/shared/components";
 import { useWindowSize } from "@/shared/hooks";
 import { useArtifact } from "../hooks";
@@ -105,11 +105,7 @@ export const VersionFooter = ({
                     }}
                 >
                     <div>Restore this version</div>
-                    {isMutating && (
-                        <div className="animate-spin">
-                            <Loader2 size={16} />
-                        </div>
-                    )}
+                    {isMutating && <Loader size={16} />}
                 </Button>
                 <Button
                     onClick={() => {

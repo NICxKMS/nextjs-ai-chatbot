@@ -104,11 +104,13 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
         enableReasoning,
         streamArtifacts,
         autoScroll,
+        modelSelectorDisplayMode,
         updateSampling,
         setSystemPrompt,
         setEnableReasoning,
         setStreamArtifacts,
         setAutoScroll,
+        setModelSelectorDisplayMode,
         resetSettings,
     } = useSettings();
 
@@ -279,6 +281,17 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
                         description="Automatically follow the latest assistant response."
                         label="Auto-scroll conversation"
                         onCheckedChange={setAutoScroll}
+                    />
+
+                    <SettingToggle
+                        checked={modelSelectorDisplayMode === "detailed"}
+                        description="Show provider and capabilities in model selector dropdown."
+                        label="Detailed model selector"
+                        onCheckedChange={(checked) =>
+                            setModelSelectorDisplayMode(
+                                checked ? "detailed" : "compact"
+                            )
+                        }
                     />
                 </section>
 

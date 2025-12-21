@@ -12,7 +12,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { m as motion } from "framer-motion";
 import { memo, useMemo } from "react";
-import { Button } from "@/shared/components";
+import { Suggestion } from "@/components/ai-elements/suggestion";
 import type { ChatMessage, VisibilityType } from "../types";
 
 // =============================================================================
@@ -104,13 +104,11 @@ function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
                     key={suggestion}
                     transition={{ delay: 0.05 * index }}
                 >
-                    <Button
+                    <Suggestion
                         className="h-auto w-full cursor-pointer whitespace-normal rounded-full p-3 px-4 text-left"
-                        onClick={() => handleClick(suggestion)}
-                        variant="outline"
-                    >
-                        {suggestion}
-                    </Button>
+                        onClick={handleClick}
+                        suggestion={suggestion}
+                    />
                 </motion.div>
             ))}
         </div>

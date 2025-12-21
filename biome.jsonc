@@ -7,12 +7,7 @@
     "lineEnding": "lf"
   },
   "files": {
-    "includes": [
-      "**/*",
-      "!components/ui",
-      "!lib/utils.ts",
-      "!hooks/use-mobile.ts"
-    ]
+    "includes": ["**/*", "tests/**"]
   },
   "linter": {
     "rules": {
