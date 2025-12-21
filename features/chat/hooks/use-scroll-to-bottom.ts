@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 /**
  * Scroll to Bottom Hook
@@ -9,8 +9,8 @@
  * @module features/chat/hooks/use-scroll-to-bottom
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import useSWR from 'swr';
+import { useCallback, useEffect, useRef, useState } from "react";
+import useSWR from "swr";
 
 // =============================================================================
 // TYPES
@@ -19,18 +19,18 @@ import useSWR from 'swr';
 type ScrollFlag = ScrollBehavior | false;
 
 export interface UseScrollToBottomReturn {
-  /** Ref to attach to the scrollable container */
-  containerRef: React.RefObject<HTMLDivElement | null>;
-  /** Ref to attach to the end marker element */
-  endRef: React.RefObject<HTMLDivElement | null>;
-  /** Whether the container is scrolled to bottom */
-  isAtBottom: boolean;
-  /** Function to scroll to bottom with optional behavior */
-  scrollToBottom: (behavior?: ScrollBehavior) => void;
-  /** Callback when viewport enters bottom area */
-  onViewportEnter: () => void;
-  /** Callback when viewport leaves bottom area */
-  onViewportLeave: () => void;
+    /** Ref to attach to the scrollable container */
+    containerRef: React.RefObject<HTMLDivElement | null>;
+    /** Ref to attach to the end marker element */
+    endRef: React.RefObject<HTMLDivElement | null>;
+    /** Whether the container is scrolled to bottom */
+    isAtBottom: boolean;
+    /** Function to scroll to bottom with optional behavior */
+    scrollToBottom: (behavior?: ScrollBehavior) => void;
+    /** Callback when viewport enters bottom area */
+    onViewportEnter: () => void;
+    /** Callback when viewport leaves bottom area */
+    onViewportLeave: () => void;
 }
 
 // =============================================================================
@@ -41,7 +41,7 @@ export interface UseScrollToBottomReturn {
 const SCROLL_BOTTOM_THRESHOLD = 100;
 
 /** SWR key for scroll behavior state */
-const SCROLL_SWR_KEY = 'messages:should-scroll';
+const SCROLL_SWR_KEY = "messages:should-scroll";
 
 // =============================================================================
 // HOOK
@@ -59,130 +59,130 @@ const SCROLL_SWR_KEY = 'messages:should-scroll';
  * @returns Scroll state and control methods
  */
 export function useScrollToBottom(): UseScrollToBottomReturn {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const endRef = useRef<HTMLDivElement>(null);
 
-  // Start as true to match SSR, actual value computed after mount
-  const [isAtBottom, setIsAtBottom] = useState(true);
-  const [mounted, setMounted] = useState(false);
+    // Start as true to match SSR, actual value computed after mount
+    const [isAtBottom, setIsAtBottom] = useState(true);
+    const [mounted, setMounted] = useState(false);
 
-  // Mark as mounted after first render for client-side scroll tracking
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+    // Mark as mounted after first render for client-side scroll tracking
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
-  // Use SWR for scroll behavior flag to coordinate scroll requests
-  const { data: scrollBehavior = false, mutate: setScrollBehavior } =
-    useSWR<ScrollFlag>(SCROLL_SWR_KEY, null, {
-      fallbackData: false,
-    });
-
-  // Handle scroll events and update isAtBottom state
-  const handleScroll = useCallback(() => {
-    // Only track scroll after mount to prevent hydration mismatch
-    if (!mounted || !containerRef.current) {
-      return;
-    }
-
-    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-
-    // Check if we are within threshold of the bottom
-    setIsAtBottom(
-      scrollTop + clientHeight >= scrollHeight - SCROLL_BOTTOM_THRESHOLD
-    );
-  }, [mounted]);
-
-  // Set up ResizeObserver and MutationObserver for content changes
-  useEffect(() => {
-    if (!containerRef.current) {
-      return;
-    }
-
-    const container = containerRef.current;
-
-    // Observe size changes
-    const resizeObserver = new ResizeObserver(() => {
-      requestAnimationFrame(() => {
-        handleScroll();
-      });
-    });
-
-    // Observe DOM mutations
-    const mutationObserver = new MutationObserver(() => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          handleScroll();
+    // Use SWR for scroll behavior flag to coordinate scroll requests
+    const { data: scrollBehavior = false, mutate: setScrollBehavior } =
+        useSWR<ScrollFlag>(SCROLL_SWR_KEY, null, {
+            fallbackData: false,
         });
-      });
-    });
 
-    resizeObserver.observe(container);
-    mutationObserver.observe(container, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['style', 'class', 'data-state'],
-    });
+    // Handle scroll events and update isAtBottom state
+    const handleScroll = useCallback(() => {
+        // Only track scroll after mount to prevent hydration mismatch
+        if (!mounted || !containerRef.current) {
+            return;
+        }
 
-    handleScroll();
+        const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
 
-    return () => {
-      resizeObserver.disconnect();
-      mutationObserver.disconnect();
+        // Check if we are within threshold of the bottom
+        setIsAtBottom(
+            scrollTop + clientHeight >= scrollHeight - SCROLL_BOTTOM_THRESHOLD
+        );
+    }, [mounted]);
+
+    // Set up ResizeObserver and MutationObserver for content changes
+    useEffect(() => {
+        if (!containerRef.current) {
+            return;
+        }
+
+        const container = containerRef.current;
+
+        // Observe size changes
+        const resizeObserver = new ResizeObserver(() => {
+            requestAnimationFrame(() => {
+                handleScroll();
+            });
+        });
+
+        // Observe DOM mutations
+        const mutationObserver = new MutationObserver(() => {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    handleScroll();
+                });
+            });
+        });
+
+        resizeObserver.observe(container);
+        mutationObserver.observe(container, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ["style", "class", "data-state"],
+        });
+
+        handleScroll();
+
+        return () => {
+            resizeObserver.disconnect();
+            mutationObserver.disconnect();
+        };
+    }, [handleScroll]);
+
+    // Set up scroll event listener
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) {
+            return;
+        }
+
+        container.addEventListener("scroll", handleScroll);
+        handleScroll(); // Check initial state
+
+        return () => {
+            container.removeEventListener("scroll", handleScroll);
+        };
+    }, [handleScroll]);
+
+    // Execute scroll when scrollBehavior is set
+    useEffect(() => {
+        if (scrollBehavior && containerRef.current) {
+            const container = containerRef.current;
+            const scrollOptions: ScrollToOptions = {
+                top: container.scrollHeight,
+                behavior: scrollBehavior,
+            };
+            container.scrollTo(scrollOptions);
+            setScrollBehavior(false);
+        }
+    }, [scrollBehavior, setScrollBehavior]);
+
+    // Function to trigger scroll to bottom
+    const scrollToBottom = useCallback(
+        (behavior: ScrollBehavior = "smooth") => {
+            setScrollBehavior(behavior);
+        },
+        [setScrollBehavior]
+    );
+
+    // Viewport tracking callbacks for intersection observers
+    const onViewportEnter = useCallback(() => {
+        setIsAtBottom(true);
+    }, []);
+
+    const onViewportLeave = useCallback(() => {
+        setIsAtBottom(false);
+    }, []);
+
+    return {
+        containerRef,
+        endRef,
+        isAtBottom,
+        scrollToBottom,
+        onViewportEnter,
+        onViewportLeave,
     };
-  }, [handleScroll]);
-
-  // Set up scroll event listener
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) {
-      return;
-    }
-
-    container.addEventListener('scroll', handleScroll);
-    handleScroll(); // Check initial state
-
-    return () => {
-      container.removeEventListener('scroll', handleScroll);
-    };
-  }, [handleScroll]);
-
-  // Execute scroll when scrollBehavior is set
-  useEffect(() => {
-    if (scrollBehavior && containerRef.current) {
-      const container = containerRef.current;
-      const scrollOptions: ScrollToOptions = {
-        top: container.scrollHeight,
-        behavior: scrollBehavior,
-      };
-      container.scrollTo(scrollOptions);
-      setScrollBehavior(false);
-    }
-  }, [scrollBehavior, setScrollBehavior]);
-
-  // Function to trigger scroll to bottom
-  const scrollToBottom = useCallback(
-    (behavior: ScrollBehavior = 'smooth') => {
-      setScrollBehavior(behavior);
-    },
-    [setScrollBehavior]
-  );
-
-  // Viewport tracking callbacks for intersection observers
-  const onViewportEnter = useCallback(() => {
-    setIsAtBottom(true);
-  }, []);
-
-  const onViewportLeave = useCallback(() => {
-    setIsAtBottom(false);
-  }, []);
-
-  return {
-    containerRef,
-    endRef,
-    isAtBottom,
-    scrollToBottom,
-    onViewportEnter,
-    onViewportLeave,
-  };
 }

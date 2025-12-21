@@ -8,15 +8,20 @@
  * @module lib/ai/tools/request-suggestions
  */
 
-import { streamObject, tool, type UIMessageStreamWriter, type LanguageModel } from 'ai';
-import { z } from 'zod';
+import {
+    streamObject,
+    tool,
+    type UIMessageStreamWriter,
+    type LanguageModel,
+} from "ai";
+import { z } from "zod";
 
-import type { AppSession } from '@/lib/auth/types';
-import { createContext, isGuest } from '@/lib/data/base';
-import { documentData, saveSuggestions } from '@/lib/data/documents';
-import type { Suggestion } from '@/lib/db/schema';
-import { generateUUID } from '@/lib/utils';
-import { getOpenAI } from '../providers';
+import type { AppSession } from "@/lib/auth/types";
+import { createContext, isGuest } from "@/lib/data/base";
+import { documentData, saveSuggestions } from "@/lib/data/documents";
+import type { Suggestion } from "@/lib/db/schema";
+import { generateUUID } from "@/lib/utils";
+import { getOpenAI } from "../providers";
 
 // =============================================================================
 // TYPES
@@ -26,18 +31,18 @@ import { getOpenAI } from '../providers';
  * Props for creating the requestSuggestions tool.
  */
 export interface RequestSuggestionsToolProps {
-  /** Current user session */
-  session: AppSession;
-  /** UI message stream writer for sending suggestion data */
-  dataStream: UIMessageStreamWriter;
+    /** Current user session */
+    session: AppSession;
+    /** UI message stream writer for sending suggestion data */
+    dataStream: UIMessageStreamWriter;
 }
 
 /**
  * Suggestion without user/timestamp fields (streamed to client).
  */
 type StreamSuggestion = Omit<
-  Suggestion,
-  'userId' | 'createdAt' | 'documentCreatedAt'
+    Suggestion,
+    "userId" | "createdAt" | "documentCreatedAt"
 >;
 
 // =============================================================================
@@ -62,79 +67,84 @@ type StreamSuggestion = Omit<
  * ```
  */
 export function requestSuggestions({
-  session,
-  dataStream,
+    session,
+    dataStream,
 }: RequestSuggestionsToolProps) {
-  return tool({
-    description:
-      'Generate suggestions to improve the current document\'s content.',
-    inputSchema: z.object({
-      documentId: z
-        .string()
-        .describe('The ID of the document to request edits'),
-    }),
-    execute: async ({ documentId }) => {
-      const ctx = createContext(session.user.id, session.user.type);
-      const document = await documentData.get(documentId, ctx);
-
-      if (!document || !document.content) {
-        return {
-          error: 'Document not found',
-        };
-      }
-
-      const suggestions: StreamSuggestion[] = [];
-
-      const { elementStream } = streamObject({
-        model: getOpenAI()('gpt-4o-mini') as unknown as LanguageModel,
-        system:
-          'You are a writing assistant. Analyze the text and provide up to 5 specific suggestions for improvement. Ensure suggestions are complete sentences and clearly describe the change.',
-        prompt: document.content,
-        output: 'array',
-        schema: z.object({
-          originalSentence: z.string().describe('The original sentence'),
-          suggestedSentence: z.string().describe('The suggested sentence'),
-          description: z.string().describe('The description of the suggestion'),
+    return tool({
+        description:
+            "Generate suggestions to improve the current document's content.",
+        inputSchema: z.object({
+            documentId: z
+                .string()
+                .describe("The ID of the document to request edits"),
         }),
-      });
+        execute: async ({ documentId }) => {
+            const ctx = createContext(session.user.id, session.user.type);
+            const document = await documentData.get(documentId, ctx);
 
-      for await (const element of elementStream) {
-        const suggestion: StreamSuggestion = {
-          originalText: element.originalSentence,
-          suggestedText: element.suggestedSentence,
-          description: element.description,
-          id: generateUUID(),
-          documentId,
-          isResolved: false,
-        };
+            if (!document || !document.content) {
+                return {
+                    error: "Document not found",
+                };
+            }
 
-        dataStream.write({
-          type: 'data-suggestion',
-          data: suggestion,
-        });
+            const suggestions: StreamSuggestion[] = [];
 
-        suggestions.push(suggestion);
-      }
+            const { elementStream } = streamObject({
+                model: getOpenAI()("gpt-4o-mini") as unknown as LanguageModel,
+                system: "You are a writing assistant. Analyze the text and provide up to 5 specific suggestions for improvement. Ensure suggestions are complete sentences and clearly describe the change.",
+                prompt: document.content,
+                output: "array",
+                schema: z.object({
+                    originalSentence: z
+                        .string()
+                        .describe("The original sentence"),
+                    suggestedSentence: z
+                        .string()
+                        .describe("The suggested sentence"),
+                    description: z
+                        .string()
+                        .describe("The description of the suggestion"),
+                }),
+            });
 
-      // Only save suggestions to database for authenticated users
-      // Guest users cannot persist suggestions (cache-only constraint)
-      if (session.user?.id && !isGuest(ctx)) {
-        await saveSuggestions(
-          suggestions.map((s) => ({
-            ...s,
-            userId: session.user.id,
-            createdAt: new Date(),
-            documentCreatedAt: document.createdAt,
-          }))
-        );
-      }
+            for await (const element of elementStream) {
+                const suggestion: StreamSuggestion = {
+                    originalText: element.originalSentence,
+                    suggestedText: element.suggestedSentence,
+                    description: element.description,
+                    id: generateUUID(),
+                    documentId,
+                    isResolved: false,
+                };
 
-      return {
-        id: documentId,
-        title: document.title,
-        kind: document.kind,
-        message: 'Suggestions have been added to the document',
-      };
-    },
-  });
+                dataStream.write({
+                    type: "data-suggestion",
+                    data: suggestion,
+                });
+
+                suggestions.push(suggestion);
+            }
+
+            // Only save suggestions to database for authenticated users
+            // Guest users cannot persist suggestions (cache-only constraint)
+            if (session.user?.id && !isGuest(ctx)) {
+                await saveSuggestions(
+                    suggestions.map((s) => ({
+                        ...s,
+                        userId: session.user.id,
+                        createdAt: new Date(),
+                        documentCreatedAt: document.createdAt,
+                    }))
+                );
+            }
+
+            return {
+                id: documentId,
+                title: document.title,
+                kind: document.kind,
+                message: "Suggestions have been added to the document",
+            };
+        },
+    });
 }

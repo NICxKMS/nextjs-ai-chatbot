@@ -6,7 +6,7 @@
  * @module lib/utils
  */
 
-export { cn } from './cn';
+export { cn } from "./cn";
 
 /**
  * Generate a cryptographically secure UUID v4
@@ -14,7 +14,7 @@ export { cn } from './cn';
  * @returns A new UUID string
  */
 export function generateUUID(): string {
-  return crypto.randomUUID();
+    return crypto.randomUUID();
 }
 
 /**
@@ -24,22 +24,24 @@ export function generateUUID(): string {
  * @returns Array of UIMessage compatible objects
  */
 export function convertToUIMessages<
-  T extends {
+    T extends {
+        id: string;
+        role: "user" | "assistant" | "system";
+        parts: unknown;
+        createdAt: Date;
+    },
+>(
+    messages: T[]
+): Array<{
     id: string;
-    role: 'user' | 'assistant' | 'system';
-    parts: unknown;
+    role: "user" | "assistant" | "system";
+    parts: unknown[];
     createdAt: Date;
-  },
->(messages: T[]): Array<{
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  parts: unknown[];
-  createdAt: Date;
 }> {
-  return messages.map((message) => ({
-    id: message.id,
-    role: message.role,
-    parts: (message.parts ?? []) as unknown[],
-    createdAt: message.createdAt,
-  }));
+    return messages.map((message) => ({
+        id: message.id,
+        role: message.role,
+        parts: (message.parts ?? []) as unknown[],
+        createdAt: message.createdAt,
+    }));
 }

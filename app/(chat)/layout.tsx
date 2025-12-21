@@ -7,24 +7,24 @@
  * @module app/(chat)/layout
  */
 
-import { cookies, headers } from 'next/headers';
-import type { PropsWithChildren } from 'react';
-import { ChatLayoutClient } from './chat-layout-client';
+import { cookies, headers } from "next/headers";
+import type { PropsWithChildren } from "react";
+import { ChatLayoutClient } from "./chat-layout-client";
 
 export default async function ChatLayout({ children }: PropsWithChildren) {
-  const headersList = await headers();
-  const cookieStore = await cookies();
+    const headersList = await headers();
+    const cookieStore = await cookies();
 
-  // Detect mobile from header (set by middleware)
-  const isMobile = headersList.get('x-device-type') === 'mobile';
-  
-  // Get sidebar state from cookie, default to open on desktop
-  const sidebarCookie = cookieStore.get('sidebar:state')?.value;
-  const defaultSidebarOpen = isMobile ? false : sidebarCookie !== 'false';
+    // Detect mobile from header (set by middleware)
+    const isMobile = headersList.get("x-device-type") === "mobile";
 
-  return (
-    <ChatLayoutClient defaultSidebarOpen={defaultSidebarOpen}>
-      {children}
-    </ChatLayoutClient>
-  );
+    // Get sidebar state from cookie, default to open on desktop
+    const sidebarCookie = cookieStore.get("sidebar:state")?.value;
+    const defaultSidebarOpen = isMobile ? false : sidebarCookie !== "false";
+
+    return (
+        <ChatLayoutClient defaultSidebarOpen={defaultSidebarOpen}>
+            {children}
+        </ChatLayoutClient>
+    );
 }

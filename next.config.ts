@@ -1,7 +1,7 @@
-import type { NextConfig } from 'next';
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-   cacheComponents: true,
+    cacheComponents: true,
     reactCompiler: true,
     productionBrowserSourceMaps: false, // Disabled: Saves ~50% bundle size in production
     reactStrictMode: true,
@@ -34,13 +34,13 @@ const nextConfig: NextConfig = {
             "mermaid",
         ],
     }, // Next.js 16: Partial Prerendering
-  images: {
-    remotePatterns: [
-      {
-        hostname: 'avatar.vercel.sh',
-      },
-    ],
-  },
+    images: {
+        remotePatterns: [
+            {
+                hostname: "avatar.vercel.sh",
+            },
+        ],
+    },
 };
 
 export default nextConfig;

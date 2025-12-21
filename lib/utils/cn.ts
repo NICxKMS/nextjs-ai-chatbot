@@ -7,8 +7,8 @@
  * @module lib/utils/cn
  */
 
-import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 /**
  * Combines class names using clsx and merges Tailwind CSS classes intelligently.
@@ -25,5 +25,5 @@ import { twMerge } from 'tailwind-merge';
  * ```
  */
 export function cn(...inputs: ClassValue[]): string {
-  return twMerge(clsx(inputs));
+    return twMerge(clsx(inputs));
 }

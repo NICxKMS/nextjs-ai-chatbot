@@ -5,11 +5,11 @@
  * POST /api/auth/guest
  */
 
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 
-import { getSessionManager } from '@/lib/auth/session';
-import type { AppUser } from '@/lib/auth/types';
-import { AppError } from '@/lib/errors';
+import { getSessionManager } from "@/lib/auth/session";
+import type { AppUser } from "@/lib/auth/types";
+import { AppError } from "@/lib/errors";
 
 /**
  * Create or retrieve guest session
@@ -19,47 +19,47 @@ import { AppError } from '@/lib/errors';
  * or creates new guest session.
  */
 export async function POST(_request: Request): Promise<Response> {
-  const sessionManager = getSessionManager();
+    const sessionManager = getSessionManager();
 
-  // Check for existing session (Supabase or guest)
-  const existingSession = await sessionManager.getSession();
+    // Check for existing session (Supabase or guest)
+    const existingSession = await sessionManager.getSession();
 
-  if (existingSession) {
-    // Return existing session
-    return NextResponse.json(
-      {
-        user: existingSession.user,
-        isNewSession: false,
-      },
-      { status: 200 }
-    );
-  }
+    if (existingSession) {
+        // Return existing session
+        return NextResponse.json(
+            {
+                user: existingSession.user,
+                isNewSession: false,
+            },
+            { status: 200 }
+        );
+    }
 
-  // Create new guest session
-  try {
-    const guestSession = await sessionManager.createGuestSession();
+    // Create new guest session
+    try {
+        const guestSession = await sessionManager.createGuestSession();
 
-    const user: AppUser = {
-      id: guestSession.user.id,
-      type: 'guest',
-    };
+        const user: AppUser = {
+            id: guestSession.user.id,
+            type: "guest",
+        };
 
-    // isNewSession: true indicates brand new guest with no history
-    // Consumers can skip initial history fetch
-    return NextResponse.json(
-      {
-        user,
-        isNewSession: true,
-      },
-      { status: 200 }
-    );
-  } catch (error) {
-    // Guest session creation failed
-    return new AppError({
-      code: 'auth:guest_unavailable',
-      message: 'Guest authentication is not configured',
-    }).toResponse();
-  }
+        // isNewSession: true indicates brand new guest with no history
+        // Consumers can skip initial history fetch
+        return NextResponse.json(
+            {
+                user,
+                isNewSession: true,
+            },
+            { status: 200 }
+        );
+    } catch (error) {
+        // Guest session creation failed
+        return new AppError({
+            code: "auth:guest_unavailable",
+            message: "Guest authentication is not configured",
+        }).toResponse();
+    }
 }
 
 /**
@@ -67,21 +67,21 @@ export async function POST(_request: Request): Promise<Response> {
  * Used when server-side pages need guest session before rendering
  */
 export async function GET(request: Request): Promise<Response> {
-  const url = new URL(request.url);
-  const redirectUrl = url.searchParams.get('redirectUrl') || '/';
+    const url = new URL(request.url);
+    const redirectUrl = url.searchParams.get("redirectUrl") || "/";
 
-  // Validate redirect URL - only allow relative paths
-  const safeRedirectUrl = getSafeRedirectUrl(redirectUrl);
+    // Validate redirect URL - only allow relative paths
+    const safeRedirectUrl = getSafeRedirectUrl(redirectUrl);
 
-  const sessionManager = getSessionManager();
+    const sessionManager = getSessionManager();
 
-  // Get or create session
-  const { session, isNew } = await sessionManager.getOrCreateSession();
+    // Get or create session
+    const { session, isNew } = await sessionManager.getOrCreateSession();
 
-  // Redirect with session info in search params if needed
-  const redirect = new URL(safeRedirectUrl, url.origin);
+    // Redirect with session info in search params if needed
+    const redirect = new URL(safeRedirectUrl, url.origin);
 
-  return NextResponse.redirect(redirect, { status: 302 });
+    return NextResponse.redirect(redirect, { status: 302 });
 }
 
 /**
@@ -89,33 +89,33 @@ export async function GET(request: Request): Promise<Response> {
  * Only allows safe relative paths
  */
 function getSafeRedirectUrl(redirectUrl: string): string {
-  try {
-    const normalizedUrl = decodeURIComponent(redirectUrl).trim();
+    try {
+        const normalizedUrl = decodeURIComponent(redirectUrl).trim();
 
-    // Block dangerous schemes
-    const lowerUrl = normalizedUrl.toLowerCase();
-    if (
-      lowerUrl.startsWith('javascript:') ||
-      lowerUrl.startsWith('data:') ||
-      lowerUrl.startsWith('vbscript:') ||
-      lowerUrl.startsWith('file:')
-    ) {
-      return '/';
+        // Block dangerous schemes
+        const lowerUrl = normalizedUrl.toLowerCase();
+        if (
+            lowerUrl.startsWith("javascript:") ||
+            lowerUrl.startsWith("data:") ||
+            lowerUrl.startsWith("vbscript:") ||
+            lowerUrl.startsWith("file:")
+        ) {
+            return "/";
+        }
+
+        // Allow relative paths starting with /
+        // Block protocol-relative URLs (//example.com)
+        if (normalizedUrl.startsWith("/") && !normalizedUrl.startsWith("//")) {
+            // Block path traversal attempts
+            if (/^\/[\\]+/.test(normalizedUrl)) {
+                return "/";
+            }
+            return normalizedUrl;
+        }
+
+        // For absolute URLs, reject external redirects
+        return "/";
+    } catch {
+        return "/";
     }
-
-    // Allow relative paths starting with /
-    // Block protocol-relative URLs (//example.com)
-    if (normalizedUrl.startsWith('/') && !normalizedUrl.startsWith('//')) {
-      // Block path traversal attempts
-      if (/^\/[\\]+/.test(normalizedUrl)) {
-        return '/';
-      }
-      return normalizedUrl;
-    }
-
-    // For absolute URLs, reject external redirects
-    return '/';
-  } catch {
-    return '/';
-  }
 }

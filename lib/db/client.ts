@@ -5,42 +5,42 @@
  * Uses postgres (porsager/postgres) driver with Drizzle ORM
  * Supabase PostgreSQL compatible
  */
-import 'server-only';
+import "server-only";
 
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
-import * as schema from './schema';
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import * as schema from "./schema";
 
 /**
  * Get pool configuration based on environment
  */
 function getPoolConfig() {
-  const isProd = process.env.NODE_ENV === 'production';
-  const isVercel = process.env.VERCEL === '1';
+    const isProd = process.env.NODE_ENV === "production";
+    const isVercel = process.env.VERCEL === "1";
 
-  if (isVercel) {
+    if (isVercel) {
+        return {
+            max: 5,
+            idle_timeout: 10,
+            connect_timeout: 10,
+            prepare: false, // Required for serverless
+        };
+    }
+    if (isProd) {
+        return {
+            max: 10,
+            idle_timeout: 20,
+            connect_timeout: 10,
+            prepare: false,
+        };
+    }
+    // Development
     return {
-      max: 5,
-      idle_timeout: 10,
-      connect_timeout: 10,
-      prepare: false, // Required for serverless
+        max: 3,
+        idle_timeout: 30,
+        connect_timeout: 30,
+        prepare: false,
     };
-  }
-  if (isProd) {
-    return {
-      max: 10,
-      idle_timeout: 20,
-      connect_timeout: 10,
-      prepare: false,
-    };
-  }
-  // Development
-  return {
-    max: 3,
-    idle_timeout: 30,
-    connect_timeout: 30,
-    prepare: false,
-  };
 }
 
 // Create postgres client
@@ -53,7 +53,7 @@ const db = drizzle(client, { schema });
  * Get database client
  */
 export function getDb() {
-  return db;
+    return db;
 }
 
 /**
@@ -61,7 +61,7 @@ export function getDb() {
  * Note: postgres-js supports transactions natively
  */
 export function getPoolDb() {
-  return db;
+    return db;
 }
 
 // Re-export schema for convenience

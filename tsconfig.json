@@ -33,5 +33,12 @@
     ".next/dev/types/**/*.ts",
     "lib/editor/diff.js"
   ],
-  "exclude": ["node_modules", "scripts", "tests", ".next", "oldapp", "prompt-genome"]
+  "exclude": [
+    "node_modules",
+    "scripts",
+    "tests",
+    ".next",
+    "oldapp",
+    "prompt-genome"
+  ]
 }

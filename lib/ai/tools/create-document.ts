@@ -8,16 +8,16 @@
  * @module lib/ai/tools/create-document
  */
 
-import { tool, type UIMessageStreamWriter } from 'ai';
-import { z } from 'zod';
+import { tool, type UIMessageStreamWriter } from "ai";
+import { z } from "zod";
 
 import {
-  artifactKinds,
-  documentHandlersByArtifactKind,
-} from '@/features/artifacts/server';
-import type { AppSession } from '@/lib/auth/types';
-import { AppError } from '@/lib/errors';
-import { generateUUID } from '@/lib/utils';
+    artifactKinds,
+    documentHandlersByArtifactKind,
+} from "@/features/artifacts/server";
+import type { AppSession } from "@/lib/auth/types";
+import { AppError } from "@/lib/errors";
+import { generateUUID } from "@/lib/utils";
 
 // =============================================================================
 // TYPES
@@ -27,12 +27,12 @@ import { generateUUID } from '@/lib/utils';
  * Props for creating the createDocument tool.
  */
 export interface CreateDocumentToolProps {
-  /** Current user session */
-  session: AppSession;
-  /** UI message stream writer for sending artifact data */
-  dataStream: UIMessageStreamWriter;
-  /** Chat ID for associating the document */
-  chatId: string;
+    /** Current user session */
+    session: AppSession;
+    /** UI message stream writer for sending artifact data */
+    dataStream: UIMessageStreamWriter;
+    /** Chat ID for associating the document */
+    chatId: string;
 }
 
 // =============================================================================
@@ -57,74 +57,75 @@ export interface CreateDocumentToolProps {
  * ```
  */
 export function createDocument({
-  session,
-  dataStream,
-  chatId,
+    session,
+    dataStream,
+    chatId,
 }: CreateDocumentToolProps) {
-  return tool({
-    description:
-      'Create a new document, code snippet, or spreadsheet. Use for substantial content (>10 lines) or when the user explicitly requests a separate artifact.',
-    inputSchema: z.object({
-      title: z.string(),
-      kind: z.enum(artifactKinds),
-    }),
-    execute: async ({ title, kind }) => {
-      const id = generateUUID();
+    return tool({
+        description:
+            "Create a new document, code snippet, or spreadsheet. Use for substantial content (>10 lines) or when the user explicitly requests a separate artifact.",
+        inputSchema: z.object({
+            title: z.string(),
+            kind: z.enum(artifactKinds),
+        }),
+        execute: async ({ title, kind }) => {
+            const id = generateUUID();
 
-      // Write artifact metadata to stream
-      dataStream.write({
-        type: 'data-kind',
-        data: kind,
-      });
+            // Write artifact metadata to stream
+            dataStream.write({
+                type: "data-kind",
+                data: kind,
+            });
 
-      dataStream.write({
-        type: 'data-id',
-        data: id,
-      });
+            dataStream.write({
+                type: "data-id",
+                data: id,
+            });
 
-      dataStream.write({
-        type: 'data-title',
-        data: title,
-      });
+            dataStream.write({
+                type: "data-title",
+                data: title,
+            });
 
-      dataStream.write({
-        type: 'data-clear',
-        data: null,
-      });
+            dataStream.write({
+                type: "data-clear",
+                data: null,
+            });
 
-      // Find the appropriate document handler
-      const documentHandler = documentHandlersByArtifactKind.find(
-        (handler) => handler.kind === kind
-      );
+            // Find the appropriate document handler
+            const documentHandler = documentHandlersByArtifactKind.find(
+                (handler) => handler.kind === kind
+            );
 
-      if (!documentHandler) {
-        throw new AppError({
-          code: 'validation:invalid_input',
-          message: `No document handler found for kind: ${kind}`,
-        });
-      }
+            if (!documentHandler) {
+                throw new AppError({
+                    code: "validation:invalid_input",
+                    message: `No document handler found for kind: ${kind}`,
+                });
+            }
 
-      // Execute the document handler's create callback
-      await documentHandler.onCreateDocument({
-        id,
-        title,
-        dataStream,
-        session,
-        chatId,
-      });
+            // Execute the document handler's create callback
+            await documentHandler.onCreateDocument({
+                id,
+                title,
+                dataStream,
+                session,
+                chatId,
+            });
 
-      // Signal completion
-      dataStream.write({
-        type: 'data-finish',
-        data: null,
-      });
+            // Signal completion
+            dataStream.write({
+                type: "data-finish",
+                data: null,
+            });
 
-      return {
-        id,
-        title,
-        kind,
-        content: 'A document was created and is now visible to the user.',
-      };
-    },
-  });
+            return {
+                id,
+                title,
+                kind,
+                content:
+                    "A document was created and is now visible to the user.",
+            };
+        },
+    });
 }

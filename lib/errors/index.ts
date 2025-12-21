@@ -6,39 +6,39 @@
  */
 
 // Core class
-export { AppError } from './app-error';
+export { AppError } from "./app-error";
 
 // Types
 export type {
-  ErrorSeverity,
-  ErrorCategory,
-  ErrorCode,
-  AppErrorOptions,
-  ActionResult,
-  MessageConfig,
-  LogContext,
-} from './types';
+    ErrorSeverity,
+    ErrorCategory,
+    ErrorCode,
+    AppErrorOptions,
+    ActionResult,
+    MessageConfig,
+    LogContext,
+} from "./types";
 
 // Messages
-export { getMessage, registerMessages } from './messages';
+export { getMessage, registerMessages } from "./messages";
 
 // Utilities
 export {
-  inferStatusCode,
-  isAppError,
-  ensureAppError,
-  serializeError,
-} from './utils';
+    inferStatusCode,
+    isAppError,
+    ensureAppError,
+    serializeError,
+} from "./utils";
 
 // Factory functions
 export {
-  authError,
-  validationError,
-  notFoundError,
-  rateLimitError,
-  forbiddenError,
-  externalError,
-} from './factories';
+    authError,
+    validationError,
+    notFoundError,
+    rateLimitError,
+    forbiddenError,
+    externalError,
+} from "./factories";
 
 // Mappers
-export { mapPostgresError, isPostgresError } from './mappers/postgres';
+export { mapPostgresError, isPostgresError } from "./mappers/postgres";

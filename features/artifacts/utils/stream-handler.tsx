@@ -1,25 +1,30 @@
-'use client';
+"use client";
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 
-import type { ArtifactDefinition, ArtifactKind, ArtifactStreamPart, UIArtifact } from '../types';
-import { initialArtifactData, useArtifact } from '../hooks/use-artifact';
+import type {
+    ArtifactDefinition,
+    ArtifactKind,
+    ArtifactStreamPart,
+    UIArtifact,
+} from "../types";
+import { initialArtifactData, useArtifact } from "../hooks/use-artifact";
 
 // ============================================================================
 // Types
 // ============================================================================
 
 export interface DataStreamHandlerProps {
-  /**
-   * Array of stream parts from the AI data stream.
-   * Each part contains a type and associated data.
-   */
-  dataStream: ArtifactStreamPart[] | undefined;
-  /**
-   * Array of registered artifact definitions.
-   * Used to find the appropriate handler for each artifact kind.
-   */
-  artifactDefinitions: ArtifactDefinition[];
+    /**
+     * Array of stream parts from the AI data stream.
+     * Each part contains a type and associated data.
+     */
+    dataStream: ArtifactStreamPart[] | undefined;
+    /**
+     * Array of registered artifact definitions.
+     * Used to find the appropriate handler for each artifact kind.
+     */
+    artifactDefinitions: ArtifactDefinition[];
 }
 
 // ============================================================================
@@ -31,47 +36,47 @@ export interface DataStreamHandlerProps {
  * Returns the updated artifact state or null if no update needed.
  */
 function processBaseStreamPart(
-  currentArtifact: UIArtifact,
-  delta: ArtifactStreamPart
+    currentArtifact: UIArtifact,
+    delta: ArtifactStreamPart
 ): UIArtifact | null {
-  switch (delta.type) {
-    case 'data-id':
-      return {
-        ...currentArtifact,
-        documentId: delta.data as string,
-        status: 'streaming',
-      };
+    switch (delta.type) {
+        case "data-id":
+            return {
+                ...currentArtifact,
+                documentId: delta.data as string,
+                status: "streaming",
+            };
 
-    case 'data-title':
-      return {
-        ...currentArtifact,
-        title: delta.data as string,
-        status: 'streaming',
-      };
+        case "data-title":
+            return {
+                ...currentArtifact,
+                title: delta.data as string,
+                status: "streaming",
+            };
 
-    case 'data-kind':
-      return {
-        ...currentArtifact,
-        kind: delta.data as ArtifactKind,
-        status: 'streaming',
-      };
+        case "data-kind":
+            return {
+                ...currentArtifact,
+                kind: delta.data as ArtifactKind,
+                status: "streaming",
+            };
 
-    case 'data-clear':
-      return {
-        ...currentArtifact,
-        content: '',
-        status: 'streaming',
-      };
+        case "data-clear":
+            return {
+                ...currentArtifact,
+                content: "",
+                status: "streaming",
+            };
 
-    case 'data-finish':
-      return {
-        ...currentArtifact,
-        status: 'idle',
-      };
+        case "data-finish":
+            return {
+                ...currentArtifact,
+                status: "idle",
+            };
 
-    default:
-      return null;
-  }
+        default:
+            return null;
+    }
 }
 
 // ============================================================================
@@ -96,68 +101,77 @@ function processBaseStreamPart(
  * ```
  */
 export function DataStreamHandler({
-  dataStream,
-  artifactDefinitions,
+    dataStream,
+    artifactDefinitions,
 }: DataStreamHandlerProps): null {
-  const { artifact, setArtifact, setMetadata } = useArtifact();
+    const { artifact, setArtifact, setMetadata } = useArtifact();
 
-  // Track last processed index to avoid reprocessing
-  const lastProcessedIndex = useRef(-1);
-  // Track artifact kind to reset processing on kind change
-  const lastArtifactKind = useRef(artifact.kind);
+    // Track last processed index to avoid reprocessing
+    const lastProcessedIndex = useRef(-1);
+    // Track artifact kind to reset processing on kind change
+    const lastArtifactKind = useRef(artifact.kind);
 
-  // Extract artifact.kind to use as a stable dependency
-  const artifactKind = artifact.kind;
+    // Extract artifact.kind to use as a stable dependency
+    const artifactKind = artifact.kind;
 
-  useEffect(() => {
-    // Reset if artifact kind changed
-    if (lastArtifactKind.current !== artifactKind) {
-      lastProcessedIndex.current = -1;
-      lastArtifactKind.current = artifactKind;
-    }
+    useEffect(() => {
+        // Reset if artifact kind changed
+        if (lastArtifactKind.current !== artifactKind) {
+            lastProcessedIndex.current = -1;
+            lastArtifactKind.current = artifactKind;
+        }
 
-    // Reset if stream is cleared
-    if (!dataStream?.length) {
-      lastProcessedIndex.current = -1;
-      return;
-    }
+        // Reset if stream is cleared
+        if (!dataStream?.length) {
+            lastProcessedIndex.current = -1;
+            return;
+        }
 
-    // Process only new deltas
-    const newDeltas = dataStream.slice(lastProcessedIndex.current + 1);
-    lastProcessedIndex.current = dataStream.length - 1;
+        // Process only new deltas
+        const newDeltas = dataStream.slice(lastProcessedIndex.current + 1);
+        lastProcessedIndex.current = dataStream.length - 1;
 
-    // Find the artifact definition for current kind
-    const artifactDefinition = artifactDefinitions.find(
-      (def) => def.kind === artifactKind
-    );
+        // Find the artifact definition for current kind
+        const artifactDefinition = artifactDefinitions.find(
+            (def) => def.kind === artifactKind
+        );
 
-    for (const delta of newDeltas) {
-      // Process base artifact updates in a single setArtifact call
-      // to prevent race conditions and double state updates
-      setArtifact((draftArtifact) => {
-        const currentArtifact = draftArtifact ?? {
-          ...initialArtifactData,
-          status: 'streaming' as const,
-        };
+        for (const delta of newDeltas) {
+            // Process base artifact updates in a single setArtifact call
+            // to prevent race conditions and double state updates
+            setArtifact((draftArtifact) => {
+                const currentArtifact = draftArtifact ?? {
+                    ...initialArtifactData,
+                    status: "streaming" as const,
+                };
 
-        // Try to process as base stream part
-        const baseUpdate = processBaseStreamPart(currentArtifact, delta);
+                // Try to process as base stream part
+                const baseUpdate = processBaseStreamPart(
+                    currentArtifact,
+                    delta
+                );
 
-        return baseUpdate ?? currentArtifact;
-      });
+                return baseUpdate ?? currentArtifact;
+            });
 
-      // Handle artifact-specific stream part processing (for metadata updates)
-      // This is called after base artifact update to ensure consistent state
-      if (artifactDefinition?.onStreamPart) {
-        artifactDefinition.onStreamPart({
-          streamPart: delta,
-          setArtifact,
-          setMetadata,
-        });
-      }
-    }
-  }, [dataStream, setArtifact, setMetadata, artifactKind, artifactDefinitions]);
+            // Handle artifact-specific stream part processing (for metadata updates)
+            // This is called after base artifact update to ensure consistent state
+            if (artifactDefinition?.onStreamPart) {
+                artifactDefinition.onStreamPart({
+                    streamPart: delta,
+                    setArtifact,
+                    setMetadata,
+                });
+            }
+        }
+    }, [
+        dataStream,
+        setArtifact,
+        setMetadata,
+        artifactKind,
+        artifactDefinitions,
+    ]);
 
-  // This component only processes data, renders nothing
-  return null;
+    // This component only processes data, renders nothing
+    return null;
 }

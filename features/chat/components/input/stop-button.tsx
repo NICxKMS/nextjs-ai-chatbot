@@ -6,16 +6,16 @@
  * @module features/chat/components/input/stop-button
  */
 
-'use client';
+"use client";
 
-import { Square } from 'lucide-react';
+import { Square } from "lucide-react";
 
 /**
  * Props for the StopButton component.
  */
 export interface StopButtonProps {
-  /** Click handler to stop generation */
-  onClick: () => void;
+    /** Click handler to stop generation */
+    onClick: () => void;
 }
 
 /**
@@ -31,15 +31,15 @@ export interface StopButtonProps {
  * ```
  */
 export function StopButton({ onClick }: StopButtonProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="size-7 rounded-full bg-foreground text-background transition-colors duration-200 hover:bg-foreground/90 flex items-center justify-center"
-      aria-label="Stop generating"
-      data-testid="stop-button"
-    >
-      <Square className="h-3 w-3 fill-current" />
-    </button>
-  );
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className="size-7 rounded-full bg-foreground text-background transition-colors duration-200 hover:bg-foreground/90 flex items-center justify-center"
+            aria-label="Stop generating"
+            data-testid="stop-button"
+        >
+            <Square className="h-3 w-3 fill-current" />
+        </button>
+    );
 }

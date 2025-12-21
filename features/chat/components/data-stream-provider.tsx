@@ -7,17 +7,17 @@
  * @module features/chat/components/data-stream-provider
  */
 
-'use client';
+"use client";
 
 import {
-  createContext,
-  useContext,
-  useState,
-  type ReactNode,
-  type Dispatch,
-  type SetStateAction,
-} from 'react';
-import type { DataUIPart } from 'ai';
+    createContext,
+    useContext,
+    useState,
+    type ReactNode,
+    type Dispatch,
+    type SetStateAction,
+} from "react";
+import type { DataUIPart } from "ai";
 
 // =============================================================================
 // TYPES
@@ -34,23 +34,23 @@ export type DataStreamPart = DataUIPart<Record<string, unknown>>;
 // =============================================================================
 
 interface DataStreamContextValue {
-  /** Current data stream parts from AI response */
-  dataStream: DataStreamPart[];
-  /** Setter for data stream - used by DataStreamHandler */
-  setDataStream: Dispatch<SetStateAction<DataStreamPart[]>>;
-  /** Clear the data stream (reset to empty array) */
-  clearDataStream: () => void;
+    /** Current data stream parts from AI response */
+    dataStream: DataStreamPart[];
+    /** Setter for data stream - used by DataStreamHandler */
+    setDataStream: Dispatch<SetStateAction<DataStreamPart[]>>;
+    /** Clear the data stream (reset to empty array) */
+    clearDataStream: () => void;
 }
 
 const DataStreamContext = createContext<DataStreamContextValue | null>(null);
-DataStreamContext.displayName = 'DataStreamContext';
+DataStreamContext.displayName = "DataStreamContext";
 
 // =============================================================================
 // PROVIDER COMPONENT
 // =============================================================================
 
 export interface DataStreamProviderProps {
-  children: ReactNode;
+    children: ReactNode;
 }
 
 /**
@@ -69,16 +69,20 @@ export interface DataStreamProviderProps {
  * </DataStreamProvider>
  * ```
  */
-export function DataStreamProvider({ children }: DataStreamProviderProps): React.JSX.Element {
-  const [dataStream, setDataStream] = useState<DataStreamPart[]>([]);
+export function DataStreamProvider({
+    children,
+}: DataStreamProviderProps): React.JSX.Element {
+    const [dataStream, setDataStream] = useState<DataStreamPart[]>([]);
 
-  const clearDataStream = () => setDataStream([]);
+    const clearDataStream = () => setDataStream([]);
 
-  return (
-    <DataStreamContext.Provider value={{ dataStream, setDataStream, clearDataStream }}>
-      {children}
-    </DataStreamContext.Provider>
-  );
+    return (
+        <DataStreamContext.Provider
+            value={{ dataStream, setDataStream, clearDataStream }}
+        >
+            {children}
+        </DataStreamContext.Provider>
+    );
 }
 
 // =============================================================================
@@ -94,9 +98,9 @@ export function DataStreamProvider({ children }: DataStreamProviderProps): React
  * ```
  */
 export function useDataStream(): DataStreamContextValue {
-  const context = useContext(DataStreamContext);
-  if (!context) {
-    throw new Error('useDataStream must be used within DataStreamProvider');
-  }
-  return context;
+    const context = useContext(DataStreamContext);
+    if (!context) {
+        throw new Error("useDataStream must be used within DataStreamProvider");
+    }
+    return context;
 }

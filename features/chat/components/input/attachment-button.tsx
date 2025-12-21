@@ -6,18 +6,18 @@
  * @module features/chat/components/input/attachment-button
  */
 
-'use client';
+"use client";
 
-import { Paperclip } from 'lucide-react';
+import { Paperclip } from "lucide-react";
 
 /**
  * Props for the AttachmentButton component.
  */
 export interface AttachmentButtonProps {
-  /** Click handler to open file selection */
-  onClick: () => void;
-  /** Whether the button is disabled */
-  disabled?: boolean;
+    /** Click handler to open file selection */
+    onClick: () => void;
+    /** Whether the button is disabled */
+    disabled?: boolean;
 }
 
 /**
@@ -36,16 +36,16 @@ export interface AttachmentButtonProps {
  * ```
  */
 export function AttachmentButton({ onClick, disabled }: AttachmentButtonProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="h-8 w-8 rounded-lg p-1 transition-colors hover:bg-accent disabled:opacity-50 disabled:pointer-events-none"
-      aria-label="Attach file"
-      data-testid="attachments-button"
-    >
-      <Paperclip className="h-4 w-4" />
-    </button>
-  );
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            disabled={disabled}
+            className="h-8 w-8 rounded-lg p-1 transition-colors hover:bg-accent disabled:opacity-50 disabled:pointer-events-none"
+            aria-label="Attach file"
+            data-testid="attachments-button"
+        >
+            <Paperclip className="h-4 w-4" />
+        </button>
+    );
 }
