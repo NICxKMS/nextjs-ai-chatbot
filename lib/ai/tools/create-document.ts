@@ -8,7 +8,7 @@
  * @module lib/ai/tools/create-document
  */
 
-import { tool, type UIMessageStreamWriter } from "ai";
+import { type LanguageModel, tool, type UIMessageStreamWriter } from "ai";
 import { z } from "zod";
 
 import {
@@ -27,6 +27,8 @@ import { generateUUID } from "@/lib/utils";
  * Props for creating the createDocument tool.
  */
 export type CreateDocumentToolProps = {
+    /** Language model to use for document generation */
+    model: LanguageModel;
     /** Current user session */
     session: AppSession;
     /** UI message stream writer for sending artifact data */
@@ -57,6 +59,7 @@ export type CreateDocumentToolProps = {
  * ```
  */
 export function createDocument({
+    model,
     session,
     dataStream,
     chatId,
@@ -111,6 +114,7 @@ export function createDocument({
                 dataStream,
                 session,
                 chatId,
+                model,
             });
 
             // Signal completion

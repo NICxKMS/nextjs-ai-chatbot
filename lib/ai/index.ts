@@ -5,6 +5,17 @@
  * @module lib/ai
  */
 
+// Config
+export {
+    DEFAULT_MODEL_ID,
+    getToolModel,
+    getTitleModel,
+    TITLE_MODEL_ID,
+    TOOL_MODEL_ID,
+    USE_SELECTED_MODEL_FOR_TITLE,
+    USE_SELECTED_MODEL_FOR_TOOLS,
+} from "./config";
+
 // Mock Provider (for testing)
 export {
     addMockResponse,
@@ -19,14 +30,29 @@ export {
 } from "./mock-provider";
 // Models
 export {
-    DEFAULT_MODEL_ID,
     getAvailableModels,
     getModelById,
     isValidModel,
     MODEL_REGISTRY,
 } from "./models";
-// Providers
-export { getAnthropic, getGoogle, getOpenAI } from "./providers";
+// Providers - Unified Registry Pattern (like OldApp)
+export {
+    getAnthropic,
+    getGoogle,
+    getLanguageModel,
+    getOpenAI,
+    getOpenRouter,
+    myProvider,
+} from "./providers";
+
+// Reasoning
+export {
+    buildProviderOptions,
+    getReasoningType,
+    isReasoningModel,
+    type ReasoningType,
+    wrapWithReasoningMiddleware,
+} from "./reasoning";
 
 // Tools
 export {

@@ -9,7 +9,6 @@ import "server-only";
 import { type LanguageModel, streamObject } from "ai";
 import { z } from "zod";
 
-import { getOpenAI } from "@/lib/ai/providers";
 import { createDocumentHandler } from "./base";
 
 const SHEET_SYSTEM_PROMPT = `
@@ -40,11 +39,11 @@ const sheetSchema = z.object({
 export const sheetDocumentHandler = createDocumentHandler<"sheet">({
     kind: "sheet",
 
-    onCreateDocument: async ({ title, dataStream }) => {
+    onCreateDocument: async ({ title, dataStream, model }) => {
         let draftContent = "";
 
         const { fullStream } = streamObject({
-            model: getOpenAI()("gpt-4o-mini") as unknown as LanguageModel,
+            model,
             system: SHEET_SYSTEM_PROMPT,
             prompt: title,
             schema: sheetSchema,
@@ -74,11 +73,11 @@ export const sheetDocumentHandler = createDocumentHandler<"sheet">({
         return draftContent;
     },
 
-    onUpdateDocument: async ({ document, description, dataStream }) => {
+    onUpdateDocument: async ({ document, description, dataStream, model }) => {
         let draftContent = "";
 
         const { fullStream } = streamObject({
-            model: getOpenAI()("gpt-4o-mini") as unknown as LanguageModel,
+            model,
             system: createUpdatePrompt(document.content),
             prompt: description,
             schema: sheetSchema,

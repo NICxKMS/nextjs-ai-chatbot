@@ -2,8 +2,8 @@
  * AI Provider Configuration
  * Ref: 05-ai-integration-optimal-design.md §2
  *
- * Lazy initialization pattern to avoid errors when env vars not set.
- * Providers are only instantiated when actually used.
+ * Uses createProviderRegistry pattern from OldApp for unified model resolution.
+ * Providers are conditionally registered based on env var availability.
  *
  * Supports: OpenAI, Anthropic, Google, OpenRouter, Cloudflare (Workers + AI Gateway)
  *
@@ -13,18 +13,146 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
+import type { ProviderV2 } from "@ai-sdk/provider";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import {
+    experimental_createProviderRegistry as createProviderRegistry,
+    type LanguageModel,
+} from "ai";
+import { MODEL_REGISTRY } from "./models";
+import { getReasoningType, wrapWithReasoningMiddleware } from "./reasoning";
+
+// =============================================================================
+// ENVIRONMENT VARIABLES
+// =============================================================================
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const GOOGLE_GENERATIVE_AI_API_KEY =
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? process.env.GEMINI_API_KEY;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+
+// =============================================================================
+// PROVIDER REGISTRY (OldApp Pattern)
+// =============================================================================
+
+const baseProviders: Record<string, ProviderV2> = {};
+
+/**
+ * Register a provider if it's available (has API key configured)
+ */
+const registerProvider = (id: string, provider: ProviderV2 | undefined) => {
+    if (provider) {
+        baseProviders[id] = provider;
+    }
+};
+
+// Conditionally register providers based on available API keys
+if (OPENAI_API_KEY) {
+    registerProvider(
+        "openai",
+        createOpenAI({ apiKey: OPENAI_API_KEY }) as unknown as ProviderV2
+    );
+}
+
+if (ANTHROPIC_API_KEY) {
+    registerProvider(
+        "anthropic",
+        createAnthropic({ apiKey: ANTHROPIC_API_KEY }) as unknown as ProviderV2
+    );
+}
+
+if (GOOGLE_GENERATIVE_AI_API_KEY) {
+    registerProvider(
+        "google",
+        createGoogleGenerativeAI({
+            apiKey: GOOGLE_GENERATIVE_AI_API_KEY,
+        }) as unknown as ProviderV2
+    );
+}
+
+if (OPENROUTER_API_KEY) {
+    registerProvider(
+        "openrouter",
+        createOpenRouter({
+            apiKey: OPENROUTER_API_KEY,
+        }) as unknown as ProviderV2
+    );
+}
+
+// Create the unified provider registry
+const providerRegistry = createProviderRegistry(baseProviders);
+
+// =============================================================================
+// UNIFIED MODEL RESOLUTION (OldApp Pattern)
+// =============================================================================
+
+/**
+ * Get a language model from the unified registry
+ * Automatically wraps reasoning models with chain-of-thought middleware
+ *
+ * @param id - Model ID in format "provider:modelId" or just "modelId" (will lookup provider)
+ * @returns LanguageModel instance, wrapped with reasoning middleware if applicable
+ */
+export function getLanguageModel(id: string): LanguageModel {
+    // Get metadata for model wrapping
+    const metadata = MODEL_REGISTRY[id];
+
+    // Resolve the actual provider:modelId format
+    let resolvedId: string;
+    if (id.includes(":")) {
+        // Already in provider:model format
+        // Extract actual model name (remove provider prefix for providers that expect just the model name)
+        const [provider, ...modelParts] = id.split(":");
+        const modelName = modelParts.join(":");
+        resolvedId = `${provider}:${modelName}`;
+    } else if (metadata) {
+        // Use metadata to determine provider
+        resolvedId = `${metadata.provider}:${id}`;
+    } else {
+        // Fallback: assume it's the full ID
+        resolvedId = id;
+    }
+
+    const model = providerRegistry.languageModel(
+        resolvedId as `${string}:${string}`
+    );
+
+    // Wrap with reasoning middleware if this is a reasoning model
+    const reasoningType = getReasoningType(id);
+    if (reasoningType !== "none") {
+        return wrapWithReasoningMiddleware(model, id);
+    }
+
+    return model;
+}
+
+/**
+ * myProvider wrapper (OldApp Pattern)
+ * Provides a simple interface for getting language models with automatic
+ * reasoning middleware wrapping.
+ *
+ * Usage: myProvider.languageModel("openai:gpt-4o")
+ */
+export const myProvider = {
+    languageModel(id: string): LanguageModel {
+        return getLanguageModel(id);
+    },
+};
+
+// =============================================================================
+// LEGACY GETTER FUNCTIONS (Backward Compatibility)
+// =============================================================================
 
 /**
  * Get OpenAI provider instance
  * @throws Error if OPENAI_API_KEY is not configured
  */
 export function getOpenAI() {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+    if (!OPENAI_API_KEY) {
         throw new Error("OPENAI_API_KEY not configured");
     }
-    return createOpenAI({ apiKey });
+    return createOpenAI({ apiKey: OPENAI_API_KEY });
 }
 
 /**
@@ -32,11 +160,10 @@ export function getOpenAI() {
  * @throws Error if ANTHROPIC_API_KEY is not configured
  */
 export function getAnthropic() {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
+    if (!ANTHROPIC_API_KEY) {
         throw new Error("ANTHROPIC_API_KEY not configured");
     }
-    return createAnthropic({ apiKey });
+    return createAnthropic({ apiKey: ANTHROPIC_API_KEY });
 }
 
 /**
@@ -44,12 +171,10 @@ export function getAnthropic() {
  * @throws Error if GOOGLE_GENERATIVE_AI_API_KEY is not configured
  */
 export function getGoogle() {
-    const apiKey =
-        process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    if (!GOOGLE_GENERATIVE_AI_API_KEY) {
         throw new Error("GOOGLE_GENERATIVE_AI_API_KEY not configured");
     }
-    return createGoogleGenerativeAI({ apiKey });
+    return createGoogleGenerativeAI({ apiKey: GOOGLE_GENERATIVE_AI_API_KEY });
 }
 
 /**
@@ -58,11 +183,10 @@ export function getGoogle() {
  * @throws Error if OPENROUTER_API_KEY is not configured
  */
 export function getOpenRouter() {
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    if (!apiKey) {
+    if (!OPENROUTER_API_KEY) {
         throw new Error("OPENROUTER_API_KEY not configured");
     }
-    return createOpenRouter({ apiKey });
+    return createOpenRouter({ apiKey: OPENROUTER_API_KEY });
 }
 
 /**

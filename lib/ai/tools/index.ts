@@ -7,9 +7,11 @@
  * @module lib/ai/tools
  */
 
-import type { UIMessageStreamWriter } from "ai";
+import type { LanguageModel, UIMessageStreamWriter } from "ai";
 
 import type { AppSession } from "@/lib/auth/types";
+import { getToolModel } from "../config";
+import { getLanguageModel } from "../providers";
 import { createDocument } from "./create-document";
 import { getWeather } from "./get-weather";
 import { requestSuggestions } from "./request-suggestions";
@@ -44,6 +46,8 @@ export type GetToolsProps = {
     dataStream: UIMessageStreamWriter;
     /** Chat ID for associating documents */
     chatId: string;
+    /** Model ID to use for tool operations */
+    modelId: string;
 };
 
 // =============================================================================
@@ -68,11 +72,16 @@ export type GetToolsProps = {
  * });
  * ```
  */
-export function getTools({ session, dataStream, chatId }: GetToolsProps) {
+export function getTools({ session, dataStream, chatId, modelId }: GetToolsProps) {
+    // Use tool model for tool operations (configurable via TOOL_MODEL_ID)
+    // This allows using a fast/cheap model for tools while main chat uses selected model
+    const toolModelId = getToolModel(modelId);
+    const model: LanguageModel = getLanguageModel(toolModelId);
+    
     return {
-        createDocument: createDocument({ session, dataStream, chatId }),
-        updateDocument: updateDocument({ session, dataStream }),
+        createDocument: createDocument({ model, session, dataStream, chatId }),
+        updateDocument: updateDocument({ model, session, dataStream }),
         getWeather,
-        requestSuggestions: requestSuggestions({ session, dataStream }),
+        requestSuggestions: requestSuggestions({ model, session, dataStream }),
     };
 }

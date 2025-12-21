@@ -19,7 +19,9 @@ import {
     useRef,
     useState,
 } from "react";
-import { DEFAULT_MODEL_ID, getAvailableModels } from "@/lib/ai/models";
+import { DEFAULT_MODEL_ID } from "@/lib/ai/config";
+import { getAvailableModels } from "@/lib/ai/models";
+import { fetchWithErrorHandlers } from "@/lib/utils/network";
 import type { ChatMessage, ModelMetadata, ModelState } from "../types";
 
 // =============================================================================
@@ -165,8 +167,16 @@ export function ChatProvider({
         experimental_throttle: throttleValue,
         transport: new DefaultChatTransport({
             api: "/api/chat",
-            body: {
-                modelId: currentModelIdRef.current,
+            fetch: fetchWithErrorHandlers,
+            prepareSendMessagesRequest(request) {
+                return {
+                    body: {
+                        id: request.id,
+                        messages: request.messages,
+                        modelId: currentModelIdRef.current,
+                        ...request.body,
+                    },
+                };
             },
         }),
         // Process streaming data parts (title, usage, etc.)

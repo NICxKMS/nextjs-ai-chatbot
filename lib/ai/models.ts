@@ -465,23 +465,13 @@ export const MODEL_REGISTRY: Record<string, ModelMetadata> = {
     },
 } as const;
 
-/**
- * Default model to use when none is specified
- */
-export const DEFAULT_MODEL_ID = "google:gemini-2.5-flash-lite";
+// =============================================================================
+// NOTE: Model configuration (DEFAULT_MODEL_ID, TOOL_MODEL_ID, TITLE_MODEL_ID)
+// is now centralized in lib/ai/config.ts for environment variable override support.
+// =============================================================================
 
 /**
- * Default model for title generation (fast, no thinking overhead)
- */
-export const DEFAULT_TITLE_MODEL_ID = "google:gemma-3-4b-it";
-
-/**
- * Default model for artifact generation
- */
-export const DEFAULT_ARTIFACT_MODEL_ID = "google:gemini-2.5-flash-lite";
-
-/**
- * Reasoning model ID
+ * Reasoning model ID (used internally for reasoning-specific operations)
  */
 export const REASONING_MODEL_ID = "google:gemini-2.5-flash";
 

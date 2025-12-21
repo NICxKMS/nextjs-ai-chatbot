@@ -8,7 +8,7 @@
  * @module lib/ai/tools/update-document
  */
 
-import { tool, type UIMessageStreamWriter } from "ai";
+import { type LanguageModel, tool, type UIMessageStreamWriter } from "ai";
 import { z } from "zod";
 
 import { documentHandlersByArtifactKind } from "@/features/artifacts/server";
@@ -25,6 +25,8 @@ import { AppError } from "@/lib/errors";
  * Props for creating the updateDocument tool.
  */
 export type UpdateDocumentToolProps = {
+    /** Language model to use for document updates */
+    model: LanguageModel;
     /** Current user session */
     session: AppSession;
     /** UI message stream writer for sending artifact data */
@@ -53,6 +55,7 @@ export type UpdateDocumentToolProps = {
  * ```
  */
 export function updateDocument({
+    model,
     session,
     dataStream,
 }: UpdateDocumentToolProps) {
@@ -102,6 +105,7 @@ export function updateDocument({
                 description,
                 dataStream,
                 session,
+                model,
             });
 
             // Signal completion
