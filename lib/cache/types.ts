@@ -89,3 +89,45 @@ export type CacheOptions = {
     /** Skip cache if circuit breaker is open */
     skipOnCircuitOpen?: boolean;
 };
+
+/**
+ * Document ZSET Hybrid - Metadata only (separate from versions)
+ * Ref: FINAL-CACHE-DESIGN.md §2
+ */
+export type CachedDocumentMeta = {
+    id: string;
+    userId: string;
+    chatId: string;
+    kind: string; // 'text' | 'code' | etc.
+    title: string;
+    createdAt: number; // Unix timestamp (milliseconds)
+    updatedAt: number; // Unix timestamp (milliseconds)
+};
+
+/**
+ * Cached session
+ */
+export type CachedSession = {
+    userId: string;
+    isGuest: boolean;
+    createdAt: string;
+    expiresAt: string;
+    metadata?: Record<string, unknown>;
+};
+
+/**
+ * Cached quota
+ */
+export type CachedQuota = {
+    count: number;
+    limit: number;
+    resetAt: string;
+};
+
+/**
+ * User context for cache operations
+ */
+export type UserContext = {
+    userId: string;
+    isGuest: boolean;
+};

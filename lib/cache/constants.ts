@@ -16,3 +16,18 @@ export const CIRCUIT_FAILURE_THRESHOLD = 5;
 
 /** Circuit breaker: reset timeout in ms */
 export const CIRCUIT_RESET_TIMEOUT_MS = 30_000; // 30 seconds
+
+/** Auth user chat data TTL: 30 days */
+export const AUTH_CHAT_DATA_TTL_SECONDS = 30 * 24 * 60 * 60; // 2,592,000
+
+/** Typing indicator TTL: 5 seconds */
+export const TYPING_INDICATOR_TTL_SECONDS = 5;
+
+/** Online status TTL: 1 minute */
+export const ONLINE_STATUS_TTL_SECONDS = 60;
+
+/** Guest session TTL: 1 hour */
+export const GUEST_SESSION_TTL_SECONDS = 60 * 60; // 3,600
+
+/** Auth session TTL: 24 hours */
+export const AUTH_SESSION_TTL_SECONDS = 24 * 60 * 60; // 86,400

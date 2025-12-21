@@ -41,6 +41,70 @@ export const CacheKeys = {
      * Format: quota:{userId}:YYYY-MM-DD
      */
     quota: (userId: string, date: string) => `quota:${userId}:${date}`,
+
+    /**
+     * Document metadata key
+     * Format: doc:{userId}:{documentId}:meta
+     */
+    documentMeta: (userId: string, documentId: string) =>
+        `doc:${userId}:${documentId}:meta`,
+
+    /**
+     * Document versions ZSET key
+     * Format: doc:{userId}:{documentId}:versions
+     */
+    documentVersions: (userId: string, documentId: string) =>
+        `doc:${userId}:${documentId}:versions`,
+
+    /**
+     * User's documents list key
+     * Format: user:{userId}:docs
+     */
+    userDocuments: (userId: string) => `user:${userId}:docs`,
+
+    /**
+     * Daily quota key (alias with explicit naming)
+     * Format: quota:{userId}:{date}
+     */
+    quotaDaily: (userId: string, date: string) => `quota:${userId}:${date}`,
+
+    /**
+     * Hourly quota key
+     * Format: quota:{userId}:hour:{dateHour}
+     */
+    quotaHourly: (userId: string, dateHour: string) =>
+        `quota:${userId}:hour:${dateHour}`,
+
+    /**
+     * Typing indicators ZSET key
+     * Format: typing:{chatId}
+     */
+    typingZset: (chatId: string) => `typing:${chatId}`,
+
+    /**
+     * User online status key
+     * Format: online:{userId}
+     */
+    online: (userId: string) => `online:${userId}`,
+
+    /**
+     * Chat active users key
+     * Format: chat:{chatId}:active
+     */
+    chatActiveUsers: (chatId: string) => `chat:${chatId}:active`,
+
+    /**
+     * User session key
+     * Format: session:{userId}
+     *
+     * Design Decision: Uses userId (not sessionId) because our system
+     * enforces one active session per user. New logins invalidate previous
+     * sessions. This simplifies cache invalidation and prevents orphaned
+     * session data.
+     *
+     * @see lib/auth/session.ts for session management
+     */
+    session: (userId: string) => `session:${userId}`,
 } as const;
 
 /**
