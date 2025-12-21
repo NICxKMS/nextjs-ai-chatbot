@@ -53,7 +53,7 @@ export async function POST(_request: Request): Promise<Response> {
             },
             { status: 200 }
         );
-    } catch (error) {
+    } catch (_error) {
         // Guest session creation failed
         return new AppError({
             code: "auth:guest_unavailable",

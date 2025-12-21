@@ -10,7 +10,7 @@
 import { getSession } from "@/lib/auth/session";
 import { createContext } from "@/lib/data/base";
 import { documentData } from "@/lib/data/documents";
-import { AppError, isAppError } from "@/lib/errors";
+import { type AppError, isAppError } from "@/lib/errors";
 
 /**
  * Validate UUID format

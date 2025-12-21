@@ -2,18 +2,16 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import useSWR from "swr";
-import { toast } from "sonner";
-
-import { useArtifact } from "@/features/artifacts";
 import type { ArtifactKind, UIArtifact } from "@/features/artifacts";
+import { useArtifact } from "@/features/artifacts";
 import type { Document } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 
 import { InlineDocumentSkeleton } from "./document-skeleton";
-import { TextPreview } from "./renderers/text-preview";
 import { CodePreview } from "./renderers/code-preview";
-import { SheetPreview } from "./renderers/sheet-preview";
 import { ImagePreview } from "./renderers/image-preview";
+import { SheetPreview } from "./renderers/sheet-preview";
+import { TextPreview } from "./renderers/text-preview";
 
 // =============================================================================
 // ICONS
@@ -145,7 +143,7 @@ const fetcher = async (url: string) => {
 
 type DocumentLike = Pick<Document, "title" | "kind" | "content">;
 
-export interface DocumentPreviewProps {
+export type DocumentPreviewProps = {
     /** Whether the chat is in readonly mode */
     isReadonly?: boolean;
     /** Tool result data */
@@ -160,15 +158,15 @@ export interface DocumentPreviewProps {
         kind?: string;
         id?: string;
     };
-}
+};
 
 // =============================================================================
 // SUB-COMPONENTS
 // =============================================================================
 
-interface LoadingSkeletonProps {
+type LoadingSkeletonProps = {
     artifactKind: ArtifactKind;
-}
+};
 
 function LoadingSkeleton({ artifactKind }: LoadingSkeletonProps) {
     return (
@@ -197,13 +195,13 @@ function LoadingSkeleton({ artifactKind }: LoadingSkeletonProps) {
     );
 }
 
-interface HitboxLayerProps {
+type HitboxLayerProps = {
     hitboxRef: React.RefObject<HTMLDivElement | null>;
     result: DocumentPreviewProps["result"];
     setArtifact: (
         updater: UIArtifact | ((current: UIArtifact) => UIArtifact)
     ) => void;
-}
+};
 
 const PureHitboxLayer = memo(function HitboxLayer({
     hitboxRef,
@@ -252,11 +250,11 @@ const PureHitboxLayer = memo(function HitboxLayer({
     );
 });
 
-interface DocumentHeaderProps {
+type DocumentHeaderProps = {
     title: string;
     kind: ArtifactKind;
     isStreaming: boolean;
-}
+};
 
 const PureDocumentHeader = memo(function DocumentHeader({
     title,
@@ -286,9 +284,9 @@ const PureDocumentHeader = memo(function DocumentHeader({
     );
 });
 
-interface DocumentContentProps {
+type DocumentContentProps = {
     document: DocumentLike;
-}
+};
 
 function DocumentContent({ document }: DocumentContentProps) {
     const containerClassName = cn(

@@ -6,12 +6,12 @@
  */
 import "server-only";
 
-import { eq, and } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { getDb, schema } from "@/lib/db";
-import type { Vote, NewVote } from "@/lib/db/schema";
-import type { DataContext } from "../types";
+import type { Vote } from "@/lib/db/schema";
 import { isGuest } from "../base";
+import type { DataContext } from "../types";
 
 const { vote, chat } = schema;
 
@@ -23,11 +23,11 @@ export type VoteType = "up" | "down";
 /**
  * Parameters for saving a vote
  */
-export interface SaveVoteParams {
+export type SaveVoteParams = {
     chatId: string;
     messageId: string;
     type: VoteType;
-}
+};
 
 /**
  * Vote data access object

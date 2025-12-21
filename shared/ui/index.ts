@@ -5,61 +5,60 @@
 
 export {
     AlertDialog,
-    AlertDialogPortal,
-    AlertDialogOverlay,
-    AlertDialogTrigger,
-    AlertDialogContent,
-    AlertDialogHeader,
-    AlertDialogFooter,
-    AlertDialogTitle,
-    AlertDialogDescription,
     AlertDialogAction,
     AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogOverlay,
+    AlertDialogPortal,
+    AlertDialogTitle,
+    AlertDialogTrigger,
 } from "./alert-dialog";
-export { Avatar, AvatarImage, AvatarFallback } from "./avatar";
-export { Badge, badgeVariants, type BadgeProps } from "./badge";
+export { Avatar, AvatarFallback, AvatarImage } from "./avatar";
+export { Badge, type BadgeProps, badgeVariants } from "./badge";
 export {
     Card,
-    CardHeader,
-    CardFooter,
-    CardTitle,
-    CardDescription,
     CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
 } from "./card";
 export {
     Collapsible,
-    CollapsibleTrigger,
     CollapsibleContent,
+    CollapsibleTrigger,
 } from "./collapsible";
 export { Input, type InputProps } from "./input";
-export { Progress } from "./progress";
-export { Slider } from "./slider";
 export { Label } from "./label";
+export { Progress } from "./progress";
 export { ScrollArea, ScrollBar } from "./scroll-area";
 export {
     Select,
-    SelectGroup,
-    SelectValue,
-    SelectTrigger,
     SelectContent,
-    SelectLabel,
+    SelectGroup,
     SelectItem,
-    SelectSeparator,
-    SelectScrollUpButton,
+    SelectLabel,
     SelectScrollDownButton,
+    SelectScrollUpButton,
+    SelectSeparator,
+    SelectTrigger,
+    SelectValue,
 } from "./select";
 export { Separator } from "./separator";
 export {
     Sheet,
-    SheetPortal,
-    SheetOverlay,
-    SheetTrigger,
     SheetClose,
     SheetContent,
-    SheetHeader,
-    SheetFooter,
-    SheetTitle,
     SheetDescription,
+    SheetFooter,
+    SheetHeader,
+    SheetOverlay,
+    SheetPortal,
+    SheetTitle,
+    SheetTrigger,
 } from "./sheet";
 export {
     Sidebar,
@@ -88,4 +87,5 @@ export {
     useSidebar,
 } from "./sidebar";
 export { Skeleton } from "./skeleton";
+export { Slider } from "./slider";
 export { toast } from "./toast";

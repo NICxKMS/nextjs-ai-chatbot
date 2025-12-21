@@ -11,7 +11,7 @@
 
 import { Settings2Icon } from "lucide-react";
 import { useState } from "react";
-
+import { cn } from "@/lib/utils";
 import { Button } from "@/shared/components/button";
 import { Textarea } from "@/shared/components/textarea";
 import { Input } from "@/shared/ui/input";
@@ -23,17 +23,16 @@ import {
     SheetHeader,
     SheetTitle,
 } from "@/shared/ui/sheet";
-import { cn } from "@/lib/utils";
 
-import { useSettings, type AppSettings } from "../stores/settings-store";
+import { useSettings } from "../stores/settings-store";
 
 /**
  * Props for SettingsButton component.
  */
-export interface SettingsButtonProps {
+export type SettingsButtonProps = {
     /** Additional CSS classes */
     className?: string;
-}
+};
 
 /**
  * Button that opens the settings sheet.
@@ -57,7 +56,7 @@ export function SettingsButton({ className }: SettingsButtonProps) {
                 <Settings2Icon className="mr-1 h-4 w-4" />
                 Settings
             </Button>
-            <SettingsSheet open={open} onOpenChange={setOpen} />
+            <SettingsSheet onOpenChange={setOpen} open={open} />
         </>
     );
 }
@@ -71,16 +70,16 @@ export function SettingsIconButton({ className }: SettingsButtonProps) {
     return (
         <>
             <Button
+                aria-label="Open settings"
                 className={className}
                 onClick={() => setOpen(true)}
+                size="icon"
                 type="button"
                 variant="ghost"
-                size="icon"
-                aria-label="Open settings"
             >
                 <Settings2Icon className="h-4 w-4" />
             </Button>
-            <SettingsSheet open={open} onOpenChange={setOpen} />
+            <SettingsSheet onOpenChange={setOpen} open={open} />
         </>
     );
 }
@@ -88,12 +87,12 @@ export function SettingsIconButton({ className }: SettingsButtonProps) {
 /**
  * Props for SettingsSheet component.
  */
-interface SettingsSheetProps {
+type SettingsSheetProps = {
     /** Whether the sheet is open */
     open: boolean;
     /** Callback when open state changes */
     onOpenChange: (value: boolean) => void;
-}
+};
 
 /**
  * Settings sheet containing all configuration options.
@@ -125,7 +124,7 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
     };
 
     return (
-        <Sheet open={open} onOpenChange={onOpenChange}>
+        <Sheet onOpenChange={onOpenChange} open={open}>
             <SheetContent
                 className="flex w-full flex-col gap-4 sm:max-w-xl"
                 side="right"

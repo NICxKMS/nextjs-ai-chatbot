@@ -10,30 +10,29 @@
 "use client";
 
 import { Info } from "lucide-react";
+import { DEFAULT_SETTINGS, useSettings } from "@/features/settings";
 import {
     Tooltip,
     TooltipContent,
     TooltipTrigger,
 } from "@/shared/components/tooltip";
-import { useSettings } from "@/features/settings";
-import { DEFAULT_SETTINGS } from "@/features/settings";
 
 /**
  * Usage statistics for the current chat session.
  */
-export interface ChatUsage {
+export type ChatUsage = {
     promptTokens?: number;
     completionTokens?: number;
     totalTokens?: number;
-}
+};
 
 /**
  * Props for the ChatContext component.
  */
-export interface ChatContextProps {
+export type ChatContextProps = {
     /** Optional usage statistics to display */
     usage?: ChatUsage;
-}
+};
 
 /**
  * Displays chat context information in a tooltip.
@@ -64,21 +63,23 @@ export function ChatContext({ usage }: ChatContextProps) {
     const hasContext =
         hasUsage || hasNonDefaultTemp || hasNonDefaultTopP || hasSystemPrompt;
 
-    if (!hasContext) return null;
+    if (!hasContext) {
+        return null;
+    }
 
     return (
         <Tooltip>
             <TooltipTrigger asChild>
                 <button
-                    type="button"
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                     aria-label="View chat context"
+                    className="flex items-center gap-1 text-muted-foreground text-xs transition-colors hover:text-foreground"
+                    type="button"
                 >
                     <Info className="size-3" />
                     <span>Context</span>
                 </button>
             </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-xs">
+            <TooltipContent className="max-w-xs" side="top">
                 <div className="space-y-1 text-xs">
                     {hasUsage && (
                         <div className="flex justify-between gap-4">
@@ -132,7 +133,7 @@ export function ChatContext({ usage }: ChatContextProps) {
                                 System:
                             </span>
                             <span
-                                className="truncate max-w-[150px]"
+                                className="max-w-[150px] truncate"
                                 title={systemPrompt}
                             >
                                 {systemPrompt.slice(0, 50)}

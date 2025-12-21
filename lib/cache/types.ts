@@ -10,7 +10,7 @@ import type { Visibility } from "@/lib/db";
 /**
  * Cached chat metadata
  */
-export interface CachedChatMeta {
+export type CachedChatMeta = {
     id: string;
     userId: string;
     title: string;
@@ -19,73 +19,73 @@ export interface CachedChatMeta {
     updatedAt: number; // Unix timestamp
     lastContext?: Record<string, unknown>;
     version: number;
-}
+};
 
 /**
  * Cached message
  */
-export interface CachedMessage {
+export type CachedMessage = {
     id: string;
     chatId: string;
     role: "user" | "assistant" | "system";
     parts: unknown[];
     attachments?: unknown[];
     createdAt: number; // Unix timestamp
-}
+};
 
 /**
  * Full cached chat (metadata + messages)
  */
-export interface CachedChat {
+export type CachedChat = {
     meta: CachedChatMeta;
     messages: CachedMessage[];
-}
+};
 
 /**
  * User chat list item
  */
-export interface CachedUserChatItem {
+export type CachedUserChatItem = {
     chatId: string;
     title: string;
     updatedAt: number;
-}
+};
 
 /**
  * Cached document
  */
-export interface CachedDocument {
+export type CachedDocument = {
     id: string;
     userId: string;
     chatId?: string;
     versions: CachedDocumentVersion[];
-}
+};
 
 /**
  * Cached document version
  */
-export interface CachedDocumentVersion {
+export type CachedDocumentVersion = {
     title: string;
     content: string | null;
     kind: "text" | "code" | "image" | "sheet";
     createdAt: number;
     updatedAt: number;
-}
+};
 
 /**
  * Circuit breaker state
  */
-export interface CircuitBreakerState {
+export type CircuitBreakerState = {
     failures: number;
     lastFailure: number | null;
     isOpen: boolean;
-}
+};
 
 /**
  * Cache operation options
  */
-export interface CacheOptions {
+export type CacheOptions = {
     /** TTL in seconds (undefined = no expiry) */
     ttl?: number;
     /** Skip cache if circuit breaker is open */
     skipOnCircuitOpen?: boolean;
-}
+};

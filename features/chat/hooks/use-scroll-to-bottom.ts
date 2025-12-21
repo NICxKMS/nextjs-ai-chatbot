@@ -18,7 +18,7 @@ import useSWR from "swr";
 
 type ScrollFlag = ScrollBehavior | false;
 
-export interface UseScrollToBottomReturn {
+export type UseScrollToBottomReturn = {
     /** Ref to attach to the scrollable container */
     containerRef: React.RefObject<HTMLDivElement | null>;
     /** Ref to attach to the end marker element */
@@ -31,7 +31,7 @@ export interface UseScrollToBottomReturn {
     onViewportEnter: () => void;
     /** Callback when viewport leaves bottom area */
     onViewportLeave: () => void;
-}
+};
 
 // =============================================================================
 // CONSTANTS

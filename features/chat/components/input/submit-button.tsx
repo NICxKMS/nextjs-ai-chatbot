@@ -13,10 +13,10 @@ import { ArrowUp } from "lucide-react";
 /**
  * Props for the SubmitButton component.
  */
-export interface SubmitButtonProps {
+export type SubmitButtonProps = {
     /** Whether the button is disabled */
     disabled?: boolean;
-}
+};
 
 /**
  * Button component for submitting a chat message.
@@ -33,11 +33,11 @@ export interface SubmitButtonProps {
 export function SubmitButton({ disabled }: SubmitButtonProps) {
     return (
         <button
-            type="submit"
-            disabled={disabled}
-            className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground flex items-center justify-center"
             aria-label="Send message"
+            className="flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
             data-testid="send-button"
+            disabled={disabled}
+            type="submit"
         >
             <ArrowUp className="size-4" />
         </button>

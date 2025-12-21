@@ -6,16 +6,16 @@
  */
 
 import {
+    boolean,
+    index,
+    jsonb,
+    pgEnum,
     pgTable,
-    varchar,
+    primaryKey,
     text,
     timestamp,
     uuid,
-    jsonb,
-    boolean,
-    index,
-    primaryKey,
-    pgEnum,
+    varchar,
 } from "drizzle-orm/pg-core";
 
 // Enums

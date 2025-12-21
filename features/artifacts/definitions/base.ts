@@ -67,7 +67,8 @@ export function isArtifactDefinition(obj: unknown): obj is ArtifactDefinition {
  * Singleton pattern ensures consistent access across the application.
  */
 class ArtifactRegistry {
-    private definitions: Map<ArtifactKind, ArtifactDefinition> = new Map();
+    private readonly definitions: Map<ArtifactKind, ArtifactDefinition> =
+        new Map();
 
     /**
      * Register an artifact definition.

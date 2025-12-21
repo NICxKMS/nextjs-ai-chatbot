@@ -1,10 +1,9 @@
 "use client";
 
+import { ClipboardCopy, Download, Redo, Undo } from "lucide-react";
 import { toast } from "sonner";
-import { ClipboardCopy, Undo, Redo, Download } from "lucide-react";
-
-import { Artifact } from "./base";
 import { ImageEditor } from "../components/editors";
+import { Artifact } from "./base";
 
 // ============================================================================
 // Image Artifact Definition

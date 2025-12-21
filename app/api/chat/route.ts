@@ -11,25 +11,25 @@
  */
 
 import {
-    streamText,
     convertToModelMessages,
     createUIMessageStream,
-    stepCountIs,
-    type UIMessage,
     type LanguageModel,
+    stepCountIs,
+    streamText,
+    type UIMessage,
 } from "ai";
+import {
+    DEFAULT_MODEL_ID,
+    getAnthropic,
+    getGoogle,
+    getOpenAI,
+    getTools,
+    isValidModel,
+    MODEL_REGISTRY,
+} from "@/lib/ai";
 import { getSession } from "@/lib/auth";
 import type { AppSession } from "@/lib/auth/types";
 import { AppError, validationError } from "@/lib/errors";
-import {
-    getOpenAI,
-    getAnthropic,
-    getGoogle,
-    isValidModel,
-    DEFAULT_MODEL_ID,
-    MODEL_REGISTRY,
-    getTools,
-} from "@/lib/ai";
 import { generateUUID } from "@/lib/utils";
 
 // =============================================================================
@@ -98,11 +98,11 @@ async function generateTitle(userMessage: string): Promise<string> {
 // REQUEST HANDLER
 // =============================================================================
 
-interface ChatRequestBody {
+type ChatRequestBody = {
     id: string;
     messages: UIMessage[];
     modelId?: string;
-}
+};
 
 export async function POST(request: Request): Promise<Response> {
     try {

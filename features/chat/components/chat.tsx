@@ -9,15 +9,15 @@
 
 "use client";
 
-import { ChatProvider } from "./chat-provider";
-import { ChatContainer } from "./chat-container";
-import { ChatHeader } from "./chat-header";
 import { useSidebar } from "@/shared/ui/sidebar";
-import { ChatMessages } from "./chat-messages";
-import { ChatInput } from "./chat-input";
-import { ChatErrorBoundary } from "./chat-error-boundary";
+import type { ChatProps, MessageVote } from "../types";
 import { ArtifactWrapper } from "./artifact-wrapper";
-import type { ChatProps, MessageVote, ChatMessage } from "../types";
+import { ChatContainer } from "./chat-container";
+import { ChatErrorBoundary } from "./chat-error-boundary";
+import { ChatHeader } from "./chat-header";
+import { ChatInput } from "./chat-input";
+import { ChatMessages } from "./chat-messages";
+import { ChatProvider } from "./chat-provider";
 
 // =============================================================================
 // TYPES
@@ -85,16 +85,16 @@ export function Chat({
             <ChatProvider
                 chatId={id}
                 initialMessages={initialMessages}
-                selectedModelId={selectedModelId}
                 isReadonly={isReadonly}
+                selectedModelId={selectedModelId}
             >
                 <ChatContainer>
                     <ChatHeader
                         onNewChat={onNewChat}
-                        selectedVisibilityType={selectedVisibilityType}
                         onToggleSidebar={toggleSidebar}
+                        selectedVisibilityType={selectedVisibilityType}
                     />
-                    <ChatMessages votes={votes} isReadonly={isReadonly} />
+                    <ChatMessages isReadonly={isReadonly} votes={votes} />
                     <div className="sticky bottom-0 z-10 mx-auto flex w-full max-w-4xl gap-2 bg-background px-2 pb-3 md:px-4 md:pb-4">
                         <ChatInput />
                     </div>
@@ -102,9 +102,9 @@ export function Chat({
 
                 {/* Artifact panel - renders alongside chat when visible */}
                 <ArtifactWrapper
-                    votes={formattedVotes}
                     isReadonly={isReadonly}
                     selectedVisibilityType={selectedVisibilityType}
+                    votes={formattedVotes}
                 />
             </ChatProvider>
         </ChatErrorBoundary>

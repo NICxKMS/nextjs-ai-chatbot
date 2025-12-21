@@ -1,7 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { toast as sonnerToast, Toaster as SonnerToaster } from "sonner";
+import { Toaster as SonnerToaster, toast as sonnerToast } from "sonner";
 import { cn } from "@/lib/utils";
 import { CheckCircleFillIcon, WarningIcon } from "./icons";
 

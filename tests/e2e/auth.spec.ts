@@ -29,7 +29,7 @@ test.describe("Authentication", () => {
                     .getByRole("alert")
                     .or(page.locator("[data-testid='toast']"))
             ).toBeVisible({
-                timeout: 10000,
+                timeout: 10_000,
             });
         });
 
@@ -115,7 +115,7 @@ test.describe("Authentication", () => {
                     .getByRole("alert")
                     .or(page.locator("[data-testid='toast']"))
             ).toBeVisible({
-                timeout: 10000,
+                timeout: 10_000,
             });
         });
 
@@ -150,7 +150,7 @@ test.describe("Authentication", () => {
 
             // Verify page is accessible (chat input should be visible)
             await expect(page.getByPlaceholder(/send a message/i)).toBeVisible({
-                timeout: 10000,
+                timeout: 10_000,
             });
         });
 

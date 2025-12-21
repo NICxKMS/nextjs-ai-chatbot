@@ -7,18 +7,17 @@
  * @module app/(chat)/chat/[id]/page
  */
 
+import type { UIMessage } from "@ai-sdk/react";
 import { notFound, redirect } from "next/navigation";
-
 import { Chat, DataStreamHandler } from "@/features/chat";
-import { getAvailableModels, DEFAULT_MODEL_ID } from "@/lib/ai";
+import { DEFAULT_MODEL_ID } from "@/lib/ai";
 import { getSession } from "@/lib/auth";
 import { chatData, createContext, voteData } from "@/lib/data";
 import { convertToUIMessages } from "@/lib/utils";
-import type { UIMessage } from "@ai-sdk/react";
 
-interface ChatPageProps {
+type ChatPageProps = {
     params: Promise<{ id: string }>;
-}
+};
 
 export default async function ChatPage({ params }: ChatPageProps) {
     const { id } = await params;
@@ -85,10 +84,10 @@ export default async function ChatPage({ params }: ChatPageProps) {
             <Chat
                 id={chat.id}
                 initialMessages={messages}
-                selectedModelId={selectedModelId}
                 isReadonly={isReadonly}
-                votes={votes}
+                selectedModelId={selectedModelId}
                 selectedVisibilityType={chat.visibility}
+                votes={votes}
             />
             <DataStreamHandler />
         </>

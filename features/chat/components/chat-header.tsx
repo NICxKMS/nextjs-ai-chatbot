@@ -20,7 +20,7 @@ import { VisibilitySelector } from "./visibility-selector";
 /**
  * Props for the ChatHeader component.
  */
-export interface ChatHeaderProps {
+export type ChatHeaderProps = {
     /** Callback when new chat button is clicked */
     onNewChat?: () => void;
     /** Callback when sidebar toggle is clicked */
@@ -29,7 +29,7 @@ export interface ChatHeaderProps {
     className?: string;
     /** Selected visibility type for the chat */
     selectedVisibilityType?: VisibilityType;
-}
+};
 
 /**
  * Pure implementation of the chat header.
@@ -52,7 +52,6 @@ function PureChatHeader({
     return (
         <header
             className={`sticky top-0 z-10 flex items-center justify-between gap-2 bg-background px-2 py-1.5 md:px-2 ${className}`.trim()}
-            role="banner"
         >
             {/* Sidebar toggle - left */}
             <SidebarToggle onClick={onToggleSidebar} />
@@ -122,11 +121,11 @@ export function ChatHeader({
 
     return (
         <MemoizedPureChatHeader
-            onNewChat={onNewChat}
-            onToggleSidebar={onToggleSidebar}
+            chatId={chatId}
             className={className}
             isReadonly={isReadonly}
-            chatId={chatId}
+            onNewChat={onNewChat}
+            onToggleSidebar={onToggleSidebar}
             selectedVisibilityType={selectedVisibilityType}
         />
     );

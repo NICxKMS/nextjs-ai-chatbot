@@ -6,27 +6,24 @@
 
 // Base
 export {
+    type CreateDocumentCallbackProps,
     createDocumentHandler,
     type DocumentHandler,
     type DocumentHandlerConfig,
-    type CreateDocumentCallbackProps,
     type UpdateDocumentCallbackProps,
 } from "./base";
-
+// Code handler
+export { codeDocumentHandler } from "./code";
+// Sheet handler
+export { sheetDocumentHandler } from "./sheet";
 // Text handler
 export { textDocumentHandler } from "./text";
 
-// Code handler
-export { codeDocumentHandler } from "./code";
-
-// Sheet handler
-export { sheetDocumentHandler } from "./sheet";
-
 // Handler registry
 import type { DocumentHandler } from "./base";
-import { textDocumentHandler } from "./text";
 import { codeDocumentHandler } from "./code";
 import { sheetDocumentHandler } from "./sheet";
+import { textDocumentHandler } from "./text";
 
 /**
  * Registry of document handlers by artifact kind

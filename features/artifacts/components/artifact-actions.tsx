@@ -10,8 +10,8 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from "@/shared/components";
-import type { ArtifactActionContext, UIArtifact } from "../types";
 import { artifactRegistry } from "../definitions/base";
+import type { ArtifactActionContext, UIArtifact } from "../types";
 
 type ArtifactMetadata = unknown;
 

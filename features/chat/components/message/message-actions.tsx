@@ -9,16 +9,16 @@
 
 "use client";
 
+import { Copy, Pencil, ThumbsDown, ThumbsUp } from "lucide-react";
 import { memo, useCallback } from "react";
-import { Copy, ThumbsDown, ThumbsUp, Pencil } from "lucide-react";
-import type { MessageVote, VoteType } from "../../types";
 import { cn } from "@/lib/utils";
+import type { MessageVote, VoteType } from "../../types";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-export interface MessageActionsProps {
+export type MessageActionsProps = {
     /** ID of the message these actions are for */
     messageId: string;
     /** Current vote state for this message */
@@ -35,20 +35,20 @@ export interface MessageActionsProps {
     disabled?: boolean;
     /** Optional additional class names */
     className?: string;
-}
+};
 
 // =============================================================================
 // SUB-COMPONENTS
 // =============================================================================
 
-interface ActionButtonProps {
+type ActionButtonProps = {
     onClick?: () => void;
     disabled?: boolean;
     active?: boolean;
     tooltip?: string;
     children: React.ReactNode;
     className?: string;
-}
+};
 
 /**
  * Individual action button with tooltip and hover states.
@@ -63,10 +63,6 @@ function ActionButton({
 }: ActionButtonProps) {
     return (
         <button
-            type="button"
-            onClick={onClick}
-            disabled={disabled}
-            title={tooltip}
             className={cn(
                 "inline-flex size-7 items-center justify-center rounded-md",
                 "text-muted-foreground transition-colors",
@@ -76,6 +72,10 @@ function ActionButton({
                 active && "bg-muted text-foreground",
                 className
             )}
+            disabled={disabled}
+            onClick={onClick}
+            title={tooltip}
+            type="button"
         >
             {children}
         </button>
@@ -145,22 +145,22 @@ export const MessageActions = memo(function MessageActions({
         return (
             <div
                 className={cn(
-                    "flex items-center gap-0.5 justify-end",
+                    "flex items-center justify-end gap-0.5",
                     className
                 )}
             >
                 {onEdit && (
                     <ActionButton
-                        onClick={handleEdit}
                         disabled={disabled}
+                        onClick={handleEdit}
                         tooltip="Edit message"
                     >
                         <Pencil className="size-3.5" />
                     </ActionButton>
                 )}
                 <ActionButton
-                    onClick={handleCopy}
                     disabled={disabled}
+                    onClick={handleCopy}
                     tooltip="Copy message"
                 >
                     <Copy className="size-3.5" />
@@ -173,26 +173,26 @@ export const MessageActions = memo(function MessageActions({
     return (
         <div className={cn("flex items-center gap-0.5", className)}>
             <ActionButton
-                onClick={handleCopy}
                 disabled={disabled}
+                onClick={handleCopy}
                 tooltip="Copy message"
             >
                 <Copy className="size-3.5" />
             </ActionButton>
 
             <ActionButton
-                onClick={handleUpvote}
-                disabled={disabled || isUpvoted}
                 active={isUpvoted}
+                disabled={disabled || isUpvoted}
+                onClick={handleUpvote}
                 tooltip="Good response"
             >
                 <ThumbsUp className="size-3.5" />
             </ActionButton>
 
             <ActionButton
-                onClick={handleDownvote}
-                disabled={disabled || isDownvoted}
                 active={isDownvoted}
+                disabled={disabled || isDownvoted}
+                onClick={handleDownvote}
                 tooltip="Bad response"
             >
                 <ThumbsDown className="size-3.5" />

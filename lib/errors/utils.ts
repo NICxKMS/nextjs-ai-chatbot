@@ -3,8 +3,8 @@
  * Ref: 01-error-handling-optimal-design.md §6
  */
 
-import type { ErrorCode, ErrorCategory } from "./types";
 import { AppError } from "./app-error";
+import type { ErrorCategory, ErrorCode } from "./types";
 
 /**
  * Infer HTTP status code from error code
@@ -23,7 +23,6 @@ export function inferStatusCode(code: ErrorCode): number {
             return 429;
         case "external":
             return 503;
-        case "internal":
         default:
             return 500;
     }

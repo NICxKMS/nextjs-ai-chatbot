@@ -15,7 +15,7 @@ import { z } from "zod";
 // TYPES
 // =============================================================================
 
-export interface WeatherAtLocation {
+export type WeatherAtLocation = {
     latitude: number;
     longitude: number;
     generationtime_ms: number;
@@ -52,7 +52,7 @@ export interface WeatherAtLocation {
         sunrise: string[];
         sunset: string[];
     };
-}
+};
 
 // =============================================================================
 // HELPERS

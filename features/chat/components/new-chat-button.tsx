@@ -14,18 +14,18 @@
 function PlusIcon({ className }: { className?: string }) {
     return (
         <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
+            aria-hidden="true"
+            className={className}
             fill="none"
             stroke="currentColor"
-            strokeWidth={2}
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={className}
-            aria-hidden="true"
+            strokeWidth={2}
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
         >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
+            <line x1="12" x2="12" y1="5" y2="19" />
+            <line x1="5" x2="19" y1="12" y2="12" />
         </svg>
     );
 }
@@ -33,10 +33,10 @@ function PlusIcon({ className }: { className?: string }) {
 /**
  * Props for the NewChatButton component.
  */
-export interface NewChatButtonProps {
+export type NewChatButtonProps = {
     /** Click handler to create a new chat */
     onClick?: () => void;
-}
+};
 
 /**
  * Button component for creating a new chat conversation.
@@ -49,11 +49,11 @@ export interface NewChatButtonProps {
 export function NewChatButton({ onClick }: NewChatButtonProps) {
     return (
         <button
-            type="button"
-            onClick={onClick}
-            className="p-2 rounded-md hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="New chat"
+            className="rounded-md p-2 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             data-testid="new-chat-button"
+            onClick={onClick}
+            type="button"
         >
             <PlusIcon className="h-5 w-5" />
         </button>

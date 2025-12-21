@@ -1,10 +1,9 @@
 "use client";
 
-import equal from "fast-deep-equal";
-import { memo, useEffect, useRef, useState } from "react";
 import type { UseChatHelpers } from "@ai-sdk/react";
-
+import equal from "fast-deep-equal";
 import { AnimatePresence, m as motion } from "framer-motion";
+import { memo, useEffect, useRef, useState } from "react";
 import type { UIArtifact } from "../types";
 
 type ArtifactMessagesProps = {
@@ -38,7 +37,7 @@ function PureArtifactMessages({
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [isAtBottom, setIsAtBottom] = useState(true);
-    const [hasSentMessage, setHasSentMessage] = useState(false);
+    const [_hasSentMessage, setHasSentMessage] = useState(false);
 
     // Track when user sends a message
     useEffect(() => {
@@ -52,10 +51,12 @@ function PureArtifactMessages({
         if (isAtBottom && messagesEndRef.current) {
             messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
         }
-    }, [messages, isAtBottom]);
+    }, [isAtBottom]);
 
     const handleScroll = () => {
-        if (!messagesContainerRef.current) return;
+        if (!messagesContainerRef.current) {
+            return;
+        }
         const { scrollTop, scrollHeight, clientHeight } =
             messagesContainerRef.current;
         const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
@@ -65,17 +66,17 @@ function PureArtifactMessages({
     return (
         <div
             className="flex h-full flex-col items-center gap-4 overflow-y-scroll px-4 pt-20"
-            ref={messagesContainerRef}
             onScroll={handleScroll}
+            ref={messagesContainerRef}
         >
-            {messages.map((message, index) => (
+            {messages.map((message, _index) => (
                 <div
-                    key={message.id}
                     className={`w-full rounded-lg p-3 text-sm ${
                         message.role === "user"
                             ? "ml-auto max-w-[80%] bg-primary text-primary-foreground"
                             : "mr-auto max-w-[80%] bg-muted"
                     }`}
+                    key={message.id}
                 >
                     {message.content ||
                         message.parts?.find((p) => p.type === "text")?.text ||
@@ -86,11 +87,11 @@ function PureArtifactMessages({
             <AnimatePresence mode="wait">
                 {status === "submitted" && (
                     <motion.div
-                        key="thinking"
-                        initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
                         className="flex items-center gap-2 text-muted-foreground text-sm"
+                        exit={{ opacity: 0, y: -10 }}
+                        initial={{ opacity: 0, y: 10 }}
+                        key="thinking"
                     >
                         <div className="size-2 animate-pulse rounded-full bg-muted-foreground" />
                         Thinking...

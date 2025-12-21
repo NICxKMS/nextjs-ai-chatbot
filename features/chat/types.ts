@@ -8,7 +8,7 @@
  */
 
 import type { UseChatHelpers } from "@ai-sdk/react";
-import type { UIMessage, ChatRequestOptions } from "ai";
+import type { ChatRequestOptions, UIMessage } from "ai";
 
 // =============================================================================
 // RE-EXPORTS FROM AI SDK
@@ -46,14 +46,14 @@ export type ChatHelpers = UseChatHelpers<ChatMessage>;
  * File attachment for chat messages.
  * Extended version compatible with AI SDK's Attachment.
  */
-export interface Attachment {
+export type Attachment = {
     /** Display name of the attachment */
     name: string;
     /** URL or data URI of the attachment content */
     url: string;
     /** MIME content type (e.g., 'image/png', 'application/pdf') */
     contentType: string;
-}
+};
 
 // =============================================================================
 // MESSAGE CREATION
@@ -63,14 +63,14 @@ export interface Attachment {
  * Simplified message creation type.
  * Used when creating new messages to send to the chat.
  */
-export interface CreateMessage {
+export type CreateMessage = {
     /** Message content */
     content: string;
     /** Optional role (defaults to 'user') */
     role?: "user" | "assistant" | "system";
     /** Optional attachments */
     attachments?: Attachment[];
-}
+};
 
 // =============================================================================
 // MODEL TYPES (Custom - AI SDK doesn't provide)
@@ -79,16 +79,16 @@ export interface CreateMessage {
 /**
  * Text content part of a message.
  */
-export interface TextPart {
+export type TextPart = {
     type: "text";
     /** The text content */
     text: string;
-}
+};
 
 /**
  * Tool call part representing an AI tool invocation.
  */
-export interface ToolCallPart {
+export type ToolCallPart = {
     type: "tool-call";
     /** Unique identifier for this tool call */
     toolCallId: string;
@@ -96,12 +96,12 @@ export interface ToolCallPart {
     toolName: string;
     /** Arguments passed to the tool */
     args: Record<string, unknown>;
-}
+};
 
 /**
  * Tool result part representing the outcome of a tool call.
  */
-export interface ToolResultPart {
+export type ToolResultPart = {
     type: "tool-result";
     /** Identifier linking to the original tool call */
     toolCallId: string;
@@ -111,23 +111,23 @@ export interface ToolResultPart {
     result: unknown;
     /** Whether the tool execution resulted in an error */
     isError?: boolean;
-}
+};
 
 /**
  * Reasoning part for displaying AI's chain-of-thought.
  */
-export interface ReasoningPart {
+export type ReasoningPart = {
     type: "reasoning";
     /** The reasoning/thinking text */
     reasoning: string;
     /** Additional structured details about the reasoning */
     details?: unknown[];
-}
+};
 
 /**
  * Source/citation part for referencing external content.
  */
-export interface SourcePart {
+export type SourcePart = {
     type: "source";
     /** Source metadata */
     source: {
@@ -142,7 +142,7 @@ export interface SourcePart {
         /** Additional provider-specific metadata */
         providerMetadata?: Record<string, unknown>;
     };
-}
+};
 
 /**
  * Union of all message part types for type-safe rendering.
@@ -157,7 +157,7 @@ export type MessagePart =
 /**
  * Model capability flags.
  */
-export interface ModelCapabilities {
+export type ModelCapabilities = {
     /** Whether the model can process image inputs */
     supportsImages: boolean;
     /** Whether the model supports tool/function calling */
@@ -166,12 +166,12 @@ export interface ModelCapabilities {
     supportsReasoning: boolean;
     /** Maximum output token limit */
     maxTokens?: number;
-}
+};
 
 /**
  * Metadata for an AI model.
  */
-export interface ModelMetadata {
+export type ModelMetadata = {
     /** Unique identifier for the model */
     id: string;
     /** Human-readable display name */
@@ -182,19 +182,19 @@ export interface ModelMetadata {
     description?: string;
     /** Optional capability flags */
     capabilities?: ModelCapabilities;
-}
+};
 
 /**
  * Model selection state interface.
  */
-export interface ModelState {
+export type ModelState = {
     /** Currently selected model identifier */
     currentModelId: string;
     /** List of available models */
     availableModels: ModelMetadata[];
     /** Function to change the selected model */
     setModelId: (id: string) => void;
-}
+};
 
 // =============================================================================
 // VOTE TYPES (Custom - AI SDK doesn't provide)
@@ -208,14 +208,14 @@ export type VoteType = "up" | "down";
 /**
  * Represents a user's vote on a message.
  */
-export interface MessageVote {
+export type MessageVote = {
     /** Chat session identifier */
     chatId: string;
     /** Message identifier */
     messageId: string;
     /** The vote type */
     vote: VoteType;
-}
+};
 
 // =============================================================================
 // COMPONENT PROPS TYPES
@@ -224,7 +224,7 @@ export interface MessageVote {
 /**
  * Props for the main Chat component.
  */
-export interface ChatProps {
+export type ChatProps = {
     /** Unique identifier for the chat session */
     id: string;
     /** Optional initial messages to populate the chat */
@@ -233,22 +233,22 @@ export interface ChatProps {
     selectedModelId?: string;
     /** Whether the chat is in read-only mode */
     isReadonly?: boolean;
-}
+};
 
 /**
  * Props for the ChatMessages component.
  */
-export interface ChatMessagesProps {
+export type ChatMessagesProps = {
     /** Array of votes for messages in the chat */
     votes?: MessageVote[];
     /** Whether the chat is in read-only mode */
     isReadonly?: boolean;
-}
+};
 
 /**
  * Props for individual message item components.
  */
-export interface MessageItemProps {
+export type MessageItemProps = {
     /** The message to render */
     message: ChatMessage;
     /** Optional vote on this message */
@@ -263,17 +263,17 @@ export interface MessageItemProps {
     onEdit?: (content: string) => void;
     /** Callback when user copies the message */
     onCopy?: () => void;
-}
+};
 
 /**
  * Props for the chat input component.
  */
-export interface ChatInputProps {
+export type ChatInputProps = {
     /** Whether input is disabled */
     disabled?: boolean;
     /** Placeholder text for the input */
     placeholder?: string;
-}
+};
 
 // =============================================================================
 // SERVER ACTION TYPES
@@ -282,30 +282,30 @@ export interface ChatInputProps {
 /**
  * Parameters for generating a chat title.
  */
-export interface GenerateTitleParams {
+export type GenerateTitleParams = {
     /** The message to generate a title from */
     message: string;
-}
+};
 
 /**
  * Parameters for deleting messages after a timestamp.
  */
-export interface DeleteMessagesParams {
+export type DeleteMessagesParams = {
     /** Chat session identifier */
     chatId: string;
     /** Delete messages created after this timestamp */
     afterTimestamp: Date;
-}
+};
 
 /**
  * Parameters for updating chat visibility.
  */
-export interface UpdateVisibilityParams {
+export type UpdateVisibilityParams = {
     /** Chat session identifier */
     chatId: string;
     /** New visibility setting */
     visibility: "public" | "private";
-}
+};
 
 // =============================================================================
 // VISIBILITY TYPES

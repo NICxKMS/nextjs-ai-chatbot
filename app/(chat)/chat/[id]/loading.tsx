@@ -8,20 +8,20 @@
 
 export default function ChatLoading() {
     return (
-        <div className="flex flex-col h-full">
+        <div className="flex h-full flex-col">
             {/* Header skeleton */}
-            <div className="h-14 border-b flex items-center px-4">
-                <div className="w-32 h-6 bg-muted rounded animate-pulse" />
+            <div className="flex h-14 items-center border-b px-4">
+                <div className="h-6 w-32 animate-pulse rounded bg-muted" />
             </div>
 
             {/* Messages skeleton */}
-            <div className="flex-1 p-4 space-y-6">
+            <div className="flex-1 space-y-6 p-4">
                 {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex gap-4">
-                        <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+                    <div className="flex gap-4" key={i}>
+                        <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
                         <div className="flex-1 space-y-2">
-                            <div className="h-4 bg-muted rounded w-3/4 animate-pulse" />
-                            <div className="h-4 bg-muted rounded w-1/2 animate-pulse" />
+                            <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
+                            <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
                         </div>
                     </div>
                 ))}
@@ -29,7 +29,7 @@ export default function ChatLoading() {
 
             {/* Input skeleton */}
             <div className="border-t p-4">
-                <div className="h-12 bg-muted rounded-lg animate-pulse" />
+                <div className="h-12 animate-pulse rounded-lg bg-muted" />
             </div>
         </div>
     );

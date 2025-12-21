@@ -18,7 +18,7 @@ import type {
 /**
  * Configuration for the mock provider.
  */
-export interface MockProviderConfig {
+export type MockProviderConfig = {
     /** Default response text for non-configured prompts */
     defaultResponse?: string;
     /** Map of prompt patterns to responses */
@@ -27,7 +27,7 @@ export interface MockProviderConfig {
     delay?: number;
     /** Whether to simulate streaming */
     simulateStreaming?: boolean;
-}
+};
 
 /**
  * Default configuration for the mock provider.
@@ -108,7 +108,9 @@ function getResponseForPrompt(prompt: string): string {
  */
 function extractPromptText(options: LanguageModelV2CallOptions): string {
     const messages = options.prompt;
-    if (!messages || !Array.isArray(messages)) return "";
+    if (!messages || !Array.isArray(messages)) {
+        return "";
+    }
 
     return messages
         .map((msg) => {

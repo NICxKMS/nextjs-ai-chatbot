@@ -1,64 +1,62 @@
 // Types
-export type {
-    ArtifactKind,
-    ArtifactStatus,
-    ArtifactBoundingBox,
-    UIArtifact,
-    ArtifactActionContext,
-    ArtifactAction,
-    ArtifactToolbarContext,
-    ArtifactToolbarItem,
-    ArtifactContentProps,
-    ArtifactInitializeParams,
-    ArtifactStreamPartType,
-    ArtifactStreamPart,
-    ArtifactStreamPartArgs,
-    ArtifactConfig,
-    ArtifactDefinition,
-    ConsoleOutputContent,
-    ConsoleOutputStatus,
-    ConsoleOutput,
-} from "./types";
+
+// Actions (server actions are safe to import in client components)
+export { getSuggestions } from "./actions";
 
 // Constants
 export {
+    ARTIFACT_KIND_LABELS,
     ARTIFACT_KINDS,
     DEFAULT_ARTIFACT_CONTENT,
-    ARTIFACT_KIND_LABELS,
 } from "./constants";
-
+export {
+    artifactDefinitions,
+    artifactKinds,
+    codeArtifact,
+    getArtifactDefinition,
+    imageArtifact,
+    sheetArtifact,
+    textArtifact,
+} from "./definitions";
 // Definitions
 export {
     Artifact as ArtifactFactory,
     artifactRegistry,
     isArtifactDefinition,
 } from "./definitions/base";
-export {
-    artifactDefinitions,
-    getArtifactDefinition,
-    artifactKinds,
-    textArtifact,
-    codeArtifact,
-    imageArtifact,
-    sheetArtifact,
-} from "./definitions";
 
 // Hooks
 export {
-    useArtifact,
-    useArtifactSelector,
     initialArtifactData,
     type UseArtifactReturn,
+    useArtifact,
+    useArtifactSelector,
 } from "./hooks";
-
+export type {
+    ArtifactAction,
+    ArtifactActionContext,
+    ArtifactBoundingBox,
+    ArtifactConfig,
+    ArtifactContentProps,
+    ArtifactDefinition,
+    ArtifactInitializeParams,
+    ArtifactKind,
+    ArtifactStatus,
+    ArtifactStreamPart,
+    ArtifactStreamPartArgs,
+    ArtifactStreamPartType,
+    ArtifactToolbarContext,
+    ArtifactToolbarItem,
+    ConsoleOutput,
+    ConsoleOutputContent,
+    ConsoleOutputStatus,
+    UIArtifact,
+} from "./types";
 // Utils
 export {
     DataStreamHandler,
     type DataStreamHandlerProps,
 } from "./utils/stream-handler";
-
-// Actions (server actions are safe to import in client components)
-export { getSuggestions } from "./actions";
 
 // NOTE: Server-only exports (handlers) are in './server.ts'
 // Import from '@/features/artifacts/server' for server code
@@ -66,31 +64,31 @@ export { getSuggestions } from "./actions";
 // Main Components
 export {
     Artifact,
+    ArtifactActions,
     ArtifactClose,
     ArtifactErrorBoundary,
-    ArtifactActions,
     ArtifactMessages,
-    VersionFooter,
     Toolbar,
     Tools,
+    VersionFooter,
 } from "./components";
 
 // Editor Components
 export {
-    ImageEditor,
-    TextEditor,
     CodeEditor,
-    SheetEditor,
-    Console,
-    DiffView,
-    DiffType,
-    type ImageEditorProps,
-    type TextEditorProps,
     type CodeEditorProps,
-    type SheetEditorProps,
-    type ConsoleProps,
-    type DiffViewProps,
-    type DiffTypeValue,
+    Console,
     type ConsoleOutput as ConsoleOutputType,
     type ConsoleOutputContent as ConsoleOutputContentType,
+    type ConsoleProps,
+    DiffType,
+    type DiffTypeValue,
+    DiffView,
+    type DiffViewProps,
+    ImageEditor,
+    type ImageEditorProps,
+    SheetEditor,
+    type SheetEditorProps,
+    TextEditor,
+    type TextEditorProps,
 } from "./components/editors";

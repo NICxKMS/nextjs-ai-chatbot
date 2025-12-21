@@ -5,32 +5,6 @@
  * @module lib/cache
  */
 
-// Types
-export type {
-    CachedChatMeta,
-    CachedMessage,
-    CachedChat,
-    CachedUserChatItem,
-    CachedDocument,
-    CachedDocumentVersion,
-    CircuitBreakerState,
-    CacheOptions,
-} from "./types";
-
-// Constants
-export {
-    GUEST_CACHE_TTL_SECONDS,
-    QUOTA_TTL_SECONDS,
-    CIRCUIT_FAILURE_THRESHOLD,
-    CIRCUIT_RESET_TIMEOUT_MS,
-} from "./constants";
-
-// Keys
-export { CacheKeys, getChatCacheKeys, parseKeyId } from "./keys";
-
-// Client
-export { getRedis, isRedisAvailable, safeRedis } from "./client";
-
 // Circuit breaker
 export {
     getCircuitState,
@@ -39,15 +13,36 @@ export {
     recordSuccess,
     withCircuitBreaker,
 } from "./circuit-breaker";
-
+// Client
+export { getRedis, isRedisAvailable, safeRedis } from "./client";
+// Constants
+export {
+    CIRCUIT_FAILURE_THRESHOLD,
+    CIRCUIT_RESET_TIMEOUT_MS,
+    GUEST_CACHE_TTL_SECONDS,
+    QUOTA_TTL_SECONDS,
+} from "./constants";
 // Helpers
 export {
-    isGuestUserId,
-    getMessageScore,
-    parseMessageScore,
-    getQuotaDateKey,
-    serialize,
     deserialize,
-    toUnixTimestamp,
     fromUnixTimestamp,
+    getMessageScore,
+    getQuotaDateKey,
+    isGuestUserId,
+    parseMessageScore,
+    serialize,
+    toUnixTimestamp,
 } from "./helpers";
+// Keys
+export { CacheKeys, getChatCacheKeys, parseKeyId } from "./keys";
+// Types
+export type {
+    CachedChat,
+    CachedChatMeta,
+    CachedDocument,
+    CachedDocumentVersion,
+    CachedMessage,
+    CachedUserChatItem,
+    CacheOptions,
+    CircuitBreakerState,
+} from "./types";

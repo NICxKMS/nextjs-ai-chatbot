@@ -19,20 +19,20 @@ export type { Document } from "@/lib/db/schema";
 // =============================================================================
 
 /** Tool invocation result for document operations */
-export interface DocumentToolResult {
+export type DocumentToolResult = {
     id: string;
     title: string;
     kind: ArtifactKind;
-}
+};
 
 /** Tool invocation arguments for document creation/update */
-export interface DocumentToolArgs {
+export type DocumentToolArgs = {
     title?: string;
     kind?: ArtifactKind;
     id?: string;
     description?: string;
     documentId?: string;
-}
+};
 
 /** Document operation type */
 export type DocumentOperationType = "create" | "update" | "request-suggestions";
@@ -41,32 +41,32 @@ export type DocumentOperationType = "create" | "update" | "request-suggestions";
 // COMPONENT PROPS
 // =============================================================================
 
-export interface DocumentPreviewProps {
+export type DocumentPreviewProps = {
     /** Document ID to fetch and preview */
     documentId: string;
     /** Whether the chat is in readonly mode */
     isReadonly?: boolean;
-}
+};
 
-export interface DocumentToolProps {
+export type DocumentToolProps = {
     /** Type of operation */
     type: DocumentOperationType;
     /** Tool result data */
     result: DocumentToolResult;
     /** Whether the chat is in readonly mode */
     isReadonly?: boolean;
-}
+};
 
-export interface DocumentToolCallProps {
+export type DocumentToolCallProps = {
     /** Type of operation */
     type: DocumentOperationType;
     /** Tool call arguments */
     args: DocumentToolArgs;
     /** Whether the chat is in readonly mode */
     isReadonly?: boolean;
-}
+};
 
-export interface DocumentSkeletonProps {
+export type DocumentSkeletonProps = {
     /** Kind of artifact for skeleton styling */
     artifactKind: ArtifactKind;
-}
+};

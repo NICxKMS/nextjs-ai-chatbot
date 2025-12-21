@@ -2,19 +2,19 @@
 
 import {
     createContext,
+    type ReactNode,
+    useCallback,
     useContext,
     useState,
-    useCallback,
-    type ReactNode,
 } from "react";
 import type { ChatHistoryItem } from "../types";
 
-interface OptimisticChatsContextValue {
+type OptimisticChatsContextValue = {
     optimisticChats: ChatHistoryItem[];
     addOptimisticChat: (chat: ChatHistoryItem) => void;
     removeOptimisticChat: (id: string) => void;
     updateOptimisticChatTitle: (id: string, title: string) => void;
-}
+};
 
 const OptimisticChatsContext =
     createContext<OptimisticChatsContextValue | null>(null);

@@ -25,18 +25,18 @@ export type ArtifactStatus = "streaming" | "idle";
  * Bounding box for artifact positioning.
  * Used for inline artifact display within chat messages.
  */
-export interface ArtifactBoundingBox {
+export type ArtifactBoundingBox = {
     top: number;
     left: number;
     width: number;
     height: number;
-}
+};
 
 /**
  * Core UI representation of an artifact.
  * This is the main state object managed by useArtifact hook.
  */
-export interface UIArtifact {
+export type UIArtifact = {
     /** Unique identifier for the artifact/document */
     documentId: string;
     /** Display title of the artifact */
@@ -51,7 +51,7 @@ export interface UIArtifact {
     status: ArtifactStatus;
     /** Position and size for inline display */
     boundingBox: ArtifactBoundingBox;
-}
+};
 
 // ============================================================================
 // Artifact Definition Types
@@ -61,7 +61,7 @@ export interface UIArtifact {
  * Context passed to artifact action handlers.
  * Actions can use this to interact with artifact state and navigation.
  */
-export interface ArtifactActionContext<TMetadata = unknown> {
+export type ArtifactActionContext<TMetadata = unknown> = {
     /** Current artifact content */
     content: string;
     /** Navigate between artifact versions */
@@ -76,13 +76,13 @@ export interface ArtifactActionContext<TMetadata = unknown> {
     metadata: TMetadata;
     /** Update artifact metadata */
     setMetadata: Dispatch<SetStateAction<TMetadata>>;
-}
+};
 
 /**
  * An action button displayed in the artifact panel.
  * Actions perform operations on the artifact (run code, copy, etc.)
  */
-export interface ArtifactAction<TMetadata = unknown> {
+export type ArtifactAction<TMetadata = unknown> = {
     /** Icon component to display */
     icon: ReactNode;
     /** Optional label text */
@@ -95,38 +95,38 @@ export interface ArtifactAction<TMetadata = unknown> {
     ) => Promise<void> | void;
     /** Optional function to disable the action conditionally */
     isDisabled?: (context: ArtifactActionContext<TMetadata>) => boolean;
-}
+};
 
 /**
  * Context passed to toolbar item handlers.
  * Toolbar items typically send messages to the AI.
  */
-export interface ArtifactToolbarContext {
+export type ArtifactToolbarContext = {
     /** Function to send a message to the AI */
     sendMessage: (message: {
         role: "user";
         parts: Array<{ type: "text"; text: string }>;
     }) => void;
-}
+};
 
 /**
  * A toolbar item displayed at the bottom of the artifact panel.
  * Toolbar items typically trigger AI actions (add comments, etc.)
  */
-export interface ArtifactToolbarItem {
+export type ArtifactToolbarItem = {
     /** Tooltip description */
     description: string;
     /** Icon component to display */
     icon: ReactNode;
     /** Handler called when toolbar item is clicked */
     onClick: (context: ArtifactToolbarContext) => void;
-}
+};
 
 /**
  * Props passed to artifact content renderer component.
  * Each artifact kind implements its own content component.
  */
-export interface ArtifactContentProps<TMetadata = unknown> {
+export type ArtifactContentProps<TMetadata = unknown> = {
     /** Display title */
     title: string;
     /** Raw content */
@@ -153,17 +153,17 @@ export interface ArtifactContentProps<TMetadata = unknown> {
     metadata: TMetadata;
     /** Update artifact metadata */
     setMetadata: Dispatch<SetStateAction<TMetadata>>;
-}
+};
 
 /**
  * Parameters passed to artifact initialize function.
  */
-export interface ArtifactInitializeParams<TMetadata = unknown> {
+export type ArtifactInitializeParams<TMetadata = unknown> = {
     /** Document ID being initialized */
     documentId: string;
     /** Function to set initial metadata */
     setMetadata: Dispatch<SetStateAction<TMetadata>>;
-}
+};
 
 // ============================================================================
 // Artifact Stream Types
@@ -187,30 +187,27 @@ export type ArtifactStreamPartType =
 /**
  * Generic stream part for artifact updates.
  */
-export interface ArtifactStreamPart<TData = unknown> {
+export type ArtifactStreamPart<TData = unknown> = {
     type: ArtifactStreamPartType | string;
     data: TData;
-}
+};
 
 /**
  * Arguments passed to onStreamPart handler.
  */
-export interface ArtifactStreamPartArgs<TMetadata = unknown> {
+export type ArtifactStreamPartArgs<TMetadata = unknown> = {
     /** The stream part being processed */
     streamPart: ArtifactStreamPart;
     /** Function to update artifact state */
     setArtifact: Dispatch<SetStateAction<UIArtifact>>;
     /** Function to update artifact metadata */
     setMetadata: Dispatch<SetStateAction<TMetadata>>;
-}
+};
 
 /**
  * Configuration for creating an artifact definition.
  */
-export interface ArtifactConfig<
-    TKind extends ArtifactKind,
-    TMetadata = unknown,
-> {
+export type ArtifactConfig<TKind extends ArtifactKind, TMetadata = unknown> = {
     /** Artifact type identifier */
     kind: TKind;
     /** Human-readable description */
@@ -225,15 +222,15 @@ export interface ArtifactConfig<
     initialize?: (params: ArtifactInitializeParams<TMetadata>) => void;
     /** Stream part processor */
     onStreamPart: (args: ArtifactStreamPartArgs<TMetadata>) => void;
-}
+};
 
 /**
  * A complete artifact definition instance.
  */
-export interface ArtifactDefinition<
+export type ArtifactDefinition<
     TKind extends ArtifactKind = ArtifactKind,
     TMetadata = unknown,
-> {
+> = {
     readonly kind: TKind;
     readonly description: string;
     readonly content: ComponentType<ArtifactContentProps<TMetadata>>;
@@ -241,7 +238,7 @@ export interface ArtifactDefinition<
     readonly toolbar: ArtifactToolbarItem[];
     readonly initialize?: (params: ArtifactInitializeParams<TMetadata>) => void;
     readonly onStreamPart: (args: ArtifactStreamPartArgs<TMetadata>) => void;
-}
+};
 
 // ============================================================================
 // Console Output Types (for code execution)
@@ -250,12 +247,12 @@ export interface ArtifactDefinition<
 /**
  * Content type for console output.
  */
-export interface ConsoleOutputContent {
+export type ConsoleOutputContent = {
     /** Type of output (text or image for matplotlib, etc.) */
     type: "text" | "image";
     /** The output value (text or base64 image data) */
     value: string;
-}
+};
 
 /**
  * Status of code execution.
@@ -269,11 +266,11 @@ export type ConsoleOutputStatus =
 /**
  * A single console output entry from code execution.
  */
-export interface ConsoleOutput {
+export type ConsoleOutput = {
     /** Unique identifier for this execution run */
     id: string;
     /** Current status of the execution */
     status: ConsoleOutputStatus;
     /** Output contents (stdout, images, errors) */
     contents: ConsoleOutputContent[];
-}
+};

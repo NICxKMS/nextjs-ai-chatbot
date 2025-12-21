@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import type { AppSession } from "@/lib/auth";
 import { useAuth } from "./auth-provider";
@@ -36,9 +36,9 @@ function LoadingSpinner() {
 // Ref: oldapp/components/auth-provider.tsx (guest bootstrap logic)
 // ============================================================================
 
-export interface AuthBootstrapProps {
+export type AuthBootstrapProps = {
     children: ReactNode;
-}
+};
 
 /**
  * Client component that bootstraps guest session if needed

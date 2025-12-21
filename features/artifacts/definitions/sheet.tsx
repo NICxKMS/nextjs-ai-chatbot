@@ -1,19 +1,18 @@
 "use client";
 
+import {
+    ClipboardCopy,
+    Download,
+    LineChart,
+    Redo,
+    Sparkles,
+    Undo,
+} from "lucide-react";
 import dynamic from "next/dynamic";
 import { parse, unparse } from "papaparse";
 import { toast } from "sonner";
-import {
-    ClipboardCopy,
-    Undo,
-    Redo,
-    Download,
-    Sparkles,
-    LineChart,
-} from "lucide-react";
-
-import { Artifact } from "./base";
 import type { ArtifactContentProps } from "../types";
+import { Artifact } from "./base";
 
 // ============================================================================
 // Dynamic Imports
@@ -48,9 +47,9 @@ export const sheetArtifact = new Artifact<"sheet", undefined>({
         return (
             <SheetEditor
                 content={content}
-                status={status}
                 isCurrentVersion={isCurrentVersion}
                 onContentChange={onSaveContent}
+                status={status}
             />
         );
     },

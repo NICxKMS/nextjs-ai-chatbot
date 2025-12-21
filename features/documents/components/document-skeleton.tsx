@@ -6,9 +6,9 @@ import type { ArtifactKind } from "@/features/artifacts";
 // DOCUMENT SKELETON
 // =============================================================================
 
-export interface DocumentSkeletonProps {
+export type DocumentSkeletonProps = {
     artifactKind: ArtifactKind;
-}
+};
 
 /**
  * Full-page loading skeleton for document content.

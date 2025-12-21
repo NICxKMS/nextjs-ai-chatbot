@@ -4,16 +4,11 @@
  */
 
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { nanoid } from "nanoid";
-import type {
-    AppSession,
-    AppUser,
-    DataContext,
-    GuestTokenPayload,
-} from "./types";
-import { verifyGuestToken, createGuestToken, needsRotation } from "./jwt";
+import { cookies } from "next/headers";
 import { getGuestTokenCookie, setGuestTokenCookie } from "./cookies";
+import { createGuestToken, needsRotation, verifyGuestToken } from "./jwt";
+import type { AppSession, AppUser, DataContext } from "./types";
 
 /**
  * SessionManager - Handles all session operations

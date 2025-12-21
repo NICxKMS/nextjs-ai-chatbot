@@ -1,6 +1,5 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import {
     type Dispatch,
     type SetStateAction,
@@ -9,6 +8,7 @@ import {
     useRef,
     useState,
 } from "react";
+import { cn } from "@/lib/utils";
 
 // ============================================================================
 // Types
@@ -25,14 +25,14 @@ export type ConsoleOutput = {
     contents: ConsoleOutputContent[];
 };
 
-export interface ConsoleProps {
+export type ConsoleProps = {
     /** Array of console outputs to display */
     consoleOutputs: ConsoleOutput[];
     /** Setter for console outputs */
     setConsoleOutputs: Dispatch<SetStateAction<ConsoleOutput[]>>;
     /** Whether the artifact panel is visible */
     isArtifactVisible?: boolean;
-}
+};
 
 // ============================================================================
 // Icons
@@ -201,7 +201,7 @@ export function Console({
     // Scroll to bottom when console outputs change
     useEffect(() => {
         consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [consoleOutputs]);
+    }, []);
 
     useEffect(() => {
         if (!isArtifactVisible) {
@@ -253,7 +253,7 @@ export function Console({
                     </div>
                     <button
                         aria-label="Close console"
-                        className="size-fit p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
+                        className="size-fit rounded p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700"
                         onClick={() => setConsoleOutputs([])}
                         type="button"
                     >

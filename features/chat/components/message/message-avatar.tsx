@@ -17,12 +17,12 @@ import { SparklesIcon } from "@/shared/components/icons";
 // TYPES
 // =============================================================================
 
-export interface MessageAvatarProps {
+export type MessageAvatarProps = {
     /** The role of the message sender */
     role: "user" | "assistant" | "system";
     /** Optional additional class names */
     className?: string;
-}
+};
 
 // =============================================================================
 // COMPONENT

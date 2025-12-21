@@ -10,7 +10,7 @@
 import { cookies } from "next/headers";
 
 import { Chat, DataStreamHandler } from "@/features/chat";
-import { getAvailableModels, DEFAULT_MODEL_ID } from "@/lib/ai";
+import { DEFAULT_MODEL_ID, getAvailableModels } from "@/lib/ai";
 import { generateUUID } from "@/lib/utils";
 
 export default async function NewChatPage() {
@@ -35,10 +35,10 @@ export default async function NewChatPage() {
             <Chat
                 id={chatId}
                 initialMessages={[]}
-                selectedModelId={initialModelId}
                 isReadonly={false}
-                votes={[]}
+                selectedModelId={initialModelId}
                 selectedVisibilityType="private"
+                votes={[]}
             />
             <DataStreamHandler />
         </>

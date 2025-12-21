@@ -2,12 +2,12 @@
 
 import { memo } from "react";
 
-export interface TextPreviewProps {
+export type TextPreviewProps = {
     /** Text content to preview */
     content: string;
     /** Maximum lines to display (default: 5) */
     maxLines?: number;
-}
+};
 
 /**
  * Text document preview renderer.
@@ -20,7 +20,7 @@ function TextPreviewComponent({ content, maxLines = 5 }: TextPreviewProps) {
 
     return (
         <div className="prose prose-sm dark:prose-invert max-w-none">
-            <div className="text-sm text-foreground/90 whitespace-pre-wrap line-clamp-5">
+            <div className="line-clamp-5 whitespace-pre-wrap text-foreground/90 text-sm">
                 {truncated}
                 {hasMore && <span className="text-muted-foreground">...</span>}
             </div>

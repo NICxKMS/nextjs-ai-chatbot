@@ -13,10 +13,10 @@ import { Square } from "lucide-react";
 /**
  * Props for the StopButton component.
  */
-export interface StopButtonProps {
+export type StopButtonProps = {
     /** Click handler to stop generation */
     onClick: () => void;
-}
+};
 
 /**
  * Button component for stopping AI response generation.
@@ -33,11 +33,11 @@ export interface StopButtonProps {
 export function StopButton({ onClick }: StopButtonProps) {
     return (
         <button
-            type="button"
-            onClick={onClick}
-            className="size-7 rounded-full bg-foreground text-background transition-colors duration-200 hover:bg-foreground/90 flex items-center justify-center"
             aria-label="Stop generating"
+            className="flex size-7 items-center justify-center rounded-full bg-foreground text-background transition-colors duration-200 hover:bg-foreground/90"
             data-testid="stop-button"
+            onClick={onClick}
+            type="button"
         >
             <Square className="h-3 w-3 fill-current" />
         </button>

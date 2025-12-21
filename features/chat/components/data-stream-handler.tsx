@@ -19,35 +19,35 @@ import type { DataStreamPart } from "./data-stream-provider";
 /**
  * Token usage data from AI response.
  */
-export interface DataUsageType {
+export type DataUsageType = {
     promptTokens: number;
     completionTokens: number;
     totalTokens: number;
-}
+};
 
 /**
  * Chat title update data part.
  */
-interface DataChatTitlePart {
+type DataChatTitlePart = {
     type: "data-chatTitle";
     data: string;
-}
+};
 
 /**
  * Usage data part.
  */
-interface DataUsagePart {
+type DataUsagePart = {
     type: "data-usage";
     data: DataUsageType;
-}
+};
 
 /**
  * Append message data part.
  */
-interface DataAppendMessagePart {
+type DataAppendMessagePart = {
     type: "data-appendMessage";
     data: string | Record<string, unknown>;
-}
+};
 
 // =============================================================================
 // TYPE GUARDS
@@ -94,7 +94,7 @@ export function isDataAppendMessagePart(
 // HOOK
 // =============================================================================
 
-export interface UseDataStreamHandlerOptions {
+export type UseDataStreamHandlerOptions = {
     /** Callback when chat title is updated */
     onTitleUpdate?: (title: string) => void;
     /** Callback when usage data is received */
@@ -105,7 +105,7 @@ export interface UseDataStreamHandlerOptions {
     ) => void;
     /** Whether to enable artifact streaming */
     streamArtifacts?: boolean;
-}
+};
 
 /**
  * Hook to create an onData handler for useChat.
@@ -162,14 +162,14 @@ export function useDataStreamHandler({
 // COMPONENT (for backwards compatibility)
 // =============================================================================
 
-export interface DataStreamHandlerProps {
+export type DataStreamHandlerProps = {
     /** Callback when chat title is updated */
     onTitleUpdate?: (title: string) => void;
     /** Callback when usage data is received */
     onUsageUpdate?: (usage: DataUsageType) => void;
     /** Whether to enable artifact streaming */
     streamArtifacts?: boolean;
-}
+};
 
 /**
  * DataStreamHandler - Placeholder component for data stream processing.

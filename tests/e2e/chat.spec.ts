@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { generateRandomTestUser } from "./helpers";
 
 test.describe("Chat", () => {
     test.beforeEach(async ({ page }) => {
@@ -12,7 +11,7 @@ test.describe("Chat", () => {
         test("should display chat interface on home page", async ({ page }) => {
             // Chat input should be visible
             await expect(page.getByPlaceholder(/send a message/i)).toBeVisible({
-                timeout: 10000,
+                timeout: 10_000,
             });
         });
 
@@ -63,7 +62,7 @@ test.describe("Chat", () => {
             const response = await page.waitForResponse(
                 (res) =>
                     res.url().includes("/api/chat") && res.status() === 200,
-                { timeout: 30000 }
+                { timeout: 30_000 }
             );
             expect(response.ok()).toBe(true);
         });
@@ -105,7 +104,7 @@ test.describe("Chat", () => {
             await sendButton.click();
 
             // Wait for URL to change to chat/:id format
-            await page.waitForURL(/\/chat\/[a-zA-Z0-9-]+/, { timeout: 30000 });
+            await page.waitForURL(/\/chat\/[a-zA-Z0-9-]+/, { timeout: 30_000 });
             expect(page.url()).toMatch(/\/chat\/[a-zA-Z0-9-]+/);
         });
 
@@ -119,7 +118,7 @@ test.describe("Chat", () => {
 
             // User message should appear in chat
             const userMessage = page.getByTestId("message-user");
-            await expect(userMessage).toBeVisible({ timeout: 10000 });
+            await expect(userMessage).toBeVisible({ timeout: 10_000 });
         });
 
         test("should display assistant message after sending", async ({
@@ -133,7 +132,7 @@ test.describe("Chat", () => {
 
             // Wait for assistant message
             const assistantMessage = page.getByTestId("message-assistant");
-            await expect(assistantMessage).toBeVisible({ timeout: 30000 });
+            await expect(assistantMessage).toBeVisible({ timeout: 30_000 });
         });
     });
 
@@ -148,7 +147,7 @@ test.describe("Chat", () => {
             await sendButton.click();
 
             // Wait for chat to be created
-            await page.waitForURL(/\/chat\/[a-zA-Z0-9-]+/, { timeout: 30000 });
+            await page.waitForURL(/\/chat\/[a-zA-Z0-9-]+/, { timeout: 30_000 });
 
             // Open sidebar to check history
             const sidebarToggle = page.getByTestId("sidebar-toggle-button");
@@ -158,7 +157,7 @@ test.describe("Chat", () => {
 
             // Chat history should contain the new chat
             const historyItem = page.getByTestId("chat-history-item").first();
-            await expect(historyItem).toBeVisible({ timeout: 10000 });
+            await expect(historyItem).toBeVisible({ timeout: 10_000 });
         });
 
         test("should load existing chat from history", async ({ page }) => {
@@ -168,7 +167,7 @@ test.describe("Chat", () => {
             // Create a chat first
             await input.fill("First message in chat");
             await sendButton.click();
-            await page.waitForURL(/\/chat\/[a-zA-Z0-9-]+/, { timeout: 30000 });
+            await page.waitForURL(/\/chat\/[a-zA-Z0-9-]+/, { timeout: 30_000 });
 
             const chatUrl = page.url();
 
@@ -182,7 +181,7 @@ test.describe("Chat", () => {
 
             // Message should still be visible
             const userMessage = page.getByTestId("message-user");
-            await expect(userMessage).toBeVisible({ timeout: 10000 });
+            await expect(userMessage).toBeVisible({ timeout: 10_000 });
         });
 
         test("should create new chat from sidebar", async ({ page }) => {
@@ -208,7 +207,7 @@ test.describe("Chat", () => {
     test.describe("Model Selection", () => {
         test("should display model selector", async ({ page }) => {
             const modelSelector = page.getByTestId("model-selector");
-            await expect(modelSelector).toBeVisible({ timeout: 10000 });
+            await expect(modelSelector).toBeVisible({ timeout: 10_000 });
         });
 
         test("should open model selector dropdown on click", async ({

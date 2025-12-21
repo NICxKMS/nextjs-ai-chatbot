@@ -56,7 +56,9 @@ export function serialize<T>(value: T): string {
  * Deserialize value from Redis storage
  */
 export function deserialize<T>(value: string | null): T | null {
-    if (!value) return null;
+    if (!value) {
+        return null;
+    }
     try {
         return JSON.parse(value) as T;
     } catch {
@@ -68,7 +70,9 @@ export function deserialize<T>(value: string | null): T | null {
  * Convert Date to Unix timestamp (seconds)
  */
 export function toUnixTimestamp(date: Date | string | number): number {
-    if (typeof date === "number") return Math.floor(date / 1000);
+    if (typeof date === "number") {
+        return Math.floor(date / 1000);
+    }
     const d = typeof date === "string" ? new Date(date) : date;
     return Math.floor(d.getTime() / 1000);
 }

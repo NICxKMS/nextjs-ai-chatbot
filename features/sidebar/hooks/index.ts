@@ -1,11 +1,11 @@
-export {
-    SidebarProvider,
-    useSidebar,
-    type SidebarProviderProps,
-} from "./use-sidebar";
+export { useChatHistory } from "./use-chat-history";
+export { useChatVisibility } from "./use-chat-visibility";
 export {
     OptimisticChatsProvider,
     useOptimisticChats,
 } from "./use-optimistic-chats";
-export { useChatVisibility } from "./use-chat-visibility";
-export { useChatHistory } from "./use-chat-history";
+export {
+    SidebarProvider,
+    type SidebarProviderProps,
+    useSidebar,
+} from "./use-sidebar";

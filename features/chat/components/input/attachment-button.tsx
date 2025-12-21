@@ -13,12 +13,12 @@ import { Paperclip } from "lucide-react";
 /**
  * Props for the AttachmentButton component.
  */
-export interface AttachmentButtonProps {
+export type AttachmentButtonProps = {
     /** Click handler to open file selection */
     onClick: () => void;
     /** Whether the button is disabled */
     disabled?: boolean;
-}
+};
 
 /**
  * Button component for attaching files to a chat message.
@@ -38,12 +38,12 @@ export interface AttachmentButtonProps {
 export function AttachmentButton({ onClick, disabled }: AttachmentButtonProps) {
     return (
         <button
-            type="button"
-            onClick={onClick}
-            disabled={disabled}
-            className="h-8 w-8 rounded-lg p-1 transition-colors hover:bg-accent disabled:opacity-50 disabled:pointer-events-none"
             aria-label="Attach file"
+            className="h-8 w-8 rounded-lg p-1 transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
             data-testid="attachments-button"
+            disabled={disabled}
+            onClick={onClick}
+            type="button"
         >
             <Paperclip className="h-4 w-4" />
         </button>

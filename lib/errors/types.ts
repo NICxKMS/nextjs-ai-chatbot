@@ -15,7 +15,7 @@ export type ErrorCategory =
 
 export type ErrorCode = `${ErrorCategory}:${string}`;
 
-export interface AppErrorOptions {
+export type AppErrorOptions = {
     code: ErrorCode;
     message?: string;
     severity?: ErrorSeverity;
@@ -23,22 +23,22 @@ export interface AppErrorOptions {
     isOperational?: boolean;
     context?: Record<string, unknown>;
     cause?: unknown;
-}
+};
 
 export type ActionResult<T> =
     | { success: true; data: T }
     | { success: false; error: { code: ErrorCode; message: string } };
 
-export interface MessageConfig {
+export type MessageConfig = {
     default: string;
     guest?: string;
     variants?: Record<string, string>;
-}
+};
 
-export interface LogContext {
+export type LogContext = {
     requestId?: string;
     userId?: string;
     path?: string;
     method?: string;
     [key: string]: unknown;
-}
+};

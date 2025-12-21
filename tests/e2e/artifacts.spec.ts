@@ -23,7 +23,7 @@ test.describe("Artifacts", () => {
             await page.waitForResponse(
                 (res) =>
                     res.url().includes("/api/chat") && res.status() === 200,
-                { timeout: 30000 }
+                { timeout: 30_000 }
             );
 
             // Check if artifact appeared (may or may not trigger based on AI response)
@@ -46,7 +46,7 @@ test.describe("Artifacts", () => {
             await page.waitForResponse(
                 (res) =>
                     res.url().includes("/api/chat") && res.status() === 200,
-                { timeout: 30000 }
+                { timeout: 30_000 }
             );
 
             // If document preview appears, click to open artifact
@@ -59,7 +59,7 @@ test.describe("Artifacts", () => {
                 await documentPreview.click();
 
                 const artifact = page.getByTestId("artifact");
-                await expect(artifact).toBeVisible({ timeout: 10000 });
+                await expect(artifact).toBeVisible({ timeout: 10_000 });
             }
         });
 
@@ -73,7 +73,7 @@ test.describe("Artifacts", () => {
             await page.waitForResponse(
                 (res) =>
                     res.url().includes("/api/chat") && res.status() === 200,
-                { timeout: 30000 }
+                { timeout: 30_000 }
             );
 
             const artifact = page.getByTestId("artifact");
@@ -97,7 +97,7 @@ test.describe("Artifacts", () => {
             await page.waitForResponse(
                 (res) =>
                     res.url().includes("/api/chat") && res.status() === 200,
-                { timeout: 30000 }
+                { timeout: 30_000 }
             );
 
             const artifact = page.getByTestId("artifact");
@@ -125,12 +125,12 @@ test.describe("Artifacts", () => {
             await page.waitForResponse(
                 (res) =>
                     res.url().includes("/api/chat") && res.status() === 200,
-                { timeout: 30000 }
+                { timeout: 30_000 }
             );
 
             // Response received - artifact behavior depends on AI
             const assistantMessage = page.getByTestId("message-assistant");
-            await expect(assistantMessage).toBeVisible({ timeout: 30000 });
+            await expect(assistantMessage).toBeVisible({ timeout: 30_000 });
         });
     });
 
@@ -147,7 +147,7 @@ test.describe("Artifacts", () => {
             await page.waitForResponse(
                 (res) =>
                     res.url().includes("/api/chat") && res.status() === 200,
-                { timeout: 30000 }
+                { timeout: 30_000 }
             );
 
             const artifact = page.getByTestId("artifact");
@@ -176,12 +176,12 @@ test.describe("Artifacts", () => {
             await page.waitForResponse(
                 (res) =>
                     res.url().includes("/api/chat") && res.status() === 200,
-                { timeout: 30000 }
+                { timeout: 30_000 }
             );
 
             // Verify basic response received
             const assistantMessage = page.getByTestId("message-assistant");
-            await expect(assistantMessage).toBeVisible({ timeout: 30000 });
+            await expect(assistantMessage).toBeVisible({ timeout: 30_000 });
         });
     });
 
@@ -196,7 +196,7 @@ test.describe("Artifacts", () => {
             await page.waitForResponse(
                 (res) =>
                     res.url().includes("/api/chat") && res.status() === 200,
-                { timeout: 30000 }
+                { timeout: 30_000 }
             );
 
             const artifact = page.getByTestId("artifact");

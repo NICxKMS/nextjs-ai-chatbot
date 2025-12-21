@@ -9,6 +9,7 @@
 
 "use client";
 
+import type { UseChatHelpers } from "@ai-sdk/react";
 import {
     type Dispatch,
     type SetStateAction,
@@ -18,16 +19,15 @@ import {
     useState,
 } from "react";
 import { toast } from "sonner";
-import type { UseChatHelpers } from "@ai-sdk/react";
 import { Button, Textarea } from "@/shared/components";
-import type { ChatMessage } from "../types";
 import { deleteTrailingMessages } from "../actions";
+import type { ChatMessage } from "../types";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-export interface MessageEditorProps {
+export type MessageEditorProps = {
     /** Chat session identifier */
     chatId: string;
     /** The message being edited */
@@ -38,7 +38,7 @@ export interface MessageEditorProps {
     setMessages: UseChatHelpers<ChatMessage>["setMessages"];
     /** AI SDK regenerate function to re-run the message */
     regenerate: UseChatHelpers<ChatMessage>["regenerate"];
-}
+};
 
 // =============================================================================
 // HELPERS
@@ -162,27 +162,27 @@ export function MessageEditor({
     return (
         <div className="flex w-full flex-col gap-2">
             <Textarea
-                ref={textareaRef}
                 className="w-full resize-none overflow-hidden rounded-xl bg-transparent text-base! outline-hidden"
-                value={draftContent}
-                onChange={handleInput}
                 data-testid="message-editor"
+                onChange={handleInput}
+                ref={textareaRef}
+                value={draftContent}
             />
 
             <div className="flex flex-row justify-end gap-2">
                 <Button
-                    variant="outline"
                     className="h-fit px-3 py-2"
                     onClick={handleCancel}
+                    variant="outline"
                 >
                     Cancel
                 </Button>
                 <Button
-                    variant="default"
                     className="h-fit px-3 py-2"
+                    data-testid="message-editor-send-button"
                     disabled={isSubmitting}
                     onClick={handleSave}
-                    data-testid="message-editor-send-button"
+                    variant="default"
                 >
                     {isSubmitting ? "Sending..." : "Send"}
                 </Button>

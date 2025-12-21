@@ -8,7 +8,7 @@
 import { randomUUID } from "node:crypto";
 import { put } from "@vercel/blob";
 import { z } from "zod";
-import { requireAuthForRoute, isAuthResponse } from "@/lib/auth";
+import { isAuthResponse, requireAuthForRoute } from "@/lib/auth";
 import { AppError, validationError } from "@/lib/errors";
 
 export const maxDuration = 30;

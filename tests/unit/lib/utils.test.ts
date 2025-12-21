@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { cn } from "@/lib/utils/cn";
-import { generateUUID, convertToUIMessages } from "@/lib/utils";
 
 describe("cn (class name utility)", () => {
     it("should combine multiple class names", () => {

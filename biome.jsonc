@@ -16,6 +16,9 @@
   },
   "linter": {
     "rules": {
+      "performance": {
+        "noBarrelFile": "off"
+      },
       "suspicious": {
         /* Needs more work to fix */
         "noExplicitAny": "off",

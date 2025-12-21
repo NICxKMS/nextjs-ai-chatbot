@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
+    GUEST_CACHE_TTL_SECONDS,
     getCookieOptions,
     isProductionEnvironment,
     JWT_EXPIRATION_SECONDS,
-    GUEST_CACHE_TTL_SECONDS,
     JWT_ISSUER,
     ROTATION_THRESHOLD_SECONDS,
 } from "@/lib/auth/constants";
@@ -111,7 +111,7 @@ describe("Auth Constants", () => {
         });
 
         it("should have correct guest cache TTL (7 days)", () => {
-            expect(GUEST_CACHE_TTL_SECONDS).toBe(604800);
+            expect(GUEST_CACHE_TTL_SECONDS).toBe(604_800);
         });
 
         it("should have correct JWT issuer", () => {

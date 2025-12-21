@@ -9,22 +9,16 @@
 
 "use client";
 
-import { useRef, useCallback, useMemo, useState, memo } from "react";
-import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { ArrowDownIcon } from "lucide-react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { toast } from "sonner";
-
-import { useChatHelpers, useChatMetadata } from "../hooks";
-import { voteOnMessage } from "../actions";
-import type {
-    ChatMessagesProps,
-    ChatMessage,
-    MessageVote,
-    VoteType,
-} from "../types";
-import { MessageItem } from "./message/message-item";
-import { ChatGreeting } from "./chat-greeting";
 import { cn } from "@/lib/utils";
+import { voteOnMessage } from "../actions";
+import { useChatHelpers, useChatMetadata } from "../hooks";
+import type { ChatMessage, ChatMessagesProps, VoteType } from "../types";
+import { ChatGreeting } from "./chat-greeting";
+import { MessageItem } from "./message/message-item";
 
 // =============================================================================
 // INTERNAL COMPONENTS
@@ -98,13 +92,13 @@ const ChatMessagesList = memo(function ChatMessagesList({
             return (
                 <div className="px-2 pb-4 md:px-4 md:pb-6">
                     <MessageItem
-                        message={message}
-                        vote={vote}
                         isReadonly={readonly}
                         isStreaming={isStreaming}
-                        onVote={(voteType) => handleVote(message.id, voteType)}
+                        message={message}
                         onCopy={() => handleCopy(message)}
                         onEdit={(content) => handleEdit(message.id, content)}
+                        onVote={(voteType) => handleVote(message.id, voteType)}
+                        vote={vote}
                     />
                 </div>
             );
@@ -128,38 +122,38 @@ const ChatMessagesList = memo(function ChatMessagesList({
 
     return (
         <div
-            className="relative flex-1 overflow-hidden overscroll-contain touch-pan-y"
-            style={{ overflowAnchor: "none" }}
+            className="relative flex-1 touch-pan-y overflow-hidden overscroll-contain"
             data-testid="messages-container"
+            style={{ overflowAnchor: "none" }}
         >
             <Virtuoso
-                ref={virtuosoRef}
-                data={messages}
-                increaseViewportBy={{ top: 200, bottom: 200 }}
-                followOutput="smooth"
-                atBottomThreshold={100}
                 atBottomStateChange={handleAtBottomStateChange}
-                itemContent={itemContent}
+                atBottomThreshold={100}
+                className="h-full"
                 components={{
                     Header,
                     Footer,
                 }}
-                className="h-full"
+                data={messages}
+                followOutput="smooth"
+                increaseViewportBy={{ top: 200, bottom: 200 }}
+                itemContent={itemContent}
+                ref={virtuosoRef}
                 style={{ height: "100%" }}
             />
 
             {/* Scroll to bottom button */}
             {!isAtBottom && (
                 <button
-                    type="button"
                     aria-label="Scroll to bottom"
-                    onClick={scrollToBottom}
                     className={cn(
-                        "absolute bottom-40 left-1/2 -translate-x-1/2 z-10",
+                        "-translate-x-1/2 absolute bottom-40 left-1/2 z-10",
                         "rounded-full border bg-background p-2 shadow-lg",
                         "transition-colors hover:bg-muted",
                         "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                     )}
+                    onClick={scrollToBottom}
+                    type="button"
                 >
                     <ArrowDownIcon className="size-4" />
                 </button>
@@ -198,7 +192,7 @@ export function ChatMessages({ votes, isReadonly }: ChatMessagesProps) {
         return <ChatGreeting />;
     }
 
-    return <ChatMessagesList votes={votes} isReadonly={isReadonly} />;
+    return <ChatMessagesList isReadonly={isReadonly} votes={votes} />;
 }
 
 /**

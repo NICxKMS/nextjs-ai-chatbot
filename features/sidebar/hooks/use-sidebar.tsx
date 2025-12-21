@@ -2,11 +2,11 @@
 
 import {
     createContext,
-    useContext,
-    useState,
-    useCallback,
-    useEffect,
     type ReactNode,
+    useCallback,
+    useContext,
+    useEffect,
+    useState,
 } from "react";
 import type {
     SidebarContext as SidebarContextType,
@@ -17,10 +17,10 @@ const SidebarContext = createContext<SidebarContextType | null>(null);
 
 const SIDEBAR_COOKIE_NAME = "sidebar:state";
 
-export interface SidebarProviderProps {
+export type SidebarProviderProps = {
     children: ReactNode;
     defaultOpen?: boolean;
-}
+};
 
 export function SidebarProvider({
     children,

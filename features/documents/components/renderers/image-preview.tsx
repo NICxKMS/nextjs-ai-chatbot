@@ -2,12 +2,12 @@
 
 import { memo } from "react";
 
-export interface ImagePreviewProps {
+export type ImagePreviewProps = {
     /** Image content (base64 data URI or URL) */
     content: string;
     /** Image title for alt text */
     title?: string;
-}
+};
 
 /**
  * Image document preview renderer.
@@ -24,9 +24,9 @@ function ImagePreviewComponent({ content, title }: ImagePreviewProps) {
         <div className="flex items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-                src={src}
                 alt={title ?? "Document image preview"}
                 className="max-h-[200px] max-w-full rounded object-contain"
+                src={src}
             />
         </div>
     );

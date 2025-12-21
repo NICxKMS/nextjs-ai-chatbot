@@ -1,18 +1,17 @@
 "use client";
 
-import { memo, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
+    Check,
+    Globe,
+    Lock,
     MoreHorizontal,
     Share,
-    Lock,
-    Globe,
     Trash2,
-    Check,
 } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { memo, useState } from "react";
 import { toast } from "sonner";
-import type { ChatHistoryItem as ChatHistoryItemType } from "../types";
 import { cn } from "@/lib/utils";
 import {
     DropdownMenu,
@@ -24,30 +23,31 @@ import {
     DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from "@/shared/components/dropdown-menu";
+import type { ChatHistoryItem as ChatHistoryItemType } from "../types";
 
 type VisibilityType = "public" | "private";
 
 function MessageIcon({ className }: { className?: string }) {
     return (
         <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
+            className={className}
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={className}
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
         >
             <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
         </svg>
     );
 }
 
-export interface SidebarHistoryItemProps {
+export type SidebarHistoryItemProps = {
     chat: ChatHistoryItemType;
     onDelete?: (id: string) => void;
-}
+};
 
 export const SidebarHistoryItem = memo(function SidebarHistoryItem({
     chat,
@@ -61,7 +61,9 @@ export const SidebarHistoryItem = memo(function SidebarHistoryItem({
     const [isUpdating, setIsUpdating] = useState(false);
 
     const handleVisibilityChange = async (newVisibility: VisibilityType) => {
-        if (newVisibility === visibility || isUpdating) return;
+        if (newVisibility === visibility || isUpdating) {
+            return;
+        }
 
         const previousVisibility = visibility;
         setVisibility(newVisibility);
@@ -91,14 +93,14 @@ export const SidebarHistoryItem = memo(function SidebarHistoryItem({
     };
 
     return (
-        <div className="relative group" data-testid="chat-history-item">
+        <div className="group relative" data-testid="chat-history-item">
             <Link
-                href={`/chat/${chat.id}`}
                 className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-lg text-sm truncate pr-8",
-                    "hover:bg-muted transition-colors",
+                    "flex items-center gap-2 truncate rounded-lg px-3 py-2 pr-8 text-sm",
+                    "transition-colors hover:bg-muted",
                     isActive && "bg-muted font-medium"
                 )}
+                href={`/chat/${chat.id}`}
             >
                 <MessageIcon className="h-4 w-4 shrink-0" />
                 <span className="truncate">{chat.title || "New Chat"}</span>
@@ -107,12 +109,12 @@ export const SidebarHistoryItem = memo(function SidebarHistoryItem({
                 )}
             </Link>
 
-            <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="-translate-y-1/2 absolute top-1/2 right-1 opacity-0 transition-opacity group-hover:opacity-100">
                 <DropdownMenu modal={true}>
                     <DropdownMenuTrigger asChild>
                         <button
-                            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
                             aria-label="More options"
+                            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
                         >
                             <MoreHorizontal className="h-4 w-4" />
                         </button>
@@ -128,32 +130,32 @@ export const SidebarHistoryItem = memo(function SidebarHistoryItem({
                                 <DropdownMenuSubContent>
                                     <DropdownMenuItem
                                         className="cursor-pointer flex-row justify-between"
+                                        disabled={isUpdating}
                                         onClick={() =>
                                             handleVisibilityChange("private")
                                         }
-                                        disabled={isUpdating}
                                     >
                                         <div className="flex flex-row items-center gap-2">
                                             <Lock className="h-4 w-4" />
                                             <span>Private</span>
                                         </div>
                                         {visibility === "private" && (
-                                            <Check className="h-4 w-4 ml-auto" />
+                                            <Check className="ml-auto h-4 w-4" />
                                         )}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                         className="cursor-pointer flex-row justify-between"
+                                        disabled={isUpdating}
                                         onClick={() =>
                                             handleVisibilityChange("public")
                                         }
-                                        disabled={isUpdating}
                                     >
                                         <div className="flex flex-row items-center gap-2">
                                             <Globe className="h-4 w-4" />
                                             <span>Public</span>
                                         </div>
                                         {visibility === "public" && (
-                                            <Check className="h-4 w-4 ml-auto" />
+                                            <Check className="ml-auto h-4 w-4" />
                                         )}
                                     </DropdownMenuItem>
                                 </DropdownMenuSubContent>
@@ -161,7 +163,7 @@ export const SidebarHistoryItem = memo(function SidebarHistoryItem({
                         </DropdownMenuSub>
 
                         <DropdownMenuItem
-                            className="cursor-pointer text-destructive dark:text-red-500 focus:bg-destructive/15 focus:text-destructive"
+                            className="cursor-pointer text-destructive focus:bg-destructive/15 focus:text-destructive dark:text-red-500"
                             onSelect={() => onDelete?.(chat.id)}
                         >
                             <Trash2 className="h-4 w-4" />

@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense } from "react";
 import { useRouter } from "next/navigation";
+import { Suspense } from "react";
 import { AppSidebar, useChatHistory } from "@/features/sidebar";
 import { generateUUID } from "@/lib/utils";
 
@@ -18,30 +18,30 @@ function SidebarContent() {
     return (
         <AppSidebar
             chats={chats}
-            isLoading={isLoading}
             hasMore={hasMore}
-            onNewChat={handleNewChat}
-            onDeleteChat={deleteChat}
+            isLoading={isLoading}
             onDeleteAll={deleteAllChats}
+            onDeleteChat={deleteChat}
             onLoadMore={loadMore}
+            onNewChat={handleNewChat}
         />
     );
 }
 
 function SidebarSkeleton() {
     return (
-        <aside className="w-64 h-full flex flex-col border-r bg-background">
-            <div className="p-2 border-b">
+        <aside className="flex h-full w-64 flex-col border-r bg-background">
+            <div className="border-b p-2">
                 <div className="flex items-center justify-between">
-                    <div className="h-8 w-24 bg-muted animate-pulse rounded" />
-                    <div className="h-8 w-8 bg-muted animate-pulse rounded" />
+                    <div className="h-8 w-24 animate-pulse rounded bg-muted" />
+                    <div className="h-8 w-8 animate-pulse rounded bg-muted" />
                 </div>
             </div>
-            <div className="flex-1 p-2 space-y-2">
+            <div className="flex-1 space-y-2 p-2">
                 {Array.from({ length: 5 }).map((_, i) => (
                     <div
+                        className="h-10 animate-pulse rounded bg-muted"
                         key={i}
-                        className="h-10 bg-muted animate-pulse rounded"
                     />
                 ))}
             </div>

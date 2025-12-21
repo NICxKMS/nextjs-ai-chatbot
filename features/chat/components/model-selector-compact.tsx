@@ -10,6 +10,7 @@
 "use client";
 
 import { Cpu } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/shared/components/button";
 import {
     DropdownMenu,
@@ -17,14 +18,13 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/shared/components/dropdown-menu";
-import { cn } from "@/lib/utils";
 import type { ModelMetadata } from "../types";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-export interface ModelSelectorCompactProps {
+export type ModelSelectorCompactProps = {
     /** Available models for selection */
     models: ModelMetadata[];
     /** Currently selected model ID */
@@ -35,7 +35,7 @@ export interface ModelSelectorCompactProps {
     disabled?: boolean;
     /** Additional CSS classes */
     className?: string;
-}
+};
 
 // =============================================================================
 // COMPONENT
@@ -74,14 +74,14 @@ export function ModelSelectorCompact({
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button
-                    variant="ghost"
-                    size="sm"
                     className={cn(
-                        "h-8 px-2 gap-1.5 text-muted-foreground hover:text-foreground",
+                        "h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground",
                         className
                     )}
-                    disabled={disabled}
                     data-testid="model-selector-compact"
+                    disabled={disabled}
+                    size="sm"
+                    variant="ghost"
                 >
                     <Cpu className="size-4" />
                     <span className="max-w-[100px] truncate text-xs">
@@ -92,12 +92,12 @@ export function ModelSelectorCompact({
             <DropdownMenuContent align="start" className="w-48">
                 {models.map((model) => (
                     <DropdownMenuItem
-                        key={model.id}
-                        onClick={() => onModelChange(model.id)}
                         className={cn(
                             selectedModelId === model.id && "bg-accent"
                         )}
                         data-testid={`model-selector-compact-item-${model.id}`}
+                        key={model.id}
+                        onClick={() => onModelChange(model.id)}
                     >
                         <span className="truncate">{model.name}</span>
                     </DropdownMenuItem>

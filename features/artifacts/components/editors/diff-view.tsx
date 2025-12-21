@@ -6,12 +6,12 @@ import { useEffect, useMemo, useState } from "react";
 // Types
 // ============================================================================
 
-export interface DiffViewProps {
+export type DiffViewProps = {
     /** Original content for comparison */
     oldContent: string;
     /** New content for comparison */
     newContent: string;
-}
+};
 
 // ============================================================================
 // Diff Type Constants
@@ -109,10 +109,10 @@ function DiffSkeleton() {
     return (
         <div className="w-full rounded-lg border border-border bg-background p-4">
             <div className="animate-pulse space-y-3">
-                <div className="h-4 bg-muted rounded w-3/4" />
-                <div className="h-4 bg-muted rounded w-full" />
-                <div className="h-4 bg-muted rounded w-5/6" />
-                <div className="h-4 bg-muted rounded w-2/3" />
+                <div className="h-4 w-3/4 rounded bg-muted" />
+                <div className="h-4 w-full rounded bg-muted" />
+                <div className="h-4 w-5/6 rounded bg-muted" />
+                <div className="h-4 w-2/3 rounded bg-muted" />
             </div>
         </div>
     );

@@ -9,7 +9,7 @@ import type { ConsoleOutput } from "./console";
 // Types
 // ============================================================================
 
-export interface CodeEditorProps {
+export type CodeEditorProps = {
     /** Code content to display/edit */
     content: string;
     /** Callback when content is saved */
@@ -22,7 +22,7 @@ export interface CodeEditorProps {
     consoleOutputs?: ConsoleOutput[];
     /** Setter for console outputs */
     setConsoleOutputs?: React.Dispatch<React.SetStateAction<ConsoleOutput[]>>;
-}
+};
 
 // ============================================================================
 // Lazy-loaded CodeMirror modules
@@ -72,10 +72,10 @@ function EditorSkeleton() {
     return (
         <div className="not-prose relative w-full pb-[calc(80dvh)] text-sm">
             <div className="animate-pulse space-y-2 p-4">
-                <div className="h-4 bg-muted rounded w-3/4" />
-                <div className="h-4 bg-muted rounded w-1/2" />
-                <div className="h-4 bg-muted rounded w-5/6" />
-                <div className="h-4 bg-muted rounded w-2/3" />
+                <div className="h-4 w-3/4 rounded bg-muted" />
+                <div className="h-4 w-1/2 rounded bg-muted" />
+                <div className="h-4 w-5/6 rounded bg-muted" />
+                <div className="h-4 w-2/3 rounded bg-muted" />
             </div>
         </div>
     );
@@ -122,7 +122,7 @@ function PureCodeEditor({ content, onSaveContent, status }: CodeEditorProps) {
         };
         // NOTE: we only want to run this effect once after modules load
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [modules]);
+    }, [modules, content]);
 
     // Update listener when onSaveContent changes
     useEffect(() => {

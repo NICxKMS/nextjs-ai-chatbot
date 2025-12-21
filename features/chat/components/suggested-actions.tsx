@@ -9,9 +9,9 @@
 
 "use client";
 
-import { memo, useMemo } from "react";
-import { m as motion } from "framer-motion";
 import type { UseChatHelpers } from "@ai-sdk/react";
+import { m as motion } from "framer-motion";
+import { memo, useMemo } from "react";
 import { Button } from "@/shared/components";
 import type { ChatMessage, VisibilityType } from "../types";
 
@@ -19,14 +19,14 @@ import type { ChatMessage, VisibilityType } from "../types";
 // TYPES
 // =============================================================================
 
-export interface SuggestedActionsProps {
+export type SuggestedActionsProps = {
     /** Chat session identifier */
     chatId: string;
     /** AI SDK sendMessage function to send messages */
     sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
     /** Current visibility setting (for memoization) */
     selectedVisibilityType?: VisibilityType;
-}
+};
 
 // =============================================================================
 // CONSTANTS
@@ -98,16 +98,16 @@ function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
         >
             {suggestions.map((suggestion, index) => (
                 <motion.div
-                    key={suggestion}
-                    initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 20 }}
+                    key={suggestion}
                     transition={{ delay: 0.05 * index }}
                 >
                     <Button
-                        variant="outline"
                         className="h-auto w-full cursor-pointer whitespace-normal rounded-full p-3 px-4 text-left"
                         onClick={() => handleClick(suggestion)}
+                        variant="outline"
                     >
                         {suggestion}
                     </Button>

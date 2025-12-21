@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, act, waitFor } from "@testing-library/react";
-import { SWRConfig } from "swr";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { useMessages } from "@/features/chat/hooks/use-messages";
+import { SWRConfig } from "swr";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useChatVisibility } from "@/features/chat/hooks/use-chat-visibility";
+import { useMessages } from "@/features/chat/hooks/use-messages";
 import type { ChatStatus } from "@/features/chat/types";
 
 // =============================================================================

@@ -11,29 +11,29 @@
 
 import { useState } from "react";
 import {
-    useChatHelpers,
-    useModelState,
-    useChatMetadata,
-} from "./chat-provider";
-import {
     Artifact,
-    DataStreamHandler,
     artifactDefinitions,
+    DataStreamHandler,
     useArtifact,
 } from "@/features/artifacts";
+import {
+    useChatHelpers,
+    useChatMetadata,
+    useModelState,
+} from "./chat-provider";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-export interface ArtifactWrapperProps {
+export type ArtifactWrapperProps = {
     /** Message votes for displaying vote state */
     votes?: Array<{ messageId: string; vote: "up" | "down" }>;
     /** Whether the chat is in read-only mode */
     isReadonly?: boolean;
     /** Visibility type for the chat */
     selectedVisibilityType?: "private" | "public";
-}
+};
 
 // =============================================================================
 // COMPONENT
@@ -110,34 +110,34 @@ export function ArtifactWrapper({
         <>
             {/* DataStreamHandler processes artifact stream parts */}
             <DataStreamHandler
-                dataStream={[]} // Will be populated by chat streaming
-                artifactDefinitions={Object.values(artifactDefinitions)}
+                artifactDefinitions={Object.values(artifactDefinitions)} // Will be populated by chat streaming
+                dataStream={[]}
             />
 
             {/* Artifact panel - renders when visible */}
             {artifact.isVisible && (
                 <Artifact
+                    attachments={attachments}
                     chatId={chatId}
                     input={artifactInput}
-                    setInput={setArtifactInput}
-                    status={status}
-                    stop={stop}
-                    attachments={attachments}
-                    setAttachments={setAttachments}
+                    isReadonly={isReadonly}
                     messages={artifactMessages}
-                    setMessages={setMessages}
-                    votes={artifactVotes}
-                    // Type assertion needed because Artifact uses UseChatHelpers<any>
-                    // but our context uses UseChatHelpers<ChatMessage>
+                    regenerate={regenerate}
+                    selectedModelId={currentModelId}
+                    selectedVisibilityType={selectedVisibilityType}
                     sendMessage={
                         sendMessage as Parameters<
                             typeof Artifact
                         >[0]["sendMessage"]
                     }
-                    regenerate={regenerate}
-                    isReadonly={isReadonly}
-                    selectedVisibilityType={selectedVisibilityType}
-                    selectedModelId={currentModelId}
+                    setAttachments={setAttachments}
+                    // Type assertion needed because Artifact uses UseChatHelpers<any>
+                    // but our context uses UseChatHelpers<ChatMessage>
+                    setInput={setArtifactInput}
+                    setMessages={setMessages}
+                    status={status}
+                    stop={stop}
+                    votes={artifactVotes}
                 />
             )}
         </>

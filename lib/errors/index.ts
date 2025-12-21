@@ -7,38 +7,33 @@
 
 // Core class
 export { AppError } from "./app-error";
-
-// Types
-export type {
-    ErrorSeverity,
-    ErrorCategory,
-    ErrorCode,
-    AppErrorOptions,
-    ActionResult,
-    MessageConfig,
-    LogContext,
-} from "./types";
-
-// Messages
-export { getMessage, registerMessages } from "./messages";
-
-// Utilities
-export {
-    inferStatusCode,
-    isAppError,
-    ensureAppError,
-    serializeError,
-} from "./utils";
-
 // Factory functions
 export {
     authError,
-    validationError,
+    externalError,
+    forbiddenError,
     notFoundError,
     rateLimitError,
-    forbiddenError,
-    externalError,
+    validationError,
 } from "./factories";
-
 // Mappers
-export { mapPostgresError, isPostgresError } from "./mappers/postgres";
+export { isPostgresError, mapPostgresError } from "./mappers/postgres";
+// Messages
+export { getMessage, registerMessages } from "./messages";
+// Types
+export type {
+    ActionResult,
+    AppErrorOptions,
+    ErrorCategory,
+    ErrorCode,
+    ErrorSeverity,
+    LogContext,
+    MessageConfig,
+} from "./types";
+// Utilities
+export {
+    ensureAppError,
+    inferStatusCode,
+    isAppError,
+    serializeError,
+} from "./utils";

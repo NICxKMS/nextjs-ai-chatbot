@@ -4,11 +4,11 @@
  */
 import "server-only";
 
-import { eq, and } from "drizzle-orm";
-import { getDb, schema } from "@/lib/db";
+import { and, eq } from "drizzle-orm";
 import type { Chat, Visibility } from "@/lib/db";
-import type { DataContext } from "../types";
+import { getDb, schema } from "@/lib/db";
 import { requireNonGuest } from "../base";
+import type { DataContext } from "../types";
 
 const { chat } = schema;
 

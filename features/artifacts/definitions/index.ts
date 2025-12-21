@@ -4,19 +4,18 @@
  */
 
 import type { ArtifactDefinition, ArtifactKind } from "../types";
-import { textArtifact } from "./text";
 import { codeArtifact } from "./code";
 import { imageArtifact } from "./image";
 import { sheetArtifact } from "./sheet";
+import { textArtifact } from "./text";
 
 // Re-export base utilities
 export { Artifact, artifactRegistry, isArtifactDefinition } from "./base";
-
-// Re-export individual artifact definitions
-export { textArtifact } from "./text";
 export { codeArtifact } from "./code";
 export { imageArtifact } from "./image";
 export { sheetArtifact } from "./sheet";
+// Re-export individual artifact definitions
+export { textArtifact } from "./text";
 
 /**
  * Map of all artifact definitions by kind.

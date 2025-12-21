@@ -6,7 +6,7 @@
  */
 
 import { z } from "zod";
-import { requireAuthForRoute, isAuthResponse } from "@/lib/auth";
+import { isAuthResponse, requireAuthForRoute } from "@/lib/auth";
 import { documentData } from "@/lib/data/documents";
 import { validationError } from "@/lib/errors";
 

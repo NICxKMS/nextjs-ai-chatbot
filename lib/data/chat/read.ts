@@ -4,11 +4,11 @@
  */
 import "server-only";
 
-import { eq, and, desc } from "drizzle-orm";
-import { getDb, schema } from "@/lib/db";
+import { and, desc, eq } from "drizzle-orm";
 import type { Chat, ChatWithMessages } from "@/lib/db";
-import type { DataContext, PaginatedResult, PaginationParams } from "../types";
+import { getDb, schema } from "@/lib/db";
 import { isGuest } from "../base";
+import type { DataContext, PaginatedResult, PaginationParams } from "../types";
 
 const { chat, message } = schema;
 
@@ -100,7 +100,7 @@ export async function listChats(
     return {
         items,
         hasMore,
-        nextCursor: hasMore ? items[items.length - 1]?.id : undefined,
+        nextCursor: hasMore ? items.at(-1)?.id : undefined,
     };
 }
 

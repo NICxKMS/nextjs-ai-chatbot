@@ -1,10 +1,10 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import { parse, unparse } from "papaparse";
 import { memo, useEffect, useMemo, useState } from "react";
 import DataGrid, { textEditor } from "react-data-grid";
+import { cn } from "@/lib/utils";
 
 // NOTE: react-data-grid CSS should be imported in app/globals.css for better bundling
 
@@ -21,7 +21,7 @@ type RowData = Record<string, CellValue> & {
     rowNumber: number;
 };
 
-export interface SheetEditorProps {
+export type SheetEditorProps = {
     /** CSV content to display/edit */
     content: string;
     /** Callback when content changes */
@@ -30,7 +30,7 @@ export interface SheetEditorProps {
     isCurrentVersion: boolean;
     /** Current artifact status */
     status: "streaming" | "idle";
-}
+};
 
 // ============================================================================
 // Constants

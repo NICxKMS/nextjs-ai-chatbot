@@ -8,12 +8,12 @@
 import { AppError } from "../app-error";
 import type { ErrorCode } from "../types";
 
-interface PostgresError {
+type PostgresError = {
     code?: string;
     message?: string;
     detail?: string;
     constraint?: string;
-}
+};
 
 /**
  * Map PostgreSQL error code to ErrorCode

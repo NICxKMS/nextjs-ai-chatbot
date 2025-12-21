@@ -9,19 +9,19 @@
 
 "use client";
 
-import { type ReactNode, useMemo, useState, useCallback } from "react";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
 import {
     Button,
+    CheckCircleFillIcon,
+    ChevronDownIcon,
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
-    ChevronDownIcon,
-    CheckCircleFillIcon,
     GlobeIcon,
     LockIcon,
 } from "@/shared/components";
-import { cn } from "@/lib/utils";
 import { useChatVisibility } from "../hooks";
 import type { VisibilityType } from "../types";
 
@@ -29,21 +29,21 @@ import type { VisibilityType } from "../types";
 // TYPES
 // =============================================================================
 
-export interface VisibilitySelectorProps {
+export type VisibilitySelectorProps = {
     /** Chat session identifier */
     chatId: string;
     /** Initial visibility type */
     selectedVisibilityType: VisibilityType;
     /** Optional additional CSS classes */
     className?: string;
-}
+};
 
-interface VisibilityOption {
+type VisibilityOption = {
     id: VisibilityType;
     label: string;
     description: string;
     icon: ReactNode;
-}
+};
 
 // =============================================================================
 // CONSTANTS
@@ -106,7 +106,7 @@ export function VisibilitySelector({
     );
 
     return (
-        <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenu onOpenChange={setOpen} open={open}>
             <DropdownMenuTrigger
                 asChild
                 className={cn(
@@ -115,9 +115,9 @@ export function VisibilitySelector({
                 )}
             >
                 <Button
-                    variant="outline"
                     className="hidden h-8 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 md:flex md:h-fit md:px-2"
                     data-testid="visibility-selector"
+                    variant="outline"
                 >
                     {selectedVisibility?.icon}
                     <span className="md:sr-only">
@@ -130,10 +130,10 @@ export function VisibilitySelector({
             <DropdownMenuContent align="start" className="min-w-[300px]">
                 {VISIBILITY_OPTIONS.map((option) => (
                     <DropdownMenuItem
-                        key={option.id}
                         className="group/item flex flex-row items-center justify-between gap-4"
                         data-active={option.id === visibilityType}
                         data-testid={`visibility-selector-item-${option.id}`}
+                        key={option.id}
                         onSelect={() => handleSelect(option.id)}
                     >
                         <div className="flex flex-col items-start gap-1">

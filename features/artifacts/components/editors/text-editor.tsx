@@ -6,7 +6,7 @@ import { memo, useEffect, useMemo, useRef } from "react";
 // Types
 // ============================================================================
 
-export interface TextEditorProps {
+export type TextEditorProps = {
     /** Markdown content to display/edit */
     content: string;
     /** Callback when content changes */
@@ -15,7 +15,7 @@ export interface TextEditorProps {
     status: "streaming" | "idle";
     /** Whether this is the current version being viewed */
     isCurrentVersion: boolean;
-}
+};
 
 // ============================================================================
 // Lazy-loaded TipTap modules
@@ -84,11 +84,11 @@ function loadTipTapModules(): Promise<TipTapModules> {
 function EditorSkeleton() {
     return (
         <div className="animate-pulse space-y-3 p-4">
-            <div className="h-4 bg-muted rounded w-3/4" />
-            <div className="h-4 bg-muted rounded w-full" />
-            <div className="h-4 bg-muted rounded w-5/6" />
-            <div className="h-4 bg-muted rounded w-2/3" />
-            <div className="h-4 bg-muted rounded w-4/5" />
+            <div className="h-4 w-3/4 rounded bg-muted" />
+            <div className="h-4 w-full rounded bg-muted" />
+            <div className="h-4 w-5/6 rounded bg-muted" />
+            <div className="h-4 w-2/3 rounded bg-muted" />
+            <div className="h-4 w-4/5 rounded bg-muted" />
         </div>
     );
 }
@@ -98,8 +98,8 @@ function EditorSkeleton() {
 // ============================================================================
 
 function PureTextEditor({ content, onContentChange, status }: TextEditorProps) {
-    const isUpdatingRef = useRef(false);
-    const previousContentRef = useRef<string>(content);
+    const _isUpdatingRef = useRef(false);
+    const _previousContentRef = useRef<string>(content);
     const modulesRef = useRef<TipTapModules | null>(null);
     const [modules, setModules] = React.useState<TipTapModules | null>(null);
 

@@ -2,8 +2,8 @@
 
 import Form from "next/form";
 import Link from "next/link";
+import { type ComponentProps, forwardRef } from "react";
 import { useFormStatus } from "react-dom";
-import { forwardRef, type ComponentProps } from "react";
 
 import { cn } from "@/lib/utils";
 import type { AuthFormProps } from "../types";
@@ -105,9 +105,9 @@ function SubmitButton({
         <Button
             aria-disabled={isDisabled}
             className="relative"
+            data-testid="submit-button"
             disabled={isDisabled}
             type={pending ? "button" : "submit"}
-            data-testid="submit-button"
         >
             {children}
 
@@ -185,13 +185,13 @@ export function AuthForm({
                             autoComplete="email"
                             autoFocus
                             className="bg-muted text-md md:text-sm"
+                            data-testid="email-input"
                             defaultValue={defaultEmail}
                             id="email"
                             name="email"
                             placeholder="user@acme.com"
                             required
                             type="email"
-                            data-testid="email-input"
                         />
                     </div>
 
@@ -205,11 +205,11 @@ export function AuthForm({
                         </Label>
                         <Input
                             className="bg-muted text-md md:text-sm"
+                            data-testid="password-input"
                             id="password"
                             name="password"
                             required
                             type="password"
-                            data-testid="password-input"
                         />
                     </div>
 

@@ -8,21 +8,21 @@
 
 "use client";
 
+import { File, X } from "lucide-react";
 import Image from "next/image";
-import { X, File } from "lucide-react";
 import type { Attachment } from "../../types";
 
 /**
  * Props for the AttachmentPreview component.
  */
-export interface AttachmentPreviewProps {
+export type AttachmentPreviewProps = {
     /** The attachment to preview */
     attachment: Attachment;
     /** Callback to remove this attachment */
     onRemove: () => void;
     /** Whether the attachment is currently uploading */
     isUploading?: boolean;
-}
+};
 
 /**
  * Individual attachment preview with image or file icon display.
@@ -45,12 +45,12 @@ export function AttachmentPreview({
         >
             {isImage && attachment.url ? (
                 <Image
-                    src={attachment.url}
                     alt={attachment.name ?? "An image attachment"}
-                    width={64}
+                    className="size-full object-cover"
                     height={64}
                     sizes="64px"
-                    className="size-full object-cover"
+                    src={attachment.url}
+                    width={64}
                 />
             ) : (
                 <div className="flex size-full items-center justify-center text-muted-foreground">
@@ -68,10 +68,10 @@ export function AttachmentPreview({
             {/* Remove button */}
             {!isUploading && (
                 <button
-                    type="button"
-                    onClick={onRemove}
-                    className="absolute top-0.5 right-0.5 size-4 rounded-full bg-destructive p-0 text-destructive-foreground opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center"
                     aria-label={`Remove ${attachment.name}`}
+                    className="absolute top-0.5 right-0.5 flex size-4 items-center justify-center rounded-full bg-destructive p-0 text-destructive-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                    onClick={onRemove}
+                    type="button"
                 >
                     <X className="h-3 w-3" />
                 </button>
@@ -88,14 +88,14 @@ export function AttachmentPreview({
 /**
  * Props for the AttachmentPreviews component.
  */
-export interface AttachmentPreviewsProps {
+export type AttachmentPreviewsProps = {
     /** Array of attachments to display */
     attachments: Attachment[];
     /** Callback to remove an attachment by index */
     onRemove: (index: number) => void;
     /** Array of filenames currently uploading */
     uploadQueue?: string[];
-}
+};
 
 /**
  * Container component for displaying multiple attachment previews.
@@ -129,22 +129,22 @@ export function AttachmentPreviews({
         >
             {attachments.map((attachment, index) => (
                 <AttachmentPreview
-                    key={attachment.url || `${attachment.name}-${index}`}
                     attachment={attachment}
+                    key={attachment.url || `${attachment.name}-${index}`}
                     onRemove={() => onRemove(index)}
                 />
             ))}
 
             {uploadQueue.map((filename) => (
                 <AttachmentPreview
-                    key={`uploading-${filename}`}
                     attachment={{
                         url: "",
                         name: filename,
                         contentType: "",
                     }}
-                    onRemove={() => {}}
                     isUploading
+                    key={`uploading-${filename}`}
+                    onRemove={() => {}}
                 />
             ))}
         </div>

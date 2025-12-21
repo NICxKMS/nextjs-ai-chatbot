@@ -14,12 +14,12 @@ import { cn } from "@/lib/utils";
 /**
  * Props for the ChatContainer component.
  */
-export interface ChatContainerProps {
+export type ChatContainerProps = {
     /** Child components (header, messages, input) */
     children: React.ReactNode;
     /** Optional additional CSS classes */
     className?: string;
-}
+};
 
 /**
  * Container component providing the main chat layout structure.
@@ -44,13 +44,13 @@ export function ChatContainer({
 }: ChatContainerProps) {
     return (
         <div
+            aria-label="Chat interface"
             className={cn(
                 "flex h-dvh min-w-0 flex-col bg-background",
-                "overscroll-contain touch-pan-y",
+                "touch-pan-y overscroll-contain",
                 className
             )}
             role="main"
-            aria-label="Chat interface"
         >
             {children}
         </div>

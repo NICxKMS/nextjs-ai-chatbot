@@ -15,31 +15,31 @@ import { persist } from "zustand/middleware";
 /**
  * Sampling settings for AI model configuration.
  */
-export interface SamplingSettings {
+export type SamplingSettings = {
     /** Controls randomness in responses (0-2) */
     temperature: number;
     /** Nucleus sampling threshold (0-1) */
     topP: number;
     /** Maximum tokens in response */
     maxOutputTokens: number;
-}
+};
 
 /**
  * Application settings state.
  */
-export interface AppSettings {
+export type AppSettings = {
     sampling: SamplingSettings;
     systemPrompt: string;
     enableReasoning: boolean;
     streamArtifacts: boolean;
     autoScroll: boolean;
     selectedModelId?: string;
-}
+};
 
 /**
  * Settings store actions.
  */
-interface SettingsActions {
+type SettingsActions = {
     updateSettings: (updater: (current: AppSettings) => AppSettings) => void;
     updateSampling: (partial: Partial<SamplingSettings>) => void;
     setSystemPrompt: (prompt: string) => void;
@@ -48,7 +48,7 @@ interface SettingsActions {
     setAutoScroll: (value: boolean) => void;
     setSelectedModelId: (modelId: string | undefined) => void;
     resetSettings: () => void;
-}
+};
 
 /**
  * Complete settings store type.

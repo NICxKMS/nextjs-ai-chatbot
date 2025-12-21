@@ -12,7 +12,7 @@ import type { ErrorCode } from "./types";
  * Create an authentication error
  */
 export function authError(
-    reason: string = "unauthorized",
+    reason = "unauthorized",
     context?: Record<string, unknown>
 ): AppError {
     return new AppError({

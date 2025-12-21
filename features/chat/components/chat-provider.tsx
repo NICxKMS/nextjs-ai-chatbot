@@ -9,18 +9,18 @@
 
 "use client";
 
-import { useChat, type UseChatHelpers } from "@ai-sdk/react";
+import { type UseChatHelpers, useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import {
     createContext,
     useContext,
+    useEffect,
     useMemo,
     useRef,
-    useEffect,
     useState,
 } from "react";
-import type { ChatMessage, ModelState, ModelMetadata } from "../types";
-import { getAvailableModels, DEFAULT_MODEL_ID } from "@/lib/ai/models";
+import { DEFAULT_MODEL_ID, getAvailableModels } from "@/lib/ai/models";
+import type { ChatMessage, ModelMetadata, ModelState } from "../types";
 
 // =============================================================================
 // CONTEXTS
@@ -44,11 +44,11 @@ ModelContext.displayName = "ModelContext";
 /**
  * Context for chat metadata (chatId, isReadonly, isGuest).
  */
-interface ChatMetadata {
+type ChatMetadata = {
     chatId: string;
     isReadonly: boolean;
     isGuest: boolean;
-}
+};
 const ChatMetadataContext = createContext<ChatMetadata | null>(null);
 ChatMetadataContext.displayName = "ChatMetadataContext";
 
@@ -56,7 +56,7 @@ ChatMetadataContext.displayName = "ChatMetadataContext";
 // TYPES
 // =============================================================================
 
-export interface ChatProviderProps {
+export type ChatProviderProps = {
     /** Child components to render within the provider */
     children: React.ReactNode;
     /** Unique identifier for the chat session */
@@ -69,7 +69,7 @@ export interface ChatProviderProps {
     isReadonly?: boolean;
     /** Available models for selection */
     availableModels?: ModelMetadata[];
-}
+};
 
 // =============================================================================
 // HELPERS
