@@ -26,12 +26,12 @@ export function getRedis(): Redis | null {
     }
 
     // Check environment configuration
-    const url = process.env.UPSTASH_REDIS_REST_URL;
-    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+    const url = process.env.CACHE_KV_REST_API_URL;
+    const token = process.env.CACHE_KV_REST_API_TOKEN;
 
     if (!url || !token) {
         console.warn(
-            "Redis not configured: UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN missing"
+            "Redis not configured: CACHE_KV_REST_API_URL or CACHE_KV_REST_API_TOKEN missing"
         );
         globalForRedis.redis = null;
         globalForRedis.redisInitialized = true;

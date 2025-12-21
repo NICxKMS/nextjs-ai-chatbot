@@ -7,8 +7,7 @@
 
 import { z } from "zod";
 import { isAuthResponse, requireAuthForRoute } from "@/lib/auth";
-import { chatData } from "@/lib/data/chat";
-import { voteData } from "@/lib/data/votes";
+import { getChatCached, getChatWithMessagesCached, saveVoteCached } from "@/lib/data";
 import {
     AppError,
     forbiddenError,
@@ -68,13 +67,13 @@ export async function PATCH(request: Request): Promise<Response> {
     const { chatId, messageId, type } = body;
 
     // 4. Verify chat exists and user owns it
-    const chatResult = await chatData.get(chatId, ctx);
+    const chatResult = await getChatCached(chatId, ctx);
     if (!chatResult) {
         return notFoundError("chat", { chatId }).toResponse();
     }
 
     // 5. Verify message exists in chat
-    const chatWithMessages = await chatData.getWithMessages(chatId, ctx);
+    const chatWithMessages = await getChatWithMessagesCached(chatId, ctx);
     const messageExists = chatWithMessages?.messages.some(
         (m) => m.id === messageId
     );
@@ -83,7 +82,7 @@ export async function PATCH(request: Request): Promise<Response> {
     }
 
     // 6. Save vote
-    const vote = await voteData.save({ chatId, messageId, type }, ctx);
+    const vote = await saveVoteCached(chatId, messageId, type, ctx);
     if (!vote) {
         return new AppError({
             code: "internal:database",

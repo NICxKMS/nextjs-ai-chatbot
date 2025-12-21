@@ -8,7 +8,8 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { chatData, createContext } from "@/lib/data";
+import { createContext, getUserChatsCached, deleteAllUserChatsCached } from "@/lib/data";
+import type { Chat } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 
 export async function GET(request: NextRequest) {
@@ -23,23 +24,19 @@ export async function GET(request: NextRequest) {
 
         const ctx = createContext(session.user.id, session.user.type);
 
-        // Get pagination params
-        const { searchParams } = new URL(request.url);
-        const limit = Number.parseInt(searchParams.get("limit") || "20", 10);
-
-        // Fetch chats using the data layer
-        const result = await chatData.list(ctx, { limit });
+        // Fetch chats using the cached data layer
+        const chats = await getUserChatsCached(ctx);
 
         return NextResponse.json({
-            chats: result.items.map((chat) => ({
+            chats: chats.map((chat: Chat) => ({
                 id: chat.id,
                 title: chat.title,
                 createdAt: chat.createdAt,
                 visibility: chat.visibility,
                 userId: chat.userId,
             })),
-            hasMore: result.hasMore,
-            nextCursor: result.nextCursor,
+            hasMore: false,
+            nextCursor: null,
         });
     } catch (error) {
         console.error("[History API]", error);
@@ -66,7 +63,7 @@ export async function DELETE(_request: NextRequest) {
         const ctx = createContext(session.user.id, session.user.type);
 
         // Delete all chats for user
-        await chatData.deleteAll(ctx);
+        await deleteAllUserChatsCached(ctx);
 
         return NextResponse.json({ success: true });
     } catch (error) {

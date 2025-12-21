@@ -14,7 +14,7 @@ import { z } from "zod";
 import { documentHandlersByArtifactKind } from "@/features/artifacts/server";
 import type { AppSession } from "@/lib/auth/types";
 import { createContext } from "@/lib/data/base";
-import { documentData } from "@/lib/data/documents";
+import { getDocumentCached } from "@/lib/data/cached";
 import { AppError } from "@/lib/errors";
 
 // =============================================================================
@@ -73,7 +73,7 @@ export function updateDocument({
             const ctx = createContext(session.user.id, session.user.type);
 
             // Fetch the existing document
-            const document = await documentData.get(id, ctx);
+            const document = await getDocumentCached(id, ctx);
 
             if (!document) {
                 return {

@@ -52,5 +52,20 @@ export {
     isQuotaAvailable,
 } from "./quota";
 
+// Vote operations
+export {
+    getVoteFromCache,
+    setVoteInCache,
+    deleteVoteFromCache,
+} from "./votes";
+
+// Suggestion operations
+export {
+    getSuggestionsFromCache,
+    setSuggestionsInCache,
+    deleteSuggestionsFromCache,
+} from "./suggestions";
+export type { CachedSuggestion } from "./suggestions";
+
 // Re-export Lua scripts (for advanced use)
 export * from "./scripts";

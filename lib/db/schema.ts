@@ -5,8 +5,10 @@
  * Extracted from OldApp: oldapp/lib/db/schema.ts
  */
 
+import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
 import {
     boolean,
+    foreignKey,
     index,
     jsonb,
     pgEnum,
@@ -55,11 +57,12 @@ export const chat = pgTable(
             .references(() => user.id, { onDelete: "cascade" }),
         title: text("title").notNull().default("New Chat"),
         visibility: visibilityEnum("visibility").notNull().default("private"),
-        lastContext: jsonb("last_context"),
+        // Usage context stored as JSON - typed loosely to avoid external deps
+        lastContext: jsonb("last_context").$type<Record<string, unknown> | null>(),
     },
-    (table) => [
-        index("chat_user_created_idx").on(table.userId, table.createdAt),
-    ]
+    (table) => ({
+        userCreatedIdx: index("chat_user_created_idx").on(table.userId, table.createdAt),
+    })
 );
 
 // Message table (v2)
@@ -72,19 +75,21 @@ export const message = pgTable(
             .references(() => chat.id, { onDelete: "cascade" }),
         role: roleEnum("role").notNull(),
         parts: jsonb("parts").notNull(),
-        attachments: jsonb("attachments"),
+        attachments: jsonb("attachments").notNull(),
         createdAt: timestamp("created_at", { withTimezone: true })
-            .notNull()
-            .defaultNow(),
+            .defaultNow()
+            .notNull(),
     },
-    (table) => [
-        index("message_chat_created_idx").on(table.chatId, table.createdAt),
-        index("message_chat_created_role_idx").on(
-            table.chatId,
-            table.createdAt,
-            table.role
+    (t) => ({
+        chatCreatedIdx: index("message_chat_created_idx").on(t.chatId, t.createdAt),
+        // Composite index for rate limiting query (getMessageCountByUserId)
+        // Optimizes queries that filter by chatId, createdAt, and role
+        chatCreatedRoleIdx: index("message_chat_created_role_idx").on(
+            t.chatId,
+            t.createdAt,
+            t.role
         ),
-    ]
+    })
 );
 
 // Vote table (v2)
@@ -100,11 +105,11 @@ export const vote = pgTable(
         userId: uuid("user_id")
             .notNull()
             .references(() => user.id, { onDelete: "cascade" }),
-        isUpvoted: boolean("is_upvoted").notNull(),
+        isUpvoted: boolean("is_upvoted").notNull().default(true),
     },
-    (table) => [
-        primaryKey({ columns: [table.chatId, table.messageId, table.userId] }),
-    ]
+    (table) => ({
+        pk: primaryKey({ columns: [table.chatId, table.messageId, table.userId] }),
+    })
 );
 
 // Document table
@@ -115,53 +120,71 @@ export const document = pgTable(
         createdAt: timestamp("created_at", { withTimezone: true })
             .notNull()
             .defaultNow(),
-        updatedAt: timestamp("updated_at", { withTimezone: true })
-            .notNull()
-            .defaultNow(),
         title: text("title").notNull(),
         content: text("content"),
         kind: documentKindEnum("kind").notNull().default("text"),
         userId: uuid("user_id")
             .notNull()
             .references(() => user.id, { onDelete: "cascade" }),
-        chatId: uuid("chat_id").references(() => chat.id, {
-            onDelete: "set null",
-        }),
+        chatId: uuid("chat_id")
+            .notNull()
+            .references(() => chat.id, { onDelete: "cascade" }),
+        updatedAt: timestamp("updated_at", { withTimezone: true })
+            .notNull()
+            .defaultNow(),
     },
-    (table) => [primaryKey({ columns: [table.id, table.createdAt] })]
+    (table) => ({
+        pk: primaryKey({ columns: [table.id, table.createdAt] }),
+        userIdx: index("document_user_idx").on(table.userId),
+        chatIdx: index("document_chat_idx").on(table.chatId),
+    })
 );
 
 // Suggestion table
-export const suggestion = pgTable("Suggestion", {
-    id: uuid("id").primaryKey().notNull().defaultRandom(),
-    documentId: uuid("document_id").notNull(),
-    documentCreatedAt: timestamp("document_created_at", { withTimezone: true })
-        .notNull(),
-    originalText: text("original_text").notNull(),
-    suggestedText: text("suggested_text").notNull(),
-    description: text("description"),
-    isResolved: boolean("is_resolved").notNull().default(false),
-    userId: uuid("user_id")
-        .notNull()
-        .references(() => user.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-        .notNull()
-        .defaultNow(),
-});
+export const suggestion = pgTable(
+    "Suggestion",
+    {
+        id: uuid("id").notNull().defaultRandom(),
+        documentId: uuid("document_id").notNull(),
+        documentCreatedAt: timestamp("document_created_at", {
+            withTimezone: true,
+        }).notNull(),
+        originalText: text("original_text").notNull(),
+        suggestedText: text("suggested_text").notNull(),
+        description: text("description"),
+        isResolved: boolean("is_resolved").notNull().default(false),
+        userId: uuid("user_id")
+            .notNull()
+            .references(() => user.id, { onDelete: "cascade" }),
+        createdAt: timestamp("created_at", { withTimezone: true })
+            .notNull()
+            .defaultNow(),
+    },
+    (table) => ({
+        pk: primaryKey({ columns: [table.id] }),
+        documentRef: foreignKey({
+            columns: [table.documentId, table.documentCreatedAt],
+            foreignColumns: [document.id, document.createdAt],
+        }),
+        docIdx: index("suggestion_doc_idx").on(table.documentId),
+    })
+);
 
 // Type exports for Drizzle inference
-export type User = typeof user.$inferSelect;
-export type NewUser = typeof user.$inferInsert;
-export type Chat = typeof chat.$inferSelect;
-export type NewChat = typeof chat.$inferInsert;
-export type Message = typeof message.$inferSelect;
-export type NewMessage = typeof message.$inferInsert;
-export type Vote = typeof vote.$inferSelect;
-export type NewVote = typeof vote.$inferInsert;
-export type Document = typeof document.$inferSelect;
-export type NewDocument = typeof document.$inferInsert;
-export type Suggestion = typeof suggestion.$inferSelect;
-export type NewSuggestion = typeof suggestion.$inferInsert;
+export type User = InferSelectModel<typeof user>;
+export type NewUser = InferInsertModel<typeof user>;
+export type Chat = InferSelectModel<typeof chat>;
+export type NewChat = InferInsertModel<typeof chat>;
+export type Message = InferSelectModel<typeof message>;
+export type NewMessage = InferInsertModel<typeof message>;
+export type DBMessage = InferInsertModel<typeof message>;
+export type MessageRow = InferSelectModel<typeof message>;
+export type Vote = InferSelectModel<typeof vote>;
+export type NewVote = InferInsertModel<typeof vote>;
+export type Document = InferSelectModel<typeof document>;
+export type NewDocument = InferInsertModel<typeof document>;
+export type Suggestion = InferSelectModel<typeof suggestion>;
+export type NewSuggestion = InferInsertModel<typeof suggestion>;
 
 // Visibility type
 export type Visibility = "public" | "private";

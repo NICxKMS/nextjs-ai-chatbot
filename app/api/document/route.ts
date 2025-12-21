@@ -7,8 +7,8 @@
 
 import type { ArtifactKind } from "@/features/artifacts/types";
 import { getSession } from "@/lib/auth/session";
-import { createContext } from "@/lib/data/base";
-import { documentData } from "@/lib/data/documents";
+import { createContext, getAllVersionsCached, appendVersionCached } from "@/lib/data";
+import { deleteDocumentsAfterTimestamp } from "@/lib/data/documents";
 import { AppError } from "@/lib/errors";
 import { documentPostSchema } from "./schema";
 
@@ -63,7 +63,7 @@ export async function GET(request: Request) {
     const ctx = createContext(session.user.id, session.user.type);
 
     // Get all document versions
-    const documents = await documentData.getAll(id, ctx);
+    const documents = await getAllVersionsCached(id, ctx);
 
     if (documents.length === 0) {
         return new AppError({
@@ -144,7 +144,7 @@ export async function POST(request: Request) {
     const { content, title, kind } = parseResult.data;
 
     // Get existing document versions
-    const documents = await documentData.getAll(id, ctx);
+    const documents = await getAllVersionsCached(id, ctx);
 
     let chatId: string | null = null;
 
@@ -178,7 +178,7 @@ export async function POST(request: Request) {
     }
 
     // Save document
-    const document = await documentData.save(
+    const document = await appendVersionCached(
         {
             id,
             content,
@@ -250,7 +250,7 @@ export async function DELETE(request: Request) {
     const ctx = createContext(session.user.id, session.user.type);
 
     // Verify document exists and user owns it
-    const documents = await documentData.getAll(id, ctx);
+    const documents = await getAllVersionsCached(id, ctx);
 
     if (documents.length === 0) {
         return new AppError({
@@ -261,7 +261,7 @@ export async function DELETE(request: Request) {
     }
 
     // Delete document versions after timestamp
-    const deletedDocuments = await documentData.deleteAfterTimestamp(
+    const deletedDocuments = await deleteDocumentsAfterTimestamp(
         id,
         timestampDate,
         ctx
