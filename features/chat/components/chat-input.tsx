@@ -13,14 +13,17 @@ import {
   useRef,
   useState,
   useCallback,
+  useEffect,
   type ChangeEvent,
   type KeyboardEvent,
   type FormEvent,
 } from 'react';
 import { toast } from 'sonner';
-import { useChatHelpers, useChatMetadata } from '../hooks';
+import { useChatHelpers, useChatMetadata, useModelState } from '../hooks';
 import type { ChatInputProps, Attachment } from '../types';
 import { AttachmentButton, AttachmentPreviews, SubmitButton, StopButton } from './input';
+import { ModelSelectorCompact } from './model-selector-compact';
+import { SuggestedActions } from './suggested-actions';
 
 /**
  * Maximum number of concurrent file uploads.
@@ -31,6 +34,11 @@ const MAX_CONCURRENT_UPLOADS = 3;
  * Accepted file types for attachments.
  */
 const ACCEPTED_FILE_TYPES = 'image/*,application/pdf,.txt,.md,.csv,.json';
+
+/**
+ * localStorage key for persisting input text.
+ */
+const LOCAL_STORAGE_KEY = 'chat-input';
 
 /**
  * Multimodal chat input component with text and file attachment support.
@@ -51,8 +59,9 @@ const ACCEPTED_FILE_TYPES = 'image/*,application/pdf,.txt,.md,.csv,.json';
  * ```
  */
 export function ChatInput({ disabled, placeholder }: ChatInputProps) {
-  const { sendMessage, stop, status } = useChatHelpers();
-  const { isReadonly, isGuest } = useChatMetadata();
+  const { messages, sendMessage, stop, status } = useChatHelpers();
+  const { chatId, isReadonly, isGuest } = useChatMetadata();
+  const { currentModelId, setModelId, availableModels } = useModelState();
 
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -60,6 +69,27 @@ export function ChatInput({ disabled, placeholder }: ChatInputProps) {
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    const savedInput = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (savedInput && !input) {
+      setInput(savedInput);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Save to localStorage on change (debounced 500ms)
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (input) {
+        localStorage.setItem(LOCAL_STORAGE_KEY, input);
+      } else {
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+      }
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [input]);
 
   const isLoading = status === 'submitted' || status === 'streaming';
   const isDisabled = isReadonly || disabled;
@@ -166,6 +196,7 @@ export function ChatInput({ disabled, placeholder }: ChatInputProps) {
 
       setInput('');
       setAttachments([]);
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
 
       // Focus textarea after submit
       textareaRef.current?.focus();
@@ -206,6 +237,16 @@ export function ChatInput({ disabled, placeholder }: ChatInputProps) {
 
   return (
     <div className="relative flex w-full flex-col gap-4">
+      {/* Suggested actions - shown only when chat is empty */}
+      {messages.length === 0 &&
+        attachments.length === 0 &&
+        uploadQueue.length === 0 && (
+          <SuggestedActions
+            chatId={chatId}
+            sendMessage={sendMessage}
+          />
+        )}
+
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
@@ -247,9 +288,15 @@ export function ChatInput({ disabled, placeholder }: ChatInputProps) {
 
         {/* Toolbar */}
         <div className="flex items-center justify-between pt-2">
-          <div className="flex items-center gap-0.5">
+          <div className="flex items-center gap-2">
             <AttachmentButton
               onClick={handleAttachClick}
+              disabled={isLoading || isDisabled}
+            />
+            <ModelSelectorCompact
+              models={availableModels}
+              selectedModelId={currentModelId}
+              onModelChange={setModelId}
               disabled={isLoading || isDisabled}
             />
           </div>

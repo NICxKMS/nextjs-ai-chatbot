@@ -9,8 +9,9 @@
 
 'use client';
 
-import { Bot, Settings, User } from 'lucide-react';
+import { Settings, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SparklesIcon } from '@/shared/components/icons';
 
 // =============================================================================
 // TYPES
@@ -45,7 +46,7 @@ export function MessageAvatar({ role, className }: MessageAvatarProps) {
     <div
       className={cn(
         'flex size-8 shrink-0 items-center justify-center rounded-full',
-        role === 'user' && 'bg-primary text-primary-foreground',
+        role === 'user' && 'bg-[#006cff] text-white',
         role === 'assistant' && 'bg-background ring-1 ring-border',
         role === 'system' && 'bg-secondary text-secondary-foreground',
         className
@@ -53,7 +54,7 @@ export function MessageAvatar({ role, className }: MessageAvatarProps) {
       data-role={role}
     >
       {role === 'user' && <User className="size-4" />}
-      {role === 'assistant' && <Bot className="size-4" />}
+      {role === 'assistant' && <SparklesIcon size={14} />}
       {role === 'system' && <Settings className="size-4" />}
     </div>
   );

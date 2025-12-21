@@ -10,6 +10,7 @@
 'use client';
 
 import { memo, useCallback } from 'react';
+import { m as motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useCopyToClipboard } from 'usehooks-ts';
 
@@ -145,14 +146,16 @@ export const MessageItem = memo(function MessageItem({
   }, [message, onEdit]);
 
   return (
-    <div
+    <motion.div
       className={cn(
         'group/message flex w-full items-start gap-2 md:gap-3',
         isUser && 'justify-end',
         isAssistant && 'justify-start'
       )}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       data-role={message.role}
-      data-testid={isUser ? 'user-message' : 'assistant-message'}
+      data-testid={isUser ? 'message-user' : 'message-assistant'}
     >
       {/* Avatar - only shown for assistant/system messages */}
       {!isUser && (
@@ -200,6 +203,6 @@ export const MessageItem = memo(function MessageItem({
           />
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }, messageItemEqual);

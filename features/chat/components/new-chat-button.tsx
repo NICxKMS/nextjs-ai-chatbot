@@ -53,6 +53,7 @@ export function NewChatButton({ onClick }: NewChatButtonProps) {
       onClick={onClick}
       className="p-2 rounded-md hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-label="New chat"
+      data-testid="new-chat-button"
     >
       <PlusIcon className="h-5 w-5" />
     </button>

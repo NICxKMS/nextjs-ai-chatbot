@@ -1,6 +1,16 @@
 'use client';
 
+import { ChevronUp } from 'lucide-react';
+import Image from 'next/image';
 import { useTheme } from 'next-themes';
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/shared/components/dropdown-menu';
 
 function SunIcon({ className }: { className?: string }) {
   return (
@@ -68,51 +78,80 @@ export interface SidebarUserNavProps {
     email?: string;
     name?: string;
   };
+  isLoading?: boolean;
   onSignOut?: () => void;
+  onSignIn?: () => void;
 }
 
-export function SidebarUserNav({ user, onSignOut }: SidebarUserNavProps) {
+export function SidebarUserNav({ user, isLoading, onSignOut, onSignIn }: SidebarUserNavProps) {
   const { theme, setTheme } = useTheme();
 
-  return (
-    <div className="p-2 border-t">
-      <div className="flex items-center justify-between px-2 py-1">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
-            {user?.name?.[0] || user?.email?.[0] || 'U'}
-          </div>
-          <div className="text-sm">
-            <div className="font-medium truncate max-w-[120px]">{user?.name || 'User'}</div>
-            <div className="text-xs text-muted-foreground truncate max-w-[120px]">
-              {user?.email}
-            </div>
-          </div>
-        </div>
+  const toggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
 
-        <div className="flex gap-1">
-          <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="p-2 rounded-lg hover:bg-muted"
-            aria-label="Toggle theme"
-          >
+  const isGuest = !user?.email || user.email.includes('guest');
+  const displayLabel = isGuest ? 'Guest' : user?.email;
+  const avatarSeed = user?.email ?? 'guest';
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 px-2 py-1.5">
+        <div className="size-8 rounded-full bg-muted animate-pulse" />
+        <div className="flex flex-col gap-1 flex-1">
+          <div className="h-3 w-20 bg-muted animate-pulse rounded" />
+          <div className="h-2 w-24 bg-muted animate-pulse rounded" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-2 border-t" data-testid="user-nav-dropdown">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex items-center gap-2 w-full p-2 rounded-md hover:bg-muted">
+            <Image
+              src={`https://avatar.vercel.sh/${avatarSeed}`}
+              alt={displayLabel || 'User Avatar'}
+              width={32}
+              height={32}
+              className="rounded-full"
+            />
+            <div className="text-sm text-left flex-1 min-w-0">
+              <div className="font-medium truncate">{isGuest ? 'Guest' : (user?.name || 'User')}</div>
+              <div className="text-xs text-muted-foreground truncate">
+                {displayLabel}
+              </div>
+            </div>
+            <ChevronUp className="ml-auto size-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuItem onClick={toggleTheme}>
             {theme === 'dark' ? (
               <SunIcon className="h-4 w-4" />
             ) : (
               <MoonIcon className="h-4 w-4" />
             )}
-          </button>
-
-          {onSignOut && (
-            <button
-              onClick={onSignOut}
-              className="p-2 rounded-lg hover:bg-muted text-muted-foreground"
-              aria-label="Sign out"
-            >
+            <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {isGuest ? (
+            <DropdownMenuItem onClick={onSignIn}>
               <LogOutIcon className="h-4 w-4" />
-            </button>
+              <span>Sign in</span>
+            </DropdownMenuItem>
+          ) : (
+            onSignOut && (
+              <DropdownMenuItem onClick={onSignOut}>
+                <LogOutIcon className="h-4 w-4" />
+                <span>Sign out</span>
+              </DropdownMenuItem>
+            )
           )}
-        </div>
-      </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

@@ -111,7 +111,7 @@ const ChatMessagesList = memo(function ChatMessagesList({
 
   return (
     <div
-      className="relative flex-1 overflow-hidden"
+      className="relative flex-1 overflow-hidden overscroll-contain touch-pan-y"
       style={{ overflowAnchor: 'none' }}
       data-testid="messages-container"
     >
@@ -178,13 +178,7 @@ export function ChatMessages({ votes, isReadonly }: ChatMessagesProps) {
 
   // Show greeting when no messages
   if (messages.length === 0) {
-    return (
-      <ChatGreeting
-        onSuggestionClick={(text) => {
-          sendMessage({ text });
-        }}
-      />
-    );
+    return <ChatGreeting />;
   }
 
   return <ChatMessagesList votes={votes} isReadonly={isReadonly} />;

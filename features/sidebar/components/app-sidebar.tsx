@@ -1,33 +1,34 @@
 'use client';
 
 import Link from 'next/link';
-import { useSidebar } from '../hooks';
+import { useState } from 'react';
 import { SidebarHistory } from './sidebar-history';
 import { SidebarUserNav } from './sidebar-user-nav';
 import type { ChatHistoryItem } from '../types';
-import { cn } from '@/lib/utils';
-
-function BotIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M12 8V4H8" />
-      <rect width="16" height="12" x="4" y="8" rx="2" />
-      <path d="M2 14h2" />
-      <path d="M20 14h2" />
-      <path d="M15 13v2" />
-      <path d="M9 13v2" />
-    </svg>
-  );
-}
+import { Button } from '@/shared/components/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/shared/components/tooltip';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  useSidebar,
+} from '@/shared/ui/sidebar';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/shared/ui/alert-dialog';
 
 function PlusIcon({ className }: { className?: string }) {
   return (
@@ -43,6 +44,25 @@ function PlusIcon({ className }: { className?: string }) {
     >
       <path d="M5 12h14" />
       <path d="M12 5v14" />
+    </svg>
+  );
+}
+
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M3 6h18" />
+      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
     </svg>
   );
 }
@@ -65,49 +85,106 @@ export function AppSidebar({
   user,
   onNewChat,
   onDeleteChat,
+  onDeleteAll,
   onSignOut,
   onLoadMore,
   hasMore,
 }: AppSidebarProps) {
-  const { state } = useSidebar();
+  const { setOpenMobile } = useSidebar();
+  const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
 
-  if (!state.isOpen) return null;
+  const handleNewChat = () => {
+    setOpenMobile(false);
+    onNewChat?.();
+  };
+
+  const handleDeleteAll = () => {
+    onDeleteAll?.();
+    setShowDeleteAllDialog(false);
+  };
 
   return (
-    <aside
-      className={cn(
-        'w-64 h-full flex flex-col border-r bg-background',
-        'transition-transform duration-200',
-        state.isMobile && 'absolute z-50 left-0 top-0 shadow-lg'
-      )}
-      data-testid="app-sidebar"
-    >
-      {/* Header */}
-      <div className="p-2 border-b">
-        <div className="flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 px-2 py-1 font-semibold">
-            <BotIcon className="h-5 w-5" />
-            <span>AI Chat</span>
-          </Link>
-          <button onClick={onNewChat} className="p-2 rounded-lg hover:bg-muted" aria-label="New chat" data-testid="new-chat-button">
-            <PlusIcon className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
+    <>
+      <Sidebar className="group-data-[side=left]:border-r-0" data-testid="app-sidebar">
+        <SidebarHeader>
+          <SidebarMenu>
+            <div className="flex flex-row items-center justify-between">
+              <Link
+                className="flex flex-row items-center gap-3"
+                href="/"
+                onClick={() => setOpenMobile(false)}
+              >
+                <span className="cursor-pointer rounded-md px-2 font-semibold text-lg hover:bg-muted">
+                  Assistant
+                </span>
+              </Link>
+              <div className="flex flex-row gap-1">
+                {user && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        className="h-8 p-1 md:h-fit md:p-2"
+                        onClick={() => setShowDeleteAllDialog(true)}
+                        type="button"
+                        variant="ghost"
+                        data-testid="delete-all-chats-button"
+                      >
+                        <TrashIcon className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent align="end" className="hidden md:block">
+                      Delete All Chats
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      className="h-8 p-1 md:h-fit md:p-2"
+                      onClick={handleNewChat}
+                      type="button"
+                      variant="ghost"
+                      data-testid="new-chat-button"
+                    >
+                      <PlusIcon className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent align="end" className="hidden md:block">
+                    New Chat
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+          </SidebarMenu>
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarHistory
+            chats={chats}
+            isLoading={isLoading}
+            onDeleteChat={onDeleteChat}
+            onLoadMore={onLoadMore}
+            hasMore={hasMore}
+          />
+        </SidebarContent>
+        <SidebarFooter>
+          <SidebarUserNav user={user} onSignOut={onSignOut} />
+        </SidebarFooter>
+      </Sidebar>
 
-      {/* History */}
-      <div className="flex-1 overflow-hidden">
-        <SidebarHistory
-          chats={chats}
-          isLoading={isLoading}
-          onDeleteChat={onDeleteChat}
-          onLoadMore={onLoadMore}
-          hasMore={hasMore}
-        />
-      </div>
-
-      {/* Footer */}
-      <SidebarUserNav user={user} onSignOut={onSignOut} />
-    </aside>
+      <AlertDialog open={showDeleteAllDialog} onOpenChange={setShowDeleteAllDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete all chats?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete all your chats and remove them from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteAll}>Delete All</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

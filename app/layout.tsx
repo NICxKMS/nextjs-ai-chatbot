@@ -7,6 +7,7 @@ import { SWRConfig } from 'swr';
 
 import { AuthProvider } from '@/features/auth';
 import { getSession } from '@/lib/auth/session';
+import { MotionProvider } from '@/lib/motion';
 import { ThemeProvider } from '@/shared/components/theme-provider';
 import { TooltipProvider } from '@/shared/components/tooltip';
 
@@ -98,21 +99,23 @@ async function AppShell({ children }: { children: React.ReactNode }) {
       disableTransitionOnChange
       enableSystem
     >
-      <TooltipProvider delayDuration={0}>
-        <Toaster position="top-center" />
-        <SWRConfig
-          value={{
-            dedupingInterval: 10_000,
-            revalidateOnFocus: false,
-            revalidateOnReconnect: false,
-            refreshWhenHidden: false,
-            refreshWhenOffline: false,
-            revalidateIfStale: true,
-          }}
-        >
-          <AuthProvider initialSession={initialSession}>{children}</AuthProvider>
-        </SWRConfig>
-      </TooltipProvider>
+      <MotionProvider>
+        <TooltipProvider delayDuration={0}>
+          <Toaster position="top-center" />
+          <SWRConfig
+            value={{
+              dedupingInterval: 10_000,
+              revalidateOnFocus: false,
+              revalidateOnReconnect: false,
+              refreshWhenHidden: false,
+              refreshWhenOffline: false,
+              revalidateIfStale: true,
+            }}
+          >
+            <AuthProvider initialSession={initialSession}>{children}</AuthProvider>
+          </SWRConfig>
+        </TooltipProvider>
+      </MotionProvider>
     </ThemeProvider>
   );
 }

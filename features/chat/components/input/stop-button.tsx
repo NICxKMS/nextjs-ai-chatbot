@@ -35,7 +35,7 @@ export function StopButton({ onClick }: StopButtonProps) {
     <button
       type="button"
       onClick={onClick}
-      className="size-8 rounded-full bg-foreground text-background transition-colors duration-200 hover:bg-foreground/90 flex items-center justify-center"
+      className="size-7 rounded-full bg-foreground text-background transition-colors duration-200 hover:bg-foreground/90 flex items-center justify-center"
       aria-label="Stop generating"
       data-testid="stop-button"
     >

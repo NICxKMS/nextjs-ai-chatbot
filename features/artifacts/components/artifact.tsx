@@ -18,7 +18,7 @@ import { AnimatePresence, m as motion } from 'framer-motion';
 
 import { useArtifact } from '../hooks';
 import { useWindowSize } from '@/shared/hooks';
-import { useSidebar } from '@/features/sidebar';
+import { useSidebar } from '@/shared/ui/sidebar';
 import { artifactRegistry } from '../definitions/base';
 import { ArtifactActions } from './artifact-actions';
 import { ArtifactClose } from './artifact-close';
@@ -103,7 +103,7 @@ function PureArtifact({
   const [currentVersionIndex, setCurrentVersionIndex] = useState(-1);
 
   const { state: sidebarState } = useSidebar();
-  const isSidebarOpen = sidebarState.isOpen;
+  const isSidebarOpen = sidebarState === 'expanded';
 
   // Automatically switch to edit mode when streaming starts
   useEffect(() => {
@@ -298,7 +298,7 @@ function PureArtifact({
         <motion.div
           animate={{ opacity: 1 }}
           className="fixed top-0 left-0 z-50 flex h-dvh w-dvw flex-row bg-transparent"
-          data-testid="artifact"
+          data-testid="artifact-panel"
           exit={{ opacity: 0, transition: { delay: 0.4 } }}
           initial={{ opacity: 1 }}
         >

@@ -12,6 +12,7 @@
 import { ChatProvider } from './chat-provider';
 import { ChatContainer } from './chat-container';
 import { ChatHeader } from './chat-header';
+import { useSidebar } from '@/shared/ui/sidebar';
 import { ChatMessages } from './chat-messages';
 import { ChatInput } from './chat-input';
 import { ChatErrorBoundary } from './chat-error-boundary';
@@ -77,6 +78,8 @@ export function Chat({
     vote: v.vote,
   }));
 
+  const { toggleSidebar } = useSidebar();
+
   return (
     <ChatErrorBoundary>
       <ChatProvider
@@ -86,9 +89,15 @@ export function Chat({
         isReadonly={isReadonly}
       >
         <ChatContainer>
-          <ChatHeader onNewChat={onNewChat} />
+          <ChatHeader 
+            onNewChat={onNewChat} 
+            selectedVisibilityType={selectedVisibilityType}
+            onToggleSidebar={toggleSidebar}
+          />
           <ChatMessages votes={votes} isReadonly={isReadonly} />
-          <ChatInput />
+          <div className="sticky bottom-0 z-10 mx-auto flex w-full max-w-4xl gap-2 bg-background px-2 pb-3 md:px-4 md:pb-4">
+            <ChatInput />
+          </div>
         </ChatContainer>
 
         {/* Artifact panel - renders alongside chat when visible */}
