@@ -8,6 +8,8 @@
 
 "use client";
 
+import { memo } from "react";
+
 /**
  * Plus icon for the new chat button.
  */
@@ -46,7 +48,9 @@ export type NewChatButtonProps = {
  * <NewChatButton onClick={() => router.push('/')} />
  * ```
  */
-export function NewChatButton({ onClick }: NewChatButtonProps) {
+export const NewChatButton = memo(function NewChatButton({
+    onClick,
+}: NewChatButtonProps) {
     return (
         <button
             aria-label="New chat"
@@ -58,4 +62,4 @@ export function NewChatButton({ onClick }: NewChatButtonProps) {
             <PlusIcon className="h-5 w-5" />
         </button>
     );
-}
+});

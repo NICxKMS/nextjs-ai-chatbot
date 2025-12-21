@@ -86,12 +86,6 @@ export async function voteOnMessage(input: VoteInput): Promise<VoteResult> {
 
         // 4. Upsert vote in database
         // TODO: Add chatData.write.upsertVote() when implementing full data layer
-        console.log("[Vote] Saving vote:", {
-            userId: session.user.id,
-            chatId: input.chatId,
-            messageId: input.messageId,
-            vote: input.vote,
-        });
 
         return { success: true };
     } catch (error) {
@@ -143,11 +137,6 @@ export async function removeVote(
 
         // 3. Remove vote from database
         // TODO: Add chatData.write.removeVote() when implementing full data layer
-        console.log("[Vote] Removing vote:", {
-            userId: session.user.id,
-            chatId,
-            messageId,
-        });
 
         return { success: true };
     } catch (error) {

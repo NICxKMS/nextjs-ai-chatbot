@@ -4,6 +4,9 @@
  * Provides context for managing streaming data parts from AI SDK.
  * Handles title updates, usage data, and artifact streaming.
  *
+ * Uses split context pattern (state/dispatch) to prevent unnecessary re-renders.
+ * Components that only dispatch won't re-render when state changes.
+ *
  * @module features/chat/components/data-stream-provider
  */
 
@@ -15,6 +18,7 @@ import {
     type Dispatch,
     type ReactNode,
     type SetStateAction,
+    useCallback,
     useContext,
     useState,
 } from "react";
@@ -29,21 +33,35 @@ import {
  */
 export type DataStreamPart = DataUIPart<Record<string, unknown>>;
 
+/**
+ * State type for data stream context.
+ */
+type DataStreamState = DataStreamPart[];
+
+/**
+ * Dispatch type for data stream context.
+ */
+type DataStreamDispatch = Dispatch<SetStateAction<DataStreamPart[]>>;
+
 // =============================================================================
-// CONTEXT
+// SPLIT CONTEXTS (Performance Optimization)
 // =============================================================================
 
-type DataStreamContextValue = {
-    /** Current data stream parts from AI response */
-    dataStream: DataStreamPart[];
-    /** Setter for data stream - used by DataStreamHandler */
-    setDataStream: Dispatch<SetStateAction<DataStreamPart[]>>;
-    /** Clear the data stream (reset to empty array) */
-    clearDataStream: () => void;
-};
+/**
+ * Context for data stream state.
+ * Components using this will re-render when dataStream changes.
+ */
+const DataStreamStateContext = createContext<DataStreamState | null>(null);
+DataStreamStateContext.displayName = "DataStreamStateContext";
 
-const DataStreamContext = createContext<DataStreamContextValue | null>(null);
-DataStreamContext.displayName = "DataStreamContext";
+/**
+ * Context for data stream dispatch.
+ * Components using this will NOT re-render when dataStream changes.
+ */
+const DataStreamDispatchContext = createContext<DataStreamDispatch | null>(
+    null
+);
+DataStreamDispatchContext.displayName = "DataStreamDispatchContext";
 
 // =============================================================================
 // PROVIDER COMPONENT
@@ -56,8 +74,8 @@ export type DataStreamProviderProps = {
 /**
  * DataStreamProvider - Manages streaming data parts from AI SDK.
  *
- * Provides context for storing and accessing data stream parts
- * that are processed during AI responses (title updates, usage, artifacts).
+ * Uses split context pattern: separate contexts for state and dispatch.
+ * This prevents unnecessary re-renders in components that only need dispatch.
  *
  * @example
  * ```tsx
@@ -74,33 +92,77 @@ export function DataStreamProvider({
 }: DataStreamProviderProps): React.JSX.Element {
     const [dataStream, setDataStream] = useState<DataStreamPart[]>([]);
 
-    const clearDataStream = () => setDataStream([]);
-
+    // No useMemo needed: dataStream is primitive identity, setDataStream is stable from useState
     return (
-        <DataStreamContext.Provider
-            value={{ dataStream, setDataStream, clearDataStream }}
-        >
-            {children}
-        </DataStreamContext.Provider>
+        <DataStreamStateContext.Provider value={dataStream}>
+            <DataStreamDispatchContext.Provider value={setDataStream}>
+                {children}
+            </DataStreamDispatchContext.Provider>
+        </DataStreamStateContext.Provider>
     );
 }
 
 // =============================================================================
-// HOOK
+// HOOKS
 // =============================================================================
 
 /**
- * Hook to access data stream context.
+ * Returns the current data stream state.
+ * Components using this will re-render when dataStream changes.
  *
  * @example
  * ```tsx
- * const { dataStream, clearDataStream } = useDataStream();
+ * const dataStream = useDataStreamState();
+ * // Process data stream parts
  * ```
  */
-export function useDataStream(): DataStreamContextValue {
-    const context = useContext(DataStreamContext);
-    if (!context) {
-        throw new Error("useDataStream must be used within DataStreamProvider");
+export function useDataStreamState(): DataStreamState {
+    const context = useContext(DataStreamStateContext);
+    if (context === null) {
+        throw new Error(
+            "useDataStreamState must be used within DataStreamProvider"
+        );
     }
     return context;
+}
+
+/**
+ * Returns the dispatch function to update data stream.
+ * Components using this will NOT re-render when dataStream changes.
+ *
+ * @example
+ * ```tsx
+ * const setDataStream = useDataStreamDispatch();
+ * setDataStream(prev => [...prev, newPart]);
+ * ```
+ */
+export function useDataStreamDispatch(): DataStreamDispatch {
+    const context = useContext(DataStreamDispatchContext);
+    if (context === null) {
+        throw new Error(
+            "useDataStreamDispatch must be used within DataStreamProvider"
+        );
+    }
+    return context;
+}
+
+/**
+ * Returns both state and dispatch with clearDataStream helper.
+ * Backward compatible hook - prefer useDataStreamState or useDataStreamDispatch
+ * for better performance when only one is needed.
+ *
+ * @example
+ * ```tsx
+ * const { dataStream, setDataStream, clearDataStream } = useDataStream();
+ * ```
+ */
+export function useDataStream() {
+    const dataStream = useDataStreamState();
+    const setDataStream = useDataStreamDispatch();
+
+    const clearDataStream = useCallback(() => {
+        setDataStream([]);
+    }, [setDataStream]);
+
+    return { dataStream, setDataStream, clearDataStream };
 }

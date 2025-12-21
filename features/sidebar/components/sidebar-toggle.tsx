@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 import { cn } from "@/lib/utils";
 import {
     Tooltip,
@@ -26,7 +28,7 @@ function SidebarLeftIcon({ size = 16 }: { size?: number }) {
     );
 }
 
-export function SidebarToggle() {
+export const SidebarToggle = memo(function SidebarToggle() {
     const { state, toggle } = useSidebar();
 
     return (
@@ -47,4 +49,4 @@ export function SidebarToggle() {
             <TooltipContent side="right">Toggle Sidebar</TooltipContent>
         </Tooltip>
     );
-}
+});

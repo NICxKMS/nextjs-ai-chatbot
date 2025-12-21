@@ -79,11 +79,6 @@ export async function updateChatVisibility(
 
         // 3. Update visibility in database
         // TODO: Implement chatData.updateVisibility when data layer is complete
-        console.log("[Visibility] Updating chat visibility:", {
-            userId: session.user.id,
-            chatId: input.chatId,
-            visibility: input.visibility,
-        });
 
         // 4. Revalidate chat page
         revalidatePath(`/chat/${input.chatId}`);

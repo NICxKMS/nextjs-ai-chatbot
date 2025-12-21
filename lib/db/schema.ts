@@ -31,10 +31,12 @@ export const documentKindEnum = pgEnum("document_kind", [
 // User table
 export const user = pgTable("User", {
     id: uuid("id").primaryKey().notNull().defaultRandom(),
-    email: varchar("email", { length: 255 }).notNull().unique(),
-    passwordHash: text("passwordHash"),
-    createdAt: timestamp("createdAt").notNull().defaultNow(),
-    lastLogin: timestamp("lastLogin"),
+    email: varchar("email", { length: 128 }).notNull().unique(),
+    passwordHash: varchar("password_hash", { length: 128 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+        .notNull()
+        .defaultNow(),
+    lastLogin: timestamp("last_login", { withTimezone: true }),
 });
 
 // Chat table
@@ -42,14 +44,18 @@ export const chat = pgTable(
     "Chat",
     {
         id: uuid("id").primaryKey().notNull().defaultRandom(),
-        createdAt: timestamp("createdAt").notNull().defaultNow(),
-        updatedAt: timestamp("updatedAt").notNull().defaultNow(),
-        userId: uuid("userId")
+        createdAt: timestamp("created_at", { withTimezone: true })
             .notNull()
-            .references(() => user.id),
-        title: text("title").notNull(),
+            .defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true })
+            .notNull()
+            .defaultNow(),
+        userId: uuid("user_id")
+            .notNull()
+            .references(() => user.id, { onDelete: "cascade" }),
+        title: text("title").notNull().default("New Chat"),
         visibility: visibilityEnum("visibility").notNull().default("private"),
-        lastContext: jsonb("lastContext"),
+        lastContext: jsonb("last_context"),
     },
     (table) => [
         index("chat_user_created_idx").on(table.userId, table.createdAt),
@@ -61,13 +67,15 @@ export const message = pgTable(
     "Message_v2",
     {
         id: uuid("id").primaryKey().notNull().defaultRandom(),
-        chatId: uuid("chatId")
+        chatId: uuid("chat_id")
             .notNull()
-            .references(() => chat.id),
+            .references(() => chat.id, { onDelete: "cascade" }),
         role: roleEnum("role").notNull(),
         parts: jsonb("parts").notNull(),
         attachments: jsonb("attachments"),
-        createdAt: timestamp("createdAt").notNull().defaultNow(),
+        createdAt: timestamp("created_at", { withTimezone: true })
+            .notNull()
+            .defaultNow(),
     },
     (table) => [
         index("message_chat_created_idx").on(table.chatId, table.createdAt),
@@ -83,16 +91,16 @@ export const message = pgTable(
 export const vote = pgTable(
     "Vote_v2",
     {
-        chatId: uuid("chatId")
+        chatId: uuid("chat_id")
             .notNull()
-            .references(() => chat.id),
-        messageId: uuid("messageId")
+            .references(() => chat.id, { onDelete: "cascade" }),
+        messageId: uuid("message_id")
             .notNull()
-            .references(() => message.id),
-        userId: uuid("userId")
+            .references(() => message.id, { onDelete: "cascade" }),
+        userId: uuid("user_id")
             .notNull()
-            .references(() => user.id),
-        isUpvoted: boolean("isUpvoted").notNull(),
+            .references(() => user.id, { onDelete: "cascade" }),
+        isUpvoted: boolean("is_upvoted").notNull(),
     },
     (table) => [
         primaryKey({ columns: [table.chatId, table.messageId, table.userId] }),
@@ -104,15 +112,21 @@ export const document = pgTable(
     "Document",
     {
         id: uuid("id").notNull().defaultRandom(),
-        createdAt: timestamp("createdAt").notNull().defaultNow(),
-        updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+        createdAt: timestamp("created_at", { withTimezone: true })
+            .notNull()
+            .defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true })
+            .notNull()
+            .defaultNow(),
         title: text("title").notNull(),
         content: text("content"),
         kind: documentKindEnum("kind").notNull().default("text"),
-        userId: uuid("userId")
+        userId: uuid("user_id")
             .notNull()
-            .references(() => user.id),
-        chatId: uuid("chatId").references(() => chat.id),
+            .references(() => user.id, { onDelete: "cascade" }),
+        chatId: uuid("chat_id").references(() => chat.id, {
+            onDelete: "set null",
+        }),
     },
     (table) => [primaryKey({ columns: [table.id, table.createdAt] })]
 );
@@ -120,16 +134,19 @@ export const document = pgTable(
 // Suggestion table
 export const suggestion = pgTable("Suggestion", {
     id: uuid("id").primaryKey().notNull().defaultRandom(),
-    documentId: uuid("documentId").notNull(),
-    documentCreatedAt: timestamp("documentCreatedAt").notNull(),
-    originalText: text("originalText").notNull(),
-    suggestedText: text("suggestedText").notNull(),
+    documentId: uuid("document_id").notNull(),
+    documentCreatedAt: timestamp("document_created_at", { withTimezone: true })
+        .notNull(),
+    originalText: text("original_text").notNull(),
+    suggestedText: text("suggested_text").notNull(),
     description: text("description"),
-    isResolved: boolean("isResolved").notNull().default(false),
-    userId: uuid("userId")
+    isResolved: boolean("is_resolved").notNull().default(false),
+    userId: uuid("user_id")
         .notNull()
-        .references(() => user.id),
-    createdAt: timestamp("createdAt").notNull().defaultNow(),
+        .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+        .notNull()
+        .defaultNow(),
 });
 
 // Type exports for Drizzle inference

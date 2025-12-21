@@ -13,6 +13,7 @@ import {
     type ChangeEvent,
     type FormEvent,
     type KeyboardEvent,
+    memo,
     useCallback,
     useEffect,
     useRef,
@@ -63,7 +64,10 @@ const LOCAL_STORAGE_KEY = "chat-input";
  * <ChatInput placeholder="Ask anything..." />
  * ```
  */
-export function ChatInput({ disabled, placeholder }: ChatInputProps) {
+export const ChatInput = memo(function ChatInput({
+    disabled,
+    placeholder,
+}: ChatInputProps) {
     const { messages, sendMessage, stop, status } = useChatHelpers();
     const { chatId, isReadonly, isGuest } = useChatMetadata();
     const { currentModelId, setModelId, availableModels } = useModelState();
@@ -332,4 +336,4 @@ export function ChatInput({ disabled, placeholder }: ChatInputProps) {
             )}
         </div>
     );
-}
+});

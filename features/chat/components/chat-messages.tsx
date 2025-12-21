@@ -184,7 +184,10 @@ const ChatMessagesList = memo(function ChatMessagesList({
  * <ChatMessages votes={messageVotes} isReadonly={false} />
  * ```
  */
-export function ChatMessages({ votes, isReadonly }: ChatMessagesProps) {
+export const ChatMessages = memo(function ChatMessages({
+    votes,
+    isReadonly,
+}: ChatMessagesProps) {
     const { messages } = useChatHelpers();
 
     // Show greeting when no messages
@@ -193,7 +196,7 @@ export function ChatMessages({ votes, isReadonly }: ChatMessagesProps) {
     }
 
     return <ChatMessagesList isReadonly={isReadonly} votes={votes} />;
-}
+});
 
 /**
  * Alias for ChatMessages for semantic clarity.

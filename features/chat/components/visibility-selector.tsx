@@ -9,7 +9,7 @@
 
 "use client";
 
-import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { type ReactNode, memo, useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -78,7 +78,7 @@ const VISIBILITY_OPTIONS: VisibilityOption[] = [
  *
  * Visual parity with oldapp/components/visibility-selector.tsx
  */
-export function VisibilitySelector({
+export const VisibilitySelector = memo(function VisibilitySelector({
     chatId,
     selectedVisibilityType,
     className,
@@ -152,4 +152,4 @@ export function VisibilitySelector({
             </DropdownMenuContent>
         </DropdownMenu>
     );
-}
+});

@@ -82,11 +82,6 @@ export async function deleteTrailingMessages(
 
         // 4. Delete messages after timestamp
         // TODO: Implement messageData.deleteAfterTimestamp when data layer is complete
-        console.log("[Message] Deleting trailing messages:", {
-            userId: session.user.id,
-            chatId: input.chatId,
-            afterTimestamp: timestamp.toISOString(),
-        });
 
         // 5. Revalidate chat page
         revalidatePath(`/chat/${input.chatId}`);
