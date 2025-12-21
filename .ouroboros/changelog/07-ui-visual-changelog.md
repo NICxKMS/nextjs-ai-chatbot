@@ -2,15 +2,15 @@
 
 ## Executive Summary
 
-**🎉 VISUAL PARITY ACHIEVED - 37 fixes applied across 3 sessions.**
+**🎉 VISUAL PARITY ACHIEVED - 53 fixes applied across 4 sessions.**
 
 The NewApp now matches OldApp visual appearance with identical CSS design tokens, color schemes, component styling, and UI behavior. All critical and moderate issues have been resolved through comprehensive fixes applied December 21, 2025.
 
 | Metric                | Value       |
 | --------------------- | ----------- |
-| **Total Fixes**       | 37          |
+| **Total Fixes**       | 53          |
 | **New Files Created** | 6           |
-| **Files Modified**    | 30+         |
+| **Files Modified**    | 35+         |
 | **Parity Status**     | ✅ COMPLETE |
 
 ---
@@ -47,9 +47,9 @@ The NewApp now matches OldApp visual appearance with identical CSS design tokens
 
 ### Overview
 
-**Total Fixes Applied:** 37 (across 3 sessions)
+**Total Fixes Applied:** 53 (across 4 sessions)
 **New Files Created:** 6
-**Files Modified:** 30+
+**Files Modified:** 35+
 **Visual Parity Status:** ✅ ACHIEVED
 
 ---
@@ -125,6 +125,31 @@ The NewApp now matches OldApp visual appearance with identical CSS design tokens
 
 ---
 
+### 🔧 SESSION 4: LAYOUT + POLISH FIXES (16)
+
+| #   | Fix                              | Description                                      | File(s)                                 |
+| --- | -------------------------------- | ------------------------------------------------ | --------------------------------------- |
+| 38  | **Sidebar bg-sidebar**           | Applied `bg-sidebar` background color            | `app-sidebar.tsx`                       |
+| 39  | **Chat input sticky bottom-0**   | Ensured sticky positioning at viewport bottom    | `multimodal-input.tsx`                  |
+| 40  | **Chat input max-w-4xl mx-auto** | Centered input with max-width constraint         | `multimodal-input.tsx`                  |
+| 41  | **Chat container h-dvh**         | Dynamic viewport height for mobile               | `chat.tsx`                              |
+| 42  | **Chat container touch-pan-y**   | Touch handling with `overscroll-contain`         | `chat.tsx`                              |
+| 43  | **Layout SidebarInset**          | Replaced `<main>` with SidebarInset              | `layout.tsx`                            |
+| 44  | **Messages touch handling**      | Added touch action CSS for scrolling             | `messages.tsx`                          |
+| 45  | **Header center selector**       | Removed center model selector, added tooltip     | `chat-header.tsx`                       |
+| 46  | **SidebarProvider fixed**        | Using shadcn SidebarProvider correctly           | `layout.tsx`                            |
+| 47  | **useSidebar hook fixed**        | Using shadcn useSidebar hook throughout          | `sidebar-toggle.tsx`, `chat-header.tsx` |
+| 48  | **Sidebar toggle fixed**         | Passed `toggleSidebar` prop, now works           | `chat-header.tsx`, `sidebar-toggle.tsx` |
+| 49  | **Model Selector restored**      | Re-added to chat input toolbar                   | `multimodal-input.tsx`                  |
+| 50  | **ChatContext removed**          | Cleanup: removed from toolbar                    | `multimodal-input.tsx`                  |
+| 51  | **Suggestions enhanced**         | Pool of 20 prompts, random selection of 4        | `chat-greeting.tsx`                     |
+| 52  | **Hydration fixed**              | `useMemo` for stable suggestion selection        | `chat-greeting.tsx`                     |
+| 53  | **Greeting text-only**           | Removed duplicate suggestions, text-only display | `chat-greeting.tsx`                     |
+| 54  | **Health API cache check**       | Added cache health check endpoint                | `api/health/route.ts`                   |
+| 55  | **LazyMotion fixed**             | Changed `motion` to `m` in ChatGreeting          | `chat-greeting.tsx`                     |
+
+---
+
 ### 📁 FILES MODIFIED (30+)
 
 #### Chat Components (10 files)
@@ -193,6 +218,12 @@ The NewApp now matches OldApp visual appearance with identical CSS design tokens
 - [x] Layout uses shadcn SidebarProvider
 - [x] Touch handling on mobile devices
 - [x] h-dvh for proper mobile viewport
+- [x] Sidebar toggle button works correctly
+- [x] Model selector in chat input toolbar
+- [x] Suggestions pool with 20 prompts
+- [x] No hydration errors on suggestions
+- [x] LazyMotion using `m` component
+- [x] Health API includes cache check
 
 ---
 
@@ -215,8 +246,8 @@ The NewApp now matches OldApp visual appearance with identical CSS design tokens
 ---
 
 _Fixes applied: December 21, 2025_
-_Total fixes: 37 across 3 sessions_
-_Total development time: ~6 hours_
+_Total fixes: 53 across 4 sessions_
+_Total development time: ~8 hours_
 
 ---
 
