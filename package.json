@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "analyze": "next experimental-analyze",
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",

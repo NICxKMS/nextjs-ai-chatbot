@@ -9,6 +9,8 @@
 
 "use client";
 
+import { memo } from "react";
+
 import {
     Tooltip,
     TooltipContent,
@@ -57,7 +59,9 @@ export type SidebarToggleProps = {
  * <SidebarToggle onClick={() => setSidebarOpen(!open)} />
  * ```
  */
-export function SidebarToggle({ onClick }: SidebarToggleProps) {
+export const SidebarToggle = memo(function SidebarToggle({
+    onClick,
+}: SidebarToggleProps) {
     return (
         <Tooltip>
             <TooltipTrigger asChild>
@@ -74,4 +78,4 @@ export function SidebarToggle({ onClick }: SidebarToggleProps) {
             <TooltipContent side="bottom">Toggle Sidebar</TooltipContent>
         </Tooltip>
     );
-}
+});

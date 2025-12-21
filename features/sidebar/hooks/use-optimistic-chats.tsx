@@ -5,6 +5,7 @@ import {
     type ReactNode,
     useCallback,
     useContext,
+    useMemo,
     useState,
 } from "react";
 import type { ChatHistoryItem } from "../types";
@@ -41,15 +42,24 @@ export function OptimisticChatsProvider({ children }: { children: ReactNode }) {
         []
     );
 
+    // Memoize context value to prevent unnecessary re-renders in consumers
+    const contextValue = useMemo<OptimisticChatsContextValue>(
+        () => ({
+            optimisticChats,
+            addOptimisticChat,
+            removeOptimisticChat,
+            updateOptimisticChatTitle,
+        }),
+        [
+            optimisticChats,
+            addOptimisticChat,
+            removeOptimisticChat,
+            updateOptimisticChatTitle,
+        ]
+    );
+
     return (
-        <OptimisticChatsContext.Provider
-            value={{
-                optimisticChats,
-                addOptimisticChat,
-                removeOptimisticChat,
-                updateOptimisticChatTitle,
-            }}
-        >
+        <OptimisticChatsContext.Provider value={contextValue}>
             {children}
         </OptimisticChatsContext.Provider>
     );

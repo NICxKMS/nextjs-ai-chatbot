@@ -175,25 +175,18 @@ export function ChatProvider({
             const streamData = data as { type?: string; data?: unknown };
             if (streamData.type === "data-chat-title") {
                 // Handle title update - could dispatch to a title state or callback
-                console.debug(
-                    "[ChatProvider] Title received:",
-                    streamData.data
-                );
+                // Title received: streamData.data
             }
             if (streamData.type === "data-usage") {
                 // Handle usage tracking
-                const usage = streamData.data as
+                const _usage = streamData.data as
                     | {
                           inputTokens?: number;
                           outputTokens?: number;
                           totalTokens?: number;
                       }
                     | undefined;
-                console.debug("[ChatProvider] Usage:", {
-                    inputTokens: usage?.inputTokens,
-                    outputTokens: usage?.outputTokens,
-                    totalTokens: usage?.totalTokens,
-                });
+                // Usage data available: _usage?.inputTokens, _usage?.outputTokens, _usage?.totalTokens
             }
         },
     });

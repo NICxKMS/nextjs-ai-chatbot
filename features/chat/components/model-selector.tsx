@@ -13,13 +13,13 @@ import { RefreshCw } from "lucide-react";
 import { useMemo, useOptimistic, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useSettings } from "@/features/settings/stores/settings-store";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useSettings } from "@/features/settings/stores/settings-store";
 import { cn } from "@/lib/utils";
 import {
     CheckCircleFillIcon,

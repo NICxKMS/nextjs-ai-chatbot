@@ -1,5 +1,5 @@
 export { useChatHistory } from "./use-chat-history";
-export { useChatVisibility } from "./use-chat-visibility";
+// useChatVisibility is exported from features/chat/hooks
 export {
     OptimisticChatsProvider,
     useOptimisticChats,
