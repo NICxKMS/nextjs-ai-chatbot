@@ -16,6 +16,7 @@ import {
     memo,
     useCallback,
     useEffect,
+    useMemo,
     useRef,
     useState,
 } from "react";
@@ -25,7 +26,14 @@ import {
  * Allows individual upload cancellation.
  */
 type UploadAbortMap = Map<string, AbortController>;
+
 import { toast } from "sonner";
+import {
+    createRateLimiter,
+    mapHttpError,
+    sanitizeChatInput,
+    validateChatInput,
+} from "@/lib/utils";
 import { useChatHelpers, useChatMetadata, useModelState } from "../hooks";
 import type { Attachment, ChatInputProps } from "../types";
 import {
@@ -109,6 +117,16 @@ export const ChatInput = memo(function ChatInput({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const uploadAbortControllersRef = useRef<UploadAbortMap>(new Map());
 
+    // Rate limiter for message submission (10 per minute)
+    const submitLimiterRef = useRef(
+        createRateLimiter({ maxRequests: 10, windowMs: 60_000 })
+    );
+
+    // Rate limiter for file uploads (5 per minute)
+    const uploadLimiterRef = useRef(
+        createRateLimiter({ maxRequests: 5, windowMs: 60_000 })
+    );
+
     // Cleanup: abort all pending uploads on unmount
     useEffect(() => {
         const abortControllers = uploadAbortControllersRef.current;
@@ -141,10 +159,23 @@ export const ChatInput = memo(function ChatInput({
         return () => clearTimeout(timeout);
     }, [input]);
 
-    const isLoading = status === "submitted" || status === "streaming";
-    const isDisabled = isReadonly || disabled;
-    const hasContent = input.trim().length > 0 || attachments.length > 0;
-    const canSubmit = !isDisabled && hasContent && uploadQueue.length === 0;
+    // Memoize derived state to prevent recalculation on every render
+    const isLoading = useMemo(
+        () => status === "submitted" || status === "streaming",
+        [status]
+    );
+    const isDisabled = useMemo(
+        () => isReadonly || disabled,
+        [isReadonly, disabled]
+    );
+    const hasContent = useMemo(
+        () => input.trim().length > 0 || attachments.length > 0,
+        [input, attachments.length]
+    );
+    const canSubmit = useMemo(
+        () => !isDisabled && hasContent && uploadQueue.length === 0,
+        [isDisabled, hasContent, uploadQueue.length]
+    );
 
     /**
      * Upload a single file to the server.
@@ -177,14 +208,22 @@ export const ChatInput = memo(function ChatInput({
                     };
                 }
 
-                const { error } = await response.json();
-                toast.error(error || "Failed to upload file");
+                // Handle specific HTTP errors with friendly messages
+                const friendlyError = mapHttpError(response.status, "upload");
+                try {
+                    const { error } = await response.json();
+                    toast.error(error || friendlyError.message);
+                } catch {
+                    toast.error(friendlyError.message);
+                }
             } catch (error) {
                 // Don't show error toast if the upload was aborted
                 if (error instanceof Error && error.name === "AbortError") {
                     return;
                 }
-                toast.error("Failed to upload file, please try again!");
+                toast.error(
+                    "Upload failed. Please check your connection and try again."
+                );
             } finally {
                 // Cleanup: remove this controller from the map
                 uploadAbortControllersRef.current.delete(file.name);
@@ -205,8 +244,22 @@ export const ChatInput = memo(function ChatInput({
                 return;
             }
 
+            // Check rate limit for file uploads
+            const result = uploadLimiterRef.current.check();
+            if (!result.allowed) {
+                toast.error(
+                    `Too many uploads. Try again in ${Math.ceil(result.resetIn / 1000)}s`
+                );
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                }
+                return;
+            }
+
             // Validate file sizes before upload
-            const oversizedFiles = files.filter((file) => file.size > MAX_FILE_SIZE);
+            const oversizedFiles = files.filter(
+                (file) => file.size > MAX_FILE_SIZE
+            );
             if (oversizedFiles.length > 0) {
                 const fileNames = oversizedFiles.map((f) => f.name).join(", ");
                 toast.error(
@@ -286,6 +339,23 @@ export const ChatInput = memo(function ChatInput({
                 return;
             }
 
+            // Sanitize and validate input before submission
+            const sanitizedInput = sanitizeChatInput(input);
+            const validationError = validateChatInput(sanitizedInput);
+            if (validationError) {
+                toast.error(validationError);
+                return;
+            }
+
+            // Check rate limit for message submission
+            const result = submitLimiterRef.current.check();
+            if (!result.allowed) {
+                toast.error(
+                    `Slow down! Too many messages. Try again in ${Math.ceil(result.resetIn / 1000)}s`
+                );
+                return;
+            }
+
             // Update URL to chat ID if not already on a chat page
             // This ensures the URL reflects the current chat session
             if (
@@ -308,7 +378,7 @@ export const ChatInput = memo(function ChatInput({
                     })),
                     {
                         type: "text" as const,
-                        text: input.trim(),
+                        text: sanitizedInput,
                     },
                 ],
             });

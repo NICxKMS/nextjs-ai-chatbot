@@ -160,12 +160,30 @@ export function MessageEditor({
         regenerate();
     }, [chatId, message, draftContent, setMessages, setMode, regenerate]);
 
+    // Handle keyboard shortcuts
+    const handleKeyDown = useCallback(
+        (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+            // Escape to cancel
+            if (event.key === "Escape") {
+                event.preventDefault();
+                handleCancel();
+            }
+            // Cmd/Ctrl + Enter to save
+            if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                event.preventDefault();
+                handleSave();
+            }
+        },
+        [handleCancel, handleSave]
+    );
+
     return (
         <div className="flex w-full flex-col gap-2">
             <Textarea
                 className="w-full resize-none overflow-hidden rounded-xl bg-transparent text-base! outline-hidden"
                 data-testid="message-editor"
                 onChange={handleInput}
+                onKeyDown={handleKeyDown}
                 ref={textareaRef}
                 value={draftContent}
             />

@@ -7,8 +7,8 @@
  * @module tests/integration/database/database.integration.test
  */
 
-import { describe, it, expect, beforeAll } from "vitest";
 import { sql } from "drizzle-orm";
+import { beforeAll, describe, expect, it } from "vitest";
 import { describeIf, isServiceAvailable } from "../../config/test-config";
 
 // Only run these tests when real database is available (flag + DATABASE_URL)

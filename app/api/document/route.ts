@@ -7,7 +7,11 @@
 
 import type { ArtifactKind } from "@/features/artifacts/types";
 import { getSession } from "@/lib/auth/session";
-import { createContext, getAllVersionsCached, appendVersionCached } from "@/lib/data";
+import {
+    appendVersionCached,
+    createContext,
+    getAllVersionsCached,
+} from "@/lib/data";
 import { deleteDocumentsAfterTimestamp } from "@/lib/data/documents";
 import { AppError } from "@/lib/errors";
 import { documentPostSchema } from "./schema";

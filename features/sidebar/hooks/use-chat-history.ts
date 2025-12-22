@@ -1,6 +1,11 @@
 "use client";
 
 import useSWRInfinite from "swr/infinite";
+import {
+    extractErrorMessage,
+    type NormalizedChatItem,
+    normalizeChatItem,
+} from "@/lib/utils";
 import type { ChatHistoryItem } from "../types";
 
 type HistoryResponse = {
@@ -13,17 +18,33 @@ const fetcher = async (url: string): Promise<HistoryResponse> => {
     try {
         const res = await fetch(url);
         if (!res.ok) {
-            throw new Error(`HTTP error: ${res.status}`);
+            // Provide user-friendly error based on status
+            if (res.status === 401) {
+                throw new Error("Please sign in to view your chat history");
+            }
+            if (res.status === 429) {
+                throw new Error("Too many requests. Please wait a moment");
+            }
+            throw new Error("Unable to load chat history. Please try again");
         }
         const data = await res.json();
-        // Validate response structure
+        // Validate and normalize response structure
         if (!isValidHistoryResponse(data)) {
-            throw new Error("Invalid response format");
+            throw new Error("Received invalid data format");
         }
-        return data;
+        // Normalize each chat item for consistent data handling
+        return {
+            ...data,
+            chats: data.chats.map(
+                (chat: Record<string, unknown>) =>
+                    normalizeChatItem(chat) as ChatHistoryItem
+            ),
+        };
     } catch (error) {
         console.error("[useChatHistory] Fetch error:", error);
-        throw error;
+        throw new Error(
+            extractErrorMessage(error, "Failed to load chat history")
+        );
     }
 };
 
@@ -97,7 +118,7 @@ export function useChatHistory() {
             });
 
             if (!response.ok) {
-                throw new Error(`Failed to delete chat: ${response.status}`);
+                throw new Error("Couldn't delete this chat. Please try again");
             }
 
             // Revalidate on success
@@ -107,7 +128,9 @@ export function useChatHistory() {
             if (previousData) {
                 mutate(previousData, false);
             }
-            throw error;
+            throw new Error(
+                extractErrorMessage(error, "Failed to delete chat")
+            );
         }
     };
 
@@ -124,7 +147,7 @@ export function useChatHistory() {
 
             if (!response.ok) {
                 throw new Error(
-                    `Failed to delete all chats: ${response.status}`
+                    "Couldn't clear your history. Please try again"
                 );
             }
 
@@ -135,7 +158,9 @@ export function useChatHistory() {
             if (previousData) {
                 mutate(previousData, false);
             }
-            throw error;
+            throw new Error(
+                extractErrorMessage(error, "Failed to clear history")
+            );
         }
     };
 

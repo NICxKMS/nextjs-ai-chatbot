@@ -13,7 +13,9 @@ test.describe("Chat", () => {
     test.describe("New Chat Creation", () => {
         test("should display chat interface on home page", async ({ page }) => {
             // Chat input should be visible (use .first() to handle React Strict Mode duplicates)
-            await expect(page.getByPlaceholder(/send a message/i).first()).toBeVisible({
+            await expect(
+                page.getByPlaceholder(/send a message/i).first()
+            ).toBeVisible({
                 timeout: 10_000,
             });
         });

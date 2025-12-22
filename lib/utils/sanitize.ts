@@ -18,15 +18,20 @@ export function sanitizeText(text: string): string {
         return "";
     }
 
-    return text
-        // Remove function call markers that could interfere with rendering
-        .replace(/<has_function_call>/gi, "")
-        // Remove potential script tags
-        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-        // Remove javascript: protocol
-        .replace(/javascript:/gi, "")
-        // Remove data: protocol (except for safe image types)
-        .replace(/data:(?!image\/(png|jpeg|gif|webp|svg\+xml))/gi, "data-blocked:");
+    return (
+        text
+            // Remove function call markers that could interfere with rendering
+            .replace(/<has_function_call>/gi, "")
+            // Remove potential script tags
+            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+            // Remove javascript: protocol
+            .replace(/javascript:/gi, "")
+            // Remove data: protocol (except for safe image types)
+            .replace(
+                /data:(?!image\/(png|jpeg|gif|webp|svg\+xml))/gi,
+                "data-blocked:"
+            )
+    );
 }
 
 /**
@@ -55,14 +60,16 @@ export function sanitizeFilename(filename: string): string {
         return "";
     }
 
-    return filename
-        // Remove path traversal attempts
-        .replace(/\.\./g, "")
-        .replace(/[/\\]/g, "_")
-        // Remove null bytes
-        .replace(/\0/g, "")
-        // Limit length
-        .slice(0, 255);
+    return (
+        filename
+            // Remove path traversal attempts
+            .replace(/\.\./g, "")
+            .replace(/[/\\]/g, "_")
+            // Remove null bytes
+            .replace(/\0/g, "")
+            // Limit length
+            .slice(0, 255)
+    );
 }
 
 /**

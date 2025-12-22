@@ -22,6 +22,17 @@ export {
     GUEST_CACHE_TTL_SECONDS,
     QUOTA_TTL_SECONDS,
 } from "./constants";
+// Document preview cache
+export {
+    type CachedPreview,
+    clearPreviewCache,
+    getCachedPreview,
+    getDocumentPreview,
+    getPreviewCacheStats,
+    invalidatePreview,
+    invalidatePreviews,
+    setDocumentPreview,
+} from "./document-preview";
 // Helpers
 export {
     deserialize,
@@ -35,6 +46,23 @@ export {
     toUnixTimestampMs,
     toUnixTimestampSeconds,
 } from "./helpers";
+// Invalidation
+export {
+    type InvalidationResult,
+    type InvalidationScope,
+    clearAllHandlers,
+    createScopedInvalidator,
+    getRegisteredHandlers,
+    invalidateChats,
+    invalidateDocuments,
+    invalidateOnLogout,
+    invalidateSession,
+    invalidateSettings,
+    registerInvalidationHandler,
+    useInvalidationHandler,
+} from "./invalidation";
+// Invalidation hooks (client-side)
+export { useInvalidation, useInvalidationActions } from "./use-invalidation";
 // Keys
 export { CacheKeys, getChatCacheKeys, parseKeyId } from "./keys";
 // Types

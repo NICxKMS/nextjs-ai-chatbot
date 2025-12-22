@@ -12,10 +12,10 @@
  */
 import "server-only";
 
-import { getRedis } from "@/lib/cache/client";
-import { CacheKeys } from "@/lib/cache/keys";
 import { withCircuitBreaker } from "@/lib/cache/circuit-breaker";
-import { serialize, deserialize, getGuestTTL } from "@/lib/cache/helpers";
+import { getRedis } from "@/lib/cache/client";
+import { deserialize, getGuestTTL, serialize } from "@/lib/cache/helpers";
+import { CacheKeys } from "@/lib/cache/keys";
 import type {
     CachedDocumentMeta,
     CachedDocumentVersion,
@@ -76,7 +76,10 @@ export async function createDocumentInCache(
             }
 
             const metaKey = CacheKeys.documentMeta(meta.userId, meta.id);
-            const versionsKey = CacheKeys.documentVersions(meta.userId, meta.id);
+            const versionsKey = CacheKeys.documentVersions(
+                meta.userId,
+                meta.id
+            );
             const userDocsKey = CacheKeys.userDocuments(meta.userId);
             const score = firstVersion.createdAt;
             const ttl = getGuestTTL(isGuest);
@@ -190,7 +193,10 @@ export async function getLatestVersionFromCache(
 export async function getDocumentWithLatestFromCache(
     userId: string,
     documentId: string
-): Promise<{ meta: CachedDocumentMeta; version: CachedDocumentVersion } | null> {
+): Promise<{
+    meta: CachedDocumentMeta;
+    version: CachedDocumentVersion;
+} | null> {
     return withCircuitBreaker(
         "getDocumentWithLatestFromCache",
         async () => {
@@ -383,12 +389,18 @@ export async function forkDocumentInCache(
                 return false;
             }
 
-            const srcMetaKey = CacheKeys.documentMeta(sourceUserId, sourceDocId);
+            const srcMetaKey = CacheKeys.documentMeta(
+                sourceUserId,
+                sourceDocId
+            );
             const srcVersionsKey = CacheKeys.documentVersions(
                 sourceUserId,
                 sourceDocId
             );
-            const dstMetaKey = CacheKeys.documentMeta(targetUserId, targetDocId);
+            const dstMetaKey = CacheKeys.documentMeta(
+                targetUserId,
+                targetDocId
+            );
             const dstVersionsKey = CacheKeys.documentVersions(
                 targetUserId,
                 targetDocId
@@ -458,7 +470,7 @@ export async function forkDocumentInCache(
 export async function pruneVersionsInCache(
     userId: string,
     documentId: string,
-    keepCount: number = 10
+    keepCount = 10
 ): Promise<number> {
     return withCircuitBreaker(
         "pruneVersionsInCache",

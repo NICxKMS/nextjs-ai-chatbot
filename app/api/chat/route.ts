@@ -37,12 +37,17 @@ import {
 import { getSession } from "@/lib/auth";
 import type { AppSession } from "@/lib/auth/types";
 import {
-    createContext,
-    createChatCached,
     appendMessagesCached,
+    createChatCached,
+    createContext,
 } from "@/lib/data";
 import type { Message } from "@/lib/db";
-import { AppError, forbiddenError, rateLimitError, validationError } from "@/lib/errors";
+import {
+    AppError,
+    forbiddenError,
+    rateLimitError,
+    validationError,
+} from "@/lib/errors";
 import { checkRateLimit } from "@/lib/middleware/rate-limit";
 import { generateUUID } from "@/lib/utils";
 
@@ -51,7 +56,7 @@ import { generateUUID } from "@/lib/utils";
 // =============================================================================
 
 /** Timeout for AI completion requests (55 seconds to stay under serverless limits) */
-const AI_COMPLETION_TIMEOUT_MS = 55000;
+const AI_COMPLETION_TIMEOUT_MS = 55_000;
 
 /**
  * Models allowed for guest (unauthenticated) users
@@ -138,7 +143,10 @@ async function generateTitle(
         const cleanedTitle = text.trim().replace(/^["']|["']$/g, "");
         return cleanedTitle.length > 0 ? cleanedTitle : fallbackTitle;
     } catch (error) {
-        console.warn("[Chat API] AI title generation failed, using fallback:", error);
+        console.warn(
+            "[Chat API] AI title generation failed, using fallback:",
+            error
+        );
         return fallbackTitle;
     }
 }
@@ -151,21 +159,25 @@ async function generateTitle(
  * Schema for validating message parts in UIMessage
  * Uses passthrough for parts to allow all valid AI SDK part types
  */
-const messagePartSchema = z.object({
-    type: z.string(),
-}).passthrough();
+const messagePartSchema = z
+    .object({
+        type: z.string(),
+    })
+    .passthrough();
 
 /**
  * Schema for validating UIMessage objects
  * Supports user, assistant, and system roles
  */
-const uiMessageSchema = z.object({
-    id: z.string().min(1, "Message ID is required"),
-    role: z.enum(["user", "assistant", "system"]),
-    content: z.string().optional(),
-    parts: z.array(messagePartSchema).optional(),
-    createdAt: z.coerce.date().optional(),
-}).passthrough();
+const uiMessageSchema = z
+    .object({
+        id: z.string().min(1, "Message ID is required"),
+        role: z.enum(["user", "assistant", "system"]),
+        content: z.string().optional(),
+        parts: z.array(messagePartSchema).optional(),
+        createdAt: z.coerce.date().optional(),
+    })
+    .passthrough();
 
 /**
  * Schema for validating the chat request body
@@ -173,7 +185,9 @@ const uiMessageSchema = z.object({
  */
 const chatRequestSchema = z.object({
     id: z.string().min(1, "Chat ID is required"),
-    messages: z.array(uiMessageSchema).min(1, "At least one message is required"),
+    messages: z
+        .array(uiMessageSchema)
+        .min(1, "At least one message is required"),
     modelId: z.string().optional(),
 });
 
@@ -189,13 +203,15 @@ export async function POST(request: Request): Promise<Response> {
         if (rawBody === null) {
             throw validationError("Invalid JSON in request body");
         }
-        
+
         const parseResult = chatRequestSchema.safeParse(rawBody);
         if (!parseResult.success) {
-            const errors = parseResult.error.errors.map(e => `${e.path.join(".")}: ${e.message}`).join(", ");
+            const errors = parseResult.error.errors
+                .map((e) => `${e.path.join(".")}: ${e.message}`)
+                .join(", ");
             throw validationError(`Invalid request: ${errors}`);
         }
-        
+
         const { id: chatId, modelId = DEFAULT_MODEL_ID } = parseResult.data;
         // Cast validated messages to UIMessage[] for AI SDK compatibility
         const messages = parseResult.data.messages as UIMessage[];
@@ -208,24 +224,30 @@ export async function POST(request: Request): Promise<Response> {
         // =============================================================================
         // GUEST RESTRICTIONS
         // =============================================================================
-        
+
         // Guests have stricter rate limits (applied in addition to edge middleware)
         if (isGuest) {
             // Use IP-based identifier for guest rate limiting
-            const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() 
-                    ?? request.headers.get("x-real-ip") 
-                    ?? "unknown";
-            
-            const guestRateResult = await checkRateLimit(`guest:${ip}`, "guest");
+            const ip =
+                request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+                request.headers.get("x-real-ip") ??
+                "unknown";
+
+            const guestRateResult = await checkRateLimit(
+                `guest:${ip}`,
+                "guest"
+            );
             if (!guestRateResult.success) {
-                const retryAfter = Math.ceil((guestRateResult.reset - Date.now()) / 1000);
+                const retryAfter = Math.ceil(
+                    (guestRateResult.reset - Date.now()) / 1000
+                );
                 throw rateLimitError(retryAfter, {
                     reason: "Guest rate limit exceeded",
                     limit: guestRateResult.limit,
                     remaining: guestRateResult.remaining,
                 });
             }
-            
+
             // Guests can only use affordable models to prevent cost abuse
             if (!GUEST_ALLOWED_MODELS.has(modelId)) {
                 throw forbiddenError("model", {
@@ -234,7 +256,7 @@ export async function POST(request: Request): Promise<Response> {
                     allowedModels: Array.from(GUEST_ALLOWED_MODELS),
                 });
             }
-            
+
             console.info("[Chat API] Guest access:", {
                 ip,
                 modelId,
@@ -277,7 +299,10 @@ export async function POST(request: Request): Promise<Response> {
                 let chatTitle: string | undefined;
                 if (isNewChat && userMessageContent) {
                     try {
-                        chatTitle = await generateTitle(userMessageContent, modelId);
+                        chatTitle = await generateTitle(
+                            userMessageContent,
+                            modelId
+                        );
                         writer.write({
                             type: "data-chat-title",
                             data: chatTitle,
@@ -289,9 +314,10 @@ export async function POST(request: Request): Promise<Response> {
                             titleError
                         );
                         // Use fallback title
-                        chatTitle = userMessageContent.length > 50
-                            ? `${userMessageContent.substring(0, 47)}...`
-                            : userMessageContent;
+                        chatTitle =
+                            userMessageContent.length > 50
+                                ? `${userMessageContent.substring(0, 47)}...`
+                                : userMessageContent;
                     }
                 }
 
@@ -359,16 +385,25 @@ export async function POST(request: Request): Promise<Response> {
                         // Save chat and messages to database
                         try {
                             const userType = session?.user?.type ?? "guest";
-                            const effectiveUserId = userId ?? toolSession.user.id;
-                            const ctx = createContext(effectiveUserId, userType);
+                            const effectiveUserId =
+                                userId ?? toolSession.user.id;
+                            const ctx = createContext(
+                                effectiveUserId,
+                                userType
+                            );
 
                             // Create chat record for new chats
                             if (isNewChat && chatTitle) {
-                                await createChatCached({ id: chatId, title: chatTitle }, ctx);
+                                await createChatCached(
+                                    { id: chatId, title: chatTitle },
+                                    ctx
+                                );
                             }
 
                             // Get the last user message from the original messages
-                            const lastUserMsg = messages.findLast((m) => m.role === "user");
+                            const lastUserMsg = messages.findLast(
+                                (m) => m.role === "user"
+                            );
                             // UIMessage uses parts array, extract them directly
                             const userMessageParts = lastUserMsg?.parts ?? [];
 
@@ -395,7 +430,11 @@ export async function POST(request: Request): Promise<Response> {
                                 },
                             ];
 
-                            await appendMessagesCached(chatId, messagesToSave, ctx);
+                            await appendMessagesCached(
+                                chatId,
+                                messagesToSave,
+                                ctx
+                            );
 
                             console.info("[Chat API] Messages saved:", {
                                 chatId,
@@ -403,7 +442,10 @@ export async function POST(request: Request): Promise<Response> {
                                 isNewChat,
                             });
                         } catch (saveError) {
-                            console.error("[Chat API] Failed to save messages:", saveError);
+                            console.error(
+                                "[Chat API] Failed to save messages:",
+                                saveError
+                            );
                             // Don't throw - the stream response is already sent
                         }
 
@@ -432,13 +474,16 @@ export async function POST(request: Request): Promise<Response> {
         });
 
         // Return streaming response with proper headers
-        return new Response(stream.pipeThrough(new JsonToSseTransformStream()), {
-            headers: {
-                "Content-Type": "text/event-stream",
-                "Cache-Control": "no-cache, no-transform",
-                Connection: "keep-alive",
-            },
-        });
+        return new Response(
+            stream.pipeThrough(new JsonToSseTransformStream()),
+            {
+                headers: {
+                    "Content-Type": "text/event-stream",
+                    "Cache-Control": "no-cache, no-transform",
+                    Connection: "keep-alive",
+                },
+            }
+        );
     } catch (error) {
         console.error("[Chat API] Error:", error);
 

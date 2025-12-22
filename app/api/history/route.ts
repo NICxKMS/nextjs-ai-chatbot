@@ -8,7 +8,11 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { createContext, getUserChatsCached, deleteAllUserChatsCached } from "@/lib/data";
+import {
+    createContext,
+    deleteAllUserChatsCached,
+    getUserChatsCached,
+} from "@/lib/data";
 import type { Chat } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 

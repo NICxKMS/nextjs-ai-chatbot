@@ -8,11 +8,7 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import {
-    createContext,
-    getChatCached,
-    deleteChatCached,
-} from "@/lib/data";
+import { createContext, deleteChatCached, getChatCached } from "@/lib/data";
 import { AppError } from "@/lib/errors";
 
 type RouteParams = {

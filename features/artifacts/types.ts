@@ -1,4 +1,16 @@
+import type { UseChatHelpers } from "@ai-sdk/react";
+import type { UIMessage } from "ai";
 import type { ComponentType, Dispatch, ReactNode, SetStateAction } from "react";
+
+// ============================================================================
+// Artifact Chat Helpers Type
+// ============================================================================
+
+/**
+ * Type-safe chat helpers for artifact components.
+ * Uses UIMessage instead of `any` for proper type inference.
+ */
+export type ArtifactChatHelpers = UseChatHelpers<UIMessage>;
 
 // ============================================================================
 // Artifact Kind Types

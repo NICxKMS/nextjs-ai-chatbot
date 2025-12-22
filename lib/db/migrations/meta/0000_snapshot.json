@@ -85,12 +85,8 @@
           "name": "Chat_user_id_User_id_fk",
           "tableFrom": "Chat",
           "tableTo": "User",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -196,12 +192,8 @@
           "name": "Document_user_id_User_id_fk",
           "tableFrom": "Document",
           "tableTo": "User",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -209,12 +201,8 @@
           "name": "Document_chat_id_Chat_id_fk",
           "tableFrom": "Document",
           "tableTo": "Chat",
-          "columnsFrom": [
-            "chat_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["chat_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -222,10 +210,7 @@
       "compositePrimaryKeys": {
         "Document_id_created_at_pk": {
           "name": "Document_id_created_at_pk",
-          "columns": [
-            "id",
-            "created_at"
-          ]
+          "columns": ["id", "created_at"]
         }
       },
       "uniqueConstraints": {},
@@ -332,12 +317,8 @@
           "name": "Message_v2_chat_id_Chat_id_fk",
           "tableFrom": "Message_v2",
           "tableTo": "Chat",
-          "columnsFrom": [
-            "chat_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["chat_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -432,12 +413,8 @@
           "name": "Suggestion_user_id_User_id_fk",
           "tableFrom": "Suggestion",
           "tableTo": "User",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -445,14 +422,8 @@
           "name": "Suggestion_document_id_document_created_at_Document_id_created_at_fk",
           "tableFrom": "Suggestion",
           "tableTo": "Document",
-          "columnsFrom": [
-            "document_id",
-            "document_created_at"
-          ],
-          "columnsTo": [
-            "id",
-            "created_at"
-          ],
+          "columnsFrom": ["document_id", "document_created_at"],
+          "columnsTo": ["id", "created_at"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -460,9 +431,7 @@
       "compositePrimaryKeys": {
         "Suggestion_id_pk": {
           "name": "Suggestion_id_pk",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {},
@@ -514,9 +483,7 @@
         "User_email_unique": {
           "name": "User_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -559,12 +526,8 @@
           "name": "Vote_v2_chat_id_Chat_id_fk",
           "tableFrom": "Vote_v2",
           "tableTo": "Chat",
-          "columnsFrom": [
-            "chat_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["chat_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -572,12 +535,8 @@
           "name": "Vote_v2_message_id_Message_v2_id_fk",
           "tableFrom": "Vote_v2",
           "tableTo": "Message_v2",
-          "columnsFrom": [
-            "message_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["message_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -585,12 +544,8 @@
           "name": "Vote_v2_user_id_User_id_fk",
           "tableFrom": "Vote_v2",
           "tableTo": "User",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -598,11 +553,7 @@
       "compositePrimaryKeys": {
         "Vote_v2_chat_id_message_id_user_id_pk": {
           "name": "Vote_v2_chat_id_message_id_user_id_pk",
-          "columns": [
-            "chat_id",
-            "message_id",
-            "user_id"
-          ]
+          "columns": ["chat_id", "message_id", "user_id"]
         }
       },
       "uniqueConstraints": {},
@@ -615,29 +566,17 @@
     "public.document_kind": {
       "name": "document_kind",
       "schema": "public",
-      "values": [
-        "text",
-        "code",
-        "image",
-        "sheet"
-      ]
+      "values": ["text", "code", "image", "sheet"]
     },
     "public.role": {
       "name": "role",
       "schema": "public",
-      "values": [
-        "user",
-        "assistant",
-        "system"
-      ]
+      "values": ["user", "assistant", "system"]
     },
     "public.visibility": {
       "name": "visibility",
       "schema": "public",
-      "values": [
-        "public",
-        "private"
-      ]
+      "values": ["public", "private"]
     }
   },
   "schemas": {},

@@ -9,10 +9,15 @@
  */
 import "server-only";
 
-import { getRedis } from "@/lib/cache/client";
-import { CacheKeys } from "@/lib/cache/keys";
 import { withCircuitBreaker } from "@/lib/cache/circuit-breaker";
-import { getMessageScore, serialize, deserialize, getGuestTTL } from "@/lib/cache/helpers";
+import { getRedis } from "@/lib/cache/client";
+import {
+    deserialize,
+    getGuestTTL,
+    getMessageScore,
+    serialize,
+} from "@/lib/cache/helpers";
+import { CacheKeys } from "@/lib/cache/keys";
 import type { CachedMessage } from "@/lib/cache/types";
 import { APPEND_MESSAGE_SCRIPT, APPEND_MESSAGES_BULK_SCRIPT } from "./scripts";
 
@@ -63,7 +68,13 @@ export async function appendMessageToCache(
             const result = await redis.eval(
                 APPEND_MESSAGE_SCRIPT,
                 [metaKey, msgsKey, userChatsKey],
-                [serializeMessage(message), score.toString(), nowISO, ttl.toString(), chatId]
+                [
+                    serializeMessage(message),
+                    score.toString(),
+                    nowISO,
+                    ttl.toString(),
+                    chatId,
+                ]
             );
 
             // Script returns message count on success, error on failure
@@ -167,8 +178,12 @@ export async function getMessagesFromCache(
             const limit = options?.limit;
 
             // Build zrange options
-            const zrangeOpts: { rev?: boolean; offset?: number; count?: number } = {};
-            
+            const zrangeOpts: {
+                rev?: boolean;
+                offset?: number;
+                count?: number;
+            } = {};
+
             if (order === "desc") {
                 zrangeOpts.rev = true;
             }
@@ -185,13 +200,32 @@ export async function getMessagesFromCache(
 
             if (limit) {
                 // With limit: use offset/count
-                rawMessages = await redis.zrange(msgsKey, 0, -1, zrangeOpts as { offset: number; count: number; rev?: boolean });
+                rawMessages = await redis.zrange(
+                    msgsKey,
+                    0,
+                    -1,
+                    zrangeOpts as {
+                        offset: number;
+                        count: number;
+                        rev?: boolean;
+                    }
+                );
             } else if (offset > 0) {
                 // With offset but no limit: get from offset to end
-                rawMessages = await redis.zrange(msgsKey, offset, -1, order === "desc" ? { rev: true } : undefined);
+                rawMessages = await redis.zrange(
+                    msgsKey,
+                    offset,
+                    -1,
+                    order === "desc" ? { rev: true } : undefined
+                );
             } else {
                 // Simple case: get all
-                rawMessages = await redis.zrange(msgsKey, 0, -1, order === "desc" ? { rev: true } : undefined);
+                rawMessages = await redis.zrange(
+                    msgsKey,
+                    0,
+                    -1,
+                    order === "desc" ? { rev: true } : undefined
+                );
             }
 
             // Check if key exists (empty array could mean no messages OR no key)
@@ -313,7 +347,11 @@ export async function deleteMessagesAfterTimestamp(
             const minScore = afterTimestamp + 0.001;
 
             // ZREMRANGEBYSCORE returns count of removed elements
-            const removed = await redis.zremrangebyscore(msgsKey, minScore, "+inf");
+            const removed = await redis.zremrangebyscore(
+                msgsKey,
+                minScore,
+                "+inf"
+            );
 
             return removed;
         },

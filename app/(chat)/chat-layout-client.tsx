@@ -17,13 +17,17 @@ import { toast } from "sonner";
 
 import { DataStreamProvider } from "@/features/chat";
 import { OptimisticChatsProvider } from "@/features/sidebar";
+import { AnnouncerProvider } from "@/shared/components";
 import { SidebarInset, SidebarProvider } from "@/shared/ui/sidebar";
 import { SidebarContainer } from "./sidebar-container";
 
 // Skeleton for sidebar loading state
 function SidebarSkeleton() {
     return (
-        <aside className="flex h-full w-64 flex-col border-r bg-background">
+        <nav
+            aria-label="Chat navigation"
+            className="flex h-full w-64 flex-col border-r bg-background"
+        >
             <div className="border-b p-2">
                 <div className="flex items-center justify-between">
                     <div className="h-8 w-24 animate-pulse rounded bg-muted" />
@@ -38,7 +42,7 @@ function SidebarSkeleton() {
                     />
                 ))}
             </div>
-        </aside>
+        </nav>
     );
 }
 
@@ -100,25 +104,27 @@ export function ChatLayoutClient({
                 strategy="lazyOnload"
             />
 
-            <DataStreamProvider>
-                <SidebarProvider defaultOpen={defaultSidebarOpen}>
-                    <OptimisticChatsProvider>
-                        {/* Handle URL notices */}
-                        <Suspense fallback={null}>
-                            <NoticeHandler />
-                        </Suspense>
-
-                        <Suspense fallback={<SidebarSkeleton />}>
-                            <SidebarContainer />
-                        </Suspense>
-                        <SidebarInset>
-                            <Suspense fallback={<ContentLoader />}>
-                                {children}
+            <AnnouncerProvider>
+                <DataStreamProvider>
+                    <SidebarProvider defaultOpen={defaultSidebarOpen}>
+                        <OptimisticChatsProvider>
+                            {/* Handle URL notices */}
+                            <Suspense fallback={null}>
+                                <NoticeHandler />
                             </Suspense>
-                        </SidebarInset>
-                    </OptimisticChatsProvider>
-                </SidebarProvider>
-            </DataStreamProvider>
+
+                            <Suspense fallback={<SidebarSkeleton />}>
+                                <SidebarContainer />
+                            </Suspense>
+                            <SidebarInset>
+                                <Suspense fallback={<ContentLoader />}>
+                                    {children}
+                                </Suspense>
+                            </SidebarInset>
+                        </OptimisticChatsProvider>
+                    </SidebarProvider>
+                </DataStreamProvider>
+            </AnnouncerProvider>
         </>
     );
 }

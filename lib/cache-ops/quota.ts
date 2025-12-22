@@ -9,10 +9,10 @@
  */
 import "server-only";
 
-import { getRedis } from "@/lib/cache/client";
-import { CacheKeys } from "@/lib/cache/keys";
 import { withCircuitBreaker } from "@/lib/cache/circuit-breaker";
+import { getRedis } from "@/lib/cache/client";
 import { QUOTA_TTL_SECONDS } from "@/lib/cache/constants";
+import { CacheKeys } from "@/lib/cache/keys";
 import { INCREMENT_QUOTA_SCRIPT } from "./scripts";
 
 /**
@@ -50,7 +50,7 @@ export async function checkQuota(
             const quotaKey = CacheKeys.quota(userId, dateKey);
 
             const countStr = await redis.get(quotaKey);
-            const count = countStr ? parseInt(String(countStr), 10) : 0;
+            const count = countStr ? Number.parseInt(String(countStr), 10) : 0;
             const remaining = Math.max(0, limit - count);
 
             return { count, remaining, limit };
@@ -71,7 +71,7 @@ export async function checkQuota(
  */
 export async function incrementQuota(
     userId: string,
-    amount: number = 1,
+    amount = 1,
     limit: number = DEFAULT_QUOTA_LIMIT
 ): Promise<{ allowed: boolean; count: number; limit: number }> {
     return withCircuitBreaker(
@@ -80,7 +80,9 @@ export async function incrementQuota(
             const redis = getRedis();
             if (!redis) {
                 // Cache unavailable - block operation for security (fail closed)
-                console.error("Redis unavailable - blocking request for safety (quota)");
+                console.error(
+                    "Redis unavailable - blocking request for safety (quota)"
+                );
                 return { allowed: false, count: limit, limit };
             }
 
@@ -91,7 +93,11 @@ export async function incrementQuota(
             const result = (await redis.eval(
                 INCREMENT_QUOTA_SCRIPT,
                 [quotaKey],
-                [amount.toString(), QUOTA_TTL_SECONDS.toString(), limit.toString()]
+                [
+                    amount.toString(),
+                    QUOTA_TTL_SECONDS.toString(),
+                    limit.toString(),
+                ]
             )) as [number, number, number];
 
             const [accepted, count, returnedLimit] = result;
@@ -151,7 +157,9 @@ export async function isQuotaAvailable(
     const result = await checkQuota(userId, limit);
     if (!result) {
         // Cache unavailable - block operation for security (fail closed)
-        console.error("Redis unavailable - blocking request for safety (quota check)");
+        console.error(
+            "Redis unavailable - blocking request for safety (quota check)"
+        );
         return false;
     }
     return result.count < limit;

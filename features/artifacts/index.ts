@@ -36,6 +36,7 @@ export type {
     ArtifactAction,
     ArtifactActionContext,
     ArtifactBoundingBox,
+    ArtifactChatHelpers,
     ArtifactConfig,
     ArtifactContentProps,
     ArtifactDefinition,

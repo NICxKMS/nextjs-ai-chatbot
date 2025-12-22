@@ -82,10 +82,14 @@ export async function deleteTrailingMessages(
         }
 
         // 4. Delete messages after timestamp
-        await deleteMessagesAfterTimestampCached(input.chatId, timestamp.getTime(), {
-            userId: session.user.id,
-            userType: "regular",
-        });
+        await deleteMessagesAfterTimestampCached(
+            input.chatId,
+            timestamp.getTime(),
+            {
+                userId: session.user.id,
+                userType: "regular",
+            }
+        );
 
         // 5. Revalidate chat page
         revalidatePath(`/chat/${input.chatId}`);

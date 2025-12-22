@@ -9,17 +9,17 @@
  */
 import "server-only";
 
-import { getRedis } from "@/lib/cache/client";
-import { CacheKeys } from "@/lib/cache/keys";
 import { withCircuitBreaker } from "@/lib/cache/circuit-breaker";
-import { serialize, deserialize, getGuestTTL } from "@/lib/cache/helpers";
+import { getRedis } from "@/lib/cache/client";
+import { deserialize, getGuestTTL, serialize } from "@/lib/cache/helpers";
+import { CacheKeys } from "@/lib/cache/keys";
 import type { CachedChatMeta } from "@/lib/cache/types";
 import {
     CREATE_CHAT_SCRIPT,
-    UPDATE_METADATA_SCRIPT,
-    DELETE_CHAT_SCRIPT,
     DELETE_ALL_USER_CHATS_SCRIPT,
+    DELETE_CHAT_SCRIPT,
     FORK_CHAT_SCRIPT,
+    UPDATE_METADATA_SCRIPT,
 } from "./scripts";
 
 /**
@@ -120,7 +120,7 @@ export async function updateChatInCache(
     chatId: string,
     userId: string,
     updates: Partial<CachedChatMeta>,
-    isGuest: boolean = false
+    isGuest = false
 ): Promise<CachedChatMeta | null> {
     return withCircuitBreaker(
         "updateChatInCache",
@@ -209,7 +209,7 @@ export async function deleteAllUserChatsFromCache(
 
             const userChatsKey = CacheKeys.userChats(userId);
             // Key prefix for building chat keys: chat:{chatId}:{userId}:meta/msgs
-            const keyPrefix = `chat:`;
+            const keyPrefix = "chat:";
 
             const result = await redis.eval(
                 DELETE_ALL_USER_CHATS_SCRIPT,
@@ -308,16 +308,26 @@ export async function forkChatInCache(
             }
 
             const srcMetaKey = CacheKeys.chatMeta(sourceChatId, sourceUserId);
-            const srcMsgsKey = CacheKeys.chatMessages(sourceChatId, sourceUserId);
+            const srcMsgsKey = CacheKeys.chatMessages(
+                sourceChatId,
+                sourceUserId
+            );
             const dstMetaKey = CacheKeys.chatMeta(newChat.id, newChat.userId);
-            const dstMsgsKey = CacheKeys.chatMessages(newChat.id, newChat.userId);
+            const dstMsgsKey = CacheKeys.chatMessages(
+                newChat.id,
+                newChat.userId
+            );
             const ttl = getGuestTTL(isGuest);
 
             try {
                 const result = await redis.eval(
                     FORK_CHAT_SCRIPT,
                     [srcMetaKey, srcMsgsKey, dstMetaKey, dstMsgsKey],
-                    [serializeChat(newChat), untilTimestamp.toString(), ttl.toString()]
+                    [
+                        serializeChat(newChat),
+                        untilTimestamp.toString(),
+                        ttl.toString(),
+                    ]
                 );
 
                 // Script returns number of messages copied (0 is valid)

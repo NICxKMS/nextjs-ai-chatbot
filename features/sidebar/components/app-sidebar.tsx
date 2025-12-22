@@ -1,7 +1,9 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
     Tooltip,
@@ -72,8 +74,8 @@ export type AppSidebarProps = {
     isLoading?: boolean;
     user?: { email?: string; name?: string };
     onNewChat?: () => void;
-    onDeleteChat?: (id: string) => void;
-    onDeleteAll?: () => void;
+    onDeleteChat?: (id: string) => Promise<void> | void;
+    onDeleteAll?: () => Promise<void> | void;
     onSignOut?: () => void;
     onLoadMore?: () => void;
     hasMore?: boolean;
@@ -92,16 +94,37 @@ export function AppSidebar({
 }: AppSidebarProps) {
     const { setOpenMobile } = useSidebar();
     const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
+    const [isDeletingAll, setIsDeletingAll] = useState(false);
 
-    const handleNewChat = () => {
+    const handleNewChat = useCallback(() => {
         setOpenMobile(false);
         onNewChat?.();
-    };
+    }, [setOpenMobile, onNewChat]);
 
-    const handleDeleteAll = () => {
-        onDeleteAll?.();
-        setShowDeleteAllDialog(false);
-    };
+    const handleDeleteAll = useCallback(async () => {
+        setIsDeletingAll(true);
+        try {
+            await onDeleteAll?.();
+            toast.success("All chats deleted");
+        } catch {
+            toast.error("Failed to delete chats");
+        } finally {
+            setIsDeletingAll(false);
+            setShowDeleteAllDialog(false);
+        }
+    }, [onDeleteAll]);
+
+    const handleOpenDeleteDialog = useCallback(() => {
+        setShowDeleteAllDialog(true);
+    }, []);
+
+    const handleCloseDeleteDialog = useCallback((open: boolean) => {
+        setShowDeleteAllDialog(open);
+    }, []);
+
+    const handleLinkClick = useCallback(() => {
+        setOpenMobile(false);
+    }, [setOpenMobile]);
 
     return (
         <>
@@ -115,22 +138,21 @@ export function AppSidebar({
                             <Link
                                 className="flex flex-row items-center gap-3"
                                 href="/"
-                                onClick={() => setOpenMobile(false)}
+                                onClick={handleLinkClick}
                             >
-                                <span className="cursor-pointer rounded-md px-2 font-semibold text-lg hover:bg-muted">
+                                <h2 className="cursor-pointer rounded-md px-2 font-semibold text-lg hover:bg-muted">
                                     Assistant
-                                </span>
+                                </h2>
                             </Link>
                             <div className="flex flex-row gap-1">
                                 {user && (
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <Button
+                                                aria-label="Delete all chats"
                                                 className="h-8 p-1 md:h-fit md:p-2"
                                                 data-testid="delete-all-chats-button"
-                                                onClick={() =>
-                                                    setShowDeleteAllDialog(true)
-                                                }
+                                                onClick={handleOpenDeleteDialog}
                                                 type="button"
                                                 variant="ghost"
                                             >
@@ -148,6 +170,7 @@ export function AppSidebar({
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button
+                                            aria-label="Start new chat"
                                             className="h-8 p-1 md:h-fit md:p-2"
                                             data-testid="new-chat-button"
                                             onClick={handleNewChat}
@@ -183,7 +206,7 @@ export function AppSidebar({
             </Sidebar>
 
             <AlertDialog
-                onOpenChange={setShowDeleteAllDialog}
+                onOpenChange={handleCloseDeleteDialog}
                 open={showDeleteAllDialog}
             >
                 <AlertDialogContent>
@@ -196,9 +219,21 @@ export function AppSidebar({
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDeleteAll}>
-                            Delete All
+                        <AlertDialogCancel disabled={isDeletingAll}>
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            disabled={isDeletingAll}
+                            onClick={handleDeleteAll}
+                        >
+                            {isDeletingAll ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Deleting...
+                                </>
+                            ) : (
+                                "Delete All"
+                            )}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

@@ -47,20 +47,16 @@ export async function POST(request: Request): Promise<Response> {
         }).toResponse();
     }
 
-    const supabase = createServerClient(
-        supabaseUrl,
-        supabaseAnonKey,
-        {
-            cookies: {
-                getAll() {
-                    return [];
-                },
-                setAll() {
-                    // Read-only context
-                },
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+        cookies: {
+            getAll() {
+                return [];
             },
-        }
-    );
+            setAll() {
+                // Read-only context
+            },
+        },
+    });
 
     const {
         data: { user },

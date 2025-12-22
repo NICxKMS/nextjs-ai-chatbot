@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { AuthForm } from "@/features/auth";
 import { getSupabaseBrowserClient } from "@/lib/auth/client";
+import { mapSupabaseError } from "@/lib/utils";
 import { toast } from "@/shared/ui";
 
 /**
@@ -30,7 +31,7 @@ export default function RegisterPage() {
         ) {
             toast({
                 type: "error",
-                description: "Please provide a valid email and password.",
+                description: "Please enter your email and password.",
             });
             return;
         }
@@ -45,9 +46,12 @@ export default function RegisterPage() {
         });
 
         if (error || !data.user) {
+            const friendlyError = mapSupabaseError(
+                error?.message ?? "Failed to create account"
+            );
             toast({
                 type: "error",
-                description: error?.message || "Failed to create account!",
+                description: friendlyError.message,
             });
             return;
         }
@@ -58,7 +62,7 @@ export default function RegisterPage() {
             toast({
                 type: "success",
                 description:
-                    "Account created! Please check your email to verify your account.",
+                    "Welcome! We've sent a verification link to your email. Please check your inbox.",
             });
             setIsSuccessful(true);
             // Redirect to login page so user can log in after confirming email
@@ -83,8 +87,9 @@ export default function RegisterPage() {
                 toast({
                     type: "error",
                     description:
-                        "Account created, but session setup failed. Please try logging in.",
+                        "Account created! However, we couldn't sign you in automatically. Please try logging in.",
                 });
+                router.push("/login");
                 return;
             }
 
@@ -96,22 +101,24 @@ export default function RegisterPage() {
                 toast({
                     type: "error",
                     description:
-                        "Account created, but session setup failed. Please try logging in.",
+                        "Account created! However, we couldn't sign you in automatically. Please try logging in.",
                 });
+                router.push("/login");
                 return;
             }
         } catch {
             toast({
                 type: "error",
                 description:
-                    "Account created, but session setup failed. Please try logging in.",
+                    "Account created! However, a network error occurred. Please try logging in.",
             });
+            router.push("/login");
             return;
         }
 
         toast({
             type: "success",
-            description: "Account created successfully!",
+            description: "Welcome! Your account has been created.",
         });
 
         setIsSuccessful(true);

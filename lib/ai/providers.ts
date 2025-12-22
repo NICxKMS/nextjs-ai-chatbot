@@ -121,7 +121,7 @@ export function getLanguageModel(id: string): LanguageModel {
     // Resolve the actual provider:modelId format
     let resolvedId: string;
     let providerId: string;
-    
+
     if (id.includes(":")) {
         // Already in provider:model format
         // Extract actual model name (remove provider prefix for providers that expect just the model name)
@@ -161,7 +161,8 @@ export function getLanguageModel(id: string): LanguageModel {
         return model;
     } catch (error) {
         // Wrap the underlying error with context
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage =
+            error instanceof Error ? error.message : String(error);
         throw new ModelResolutionError(id, errorMessage);
     }
 }

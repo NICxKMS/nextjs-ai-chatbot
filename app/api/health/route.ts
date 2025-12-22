@@ -6,8 +6,8 @@
  */
 
 import { sql } from "drizzle-orm";
-import { getDb } from "@/lib/db";
 import { getRedis, isRedisAvailable } from "@/lib/cache";
+import { getDb } from "@/lib/db";
 
 export const maxDuration = 10;
 
@@ -113,7 +113,8 @@ async function checkCacheHealth(): Promise<HealthCheckResult> {
         return {
             status: "degraded",
             latency: 0,
-            error: error instanceof Error ? error.message : "Cache check failed",
+            error:
+                error instanceof Error ? error.message : "Cache check failed",
         };
     }
 }
@@ -210,11 +211,23 @@ export async function GET(): Promise<Response> {
                 details: {
                     status: "unhealthy" as HealthStatus,
                     checks: {
-                        database: { status: "unhealthy" as HealthStatus, error: "Check failed" },
-                        environment: { status: "unhealthy" as HealthStatus, error: "Check failed" },
-                        cache: { status: "unhealthy" as HealthStatus, error: "Check failed" },
+                        database: {
+                            status: "unhealthy" as HealthStatus,
+                            error: "Check failed",
+                        },
+                        environment: {
+                            status: "unhealthy" as HealthStatus,
+                            error: "Check failed",
+                        },
+                        cache: {
+                            status: "unhealthy" as HealthStatus,
+                            error: "Check failed",
+                        },
                     },
-                    error: error instanceof Error ? error.message : "Unknown error",
+                    error:
+                        error instanceof Error
+                            ? error.message
+                            : "Unknown error",
                 },
             }),
         };

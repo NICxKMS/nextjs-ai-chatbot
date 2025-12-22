@@ -176,23 +176,40 @@ export function ChatProvider({
     // Error handler for streaming errors (Fix #144)
     const handleStreamError = useCallback((error: Error) => {
         console.error("[ChatProvider] Stream error:", error);
-        
+
         // Extract user-friendly message from error
         let userMessage = "An error occurred while generating the response.";
-        
-        if (error.message.includes("rate limit") || error.message.includes("429")) {
-            userMessage = "Rate limit exceeded. Please wait a moment and try again.";
-        } else if (error.message.includes("API key") || error.message.includes("authentication")) {
-            userMessage = "AI service configuration error. Please contact support.";
-        } else if (error.message.includes("timeout") || error.message.includes("TIMEOUT")) {
-            userMessage = "The request timed out. Please try again with a shorter message.";
-        } else if (error.message.includes("network") || error.message.includes("fetch")) {
-            userMessage = "Network error. Please check your connection and try again.";
+
+        if (
+            error.message.includes("rate limit") ||
+            error.message.includes("429")
+        ) {
+            userMessage =
+                "Rate limit exceeded. Please wait a moment and try again.";
+        } else if (
+            error.message.includes("API key") ||
+            error.message.includes("authentication")
+        ) {
+            userMessage =
+                "AI service configuration error. Please contact support.";
+        } else if (
+            error.message.includes("timeout") ||
+            error.message.includes("TIMEOUT")
+        ) {
+            userMessage =
+                "The request timed out. Please try again with a shorter message.";
+        } else if (
+            error.message.includes("network") ||
+            error.message.includes("fetch")
+        ) {
+            userMessage =
+                "Network error. Please check your connection and try again.";
         } else if (error.message) {
             // Use the actual error message if it's not too technical
-            userMessage = error.message.length < 100 ? error.message : userMessage;
+            userMessage =
+                error.message.length < 100 ? error.message : userMessage;
         }
-        
+
         toast.error(userMessage, {
             duration: 5000,
             description: "Click to dismiss",
@@ -245,7 +262,7 @@ export function ChatProvider({
     // Optimistic sidebar update: Show new chat immediately when first message is sent
     const { addOptimisticChat } = useOptimisticChats();
     const hasAddedOptimisticChat = useRef(false);
-    
+
     useEffect(() => {
         // Only trigger for new chats (no initial messages) when first message is submitted
         if (
@@ -256,7 +273,7 @@ export function ChatProvider({
         ) {
             hasAddedOptimisticChat.current = true;
             const firstMessage = chatHelpers.messages[0];
-            
+
             // Extract text content from message parts (UIMessage uses parts array)
             let textContent = "New Chat";
             if (firstMessage?.parts) {
@@ -278,7 +295,13 @@ export function ChatProvider({
                 userId: "", // Will be populated from server response
             });
         }
-    }, [chatHelpers.status, chatHelpers.messages, initialMessages.length, chatId, addOptimisticChat]);
+    }, [
+        chatHelpers.status,
+        chatHelpers.messages,
+        initialMessages.length,
+        chatId,
+        addOptimisticChat,
+    ]);
 
     // Model state (custom - not in AI SDK)
     const modelState = useMemo<ModelState>(

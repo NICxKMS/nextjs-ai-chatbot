@@ -14,6 +14,7 @@ import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { LiveRegion } from "@/shared/components";
 import { deleteTrailingMessages, voteOnMessage } from "../actions";
 import { useChatHelpers, useChatMetadata } from "../hooks";
 import type { ChatMessage, ChatMessagesProps, VoteType } from "../types";
@@ -188,6 +189,13 @@ const ChatMessagesList = memo(function ChatMessagesList({
             data-testid="messages-container"
             style={{ overflowAnchor: "none" }}
         >
+            {/* Screen reader status announcements */}
+            <LiveRegion politeness="polite">
+                {status === "streaming" && "Assistant is responding..."}
+                {status === "submitted" &&
+                    "Message sent, waiting for response..."}
+            </LiveRegion>
+
             <Virtuoso
                 atBottomStateChange={handleAtBottomStateChange}
                 atBottomThreshold={SCROLL_AT_BOTTOM_THRESHOLD_PX}
@@ -198,7 +206,10 @@ const ChatMessagesList = memo(function ChatMessagesList({
                 }}
                 data={messages}
                 followOutput="smooth"
-                increaseViewportBy={{ top: VIEWPORT_BUFFER_PX, bottom: VIEWPORT_BUFFER_PX }}
+                increaseViewportBy={{
+                    top: VIEWPORT_BUFFER_PX,
+                    bottom: VIEWPORT_BUFFER_PX,
+                }}
                 itemContent={itemContent}
                 ref={virtuosoRef}
                 style={{ height: "100%" }}

@@ -2,7 +2,11 @@
 
 import { useMemo } from "react";
 import { GroupedVirtuoso } from "react-virtuoso";
-import { SkeletonShimmer } from "@/shared/components/ai";
+import {
+    EmptyHistoryState,
+    SkeletonGroup,
+    SkeletonListItem,
+} from "@/shared/components";
 import { useOptimisticChats } from "../hooks";
 import type { ChatHistoryItem } from "../types";
 import { groupChatsByDate } from "../utils";
@@ -11,9 +15,10 @@ import { SidebarHistoryItem } from "./sidebar-history-item";
 export type SidebarHistoryProps = {
     chats: ChatHistoryItem[];
     isLoading?: boolean;
-    onDeleteChat?: (id: string) => void;
+    onDeleteChat?: (id: string) => Promise<void> | void;
     onLoadMore?: () => void;
     hasMore?: boolean;
+    onNewChat?: () => void;
 };
 
 export function SidebarHistory({
@@ -22,6 +27,7 @@ export function SidebarHistory({
     onDeleteChat,
     onLoadMore,
     hasMore,
+    onNewChat,
 }: SidebarHistoryProps) {
     const { optimisticChats } = useOptimisticChats();
 
@@ -42,11 +48,7 @@ export function SidebarHistory({
     }
 
     if (allChats.length === 0) {
-        return (
-            <div className="p-4 text-center text-sm text-zinc-500 dark:text-zinc-400">
-                No chats yet. Start a conversation!
-            </div>
-        );
+        return <EmptyHistoryState className="py-8" onNewChat={onNewChat} />;
     }
 
     // Flatten for Virtuoso
@@ -54,16 +56,20 @@ export function SidebarHistory({
     const flatChats = groups.flatMap((g) => g.chats);
 
     return (
-        <div className="flex-1 overflow-hidden" data-testid="chat-history">
+        <nav
+            aria-label="Chat history"
+            className="flex-1 overflow-hidden"
+            data-testid="chat-history"
+        >
             <GroupedVirtuoso
                 className="h-full"
                 endReached={() => hasMore && onLoadMore?.()}
                 groupContent={(index) => {
                     const group = groups[index];
                     return (
-                        <div className="sticky top-0 bg-background px-3 py-2 font-medium text-muted-foreground text-xs uppercase">
+                        <h3 className="sticky top-0 bg-background px-3 py-2 font-medium text-muted-foreground text-xs uppercase">
                             {group?.label ?? "Unknown"}
-                        </div>
+                        </h3>
                     );
                 }}
                 groupCounts={groupCounts}
@@ -80,24 +86,30 @@ export function SidebarHistory({
                     );
                 }}
             />
-        </div>
+        </nav>
     );
 }
 
 /**
- * Sidebar history loading skeleton using SkeletonShimmer wrapper.
+ * Sidebar history loading skeleton using reusable skeleton components.
  */
 function SidebarHistorySkeleton() {
     return (
-        <div className="space-y-2 p-2">
-            {[1, 2, 3, 4, 5].map((i) => (
-                <SkeletonShimmer
-                    height={32}
-                    key={i}
-                    shape="rectangle"
-                    width="100%"
-                />
-            ))}
+        <div
+            aria-label="Loading chat history"
+            className="space-y-2 p-2"
+            role="status"
+        >
+            <SkeletonGroup count={6} gap={8}>
+                {(i) => (
+                    <SkeletonListItem
+                        key={i}
+                        leadingSize={20}
+                        showLeading
+                        showTrailing={false}
+                    />
+                )}
+            </SkeletonGroup>
         </div>
     );
 }

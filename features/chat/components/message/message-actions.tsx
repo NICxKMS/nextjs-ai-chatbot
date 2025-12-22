@@ -11,12 +11,12 @@
 
 import { Copy, Pencil, ThumbsDown, ThumbsUp } from "lucide-react";
 import { memo, useCallback } from "react";
+import { cn } from "@/lib/utils";
 import {
     Tooltip,
     TooltipContent,
     TooltipTrigger,
 } from "@/shared/components/tooltip";
-import { cn } from "@/lib/utils";
 import type { MessageVote, VoteType } from "../../types";
 
 // =============================================================================

@@ -10,9 +10,11 @@
 "use client";
 
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { memo, useMemo } from "react";
+import { memo, useCallback, useMemo, useRef } from "react";
+import { toast } from "sonner";
 import { Suggestion } from "@/components/ai-elements/suggestion";
 import { motion } from "@/lib/motion";
+import { createRateLimiter } from "@/lib/utils";
 import type { ChatMessage, VisibilityType } from "../types";
 
 // =============================================================================
@@ -80,16 +82,33 @@ function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
     // Use stable first 4 suggestions to prevent SSR/client hydration mismatch
     const suggestions = useMemo(() => SUGGESTION_POOL.slice(0, 4), []);
 
-    const handleClick = (suggestion: string) => {
-        // Update URL to include chat ID
-        window.history.replaceState({}, "", `/chat/${chatId}`);
+    // Rate limiter to prevent rapid-fire clicks (5 per 10 seconds)
+    const rateLimiterRef = useRef(
+        createRateLimiter({ maxRequests: 5, windowMs: 10_000 })
+    );
 
-        // Send the suggested message
-        sendMessage({
-            role: "user",
-            parts: [{ type: "text", text: suggestion }],
-        });
-    };
+    const handleClick = useCallback(
+        (suggestion: string) => {
+            // Check rate limit before processing
+            const result = rateLimiterRef.current.check();
+            if (!result.allowed) {
+                toast.error(
+                    `Too many requests. Try again in ${Math.ceil(result.resetIn / 1000)}s`
+                );
+                return;
+            }
+
+            // Update URL to include chat ID
+            window.history.replaceState({}, "", `/chat/${chatId}`);
+
+            // Send the suggested message
+            sendMessage({
+                role: "user",
+                parts: [{ type: "text", text: suggestion }],
+            });
+        },
+        [chatId, sendMessage]
+    );
 
     return (
         <div

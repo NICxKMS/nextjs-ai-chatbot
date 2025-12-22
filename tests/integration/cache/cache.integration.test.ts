@@ -7,7 +7,7 @@
  * @module tests/integration/cache/cache.integration.test
  */
 
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { describeIf, isServiceAvailable } from "../../config/test-config";
 
 // Test key prefix to avoid polluting production data

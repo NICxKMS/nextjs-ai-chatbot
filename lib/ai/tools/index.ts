@@ -72,12 +72,17 @@ export type GetToolsProps = {
  * });
  * ```
  */
-export function getTools({ session, dataStream, chatId, modelId }: GetToolsProps) {
+export function getTools({
+    session,
+    dataStream,
+    chatId,
+    modelId,
+}: GetToolsProps) {
     // Use tool model for tool operations (configurable via TOOL_MODEL_ID)
     // This allows using a fast/cheap model for tools while main chat uses selected model
     const toolModelId = getToolModel(modelId);
     const model: LanguageModel = getLanguageModel(toolModelId);
-    
+
     return {
         createDocument: createDocument({ model, session, dataStream, chatId }),
         updateDocument: updateDocument({ model, session, dataStream }),

@@ -224,7 +224,7 @@ function createMockStreamResponse(response: MockResponse): string {
     );
 
     // Done signal
-    chunks.push(`data: [DONE]\n\n`);
+    chunks.push("data: [DONE]\n\n");
 
     return chunks.join("");
 }
@@ -286,16 +286,16 @@ async function* createStreamingChunks(
     yield `data: {"type":"finish","finishReason":"stop","usage":{"inputTokens":10,"outputTokens":${response.text.length}}}\n\n`;
 
     // Done signal
-    yield `data: [DONE]\n\n`;
+    yield "data: [DONE]\n\n";
 }
 
 /**
  * Configure the page to use mock AI responses at the Playwright network layer.
- * 
+ *
  * NOTE: With USE_MOCK_AI=true in the server environment, the server-side
  * mock provider handles AI responses. This function provides an additional
  * client-side fallback for AI streaming responses only.
- * 
+ *
  * All other API calls (history, chat details, auth) hit real endpoints.
  *
  * @param page - Playwright page instance
@@ -371,7 +371,10 @@ export async function setupMockAI(
 
         // Collect all chunks and send with small delays using fulfill
         const chunks: string[] = [];
-        for await (const chunk of createStreamingChunks(response, chunkDelayMs)) {
+        for await (const chunk of createStreamingChunks(
+            response,
+            chunkDelayMs
+        )) {
             chunks.push(chunk);
         }
 

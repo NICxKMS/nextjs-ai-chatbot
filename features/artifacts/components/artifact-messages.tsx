@@ -1,14 +1,13 @@
 "use client";
 
-import type { UseChatHelpers } from "@ai-sdk/react";
 import equal from "fast-deep-equal";
 import { memo, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "@/lib/motion";
-import type { UIArtifact } from "../types";
+import type { ArtifactChatHelpers, UIArtifact } from "../types";
 
 type ArtifactMessagesProps = {
     chatId: string;
-    status: UseChatHelpers<any>["status"];
+    status: ArtifactChatHelpers["status"];
     votes: Array<{ messageId: string; vote: "up" | "down" }> | undefined;
     messages: Array<{
         id: string;
@@ -16,8 +15,8 @@ type ArtifactMessagesProps = {
         content: string;
         parts?: Array<{ type: string; text?: string }>;
     }>;
-    setMessages: UseChatHelpers<any>["setMessages"];
-    regenerate: UseChatHelpers<any>["regenerate"];
+    setMessages: ArtifactChatHelpers["setMessages"];
+    regenerate: ArtifactChatHelpers["regenerate"];
     isReadonly: boolean;
     artifactStatus: UIArtifact["status"];
 };

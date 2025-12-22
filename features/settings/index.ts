@@ -7,13 +7,13 @@
  * @module features/settings
  */
 
+export { SettingsHydration } from "./components/settings-hydration";
 // Component exports
 export {
     SettingsButton,
     SettingsIconButton,
     SettingsSheet,
 } from "./components/settings-sheet";
-export { SettingsHydration } from "./components/settings-hydration";
 // Store exports
 export {
     type AppSettings,

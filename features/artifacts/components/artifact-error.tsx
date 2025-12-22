@@ -44,17 +44,18 @@ export class ArtifactErrorBoundary extends Component<
             return (
                 <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-4">
                     <div className="font-medium text-destructive text-sm">
-                        Failed to render artifact
+                        Unable to display artifact
                     </div>
                     <p className="max-w-md text-center text-muted-foreground text-xs">
-                        An error occurred while rendering this content. Try
-                        refreshing the page or creating a new artifact.
+                        This artifact could not be rendered. Try refreshing the
+                        page or creating a new version.
                     </p>
-                    {this.state.error && (
-                        <code className="mt-2 max-w-full overflow-auto rounded bg-muted p-2 text-xs">
-                            {this.state.error.message}
-                        </code>
-                    )}
+                    {this.state.error &&
+                        process.env.NODE_ENV === "development" && (
+                            <code className="mt-2 max-w-full overflow-auto rounded bg-muted p-2 text-xs">
+                                {this.state.error.message}
+                            </code>
+                        )}
                 </div>
             );
         }

@@ -42,15 +42,30 @@ type ChatErrorFallbackProps = {
  * Displays error information and a retry button.
  */
 function ChatErrorFallback({ error, onRetry }: ChatErrorFallbackProps) {
+    // Extract user-friendly message from error
+    const errorMessage = error?.message || "An unexpected error occurred";
+    const isNetworkError =
+        errorMessage.toLowerCase().includes("network") ||
+        errorMessage.toLowerCase().includes("fetch");
+
+    const actionableMessage = isNetworkError
+        ? "Check your internet connection and try again."
+        : "The chat encountered an issue. Your messages are safe.";
+
     return (
         <div className="flex h-full flex-col items-center justify-center p-8 text-center">
             <div className="mb-4 text-destructive">
                 <AlertCircle className="h-12 w-12" />
             </div>
-            <h2 className="mb-2 font-semibold text-xl">Something went wrong</h2>
-            <p className="mb-4 max-w-md text-muted-foreground">
-                {error?.message || "An unexpected error occurred in the chat"}
+            <h2 className="mb-2 font-semibold text-xl">Unable to load chat</h2>
+            <p className="mb-2 max-w-md text-muted-foreground">
+                {actionableMessage}
             </p>
+            {process.env.NODE_ENV === "development" && error && (
+                <p className="mb-4 max-w-md text-muted-foreground text-sm">
+                    {errorMessage}
+                </p>
+            )}
             <button
                 className="rounded-lg bg-primary px-4 py-2 text-primary-foreground transition-colors hover:bg-primary/90"
                 onClick={onRetry}

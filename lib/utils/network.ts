@@ -43,7 +43,8 @@ export const fetchWithErrorHandlers: typeof fetch = async (url, init) => {
 
         throw new AppError({
             code: errorData.code ?? "external:api_error",
-            message: errorData.message ?? `API request failed (${response.status})`,
+            message:
+                errorData.message ?? `API request failed (${response.status})`,
             statusCode: response.status,
             isOperational: true,
             context: {

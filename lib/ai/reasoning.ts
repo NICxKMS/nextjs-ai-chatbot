@@ -10,12 +10,12 @@
  * @module lib/ai/reasoning
  */
 
+import type { LanguageModelV2 } from "@ai-sdk/provider";
 import {
     extractReasoningMiddleware,
-    wrapLanguageModel,
     type LanguageModel,
+    wrapLanguageModel,
 } from "ai";
-import type { LanguageModelV2 } from "@ai-sdk/provider";
 import { MODEL_REGISTRY } from "./models";
 
 // =============================================================================
@@ -128,10 +128,7 @@ export function getReasoningType(modelId: string): ReasoningType {
                 return "anthropic-thinking";
             case "openrouter":
                 // Check for known OpenRouter patterns
-                if (
-                    modelId.includes("deepseek") &&
-                    modelId.includes("r1")
-                ) {
+                if (modelId.includes("deepseek") && modelId.includes("r1")) {
                     return "deepseek-thinking";
                 }
                 if (modelId.includes("anthropic/claude-3.7")) {
@@ -170,7 +167,13 @@ const DEFAULT_THINKING_BUDGETS: Record<ReasoningType, number> = {
 };
 
 // Type for JSON-compatible values
-type JSONValue = string | number | boolean | null | JSONValue[] | { [key: string]: JSONValue };
+type JSONValue =
+    | string
+    | number
+    | boolean
+    | null
+    | JSONValue[]
+    | { [key: string]: JSONValue };
 type ProviderOptionsType = Record<string, Record<string, JSONValue>>;
 
 /**
@@ -244,7 +247,7 @@ export function buildProviderOptions(
             return {
                 reasoning: {
                     enabled: true,
-                    budget: budget,
+                    budget,
                 },
             };
 
@@ -286,6 +289,6 @@ export function wrapWithReasoningMiddleware(
         model: model as LanguageModelV2,
         middleware: extractReasoningMiddleware({ tagName }),
     });
-    
+
     return wrappedModel as unknown as LanguageModel;
 }

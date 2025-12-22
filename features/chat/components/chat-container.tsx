@@ -43,16 +43,15 @@ export function ChatContainer({
     className = "",
 }: ChatContainerProps) {
     return (
-        <div
-            aria-label="Chat interface"
+        <main
+            aria-label="Chat conversation"
             className={cn(
                 "flex h-dvh min-w-0 flex-col bg-background",
                 "touch-pan-y overscroll-contain",
                 className
             )}
-            role="main"
         >
             {children}
-        </div>
+        </main>
     );
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import type { UseChatHelpers } from "@ai-sdk/react";
 import { nanoid } from "nanoid";
 import {
     type Dispatch,
@@ -30,7 +29,16 @@ import {
     TooltipTrigger,
 } from "@/shared/components";
 import { artifactRegistry } from "../definitions/base";
-import type { ArtifactKind, ArtifactToolbarItem } from "../types";
+import type {
+    ArtifactChatHelpers,
+    ArtifactKind,
+    ArtifactToolbarItem,
+} from "../types";
+
+/** Context passed to tool onClick handlers */
+type ToolClickContext = {
+    sendMessage: ArtifactChatHelpers["sendMessage"];
+};
 
 type ToolProps = {
     description: string;
@@ -40,8 +48,8 @@ type ToolProps = {
     isToolbarVisible?: boolean;
     setIsToolbarVisible?: Dispatch<SetStateAction<boolean>>;
     isAnimating: boolean;
-    sendMessage: UseChatHelpers<any>["sendMessage"];
-    onClick: (context: any) => void;
+    sendMessage: ArtifactChatHelpers["sendMessage"];
+    onClick: (context: ToolClickContext) => void;
 };
 
 const Tool = ({
@@ -140,7 +148,7 @@ const ReadingLevelSelector = ({
 }: {
     setSelectedTool: Dispatch<SetStateAction<string | null>>;
     isAnimating: boolean;
-    sendMessage: UseChatHelpers<any>["sendMessage"];
+    sendMessage: ArtifactChatHelpers["sendMessage"];
 }) => {
     const LEVELS = [
         "Elementary",
@@ -266,7 +274,7 @@ export const Tools = ({
     isToolbarVisible: boolean;
     selectedTool: string | null;
     setSelectedTool: Dispatch<SetStateAction<string | null>>;
-    sendMessage: UseChatHelpers<any>["sendMessage"];
+    sendMessage: ArtifactChatHelpers["sendMessage"];
     isAnimating: boolean;
     setIsToolbarVisible: Dispatch<SetStateAction<boolean>>;
     tools: ArtifactToolbarItem[];
@@ -326,10 +334,10 @@ const PureToolbar = ({
 }: {
     isToolbarVisible: boolean;
     setIsToolbarVisible: Dispatch<SetStateAction<boolean>>;
-    status: UseChatHelpers<any>["status"];
-    sendMessage: UseChatHelpers<any>["sendMessage"];
-    stop: UseChatHelpers<any>["stop"];
-    setMessages: UseChatHelpers<any>["setMessages"];
+    status: ArtifactChatHelpers["status"];
+    sendMessage: ArtifactChatHelpers["sendMessage"];
+    stop: ArtifactChatHelpers["stop"];
+    setMessages: ArtifactChatHelpers["setMessages"];
     artifactKind: ArtifactKind;
 }) => {
     const toolbarRef = useRef<HTMLDivElement>(

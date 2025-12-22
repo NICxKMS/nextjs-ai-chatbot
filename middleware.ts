@@ -6,12 +6,12 @@
  * Issue #244: Guest rate limiting to prevent session flooding.
  */
 
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import {
     checkRateLimit,
     getIpIdentifier,
-    rateLimitResponse,
     type LimiterType,
+    rateLimitResponse,
 } from "@/lib/middleware/rate-limit";
 
 // ============== SECURITY HEADERS ==============
@@ -70,8 +70,8 @@ const GUEST_LIMIT_MULTIPLIER = 0.5; // 50% of authenticated limits
  * Maps authenticated limiter types to their guest equivalents.
  */
 const guestLimiterOverrides: Partial<Record<LimiterType, LimiterType>> = {
-    standard: "guest",  // 100 -> 20 req/min
-    chat: "guest",      // 50 -> 20 req/min
+    standard: "guest", // 100 -> 20 req/min
+    chat: "guest", // 50 -> 20 req/min
     search: "standard", // 1000 -> 100 req/min (use standard for guests)
 };
 
@@ -88,7 +88,9 @@ function hasSessionCookie(request: NextRequest): boolean {
     }
 
     // Also check for secure cookie variant (HTTPS)
-    const secureSessionCookie = request.cookies.get("__Secure-authjs.session-token");
+    const secureSessionCookie = request.cookies.get(
+        "__Secure-authjs.session-token"
+    );
     if (secureSessionCookie?.value) {
         return true;
     }
@@ -99,7 +101,10 @@ function hasSessionCookie(request: NextRequest): boolean {
 /**
  * Get the appropriate limiter type based on route and auth status.
  */
-function getLimiterType(pathname: string, isAuthenticated: boolean): LimiterType {
+function getLimiterType(
+    pathname: string,
+    isAuthenticated: boolean
+): LimiterType {
     // Find matching route (longest prefix match)
     let baseLimiterType: LimiterType = "standard";
     let longestMatch = 0;

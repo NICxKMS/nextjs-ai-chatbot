@@ -8,8 +8,8 @@
 // Config
 export {
     DEFAULT_MODEL_ID,
-    getToolModel,
     getTitleModel,
+    getToolModel,
     TITLE_MODEL_ID,
     TOOL_MODEL_ID,
     USE_SELECTED_MODEL_FOR_TITLE,
