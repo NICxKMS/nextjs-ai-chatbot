@@ -58,16 +58,18 @@ export const sheetDocumentHandler = createDocumentHandler<"sheet">({
                     dataStream.write({
                         type: "data-sheetDelta",
                         data: csv,
+                        transient: true,
                     });
                     draftContent = csv;
                 }
             }
         }
 
-        // Send final content
+        // Send final content (transient = ephemeral streaming delta)
         dataStream.write({
             type: "data-sheetDelta",
             data: draftContent,
+            transient: true,
         });
 
         return draftContent;
@@ -92,6 +94,7 @@ export const sheetDocumentHandler = createDocumentHandler<"sheet">({
                     dataStream.write({
                         type: "data-sheetDelta",
                         data: csv,
+                        transient: true,
                     });
                     draftContent = csv;
                 }

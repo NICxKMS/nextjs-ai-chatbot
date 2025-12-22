@@ -132,6 +132,7 @@ export const useSettings = create<SettingsStore>()(
         }),
         {
             name: "chat-sdk.settings",
+            skipHydration: true, // Prevent SSR hydration mismatch - rehydrate client-side only
             partialize: (state) => ({
                 sampling: state.sampling,
                 systemPrompt: state.systemPrompt,
@@ -144,6 +145,23 @@ export const useSettings = create<SettingsStore>()(
         }
     )
 );
+
+/**
+ * Hook to manually trigger settings rehydration from localStorage.
+ * Must be called once on client-side mount to load persisted settings.
+ *
+ * @example
+ * ```tsx
+ * // In a client component that mounts early (e.g., layout)
+ * useSettingsHydration();
+ * ```
+ */
+export function useSettingsHydration(): void {
+    if (typeof window !== "undefined") {
+        // Only rehydrate once when the module loads on the client
+        useSettings.persist.rehydrate();
+    }
+}
 
 /**
  * Hook to get only the settings values (snapshot).

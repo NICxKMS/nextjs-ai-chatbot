@@ -14,11 +14,21 @@ import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { voteOnMessage } from "../actions";
+import { deleteTrailingMessages, voteOnMessage } from "../actions";
 import { useChatHelpers, useChatMetadata } from "../hooks";
 import type { ChatMessage, ChatMessagesProps, VoteType } from "../types";
 import { ChatGreeting } from "./chat-greeting";
 import { MessageItem } from "./message/message-item";
+
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+
+/** Threshold in pixels from bottom before showing scroll button */
+const SCROLL_AT_BOTTOM_THRESHOLD_PX = 100;
+
+/** Extra viewport buffer in pixels for virtuoso pre-rendering */
+const VIEWPORT_BUFFER_PX = 200;
 
 // =============================================================================
 // INTERNAL COMPONENTS
@@ -32,7 +42,7 @@ const ChatMessagesList = memo(function ChatMessagesList({
     votes = [],
     isReadonly,
 }: ChatMessagesProps) {
-    const { messages, status } = useChatHelpers();
+    const { messages, status, setMessages, regenerate } = useChatHelpers();
     const { isReadonly: metadataReadonly, chatId } = useChatMetadata();
     const virtuosoRef = useRef<VirtuosoHandle>(null);
     const [isAtBottom, setIsAtBottom] = useState(true);
@@ -78,9 +88,61 @@ const ChatMessagesList = memo(function ChatMessagesList({
         // Handled internally by MessageItem
     }, []);
 
-    const handleEdit = useCallback((_messageId: string, _content: string) => {
-        // TODO: Implement edit functionality
-    }, []);
+    const handleEdit = useCallback(
+        async (messageId: string, content: string) => {
+            // Find the message being edited
+            const messageIndex = messages.findIndex((m) => m.id === messageId);
+            if (messageIndex === -1) {
+                toast.error("Message not found");
+                return;
+            }
+
+            const message = messages[messageIndex];
+
+            // Delete trailing messages from the database
+            // Use message createdAt if available, otherwise use current time
+            const createdAt =
+                (message as { createdAt?: Date }).createdAt?.toISOString() ??
+                new Date().toISOString();
+
+            try {
+                const result = await deleteTrailingMessages({
+                    chatId,
+                    createdAt,
+                });
+
+                if (!result.success) {
+                    toast.error(result.error ?? "Failed to edit message");
+                    return;
+                }
+            } catch {
+                toast.error("Failed to edit message");
+                return;
+            }
+
+            // Update messages state with edited content
+            setMessages((prevMessages) => {
+                const index = prevMessages.findIndex((m) => m.id === messageId);
+                if (index === -1) return prevMessages;
+
+                const originalMessage = prevMessages[index];
+                if (!originalMessage) return prevMessages;
+
+                const updatedMessage: ChatMessage = {
+                    id: originalMessage.id,
+                    role: originalMessage.role,
+                    parts: [{ type: "text" as const, text: content }],
+                };
+
+                // Remove this message and all following messages
+                return [...prevMessages.slice(0, index), updatedMessage];
+            });
+
+            // Regenerate response with the edited message
+            regenerate();
+        },
+        [messages, chatId, setMessages, regenerate]
+    );
 
     // Item renderer for Virtuoso
     const itemContent = useCallback(
@@ -128,7 +190,7 @@ const ChatMessagesList = memo(function ChatMessagesList({
         >
             <Virtuoso
                 atBottomStateChange={handleAtBottomStateChange}
-                atBottomThreshold={100}
+                atBottomThreshold={SCROLL_AT_BOTTOM_THRESHOLD_PX}
                 className="h-full"
                 components={{
                     Header,
@@ -136,7 +198,7 @@ const ChatMessagesList = memo(function ChatMessagesList({
                 }}
                 data={messages}
                 followOutput="smooth"
-                increaseViewportBy={{ top: 200, bottom: 200 }}
+                increaseViewportBy={{ top: VIEWPORT_BUFFER_PX, bottom: VIEWPORT_BUFFER_PX }}
                 itemContent={itemContent}
                 ref={virtuosoRef}
                 style={{ height: "100%" }}

@@ -124,6 +124,7 @@ export function requestSuggestions({
                 dataStream.write({
                     type: "data-suggestion",
                     data: suggestion,
+                    transient: true,
                 });
 
                 suggestions.push(suggestion);

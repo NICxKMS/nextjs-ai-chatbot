@@ -126,7 +126,11 @@ export function DiffView({ oldContent, newContent }: DiffViewProps) {
     const [modules, setModules] = useState<TipTapDiffModules | null>(null);
 
     useEffect(() => {
-        loadTipTapDiffModules().then(setModules);
+        loadTipTapDiffModules()
+            .then(setModules)
+            .catch((error) => {
+                console.error("[DiffView] Failed to load modules:", error);
+            });
     }, []);
 
     if (!modules) {

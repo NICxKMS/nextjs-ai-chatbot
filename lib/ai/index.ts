@@ -42,6 +42,7 @@ export {
     getLanguageModel,
     getOpenAI,
     getOpenRouter,
+    ModelResolutionError,
     myProvider,
 } from "./providers";
 

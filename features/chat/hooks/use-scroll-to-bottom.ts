@@ -61,6 +61,7 @@ const SCROLL_SWR_KEY = "messages:should-scroll";
 export function useScrollToBottom(): UseScrollToBottomReturn {
     const containerRef = useRef<HTMLDivElement>(null);
     const endRef = useRef<HTMLDivElement>(null);
+    const rafIdRef = useRef<number | null>(null);
 
     // Start as true to match SSR, actual value computed after mount
     const [isAtBottom, setIsAtBottom] = useState(true);
@@ -102,16 +103,24 @@ export function useScrollToBottom(): UseScrollToBottomReturn {
 
         // Observe size changes
         const resizeObserver = new ResizeObserver(() => {
-            requestAnimationFrame(() => {
+            if (rafIdRef.current !== null) {
+                cancelAnimationFrame(rafIdRef.current);
+            }
+            rafIdRef.current = requestAnimationFrame(() => {
                 handleScroll();
+                rafIdRef.current = null;
             });
         });
 
         // Observe DOM mutations
         const mutationObserver = new MutationObserver(() => {
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
+            if (rafIdRef.current !== null) {
+                cancelAnimationFrame(rafIdRef.current);
+            }
+            rafIdRef.current = requestAnimationFrame(() => {
+                rafIdRef.current = requestAnimationFrame(() => {
                     handleScroll();
+                    rafIdRef.current = null;
                 });
             });
         });
@@ -127,6 +136,10 @@ export function useScrollToBottom(): UseScrollToBottomReturn {
         handleScroll();
 
         return () => {
+            if (rafIdRef.current !== null) {
+                cancelAnimationFrame(rafIdRef.current);
+                rafIdRef.current = null;
+            }
             resizeObserver.disconnect();
             mutationObserver.disconnect();
         };

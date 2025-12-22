@@ -78,7 +78,7 @@ export function ModelSelectorCompact({
                         "h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground",
                         className
                     )}
-                    data-testid="model-selector-compact"
+                    data-testid="model-selector"
                     disabled={disabled}
                     size="sm"
                     variant="ghost"
@@ -95,7 +95,7 @@ export function ModelSelectorCompact({
                         className={cn(
                             selectedModelId === model.id && "bg-accent"
                         )}
-                        data-testid={`model-selector-compact-item-${model.id}`}
+                        data-testid={`model-selector-item-${model.id}`}
                         key={model.id}
                         onClick={() => onModelChange(model.id)}
                     >

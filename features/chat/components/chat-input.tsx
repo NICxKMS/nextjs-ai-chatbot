@@ -19,6 +19,12 @@ import {
     useRef,
     useState,
 } from "react";
+
+/**
+ * Map to track AbortControllers for each upload by file name.
+ * Allows individual upload cancellation.
+ */
+type UploadAbortMap = Map<string, AbortController>;
 import { toast } from "sonner";
 import { useChatHelpers, useChatMetadata, useModelState } from "../hooks";
 import type { Attachment, ChatInputProps } from "../types";
@@ -37,6 +43,11 @@ import { SuggestedActions } from "./suggested-actions";
 const MAX_CONCURRENT_UPLOADS = 3;
 
 /**
+ * Maximum file size in bytes (10MB).
+ */
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+/**
  * Accepted file types for attachments.
  */
 const ACCEPTED_FILE_TYPES = "image/*,application/pdf,.txt,.md,.csv,.json";
@@ -45,6 +56,24 @@ const ACCEPTED_FILE_TYPES = "image/*,application/pdf,.txt,.md,.csv,.json";
  * localStorage key for persisting input text.
  */
 const LOCAL_STORAGE_KEY = "chat-input";
+
+/**
+ * Debounce delay in milliseconds for saving input to localStorage.
+ * Prevents excessive writes during rapid typing.
+ */
+const LOCAL_STORAGE_DEBOUNCE_MS = 500;
+
+/**
+ * Delay in milliseconds before clearing attachments after successful submission.
+ * Allows for visual feedback before removal.
+ */
+const ATTACHMENT_CLEAR_DELAY = 100;
+
+/**
+ * Pattern to identify temporary/draft files that should not be uploaded.
+ * Matches common temp file patterns like .tmp, ~, .swp, etc.
+ */
+const TEMP_FILE_PATTERN = /^~|\.(tmp|swp|bak|temp)$/i;
 
 /**
  * Multimodal chat input component with text and file attachment support.
@@ -78,6 +107,18 @@ export const ChatInput = memo(function ChatInput({
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const uploadAbortControllersRef = useRef<UploadAbortMap>(new Map());
+
+    // Cleanup: abort all pending uploads on unmount
+    useEffect(() => {
+        const abortControllers = uploadAbortControllersRef.current;
+        return () => {
+            for (const controller of abortControllers.values()) {
+                controller.abort();
+            }
+            abortControllers.clear();
+        };
+    }, []);
 
     // Load from localStorage on mount
     useEffect(() => {
@@ -88,7 +129,7 @@ export const ChatInput = memo(function ChatInput({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [input]);
 
-    // Save to localStorage on change (debounced 500ms)
+    // Save to localStorage on change (debounced)
     useEffect(() => {
         const timeout = setTimeout(() => {
             if (input) {
@@ -96,7 +137,7 @@ export const ChatInput = memo(function ChatInput({
             } else {
                 localStorage.removeItem(LOCAL_STORAGE_KEY);
             }
-        }, 500);
+        }, LOCAL_STORAGE_DEBOUNCE_MS);
         return () => clearTimeout(timeout);
     }, [input]);
 
@@ -107,16 +148,22 @@ export const ChatInput = memo(function ChatInput({
 
     /**
      * Upload a single file to the server.
+     * Uses AbortController for cancellation support.
      */
     const uploadFile = useCallback(
         async (file: File): Promise<Attachment | undefined> => {
             const formData = new FormData();
             formData.append("file", file);
 
+            // Create AbortController for this upload
+            const abortController = new AbortController();
+            uploadAbortControllersRef.current.set(file.name, abortController);
+
             try {
                 const response = await fetch("/api/files/upload", {
                     method: "POST",
                     body: formData,
+                    signal: abortController.signal,
                 });
 
                 if (response.ok) {
@@ -132,8 +179,15 @@ export const ChatInput = memo(function ChatInput({
 
                 const { error } = await response.json();
                 toast.error(error || "Failed to upload file");
-            } catch (_error) {
+            } catch (error) {
+                // Don't show error toast if the upload was aborted
+                if (error instanceof Error && error.name === "AbortError") {
+                    return;
+                }
                 toast.error("Failed to upload file, please try again!");
+            } finally {
+                // Cleanup: remove this controller from the map
+                uploadAbortControllersRef.current.delete(file.name);
             }
 
             return;
@@ -148,6 +202,20 @@ export const ChatInput = memo(function ChatInput({
         async (event: ChangeEvent<HTMLInputElement>) => {
             const files = Array.from(event.target.files || []);
             if (files.length === 0) {
+                return;
+            }
+
+            // Validate file sizes before upload
+            const oversizedFiles = files.filter((file) => file.size > MAX_FILE_SIZE);
+            if (oversizedFiles.length > 0) {
+                const fileNames = oversizedFiles.map((f) => f.name).join(", ");
+                toast.error(
+                    `File(s) too large: ${fileNames}. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`
+                );
+                // Reset file input
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                }
                 return;
             }
 
@@ -182,6 +250,18 @@ export const ChatInput = memo(function ChatInput({
     );
 
     /**
+     * Cancel a pending upload by file name.
+     */
+    const cancelUpload = useCallback((fileName: string) => {
+        const controller = uploadAbortControllersRef.current.get(fileName);
+        if (controller) {
+            controller.abort();
+            uploadAbortControllersRef.current.delete(fileName);
+        }
+        setUploadQueue((prev) => prev.filter((name) => name !== fileName));
+    }, []);
+
+    /**
      * Remove an attachment by index.
      */
     const removeAttachment = useCallback((index: number) => {
@@ -206,10 +286,31 @@ export const ChatInput = memo(function ChatInput({
                 return;
             }
 
-            // AI SDK sendMessage uses { text, files } format
+            // Update URL to chat ID if not already on a chat page
+            // This ensures the URL reflects the current chat session
+            if (
+                typeof window !== "undefined" &&
+                !window.location.pathname.includes("/chat/")
+            ) {
+                window.history.replaceState({}, "", `/chat/${chatId}`);
+            }
+
+            // AI SDK sendMessage with UIMessage parts format
+            // Include file attachments followed by text content
             sendMessage({
-                text: input.trim(),
-                // TODO: Handle attachments via files API when needed
+                role: "user",
+                parts: [
+                    ...attachments.map((attachment) => ({
+                        type: "file" as const,
+                        url: attachment.url,
+                        name: attachment.name,
+                        mediaType: attachment.contentType,
+                    })),
+                    {
+                        type: "text" as const,
+                        text: input.trim(),
+                    },
+                ],
             });
 
             setInput("");
@@ -219,7 +320,7 @@ export const ChatInput = memo(function ChatInput({
             // Focus textarea after submit
             textareaRef.current?.focus();
         },
-        [canSubmit, input, sendMessage, status]
+        [attachments, canSubmit, chatId, input, sendMessage, status]
     );
 
     /**

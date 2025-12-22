@@ -6,6 +6,7 @@ import { Toaster } from "sonner";
 import { SWRConfig } from "swr";
 
 import { AuthProvider } from "@/features/auth";
+import { SettingsHydration } from "@/features/settings";
 import { getSession } from "@/lib/auth/session";
 import { MotionProvider } from "@/lib/motion";
 import { ThemeProvider } from "@/shared/components/theme-provider";
@@ -67,6 +68,13 @@ export default function RootLayout({
             suppressHydrationWarning
         >
             <body className="antialiased">
+                {/* Skip link for keyboard navigation */}
+                <a
+                    className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-foreground focus:ring-2 focus:ring-ring"
+                    href="#main-content"
+                >
+                    Skip to main content
+                </a>
                 <Script id="theme-color" strategy="beforeInteractive">
                     {THEME_COLOR_SCRIPT}
                 </Script>
@@ -115,6 +123,7 @@ async function AppShell({ children }: { children: React.ReactNode }) {
                         }}
                     >
                         <AuthProvider initialSession={initialSession}>
+                            <SettingsHydration />
                             {children}
                         </AuthProvider>
                     </SWRConfig>

@@ -183,6 +183,9 @@ export function AuthForm({
                             Password
                         </Label>
                         <Input
+                            autoComplete={
+                                isLogin ? "current-password" : "new-password"
+                            }
                             className="bg-muted text-md md:text-sm"
                             data-testid="password-input"
                             id="password"

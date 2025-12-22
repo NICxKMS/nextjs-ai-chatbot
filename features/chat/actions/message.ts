@@ -10,6 +10,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
+import { deleteMessagesAfterTimestampCached } from "@/lib/data/cached";
 import { AppError } from "@/lib/errors";
 
 // =============================================================================
@@ -81,7 +82,10 @@ export async function deleteTrailingMessages(
         }
 
         // 4. Delete messages after timestamp
-        // TODO: Implement messageData.deleteAfterTimestamp when data layer is complete
+        await deleteMessagesAfterTimestampCached(input.chatId, timestamp.getTime(), {
+            userId: session.user.id,
+            userType: "regular",
+        });
 
         // 5. Revalidate chat page
         revalidatePath(`/chat/${input.chatId}`);
