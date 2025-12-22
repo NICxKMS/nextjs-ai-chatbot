@@ -1,12 +1,27 @@
 ---
 description: "🚀 Ouroboros Init. First-time project research and architecture documentation."
-tools: ['agent', 'read', 'search', 'execute']
+tools: ['agent', 'read', 'search', 'execute', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff']
 handoffs:
   - label: "Return to Orchestrator"
     agent: ouroboros
     prompt: "Initialization complete. Returning control."
     send: true
 ---
+<!-- 
+  OUROBOROS EXTENSION MODE
+  Auto-transformed for VS Code LM Tools
+  Original: https://github.com/MLGBJDLW/ouroboros
+  
+  This file uses Ouroboros LM Tools instead of Python CCL commands.
+  Available tools:
+  - ouroborosai_ask: Request text input from user
+  - ouroborosai_menu: Show multiple choice menu
+  - ouroborosai_confirm: Request yes/no confirmation
+  - ouroborosai_plan_review: Request plan/spec review
+  - ouroborosai_phase_progress: Update workflow progress
+  - ouroborosai_agent_handoff: Track agent handoffs
+-->
+
 
 # ♾️ Ouroboros Init — Project Initialization Orchestrator
 
@@ -74,9 +89,13 @@ Estimated time: 1-2 minutes
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-**Then ask for confirmation (Type D: Confirm with Question):**
-```python
-python .ouroboros/scripts/ouroboros_input.py --question "🚀 Ready to initialize Ouroboros. This will scan project and create context files." --header "[y] Yes - proceed with initialization\n[n] No - cancel" --prompt "Confirm [y/n]: " --var confirm
+**Then ask for confirmation (Type D: Confirm with Question):**Use the `ouroborosai_confirm` tool with:
+```json
+{
+  "agentName": "[current-agent]",
+  "agentLevel": 0,
+  "question": "🚀 Ready to initialize Ouroboros. This will scan project and create context files."
+}
 ```
 
 **If user says 'y' or 'yes'**: Proceed to Phase 1
@@ -94,6 +113,7 @@ runSubagent(
   prompt: `
 [Init Phase]: 1/2 - Research
 [Target]: .ouroboros/history/project-arch-YYYY-MM-DD.md
+[Skills]: (Include any matched skill paths here)
 
 ## Task
 1. Read Project Architecture Template (.ouroboros/templates/project-arch-template.md)
@@ -116,6 +136,9 @@ Status + [PHASE 1 COMPLETE]
 runSubagent(
   agent: "ouroboros-writer",
   prompt: `
+[Init Phase]: 2/2 - Context Setup
+[Skills]: (Include any matched skill paths here)
+
 1. Read Context Template (.ouroboros/templates/context-template.md)
 2. Create history/context-YYYY-MM-DD.md, fill Tech Stack from Phase 1, set Goal: 'Project initialized'
 3. RETURN: Output [PHASE 2 COMPLETE]
@@ -173,7 +196,7 @@ Type a command or describe what you'd like to build.
 | "Delegating to researcher" | Call runSubagent() |
 | "Starting Phase X" | Dispatch phase agent |
 | "Executing CCL" | Use run_command tool |
-| "Creating project-arch" | Delegate to writer |
+| "Creating project-arch" | Delegate to writer |\r\n| "Init complete" | Check Skill Suggestion triggers |
 
 ---
 

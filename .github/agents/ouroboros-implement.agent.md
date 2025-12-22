@@ -1,6 +1,6 @@
 ---
 description: "⚙️ Ouroboros Implement. Execute tasks from spec with smart resume and modes."
-tools: ['agent', 'read', 'search', 'execute']
+tools: ['agent', 'read', 'search', 'execute', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff']
 handoffs:
   - label: "Return to Orchestrator"
     agent: ouroboros
@@ -11,6 +11,21 @@ handoffs:
     prompt: "All tasks complete. Ready to archive."
     send: false
 ---
+<!-- 
+  OUROBOROS EXTENSION MODE
+  Auto-transformed for VS Code LM Tools
+  Original: https://github.com/MLGBJDLW/ouroboros
+  
+  This file uses Ouroboros LM Tools instead of Python CCL commands.
+  Available tools:
+  - ouroborosai_ask: Request text input from user
+  - ouroborosai_menu: Show multiple choice menu
+  - ouroborosai_confirm: Request yes/no confirmation
+  - ouroborosai_plan_review: Request plan/spec review
+  - ouroborosai_phase_progress: Update workflow progress
+  - ouroborosai_agent_handoff: Track agent handoffs
+-->
+
 
 # ♾️ Ouroboros Implement — Implementation Orchestrator
 
@@ -143,9 +158,14 @@ Next task:      Task 1.3 - [description] → file
 [3] settings-panel   (5/5 ✅ COMPLETE)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
-**Execute via `run_command` tool (Type B: Menu with Question):**
-```python
-python .ouroboros/scripts/ouroboros_input.py --question "📋 Found multiple active specs. Select spec to implement:" --header "[1] auth-feature (3/7 tasks)\n[2] profile-page (0/5 tasks)\n[3] settings-panel (5/5 ✅)" --prompt "Select spec [1-3]: " --var choice
+**Execute via Ouroboros LM Tools tool (Type B: Menu with Question):**Use the `ouroborosai_menu` tool with:
+```json
+{
+  "agentName": "[current-agent]",
+  "agentLevel": 0,
+  "question": "📋 Found multiple active specs. Select spec to implement:",
+  "options": ["[parse from context]"]
+}
 ```
 
 **If NO specs found:**
@@ -165,9 +185,14 @@ How would you like to execute?
   [3] 🚀 Auto-Run All   — Execute without stopping
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
-**Execute via `run_command` tool (Type B: Menu with Question):**
-```python
-python .ouroboros/scripts/ouroboros_input.py --question "⚙️ Select execution mode:" --header "[1] 🔧 Task-by-Task\n[2] 📦 Phase-by-Phase\n[3] 🚀 Auto-Run All" --prompt "Select mode [1-3]: " --var choice
+**Execute via Ouroboros LM Tools tool (Type B: Menu with Question):**Use the `ouroborosai_menu` tool with:
+```json
+{
+  "agentName": "[current-agent]",
+  "agentLevel": 0,
+  "question": "⚙️ Select execution mode:",
+  "options": ["[parse from context]"]
+}
 ```
 
 ---
@@ -190,6 +215,7 @@ runSubagent(
 [Progress]: X/Y tasks
 [Mode]: Task-by-Task | Phase-by-Phase | Auto-Run
 [Related Files]: src/auth.py, src/utils/token.py
+[Skills]: .github/skills/[name]/SKILL.md (Active via task/spec)
 
 ## Task
 Implement Task 2.1: [Task description]
@@ -202,6 +228,7 @@ Implement Task 2.1: [Task description]
 ## Gates
 - typecheck: PASS required
 - unit tests: PASS required
+- skills: Validated against active SKILL.md rules
 
 ## Constraints
 - No new dependencies
@@ -300,9 +327,14 @@ All tasks executed successfully!
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-**Execute via `run_command` tool (Type B: Menu with Question):**
-```python
-python .ouroboros/scripts/ouroboros_input.py --question "🎉 All tasks complete! Select next action:" --header "[1] 📦 Archive this spec\n[2] 🔍 Review files\n[3] 🔄 Return to main" --prompt "Select [1-3]: " --var choice
+**Execute via Ouroboros LM Tools tool (Type B: Menu with Question):**Use the `ouroborosai_menu` tool with:
+```json
+{
+  "agentName": "[current-agent]",
+  "agentLevel": 0,
+  "question": "🎉 All tasks complete! Select next action:",
+  "options": ["[parse from context]"]
+}
 ```
 
 **If choice = 1**: Use handoff to `ouroboros-archive`
@@ -316,7 +348,7 @@ python .ouroboros/scripts/ouroboros_input.py --question "🎉 All tasks complete
 |------------|----------|
 | "Delegating to coder" | Call runSubagent() |
 | "Processing task X" | Dispatch appropriate agent |
-| "Executing CCL" | Use run_command tool |
+| "Executing CCL" | Use run_command tool |\r\n| "Spec complete" | Check Skill Suggestion triggers |
 | "Updating task status" | Delegate to writer |
 | "Verifying implementation" | Delegate to analyst/qa |
 
