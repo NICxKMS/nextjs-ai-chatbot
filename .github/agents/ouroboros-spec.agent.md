@@ -1,6 +1,6 @@
 ---
 description: "📋 Ouroboros Spec. Five-phase workflow: Research → Requirements → Design → Tasks → Validation."
-tools: ['agent', 'read', 'search', 'execute']
+tools: ['agent', 'read', 'search', 'execute', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff']
 handoffs:
   - label: "Return to Orchestrator"
     agent: ouroboros
@@ -11,6 +11,21 @@ handoffs:
     prompt: "Spec complete and validated. Begin implementation."
     send: false
 ---
+<!-- 
+  OUROBOROS EXTENSION MODE
+  Auto-transformed for VS Code LM Tools
+  Original: https://github.com/MLGBJDLW/ouroboros
+  
+  This file uses Ouroboros LM Tools instead of Python CCL commands.
+  Available tools:
+  - ouroborosai_ask: Request text input from user
+  - ouroborosai_menu: Show multiple choice menu
+  - ouroborosai_confirm: Request yes/no confirmation
+  - ouroborosai_plan_review: Request plan/spec review
+  - ouroborosai_phase_progress: Update workflow progress
+  - ouroborosai_agent_handoff: Track agent handoffs
+-->
+
 
 # ♾️ Ouroboros Spec — Spec Workflow Orchestrator
 
@@ -90,9 +105,14 @@ before we move to the next phase.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-**Then ask for feature name (Type C: Feature with Question):**
-```python
-python .ouroboros/scripts/ouroboros_input.py --question "📋 Select or enter feature name for spec creation:" --header "[1] auth-system\n[2] payment-flow\n[3] Custom..." --prompt "Feature [1-3 or name]: " --var feature
+**Then ask for feature name (Type C: Feature with Question):**Use the `ouroborosai_ask` tool with:
+```json
+{
+  "type": "task",
+  "agentName": "[current-agent]",
+  "agentLevel": 0,
+  "question": "📋 Select or enter feature name for spec creation:"
+}
 ```
 
 **After receiving feature name:**
@@ -117,19 +137,23 @@ runSubagent(
 [Feature]: [feature-name]
 [Spec Folder]: .ouroboros/specs/[feature-name]/
 [Phase]: 1/5 - Research
+[Skills]: .github/skills/[name]/SKILL.md (Active)
 
 ## MANDATORY OUTPUT
 YOU MUST create file: .ouroboros/specs/[feature-name]/research.md
 
-## Template
-Read and follow: .ouroboros/specs/templates/research-template.md
+## Template — COPY-THEN-MODIFY (MANDATORY)
+Source: .ouroboros/specs/templates/research-template.md
+Target: .ouroboros/specs/[feature-name]/research.md
 
 ## Requirements
-1. Read the template FIRST
+1. COPY template to target using execute tool
 2. Research the codebase (tech stack, patterns, affected files)
-3. USE edit TOOL to CREATE research.md
-4. Return with [PHASE 1 COMPLETE]
+3. Check [Skills] for specific research guidelines
+4. USE edit TOOL to MODIFY the copied file, replacing {{placeholders}}
+5. Return with [PHASE 1 COMPLETE]
 
+⚠️ FAILURE TO COPY TEMPLATE FIRST = INVALID OUTPUT
 ⚠️ FAILURE TO CREATE FILE = FAILED TASK
   `
 )
@@ -145,24 +169,28 @@ runSubagent(
 [Feature]: [feature-name]
 [Spec Folder]: .ouroboros/specs/[feature-name]/
 [Phase]: 2/5 - Requirements
+[Skills]: .github/skills/[name]/SKILL.md (Active)
 
 ## MANDATORY OUTPUT
 YOU MUST create file: .ouroboros/specs/[feature-name]/requirements.md
 
-## Template
-COPY: .ouroboros/specs/templates/requirements-template.md
+## Template — COPY-THEN-MODIFY (MANDATORY)
+Source: .ouroboros/specs/templates/requirements-template.md
+Target: .ouroboros/specs/[feature-name]/requirements.md
 
 ## Input
 Read: .ouroboros/specs/[feature-name]/research.md
 
 ## Requirements
-1. COPY template to target path
+1. COPY template to target using execute tool
 2. Read research.md for context
 3. Define requirements in EARS notation
-4. If ANY requirement is unclear, output "Clarification Questions" section
-5. USE edit TOOL to CREATE requirements.md
-6. Return with [PHASE 2 COMPLETE] or [CLARIFICATION NEEDED]
+4. Applies [Skills] rules for requirement definitions
+5. If ANY requirement is unclear, output "Clarification Questions" section
+6. USE edit TOOL to MODIFY the copied file, replacing {{placeholders}}
+7. Return with [PHASE 2 COMPLETE] or [CLARIFICATION NEEDED]
 
+⚠️ FAILURE TO COPY TEMPLATE FIRST = INVALID OUTPUT
 ⚠️ FAILURE TO CREATE FILE = FAILED TASK
   `
 )
@@ -178,22 +206,19 @@ Read: .ouroboros/specs/[feature-name]/research.md
 > Do NOT present all questions at once.
 
 **When requirements agent returns with "Clarification Questions":**
-
 1. **Parse** the CLQ-XXX questions from response
 2. **For EACH question** (one at a time):
-   
-   a. **Execute CCL MENU:**
-   ```python
-   python .ouroboros/scripts/ouroboros_input.py --question "❓ [CLQ-XXX Question content]" --header "[1] Option A\n[2] Option B\n[3] Custom..." --prompt "Select: " --var choice
-   ```
-
-
-   
+   a. **Execute CCL MENU:**Use the `ouroborosai_menu` tool with:
+```json
+{
+  "agentName": "[current-agent]",
+  "agentLevel": 0,
+  "question": "❓ [CLQ-XXX Question content]",
+  "options": ["[parse from context]"]
+}
+```
    b. **Record answer** for this question
-   
    c. **Proceed to next question**
-
-
 
 3. **After ALL questions answered**: 
    Delegate to `ouroboros-writer` to update requirements.md with answers:
@@ -225,22 +250,26 @@ runSubagent(
 [Feature]: [feature-name]
 [Spec Folder]: .ouroboros/specs/[feature-name]/
 [Phase]: 3/5 - Design
+[Skills]: .github/skills/[name]/SKILL.md (Active)
 
 ## MANDATORY OUTPUT
 YOU MUST create file: .ouroboros/specs/[feature-name]/design.md
 
-## Template
-Read and follow: .ouroboros/specs/templates/design-template.md
+## Template — COPY-THEN-MODIFY (MANDATORY)
+Source: .ouroboros/specs/templates/design-template.md
+Target: .ouroboros/specs/[feature-name]/design.md
 
 ## Input
 Read: research.md, requirements.md
 
 ## Requirements
-1. Read the template FIRST
+1. COPY template to target using execute tool
 2. Analyze trade-offs, create Mermaid diagrams
-3. USE edit TOOL to CREATE design.md
-4. Return with [PHASE 3 COMPLETE]
+3. Apply [Skills] architectural patterns if specified
+4. USE edit TOOL to MODIFY the copied file, replacing {{placeholders}}
+5. Return with [PHASE 3 COMPLETE]
 
+⚠️ FAILURE TO COPY TEMPLATE FIRST = INVALID OUTPUT
 ⚠️ FAILURE TO CREATE FILE = FAILED TASK
   `
 )
@@ -256,22 +285,27 @@ runSubagent(
 [Feature]: [feature-name]
 [Spec Folder]: .ouroboros/specs/[feature-name]/
 [Phase]: 4/5 - Tasks
+[Skills]: .github/skills/[name]/SKILL.md (Active)
 
 ## MANDATORY OUTPUT
 YOU MUST create file: .ouroboros/specs/[feature-name]/tasks.md
 
-## Template
-Read and follow: .ouroboros/specs/templates/tasks-template.md
+## Template — COPY-THEN-MODIFY (MANDATORY)
+Source: .ouroboros/specs/templates/tasks-template.md
+Target: .ouroboros/specs/[feature-name]/tasks.md
 
 ## Input
 Read: research.md, requirements.md, design.md
 
 ## Requirements
-1. Read ALL previous docs + template
-2. Break down into phases and atomic tasks
-3. USE edit TOOL to CREATE tasks.md
-4. Return with [PHASE 4 COMPLETE]
+1. COPY template to target using execute tool
+2. Read ALL previous docs for context
+3. Break down into phases and atomic tasks
+4. Ensure tasks respect [Skills] implementation guidelines
+5. USE edit TOOL to MODIFY the copied file, replacing {{placeholders}}
+6. Return with [PHASE 4 COMPLETE]
 
+⚠️ FAILURE TO COPY TEMPLATE FIRST = INVALID OUTPUT
 ⚠️ FAILURE TO CREATE FILE = FAILED TASK
   `
 )
@@ -287,23 +321,28 @@ runSubagent(
 [Feature]: [feature-name]
 [Spec Folder]: .ouroboros/specs/[feature-name]/
 [Phase]: 5/5 - Validation
+[Skills]: .github/skills/[name]/SKILL.md (Active)
 
 ## MANDATORY OUTPUT
 YOU MUST create file: .ouroboros/specs/[feature-name]/validation-report.md
 
-## Template
-Read and follow: .ouroboros/specs/templates/validation-template.md
+## Template — COPY-THEN-MODIFY (MANDATORY)
+Source: .ouroboros/specs/templates/validation-template.md
+Target: .ouroboros/specs/[feature-name]/validation-report.md
 
 ## Input
 Read ALL: research.md, requirements.md, design.md, tasks.md
 
 ## Requirements
-1. Read ALL 4 documents + template
-2. Build traceability matrix
-3. Identify gaps / inconsistencies
-4. USE edit TOOL to CREATE validation-report.md
-5. Return with [PHASE 5 COMPLETE]
+1. COPY template to target using execute tool
+2. Read ALL 4 documents for context
+3. Build traceability matrix
+4. Identify gaps / inconsistencies
+5. Validate compliance with [Skills]
+6. USE edit TOOL to MODIFY the copied file, replacing {{placeholders}}
+7. Return with [PHASE 5 COMPLETE]
 
+⚠️ FAILURE TO COPY TEMPLATE FIRST = INVALID OUTPUT
 ⚠️ FAILURE TO CREATE FILE = FAILED TASK
   `
 )
@@ -362,9 +401,14 @@ All 5 phases are complete and validated.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-**Execute via `run_command` tool (Type B: Menu with Question):**
-```python
-python .ouroboros/scripts/ouroboros_input.py --question "✅ Spec document complete! Select next action:" --header "[1] ⚙️ /ouroboros-implement\n[2] 📝 Revise\n[3] 🔄 /ouroboros" --prompt "Select [1-3]: " --var choice
+**Execute via Ouroboros LM Tools tool (Type B: Menu with Question):**Use the `ouroborosai_menu` tool with:
+```json
+{
+  "agentName": "[current-agent]",
+  "agentLevel": 0,
+  "question": "✅ Spec document complete! Select next action:",
+  "options": ["[parse from context]"]
+}
 ```
 
 **If choice = 1**: Use handoff to `ouroboros-implement`
@@ -406,7 +450,7 @@ runSubagent(
 | "Delegating to researcher" | Call runSubagent() |
 | "Moving to phase X" | Dispatch phase agent |
 | "Executing CCL" | Use run_command tool |
-| "Creating spec folder" | Actually create it |
+| "Creating spec folder" | Actually create it |\r\n| "Workflow complete" | Check Skill Suggestion triggers |
 
 ---
 
