@@ -1,5 +1,6 @@
 "use client";
 
+import DOMPurify from "dompurify";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import {
     type ComponentProps,
@@ -13,6 +14,20 @@ import {
 import { type BundledLanguage, codeToHtml, type ShikiTransformer } from "shiki";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/index";
+
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+
+/** Default timeout in ms for copy feedback indicator */
+const COPY_FEEDBACK_TIMEOUT_MS = 2000;
+
+// DOMPurify config to allow code highlighting elements while blocking XSS
+const DOMPURIFY_CONFIG = {
+    ALLOWED_TAGS: ["pre", "code", "span", "div"],
+    ALLOWED_ATTR: ["class", "style"],
+    ALLOW_DATA_ATTR: false,
+};
 
 type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
     code: string;
@@ -87,8 +102,11 @@ export const CodeBlock = ({
     useEffect(() => {
         highlightCode(code, language, showLineNumbers).then(([light, dark]) => {
             if (!mounted.current) {
-                setHtml(light);
-                setDarkHtml(dark);
+                // Sanitize highlighted HTML to prevent XSS attacks
+                const sanitizedLight = DOMPurify.sanitize(light, DOMPURIFY_CONFIG);
+                const sanitizedDark = DOMPurify.sanitize(dark, DOMPURIFY_CONFIG);
+                setHtml(sanitizedLight);
+                setDarkHtml(sanitizedDark);
                 mounted.current = true;
             }
         });
@@ -110,12 +128,12 @@ export const CodeBlock = ({
                 <div className="relative">
                     <div
                         className="overflow-auto dark:hidden [&>pre]:m-0 [&>pre]:bg-background! [&>pre]:p-4 [&>pre]:text-foreground! [&>pre]:text-sm [&_code]:font-mono [&_code]:text-sm"
-                        // biome-ignore lint/security/noDangerouslySetInnerHtml: "this is needed."
+                        // biome-ignore lint/security/noDangerouslySetInnerHtml: HTML is sanitized with DOMPurify
                         dangerouslySetInnerHTML={{ __html: html }}
                     />
                     <div
                         className="hidden overflow-auto dark:block [&>pre]:m-0 [&>pre]:bg-background! [&>pre]:p-4 [&>pre]:text-foreground! [&>pre]:text-sm [&_code]:font-mono [&_code]:text-sm"
-                        // biome-ignore lint/security/noDangerouslySetInnerHtml: "this is needed."
+                        // biome-ignore lint/security/noDangerouslySetInnerHtml: HTML is sanitized with DOMPurify
                         dangerouslySetInnerHTML={{ __html: darkHtml }}
                     />
                     {children && (
@@ -132,13 +150,14 @@ export const CodeBlock = ({
 export type CodeBlockCopyButtonProps = ComponentProps<typeof Button> & {
     onCopy?: () => void;
     onError?: (error: Error) => void;
+    /** Timeout in ms for copy feedback indicator */
     timeout?: number;
 };
 
 export const CodeBlockCopyButton = ({
     onCopy,
     onError,
-    timeout = 2000,
+    timeout = COPY_FEEDBACK_TIMEOUT_MS,
     children,
     className,
     ...props
@@ -166,6 +185,7 @@ export const CodeBlockCopyButton = ({
 
     return (
         <Button
+            aria-label={isCopied ? "Copied" : "Copy code"}
             className={cn("shrink-0", className)}
             onClick={copyToClipboard}
             size="icon"

@@ -11,6 +11,11 @@
 
 import { Copy, Pencil, ThumbsDown, ThumbsUp } from "lucide-react";
 import { memo, useCallback } from "react";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/shared/components/tooltip";
 import { cn } from "@/lib/utils";
 import type { MessageVote, VoteType } from "../../types";
 
@@ -61,7 +66,7 @@ function ActionButton({
     children,
     className,
 }: ActionButtonProps) {
-    return (
+    const button = (
         <button
             className={cn(
                 "inline-flex size-7 items-center justify-center rounded-md",
@@ -74,11 +79,21 @@ function ActionButton({
             )}
             disabled={disabled}
             onClick={onClick}
-            title={tooltip}
             type="button"
         >
             {children}
         </button>
+    );
+
+    if (!tooltip) {
+        return button;
+    }
+
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>{button}</TooltipTrigger>
+            <TooltipContent side="bottom">{tooltip}</TooltipContent>
+        </Tooltip>
     );
 }
 

@@ -84,7 +84,8 @@ export default function LoginPage() {
                 });
                 return;
             }
-        } catch {
+        } catch (error) {
+            console.error("Session exchange failed:", error);
             toast({
                 type: "error",
                 description:

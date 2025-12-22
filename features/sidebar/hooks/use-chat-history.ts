@@ -9,8 +9,37 @@ type HistoryResponse = {
     nextCursor?: string;
 };
 
-const fetcher = (url: string): Promise<HistoryResponse> =>
-    fetch(url).then((res) => res.json());
+const fetcher = async (url: string): Promise<HistoryResponse> => {
+    try {
+        const res = await fetch(url);
+        if (!res.ok) {
+            throw new Error(`HTTP error: ${res.status}`);
+        }
+        const data = await res.json();
+        // Validate response structure
+        if (!isValidHistoryResponse(data)) {
+            throw new Error("Invalid response format");
+        }
+        return data;
+    } catch (error) {
+        console.error("[useChatHistory] Fetch error:", error);
+        throw error;
+    }
+};
+
+/**
+ * Type guard for validating HistoryResponse structure.
+ */
+function isValidHistoryResponse(data: unknown): data is HistoryResponse {
+    return (
+        typeof data === "object" &&
+        data !== null &&
+        "chats" in data &&
+        Array.isArray((data as HistoryResponse).chats) &&
+        "hasMore" in data &&
+        typeof (data as HistoryResponse).hasMore === "boolean"
+    );
+}
 
 const getKey = (
     pageIndex: number,
@@ -47,6 +76,9 @@ export function useChatHistory() {
     };
 
     const deleteChat = async (chatId: string) => {
+        // Store previous state for rollback
+        const previousData = data;
+
         // Optimistic update
         mutate(
             data?.map((page: HistoryResponse) => ({
@@ -58,22 +90,53 @@ export function useChatHistory() {
             false
         );
 
-        // Call API
-        await fetch(`/api/chat?id=${chatId}`, { method: "DELETE" });
+        try {
+            // Call API
+            const response = await fetch(`/api/chat?id=${chatId}`, {
+                method: "DELETE",
+            });
 
-        // Revalidate
-        mutate();
+            if (!response.ok) {
+                throw new Error(`Failed to delete chat: ${response.status}`);
+            }
+
+            // Revalidate on success
+            mutate();
+        } catch (error) {
+            // Rollback on failure
+            if (previousData) {
+                mutate(previousData, false);
+            }
+            throw error;
+        }
     };
 
     const deleteAllChats = async () => {
+        // Store previous state for rollback
+        const previousData = data;
+
         // Optimistic update
         mutate([], false);
 
-        // Call API
-        await fetch("/api/history", { method: "DELETE" });
+        try {
+            // Call API
+            const response = await fetch("/api/history", { method: "DELETE" });
 
-        // Revalidate
-        mutate();
+            if (!response.ok) {
+                throw new Error(
+                    `Failed to delete all chats: ${response.status}`
+                );
+            }
+
+            // Revalidate on success
+            mutate();
+        } catch (error) {
+            // Rollback on failure
+            if (previousData) {
+                mutate(previousData, false);
+            }
+            throw error;
+        }
     };
 
     return {

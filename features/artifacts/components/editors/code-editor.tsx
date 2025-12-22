@@ -92,7 +92,11 @@ function PureCodeEditor({ content, onSaveContent, status }: CodeEditorProps) {
 
     // Load CodeMirror modules on mount
     useEffect(() => {
-        loadCodeMirrorModules().then(setModules);
+        loadCodeMirrorModules()
+            .then(setModules)
+            .catch((error) => {
+                console.error("[CodeEditor] Failed to load modules:", error);
+            });
     }, []);
 
     // Initialize editor once modules are loaded

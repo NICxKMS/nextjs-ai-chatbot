@@ -105,10 +105,14 @@ function PureTextEditor({ content, onContentChange, status }: TextEditorProps) {
 
     // Load TipTap modules on mount
     useEffect(() => {
-        loadTipTapModules().then((loadedModules) => {
-            modulesRef.current = loadedModules;
-            setModules(loadedModules);
-        });
+        loadTipTapModules()
+            .then((loadedModules) => {
+                modulesRef.current = loadedModules;
+                setModules(loadedModules);
+            })
+            .catch((error) => {
+                console.error("[TextEditor] Failed to load modules:", error);
+            });
     }, []);
 
     if (!modules) {

@@ -16,7 +16,6 @@ import {
     documentHandlersByArtifactKind,
 } from "@/features/artifacts/server";
 import type { AppSession } from "@/lib/auth/types";
-import { AppError } from "@/lib/errors";
 import { generateUUID } from "@/lib/utils";
 
 // =============================================================================
@@ -74,62 +73,95 @@ export function createDocument({
         execute: async ({ title, kind }) => {
             const id = generateUUID();
 
-            // Write artifact metadata to stream
-            dataStream.write({
-                type: "data-kind",
-                data: kind,
-            });
-
-            dataStream.write({
-                type: "data-id",
-                data: id,
-            });
-
-            dataStream.write({
-                type: "data-title",
-                data: title,
-            });
-
-            dataStream.write({
-                type: "data-clear",
-                data: null,
-            });
-
-            // Find the appropriate document handler
-            const documentHandler = documentHandlersByArtifactKind.find(
-                (handler) => handler.kind === kind
-            );
-
-            if (!documentHandler) {
-                throw new AppError({
-                    code: "validation:invalid_input",
-                    message: `No document handler found for kind: ${kind}`,
+            try {
+                // Write artifact metadata to stream (transient = ephemeral UI updates)
+                dataStream.write({
+                    type: "data-kind",
+                    data: kind,
+                    transient: true,
                 });
+
+                dataStream.write({
+                    type: "data-id",
+                    data: id,
+                    transient: true,
+                });
+
+                dataStream.write({
+                    type: "data-title",
+                    data: title,
+                    transient: true,
+                });
+
+                dataStream.write({
+                    type: "data-clear",
+                    data: null,
+                    transient: true,
+                });
+
+                // Find the appropriate document handler
+                const documentHandler = documentHandlersByArtifactKind.find(
+                    (handler) => handler.kind === kind
+                );
+
+                if (!documentHandler) {
+                    // Write error to stream before throwing (transient = not persisted)
+                    dataStream.write({
+                        type: "data-error",
+                        data: `No document handler found for kind: ${kind}`,
+                        transient: true,
+                    });
+                    return {
+                        id,
+                        title,
+                        kind,
+                        error: `No document handler found for kind: ${kind}`,
+                    };
+                }
+
+                // Execute the document handler's create callback
+                await documentHandler.onCreateDocument({
+                    id,
+                    title,
+                    dataStream,
+                    session,
+                    chatId,
+                    model,
+                });
+
+                // Signal completion (transient = ephemeral UI signal)
+                dataStream.write({
+                    type: "data-finish",
+                    data: null,
+                    transient: true,
+                });
+
+                return {
+                    id,
+                    title,
+                    kind,
+                    content:
+                        "A document was created and is now visible to the user.",
+                };
+            } catch (error) {
+                // Log the error for debugging
+                console.error("[createDocument] Tool execution error:", error);
+                
+                // Write error to stream to notify client (transient = not persisted)
+                dataStream.write({
+                    type: "data-error",
+                    data: error instanceof Error ? error.message : "Unknown error creating document",
+                    transient: true,
+                });
+                
+                // Return error object instead of throwing to prevent stream corruption
+                return {
+                    id,
+                    title,
+                    kind,
+                    error: error instanceof Error ? error.message : "Unknown error creating document",
+                };
             }
-
-            // Execute the document handler's create callback
-            await documentHandler.onCreateDocument({
-                id,
-                title,
-                dataStream,
-                session,
-                chatId,
-                model,
-            });
-
-            // Signal completion
-            dataStream.write({
-                type: "data-finish",
-                data: null,
-            });
-
-            return {
-                id,
-                title,
-                kind,
-                content:
-                    "A document was created and is now visible to the user.",
-            };
         },
     });
 }

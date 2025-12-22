@@ -281,6 +281,7 @@ export async function POST(request: Request): Promise<Response> {
                         writer.write({
                             type: "data-chat-title",
                             data: chatTitle,
+                            transient: true,
                         });
                     } catch (titleError) {
                         console.warn(
@@ -318,14 +319,6 @@ export async function POST(request: Request): Promise<Response> {
                 const providerOptions = buildProviderOptions(modelId);
                 const hasReasoning = isReasoningModel(modelId);
 
-                // Debug: Log reasoning configuration
-                console.log("[Chat API] Reasoning config:", {
-                    modelId,
-                    hasReasoning,
-                    reasoningType: getReasoningType(modelId),
-                    providerOptions,
-                });
-
                 // Stream the AI response
                 const result = streamText({
                     model,
@@ -341,7 +334,7 @@ export async function POST(request: Request): Promise<Response> {
                     providerOptions,
                     stopWhen: stepCountIs(5), // Allow multi-step tool calls
                     onFinish: async ({ text, usage }) => {
-                        // Stream usage data
+                        // Stream usage data (transient = ephemeral UI info, not persisted)
                         if (usage) {
                             writer.write({
                                 type: "data-usage",
@@ -350,6 +343,7 @@ export async function POST(request: Request): Promise<Response> {
                                     outputTokens: usage.outputTokens,
                                     totalTokens: usage.totalTokens,
                                 },
+                                transient: true,
                             });
 
                             console.info("[Chat API] Token usage:", {

@@ -13,6 +13,7 @@ export {
     SettingsIconButton,
     SettingsSheet,
 } from "./components/settings-sheet";
+export { SettingsHydration } from "./components/settings-hydration";
 // Store exports
 export {
     type AppSettings,
@@ -21,5 +22,6 @@ export {
     type SamplingSettings,
     type SettingsStore,
     useSettings,
+    useSettingsHydration,
     useSettingsSnapshot,
 } from "./stores/settings-store";

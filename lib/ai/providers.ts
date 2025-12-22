@@ -89,11 +89,25 @@ const providerRegistry = createProviderRegistry(baseProviders);
 // =============================================================================
 
 /**
+ * Error thrown when a language model cannot be resolved
+ */
+export class ModelResolutionError extends Error {
+    constructor(
+        public readonly modelId: string,
+        public readonly reason: string
+    ) {
+        super(`Failed to resolve model '${modelId}': ${reason}`);
+        this.name = "ModelResolutionError";
+    }
+}
+
+/**
  * Get a language model from the unified registry
  * Automatically wraps reasoning models with chain-of-thought middleware
  *
  * @param id - Model ID in format "provider:modelId" or just "modelId" (will lookup provider)
  * @returns LanguageModel instance, wrapped with reasoning middleware if applicable
+ * @throws {ModelResolutionError} When the model cannot be found or provider is not configured
  */
 export function getLanguageModel(id: string): LanguageModel {
     // Check for mock AI mode (testing)
@@ -106,31 +120,50 @@ export function getLanguageModel(id: string): LanguageModel {
 
     // Resolve the actual provider:modelId format
     let resolvedId: string;
+    let providerId: string;
+    
     if (id.includes(":")) {
         // Already in provider:model format
         // Extract actual model name (remove provider prefix for providers that expect just the model name)
-        const [provider, ...modelParts] = id.split(":");
-        const modelName = modelParts.join(":");
-        resolvedId = `${provider}:${modelName}`;
+        const parts = id.split(":");
+        providerId = parts[0] ?? "unknown";
+        const modelName = parts.slice(1).join(":");
+        resolvedId = `${providerId}:${modelName}`;
     } else if (metadata) {
         // Use metadata to determine provider
+        providerId = metadata.provider;
         resolvedId = `${metadata.provider}:${id}`;
     } else {
         // Fallback: assume it's the full ID
         resolvedId = id;
+        providerId = id.split(":")[0] || "unknown";
     }
 
-    const model = providerRegistry.languageModel(
-        resolvedId as `${string}:${string}`
-    );
-
-    // Wrap with reasoning middleware if this is a reasoning model
-    const reasoningType = getReasoningType(id);
-    if (reasoningType !== "none") {
-        return wrapWithReasoningMiddleware(model, id);
+    // Check if the provider is registered
+    if (!baseProviders[providerId]) {
+        throw new ModelResolutionError(
+            id,
+            `Provider '${providerId}' is not configured. Please check that the API key is set.`
+        );
     }
 
-    return model;
+    try {
+        const model = providerRegistry.languageModel(
+            resolvedId as `${string}:${string}`
+        );
+
+        // Wrap with reasoning middleware if this is a reasoning model
+        const reasoningType = getReasoningType(id);
+        if (reasoningType !== "none") {
+            return wrapWithReasoningMiddleware(model, id);
+        }
+
+        return model;
+    } catch (error) {
+        // Wrap the underlying error with context
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new ModelResolutionError(id, errorMessage);
+    }
 }
 
 /**

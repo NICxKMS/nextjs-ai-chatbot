@@ -230,8 +230,73 @@ function createMockStreamResponse(response: MockResponse): string {
 }
 
 /**
- * Configure the page to use mock AI responses.
- * Must be called BEFORE navigating to the app in tests.
+ * Create a streaming response body that simulates real streaming with delays.
+ * This is used for tests that need to verify streaming behavior (stop button, etc.)
+ *
+ * @param response - The mock response configuration
+ * @param chunkDelayMs - Delay between chunks in milliseconds
+ * @returns An async generator that yields SSE chunks
+ */
+async function* createStreamingChunks(
+    response: MockResponse,
+    chunkDelayMs: number
+): AsyncGenerator<string> {
+    const messageId = `mock-msg-${Date.now()}`;
+
+    // Start step
+    yield `data: {"type":"start-step"}\n\n`;
+    await new Promise((r) => setTimeout(r, chunkDelayMs));
+
+    // Text start
+    yield `data: {"type":"text-start","id":"${messageId}"}\n\n`;
+    await new Promise((r) => setTimeout(r, chunkDelayMs));
+
+    // Text streaming chunks - each word is a separate SSE event with delay
+    const words = response.text.split(" ");
+    for (const word of words) {
+        const escapedWord = JSON.stringify(word + " ").slice(1, -1);
+        yield `data: {"type":"text-delta","id":"${messageId}","delta":"${escapedWord}"}\n\n`;
+        await new Promise((r) => setTimeout(r, chunkDelayMs));
+    }
+
+    // Text end
+    yield `data: {"type":"text-end","id":"${messageId}"}\n\n`;
+    await new Promise((r) => setTimeout(r, chunkDelayMs));
+
+    // Tool calls if present
+    if (response.toolCalls?.length) {
+        for (const toolCall of response.toolCalls) {
+            const toolCallId = `mock-tool-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            yield `data: {"type":"tool-call-start","id":"${toolCallId}","toolName":"${toolCall.name}"}\n\n`;
+            await new Promise((r) => setTimeout(r, chunkDelayMs));
+            yield `data: {"type":"tool-call-args","id":"${toolCallId}","args":${JSON.stringify(toolCall.args)}}\n\n`;
+            await new Promise((r) => setTimeout(r, chunkDelayMs));
+            if (toolCall.result) {
+                yield `data: {"type":"tool-result","id":"${toolCallId}","result":${JSON.stringify(toolCall.result)}}\n\n`;
+                await new Promise((r) => setTimeout(r, chunkDelayMs));
+            }
+        }
+    }
+
+    // Finish step
+    yield `data: {"type":"finish-step"}\n\n`;
+    await new Promise((r) => setTimeout(r, chunkDelayMs));
+
+    // Finish with usage statistics
+    yield `data: {"type":"finish","finishReason":"stop","usage":{"inputTokens":10,"outputTokens":${response.text.length}}}\n\n`;
+
+    // Done signal
+    yield `data: [DONE]\n\n`;
+}
+
+/**
+ * Configure the page to use mock AI responses at the Playwright network layer.
+ * 
+ * NOTE: With USE_MOCK_AI=true in the server environment, the server-side
+ * mock provider handles AI responses. This function provides an additional
+ * client-side fallback for AI streaming responses only.
+ * 
+ * All other API calls (history, chat details, auth) hit real endpoints.
  *
  * @param page - Playwright page instance
  * @param config - Optional partial configuration to override defaults
@@ -242,76 +307,85 @@ export async function setupMockAI(
 ): Promise<void> {
     const mergedConfig = { ...DEFAULT_MOCK_CONFIG, ...config };
 
-    // Mock the main chat API endpoint
+    // Mock ONLY the main chat API POST endpoint for AI streaming responses
+    // All other endpoints (history, chat/*, etc.) hit real server
     await page.route("**/api/chat", async (route) => {
         const request = route.request();
 
-        if (request.method() === "POST") {
-            // Parse request to get user message for custom responses
-            let userMessage = "";
-            try {
-                const body = await request.postDataJSON();
-                const lastMessage = body.messages?.findLast(
-                    (m: { role: string }) => m.role === "user"
-                );
-                userMessage =
-                    typeof lastMessage?.content === "string"
-                        ? lastMessage.content
-                        : (lastMessage?.content?.[0]?.text ?? "");
-            } catch {
-                // Ignore parse errors, use default response
-            }
-
-            // Find matching custom response
-            let response: MockResponse = {
-                text: mergedConfig.defaultResponse,
-            };
-
-            for (const [pattern, customResponse] of mergedConfig.customResponses) {
-                if (pattern.test(userMessage)) {
-                    response = customResponse;
-                    break;
-                }
-            }
-
-            // Simulate network delay
-            await new Promise((resolve) =>
-                setTimeout(resolve, response.delay ?? mergedConfig.responseDelay)
-            );
-
-            // Return mock streaming response with proper SSE format
-            await route.fulfill({
-                status: 200,
-                contentType: "text/event-stream",
-                headers: {
-                    "Cache-Control": "no-cache, no-transform",
-                    Connection: "keep-alive",
-                    "X-Mock-Response": "true",
-                },
-                body: createMockStreamResponse(response),
-            });
-        } else {
+        // Only intercept POST requests (AI chat completions)
+        if (request.method() !== "POST") {
             await route.continue();
-        }
-    });
-
-    // Also mock any /api/chat/* endpoints (e.g., /api/chat/title)
-    await page.route("**/api/chat/*", async (route) => {
-        const request = route.request();
-        const url = request.url();
-
-        // Title generation endpoint
-        if (url.includes("/title") && request.method() === "POST") {
-            await route.fulfill({
-                status: 200,
-                contentType: "application/json",
-                body: JSON.stringify({ title: "Test Chat" }),
-            });
             return;
         }
 
-        // For other endpoints, continue to real handler
-        await route.continue();
+        // Parse request to get user message for custom responses
+        let userMessage = "";
+        try {
+            const body = await request.postDataJSON();
+            const lastMessage = body.messages?.findLast(
+                (m: { role: string }) => m.role === "user"
+            );
+            userMessage =
+                typeof lastMessage?.content === "string"
+                    ? lastMessage.content
+                    : (lastMessage?.content?.[0]?.text ?? "");
+        } catch {
+            // Ignore parse errors, use default response
+        }
+
+        // Find matching custom response
+        let response: MockResponse = {
+            text: mergedConfig.defaultResponse,
+        };
+
+        for (const [pattern, customResponse] of mergedConfig.customResponses) {
+            if (pattern.test(userMessage)) {
+                response = customResponse;
+                break;
+            }
+        }
+
+        // Determine if we need streaming with delays (for stop button tests)
+        const needsSlowStreaming = /long|story|essay|very/i.test(userMessage);
+        const chunkDelayMs = needsSlowStreaming ? 150 : 20;
+
+        // For streaming, we need to use fulfill with a body that simulates streaming
+        // Since Playwright doesn't support true streaming easily, we'll use a longer
+        // response for tests that need stop button visibility
+        if (needsSlowStreaming) {
+            // Extended response for stop button tests - more words = more time
+            const extendedText =
+                "This is a very long story about a cat. " +
+                "Once upon a time, there was a fluffy cat named Whiskers. " +
+                "Whiskers loved to explore the garden every morning. " +
+                "One day, Whiskers found a magical mouse that could talk. " +
+                "The mouse told Whiskers about a hidden treasure. " +
+                "Together they went on an adventure through the forest. " +
+                "They crossed rivers and climbed mountains. " +
+                "Finally, they found the treasure chest. " +
+                "Inside was the most delicious cat food ever made. " +
+                "Whiskers shared it with all the neighborhood cats. " +
+                "And they all lived happily ever after. The end.";
+            response = { ...response, text: extendedText };
+        }
+
+        // Collect all chunks and send with small delays using fulfill
+        const chunks: string[] = [];
+        for await (const chunk of createStreamingChunks(response, chunkDelayMs)) {
+            chunks.push(chunk);
+        }
+
+        // Return mock streaming response with proper SSE format
+        await route.fulfill({
+            status: 200,
+            contentType: "text/event-stream",
+            headers: {
+                "Cache-Control": "no-cache, no-transform",
+                Connection: "keep-alive",
+                "X-Mock-Response": "true",
+            },
+            body: chunks.join(""),
+        });
     });
 }
 

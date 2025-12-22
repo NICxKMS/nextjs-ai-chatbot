@@ -15,7 +15,6 @@ import { documentHandlersByArtifactKind } from "@/features/artifacts/server";
 import type { AppSession } from "@/lib/auth/types";
 import { createContext } from "@/lib/data/base";
 import { getDocumentCached } from "@/lib/data/cached";
-import { AppError } from "@/lib/errors";
 
 // =============================================================================
 // TYPES
@@ -69,57 +68,90 @@ export function updateDocument({
                 .describe("The description of changes that need to be made"),
         }),
         execute: async ({ id, description }) => {
-            // Create data context from session
-            const ctx = createContext(session.user.id, session.user.type);
+            try {
+                // Create data context from session
+                const ctx = createContext(session.user.id, session.user.type);
 
-            // Fetch the existing document
-            const document = await getDocumentCached(id, ctx);
+                // Fetch the existing document
+                const document = await getDocumentCached(id, ctx);
 
-            if (!document) {
+                if (!document) {
+                    dataStream.write({
+                        type: "data-error",
+                        data: "Document not found",
+                        transient: true,
+                    });
+                    return {
+                        error: "Document not found",
+                    };
+                }
+
+                // Clear existing content before streaming update (transient = ephemeral UI signal)
+                dataStream.write({
+                    type: "data-clear",
+                    data: null,
+                    transient: true,
+                });
+
+                // Find the appropriate document handler
+                const documentHandler = documentHandlersByArtifactKind.find(
+                    (handler) => handler.kind === document.kind
+                );
+
+                if (!documentHandler) {
+                    // Write error to stream before returning (transient = not persisted)
+                    dataStream.write({
+                        type: "data-error",
+                        data: `No document handler found for kind: ${document.kind}`,
+                        transient: true,
+                    });
+                    return {
+                        id,
+                        title: document.title,
+                        kind: document.kind,
+                        error: `No document handler found for kind: ${document.kind}`,
+                    };
+                }
+
+                // Execute the document handler's update callback
+                await documentHandler.onUpdateDocument({
+                    document,
+                    description,
+                    dataStream,
+                    session,
+                    model,
+                });
+
+                // Signal completion (transient = ephemeral UI signal)
+                dataStream.write({
+                    type: "data-finish",
+                    data: null,
+                    transient: true,
+                });
+
                 return {
-                    error: "Document not found",
+                    id,
+                    title: document.title,
+                    kind: document.kind,
+                    content: "The document has been updated successfully.",
+                };
+            } catch (error) {
+                // Log the error for debugging
+                console.error("[updateDocument] Tool execution error:", error);
+                
+                // Write error to stream to notify client (transient = not persisted)
+                dataStream.write({
+                    type: "data-error",
+                    data: error instanceof Error ? error.message : "Unknown error updating document",
+                    transient: true,
+                });
+                
+                // Return error object instead of throwing to prevent stream corruption
+                return {
+                    id,
+                    error: error instanceof Error ? error.message : "Unknown error updating document",
                 };
             }
-
-            // Clear existing content before streaming update
-            dataStream.write({
-                type: "data-clear",
-                data: null,
-            });
-
-            // Find the appropriate document handler
-            const documentHandler = documentHandlersByArtifactKind.find(
-                (handler) => handler.kind === document.kind
-            );
-
-            if (!documentHandler) {
-                throw new AppError({
-                    code: "validation:invalid_input",
-                    message: `No document handler found for kind: ${document.kind}`,
-                });
-            }
-
-            // Execute the document handler's update callback
-            await documentHandler.onUpdateDocument({
-                document,
-                description,
-                dataStream,
-                session,
-                model,
-            });
-
-            // Signal completion
-            dataStream.write({
-                type: "data-finish",
-                data: null,
-            });
-
-            return {
-                id,
-                title: document.title,
-                kind: document.kind,
-                content: "The document has been updated successfully.",
-            };
         },
     });
 }
