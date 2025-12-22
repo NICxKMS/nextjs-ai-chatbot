@@ -69,59 +69,250 @@ export const MOCK_ENV = {
 } as const;
 
 /**
+ * Mock AI configuration type
+ */
+export type MockAIConfig = {
+    /** Default response text */
+    defaultResponse: string;
+    /** Response delay in ms (simulate network) */
+    responseDelay: number;
+    /** Custom responses by message pattern */
+    customResponses: Map<RegExp, MockResponse>;
+};
+
+/**
+ * Mock response type
+ */
+export type MockResponse = {
+    text: string;
+    toolCalls?: ToolCallMock[];
+    delay?: number;
+};
+
+/**
+ * Tool call mock type
+ */
+export type ToolCallMock = {
+    name: string;
+    args: Record<string, unknown>;
+    result?: string;
+};
+
+/**
+ * Default mock configuration
+ */
+const DEFAULT_MOCK_CONFIG: MockAIConfig = {
+    defaultResponse: "This is a mock AI response for testing.",
+    responseDelay: 50,
+    customResponses: new Map([
+        // Code generation requests
+        [
+            /python|javascript|typescript|code|function|program/i,
+            {
+                text: "Here's the code you requested:",
+                toolCalls: [
+                    {
+                        name: "createDocument",
+                        args: {
+                            kind: "code",
+                            title: "example.py",
+                            content:
+                                "def hello():\n    print('Hello, World!')\n\nhello()",
+                        },
+                    },
+                ],
+            },
+        ],
+        // Fibonacci specifically
+        [
+            /fibonacci/i,
+            {
+                text: "Here's a Fibonacci function:",
+                toolCalls: [
+                    {
+                        name: "createDocument",
+                        args: {
+                            kind: "code",
+                            title: "fibonacci.py",
+                            content:
+                                "def fibonacci(n):\n    if n <= 1:\n        return n\n    return fibonacci(n-1) + fibonacci(n-2)",
+                        },
+                    },
+                ],
+            },
+        ],
+        // Document requests
+        [
+            /document|write|essay|article/i,
+            {
+                text: "Here's the document:",
+                toolCalls: [
+                    {
+                        name: "createDocument",
+                        args: {
+                            kind: "text",
+                            title: "Document",
+                            content:
+                                "# Document\n\nThis is a test document created for testing purposes.",
+                        },
+                    },
+                ],
+            },
+        ],
+    ]),
+};
+
+/**
+ * Create mock streaming response body with proper AI SDK SSE format.
+ * Uses the Vercel AI SDK protocol with proper SSE formatting:
+ * - Each event is `data: {...}\n\n`
+ * - Types: start-step, text-start, text-delta, text-end, finish-step, finish, [DONE]
+ *
+ * @param response - The mock response configuration
+ * @returns Formatted SSE stream response
+ */
+function createMockStreamResponse(response: MockResponse): string {
+    const chunks: string[] = [];
+    const messageId = `mock-msg-${Date.now()}`;
+
+    // Start step
+    chunks.push(`data: {"type":"start-step"}\n\n`);
+
+    // Text start
+    chunks.push(`data: {"type":"text-start","id":"${messageId}"}\n\n`);
+
+    // Text streaming chunks - each word is a separate SSE event
+    const words = response.text.split(" ");
+    for (const word of words) {
+        // Escape special characters in JSON string
+        const escapedWord = JSON.stringify(word + " ").slice(1, -1);
+        chunks.push(
+            `data: {"type":"text-delta","id":"${messageId}","delta":"${escapedWord}"}\n\n`
+        );
+    }
+
+    // Text end
+    chunks.push(`data: {"type":"text-end","id":"${messageId}"}\n\n`);
+
+    // Tool calls if present
+    if (response.toolCalls?.length) {
+        for (const toolCall of response.toolCalls) {
+            const toolCallId = `mock-tool-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            // Tool call start
+            chunks.push(
+                `data: {"type":"tool-call-start","id":"${toolCallId}","toolName":"${toolCall.name}"}\n\n`
+            );
+            // Tool call args
+            chunks.push(
+                `data: {"type":"tool-call-args","id":"${toolCallId}","args":${JSON.stringify(toolCall.args)}}\n\n`
+            );
+            // Tool result (if provided)
+            if (toolCall.result) {
+                chunks.push(
+                    `data: {"type":"tool-result","id":"${toolCallId}","result":${JSON.stringify(toolCall.result)}}\n\n`
+                );
+            }
+        }
+    }
+
+    // Finish step
+    chunks.push(`data: {"type":"finish-step"}\n\n`);
+
+    // Finish with usage statistics
+    chunks.push(
+        `data: {"type":"finish","finishReason":"stop","usage":{"inputTokens":10,"outputTokens":${response.text.length}}}\n\n`
+    );
+
+    // Done signal
+    chunks.push(`data: [DONE]\n\n`);
+
+    return chunks.join("");
+}
+
+/**
  * Configure the page to use mock AI responses.
- * Call this before navigating to the app in tests.
+ * Must be called BEFORE navigating to the app in tests.
  *
  * @param page - Playwright page instance
+ * @param config - Optional partial configuration to override defaults
  */
-export async function setupMockAI(page: Page): Promise<void> {
-    // Mock AI responses are configured server-side via env vars.
-    // For client-side mocking, we can intercept API calls.
-    await page.route("**/api/chat/**", async (route) => {
+export async function setupMockAI(
+    page: Page,
+    config: Partial<MockAIConfig> = {}
+): Promise<void> {
+    const mergedConfig = { ...DEFAULT_MOCK_CONFIG, ...config };
+
+    // Mock the main chat API endpoint
+    await page.route("**/api/chat", async (route) => {
         const request = route.request();
 
         if (request.method() === "POST") {
-            // Return a mock streaming response
+            // Parse request to get user message for custom responses
+            let userMessage = "";
+            try {
+                const body = await request.postDataJSON();
+                const lastMessage = body.messages?.findLast(
+                    (m: { role: string }) => m.role === "user"
+                );
+                userMessage =
+                    typeof lastMessage?.content === "string"
+                        ? lastMessage.content
+                        : (lastMessage?.content?.[0]?.text ?? "");
+            } catch {
+                // Ignore parse errors, use default response
+            }
+
+            // Find matching custom response
+            let response: MockResponse = {
+                text: mergedConfig.defaultResponse,
+            };
+
+            for (const [pattern, customResponse] of mergedConfig.customResponses) {
+                if (pattern.test(userMessage)) {
+                    response = customResponse;
+                    break;
+                }
+            }
+
+            // Simulate network delay
+            await new Promise((resolve) =>
+                setTimeout(resolve, response.delay ?? mergedConfig.responseDelay)
+            );
+
+            // Return mock streaming response with proper SSE format
             await route.fulfill({
                 status: 200,
-                contentType: "text/plain; charset=utf-8",
+                contentType: "text/event-stream",
                 headers: {
-                    "Transfer-Encoding": "chunked",
+                    "Cache-Control": "no-cache, no-transform",
+                    Connection: "keep-alive",
                     "X-Mock-Response": "true",
                 },
-                body: createMockStreamResponse(
-                    "This is a mock AI response for testing."
-                ),
+                body: createMockStreamResponse(response),
             });
         } else {
             await route.continue();
         }
     });
-}
 
-/**
- * Create a mock streaming response body.
- *
- * @param text - The response text
- * @returns Formatted stream response
- */
-function createMockStreamResponse(text: string): string {
-    // AI SDK stream format with data prefix
-    const chunks: string[] = [];
+    // Also mock any /api/chat/* endpoints (e.g., /api/chat/title)
+    await page.route("**/api/chat/*", async (route) => {
+        const request = route.request();
+        const url = request.url();
 
-    // Split text into chunks to simulate streaming
-    const words = text.split(" ");
-    for (const word of words) {
-        chunks.push(`0:"${word} "\n`);
-    }
+        // Title generation endpoint
+        if (url.includes("/title") && request.method() === "POST") {
+            await route.fulfill({
+                status: 200,
+                contentType: "application/json",
+                body: JSON.stringify({ title: "Test Chat" }),
+            });
+            return;
+        }
 
-    // Add finish message
-    chunks.push(
-        `e:{"finishReason":"stop","usage":{"promptTokens":10,"completionTokens":${text.length}}}\n`
-    );
-    chunks.push(`d:{"finishReason":"stop"}\n`);
-
-    return chunks.join("");
+        // For other endpoints, continue to real handler
+        await route.continue();
+    });
 }
 
 /**
@@ -156,6 +347,7 @@ export async function waitForMessage(
 
 /**
  * Wait for the chat input to be ready for input.
+ * Uses .first() to handle React Strict Mode duplicate elements.
  *
  * @param page - Playwright page instance
  * @param timeout - Maximum wait time in milliseconds
@@ -164,9 +356,10 @@ export async function waitForChatReady(
     page: Page,
     timeout = 5000
 ): Promise<void> {
-    await page.waitForSelector(`${SELECTORS.CHAT_INPUT}:not([disabled])`, {
-        timeout,
-    });
+    await page
+        .locator(`${SELECTORS.CHAT_INPUT}:not([disabled])`)
+        .first()
+        .waitFor({ state: "visible", timeout });
 }
 
 /**
@@ -192,6 +385,7 @@ export async function waitForResponseComplete(
 
 /**
  * Send a message in the chat.
+ * Uses .first() to handle React Strict Mode duplicate elements.
  *
  * @param page - Playwright page instance
  * @param message - Message text to send
@@ -200,8 +394,8 @@ export async function sendChatMessage(
     page: Page,
     message: string
 ): Promise<void> {
-    await page.fill(SELECTORS.CHAT_INPUT, message);
-    await page.click(SELECTORS.SEND_BUTTON);
+    await page.locator(SELECTORS.CHAT_INPUT).first().fill(message);
+    await page.locator(SELECTORS.SEND_BUTTON).first().click();
 }
 
 /**
@@ -305,10 +499,11 @@ export async function isSidebarVisible(page: Page): Promise<boolean> {
 
 /**
  * Check if the chat input is enabled.
+ * Uses .first() to handle React Strict Mode duplicate elements.
  *
  * @param page - Playwright page instance
  * @returns true if chat input is enabled
  */
 export async function isChatInputEnabled(page: Page): Promise<boolean> {
-    return await page.locator(SELECTORS.CHAT_INPUT).isEnabled();
+    return await page.locator(SELECTORS.CHAT_INPUT).first().isEnabled();
 }

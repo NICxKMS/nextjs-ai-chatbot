@@ -5,14 +5,25 @@
 
 import { createServerClient } from "@supabase/ssr";
 import { nanoid } from "nanoid";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { getGuestTokenCookie, setGuestTokenCookie } from "./cookies";
-import { createGuestToken, needsRotation, verifyGuestToken } from "./jwt";
-import type { AppSession, AppUser, DataContext } from "./types";
+import {
+    createDeviceFingerprint,
+    createGuestToken,
+    needsRotation,
+    validateDeviceFingerprint,
+    verifyGuestToken,
+} from "./jwt";
+import type { AppSession, AppUser, DataContext, DeviceFingerprint } from "./types";
 
 /**
  * SessionManager - Handles all session operations
  * Priority: Supabase session > Guest session
+ *
+ * Security features:
+ * - Device fingerprinting (IP + User-Agent binding)
+ * - Automatic token rotation on IP change
+ * - User-Agent validation (strict)
  */
 export class SessionManager {
     private static instance: SessionManager;
@@ -27,8 +38,30 @@ export class SessionManager {
     }
 
     /**
-     * Get current session from cookies
-     * Returns null if no valid session exists
+     * Extract device context from request headers
+     * Works in Server Components, API routes, and middleware
+     */
+    private async getDeviceContext(): Promise<{
+        ip: string | null;
+        userAgent: string | null;
+    }> {
+        const headersList = await headers();
+
+        // IP extraction priority: Vercel > x-forwarded-for > x-real-ip > null
+        const ip =
+            headersList.get("x-vercel-forwarded-for")?.split(",")[0]?.trim() ||
+            headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+            headersList.get("x-real-ip") ||
+            null;
+
+        const userAgent = headersList.get("user-agent");
+
+        return { ip, userAgent };
+    }
+
+    /**
+     * Get current session from cookies with device validation
+     * Returns null if no valid session or device mismatch
      */
     async getSession(): Promise<AppSession | null> {
         // Try Supabase session first
@@ -37,7 +70,7 @@ export class SessionManager {
             return supabaseSession;
         }
 
-        // Fall back to guest session
+        // Fall back to guest session with device validation
         return this.getGuestSession();
     }
 
@@ -85,7 +118,11 @@ export class SessionManager {
     }
 
     /**
-     * Get guest session from cookie
+     * Get guest session from cookie with device validation
+     *
+     * Security: Validates device fingerprint to prevent session theft
+     * - User-Agent mismatch = session rejected (different browser)
+     * - IP change = session valid but token rotated (network change)
      */
     private async getGuestSession(): Promise<AppSession | null> {
         const token = await getGuestTokenCookie();
@@ -96,6 +133,29 @@ export class SessionManager {
         const payload = await verifyGuestToken(token);
         if (!payload) {
             return null;
+        }
+
+        // Validate device fingerprint
+        const { ip, userAgent } = await this.getDeviceContext();
+        const validation = await validateDeviceFingerprint(
+            payload.fp,
+            ip,
+            userAgent
+        );
+
+        // User-Agent mismatch = potential session theft, reject
+        if (!validation.valid) {
+            // Don't delete cookie here - let it expire naturally
+            // This prevents fingerprinting attacks via timing
+            return null;
+        }
+
+        // IP changed = legitimate network change, rotate token
+        if (validation.ipChanged && payload.fp) {
+            const guestId = payload.sub.replace("guest:", "");
+            const newFingerprint = await createDeviceFingerprint(ip, userAgent);
+            const newToken = await createGuestToken(guestId, newFingerprint);
+            await setGuestTokenCookie(newToken);
         }
 
         // Extract guest ID from 'guest:{uuid}' format
@@ -110,12 +170,18 @@ export class SessionManager {
     }
 
     /**
-     * Create a new guest session
+     * Create a new guest session with device binding
+     *
+     * Security: Binds session to current device via fingerprint
      */
     async createGuestSession(): Promise<AppSession> {
         const guestId = nanoid();
-        const token = await createGuestToken(guestId);
 
+        // Create device fingerprint for binding
+        const { ip, userAgent } = await this.getDeviceContext();
+        const fingerprint = await createDeviceFingerprint(ip, userAgent);
+
+        const token = await createGuestToken(guestId, fingerprint);
         await setGuestTokenCookie(token);
 
         const appUser: AppUser = {
@@ -147,6 +213,8 @@ export class SessionManager {
     /**
      * Rotate guest token if needed
      * Called from middleware for proactive rotation
+     *
+     * Security: Also rotates on IP change to bind to new device context
      */
     async rotateGuestTokenIfNeeded(): Promise<boolean> {
         const token = await getGuestTokenCookie();
@@ -159,9 +227,27 @@ export class SessionManager {
             return false;
         }
 
-        if (needsRotation(payload)) {
+        // Check device fingerprint - validate and detect IP change
+        const { ip, userAgent } = await this.getDeviceContext();
+        const validation = await validateDeviceFingerprint(
+            payload.fp,
+            ip,
+            userAgent
+        );
+
+        // User-Agent mismatch = don't rotate, let getSession reject it
+        if (!validation.valid) {
+            return false;
+        }
+
+        // Rotate if: time-based rotation needed OR IP changed
+        const shouldRotate = needsRotation(payload) || validation.ipChanged;
+
+        if (shouldRotate) {
             const guestId = payload.sub.replace("guest:", "");
-            const newToken = await createGuestToken(guestId);
+            // Always use fresh fingerprint on rotation
+            const fingerprint = await createDeviceFingerprint(ip, userAgent);
+            const newToken = await createGuestToken(guestId, fingerprint);
             await setGuestTokenCookie(newToken);
             return true;
         }

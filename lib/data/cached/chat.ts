@@ -113,7 +113,7 @@ export async function getUserChatsCached(
  * Create chat: Write to DB first, then cache
  */
 export async function createChatCached(
-  data: { title: string; visibility?: Visibility },
+  data: { id?: string; title: string; visibility?: Visibility },
   ctx: DataContext
 ): Promise<Chat> {
   const guestMode = isGuest(ctx);
@@ -121,7 +121,7 @@ export async function createChatCached(
   // Guest = cache-only (create mock chat)
   if (guestMode) {
     const mockChat: Chat = {
-      id: crypto.randomUUID(),
+      id: data.id ?? crypto.randomUUID(),
       userId: ctx.userId,
       title: data.title,
       visibility: data.visibility ?? "private",

@@ -22,6 +22,7 @@ import {
     streamText,
     type UIMessage,
 } from "ai";
+import { z } from "zod";
 import {
     buildProviderOptions,
     DEFAULT_MODEL_ID,
@@ -35,7 +36,14 @@ import {
 } from "@/lib/ai";
 import { getSession } from "@/lib/auth";
 import type { AppSession } from "@/lib/auth/types";
-import { AppError, validationError } from "@/lib/errors";
+import {
+    createContext,
+    createChatCached,
+    appendMessagesCached,
+} from "@/lib/data";
+import type { Message } from "@/lib/db";
+import { AppError, forbiddenError, rateLimitError, validationError } from "@/lib/errors";
+import { checkRateLimit } from "@/lib/middleware/rate-limit";
 import { generateUUID } from "@/lib/utils";
 
 // =============================================================================
@@ -44,6 +52,16 @@ import { generateUUID } from "@/lib/utils";
 
 /** Timeout for AI completion requests (55 seconds to stay under serverless limits) */
 const AI_COMPLETION_TIMEOUT_MS = 55000;
+
+/**
+ * Models allowed for guest (unauthenticated) users
+ * Only fast/affordable models to prevent cost abuse
+ */
+const GUEST_ALLOWED_MODELS = new Set([
+    "openai:gpt-4o-mini",
+    "google:gemini-2.0-flash-exp",
+    "google:gemini-1.5-flash",
+]);
 
 // =============================================================================
 // MODEL INSTANTIATION
@@ -129,37 +147,100 @@ async function generateTitle(
 // REQUEST HANDLER
 // =============================================================================
 
-type ChatRequestBody = {
-    id: string;
-    messages: UIMessage[];
-    modelId?: string;
-};
+/**
+ * Schema for validating message parts in UIMessage
+ * Uses passthrough for parts to allow all valid AI SDK part types
+ */
+const messagePartSchema = z.object({
+    type: z.string(),
+}).passthrough();
+
+/**
+ * Schema for validating UIMessage objects
+ * Supports user, assistant, and system roles
+ */
+const uiMessageSchema = z.object({
+    id: z.string().min(1, "Message ID is required"),
+    role: z.enum(["user", "assistant", "system"]),
+    content: z.string().optional(),
+    parts: z.array(messagePartSchema).optional(),
+    createdAt: z.coerce.date().optional(),
+}).passthrough();
+
+/**
+ * Schema for validating the chat request body
+ * Requires a chat ID and at least one message
+ */
+const chatRequestSchema = z.object({
+    id: z.string().min(1, "Chat ID is required"),
+    messages: z.array(uiMessageSchema).min(1, "At least one message is required"),
+    modelId: z.string().optional(),
+});
 
 export async function POST(request: Request): Promise<Response> {
     try {
-        // Get session (optional - guests can chat)
+        // Get session (optional - guests can chat with restrictions)
         const session = await getSession();
         const userId = session?.user?.id;
+        const isGuest = !session || session.user?.type === "guest";
 
-        // Parse and validate request body
-        const body = (await request.json()) as ChatRequestBody;
-        const { id: chatId, messages, modelId = DEFAULT_MODEL_ID } = body;
-
-        // Validate chat ID
-        if (!chatId || typeof chatId !== "string") {
-            throw validationError("Chat ID is required");
+        // Parse and validate request body with Zod schema
+        const rawBody = await request.json().catch(() => null);
+        if (rawBody === null) {
+            throw validationError("Invalid JSON in request body");
         }
-
-        // Validate messages
-        if (!Array.isArray(messages) || messages.length === 0) {
-            throw validationError(
-                "Messages array is required and must not be empty"
-            );
+        
+        const parseResult = chatRequestSchema.safeParse(rawBody);
+        if (!parseResult.success) {
+            const errors = parseResult.error.errors.map(e => `${e.path.join(".")}: ${e.message}`).join(", ");
+            throw validationError(`Invalid request: ${errors}`);
         }
+        
+        const { id: chatId, modelId = DEFAULT_MODEL_ID } = parseResult.data;
+        // Cast validated messages to UIMessage[] for AI SDK compatibility
+        const messages = parseResult.data.messages as UIMessage[];
 
         // Validate model
         if (!isValidModel(modelId)) {
             throw validationError(`Invalid model: ${modelId}`);
+        }
+
+        // =============================================================================
+        // GUEST RESTRICTIONS
+        // =============================================================================
+        
+        // Guests have stricter rate limits (applied in addition to edge middleware)
+        if (isGuest) {
+            // Use IP-based identifier for guest rate limiting
+            const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() 
+                    ?? request.headers.get("x-real-ip") 
+                    ?? "unknown";
+            
+            const guestRateResult = await checkRateLimit(`guest:${ip}`, "guest");
+            if (!guestRateResult.success) {
+                const retryAfter = Math.ceil((guestRateResult.reset - Date.now()) / 1000);
+                throw rateLimitError(retryAfter, {
+                    reason: "Guest rate limit exceeded",
+                    limit: guestRateResult.limit,
+                    remaining: guestRateResult.remaining,
+                });
+            }
+            
+            // Guests can only use affordable models to prevent cost abuse
+            if (!GUEST_ALLOWED_MODELS.has(modelId)) {
+                throw forbiddenError("model", {
+                    reason: "This model requires authentication",
+                    modelId,
+                    allowedModels: Array.from(GUEST_ALLOWED_MODELS),
+                });
+            }
+            
+            console.info("[Chat API] Guest access:", {
+                ip,
+                modelId,
+                chatId,
+                rateRemaining: guestRateResult.remaining,
+            });
         }
 
         // Get the model instance
@@ -192,19 +273,24 @@ export async function POST(request: Request): Promise<Response> {
         // Create streaming response with data parts
         const stream = createUIMessageStream({
             execute: async ({ writer }) => {
-                // Generate and stream title for new chats
+                // Generate title for new chats (store for use in onFinish)
+                let chatTitle: string | undefined;
                 if (isNewChat && userMessageContent) {
                     try {
-                        const title = await generateTitle(userMessageContent, modelId);
+                        chatTitle = await generateTitle(userMessageContent, modelId);
                         writer.write({
                             type: "data-chat-title",
-                            data: title,
+                            data: chatTitle,
                         });
                     } catch (titleError) {
                         console.warn(
                             "[Chat API] Title generation failed:",
                             titleError
                         );
+                        // Use fallback title
+                        chatTitle = userMessageContent.length > 50
+                            ? `${userMessageContent.substring(0, 47)}...`
+                            : userMessageContent;
                     }
                 }
 
@@ -274,6 +360,57 @@ export async function POST(request: Request): Promise<Response> {
                                 completionTokens: usage.outputTokens,
                                 totalTokens: usage.totalTokens,
                             });
+                        }
+
+                        // Save chat and messages to database
+                        try {
+                            const userType = session?.user?.type ?? "guest";
+                            const effectiveUserId = userId ?? toolSession.user.id;
+                            const ctx = createContext(effectiveUserId, userType);
+
+                            // Create chat record for new chats
+                            if (isNewChat && chatTitle) {
+                                await createChatCached({ id: chatId, title: chatTitle }, ctx);
+                            }
+
+                            // Get the last user message from the original messages
+                            const lastUserMsg = messages.findLast((m) => m.role === "user");
+                            // UIMessage uses parts array, extract them directly
+                            const userMessageParts = lastUserMsg?.parts ?? [];
+
+                            // Create message records
+                            const now = new Date();
+                            const messagesToSave: Message[] = [
+                                // User message
+                                {
+                                    id: lastUserMsg?.id ?? generateUUID(),
+                                    chatId,
+                                    role: "user",
+                                    parts: userMessageParts,
+                                    attachments: [],
+                                    createdAt: now,
+                                },
+                                // Assistant message
+                                {
+                                    id: generateUUID(),
+                                    chatId,
+                                    role: "assistant",
+                                    parts: [{ type: "text", text }],
+                                    attachments: [],
+                                    createdAt: new Date(now.getTime() + 1), // Ensure ordering
+                                },
+                            ];
+
+                            await appendMessagesCached(chatId, messagesToSave, ctx);
+
+                            console.info("[Chat API] Messages saved:", {
+                                chatId,
+                                messageCount: messagesToSave.length,
+                                isNewChat,
+                            });
+                        } catch (saveError) {
+                            console.error("[Chat API] Failed to save messages:", saveError);
+                            // Don't throw - the stream response is already sent
                         }
 
                         console.info("[Chat API] Stream complete:", {

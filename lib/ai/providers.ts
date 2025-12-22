@@ -19,6 +19,7 @@ import {
     experimental_createProviderRegistry as createProviderRegistry,
     type LanguageModel,
 } from "ai";
+import { createMockModel, shouldUseMockAI } from "./mock-provider";
 import { MODEL_REGISTRY } from "./models";
 import { getReasoningType, wrapWithReasoningMiddleware } from "./reasoning";
 
@@ -95,6 +96,11 @@ const providerRegistry = createProviderRegistry(baseProviders);
  * @returns LanguageModel instance, wrapped with reasoning middleware if applicable
  */
 export function getLanguageModel(id: string): LanguageModel {
+    // Check for mock AI mode (testing)
+    if (shouldUseMockAI()) {
+        return createMockModel(id) as unknown as LanguageModel;
+    }
+
     // Get metadata for model wrapping
     const metadata = MODEL_REGISTRY[id];
 

@@ -12,6 +12,9 @@ import { config } from "dotenv";
 config({ path: ".env.local" }); // Priority 1
 config({ path: ".env" });        // Priority 2 (won't override existing)
 
+// Enable mock AI for integration tests
+process.env.USE_MOCK_AI = "true";
+
 import { testConfig } from "../config/test-config";
 
 // Log which services are enabled

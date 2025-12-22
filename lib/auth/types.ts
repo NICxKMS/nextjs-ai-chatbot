@@ -31,11 +31,24 @@ export type DataContext = {
     requestId?: string;
 };
 
+/**
+ * Device fingerprint for session binding
+ * Hashes are SHA-256 truncated to 16 chars for compact storage
+ */
+export interface DeviceFingerprint {
+    /** Hashed IP address (first 16 chars of SHA-256) */
+    ipHash: string;
+    /** Hashed User-Agent (first 16 chars of SHA-256) */
+    uaHash: string;
+}
+
 export interface GuestTokenPayload extends JWTPayload {
     sub: string; // 'guest:{uuid}'
     type: "guest";
     iat: number;
     exp: number;
+    /** Device fingerprint for binding validation */
+    fp?: DeviceFingerprint;
 }
 
 export type JWTPayload = {
