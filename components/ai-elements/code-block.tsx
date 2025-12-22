@@ -103,8 +103,14 @@ export const CodeBlock = ({
         highlightCode(code, language, showLineNumbers).then(([light, dark]) => {
             if (!mounted.current) {
                 // Sanitize highlighted HTML to prevent XSS attacks
-                const sanitizedLight = DOMPurify.sanitize(light, DOMPURIFY_CONFIG);
-                const sanitizedDark = DOMPurify.sanitize(dark, DOMPURIFY_CONFIG);
+                const sanitizedLight = DOMPurify.sanitize(
+                    light,
+                    DOMPURIFY_CONFIG
+                );
+                const sanitizedDark = DOMPurify.sanitize(
+                    dark,
+                    DOMPURIFY_CONFIG
+                );
                 setHtml(sanitizedLight);
                 setDarkHtml(sanitizedDark);
                 mounted.current = true;

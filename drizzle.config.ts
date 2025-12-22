@@ -9,7 +9,7 @@ const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
     throw new Error(
         "DATABASE_URL environment variable is required. " +
-        "Please set it in your .env.local file."
+            "Please set it in your .env.local file."
     );
 }
 

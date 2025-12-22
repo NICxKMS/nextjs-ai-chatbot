@@ -2,34 +2,39 @@
  * Chat Loading State
  *
  * Displays skeleton UI while chat data is being loaded.
+ * Uses reusable skeleton components for consistent loading states.
  *
  * @module app/(chat)/loading
  */
 
+import { Skeleton, SkeletonInput, SkeletonMessage } from "@/shared/components";
+
 export default function ChatLoading() {
     return (
-        <div className="flex h-full flex-col">
+        <div
+            aria-label="Loading chat"
+            className="flex h-full flex-col"
+            role="status"
+        >
             {/* Header skeleton */}
             <div className="flex h-14 items-center border-b px-4">
-                <div className="h-6 w-32 animate-pulse rounded bg-muted" />
+                <Skeleton height={24} width={128} />
             </div>
 
             {/* Messages skeleton */}
             <div className="flex-1 space-y-6 p-4">
-                {[1, 2, 3].map((i) => (
-                    <div className="flex gap-4" key={i}>
-                        <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
-                        <div className="flex-1 space-y-2">
-                            <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
-                            <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
-                        </div>
-                    </div>
+                {[0, 1, 2].map((i) => (
+                    <SkeletonMessage
+                        isAssistant={i % 2 === 1}
+                        key={i}
+                        showAvatar
+                    />
                 ))}
             </div>
 
             {/* Input skeleton */}
             <div className="border-t p-4">
-                <div className="h-12 animate-pulse rounded-lg bg-muted" />
+                <SkeletonInput height={48} />
             </div>
         </div>
     );

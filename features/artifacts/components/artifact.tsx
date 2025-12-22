@@ -1,6 +1,5 @@
 "use client";
 
-import type { UseChatHelpers } from "@ai-sdk/react";
 import { formatDistance } from "date-fns";
 import equal from "fast-deep-equal";
 import {
@@ -19,6 +18,7 @@ import { useWindowSize } from "@/shared/hooks";
 import { useSidebar } from "@/shared/ui/sidebar";
 import { artifactRegistry } from "../definitions/base";
 import { useArtifact } from "../hooks";
+import type { ArtifactChatHelpers } from "../types";
 import { ArtifactActions } from "./artifact-actions";
 import { ArtifactClose } from "./artifact-close";
 import { ArtifactErrorBoundary } from "./artifact-error";
@@ -40,7 +40,7 @@ type Document = {
 const fetcher = async (url: string) => {
     const response = await fetch(url);
     if (!response.ok) {
-        throw new Error("Failed to fetch");
+        throw new Error("Failed to fetch document. Please refresh the page.");
     }
     return response.json();
 };
@@ -49,8 +49,8 @@ type ArtifactProps = {
     chatId: string;
     input: string;
     setInput: Dispatch<SetStateAction<string>>;
-    status: UseChatHelpers<any>["status"];
-    stop: UseChatHelpers<any>["stop"];
+    status: ArtifactChatHelpers["status"];
+    stop: ArtifactChatHelpers["stop"];
     attachments: Array<{ name: string; contentType: string; url: string }>;
     setAttachments: Dispatch<
         SetStateAction<
@@ -63,10 +63,10 @@ type ArtifactProps = {
         content: string;
         parts?: Array<{ type: string; text?: string }>;
     }>;
-    setMessages: UseChatHelpers<any>["setMessages"];
+    setMessages: ArtifactChatHelpers["setMessages"];
     votes: Array<{ messageId: string; vote: "up" | "down" }> | undefined;
-    sendMessage: UseChatHelpers<any>["sendMessage"];
-    regenerate: UseChatHelpers<any>["regenerate"];
+    sendMessage: ArtifactChatHelpers["sendMessage"];
+    regenerate: ArtifactChatHelpers["regenerate"];
     isReadonly: boolean;
     selectedVisibilityType: VisibilityType;
     selectedModelId: string;
@@ -408,8 +408,13 @@ function PureArtifact({
                                                     input.trim()
                                                 ) {
                                                     sendMessage({
-                                                        content: input,
                                                         role: "user",
+                                                        parts: [
+                                                            {
+                                                                type: "text",
+                                                                text: input,
+                                                            },
+                                                        ],
                                                     });
                                                     setInput("");
                                                 }

@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { AuthForm } from "@/features/auth";
 import { getSupabaseBrowserClient } from "@/lib/auth/client";
+import { mapSupabaseError } from "@/lib/utils";
 import { toast } from "@/shared/ui";
 
 /**
@@ -29,7 +30,7 @@ export default function LoginPage() {
         ) {
             toast({
                 type: "error",
-                description: "Please provide a valid email and password.",
+                description: "Please enter your email and password.",
             });
             return;
         }
@@ -44,9 +45,12 @@ export default function LoginPage() {
         });
 
         if (error || !data.session) {
+            const friendlyError = mapSupabaseError(
+                error?.message ?? "Invalid credentials"
+            );
             toast({
                 type: "error",
-                description: "Invalid credentials!",
+                description: friendlyError.message,
             });
             return;
         }
@@ -67,7 +71,7 @@ export default function LoginPage() {
                 toast({
                     type: "error",
                     description:
-                        "Login successful, but session setup failed. Please try again.",
+                        "Signed in successfully, but we couldn't set up your session. Please try again.",
                 });
                 return;
             }
@@ -80,7 +84,7 @@ export default function LoginPage() {
                 toast({
                     type: "error",
                     description:
-                        "Login successful, but session setup failed. Please try again.",
+                        "Signed in successfully, but we couldn't set up your session. Please try again.",
                 });
                 return;
             }
@@ -89,7 +93,7 @@ export default function LoginPage() {
             toast({
                 type: "error",
                 description:
-                    "Login successful, but session setup failed. Please try again.",
+                    "A network error occurred. Please check your connection and try again.",
             });
             return;
         }

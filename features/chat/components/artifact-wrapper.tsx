@@ -9,9 +9,10 @@
 
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
+import { Loader } from "@/components/ai-elements/loader";
 import {
-    Artifact,
     artifactDefinitions,
     DataStreamHandler,
     useArtifact,
@@ -21,6 +22,29 @@ import {
     useChatMetadata,
     useModelState,
 } from "./chat-provider";
+
+// =============================================================================
+// LAZY LOADED COMPONENTS
+// =============================================================================
+
+/**
+ * Dynamically imported Artifact component - reduces initial bundle size
+ * The Artifact is only loaded when it becomes visible
+ */
+const LazyArtifact = dynamic(
+    () =>
+        import("@/features/artifacts/components/artifact").then(
+            (m) => m.Artifact
+        ),
+    {
+        ssr: false,
+        loading: () => (
+            <div className="flex h-full w-full items-center justify-center">
+                <Loader />
+            </div>
+        ),
+    }
+);
 
 // =============================================================================
 // TYPES
@@ -114,9 +138,9 @@ export function ArtifactWrapper({
                 dataStream={[]}
             />
 
-            {/* Artifact panel - renders when visible */}
+            {/* Artifact panel - renders when visible (lazy loaded) */}
             {artifact.isVisible && (
-                <Artifact
+                <LazyArtifact
                     attachments={attachments}
                     chatId={chatId}
                     input={artifactInput}
@@ -125,14 +149,8 @@ export function ArtifactWrapper({
                     regenerate={regenerate}
                     selectedModelId={currentModelId}
                     selectedVisibilityType={selectedVisibilityType}
-                    sendMessage={
-                        sendMessage as Parameters<
-                            typeof Artifact
-                        >[0]["sendMessage"]
-                    }
+                    sendMessage={sendMessage}
                     setAttachments={setAttachments}
-                    // Type assertion needed because Artifact uses UseChatHelpers<any>
-                    // but our context uses UseChatHelpers<ChatMessage>
                     setInput={setArtifactInput}
                     setMessages={setMessages}
                     status={status}

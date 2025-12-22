@@ -138,18 +138,24 @@ export function updateDocument({
             } catch (error) {
                 // Log the error for debugging
                 console.error("[updateDocument] Tool execution error:", error);
-                
+
                 // Write error to stream to notify client (transient = not persisted)
                 dataStream.write({
                     type: "data-error",
-                    data: error instanceof Error ? error.message : "Unknown error updating document",
+                    data:
+                        error instanceof Error
+                            ? error.message
+                            : "Unknown error updating document",
                     transient: true,
                 });
-                
+
                 // Return error object instead of throwing to prevent stream corruption
                 return {
                     id,
-                    error: error instanceof Error ? error.message : "Unknown error updating document",
+                    error:
+                        error instanceof Error
+                            ? error.message
+                            : "Unknown error updating document",
                 };
             }
         },

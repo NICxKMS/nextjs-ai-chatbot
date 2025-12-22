@@ -16,6 +16,17 @@ export interface LogEntry {
     message: string;
     timestamp: string;
     context?: LogContext;
+    /** Optional error details */
+    error?: SerializedError;
+}
+
+export interface SerializedError {
+    name: string;
+    message: string;
+    stack?: string;
+    cause?: SerializedError;
+    code?: string | number;
+    [key: string]: unknown;
 }
 
 const LOG_LEVELS: Record<LogLevel, number> = {
@@ -32,28 +43,88 @@ function shouldLog(level: LogLevel): boolean {
     return LOG_LEVELS[level] >= LOG_LEVELS[MIN_LEVEL];
 }
 
-function formatEntry(entry: LogEntry): string {
-    const { level, message, timestamp, context } = entry;
-    const prefix = `[${timestamp}] [${level.toUpperCase()}]`;
+/**
+ * Serialize an error object for structured logging
+ */
+export function serializeError(error: unknown): SerializedError {
+    if (error instanceof Error) {
+        const serialized: SerializedError = {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+        };
 
-    if (context && Object.keys(context).length > 0) {
-        return `${prefix} ${message} ${JSON.stringify(context)}`;
+        // Handle error cause (ES2022+)
+        if (error.cause) {
+            serialized.cause = serializeError(error.cause);
+        }
+
+        // Capture additional properties
+        const errorObj = error as unknown as Record<string, unknown>;
+        if (errorObj.code !== undefined) {
+            serialized.code = errorObj.code as string | number;
+        }
+
+        // Copy any additional enumerable properties
+        for (const key of Object.keys(error)) {
+            if (!(key in serialized)) {
+                serialized[key] = errorObj[key];
+            }
+        }
+
+        return serialized;
     }
 
-    return `${prefix} ${message}`;
+    // Handle non-Error objects
+    if (typeof error === "object" && error !== null) {
+        return {
+            name: "UnknownError",
+            message: JSON.stringify(error),
+            ...(error as Record<string, unknown>),
+        };
+    }
+
+    return {
+        name: "UnknownError",
+        message: String(error),
+    };
+}
+
+function formatEntry(entry: LogEntry): string {
+    const { level, message, timestamp, context, error } = entry;
+    const prefix = `[${timestamp}] [${level.toUpperCase()}]`;
+
+    const parts = [prefix, message];
+
+    if (error) {
+        parts.push(`Error: ${error.name}: ${error.message}`);
+    }
+
+    if (context && Object.keys(context).length > 0) {
+        parts.push(JSON.stringify(context));
+    }
+
+    return parts.join(" ");
 }
 
 function createEntry(
     level: LogLevel,
     message: string,
-    context?: LogContext
+    context?: LogContext,
+    error?: unknown
 ): LogEntry {
-    return {
+    const entry: LogEntry = {
         level,
         message,
         timestamp: new Date().toISOString(),
         context,
     };
+
+    if (error) {
+        entry.error = serializeError(error);
+    }
+
+    return entry;
 }
 
 export interface Logger {
@@ -61,7 +132,13 @@ export interface Logger {
     info(message: string, context?: LogContext): void;
     warn(message: string, context?: LogContext): void;
     error(message: string, context?: LogContext): void;
+    /** Log with error object for structured error logging */
+    errorWithCause(message: string, error: unknown, context?: LogContext): void;
     child(defaultContext: LogContext): Logger;
+    /** Time an operation and log the duration */
+    time<T>(label: string, fn: () => T): T;
+    /** Time an async operation and log the duration */
+    timeAsync<T>(label: string, fn: () => Promise<T>): Promise<T>;
 }
 
 /**
@@ -100,6 +177,16 @@ export const logger: Logger = {
         console.error(formatEntry(createEntry("error", message, context)));
     },
 
+    errorWithCause(message: string, error: unknown, context?: LogContext): void {
+        if (!shouldLog("error")) return;
+        const entry = createEntry("error", message, context, error);
+        console.error(formatEntry(entry));
+        // Also log the full error for detailed debugging
+        if (error instanceof Error && error.stack) {
+            console.error(error.stack);
+        }
+    },
+
     /** Create a child logger with preset context */
     child(defaultContext: LogContext): Logger {
         return {
@@ -111,9 +198,36 @@ export const logger: Logger = {
                 logger.warn(msg, { ...defaultContext, ...ctx }),
             error: (msg: string, ctx?: LogContext) =>
                 logger.error(msg, { ...defaultContext, ...ctx }),
+            errorWithCause: (msg: string, err: unknown, ctx?: LogContext) =>
+                logger.errorWithCause(msg, err, { ...defaultContext, ...ctx }),
             child: (ctx: LogContext) =>
                 logger.child({ ...defaultContext, ...ctx }),
+            time: <T>(label: string, fn: () => T) => logger.time(label, fn),
+            timeAsync: <T>(label: string, fn: () => Promise<T>) =>
+                logger.timeAsync(label, fn),
         };
+    },
+
+    /** Time a synchronous operation */
+    time<T>(label: string, fn: () => T): T {
+        const start = performance.now();
+        try {
+            return fn();
+        } finally {
+            const duration = performance.now() - start;
+            this.debug(`${label} completed`, { durationMs: duration.toFixed(2) });
+        }
+    },
+
+    /** Time an asynchronous operation */
+    async timeAsync<T>(label: string, fn: () => Promise<T>): Promise<T> {
+        const start = performance.now();
+        try {
+            return await fn();
+        } finally {
+            const duration = performance.now() - start;
+            this.debug(`${label} completed`, { durationMs: duration.toFixed(2) });
+        }
     },
 };
 

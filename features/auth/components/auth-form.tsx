@@ -2,12 +2,53 @@
 
 import Form from "next/form";
 import Link from "next/link";
-import { type ComponentProps, forwardRef } from "react";
+import {
+    type ComponentProps,
+    forwardRef,
+    useCallback,
+    useRef,
+    useState,
+} from "react";
 import { useFormStatus } from "react-dom";
 
 import { Loader } from "@/components/ai-elements/loader";
 import { cn } from "@/lib/utils";
 import type { AuthFormProps } from "../types";
+
+// ============================================================================
+// Validation
+// ============================================================================
+
+type ValidationErrors = {
+    email?: string;
+    password?: string;
+};
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 6;
+
+function validateEmail(email: string): string | undefined {
+    if (!email.trim()) {
+        return "Email is required";
+    }
+    if (!EMAIL_REGEX.test(email)) {
+        return "Please enter a valid email address";
+    }
+    return;
+}
+
+function validatePassword(
+    password: string,
+    isRegister: boolean
+): string | undefined {
+    if (!password) {
+        return "Password is required";
+    }
+    if (isRegister && password.length < MIN_PASSWORD_LENGTH) {
+        return `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
+    }
+    return;
+}
 
 // ============================================================================
 // UI Components (inline until shared/ui is populated)
@@ -46,6 +87,23 @@ const Label = forwardRef<HTMLLabelElement, ComponentProps<"label">>(
     }
 );
 Label.displayName = "Label";
+
+/**
+ * Inline error message component for form validation
+ */
+function ErrorMessage({ message, id }: { message?: string; id?: string }) {
+    if (!message) return null;
+    return (
+        <p
+            aria-live="polite"
+            className="mt-1 text-destructive text-sm"
+            id={id}
+            role="alert"
+        >
+            {message}
+        </p>
+    );
+}
 
 const Button = forwardRef<HTMLButtonElement, ComponentProps<"button">>(
     ({ className, ...props }, ref) => {
@@ -120,6 +178,10 @@ export function AuthForm({
     isSuccessful = false,
 }: AuthFormProps) {
     const isLogin = mode === "login";
+    const [errors, setErrors] = useState<ValidationErrors>({});
+    const [touched, setTouched] = useState<Record<string, boolean>>({});
+    const emailRef = useRef<HTMLInputElement>(null);
+    const passwordRef = useRef<HTMLInputElement>(null);
 
     const title = isLogin ? "Sign In" : "Sign Up";
     const description = isLogin
@@ -132,6 +194,76 @@ export function AuthForm({
     const alternateLinkText = isLogin ? "Sign up" : "Sign in";
     const alternateSuffix = isLogin ? " for free." : " instead.";
     const alternateHref = isLogin ? "/register" : "/login";
+
+    // Validate a single field
+    const validateField = useCallback(
+        (name: string, value: string): string | undefined => {
+            if (name === "email") {
+                return validateEmail(value);
+            }
+            if (name === "password") {
+                return validatePassword(value, !isLogin);
+            }
+            return;
+        },
+        [isLogin]
+    );
+
+    // Handle field blur for touched state
+    const handleBlur = useCallback(
+        (e: React.FocusEvent<HTMLInputElement>) => {
+            const { name, value } = e.target;
+            setTouched((prev) => ({ ...prev, [name]: true }));
+            const error = validateField(name, value);
+            setErrors((prev) => ({ ...prev, [name]: error }));
+        },
+        [validateField]
+    );
+
+    // Handle field change for real-time validation when touched
+    const handleChange = useCallback(
+        (e: React.ChangeEvent<HTMLInputElement>) => {
+            const { name, value } = e.target;
+            if (touched[name]) {
+                const error = validateField(name, value);
+                setErrors((prev) => ({ ...prev, [name]: error }));
+            }
+        },
+        [touched, validateField]
+    );
+
+    // Validate all fields before submit
+    const handleFormAction = useCallback(
+        async (formData: FormData) => {
+            const email = formData.get("email") as string;
+            const password = formData.get("password") as string;
+
+            const emailError = validateEmail(email);
+            const passwordError = validatePassword(password, !isLogin);
+
+            const newErrors: ValidationErrors = {
+                email: emailError,
+                password: passwordError,
+            };
+
+            setErrors(newErrors);
+            setTouched({ email: true, password: true });
+
+            // Focus first field with error
+            if (emailError) {
+                emailRef.current?.focus();
+                return;
+            }
+            if (passwordError) {
+                passwordRef.current?.focus();
+                return;
+            }
+
+            // All valid, submit
+            await onSubmit(formData);
+        },
+        [isLogin, onSubmit]
+    );
 
     return (
         <div className="flex h-dvh w-screen items-start justify-center bg-background pt-12 md:items-center md:pt-0">
@@ -148,9 +280,10 @@ export function AuthForm({
 
                 {/* Form */}
                 <Form
-                    action={onSubmit}
+                    action={handleFormAction}
                     className="flex flex-col gap-4 px-4 sm:px-16"
                     data-testid="auth-form"
+                    noValidate
                 >
                     {/* Email Field */}
                     <div className="flex flex-col gap-2">
@@ -161,16 +294,31 @@ export function AuthForm({
                             Email Address
                         </Label>
                         <Input
+                            aria-describedby={
+                                errors.email ? "email-error" : undefined
+                            }
+                            aria-invalid={!!errors.email}
                             autoComplete="email"
                             autoFocus
-                            className="bg-muted text-md md:text-sm"
+                            className={cn(
+                                "bg-muted text-md md:text-sm",
+                                errors.email &&
+                                    touched.email &&
+                                    "border-destructive focus-visible:ring-destructive"
+                            )}
                             data-testid="email-input"
                             defaultValue={defaultEmail}
                             id="email"
                             name="email"
+                            onBlur={handleBlur}
+                            onChange={handleChange}
                             placeholder="user@acme.com"
-                            required
+                            ref={emailRef}
                             type="email"
+                        />
+                        <ErrorMessage
+                            id="email-error"
+                            message={touched.email ? errors.email : undefined}
                         />
                     </div>
 
@@ -183,15 +331,32 @@ export function AuthForm({
                             Password
                         </Label>
                         <Input
+                            aria-describedby={
+                                errors.password ? "password-error" : undefined
+                            }
+                            aria-invalid={!!errors.password}
                             autoComplete={
                                 isLogin ? "current-password" : "new-password"
                             }
-                            className="bg-muted text-md md:text-sm"
+                            className={cn(
+                                "bg-muted text-md md:text-sm",
+                                errors.password &&
+                                    touched.password &&
+                                    "border-destructive focus-visible:ring-destructive"
+                            )}
                             data-testid="password-input"
                             id="password"
                             name="password"
-                            required
+                            onBlur={handleBlur}
+                            onChange={handleChange}
+                            ref={passwordRef}
                             type="password"
+                        />
+                        <ErrorMessage
+                            id="password-error"
+                            message={
+                                touched.password ? errors.password : undefined
+                            }
                         />
                     </div>
 

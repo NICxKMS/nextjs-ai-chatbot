@@ -68,11 +68,17 @@ export default async function ChatPage({ params }: ChatPageProps) {
     if (rawMessages.length >= 2 && user.type !== "guest") {
         try {
             const dbVotes = await voteDb.getVotesByChatId(id, ctx);
-            votes = dbVotes.map((v: { chatId: string; messageId: string; isUpvoted: boolean }) => ({
-                chatId: v.chatId,
-                messageId: v.messageId,
-                vote: v.isUpvoted ? "up" : "down",
-            }));
+            votes = dbVotes.map(
+                (v: {
+                    chatId: string;
+                    messageId: string;
+                    isUpvoted: boolean;
+                }) => ({
+                    chatId: v.chatId,
+                    messageId: v.messageId,
+                    vote: v.isUpvoted ? "up" : "down",
+                })
+            );
         } catch {
             // Continue without votes on error
             votes = [];

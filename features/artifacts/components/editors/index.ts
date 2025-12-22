@@ -17,5 +17,16 @@ export {
     type DiffViewProps,
 } from "./diff-view";
 export { ImageEditor, type ImageEditorProps } from "./image-editor";
+// Lazy-loaded versions for code splitting
+export {
+    editorPreloaders,
+    LazyCodeEditor,
+    LazyConsole,
+    LazyDiffView,
+    LazyImageEditor,
+    LazySheetEditor,
+    LazyTextEditor,
+    preloadAllEditors,
+} from "./lazy";
 export { SheetEditor, type SheetEditorProps } from "./sheet-editor";
 export { TextEditor, type TextEditorProps } from "./text-editor";

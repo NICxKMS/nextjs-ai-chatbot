@@ -8,64 +8,59 @@
  * @module lib/cache-ops
  */
 
-// Message operations
-export {
-    appendMessageToCache,
-    appendMessagesToCache,
-    getMessagesFromCache,
-    getMessagesAfterTimestamp,
-    deleteMessagesAfterTimestamp,
-    getMessageCount,
-} from "./messages";
-
 // Chat operations
 export {
-    createChatInCache,
-    getChatFromCache,
-    updateChatInCache,
-    deleteChatFromCache,
-    deleteAllUserChatsFromCache,
-    getUserChatsFromCache,
-    forkChatInCache,
     chatExistsInCache,
+    createChatInCache,
+    deleteAllUserChatsFromCache,
+    deleteChatFromCache,
+    forkChatInCache,
+    getChatFromCache,
+    getUserChatsFromCache,
+    updateChatInCache,
 } from "./chat";
-
 // Document operations (ZSET hybrid)
 export {
-    createDocumentInCache,
-    getDocumentMetaFromCache,
-    getLatestVersionFromCache,
-    getDocumentWithLatestFromCache,
-    getAllVersionsFromCache,
     appendVersionToCache,
-    forkDocumentInCache,
-    pruneVersionsInCache,
+    createDocumentInCache,
     deleteDocumentFromCache,
+    forkDocumentInCache,
+    getAllVersionsFromCache,
+    getDocumentMetaFromCache,
+    getDocumentWithLatestFromCache,
+    getLatestVersionFromCache,
     getUserDocumentsFromCache,
+    pruneVersionsInCache,
 } from "./documents";
+// Message operations
+export {
+    appendMessagesToCache,
+    appendMessageToCache,
+    deleteMessagesAfterTimestamp,
+    getMessageCount,
+    getMessagesAfterTimestamp,
+    getMessagesFromCache,
+} from "./messages";
 
 // Quota operations
 export {
     checkQuota,
     incrementQuota,
-    resetQuota,
     isQuotaAvailable,
+    resetQuota,
 } from "./quota";
-
-// Vote operations
-export {
-    getVoteFromCache,
-    setVoteInCache,
-    deleteVoteFromCache,
-} from "./votes";
-
-// Suggestion operations
-export {
-    getSuggestionsFromCache,
-    setSuggestionsInCache,
-    deleteSuggestionsFromCache,
-} from "./suggestions";
-export type { CachedSuggestion } from "./suggestions";
-
 // Re-export Lua scripts (for advanced use)
 export * from "./scripts";
+export type { CachedSuggestion } from "./suggestions";
+// Suggestion operations
+export {
+    deleteSuggestionsFromCache,
+    getSuggestionsFromCache,
+    setSuggestionsInCache,
+} from "./suggestions";
+// Vote operations
+export {
+    deleteVoteFromCache,
+    getVoteFromCache,
+    setVoteInCache,
+} from "./votes";

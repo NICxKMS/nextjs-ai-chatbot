@@ -16,6 +16,10 @@ build
 # misc
 .DS_Store
 *.pem
+coverage/
+**/*.csv
+**/*.log
+
 
 # debug
 npm-debug.log*
@@ -28,6 +32,7 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env.local.remote
 
 # turbo
 .turbo

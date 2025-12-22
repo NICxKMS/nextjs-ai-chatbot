@@ -7,7 +7,11 @@
 
 import { z } from "zod";
 import { isAuthResponse, requireAuthForRoute } from "@/lib/auth";
-import { getChatCached, getChatWithMessagesCached, saveVoteCached } from "@/lib/data";
+import {
+    getChatCached,
+    getChatWithMessagesCached,
+    saveVoteCached,
+} from "@/lib/data";
 import {
     AppError,
     forbiddenError,

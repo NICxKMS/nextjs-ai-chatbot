@@ -11,17 +11,17 @@
  */
 import "server-only";
 
-import type { DataContext } from "../types";
-import { isGuest } from "../base";
+import type { UserContext } from "@/lib/cache/types";
+import type { CachedSuggestion } from "@/lib/cache-ops/suggestions";
 import {
+    deleteSuggestionsFromCache,
     getSuggestionsFromCache,
     setSuggestionsInCache,
-    deleteSuggestionsFromCache,
 } from "@/lib/cache-ops/suggestions";
-import type { CachedSuggestion } from "@/lib/cache-ops/suggestions";
-import { getDocumentSuggestions, saveSuggestions } from "../documents";
 import type { Suggestion } from "@/lib/db";
-import type { UserContext } from "@/lib/cache/types";
+import { isGuest } from "../base";
+import { getDocumentSuggestions, saveSuggestions } from "../documents";
+import type { DataContext } from "../types";
 
 /**
  * Convert DataContext to UserContext for cache operations
@@ -92,7 +92,9 @@ export async function getSuggestionsCached(
     if (suggestions.length > 0) {
         // Warm cache
         const cachedSuggestions = suggestions.map(toCachedSuggestion);
-        setSuggestionsInCache(documentId, cachedSuggestions, userCtx).catch(() => {});
+        setSuggestionsInCache(documentId, cachedSuggestions, userCtx).catch(
+            () => {}
+        );
     }
     return suggestions;
 }

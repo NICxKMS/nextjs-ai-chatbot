@@ -5,15 +5,15 @@
  * @module tests/integration/vitest.integration.config
  */
 
-import { defineConfig } from "vitest/config";
 import path from "node:path";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
     test: {
         include: ["tests/integration/**/*.test.ts"],
         exclude: ["**/node_modules/**", "**/dist/**"],
-        testTimeout: 30000, // 30s for integration tests
-        hookTimeout: 30000,
+        testTimeout: 30_000, // 30s for integration tests
+        hookTimeout: 30_000,
         setupFiles: ["./tests/integration/setup.ts"],
         globals: true,
         environment: "node",
@@ -28,7 +28,10 @@ export default defineConfig({
     resolve: {
         alias: {
             "@": path.resolve(__dirname, "../../"),
-            "server-only": path.resolve(__dirname, "../__mocks__/server-only.ts"),
+            "server-only": path.resolve(
+                __dirname,
+                "../__mocks__/server-only.ts"
+            ),
         },
     },
 });

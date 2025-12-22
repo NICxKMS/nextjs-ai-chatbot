@@ -162,13 +162,15 @@ export async function checkRateLimit(
 
     // If no limiter (Redis not configured), fail closed for security
     if (!limiter) {
-        console.error("Redis unavailable - blocking request for safety (rate-limit)");
+        console.error(
+            "Redis unavailable - blocking request for safety (rate-limit)"
+        );
         const defaultLimit = DEFAULT_LIMITS[type];
         return {
             success: false,
             limit: defaultLimit,
             remaining: 0,
-            reset: Date.now() + 60000,
+            reset: Date.now() + 60_000,
             pending: Promise.resolve(),
         };
     }
@@ -199,7 +201,10 @@ export function getRateLimitHeaders(result: RateLimitResult): HeadersInit {
  * Create rate limit error response (429)
  */
 export function rateLimitResponse(result: RateLimitResult): Response {
-    const retryAfter = Math.max(1, Math.ceil((result.reset - Date.now()) / 1000));
+    const retryAfter = Math.max(
+        1,
+        Math.ceil((result.reset - Date.now()) / 1000)
+    );
 
     return new Response(
         JSON.stringify({
@@ -437,7 +442,10 @@ export function createRateLimitMiddleware(config: MiddlewareConfig) {
         } catch (error) {
             // Handle errors based on failOpen setting
             if (failOpen) {
-                console.warn("[RateLimit Middleware] Error, failing open:", error);
+                console.warn(
+                    "[RateLimit Middleware] Error, failing open:",
+                    error
+                );
                 return null;
             }
 

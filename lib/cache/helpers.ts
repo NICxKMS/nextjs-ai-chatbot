@@ -7,10 +7,10 @@
 import "server-only";
 
 import {
-    GUEST_CACHE_TTL_SECONDS,
     AUTH_CHAT_DATA_TTL_SECONDS,
-    GUEST_SESSION_TTL_SECONDS,
     AUTH_SESSION_TTL_SECONDS,
+    GUEST_CACHE_TTL_SECONDS,
+    GUEST_SESSION_TTL_SECONDS,
 } from "./constants";
 
 /**

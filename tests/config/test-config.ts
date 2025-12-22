@@ -37,7 +37,7 @@ export const testConfig = {
     },
 
     // Test timeout for integration tests (longer than unit)
-    integrationTimeout: 30000,
+    integrationTimeout: 30_000,
 } as const;
 
 export type ServiceType = "cache" | "database" | "blob";

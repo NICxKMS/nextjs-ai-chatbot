@@ -58,10 +58,16 @@ export const chat = pgTable(
         title: text("title").notNull().default("New Chat"),
         visibility: visibilityEnum("visibility").notNull().default("private"),
         // Usage context stored as JSON - typed loosely to avoid external deps
-        lastContext: jsonb("last_context").$type<Record<string, unknown> | null>(),
+        lastContext: jsonb("last_context").$type<Record<
+            string,
+            unknown
+        > | null>(),
     },
     (table) => ({
-        userCreatedIdx: index("chat_user_created_idx").on(table.userId, table.createdAt),
+        userCreatedIdx: index("chat_user_created_idx").on(
+            table.userId,
+            table.createdAt
+        ),
     })
 );
 
@@ -81,7 +87,10 @@ export const message = pgTable(
             .notNull(),
     },
     (t) => ({
-        chatCreatedIdx: index("message_chat_created_idx").on(t.chatId, t.createdAt),
+        chatCreatedIdx: index("message_chat_created_idx").on(
+            t.chatId,
+            t.createdAt
+        ),
         // Composite index for rate limiting query (getMessageCountByUserId)
         // Optimizes queries that filter by chatId, createdAt, and role
         chatCreatedRoleIdx: index("message_chat_created_role_idx").on(
@@ -108,7 +117,9 @@ export const vote = pgTable(
         isUpvoted: boolean("is_upvoted").notNull().default(true),
     },
     (table) => ({
-        pk: primaryKey({ columns: [table.chatId, table.messageId, table.userId] }),
+        pk: primaryKey({
+            columns: [table.chatId, table.messageId, table.userId],
+        }),
     })
 );
 

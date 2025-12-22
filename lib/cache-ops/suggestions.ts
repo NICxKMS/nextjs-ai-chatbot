@@ -8,10 +8,10 @@
  */
 import "server-only";
 
-import { getRedis } from "@/lib/cache/client";
-import { CacheKeys } from "@/lib/cache/keys";
 import { withCircuitBreaker } from "@/lib/cache/circuit-breaker";
-import { serialize, deserialize, getTTLForUser } from "@/lib/cache/helpers";
+import { getRedis } from "@/lib/cache/client";
+import { deserialize, getTTLForUser, serialize } from "@/lib/cache/helpers";
+import { CacheKeys } from "@/lib/cache/keys";
 import type { UserContext } from "@/lib/cache/types";
 
 /**

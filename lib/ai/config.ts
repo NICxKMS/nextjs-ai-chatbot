@@ -30,8 +30,7 @@
  * TOOL_MODEL_ID=USE_SELECTED_MODEL
  * ```
  */
-export const TOOL_MODEL_ID =
-    process.env.TOOL_MODEL_ID ?? "openai:gpt-4o-mini";
+export const TOOL_MODEL_ID = process.env.TOOL_MODEL_ID ?? "openai:gpt-4o-mini";
 
 /**
  * Whether to use the user's selected model for tool operations.
@@ -99,9 +98,7 @@ export const DEFAULT_MODEL_ID =
  * ```
  */
 export function getToolModel(selectedModelId: string): string {
-    return USE_SELECTED_MODEL_FOR_TOOLS
-        ? selectedModelId
-        : TOOL_MODEL_ID;
+    return USE_SELECTED_MODEL_FOR_TOOLS ? selectedModelId : TOOL_MODEL_ID;
 }
 
 /**
@@ -117,7 +114,5 @@ export function getToolModel(selectedModelId: string): string {
  * ```
  */
 export function getTitleModel(selectedModelId: string): string {
-    return USE_SELECTED_MODEL_FOR_TITLE
-        ? selectedModelId
-        : TITLE_MODEL_ID;
+    return USE_SELECTED_MODEL_FOR_TITLE ? selectedModelId : TITLE_MODEL_ID;
 }

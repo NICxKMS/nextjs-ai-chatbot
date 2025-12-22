@@ -11,22 +11,17 @@
  */
 import "server-only";
 
-import type { DataContext } from "../types";
-import { isGuest } from "../base";
+import type { UserContext } from "@/lib/cache/types";
 import {
+    deleteVoteFromCache,
     getVoteFromCache,
     setVoteInCache,
-    deleteVoteFromCache,
 } from "@/lib/cache-ops/votes";
-import {
-    getVote,
-    saveVote,
-    deleteVote,
-    getVotesByChatId,
-} from "../votes";
 import type { Vote } from "@/lib/db";
+import { isGuest } from "../base";
+import type { DataContext } from "../types";
 import type { VoteType } from "../votes";
-import type { UserContext } from "@/lib/cache/types";
+import { deleteVote, getVote, getVotesByChatId, saveVote } from "../votes";
 
 /**
  * Convert DataContext to UserContext for cache operations
@@ -70,7 +65,9 @@ export async function getVoteCached(
     const vote = await getVote(chatId, messageId, ctx);
     if (vote) {
         // Warm cache
-        setVoteInCache(chatId, messageId, vote.isUpvoted, userCtx).catch(() => {});
+        setVoteInCache(chatId, messageId, vote.isUpvoted, userCtx).catch(
+            () => {}
+        );
     }
     return vote;
 }

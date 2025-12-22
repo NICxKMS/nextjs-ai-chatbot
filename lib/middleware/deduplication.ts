@@ -13,7 +13,7 @@ const requestStore = new Map<
 
 // Cleanup old entries periodically
 const CLEANUP_INTERVAL = 60_000; // 1 minute
-const DEFAULT_WINDOW = 5_000; // 5 seconds
+const DEFAULT_WINDOW = 5000; // 5 seconds
 
 let lastCleanup = Date.now();
 
@@ -110,7 +110,9 @@ export async function isDuplicateRequest(
     if (existing && now - existing.timestamp < window) {
         return {
             isDuplicate: true,
-            cachedResponse: cacheResponse ? existing.response?.clone() : undefined,
+            cachedResponse: cacheResponse
+                ? existing.response?.clone()
+                : undefined,
         };
     }
 

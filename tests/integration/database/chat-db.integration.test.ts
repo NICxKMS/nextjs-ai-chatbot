@@ -7,10 +7,10 @@
  * @module tests/integration/database/chat-db.integration.test
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { randomUUID } from "crypto";
-import { describeIf, isServiceAvailable } from "../../config/test-config";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { DataContext } from "@/lib/data/types";
+import { describeIf, isServiceAvailable } from "../../config/test-config";
 
 // Valid UUIDs for non-existent resource tests (Postgres requires valid UUID format)
 const NON_EXISTENT_UUID = "00000000-0000-0000-0000-000000000000";
@@ -58,16 +58,25 @@ describeIf(
             } catch (error) {
                 // If user creation fails (e.g., FK constraint to Supabase auth.users),
                 // try to use an existing user instead
-                console.warn("Could not create test user (may need Supabase auth):", error);
-                
+                console.warn(
+                    "Could not create test user (may need Supabase auth):",
+                    error
+                );
+
                 // Try to find an existing user to use for tests
-                const existingUsers = await db.select().from(schema.user).limit(1);
+                const existingUsers = await db
+                    .select()
+                    .from(schema.user)
+                    .limit(1);
                 if (existingUsers.length > 0) {
                     // Update TEST_USER_ID to use existing user
-                    (testCtx as { userId: string }).userId = existingUsers[0].id;
+                    (testCtx as { userId: string }).userId =
+                        existingUsers[0].id;
                     testSetupSucceeded = true;
                 } else {
-                    console.warn("No existing users found - chat-db tests will be skipped");
+                    console.warn(
+                        "No existing users found - chat-db tests will be skipped"
+                    );
                 }
             }
         });
@@ -141,7 +150,7 @@ describeIf(
         describe("createChat", () => {
             it("creates a new chat with default visibility", async () => {
                 if (skipIfNoSetup()) return;
-                
+
                 const chat = await chatData.createChat(
                     {
                         title: "Integration Test Chat - Default",
@@ -194,10 +203,7 @@ describeIf(
             });
 
             it("returns null for non-existent chat", async () => {
-                const chat = await chatData.getChat(
-                    NON_EXISTENT_UUID,
-                    testCtx
-                );
+                const chat = await chatData.getChat(NON_EXISTENT_UUID, testCtx);
                 expect(chat).toBeNull();
             });
 
@@ -354,10 +360,7 @@ describeIf(
                 expect(deleted).toBe(true);
 
                 // Verify it's gone
-                const afterDelete = await chatData.getChat(
-                    created.id,
-                    testCtx
-                );
+                const afterDelete = await chatData.getChat(created.id, testCtx);
                 expect(afterDelete).toBeNull();
             });
 

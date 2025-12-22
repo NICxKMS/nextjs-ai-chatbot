@@ -218,10 +218,12 @@ export function createPaginatedResponseGuard<T>(
         }
 
         // Check optional nextCursor
-        if ("nextCursor" in response && response.nextCursor !== undefined) {
-            if (!isString(response.nextCursor)) {
-                return false;
-            }
+        if (
+            "nextCursor" in response &&
+            response.nextCursor !== undefined &&
+            !isString(response.nextCursor)
+        ) {
+            return false;
         }
 
         return true;

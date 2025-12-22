@@ -7,7 +7,13 @@
     "lineEnding": "lf"
   },
   "files": {
-    "includes": ["**/*", "!!**/tests", "!!**/oldapp"]
+    "includes": ["**/*"],
+    "experimentalScannerIgnores": [
+      "**/tests/**",
+      "**/oldapp/**",
+      "**/node_modules/**",
+      "**/.next/**"
+    ]
   },
   "linter": {
     "rules": {
