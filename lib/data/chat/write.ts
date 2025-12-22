@@ -18,6 +18,7 @@ const { chat, message, vote } = schema;
  */
 export async function createChat(
     data: {
+        id?: string;
         title: string;
         visibility?: Visibility;
     },
@@ -27,7 +28,7 @@ export async function createChat(
 
     const db = getDb();
     const newChat: NewChat = {
-        id: randomUUID(),
+        id: data.id ?? randomUUID(),
         userId: ctx.userId,
         title: data.title,
         visibility: data.visibility ?? "private",

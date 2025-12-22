@@ -10,6 +10,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
+import { updateChatVisibilityCached } from "@/lib/data/cached";
 import { AppError } from "@/lib/errors";
 import type { VisibilityType } from "../types";
 
@@ -78,7 +79,10 @@ export async function updateChatVisibility(
         }
 
         // 3. Update visibility in database
-        // TODO: Implement chatData.updateVisibility when data layer is complete
+        await updateChatVisibilityCached(input.chatId, input.visibility, {
+            userId: session.user.id,
+            userType: "regular",
+        });
 
         // 4. Revalidate chat page
         revalidatePath(`/chat/${input.chatId}`);

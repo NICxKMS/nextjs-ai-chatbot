@@ -158,8 +158,13 @@ function determineOverallStatus(
  * Status codes:
  * - 200: System healthy or degraded (still operational)
  * - 503: System unhealthy (critical failure)
+ *
+ * Security: In production, only minimal status is returned.
+ * Detailed info (latency, errors, component status) is only shown in development.
  */
 export async function GET(): Promise<Response> {
+    const isDev = process.env.NODE_ENV === "development";
+
     try {
         const [dbHealth, envHealth, cacheHealth] = await Promise.all([
             checkDatabaseHealth(),
@@ -174,33 +179,47 @@ export async function GET(): Promise<Response> {
         };
 
         const overallStatus = determineOverallStatus(checks);
-
-        const health: HealthResponse = {
-            status: overallStatus,
-            timestamp: new Date().toISOString(),
-            checks,
-        };
-
         const httpStatus = overallStatus === "unhealthy" ? 503 : 200;
 
-        return Response.json(health, {
+        // Production: minimal response to avoid exposing internal state
+        // Development: full details for debugging
+        const response = {
+            status: overallStatus === "unhealthy" ? "error" : "ok",
+            timestamp: new Date().toISOString(),
+            ...(isDev && {
+                details: {
+                    status: overallStatus,
+                    checks,
+                },
+            }),
+        };
+
+        return Response.json(response, {
             status: httpStatus,
             headers: { "Cache-Control": "public, max-age=0" },
         });
     } catch (error) {
         console.error("[Health Check] Failed:", error);
 
-        const errorResponse: HealthResponse = {
-            status: "unhealthy",
+        // Production: minimal error response
+        // Development: include error details
+        const response = {
+            status: "error",
             timestamp: new Date().toISOString(),
-            checks: {
-                database: { status: "unhealthy", error: "Check failed" },
-                environment: { status: "unhealthy", error: "Check failed" },
-                cache: { status: "unhealthy", error: "Check failed" },
-            },
+            ...(isDev && {
+                details: {
+                    status: "unhealthy" as HealthStatus,
+                    checks: {
+                        database: { status: "unhealthy" as HealthStatus, error: "Check failed" },
+                        environment: { status: "unhealthy" as HealthStatus, error: "Check failed" },
+                        cache: { status: "unhealthy" as HealthStatus, error: "Check failed" },
+                    },
+                    error: error instanceof Error ? error.message : "Unknown error",
+                },
+            }),
         };
 
-        return Response.json(errorResponse, {
+        return Response.json(response, {
             status: 503,
             headers: { "Cache-Control": "public, max-age=0" },
         });

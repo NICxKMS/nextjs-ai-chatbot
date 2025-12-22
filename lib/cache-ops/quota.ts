@@ -79,8 +79,9 @@ export async function incrementQuota(
         async () => {
             const redis = getRedis();
             if (!redis) {
-                // Cache unavailable - allow operation (fail open)
-                return { allowed: true, count: 0, limit };
+                // Cache unavailable - block operation for security (fail closed)
+                console.error("Redis unavailable - blocking request for safety (quota)");
+                return { allowed: false, count: limit, limit };
             }
 
             const dateKey = getDateKey();
@@ -101,8 +102,8 @@ export async function incrementQuota(
                 limit: returnedLimit,
             };
         },
-        // Fail open - allow if cache is unavailable
-        { allowed: true, count: 0, limit }
+        // Fail closed - block if cache is unavailable for security
+        { allowed: false, count: limit, limit }
     );
 }
 
@@ -149,8 +150,9 @@ export async function isQuotaAvailable(
 ): Promise<boolean> {
     const result = await checkQuota(userId, limit);
     if (!result) {
-        // Cache unavailable - allow operation (fail open)
-        return true;
+        // Cache unavailable - block operation for security (fail closed)
+        console.error("Redis unavailable - blocking request for safety (quota check)");
+        return false;
     }
     return result.count < limit;
 }

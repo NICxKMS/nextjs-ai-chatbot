@@ -1,7 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { setupMockAI } from "./utils";
 
 test.describe("Sidebar", () => {
     test.beforeEach(async ({ page }) => {
+        // Set up mock AI responses for testing
+        await setupMockAI(page);
         await page.goto("/");
         await page.waitForLoadState("networkidle");
     });

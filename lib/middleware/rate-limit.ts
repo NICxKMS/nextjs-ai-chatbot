@@ -160,13 +160,14 @@ export async function checkRateLimit(
 ): Promise<RateLimitResult> {
     const limiter = limiters[type];
 
-    // If no limiter (Redis not configured), fail open
+    // If no limiter (Redis not configured), fail closed for security
     if (!limiter) {
+        console.error("Redis unavailable - blocking request for safety (rate-limit)");
         const defaultLimit = DEFAULT_LIMITS[type];
         return {
-            success: true,
+            success: false,
             limit: defaultLimit,
-            remaining: defaultLimit,
+            remaining: 0,
             reset: Date.now() + 60000,
             pending: Promise.resolve(),
         };

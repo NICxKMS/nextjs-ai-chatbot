@@ -36,9 +36,11 @@ export {
 } from "./guards";
 // JWT utilities
 export {
+    createDeviceFingerprint,
     createGuestToken,
     needsRotation,
     signJwt,
+    validateDeviceFingerprint,
     verifyGuestToken,
     verifyJwt,
 } from "./jwt";
@@ -51,6 +53,7 @@ export type {
     AuthResult,
     AuthState,
     DataContext,
+    DeviceFingerprint,
     GuestTokenPayload,
     JWTPayload,
     UserType,

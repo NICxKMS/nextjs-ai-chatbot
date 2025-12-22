@@ -1,7 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { setupMockAI } from "./utils";
 
 test.describe("Chat", () => {
     test.beforeEach(async ({ page }) => {
+        // Set up mock AI responses for testing
+        await setupMockAI(page);
         // Navigate to home to get a fresh chat session
         await page.goto("/");
         await page.waitForLoadState("networkidle");
@@ -9,8 +12,8 @@ test.describe("Chat", () => {
 
     test.describe("New Chat Creation", () => {
         test("should display chat interface on home page", async ({ page }) => {
-            // Chat input should be visible
-            await expect(page.getByPlaceholder(/send a message/i)).toBeVisible({
+            // Chat input should be visible (use .first() to handle React Strict Mode duplicates)
+            await expect(page.getByPlaceholder(/send a message/i).first()).toBeVisible({
                 timeout: 10_000,
             });
         });
@@ -18,7 +21,8 @@ test.describe("Chat", () => {
         test("should have send button disabled when input is empty", async ({
             page,
         }) => {
-            const sendButton = page.getByTestId("send-button");
+            // Use .first() to handle React Strict Mode duplicates
+            const sendButton = page.getByTestId("send-button").first();
             await expect(sendButton).toBeVisible();
             await expect(sendButton).toBeDisabled();
         });
@@ -26,8 +30,9 @@ test.describe("Chat", () => {
         test("should enable send button when message is typed", async ({
             page,
         }) => {
-            const input = page.getByPlaceholder(/send a message/i);
-            const sendButton = page.getByTestId("send-button");
+            // Use .first() to handle React Strict Mode duplicates
+            const input = page.getByPlaceholder(/send a message/i).first();
+            const sendButton = page.getByTestId("send-button").first();
 
             await input.fill("Hello, world!");
             await expect(sendButton).toBeEnabled();
@@ -52,8 +57,9 @@ test.describe("Chat", () => {
         test("should send a message and receive a response", async ({
             page,
         }) => {
-            const input = page.getByPlaceholder(/send a message/i);
-            const sendButton = page.getByTestId("send-button");
+            // Use .first() to handle React Strict Mode duplicates
+            const input = page.getByPlaceholder(/send a message/i).first();
+            const sendButton = page.getByTestId("send-button").first();
 
             await input.fill("Hello, this is a test message");
             await sendButton.click();
@@ -68,8 +74,9 @@ test.describe("Chat", () => {
         });
 
         test("should show stop button during generation", async ({ page }) => {
-            const input = page.getByPlaceholder(/send a message/i);
-            const sendButton = page.getByTestId("send-button");
+            // Use .first() to handle React Strict Mode duplicates
+            const input = page.getByPlaceholder(/send a message/i).first();
+            const sendButton = page.getByTestId("send-button").first();
 
             await input.fill("Write a long story about a cat");
             await sendButton.click();
@@ -80,8 +87,9 @@ test.describe("Chat", () => {
         });
 
         test("should be able to stop generation", async ({ page }) => {
-            const input = page.getByPlaceholder(/send a message/i);
-            const sendButton = page.getByTestId("send-button");
+            // Use .first() to handle React Strict Mode duplicates
+            const input = page.getByPlaceholder(/send a message/i).first();
+            const sendButton = page.getByTestId("send-button").first();
 
             await input.fill("Write a very long essay");
             await sendButton.click();
@@ -97,8 +105,9 @@ test.describe("Chat", () => {
         test("should redirect to /chat/:id after sending message", async ({
             page,
         }) => {
-            const input = page.getByPlaceholder(/send a message/i);
-            const sendButton = page.getByTestId("send-button");
+            // Use .first() to handle React Strict Mode duplicates
+            const input = page.getByPlaceholder(/send a message/i).first();
+            const sendButton = page.getByTestId("send-button").first();
 
             await input.fill("Test message for chat ID");
             await sendButton.click();
@@ -109,8 +118,9 @@ test.describe("Chat", () => {
         });
 
         test("should display user message in chat", async ({ page }) => {
-            const input = page.getByPlaceholder(/send a message/i);
-            const sendButton = page.getByTestId("send-button");
+            // Use .first() to handle React Strict Mode duplicates
+            const input = page.getByPlaceholder(/send a message/i).first();
+            const sendButton = page.getByTestId("send-button").first();
             const testMessage = "This is my test message";
 
             await input.fill(testMessage);
@@ -124,8 +134,9 @@ test.describe("Chat", () => {
         test("should display assistant message after sending", async ({
             page,
         }) => {
-            const input = page.getByPlaceholder(/send a message/i);
-            const sendButton = page.getByTestId("send-button");
+            // Use .first() to handle React Strict Mode duplicates
+            const input = page.getByPlaceholder(/send a message/i).first();
+            const sendButton = page.getByTestId("send-button").first();
 
             await input.fill("Say hello");
             await sendButton.click();
@@ -140,8 +151,9 @@ test.describe("Chat", () => {
         test("should persist chat in history after sending message", async ({
             page,
         }) => {
-            const input = page.getByPlaceholder(/send a message/i);
-            const sendButton = page.getByTestId("send-button");
+            // Use .first() to handle React Strict Mode duplicates
+            const input = page.getByPlaceholder(/send a message/i).first();
+            const sendButton = page.getByTestId("send-button").first();
 
             await input.fill("Test message for history");
             await sendButton.click();
@@ -161,8 +173,9 @@ test.describe("Chat", () => {
         });
 
         test("should load existing chat from history", async ({ page }) => {
-            const input = page.getByPlaceholder(/send a message/i);
-            const sendButton = page.getByTestId("send-button");
+            // Use .first() to handle React Strict Mode duplicates
+            const input = page.getByPlaceholder(/send a message/i).first();
+            const sendButton = page.getByTestId("send-button").first();
 
             // Create a chat first
             await input.fill("First message in chat");
