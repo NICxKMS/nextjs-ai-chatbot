@@ -90,7 +90,31 @@ export {
 // HOOK EXPORTS
 // =============================================================================
 
-export { useChatHelpers, useChatMetadata, useModelState } from "./hooks";
+// Utility hooks
+export type {
+    RetryState,
+    UseChatVisibilityOptions,
+    UseChatVisibilityReturn,
+    UseMessageRetryOptions,
+    UseMessageRetryReturn,
+    UseMessagesOptions,
+    UseMessagesReturn,
+    UseRequestAbortReturn,
+    UseScrollToBottomReturn,
+} from "./hooks";
+// Core chat hooks
+export {
+    combineAbortSignals,
+    createTimeoutAbortController,
+    useChatHelpers,
+    useChatMetadata,
+    useChatVisibility,
+    useMessageRetry,
+    useMessages,
+    useModelState,
+    useRequestAbort,
+    useScrollToBottom,
+} from "./hooks";
 
 // =============================================================================
 // ACTION EXPORTS

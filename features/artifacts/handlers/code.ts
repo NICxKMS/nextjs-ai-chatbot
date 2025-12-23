@@ -6,7 +6,7 @@
  */
 import "server-only";
 
-import { type LanguageModel, streamObject } from "ai";
+import { streamObject } from "ai";
 import { z } from "zod";
 
 import { createDocumentHandler } from "./base";

@@ -23,6 +23,7 @@ import {
     DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { VisibilityType } from "@/features/chat/types";
 import { cn, createRateLimiter } from "@/lib/utils";
 import {
     AlertDialog,
@@ -35,8 +36,6 @@ import {
     AlertDialogTitle,
 } from "@/shared/ui/alert-dialog";
 import type { ChatHistoryItem as ChatHistoryItemType } from "../types";
-
-type VisibilityType = "public" | "private";
 
 function MessageIcon({ className }: { className?: string }) {
     return (

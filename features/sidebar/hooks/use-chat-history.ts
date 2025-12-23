@@ -1,11 +1,8 @@
 "use client";
 
+import { useCallback, useMemo } from "react";
 import useSWRInfinite from "swr/infinite";
-import {
-    extractErrorMessage,
-    type NormalizedChatItem,
-    normalizeChatItem,
-} from "@/lib/utils";
+import { extractErrorMessage, normalizeChatItem } from "@/lib/utils";
 import type { ChatHistoryItem } from "../types";
 
 type HistoryResponse = {
@@ -87,54 +84,66 @@ export function useChatHistory() {
             revalidateFirstPage: false,
         });
 
-    const chats = data?.flatMap((page: HistoryResponse) => page.chats) ?? [];
-    const hasMore = data?.[data.length - 1]?.hasMore ?? false;
+    // Memoize derived values to prevent unnecessary recalculations
+    const chats = useMemo(
+        () => data?.flatMap((page: HistoryResponse) => page.chats) ?? [],
+        [data]
+    );
+    const hasMore = useMemo(
+        () => data?.[data.length - 1]?.hasMore ?? false,
+        [data]
+    );
 
-    const loadMore = () => {
+    const loadMore = useCallback(() => {
         if (!isValidating) {
             setSize(size + 1);
         }
-    };
+    }, [isValidating, setSize, size]);
 
-    const deleteChat = async (chatId: string) => {
-        // Store previous state for rollback
-        const previousData = data;
+    const deleteChat = useCallback(
+        async (chatId: string) => {
+            // Store previous state for rollback
+            const previousData = data;
 
-        // Optimistic update
-        mutate(
-            data?.map((page: HistoryResponse) => ({
-                ...page,
-                chats: page.chats.filter(
-                    (c: ChatHistoryItem) => c.id !== chatId
-                ),
-            })),
-            false
-        );
-
-        try {
-            // Call API
-            const response = await fetch(`/api/chat?id=${chatId}`, {
-                method: "DELETE",
-            });
-
-            if (!response.ok) {
-                throw new Error("Couldn't delete this chat. Please try again");
-            }
-
-            // Revalidate on success
-            mutate();
-        } catch (error) {
-            // Rollback on failure
-            if (previousData) {
-                mutate(previousData, false);
-            }
-            throw new Error(
-                extractErrorMessage(error, "Failed to delete chat")
+            // Optimistic update
+            mutate(
+                data?.map((page: HistoryResponse) => ({
+                    ...page,
+                    chats: page.chats.filter(
+                        (c: ChatHistoryItem) => c.id !== chatId
+                    ),
+                })),
+                false
             );
-        }
-    };
 
-    const deleteAllChats = async () => {
+            try {
+                // Call API
+                const response = await fetch(`/api/chat?id=${chatId}`, {
+                    method: "DELETE",
+                });
+
+                if (!response.ok) {
+                    throw new Error(
+                        "Couldn't delete this chat. Please try again"
+                    );
+                }
+
+                // Revalidate on success
+                mutate();
+            } catch (error) {
+                // Rollback on failure
+                if (previousData) {
+                    mutate(previousData, false);
+                }
+                throw new Error(
+                    extractErrorMessage(error, "Failed to delete chat")
+                );
+            }
+        },
+        [data, mutate]
+    );
+
+    const deleteAllChats = useCallback(async () => {
         // Store previous state for rollback
         const previousData = data;
 
@@ -162,16 +171,29 @@ export function useChatHistory() {
                 extractErrorMessage(error, "Failed to clear history")
             );
         }
-    };
+    }, [data, mutate]);
 
-    return {
-        chats,
-        hasMore,
-        isLoading: isLoading && !data,
-        loadMore,
-        deleteChat,
-        deleteAllChats,
-        mutate,
-        error,
-    };
+    return useMemo(
+        () => ({
+            chats,
+            hasMore,
+            isLoading: isLoading && !data,
+            loadMore,
+            deleteChat,
+            deleteAllChats,
+            mutate,
+            error,
+        }),
+        [
+            chats,
+            hasMore,
+            isLoading,
+            data,
+            loadMore,
+            deleteChat,
+            deleteAllChats,
+            mutate,
+            error,
+        ]
+    );
 }

@@ -221,7 +221,9 @@ describeIf(
 
                 // Remove from tracking since already deleted
                 const index = createdChatIds.indexOf(chatData.id);
-                if (index > -1) createdChatIds.splice(index, 1);
+                if (index > -1) {
+                    createdChatIds.splice(index, 1);
+                }
             });
 
             it("returns false for non-existent chat", async () => {
@@ -309,7 +311,9 @@ describeIf(
 
                 // Remove from tracking
                 const index = createdChatIds.indexOf(chatData.id);
-                if (index > -1) createdChatIds.splice(index, 1);
+                if (index > -1) {
+                    createdChatIds.splice(index, 1);
+                }
             });
         });
     }

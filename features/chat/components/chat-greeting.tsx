@@ -9,6 +9,7 @@
 
 "use client";
 
+import { memo } from "react";
 import { motion } from "@/lib/motion";
 
 /**
@@ -22,7 +23,7 @@ import { motion } from "@/lib/motion";
  * {messages.length === 0 && <ChatGreeting />}
  * ```
  */
-export function ChatGreeting() {
+export const ChatGreeting = memo(function ChatGreeting() {
     return (
         <div
             aria-label="Welcome message"
@@ -47,4 +48,4 @@ export function ChatGreeting() {
             </motion.p>
         </div>
     );
-}
+});

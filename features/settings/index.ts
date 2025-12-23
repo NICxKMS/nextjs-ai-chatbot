@@ -21,7 +21,15 @@ export {
     type ModelSelectorDisplayMode,
     type SamplingSettings,
     type SettingsStore,
+    // Fine-grained selectors for optimized renders
+    useAutoScrollSetting,
+    useEnableReasoningSetting,
+    useModelSelectorDisplayMode,
+    useSamplingSettings,
+    useSelectedModelId,
     useSettings,
     useSettingsHydration,
     useSettingsSnapshot,
+    useStreamArtifactsSetting,
+    useSystemPromptSetting,
 } from "./stores/settings-store";

@@ -75,7 +75,9 @@ export function usePreloadOnInteraction(
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const preload = () => {
-        if (preloadedRef.current) return;
+        if (preloadedRef.current) {
+            return;
+        }
 
         if (delay > 0) {
             if (!timeoutRef.current) {
@@ -142,7 +144,9 @@ export function useDynamicImport<T extends object>(
     const loadedRef = useRef(false);
 
     const trigger = () => {
-        if (loadedRef.current || isLoading) return;
+        if (loadedRef.current || isLoading) {
+            return;
+        }
 
         setIsLoading(true);
         setError(null);
@@ -165,7 +169,7 @@ export function useDynamicImport<T extends object>(
             trigger();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [triggerOnMount]);
+    }, [triggerOnMount, trigger]);
 
     return { Component, isLoading, error, trigger };
 }

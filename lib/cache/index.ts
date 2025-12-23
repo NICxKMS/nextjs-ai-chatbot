@@ -48,11 +48,11 @@ export {
 } from "./helpers";
 // Invalidation
 export {
-    type InvalidationResult,
-    type InvalidationScope,
     clearAllHandlers,
     createScopedInvalidator,
     getRegisteredHandlers,
+    type InvalidationResult,
+    type InvalidationScope,
     invalidateChats,
     invalidateDocuments,
     invalidateOnLogout,
@@ -61,8 +61,6 @@ export {
     registerInvalidationHandler,
     useInvalidationHandler,
 } from "./invalidation";
-// Invalidation hooks (client-side)
-export { useInvalidation, useInvalidationActions } from "./use-invalidation";
 // Keys
 export { CacheKeys, getChatCacheKeys, parseKeyId } from "./keys";
 // Types
@@ -76,3 +74,5 @@ export type {
     CacheOptions,
     CircuitBreakerState,
 } from "./types";
+// Invalidation hooks (client-side)
+export { useInvalidation, useInvalidationActions } from "./use-invalidation";

@@ -200,7 +200,7 @@ export function buildProviderOptions(
 
     const budget = thinkingBudget ?? DEFAULT_THINKING_BUDGETS[reasoningType];
     const metadata = MODEL_REGISTRY[modelId];
-    const provider = metadata?.provider ?? "";
+    const _provider = metadata?.provider ?? "";
 
     switch (reasoningType) {
         case "openai-thinking":

@@ -1,0 +1,87 @@
+/**
+ * Services Layer - Public API
+ *
+ * This module exports business logic services that sit between the API/action
+ * layer and the data layer. Services handle validation, authorization,
+ * business rules, and provide a clean interface for operations.
+ *
+ * @module lib/services
+ */
+
+// =============================================================================
+// CHAT SERVICE
+// =============================================================================
+
+export type {
+    ChatServiceResult,
+    ChatWithMeta,
+    CreateChatParams,
+    ListChatsOptions,
+    UpdateChatParams,
+} from "./chat-service";
+export {
+    // Main service object
+    ChatService,
+    // Individual functions
+    createChat,
+    deleteChat,
+    generateChatTitle,
+    getChat,
+    getChatWithMessages,
+    listChats,
+    updateChat,
+    verifyChatOwnership,
+} from "./chat-service";
+
+// =============================================================================
+// DOCUMENT SERVICE
+// =============================================================================
+
+export type {
+    AppendVersionParams,
+    CreateDocumentParams,
+    DocumentServiceResult,
+    DocumentWithMeta,
+} from "./document-service";
+export {
+    // Individual functions
+    appendDocumentVersion,
+    createDocument,
+    // Main service object
+    DocumentService,
+    deleteDocument,
+    getAllDocumentVersions,
+    getDocument,
+    getDocumentKindLabel,
+    getDocumentSuggestions,
+    getLatestDocument,
+    verifyDocumentOwnership,
+} from "./document-service";
+
+// =============================================================================
+// RE-EXPORT CONFIG
+// =============================================================================
+
+export type {
+    ApiConfig,
+    AppConfig,
+    AuthConfig,
+    CacheConfig,
+    ChatConfig,
+    DatabaseConfig,
+    Environment,
+    FeatureFlags,
+} from "@/lib/config/app-config";
+export {
+    getApiConfig,
+    getAppConfig,
+    getAuthConfig,
+    getCacheConfig,
+    getChatConfig,
+    getDatabaseConfig,
+    getFeatureFlags,
+    isDevelopment,
+    isFeatureEnabled,
+    isProduction,
+    isTest,
+} from "@/lib/config/app-config";

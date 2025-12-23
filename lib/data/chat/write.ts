@@ -4,7 +4,7 @@
  */
 import "server-only";
 
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import type { Chat, NewChat, Visibility } from "@/lib/db";
 import { getDb, schema, withTransaction } from "@/lib/db";

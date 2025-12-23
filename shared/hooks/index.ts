@@ -6,8 +6,6 @@
  * @module shared/hooks
  */
 
-export { useDebounce } from "./use-debounce";
-
 // Cleanup Management
 export type {
     CleanupFn,
@@ -26,10 +24,11 @@ export {
     useResource,
     useTimeout,
 } from "./use-cleanup";
+export { useDebounce } from "./use-debounce";
 
 // Focus Management
 export type { UseFocusTrapOptions, UseFocusTrapReturn } from "./use-focus-trap";
-export { useFocusTrap, useFocusRestore } from "./use-focus-trap";
+export { useFocusRestore, useFocusTrap } from "./use-focus-trap";
 
 // Keyboard Navigation
 export type {
@@ -51,20 +50,6 @@ export type {
     UseNetworkStatusReturn,
 } from "./use-network-status";
 export { useIsOnline, useNetworkStatus } from "./use-network-status";
-export { useRateLimit } from "./use-rate-limit";
-
-// Reduced Motion
-export type { MotionPreference, MotionSafeOptions } from "./use-reduced-motion";
-export {
-    getMotionSafeCSS,
-    useMotionCSSVariables,
-    useMotionPreference,
-    useMotionSafe,
-    useMotionSafeProps,
-    useMotionSafeTransition,
-    useReducedMotion,
-} from "./use-reduced-motion";
-
 // Performance Monitoring
 export type {
     MeasurementResult,
@@ -79,5 +64,17 @@ export {
     usePerformance,
     useRenderFrequencyWarning,
 } from "./use-performance";
+export { useRateLimit } from "./use-rate-limit";
+// Reduced Motion
+export type { MotionPreference, MotionSafeOptions } from "./use-reduced-motion";
+export {
+    getMotionSafeCSS,
+    useMotionCSSVariables,
+    useMotionPreference,
+    useMotionSafe,
+    useMotionSafeProps,
+    useMotionSafeTransition,
+    useReducedMotion,
+} from "./use-reduced-motion";
 
 export { useWindowSize } from "./use-window-size";

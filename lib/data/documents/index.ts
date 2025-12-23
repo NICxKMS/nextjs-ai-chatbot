@@ -7,11 +7,11 @@
 import "server-only";
 
 import { and, asc, eq, gt } from "drizzle-orm";
-import type { ArtifactKind } from "@/features/artifacts/types";
 import { getDb } from "@/lib/db";
 import type { Document, Suggestion } from "@/lib/db/schema";
 import { document, suggestion } from "@/lib/db/schema";
 import { AppError } from "@/lib/errors";
+import type { ArtifactKind } from "@/lib/types";
 import { isGuest } from "../base";
 import type { DataContext } from "../types";
 

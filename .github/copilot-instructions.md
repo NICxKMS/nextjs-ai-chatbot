@@ -9,7 +9,6 @@
   - ouroborosai_menu: Show multiple choice menu
   - ouroborosai_confirm: Request yes/no confirmation
   - ouroborosai_plan_review: Request plan/spec review
-  - ouroborosai_phase_progress: Update workflow progress
   - ouroborosai_agent_handoff: Track agent handoffs
 -->
 

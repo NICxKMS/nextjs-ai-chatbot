@@ -156,35 +156,18 @@ export type MessagePart =
     | ReasoningPart
     | SourcePart;
 
-/**
- * Model capability flags.
- */
-export type ModelCapabilities = {
-    /** Whether the model can process image inputs */
-    supportsImages: boolean;
-    /** Whether the model supports tool/function calling */
-    supportsTools: boolean;
-    /** Whether the model supports reasoning/thinking mode */
-    supportsReasoning: boolean;
-    /** Maximum output token limit */
-    maxTokens?: number;
-};
+// =============================================================================
+// MODEL TYPES (re-exported from lib/types for layer compliance)
+// =============================================================================
 
 /**
- * Metadata for an AI model.
+ * Model capability flags and metadata.
+ * Re-exported from lib/types - the canonical source.
  */
-export type ModelMetadata = {
-    /** Unique identifier for the model */
-    id: string;
-    /** Human-readable display name */
-    name: string;
-    /** Provider name (e.g., 'openai', 'anthropic') */
-    provider: string;
-    /** Optional description of the model */
-    description?: string;
-    /** Optional capability flags */
-    capabilities?: ModelCapabilities;
-};
+export type { ModelCapabilities, ModelMetadata } from "@/lib/types";
+
+// Import for local use in ModelState
+import type { ModelMetadata } from "@/lib/types";
 
 /**
  * Model selection state interface.

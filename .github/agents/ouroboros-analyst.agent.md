@@ -1,6 +1,6 @@
 ---
 description: "🔍 Senior Systems Analyst. Deep analysis, dependency mapping, impact assessment."
-tools: ['read', 'search', 'web', 'vscode']
+tools: ['read','search/codebase' ,'search', 'web', 'vscode']
 handoffs:
   - label: "Return to Main"
     agent: ouroboros

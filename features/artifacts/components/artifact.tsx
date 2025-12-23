@@ -13,6 +13,7 @@ import {
 } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { useDebounceCallback } from "usehooks-ts";
+import type { VisibilityType } from "@/features/chat/types";
 import { AnimatePresence, motion } from "@/lib/motion";
 import { useWindowSize } from "@/shared/hooks";
 import { useSidebar } from "@/shared/ui/sidebar";
@@ -25,8 +26,6 @@ import { ArtifactErrorBoundary } from "./artifact-error";
 import { ArtifactMessages } from "./artifact-messages";
 import { Toolbar } from "./toolbar";
 import { VersionFooter } from "./version-footer";
-
-type VisibilityType = "private" | "public";
 
 type Document = {
     id: string;

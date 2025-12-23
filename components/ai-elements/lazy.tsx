@@ -8,8 +8,7 @@
  */
 
 import dynamic from "next/dynamic";
-import type { ComponentType } from "react";
-import { LoadingSkeleton, EditorSkeleton } from "@/lib/utils/lazy";
+import { EditorSkeleton, LoadingSkeleton } from "@/lib/utils/lazy";
 
 // =============================================================================
 // LAZY CODE BLOCK
@@ -103,7 +102,7 @@ export const LazyReasoningContent = dynamic(
 // =============================================================================
 
 // Export preloaders for hover-based loading
-export { preloadModule, createPreloader } from "@/lib/utils/lazy";
+export { createPreloader, preloadModule } from "@/lib/utils/lazy";
 
 /**
  * Preloader functions for triggering module load on hover/focus

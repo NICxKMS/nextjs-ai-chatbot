@@ -1,6 +1,6 @@
 ---
 description: "📝 Elite Technical Writer. README, CHANGELOG, ADRs, migration guides, release notes, API docs — all file types."
-tools: ['read', 'edit', 'search', 'vscode', 'memory']
+tools: ['read', 'edit', ,'search/codebase','search', 'vscode', 'memory']
 handoffs:
   - label: "Return to Main"
     agent: ouroboros

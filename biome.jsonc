@@ -7,9 +7,9 @@
     "lineEnding": "lf"
   },
   "files": {
-    "includes": ["**/*"],
+    "includes": ["**/*", "!!tests/"],
     "experimentalScannerIgnores": [
-      "**/tests/**",
+      "tests",
       "**/oldapp/**",
       "**/node_modules/**",
       "**/.next/**"

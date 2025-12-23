@@ -10,6 +10,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { createContext, deleteChatCached, getChatCached } from "@/lib/data";
 import { AppError } from "@/lib/errors";
+import { logger } from "@/lib/utils/logger";
 
 type RouteParams = {
     params: Promise<{ id: string }>;
@@ -52,7 +53,7 @@ export async function GET(
             userId: chat.userId,
         });
     } catch (error) {
-        console.error("[Chat API GET]", error);
+        logger.error("[Chat API GET]", { error });
         if (error instanceof AppError) {
             return NextResponse.json(
                 { error: error.message },
@@ -105,7 +106,7 @@ export async function DELETE(
         // 204 No Content - successful deletion
         return new NextResponse(null, { status: 204 });
     } catch (error) {
-        console.error("[Chat API DELETE]", error);
+        logger.error("[Chat API DELETE]", { error });
         if (error instanceof AppError) {
             return NextResponse.json(
                 { error: error.message },

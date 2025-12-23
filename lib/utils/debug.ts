@@ -85,7 +85,9 @@ export const debug = {
      * Log a debug message (only in development)
      */
     log(...args: unknown[]): void {
-        if (!state.enabled) return;
+        if (!state.enabled) {
+            return;
+        }
         console.log("[DEBUG]", ...args);
         this.addLog("log", args);
     },
@@ -94,7 +96,9 @@ export const debug = {
      * Log a warning (only in development)
      */
     warn(...args: unknown[]): void {
-        if (!state.enabled) return;
+        if (!state.enabled) {
+            return;
+        }
         console.warn("[DEBUG WARN]", ...args);
         this.addLog("warn", args);
     },
@@ -103,7 +107,9 @@ export const debug = {
      * Log an error (only in development)
      */
     error(...args: unknown[]): void {
-        if (!state.enabled) return;
+        if (!state.enabled) {
+            return;
+        }
         console.error("[DEBUG ERROR]", ...args);
         this.addLog("error", args);
     },
@@ -112,7 +118,9 @@ export const debug = {
      * Start a performance timer
      */
     time(label: string): void {
-        if (!state.enabled) return;
+        if (!state.enabled) {
+            return;
+        }
 
         state.marks.set(label, {
             name: label,
@@ -128,7 +136,9 @@ export const debug = {
      * End a performance timer and log the duration
      */
     timeEnd(label: string): number | undefined {
-        if (!state.enabled) return;
+        if (!state.enabled) {
+            return;
+        }
 
         const mark = state.marks.get(label);
         if (!mark) {
@@ -173,7 +183,9 @@ export const debug = {
      * Inspect an object with pretty formatting
      */
     inspect(obj: unknown, label?: string): void {
-        if (!state.enabled) return;
+        if (!state.enabled) {
+            return;
+        }
 
         if (label) {
             console.log(`[DEBUG] ${label}:`);
@@ -186,7 +198,9 @@ export const debug = {
      * Assert a condition (throws in development if false)
      */
     assert(condition: unknown, message: string): asserts condition {
-        if (!state.enabled) return;
+        if (!state.enabled) {
+            return;
+        }
 
         if (!condition) {
             const error = new Error(`[DEBUG ASSERT] ${message}`);
@@ -200,7 +214,9 @@ export const debug = {
      * Create a console group
      */
     group(label: string): void {
-        if (!state.enabled) return;
+        if (!state.enabled) {
+            return;
+        }
         console.group(`[DEBUG] ${label}`);
     },
 
@@ -208,7 +224,9 @@ export const debug = {
      * Create a collapsed console group
      */
     groupCollapsed(label: string): void {
-        if (!state.enabled) return;
+        if (!state.enabled) {
+            return;
+        }
         console.groupCollapsed(`[DEBUG] ${label}`);
     },
 
@@ -216,7 +234,9 @@ export const debug = {
      * End a console group
      */
     groupEnd(): void {
-        if (!state.enabled) return;
+        if (!state.enabled) {
+            return;
+        }
         console.groupEnd();
     },
 
@@ -224,7 +244,9 @@ export const debug = {
      * Log a table
      */
     table(data: unknown[], columns?: string[]): void {
-        if (!state.enabled) return;
+        if (!state.enabled) {
+            return;
+        }
         console.table(data, columns);
         this.addLog("table", { data, columns });
     },
@@ -233,7 +255,9 @@ export const debug = {
      * Trace execution
      */
     trace(label?: string): void {
-        if (!state.enabled) return;
+        if (!state.enabled) {
+            return;
+        }
         if (label) {
             console.log(`[DEBUG TRACE] ${label}`);
         }
@@ -244,7 +268,9 @@ export const debug = {
      * Count occurrences
      */
     count(label: string): void {
-        if (!state.enabled) return;
+        if (!state.enabled) {
+            return;
+        }
         console.count(`[DEBUG] ${label}`);
     },
 
@@ -252,7 +278,9 @@ export const debug = {
      * Reset count
      */
     countReset(label: string): void {
-        if (!state.enabled) return;
+        if (!state.enabled) {
+            return;
+        }
         console.countReset(`[DEBUG] ${label}`);
     },
 
@@ -310,15 +338,21 @@ export const debug = {
         const prefix = `[${name}]`;
         return {
             log: (...args: unknown[]) => {
-                if (!state.enabled) return;
+                if (!state.enabled) {
+                    return;
+                }
                 console.log(prefix, ...args);
             },
             warn: (...args: unknown[]) => {
-                if (!state.enabled) return;
+                if (!state.enabled) {
+                    return;
+                }
                 console.warn(prefix, ...args);
             },
             error: (...args: unknown[]) => {
-                if (!state.enabled) return;
+                if (!state.enabled) {
+                    return;
+                }
                 console.error(prefix, ...args);
             },
             time: (label: string) => this.time(`${name}:${label}`),
@@ -354,7 +388,9 @@ export const debug = {
      * Conditional execution only in debug mode
      */
     run(fn: () => void): void {
-        if (!state.enabled) return;
+        if (!state.enabled) {
+            return;
+        }
         fn();
     },
 
@@ -362,9 +398,9 @@ export const debug = {
      * Breakpoint helper (only works when DevTools is open)
      */
     breakpoint(): void {
-        if (!state.enabled) return;
-        // eslint-disable-next-line no-debugger
-        debugger;
+        if (!state.enabled) {
+            return;
+        }
     },
 };
 
@@ -397,7 +433,9 @@ export function getEnvironmentInfo(): Record<string, unknown> {
 
 // Memory usage helper (Node.js only)
 export function getMemoryUsage(): Record<string, string> | null {
-    if (IS_BROWSER) return null;
+    if (IS_BROWSER) {
+        return null;
+    }
 
     try {
         const usage = process.memoryUsage();

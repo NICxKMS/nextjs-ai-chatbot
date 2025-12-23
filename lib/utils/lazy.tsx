@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Lazy Loading Utilities
  *
@@ -7,7 +9,7 @@
  * @module lib/utils/lazy
  */
 
-import dynamic, { type DynamicOptions, type Loader } from "next/dynamic";
+import dynamic, { type Loader } from "next/dynamic";
 import type { ComponentType, ReactNode } from "react";
 
 // =============================================================================
@@ -17,7 +19,7 @@ import type { ComponentType, ReactNode } from "react";
 /**
  * Options for creating a lazy-loaded component
  */
-export type LazyComponentOptions<P> = {
+export type LazyComponentOptions<_P> = {
     /** Show loading fallback during load */
     loading?: () => ReactNode;
     /** Disable SSR for client-only components */
@@ -52,9 +54,8 @@ export function LoadingSkeleton({
         <div className={`animate-pulse space-y-2 ${className}`}>
             {Array.from({ length: lines }).map((_, i) => (
                 <div
-                    // biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton
-                    key={i}
                     className="h-4 rounded bg-muted"
+                    key={i}
                     style={{ width: `${100 - i * 15}%` }}
                 />
             ))}
@@ -119,15 +120,18 @@ export function lazyComponent<P extends object>(
 ): ComponentType<P> {
     const { loading, ssr = true } = options;
 
-    const dynamicOptions: DynamicOptions<P> = {
-        ssr,
-    };
-
-    if (loading) {
-        dynamicOptions.loading = loading;
+    // Turbopack requires dynamic() options to be handled with explicit paths
+    // Return a wrapper that uses dynamic with inline options based on the flags
+    if (loading && !ssr) {
+        return dynamic(loader, { ssr: false, loading });
     }
-
-    return dynamic(loader, dynamicOptions);
+    if (loading) {
+        return dynamic(loader, { ssr: true, loading });
+    }
+    if (!ssr) {
+        return dynamic(loader, { ssr: false });
+    }
+    return dynamic(loader, { ssr: true });
 }
 
 /**
@@ -144,7 +148,11 @@ export function clientOnlyComponent<P extends object>(
     loader: Loader<P>,
     loading?: () => ReactNode
 ): ComponentType<P> {
-    return lazyComponent(loader, { ssr: false, loading });
+    // Use inline object literal for Turbopack compatibility
+    if (loading) {
+        return dynamic(loader, { ssr: false, loading });
+    }
+    return dynamic(loader, { ssr: false });
 }
 
 // =============================================================================
@@ -203,7 +211,9 @@ export function createPreloader(
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     return () => {
-        if (preloaded) return;
+        if (preloaded) {
+            return;
+        }
 
         if (delay > 0) {
             if (!timeoutId) {

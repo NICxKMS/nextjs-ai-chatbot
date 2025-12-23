@@ -75,13 +75,13 @@ const LOCAL_STORAGE_DEBOUNCE_MS = 500;
  * Delay in milliseconds before clearing attachments after successful submission.
  * Allows for visual feedback before removal.
  */
-const ATTACHMENT_CLEAR_DELAY = 100;
+const _ATTACHMENT_CLEAR_DELAY = 100;
 
 /**
  * Pattern to identify temporary/draft files that should not be uploaded.
  * Matches common temp file patterns like .tmp, ~, .swp, etc.
  */
-const TEMP_FILE_PATTERN = /^~|\.(tmp|swp|bak|temp)$/i;
+const _TEMP_FILE_PATTERN = /^~|\.(tmp|swp|bak|temp)$/i;
 
 /**
  * Multimodal chat input component with text and file attachment support.
@@ -305,7 +305,7 @@ export const ChatInput = memo(function ChatInput({
     /**
      * Cancel a pending upload by file name.
      */
-    const cancelUpload = useCallback((fileName: string) => {
+    const _cancelUpload = useCallback((fileName: string) => {
         const controller = uploadAbortControllersRef.current.get(fileName);
         if (controller) {
             controller.abort();

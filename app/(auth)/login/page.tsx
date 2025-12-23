@@ -6,6 +6,7 @@ import { useState } from "react";
 import { AuthForm } from "@/features/auth";
 import { getSupabaseBrowserClient } from "@/lib/auth/client";
 import { mapSupabaseError } from "@/lib/utils";
+import { logger } from "@/lib/utils/logger";
 import { toast } from "@/shared/ui";
 
 /**
@@ -89,7 +90,7 @@ export default function LoginPage() {
                 return;
             }
         } catch (error) {
-            console.error("Session exchange failed:", error);
+            logger.error("Session exchange failed", { error });
             toast({
                 type: "error",
                 description:

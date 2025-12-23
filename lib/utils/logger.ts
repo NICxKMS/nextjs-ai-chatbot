@@ -5,6 +5,8 @@
  * @module lib/utils/logger
  */
 
+import { REQUEST_ID_HEADER } from "@/lib/middleware/request-id";
+
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export interface LogContext {
@@ -18,6 +20,8 @@ export interface LogEntry {
     context?: LogContext;
     /** Optional error details */
     error?: SerializedError;
+    /** Request ID for correlation */
+    requestId?: string;
 }
 
 export interface SerializedError {
@@ -91,10 +95,17 @@ export function serializeError(error: unknown): SerializedError {
 }
 
 function formatEntry(entry: LogEntry): string {
-    const { level, message, timestamp, context, error } = entry;
+    const { level, message, timestamp, context, error, requestId } = entry;
     const prefix = `[${timestamp}] [${level.toUpperCase()}]`;
 
-    const parts = [prefix, message];
+    const parts = [prefix];
+
+    // Add request ID if present for correlation
+    if (requestId) {
+        parts.push(`[${requestId}]`);
+    }
+
+    parts.push(message);
 
     if (error) {
         parts.push(`Error: ${error.name}: ${error.message}`);
@@ -158,27 +169,41 @@ export interface Logger {
  */
 export const logger: Logger = {
     debug(message: string, context?: LogContext): void {
-        if (!shouldLog("debug")) return;
+        if (!shouldLog("debug")) {
+            return;
+        }
         console.debug(formatEntry(createEntry("debug", message, context)));
     },
 
     info(message: string, context?: LogContext): void {
-        if (!shouldLog("info")) return;
+        if (!shouldLog("info")) {
+            return;
+        }
         console.info(formatEntry(createEntry("info", message, context)));
     },
 
     warn(message: string, context?: LogContext): void {
-        if (!shouldLog("warn")) return;
+        if (!shouldLog("warn")) {
+            return;
+        }
         console.warn(formatEntry(createEntry("warn", message, context)));
     },
 
     error(message: string, context?: LogContext): void {
-        if (!shouldLog("error")) return;
+        if (!shouldLog("error")) {
+            return;
+        }
         console.error(formatEntry(createEntry("error", message, context)));
     },
 
-    errorWithCause(message: string, error: unknown, context?: LogContext): void {
-        if (!shouldLog("error")) return;
+    errorWithCause(
+        message: string,
+        error: unknown,
+        context?: LogContext
+    ): void {
+        if (!shouldLog("error")) {
+            return;
+        }
         const entry = createEntry("error", message, context, error);
         console.error(formatEntry(entry));
         // Also log the full error for detailed debugging
@@ -215,7 +240,9 @@ export const logger: Logger = {
             return fn();
         } finally {
             const duration = performance.now() - start;
-            this.debug(`${label} completed`, { durationMs: duration.toFixed(2) });
+            this.debug(`${label} completed`, {
+                durationMs: duration.toFixed(2),
+            });
         }
     },
 
@@ -226,9 +253,38 @@ export const logger: Logger = {
             return await fn();
         } finally {
             const duration = performance.now() - start;
-            this.debug(`${label} completed`, { durationMs: duration.toFixed(2) });
+            this.debug(`${label} completed`, {
+                durationMs: duration.toFixed(2),
+            });
         }
     },
 };
+
+/**
+ * Create a request-scoped logger with correlation ID.
+ *
+ * Extracts the request ID from the request headers and includes it
+ * in all log messages for distributed tracing.
+ *
+ * @param request - Incoming request (NextRequest or Request)
+ * @returns Logger with request context preset
+ *
+ * @example
+ * ```typescript
+ * export async function POST(request: NextRequest) {
+ *   const log = createRequestLogger(request);
+ *   log.info("Processing chat request");
+ *   // Logs: [timestamp] [INFO] [req_abc123] Processing chat request
+ * }
+ * ```
+ */
+export function createRequestLogger(request: Request): Logger {
+    const requestId =
+        request.headers.get(REQUEST_ID_HEADER) ??
+        request.headers.get("X-Correlation-ID") ??
+        undefined;
+
+    return logger.child({ requestId });
+}
 
 export default logger;

@@ -170,7 +170,9 @@ export function useNetworkStatus(
 
     // Setup browser event listeners
     useEffect(() => {
-        if (typeof window === "undefined") return;
+        if (typeof window === "undefined") {
+            return;
+        }
 
         const handleOnline = () => {
             setOnline(true);
@@ -208,7 +210,9 @@ export function useNetworkStatus(
 
     // Optional periodic ping
     useEffect(() => {
-        if (!enablePing || typeof window === "undefined") return;
+        if (!enablePing || typeof window === "undefined") {
+            return;
+        }
 
         // Initial check
         checkConnection();

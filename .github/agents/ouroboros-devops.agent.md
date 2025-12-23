@@ -1,6 +1,6 @@
 ---
 description: "🚀 DevOps & Git Engineer. CI/CD, deployments, infrastructure, Git workflows."
-tools: ['read', 'edit', 'execute', 'search', 'vscode', 'memory']
+tools: ['read', 'edit', 'execute', 'search/codebase','search', 'vscode', 'memory']
 handoffs:
   - label: "Return to Main"
     agent: ouroboros

@@ -7,7 +7,7 @@
  * @module tests/integration/database/chat-db.integration.test
  */
 
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { DataContext } from "@/lib/data/types";
 import { describeIf, isServiceAvailable } from "../../config/test-config";
@@ -149,7 +149,9 @@ describeIf(
 
         describe("createChat", () => {
             it("creates a new chat with default visibility", async () => {
-                if (skipIfNoSetup()) return;
+                if (skipIfNoSetup()) {
+                    return;
+                }
 
                 const chat = await chatData.createChat(
                     {

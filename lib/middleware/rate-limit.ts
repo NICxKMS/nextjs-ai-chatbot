@@ -16,6 +16,7 @@
 
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { logger } from "@/lib/utils/logger";
 
 // ============== REDIS CLIENT (EDGE) ==============
 
@@ -162,7 +163,7 @@ export async function checkRateLimit(
 
     // If no limiter (Redis not configured), fail closed for security
     if (!limiter) {
-        console.error(
+        logger.error(
             "Redis unavailable - blocking request for safety (rate-limit)"
         );
         const defaultLimit = DEFAULT_LIMITS[type];
@@ -238,14 +239,18 @@ export function getIpIdentifier(request: Request): string {
     const vercelIp = request.headers.get("x-vercel-forwarded-for");
     if (vercelIp) {
         const firstIp = vercelIp.split(",")[0];
-        if (firstIp) return firstIp.trim();
+        if (firstIp) {
+            return firstIp.trim();
+        }
     }
 
     // Standard forwarded header
     const forwarded = request.headers.get("x-forwarded-for");
     if (forwarded) {
         const firstIp = forwarded.split(",")[0];
-        if (firstIp) return firstIp.trim();
+        if (firstIp) {
+            return firstIp.trim();
+        }
     }
 
     // Real IP header (set by some proxies)
@@ -353,7 +358,7 @@ export function withRateLimit<
         } catch (error) {
             // If rate limiting fails and failOpen is true, allow the request
             if (failOpen) {
-                console.warn("[RateLimit] Redis error, failing open:", error);
+                logger.warn("[RateLimit] Redis error, failing open", { error });
                 return handler(request, ...args);
             }
 
@@ -442,10 +447,9 @@ export function createRateLimitMiddleware(config: MiddlewareConfig) {
         } catch (error) {
             // Handle errors based on failOpen setting
             if (failOpen) {
-                console.warn(
-                    "[RateLimit Middleware] Error, failing open:",
-                    error
-                );
+                logger.warn("[RateLimit Middleware] Error, failing open", {
+                    error,
+                });
                 return null;
             }
 

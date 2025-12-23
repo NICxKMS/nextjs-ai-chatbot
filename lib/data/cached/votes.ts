@@ -59,7 +59,9 @@ export async function getVoteCached(
     }
 
     // Guest = cache-only
-    if (isGuest(ctx)) return null;
+    if (isGuest(ctx)) {
+        return null;
+    }
 
     // Auth = DB fallback
     const vote = await getVote(chatId, messageId, ctx);
@@ -83,7 +85,9 @@ export async function getVotesByChatIdCached(
     ctx: DataContext
 ): Promise<Vote[]> {
     // Guest = no persistence
-    if (isGuest(ctx)) return [];
+    if (isGuest(ctx)) {
+        return [];
+    }
 
     // For list operations, go directly to DB
     // Individual votes will be cached on access

@@ -10,6 +10,7 @@
 "use client";
 
 import { Cpu } from "lucide-react";
+import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -61,7 +62,7 @@ export type ModelSelectorCompactProps = {
  * />
  * ```
  */
-export function ModelSelectorCompact({
+export const ModelSelectorCompact = memo(function ModelSelectorCompact({
     models,
     selectedModelId,
     onModelChange,
@@ -105,4 +106,4 @@ export function ModelSelectorCompact({
             </DropdownMenuContent>
         </DropdownMenu>
     );
-}
+});

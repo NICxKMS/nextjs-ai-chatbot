@@ -31,8 +31,8 @@ function SheetLoadingSkeleton() {
                 {Array.from({ length: 25 }).map((_, i) => (
                     <div
                         // biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton
-                        key={i}
                         className="h-8 rounded bg-muted"
+                        key={i}
                     />
                 ))}
             </div>

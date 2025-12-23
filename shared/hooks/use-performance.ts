@@ -156,7 +156,9 @@ export function usePerformance(
 
     // Track mount time
     useEffect(() => {
-        if (!enabled) return;
+        if (!enabled) {
+            return;
+        }
 
         mountTimeRef.current = performance.now();
 
@@ -167,7 +169,9 @@ export function usePerformance(
 
     // Track each render
     useEffect(() => {
-        if (!enabled) return;
+        if (!enabled) {
+            return;
+        }
 
         const renderEnd = performance.now();
         const renderDuration =
@@ -209,7 +213,9 @@ export function usePerformance(
 
     const markStart = useCallback(
         (label: string): void => {
-            if (!enabled) return;
+            if (!enabled) {
+                return;
+            }
             marksRef.current.set(label, performance.now());
         },
         [enabled]
@@ -217,7 +223,9 @@ export function usePerformance(
 
     const markEnd = useCallback(
         (label: string): number => {
-            if (!enabled) return 0;
+            if (!enabled) {
+                return 0;
+            }
 
             const startTime = marksRef.current.get(label);
             if (startTime === undefined) {
@@ -236,7 +244,9 @@ export function usePerformance(
 
     const measureAsync = useCallback(
         async <T>(label: string, operation: () => Promise<T>): Promise<T> => {
-            if (!enabled) return operation();
+            if (!enabled) {
+                return operation();
+            }
 
             markStart(label);
             try {
@@ -258,7 +268,9 @@ export function usePerformance(
 
     const measureSync = useCallback(
         <T>(label: string, operation: () => T): T => {
-            if (!enabled) return operation();
+            if (!enabled) {
+                return operation();
+            }
 
             markStart(label);
             try {

@@ -8,6 +8,7 @@
 import { sql } from "drizzle-orm";
 import { getRedis, isRedisAvailable } from "@/lib/cache";
 import { getDb } from "@/lib/db";
+import { logger } from "@/lib/utils/logger";
 
 export const maxDuration = 10;
 
@@ -200,7 +201,7 @@ export async function GET(): Promise<Response> {
             headers: { "Cache-Control": "public, max-age=0" },
         });
     } catch (error) {
-        console.error("[Health Check] Failed:", error);
+        logger.error("[Health Check] Failed", { error });
 
         // Production: minimal error response
         // Development: include error details

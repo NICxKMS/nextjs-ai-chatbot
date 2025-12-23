@@ -25,6 +25,7 @@ import { useSettings } from "@/features/settings";
 import { useOptimisticChats } from "@/features/sidebar/hooks";
 import { DEFAULT_MODEL_ID } from "@/lib/ai/config";
 import { getAvailableModels } from "@/lib/ai/models";
+import { logger } from "@/lib/utils/logger";
 import { fetchWithErrorHandlers } from "@/lib/utils/network";
 import type { ChatMessage, ModelMetadata, ModelState } from "../types";
 
@@ -175,7 +176,7 @@ export function ChatProvider({
 
     // Error handler for streaming errors (Fix #144)
     const handleStreamError = useCallback((error: Error) => {
-        console.error("[ChatProvider] Stream error:", error);
+        logger.error("[ChatProvider] Stream error", { error });
 
         // Extract user-friendly message from error
         let userMessage = "An error occurred while generating the response.";

@@ -4,15 +4,18 @@
  *
  * Rate limiting and request processing at the edge.
  * Issue #244: Guest rate limiting to prevent session flooding.
+ * Issue #75: Correlation IDs for request tracing.
  */
 
 import { type NextRequest, NextResponse } from "next/server";
 import {
     checkRateLimit,
     getIpIdentifier,
+    getOrCreateRequestId,
     type LimiterType,
     rateLimitResponse,
-} from "@/lib/middleware/rate-limit";
+    setRequestIdHeaders,
+} from "@/lib/middleware";
 
 // ============== SECURITY HEADERS ==============
 
@@ -25,13 +28,15 @@ const securityHeaders = {
 } as const;
 
 /**
- * Creates a NextResponse.next() with security headers applied
+ * Creates a NextResponse.next() with security headers and request ID applied
  */
-function createSecureResponse(): NextResponse {
+function createSecureResponse(requestId: string): NextResponse {
     const response = NextResponse.next();
     for (const [key, value] of Object.entries(securityHeaders)) {
         response.headers.set(key, value);
     }
+    // Add correlation ID for request tracing
+    setRequestIdHeaders(response.headers, requestId);
     return response;
 }
 
@@ -63,7 +68,7 @@ const routeLimiterMap: Record<string, LimiterType> = {
 };
 
 /** Guest rate limit multiplier - guests get stricter limits */
-const GUEST_LIMIT_MULTIPLIER = 0.5; // 50% of authenticated limits
+const _GUEST_LIMIT_MULTIPLIER = 0.5; // 50% of authenticated limits
 
 /**
  * Stricter limiter types for guest users.
@@ -140,14 +145,17 @@ function getLimiterType(
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
+    // Generate or propagate request ID for tracing
+    const requestId = getOrCreateRequestId(request);
+
     // Skip rate limiting for non-API routes
     if (!pathname.startsWith("/api")) {
-        return createSecureResponse();
+        return createSecureResponse(requestId);
     }
 
     // Skip rate limiting for health check endpoints
     if (pathname === "/api/health" || pathname === "/api/ping") {
-        return createSecureResponse();
+        return createSecureResponse(requestId);
     }
 
     // Determine if request is from authenticated user
@@ -167,11 +175,12 @@ export async function middleware(request: NextRequest) {
     if (!result.success) {
         const response = rateLimitResponse(result);
 
-        // Add security headers to rate limit response
+        // Add security headers and request ID to rate limit response
         const headers = new Headers(response.headers);
         for (const [key, value] of Object.entries(securityHeaders)) {
             headers.set(key, value);
         }
+        setRequestIdHeaders(headers, requestId);
 
         // Add guest indicator header for debugging
         if (!isAuthenticated) {
@@ -186,7 +195,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // Rate limit passed, continue with the request
-    return createSecureResponse();
+    return createSecureResponse(requestId);
 }
 
 // ============== MATCHER CONFIG ==============

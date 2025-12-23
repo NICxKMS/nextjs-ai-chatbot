@@ -9,7 +9,7 @@
  * @module features/chat/hooks/use-messages
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ChatStatus } from "../types";
 import type { UseScrollToBottomReturn } from "./use-scroll-to-bottom";
 import { useScrollToBottom } from "./use-scroll-to-bottom";
@@ -95,14 +95,26 @@ export function useMessages({
         setHasSentMessage(false);
     }, []);
 
-    return {
-        containerRef,
-        endRef,
-        isAtBottom,
-        scrollToBottom,
-        onViewportEnter,
-        onViewportLeave,
-        hasSentMessage,
-        resetSentState,
-    };
+    return useMemo(
+        () => ({
+            containerRef,
+            endRef,
+            isAtBottom,
+            scrollToBottom,
+            onViewportEnter,
+            onViewportLeave,
+            hasSentMessage,
+            resetSentState,
+        }),
+        [
+            containerRef,
+            endRef,
+            isAtBottom,
+            scrollToBottom,
+            onViewportEnter,
+            onViewportLeave,
+            hasSentMessage,
+            resetSentState,
+        ]
+    );
 }

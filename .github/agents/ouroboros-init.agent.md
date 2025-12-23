@@ -1,6 +1,6 @@
 ---
 description: "🚀 Ouroboros Init. First-time project research and architecture documentation."
-tools: ['agent', 'read', 'search', 'execute', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff']
+tools: ['agent', 'read', 'search/codebase', 'search', 'execute', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff']
 handoffs:
   - label: "Return to Orchestrator"
     agent: ouroboros
@@ -18,7 +18,6 @@ handoffs:
   - ouroborosai_menu: Show multiple choice menu
   - ouroborosai_confirm: Request yes/no confirmation
   - ouroborosai_plan_review: Request plan/spec review
-  - ouroborosai_phase_progress: Update workflow progress
   - ouroborosai_agent_handoff: Track agent handoffs
 -->
 

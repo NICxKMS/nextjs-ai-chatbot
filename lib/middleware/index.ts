@@ -43,3 +43,21 @@ export {
     // HOF wrapper
     withRateLimit,
 } from "./rate-limit";
+
+export {
+    // Constants
+    CORRELATION_ID_HEADER,
+    // Context creation
+    createRequestContext,
+    // ID generation
+    generateRequestId,
+    generateShortRequestId,
+    // Request helpers
+    getOrCreateRequestId,
+    getRequestIdFromHeaders,
+    REQUEST_ID_HEADER,
+    // Types
+    type RequestContext,
+    // Response helpers
+    setRequestIdHeaders,
+} from "./request-id";

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { logger } from "@/lib/utils/logger";
 
 // ============================================================================
 // Types
@@ -129,7 +130,7 @@ export function DiffView({ oldContent, newContent }: DiffViewProps) {
         loadTipTapDiffModules()
             .then(setModules)
             .catch((error) => {
-                console.error("[DiffView] Failed to load modules:", error);
+                logger.error("[DiffView] Failed to load modules", { error });
             });
     }, []);
 

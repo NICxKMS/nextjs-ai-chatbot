@@ -10,6 +10,7 @@ import { put } from "@vercel/blob";
 import { z } from "zod";
 import { isAuthResponse, requireAuthForRoute } from "@/lib/auth";
 import { AppError, validationError } from "@/lib/errors";
+import { logger } from "@/lib/utils/logger";
 
 export const maxDuration = 30;
 
@@ -161,7 +162,7 @@ export async function POST(request: Request): Promise<Response> {
             token: process.env.BLOB_READ_WRITE_TOKEN,
         });
 
-        console.info("[File Upload] Success:", {
+        logger.info("[File Upload] Success", {
             filename,
             contentType,
             size: upload.size,
@@ -175,7 +176,7 @@ export async function POST(request: Request): Promise<Response> {
             filename,
         });
     } catch (error) {
-        console.error("[File Upload] Failed:", {
+        logger.error("[File Upload] Failed", {
             filename,
             contentType,
             size: upload.size,

@@ -27,7 +27,6 @@ import {
     buildProviderOptions,
     DEFAULT_MODEL_ID,
     getLanguageModel,
-    getReasoningType,
     getTitleModel,
     getTools,
     isReasoningModel,
@@ -50,6 +49,7 @@ import {
 } from "@/lib/errors";
 import { checkRateLimit } from "@/lib/middleware/rate-limit";
 import { generateUUID } from "@/lib/utils";
+import { logger } from "@/lib/utils/logger";
 
 // =============================================================================
 // CONSTANTS
@@ -143,10 +143,9 @@ async function generateTitle(
         const cleanedTitle = text.trim().replace(/^["']|["']$/g, "");
         return cleanedTitle.length > 0 ? cleanedTitle : fallbackTitle;
     } catch (error) {
-        console.warn(
-            "[Chat API] AI title generation failed, using fallback:",
-            error
-        );
+        logger.warn("[Chat API] AI title generation failed, using fallback", {
+            error,
+        });
         return fallbackTitle;
     }
 }
@@ -257,7 +256,7 @@ export async function POST(request: Request): Promise<Response> {
                 });
             }
 
-            console.info("[Chat API] Guest access:", {
+            logger.info("[Chat API] Guest access", {
                 ip,
                 modelId,
                 chatId,
@@ -309,10 +308,9 @@ export async function POST(request: Request): Promise<Response> {
                             transient: true,
                         });
                     } catch (titleError) {
-                        console.warn(
-                            "[Chat API] Title generation failed:",
-                            titleError
-                        );
+                        logger.warn("[Chat API] Title generation failed", {
+                            error: titleError,
+                        });
                         // Use fallback title
                         chatTitle =
                             userMessageContent.length > 50
@@ -372,7 +370,7 @@ export async function POST(request: Request): Promise<Response> {
                                 transient: true,
                             });
 
-                            console.info("[Chat API] Token usage:", {
+                            logger.info("[Chat API] Token usage", {
                                 chatId,
                                 userId: userId ?? "guest",
                                 modelId,
@@ -407,6 +405,27 @@ export async function POST(request: Request): Promise<Response> {
                             // UIMessage uses parts array, extract them directly
                             const userMessageParts = lastUserMsg?.parts ?? [];
 
+                            // Extract attachments from file parts for persistence
+                            // File parts contain url, name, mediaType - store separately for querying
+                            const userAttachments = userMessageParts
+                                .filter((part) => part.type === "file")
+                                .map((part) => {
+                                    // Type assertion safe because we filtered by type === "file"
+                                    const filePart = part as {
+                                        type: "file";
+                                        url: string;
+                                        name?: string;
+                                        mediaType: string;
+                                    };
+                                    return {
+                                        url: filePart.url,
+                                        name: filePart.name ?? "attachment",
+                                        contentType:
+                                            filePart.mediaType ??
+                                            "application/octet-stream",
+                                    };
+                                });
+
                             // Create message records
                             const now = new Date();
                             const messagesToSave: Message[] = [
@@ -416,7 +435,7 @@ export async function POST(request: Request): Promise<Response> {
                                     chatId,
                                     role: "user",
                                     parts: userMessageParts,
-                                    attachments: [],
+                                    attachments: userAttachments,
                                     createdAt: now,
                                 },
                                 // Assistant message
@@ -436,20 +455,19 @@ export async function POST(request: Request): Promise<Response> {
                                 ctx
                             );
 
-                            console.info("[Chat API] Messages saved:", {
+                            logger.info("[Chat API] Messages saved", {
                                 chatId,
                                 messageCount: messagesToSave.length,
                                 isNewChat,
                             });
                         } catch (saveError) {
-                            console.error(
-                                "[Chat API] Failed to save messages:",
-                                saveError
-                            );
+                            logger.error("[Chat API] Failed to save messages", {
+                                error: saveError,
+                            });
                             // Don't throw - the stream response is already sent
                         }
 
-                        console.info("[Chat API] Stream complete:", {
+                        logger.info("[Chat API] Stream complete", {
                             chatId,
                             responseLength: text.length,
                         });
@@ -468,7 +486,7 @@ export async function POST(request: Request): Promise<Response> {
                 );
             },
             onError: (error) => {
-                console.error("[Chat API] Stream error:", error);
+                logger.error("[Chat API] Stream error", { error });
                 return "An error occurred while generating the response.";
             },
         });
@@ -485,7 +503,7 @@ export async function POST(request: Request): Promise<Response> {
             }
         );
     } catch (error) {
-        console.error("[Chat API] Error:", error);
+        logger.error("[Chat API] Error", { error });
 
         // Handle AppError
         if (error instanceof AppError) {

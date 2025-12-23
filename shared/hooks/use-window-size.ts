@@ -9,7 +9,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 /**
  * Window dimensions.
@@ -80,14 +80,27 @@ export function useWindowSize(): UseWindowSizeReturn {
     const width = windowSize?.width ?? 0;
     const height = windowSize?.height ?? 0;
 
-    return {
-        windowSize,
-        width,
-        height,
-        isReady,
-        isMobile: isReady && width > 0 && width < MOBILE_BREAKPOINT,
-        isTablet:
-            isReady && width >= MOBILE_BREAKPOINT && width < TABLET_BREAKPOINT,
-        isDesktop: isReady && width >= TABLET_BREAKPOINT,
-    };
+    // Memoize derived breakpoint values to prevent unnecessary recalculations
+    const breakpoints = useMemo(
+        () => ({
+            isMobile: isReady && width > 0 && width < MOBILE_BREAKPOINT,
+            isTablet:
+                isReady &&
+                width >= MOBILE_BREAKPOINT &&
+                width < TABLET_BREAKPOINT,
+            isDesktop: isReady && width >= TABLET_BREAKPOINT,
+        }),
+        [isReady, width]
+    );
+
+    return useMemo(
+        () => ({
+            windowSize,
+            width,
+            height,
+            isReady,
+            ...breakpoints,
+        }),
+        [windowSize, width, height, isReady, breakpoints]
+    );
 }

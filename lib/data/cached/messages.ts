@@ -39,7 +39,9 @@ export async function getMessagesCached(
     }
 
     // Guest = cache-only
-    if (isGuest(ctx)) return [];
+    if (isGuest(ctx)) {
+        return [];
+    }
 
     // Auth = DB fallback on cache miss
     const db = getDb();
@@ -95,7 +97,9 @@ export async function appendMessagesCached(
     messages: Message[],
     ctx: DataContext
 ): Promise<void> {
-    if (messages.length === 0) return;
+    if (messages.length === 0) {
+        return;
+    }
 
     const guestMode = isGuest(ctx);
     const cachedMsgs = messages.map(messageToCached);
