@@ -155,6 +155,20 @@ function determineOverallStatus(
 }
 
 /**
+ * Health check response cache
+ * Prevents DB/Redis calls on every health check during load tests
+ * TTL of 5 seconds balances freshness with performance
+ */
+type CachedHealth = {
+    response: { status: string; timestamp: string; details?: unknown };
+    httpStatus: number;
+    timestamp: number;
+};
+
+let cachedHealth: CachedHealth | null = null;
+const HEALTH_CACHE_TTL_MS = 5000; // 5 seconds
+
+/**
  * GET /api/health - Health check endpoint
  *
  * Status codes:
@@ -166,6 +180,15 @@ function determineOverallStatus(
  */
 export async function GET(): Promise<Response> {
     const isDev = process.env.NODE_ENV === "development";
+
+    // Return cached health response if still fresh (within TTL)
+    // This prevents DB pool exhaustion during load tests
+    if (cachedHealth && Date.now() - cachedHealth.timestamp < HEALTH_CACHE_TTL_MS) {
+        return Response.json(cachedHealth.response, {
+            status: cachedHealth.httpStatus,
+            headers: { "Cache-Control": "public, max-age=0", "X-Health-Cache": "HIT" },
+        });
+    }
 
     try {
         const [dbHealth, envHealth, cacheHealth] = await Promise.all([
@@ -196,9 +219,16 @@ export async function GET(): Promise<Response> {
             }),
         };
 
+        // Cache the health response to prevent DB pool exhaustion under load
+        cachedHealth = {
+            response,
+            httpStatus,
+            timestamp: Date.now(),
+        };
+
         return Response.json(response, {
             status: httpStatus,
-            headers: { "Cache-Control": "public, max-age=0" },
+            headers: { "Cache-Control": "public, max-age=0", "X-Health-Cache": "MISS" },
         });
     } catch (error) {
         logger.error("[Health Check] Failed", { error });

@@ -299,7 +299,7 @@ export function getMessageByErrorCode(
         case "bad_request:api:missing_openai_api_key":
             return "OPENAI_API_KEY is not configured.";
         case "bad_request:api:missing_google_api_key":
-            return "GOOGLE_GENERATIVE_AI_API_KEY is not configured.";
+            return "GEMINI_API_KEY is not configured.";
         case "bad_request:api:missing_openrouter_api_key":
             return "OPENROUTER_API_KEY is not configured.";
         case "bad_request:api:missing_cloudflare_credentials":

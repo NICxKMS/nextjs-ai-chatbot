@@ -72,7 +72,7 @@ const ENV_CONFIG: EnvVarConfig[] = [
         validate: (v) => v.startsWith("sk-ant-"),
     },
     {
-        name: "GOOGLE_GENERATIVE_AI_API_KEY",
+        name: "GEMINI_API_KEY",
         required: false,
         description: "Google AI API key for Gemini models",
     },
@@ -112,7 +112,7 @@ function hasAIProvider(): boolean {
     const providers = [
         "OPENAI_API_KEY",
         "ANTHROPIC_API_KEY",
-        "GOOGLE_GENERATIVE_AI_API_KEY",
+        "GEMINI_API_KEY",
         "OPENROUTER_API_KEY",
     ];
     return providers.some((key) => !!process.env[key]);
@@ -154,7 +154,7 @@ export function validateEnvironment(): ValidationResult {
     // Special check: At least one AI provider must be configured
     if (!hasAIProvider()) {
         result.missing.push(
-            "AI_PROVIDER: At least one AI provider API key is required (OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, or OPENROUTER_API_KEY)"
+            "AI_PROVIDER: At least one AI provider API key is required (OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, or OPENROUTER_API_KEY)"
         );
         result.valid = false;
     }
@@ -210,11 +210,11 @@ export function validateEnvOrThrow(): void {
 
         if (isProduction) {
             // In production, fail fast
-            logger.error("[Env] " + errorMessage);
+            logger.error(`[Env] ${errorMessage}`);
             throw new Error(errorMessage);
         }
         // In development, warn but continue
-        logger.warn("[Env] " + errorMessage);
+        logger.warn(`[Env] ${errorMessage}`);
         console.warn(
             "\n⚠️  Environment validation warnings (non-fatal in development):\n" +
                 errorMessage +
@@ -228,9 +228,17 @@ export function validateEnvOrThrow(): void {
  */
 export function getConfiguredProviders(): string[] {
     const providers: string[] = [];
-    if (process.env.OPENAI_API_KEY) providers.push("OpenAI");
-    if (process.env.ANTHROPIC_API_KEY) providers.push("Anthropic");
-    if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) providers.push("Google");
-    if (process.env.OPENROUTER_API_KEY) providers.push("OpenRouter");
+    if (process.env.OPENAI_API_KEY) {
+        providers.push("OpenAI");
+    }
+    if (process.env.ANTHROPIC_API_KEY) {
+        providers.push("Anthropic");
+    }
+    if (process.env.GEMINI_API_KEY) {
+        providers.push("Google");
+    }
+    if (process.env.OPENROUTER_API_KEY) {
+        providers.push("OpenRouter");
+    }
     return providers;
 }

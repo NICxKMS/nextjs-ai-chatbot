@@ -5,9 +5,19 @@
  * Rate limiting and request processing at the edge.
  * Issue #244: Guest rate limiting to prevent session flooding.
  * Issue #75: Correlation IDs for request tracing.
+ * PERF-001: Guest session creation at edge to eliminate client waterfall.
  */
 
+import { SignJWT } from "jose";
+import { nanoid } from "nanoid";
 import { type NextRequest, NextResponse } from "next/server";
+import {
+    GUEST_CACHE_TTL_SECONDS,
+    GUEST_TOKEN_COOKIE,
+    JWT_AUDIENCE,
+    JWT_EXPIRATION_SECONDS,
+    JWT_ISSUER,
+} from "@/lib/auth/constants";
 import {
     checkRateLimit,
     getIpIdentifier,
@@ -16,6 +26,10 @@ import {
     rateLimitResponse,
     setRequestIdHeaders,
 } from "@/lib/middleware";
+import {
+    GUEST_LIMITER_OVERRIDES,
+    ROUTE_LIMITER_MAP,
+} from "@/lib/middleware/rate-limit-config";
 
 // ============== SECURITY HEADERS ==============
 
@@ -44,41 +58,12 @@ function createSecureResponse(requestId: string): NextResponse {
 
 /**
  * Route to limiter type mapping for authenticated users.
- * Guests use stricter limits via guestLimiter.
+ * CLN-003: Configuration moved to lib/middleware/rate-limit-config.ts
+ * Using centralized ROUTE_LIMITER_MAP and GUEST_LIMITER_OVERRIDES.
  */
-const routeLimiterMap: Record<string, LimiterType> = {
-    // Auth endpoints - stricter limits to prevent brute force
-    "/api/auth/login": "auth",
-    "/api/auth/register": "auth",
-    "/api/auth/callback": "auth",
 
-    // Chat/AI endpoints - token bucket for burst handling
-    "/api/chat": "chat",
-
-    // Upload endpoints - very strict limits (per hour)
-    "/api/files/upload": "upload",
-
-    // Search endpoints - generous limits
-    "/api/suggestions": "search",
-
-    // Standard API endpoints
-    "/api/document": "standard",
-    "/api/vote": "standard",
-    "/api/history": "standard",
-};
-
-/** Guest rate limit multiplier - guests get stricter limits */
-const _GUEST_LIMIT_MULTIPLIER = 0.5; // 50% of authenticated limits
-
-/**
- * Stricter limiter types for guest users.
- * Maps authenticated limiter types to their guest equivalents.
- */
-const guestLimiterOverrides: Partial<Record<LimiterType, LimiterType>> = {
-    standard: "guest", // 100 -> 20 req/min
-    chat: "guest", // 50 -> 20 req/min
-    search: "standard", // 1000 -> 100 req/min (use standard for guests)
-};
+// CLN-001: Removed _GUEST_LIMIT_MULTIPLIER (dead code) - guest limits implemented via guestLimiterOverrides
+// CLN-003: guestLimiterOverrides moved to rate-limit-config.ts as GUEST_LIMITER_OVERRIDES
 
 /**
  * Check if request has a valid session cookie.
@@ -104,7 +89,76 @@ function hasSessionCookie(request: NextRequest): boolean {
 }
 
 /**
+ * Check if request has a guest token cookie.
+ * PERF-001: Used to skip edge session creation if already present.
+ */
+function hasGuestTokenCookie(request: NextRequest): boolean {
+    return !!request.cookies.get(GUEST_TOKEN_COOKIE)?.value;
+}
+
+// ============== EDGE SESSION CREATION (PERF-001) ==============
+
+/**
+ * Generate a truncated SHA-256 hash (Edge-compatible)
+ * Uses Web Crypto API which works in Edge runtime
+ */
+async function sha256Truncated(input: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(input);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+    return hashHex.slice(0, 16);
+}
+
+/**
+ * Create guest session JWT at edge level.
+ * PERF-001: Eliminates client-side /api/auth/guest call waterfall.
+ *
+ * Uses edge-compatible APIs:
+ * - Web Crypto for SHA-256 hashing
+ * - jose library for JWT signing
+ * - nanoid for guest ID generation
+ */
+async function createGuestSessionAtEdge(request: NextRequest): Promise<string> {
+    const guestId = nanoid();
+
+    // Extract device context for fingerprinting
+    const ip =
+        request.headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim() ||
+        request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+        request.headers.get("x-real-ip") ||
+        "unknown";
+    const userAgent =
+        request.headers.get("user-agent")?.toLowerCase().trim() || "unknown";
+
+    // Create device fingerprint using Web Crypto API
+    const [ipHash, uaHash] = await Promise.all([
+        sha256Truncated(ip),
+        sha256Truncated(userAgent),
+    ]);
+
+    // Sign JWT using jose (edge-compatible)
+    // SEC-004: Include audience claim for token binding
+    const secret = new TextEncoder().encode(process.env.AUTH_SECRET!);
+    return new SignJWT({
+        sub: `guest:${guestId}`,
+        type: "guest",
+        fp: { ipHash, uaHash },
+    })
+        .setProtectedHeader({ alg: "HS256" })
+        .setIssuedAt()
+        .setIssuer(JWT_ISSUER)
+        .setAudience(JWT_AUDIENCE)
+        .setExpirationTime(`${JWT_EXPIRATION_SECONDS}s`)
+        .sign(secret);
+}
+
+/**
  * Get the appropriate limiter type based on route and auth status.
+ * CLN-003: Uses centralized ROUTE_LIMITER_MAP and GUEST_LIMITER_OVERRIDES.
  */
 function getLimiterType(
     pathname: string,
@@ -114,7 +168,7 @@ function getLimiterType(
     let baseLimiterType: LimiterType = "standard";
     let longestMatch = 0;
 
-    for (const [route, type] of Object.entries(routeLimiterMap)) {
+    for (const [route, type] of Object.entries(ROUTE_LIMITER_MAP)) {
         if (pathname.startsWith(route) && route.length > longestMatch) {
             baseLimiterType = type;
             longestMatch = route.length;
@@ -136,8 +190,8 @@ function getLimiterType(
         return baseLimiterType;
     }
 
-    // For guests, apply stricter limits
-    return guestLimiterOverrides[baseLimiterType] ?? "guest";
+    // For guests, apply stricter limits (CLN-003: using centralized config)
+    return GUEST_LIMITER_OVERRIDES[baseLimiterType] ?? "guest";
 }
 
 // ============== MIDDLEWARE ==============
@@ -148,14 +202,75 @@ export async function middleware(request: NextRequest) {
     // Generate or propagate request ID for tracing
     const requestId = getOrCreateRequestId(request);
 
-    // Skip rate limiting for non-API routes
+    // ============== PAGE ROUTES: Edge Session Creation (PERF-001) ==============
+    // For page requests, create guest session at edge if no session exists.
+    // This eliminates the client-side waterfall of waiting for /api/auth/guest.
+
     if (!pathname.startsWith("/api")) {
+        // Skip session creation for auth routes (login/register handle their own auth)
+        const isAuthRoute =
+            pathname.startsWith("/login") || pathname.startsWith("/register");
+
+        // Check if any session already exists
+        const hasAuth = hasSessionCookie(request);
+        const hasGuest = hasGuestTokenCookie(request);
+
+        // Create guest session at edge if no session exists and not on auth route
+        if (!hasAuth && !hasGuest && !isAuthRoute) {
+            try {
+                const token = await createGuestSessionAtEdge(request);
+                const response = createSecureResponse(requestId);
+
+                // Set guest token cookie with same options as lib/auth/constants
+                response.cookies.set(GUEST_TOKEN_COOKIE, token, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === "production",
+                    sameSite: "lax",
+                    path: "/",
+                    maxAge: GUEST_CACHE_TTL_SECONDS,
+                });
+
+                return response;
+            } catch (error) {
+                // If session creation fails, continue without session
+                // The app will fall back to client-side session creation
+                console.error(
+                    "[PERF-001] Edge session creation failed:",
+                    error
+                );
+            }
+        }
+
         return createSecureResponse(requestId);
     }
+
+    // ============== API ROUTES: Rate Limiting ==============
 
     // Skip rate limiting for health check endpoints
     if (pathname === "/api/health" || pathname === "/api/ping") {
         return createSecureResponse(requestId);
+    }
+
+    // SEC-002: Global IP rate limit (regardless of session)
+    // Prevents abuse via session rotation or VPN/proxy hopping
+    const ip = getIpIdentifier(request);
+    const globalIpResult = await checkRateLimit(`global:${ip}`, "standard");
+    if (!globalIpResult.success) {
+        const headers = new Headers({
+            "Retry-After": String(
+                Math.ceil((globalIpResult.reset - Date.now()) / 1000)
+            ),
+            "X-RateLimit-Global": "exceeded",
+        });
+        for (const [key, value] of Object.entries(securityHeaders)) {
+            headers.set(key, value);
+        }
+        setRequestIdHeaders(headers, requestId);
+
+        return new Response("Too Many Requests", {
+            status: 429,
+            headers,
+        });
     }
 
     // Determine if request is from authenticated user
@@ -203,12 +318,14 @@ export async function middleware(request: NextRequest) {
 export const config = {
     matcher: [
         /*
-         * Match all API routes except:
+         * Match all routes except:
          * - _next/static (static files)
          * - _next/image (image optimization files)
-         * - favicon.ico (favicon file)
-         * - public folder
+         * - favicon.ico, sitemap.xml, robots.txt (SEO files)
+         * - public folder assets
+         *
+         * PERF-001: Added page routes for edge session creation
          */
-        "/api/:path*",
+        "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|images/).*)",
     ],
 };

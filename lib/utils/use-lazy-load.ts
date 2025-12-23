@@ -168,7 +168,6 @@ export function useDynamicImport<T extends object>(
         if (triggerOnMount) {
             trigger();
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [triggerOnMount, trigger]);
 
     return { Component, isLoading, error, trigger };

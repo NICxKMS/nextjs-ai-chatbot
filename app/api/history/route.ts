@@ -7,19 +7,16 @@
  */
 
 import { type NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
-import {
-    createContext,
-    deleteAllUserChatsCached,
-    getUserChatsCached,
-} from "@/lib/data";
+import { getSessionCached } from "@/lib/auth";
+import { chatDb, createContext, deleteAllUserChatsCached } from "@/lib/data";
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "@/lib/data/types";
 import type { Chat } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/utils/logger";
 
 export async function GET(request: NextRequest) {
     try {
-        const session = await getSession();
+        const session = await getSessionCached();
         if (!session?.user?.id) {
             return NextResponse.json(
                 { error: "Unauthorized" },
@@ -29,19 +26,35 @@ export async function GET(request: NextRequest) {
 
         const ctx = createContext(session.user.id, session.user.type);
 
-        // Fetch chats using the cached data layer
-        const chats = await getUserChatsCached(ctx);
+        // Parse pagination params from query string
+        const searchParams = request.nextUrl.searchParams;
+        const limitParam = searchParams.get("limit");
+        const cursor = searchParams.get("cursor");
+
+        const limit = Math.min(
+            Math.max(
+                1,
+                Number.parseInt(limitParam ?? "", 10) || DEFAULT_PAGE_SIZE
+            ),
+            MAX_PAGE_SIZE
+        );
+
+        // Fetch chats with cursor-based pagination
+        const result = await chatDb.listChats(ctx, {
+            limit,
+            startingAfter: cursor ?? undefined,
+        });
 
         return NextResponse.json({
-            chats: chats.map((chat: Chat) => ({
+            chats: result.items.map((chat: Chat) => ({
                 id: chat.id,
                 title: chat.title,
                 createdAt: chat.createdAt,
                 visibility: chat.visibility,
                 userId: chat.userId,
             })),
-            hasMore: false,
-            nextCursor: null,
+            hasMore: result.hasMore,
+            nextCursor: result.nextCursor ?? null,
         });
     } catch (error) {
         logger.error("[History API]", { error });
@@ -57,7 +70,7 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(_request: NextRequest) {
     try {
-        const session = await getSession();
+        const session = await getSessionCached();
         if (!session?.user?.id) {
             return NextResponse.json(
                 { error: "Unauthorized" },

@@ -1,12 +1,20 @@
 /**
  * Session Manager
  * Ref: 02-authentication-optimal-design.md §7
+ *
+ * CLN-004: Improved error handling with proper logging.
  */
 
 import { createServerClient } from "@supabase/ssr";
 import { nanoid } from "nanoid";
 import { cookies, headers } from "next/headers";
-import { getGuestTokenCookie, setGuestTokenCookie } from "./cookies";
+import { connection } from "next/server";
+import { logger } from "@/lib/utils/logger";
+import {
+    getGuestTokenCookie,
+    getSupabaseCookieName,
+    setGuestTokenCookie,
+} from "./cookies";
 import {
     createDeviceFingerprint,
     createGuestToken,
@@ -14,6 +22,11 @@ import {
     validateDeviceFingerprint,
     verifyGuestToken,
 } from "./jwt";
+import {
+    extractUserIdFromToken,
+    getCachedSession,
+    setCachedSession,
+} from "./session-cache";
 import type { AppSession, AppUser, DataContext } from "./types";
 
 /**
@@ -75,12 +88,63 @@ export class SessionManager {
     }
 
     /**
-     * Get Supabase session from cookie
+     * Get Supabase session from cookie with caching
+     *
+     * Cache strategy (NET-002):
+     * 1. Extract user ID from JWT (without verification) for cache key
+     * 2. Check cache for validated session
+     * 3. On cache miss, validate with Supabase and cache result
      */
     private async getSupabaseSession(): Promise<AppSession | null> {
+        // Defer to request time - prevents prerender errors with cookies()
+        await connection();
+
         try {
             const cookieStore = await cookies();
 
+            // Try to extract user ID from Supabase cookie for cache lookup
+            const authCookieName = getSupabaseCookieName();
+            const authCookie = cookieStore.get(authCookieName)?.value;
+
+            // Extract potential user ID for cache key
+            let potentialUserId: string | null = null;
+            if (authCookie) {
+                // Supabase SSR stores session in chunked base64 or direct JWT
+                // Try to extract the access_token JWT from the cookie value
+                try {
+                    // Check if it's a JSON session object
+                    const decoded = JSON.parse(
+                        Buffer.from(authCookie, "base64").toString("utf-8")
+                    );
+                    if (decoded.access_token) {
+                        potentialUserId = extractUserIdFromToken(
+                            decoded.access_token
+                        );
+                    }
+                } catch (parseError) {
+                    // CLN-004: May be direct JWT or other format, try direct extraction
+                    logger.debug(
+                        "[session] Cookie not JSON, trying direct JWT extraction",
+                        {
+                            error:
+                                parseError instanceof Error
+                                    ? parseError.message
+                                    : "Unknown error",
+                        }
+                    );
+                    potentialUserId = extractUserIdFromToken(authCookie);
+                }
+            }
+
+            // Check cache if we have a potential user ID
+            if (potentialUserId) {
+                const cached = await getCachedSession(potentialUserId);
+                if (cached) {
+                    return cached;
+                }
+            }
+
+            // Cache miss or no user ID - validate with Supabase
             const supabase = createServerClient(
                 process.env.NEXT_PUBLIC_SUPABASE_URL!,
                 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -111,8 +175,17 @@ export class SessionManager {
                 email: user.email,
             };
 
-            return { user: appUser };
-        } catch {
+            const session: AppSession = { user: appUser };
+
+            // Cache the validated session
+            await setCachedSession(user.id, session);
+
+            return session;
+        } catch (error) {
+            // CLN-004: Log Supabase session errors for debugging
+            logger.warn("[session] getSupabaseSession failed", {
+                error: error instanceof Error ? error.message : "Unknown error",
+            });
             return null;
         }
     }
@@ -125,6 +198,9 @@ export class SessionManager {
      * - IP change = session valid but token rotated (network change)
      */
     private async getGuestSession(): Promise<AppSession | null> {
+        // Defer to request time - prevents prerender errors with cookies()
+        await connection();
+
         const token = await getGuestTokenCookie();
         if (!token) {
             return null;

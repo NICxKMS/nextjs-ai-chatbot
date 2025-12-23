@@ -44,6 +44,13 @@ export {
     withRateLimit,
 } from "./rate-limit";
 
+// CLN-003: Centralized rate limit configuration
+export {
+    GUEST_LIMITER_OVERRIDES,
+    RATE_LIMITS,
+    ROUTE_LIMITER_MAP,
+} from "./rate-limit-config";
+
 export {
     // Constants
     CORRELATION_ID_HEADER,

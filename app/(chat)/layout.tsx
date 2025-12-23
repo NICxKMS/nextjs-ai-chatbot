@@ -8,10 +8,14 @@
  */
 
 import { cookies, headers } from "next/headers";
+import { connection } from "next/server";
 import type { PropsWithChildren } from "react";
 import { ChatLayoutClient } from "./chat-layout-client";
 
 export default async function ChatLayout({ children }: PropsWithChildren) {
+    // Defer to request time - prevents prerender errors with cookies()/headers()
+    await connection();
+
     const headersList = await headers();
     const cookieStore = await cookies();
 

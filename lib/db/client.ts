@@ -34,11 +34,13 @@ function getPoolConfig() {
             prepare: false,
         };
     }
-    // Development
+    // Development - increased pool for load testing capability
+    // max: 10 handles concurrent test requests without pool exhaustion
+    // connect_timeout: 10s fails faster to avoid long waits under load
     return {
-        max: 3,
+        max: 10,
         idle_timeout: 30,
-        connect_timeout: 30,
+        connect_timeout: 10,
         prepare: false,
     };
 }

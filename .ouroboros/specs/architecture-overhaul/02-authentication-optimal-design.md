@@ -5,7 +5,8 @@
 > **Status**: DESIGN COMPLETE  
 > **Author**: Ouroboros Architect  
 > **Date**: 2024-12-17  
-> **Depends On**: 01-error-handling-optimal-design.md (AppError)
+> **Depends On**: 01-error-handling-optimal-design.md (AppError)  
+> **Updated**: Session Analysis v1.2 - December 23, 2025
 
 ---
 
@@ -14,11 +15,13 @@
 **Business Capability**: Secure user identity, session management, and access control.
 
 Authentication serves three stakeholders:
+
 1. **Users**: Seamless login/registration, persistent sessions, guest-to-regular upgrade
 2. **Developers**: Simple, consistent auth checks across server/client boundaries
 3. **Operations**: Secure token handling, audit trails, rate limiting
 
 **Success Criteria**:
+
 - Zero authentication bypasses in protected routes
 - <50ms session validation overhead
 - Seamless guest-to-authenticated upgrade (no data loss)
@@ -31,39 +34,39 @@ Authentication serves three stakeholders:
 
 ### 2.1 Authentication Methods
 
-| Requirement | Description |
-|-------------|-------------|
-| Supabase Auth | Email/password via Supabase client |
-| Guest Sessions | Anonymous users with JWT-based identity |
-| Token Exchange | Client-side Supabase → Server-side cookie |
+| Requirement     | Description                                  |
+| --------------- | -------------------------------------------- |
+| Supabase Auth   | Email/password via Supabase client           |
+| Guest Sessions  | Anonymous users with JWT-based identity      |
+| Token Exchange  | Client-side Supabase → Server-side cookie    |
 | Session Upgrade | Guest → Regular user (preserve chat history) |
 
 ### 2.2 Session Management
 
-| Requirement | Description |
-|-------------|-------------|
-| Server-side Validation | JWT verification with secret key |
-| Cookie-based Storage | HttpOnly, Secure, SameSite=Lax |
-| Token Rotation | Automatic refresh before expiry |
-| Dual Session Support | Supabase + Guest (mutually exclusive) |
+| Requirement            | Description                           |
+| ---------------------- | ------------------------------------- |
+| Server-side Validation | JWT verification with secret key      |
+| Cookie-based Storage   | HttpOnly, Secure, SameSite=Lax        |
+| Token Rotation         | Automatic refresh before expiry       |
+| Dual Session Support   | Supabase + Guest (mutually exclusive) |
 
 ### 2.3 Authorization
 
-| Requirement | Description |
-|-------------|-------------|
+| Requirement        | Description                               |
+| ------------------ | ----------------------------------------- |
 | Resource Ownership | Users can only access their own resources |
-| Guest Restrictions | Limited actions (no voting, sharing) |
-| Rate Limiting | Per-user + per-IP limits |
-| CSRF Protection | Origin/Referer validation on mutations |
+| Guest Restrictions | Limited actions (no voting, sharing)      |
+| Rate Limiting      | Per-user + per-IP limits                  |
+| CSRF Protection    | Origin/Referer validation on mutations    |
 
 ### 2.4 Protected Routes
 
-| Requirement | Description |
-|-------------|-------------|
-| Server Components | Session check in RSC with redirect |
-| Server Actions | `requireAuth()` guard pattern |
-| API Routes | `requireAuthForRoute()` with Response |
-| Client Components | `useAuth()` hook for UI state |
+| Requirement       | Description                           |
+| ----------------- | ------------------------------------- |
+| Server Components | Session check in RSC with redirect    |
+| Server Actions    | `requireAuth()` guard pattern         |
+| API Routes        | `requireAuthForRoute()` with Response |
+| Client Components | `useAuth()` hook for UI state         |
 
 ---
 
@@ -72,6 +75,7 @@ Authentication serves three stakeholders:
 ### 3.1 What Exists
 
 **lib/auth/session.ts (270 lines)**
+
 - ✅ Good: JWT verification with jose
 - ✅ Good: Dual session support (Supabase + Guest)
 - ✅ Good: Audience/Issuer validation
@@ -79,11 +83,13 @@ Authentication serves three stakeholders:
 - ⚠️ Issue: `getAppSession()` does sequential checks (could parallel)
 
 **lib/auth/client.ts (24 lines)**
+
 - ✅ Good: Singleton browser client
 - ✅ Good: "use client" directive
 - ⚠️ Issue: Error message could use AppError
 
 **proxy.ts (248 lines)**
+
 - ✅ Good: Edge rate limiting
 - ✅ Good: Token rotation (Task 7.6)
 - ✅ Good: Mobile detection header
@@ -91,31 +97,34 @@ Authentication serves three stakeholders:
 - ⚠️ Issue: Guest session creation mixed with routing
 
 **lib/api/guards.ts (353 lines)**
+
 - ✅ Good: `requireAuth()`, `requireAuthForRoute()` pattern
 - ✅ Good: `verifyOwnership()`, `requireNonGuest()`
 - ✅ Good: Unified error handling with ChatSDKError
 - ⚠️ Issue: Tightly coupled to `ChatSDKError` (legacy name)
 
 **components/auth-provider.tsx (160 lines)**
+
 - ✅ Good: Bootstrap guest sessions client-side
 - ✅ Good: `isNewSession` optimization
 - ✅ Good: Supabase auth state listener
 - ⚠️ Issue: Mixed responsibilities (session + bootstrap + state)
 
-**app/api/auth/* routes**
+**app/api/auth/\* routes**
+
 - ✅ Good: `/exchange`, `/logout`, `/guest` separation
 - ✅ Good: Rate limiting per endpoint
 - ⚠️ Issue: Inconsistent response shapes
 
 ### 3.2 Complexity Assessment
 
-| Component | Lines | Complexity | Verdict |
-|-----------|-------|------------|---------|
-| session.ts | 270 | Medium | Refactor to class |
-| proxy.ts | 248 | High | Extract auth module |
-| guards.ts | 353 | Medium | Keep, rename |
-| auth-provider.tsx | 160 | Medium | Split concerns |
-| Auth routes | ~200 | Low | Simplify |
+| Component         | Lines | Complexity | Verdict             |
+| ----------------- | ----- | ---------- | ------------------- |
+| session.ts        | 270   | Medium     | Refactor to class   |
+| proxy.ts          | 248   | High       | Extract auth module |
+| guards.ts         | 353   | Medium     | Keep, rename        |
+| auth-provider.tsx | 160   | Medium     | Split concerns      |
+| Auth routes       | ~200  | Low        | Simplify            |
 
 **Total**: ~1,231 lines → Target: ~800 lines (-35%)
 
@@ -166,21 +175,21 @@ graph TB
         E2[Guest Token Rotation]
         E3[Device Detection]
     end
-    
+
     subgraph "Server Runtime (Node.js)"
         S1[SessionManager]
         S2[JWT Verification]
         S3[Auth Guards]
         S4[Token Exchange API]
     end
-    
+
     subgraph "Client Runtime"
         C1[AuthProvider Context]
         C2[useAuth Hook]
         C3[Supabase Browser Client]
         C4[Guest Bootstrap]
     end
-    
+
     E1 -->|Pass| S1
     E2 -->|Cookie| S1
     C3 -->|Access Token| S4
@@ -191,17 +200,17 @@ graph TB
 
 **Key Boundaries**:
 
-| Runtime | Responsibility | Bundle Impact |
-|---------|----------------|---------------|
-| Edge | Rate limiting, token rotation, headers | N/A |
-| Node.js | JWT verification, session management, guards | N/A |
-| Client | Auth context, hooks, Supabase client | <3KB |
+| Runtime | Responsibility                               | Bundle Impact |
+| ------- | -------------------------------------------- | ------------- |
+| Edge    | Rate limiting, token rotation, headers       | N/A           |
+| Node.js | JWT verification, session management, guards | N/A           |
+| Client  | Auth context, hooks, Supabase client         | <3KB          |
 
 ### 4.3 Session Management Design
 
 ```typescript
 // lib/auth/types.ts
-export type UserType = 'guest' | 'regular';
+export type UserType = "guest" | "regular";
 
 export type AppUser = {
   id: string;
@@ -214,36 +223,37 @@ export type AppSession = {
 };
 
 // Discriminated union for auth state
-export type AuthState = 
-  | { status: 'loading' }
-  | { status: 'authenticated'; session: AppSession }
-  | { status: 'unauthenticated' };
+export type AuthState =
+  | { status: "loading" }
+  | { status: "authenticated"; session: AppSession }
+  | { status: "unauthenticated" };
 ```
 
 ```typescript
 // lib/auth/session.ts
-import 'server-only';
+import "server-only";
 
-import { cookies } from 'next/headers';
-import { verifyJwt, type JwtPayload } from './jwt';
-import type { AppSession, AppUser } from './types';
+import { cookies } from "next/headers";
+import { verifyJwt, type JwtPayload } from "./jwt";
+import type { AppSession, AppUser } from "./types";
 
-const SUPABASE_COOKIE = process.env.SUPABASE_ACCESS_TOKEN_COOKIE_NAME || 'sb-access-token';
-const GUEST_COOKIE = 'guest_token';
+const SUPABASE_COOKIE =
+  process.env.SUPABASE_ACCESS_TOKEN_COOKIE_NAME || "sb-access-token";
+const GUEST_COOKIE = "guest_token";
 
 export class SessionManager {
   private supabaseSecret: Uint8Array | null;
   private guestSecret: Uint8Array | null;
-  
+
   constructor() {
     this.supabaseSecret = this.encodeSecret(process.env.SUPABASE_JWT_SECRET);
     this.guestSecret = this.encodeSecret(process.env.GUEST_JWT_SECRET);
   }
-  
+
   private encodeSecret(secret?: string): Uint8Array | null {
     return secret ? new TextEncoder().encode(secret) : null;
   }
-  
+
   /**
    * Get current session from cookies.
    * Priority: Supabase > Guest
@@ -252,83 +262,83 @@ export class SessionManager {
     // Check Supabase session first (authenticated users)
     const supabaseSession = await this.getSupabaseSession();
     if (supabaseSession) return supabaseSession;
-    
+
     // Fall back to guest session
     return this.getGuestSession();
   }
-  
+
   /**
    * Get session from a provided access token.
    * Used during token exchange (cookie not yet readable).
    */
   async getSessionFromToken(accessToken: string): Promise<AppSession | null> {
     if (!this.supabaseSecret) return null;
-    
+
     const payload = await verifyJwt(accessToken, this.supabaseSecret, {
-      audience: 'authenticated',
+      audience: "authenticated",
       issuer: this.getSupabaseIssuer(),
     });
-    
+
     if (!payload?.sub) return null;
-    
+
     return {
       user: {
         id: payload.sub,
-        type: 'regular',
+        type: "regular",
         email: this.extractEmail(payload),
       },
     };
   }
-  
+
   private async getSupabaseSession(): Promise<AppSession | null> {
     if (!this.supabaseSecret) return null;
-    
+
     const cookieStore = await cookies();
     const token = cookieStore.get(SUPABASE_COOKIE)?.value;
     if (!token) return null;
-    
+
     const payload = await verifyJwt(token, this.supabaseSecret, {
-      audience: 'authenticated',
+      audience: "authenticated",
       issuer: this.getSupabaseIssuer(),
     });
-    
+
     if (!payload?.sub) return null;
-    
+
     return {
       user: {
         id: payload.sub,
-        type: 'regular',
+        type: "regular",
         email: this.extractEmail(payload),
       },
     };
   }
-  
+
   private async getGuestSession(): Promise<AppSession | null> {
     if (!this.guestSecret) return null;
-    
+
     const cookieStore = await cookies();
     const token = cookieStore.get(GUEST_COOKIE)?.value;
     if (!token) return null;
-    
+
     const payload = await verifyJwt(token, this.guestSecret);
-    if (!payload?.sub || payload.type !== 'guest') return null;
-    
+    if (!payload?.sub || payload.type !== "guest") return null;
+
     return {
       user: {
         id: payload.sub,
-        type: 'guest',
+        type: "guest",
       },
     };
   }
-  
+
   private extractEmail(payload: JwtPayload): string | null {
-    if (typeof payload.email === 'string') return payload.email;
-    if (typeof payload.user_metadata?.email === 'string') {
+    if (typeof payload.email === "string") return payload.email;
+    if (typeof payload.user_metadata?.email === "string") {
       return payload.user_metadata.email;
     }
     return null;
   }
-  
+
   private getSupabaseIssuer(): string | undefined {
     const url = process.env.SUPABASE_URL;
     return url ? `${url}/auth/v1` : undefined;
@@ -348,12 +358,12 @@ export async function getAppSession(): Promise<AppSession | null> {
 
 ```typescript
 // lib/auth/guards.ts
-import 'server-only';
+import "server-only";
 
-import { sessionManager, type AppSession } from './session';
-import { createContext, type DataContext } from '@/lib/data/base';
-import { AppError } from '@/lib/errors';
-import type { Surface } from '@/lib/errors/types';
+import { sessionManager, type AppSession } from "./session";
+import { createContext, type DataContext } from "@/lib/data/base";
+import { AppError } from "@/lib/errors";
+import type { Surface } from "@/lib/errors/types";
 
 export type AuthResult = {
   session: AppSession;
@@ -363,21 +373,21 @@ export type AuthResult = {
 /**
  * Require authenticated session for Server Actions.
  * Throws AppError if not authenticated.
- * 
+ *
  * @example
  * const { session, ctx } = await requireAuth('chat');
  */
 export async function requireAuth(surface: Surface): Promise<AuthResult> {
   const session = await sessionManager.getSession();
-  
+
   if (!session?.user) {
     throw new AppError({
-      code: 'auth:unauthorized',
-      message: 'Please sign in to continue.',
+      code: "auth:unauthorized",
+      message: "Please sign in to continue.",
       context: { surface },
     });
   }
-  
+
   const ctx = createContext(session);
   return { session, ctx };
 }
@@ -385,7 +395,7 @@ export async function requireAuth(surface: Surface): Promise<AuthResult> {
 /**
  * Require authenticated session for API Routes.
  * Returns Response on error instead of throwing.
- * 
+ *
  * @example
  * const authResult = await requireAuthForRoute('chat');
  * if (authResult instanceof Response) return authResult;
@@ -400,15 +410,15 @@ export async function requireAuthForRoute(
       return error.toResponse();
     }
     return new AppError({
-      code: 'auth:unauthorized',
-      message: 'Authentication failed.',
+      code: "auth:unauthorized",
+      message: "Authentication failed.",
     }).toResponse();
   }
 }
 
 /**
  * Verify resource ownership.
- * 
+ *
  * @example
  * verifyOwnership(chat, session, 'chat');
  */
@@ -419,8 +429,8 @@ export function verifyOwnership(
 ): void {
   if (resource.userId !== session.user.id) {
     throw new AppError({
-      code: 'auth:forbidden',
-      message: 'You do not have access to this resource.',
+      code: "auth:forbidden",
+      message: "You do not have access to this resource.",
       context: { surface },
     });
   }
@@ -428,7 +438,7 @@ export function verifyOwnership(
 
 /**
  * Require non-guest user.
- * 
+ *
  * @example
  * requireNonGuest(session, 'vote', 'vote');
  */
@@ -437,9 +447,9 @@ export function requireNonGuest(
   surface: Surface,
   action: string
 ): void {
-  if (session.user.type === 'guest') {
+  if (session.user.type === "guest") {
     throw new AppError({
-      code: 'auth:guest_restricted',
+      code: "auth:guest_restricted",
       message: `Sign in to ${action}.`,
       context: { surface, action },
     });
@@ -451,14 +461,20 @@ export function requireNonGuest(
 
 ```tsx
 // components/auth/auth-provider.tsx
-'use client';
+"use client";
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import type { AppSession, AuthState } from '@/lib/auth/types';
+import {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import type { AppSession, AuthState } from "@/lib/auth/types";
 
 type AuthContextValue = {
   session: AppSession | null;
-  status: AuthState['status'];
+  status: AuthState["status"];
   isNewSession: boolean;
   setSession: (session: AppSession | null) => void;
   clearNewSessionFlag: () => void;
@@ -475,30 +491,29 @@ export function AuthProvider({
 }) {
   const [session, setSession] = useState<AppSession | null>(initialSession);
   const [isNewSession, setIsNewSession] = useState(false);
-  
+
   const status = useMemo(() => {
-    return session ? 'authenticated' : 'unauthenticated';
+    return session ? "authenticated" : "unauthenticated";
   }, [session]);
-  
-  const value = useMemo<AuthContextValue>(() => ({
-    session,
-    status,
-    isNewSession,
-    setSession,
-    clearNewSessionFlag: () => setIsNewSession(false),
-  }), [session, status, isNewSession]);
-  
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
+
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      session,
+      status,
+      isNewSession,
+      setSession,
+      clearNewSessionFlag: () => setIsNewSession(false),
+    }),
+    [session, status, isNewSession]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
   if (!ctx) {
-    throw new Error('useAuth must be used within AuthProvider');
+    throw new Error("useAuth must be used within AuthProvider");
   }
   return ctx;
 }
@@ -506,11 +521,11 @@ export function useAuth(): AuthContextValue {
 
 ```tsx
 // components/auth/auth-bootstrap.tsx
-'use client';
+"use client";
 
-import { useEffect, useRef } from 'react';
-import { useAuth } from './auth-provider';
-import type { AppSession } from '@/lib/auth/types';
+import { useEffect, useRef } from "react";
+import { useAuth } from "./auth-provider";
+import type { AppSession } from "@/lib/auth/types";
 
 /**
  * Bootstrap guest sessions for unauthenticated users.
@@ -519,21 +534,21 @@ import type { AppSession } from '@/lib/auth/types';
 export function AuthBootstrap({ children }: { children: React.ReactNode }) {
   const { session, setSession } = useAuth();
   const bootstrapAttempted = useRef(session !== null);
-  
+
   useEffect(() => {
     if (session || bootstrapAttempted.current) return;
     bootstrapAttempted.current = true;
-    
+
     (async () => {
       try {
-        const res = await fetch('/api/auth/guest', {
-          method: 'POST',
-          credentials: 'include',
+        const res = await fetch("/api/auth/guest", {
+          method: "POST",
+          credentials: "include",
         });
-        
+
         if (!res.ok) return;
-        
-        const data = await res.json() as { user?: AppSession['user'] };
+
+        const data = (await res.json()) as { user?: AppSession["user"] };
         if (data.user) {
           setSession({ user: data.user });
         }
@@ -542,7 +557,7 @@ export function AuthBootstrap({ children }: { children: React.ReactNode }) {
       }
     })();
   }, [session, setSession]);
-  
+
   return <>{children}</>;
 }
 ```
@@ -551,13 +566,17 @@ export function AuthBootstrap({ children }: { children: React.ReactNode }) {
 
 ```typescript
 // lib/middleware/auth.ts
-import type { JWTPayload } from 'jose';
-import { jwtVerify, SignJWT } from 'jose';
-import type { NextRequest, NextResponse } from 'next/server';
-import { GUEST_TOKEN_TTL_SECONDS, GUEST_TOKEN_ROTATION_THRESHOLD_SECONDS } from '@/lib/constants';
+import type { JWTPayload } from "jose";
+import { jwtVerify, SignJWT } from "jose";
+import type { NextRequest, NextResponse } from "next/server";
+import {
+  GUEST_TOKEN_TTL_SECONDS,
+  GUEST_TOKEN_ROTATION_THRESHOLD_SECONDS,
+} from "@/lib/constants";
 
-const GUEST_COOKIE = 'guest_token';
-const SUPABASE_COOKIE = process.env.SUPABASE_ACCESS_TOKEN_COOKIE_NAME || 'sb-access-token';
+const GUEST_COOKIE = "guest_token";
+const SUPABASE_COOKIE =
+  process.env.SUPABASE_ACCESS_TOKEN_COOKIE_NAME || "sb-access-token";
 
 type EdgeAuthConfig = {
   guestSecret: Uint8Array | null;
@@ -566,7 +585,7 @@ type EdgeAuthConfig = {
 
 export class EdgeAuthHandler {
   constructor(private config: EdgeAuthConfig) {}
-  
+
   /**
    * Handle guest session in edge middleware.
    * - Rotate tokens nearing expiry
@@ -578,10 +597,10 @@ export class EdgeAuthHandler {
     response: NextResponse
   ): Promise<void> {
     if (!this.config.guestSecret) return;
-    
+
     // Skip if authenticated
     if (request.cookies.has(SUPABASE_COOKIE)) return;
-    
+
     // Check existing guest token
     const existingToken = request.cookies.get(GUEST_COOKIE)?.value;
     if (existingToken) {
@@ -594,44 +613,44 @@ export class EdgeAuthHandler {
         return;
       }
     }
-    
+
     // Create new guest session
     await this.setGuestCookie(response);
   }
-  
+
   private async verifyToken(token: string): Promise<JWTPayload | null> {
     try {
       const { payload } = await jwtVerify(token, this.config.guestSecret!);
-      return payload.type === 'guest' ? payload : null;
+      return payload.type === "guest" ? payload : null;
     } catch {
       return null;
     }
   }
-  
+
   private shouldRotate(payload: JWTPayload): boolean {
-    if (typeof payload.exp !== 'number') return true;
+    if (typeof payload.exp !== "number") return true;
     const remaining = payload.exp - Math.floor(Date.now() / 1000);
     return remaining < GUEST_TOKEN_ROTATION_THRESHOLD_SECONDS;
   }
-  
+
   private async setGuestCookie(
     response: NextResponse,
     existingId?: string
   ): Promise<void> {
     const guestId = existingId ?? `guest:${crypto.randomUUID()}`;
     const now = Math.floor(Date.now() / 1000);
-    
-    const token = await new SignJWT({ sub: guestId, type: 'guest', iat: now })
-      .setProtectedHeader({ alg: 'HS256' })
+
+    const token = await new SignJWT({ sub: guestId, type: "guest", iat: now })
+      .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt(now)
       .setExpirationTime(now + GUEST_TOKEN_TTL_SECONDS)
       .sign(this.config.guestSecret!);
-    
+
     response.cookies.set(GUEST_COOKIE, token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
       maxAge: this.config.cookieTTL,
     });
   }
@@ -644,21 +663,21 @@ export class EdgeAuthHandler {
 
 ### 5.1 Dependencies
 
-| Package | Purpose | Version |
-|---------|---------|---------|
-| `@supabase/ssr` | Server-side Supabase client | ^0.5.x |
-| `jose` | JWT verification/signing (Edge-compatible) | ^5.x |
-| `next/headers` | Cookie access in RSC/Routes | Built-in |
+| Package         | Purpose                                    | Version  |
+| --------------- | ------------------------------------------ | -------- |
+| `@supabase/ssr` | Server-side Supabase client                | ^0.5.x   |
+| `jose`          | JWT verification/signing (Edge-compatible) | ^5.x     |
+| `next/headers`  | Cookie access in RSC/Routes                | Built-in |
 
 ### 5.2 Next.js 16 Integration
 
-| Feature | Usage |
-|---------|-------|
-| `proxy.ts` | Edge auth (rate limit, token rotation) |
-| Route Handlers | `/api/auth/*` endpoints |
-| Server Components | Session check with `sessionManager` |
-| Server Actions | `requireAuth()` guard |
-| React Context | `AuthProvider` for client state |
+| Feature           | Usage                                  |
+| ----------------- | -------------------------------------- |
+| `proxy.ts`        | Edge auth (rate limit, token rotation) |
+| Route Handlers    | `/api/auth/*` endpoints                |
+| Server Components | Session check with `sessionManager`    |
+| Server Actions    | `requireAuth()` guard                  |
+| React Context     | `AuthProvider` for client state        |
 
 ### 5.3 Supabase Integration
 
@@ -677,27 +696,27 @@ export class EdgeAuthHandler {
 
 ### 6.1 Code Splitting
 
-| Component | Location | Bundle |
-|-----------|----------|--------|
-| `SessionManager` | Server only | None |
-| `AuthProvider` | Client | ~1.5KB |
-| `useAuth` | Client | ~0.3KB |
-| `AuthBootstrap` | Client | ~0.5KB |
-| Supabase Client | Client | ~2KB (tree-shaken) |
+| Component        | Location    | Bundle             |
+| ---------------- | ----------- | ------------------ |
+| `SessionManager` | Server only | None               |
+| `AuthProvider`   | Client      | ~1.5KB             |
+| `useAuth`        | Client      | ~0.3KB             |
+| `AuthBootstrap`  | Client      | ~0.5KB             |
+| Supabase Client  | Client      | ~2KB (tree-shaken) |
 
 ### 6.2 Import Patterns
 
 ```typescript
 // ✅ Server Component / Server Action
-import { requireAuth } from '@/lib/auth/guards';
-import { sessionManager } from '@/lib/auth/session';
+import { requireAuth } from "@/lib/auth/guards";
+import { sessionManager } from "@/lib/auth/session";
 
 // ✅ Client Component
-import { useAuth } from '@/components/auth/auth-provider';
-import { getSupabaseBrowserClient } from '@/lib/auth/client';
+import { useAuth } from "@/components/auth/auth-provider";
+import { getSupabaseBrowserClient } from "@/lib/auth/client";
 
 // ❌ AVOID: Server imports in client
-import { sessionManager } from '@/lib/auth/session'; // Error: server-only
+import { sessionManager } from "@/lib/auth/session"; // Error: server-only
 ```
 
 ---
@@ -706,38 +725,38 @@ import { sessionManager } from '@/lib/auth/session'; // Error: server-only
 
 ### 7.1 Eliminated Complexity
 
-| Before | After | Savings |
-|--------|-------|---------|
-| Scattered functions in session.ts | `SessionManager` class | Clearer API |
-| Duplicate JWT logic in proxy.ts | `EdgeAuthHandler` class | -50 lines |
-| Mixed auth-provider (context + bootstrap) | Split into 2 components | Clearer composition |
-| `ChatSDKError` naming | `AppError` (from 01-design) | Consistent |
-| Guards in lib/api/ | Guards in lib/auth/ | Logical grouping |
+| Before                                    | After                       | Savings             |
+| ----------------------------------------- | --------------------------- | ------------------- |
+| Scattered functions in session.ts         | `SessionManager` class      | Clearer API         |
+| Duplicate JWT logic in proxy.ts           | `EdgeAuthHandler` class     | -50 lines           |
+| Mixed auth-provider (context + bootstrap) | Split into 2 components     | Clearer composition |
+| `ChatSDKError` naming                     | `AppError` (from 01-design) | Consistent          |
+| Guards in lib/api/                        | Guards in lib/auth/         | Logical grouping    |
 
 ### 7.2 Line Count Reduction
 
-| File | Before | After | Delta |
-|------|--------|-------|-------|
-| session.ts | 270 | ~150 | -120 |
-| proxy.ts (auth portion) | ~100 | ~70 | -30 |
-| guards.ts | 353 | ~200 | -153 |
-| auth-provider.tsx | 160 | ~80 | -80 |
-| **Total** | ~883 | ~500 | **-383 (-43%)** |
+| File                    | Before | After | Delta           |
+| ----------------------- | ------ | ----- | --------------- |
+| session.ts              | 270    | ~150  | -120            |
+| proxy.ts (auth portion) | ~100   | ~70   | -30             |
+| guards.ts               | 353    | ~200  | -153            |
+| auth-provider.tsx       | 160    | ~80   | -80             |
+| **Total**               | ~883   | ~500  | **-383 (-43%)** |
 
 ### 7.3 API Simplifications
 
 ```typescript
 // BEFORE: Multiple functions with inconsistent signatures
-getSupabaseSessionFromCookies()
-getSupabaseSessionFromToken(token)
-getGuestSessionFromCookies()
-createGuestSession()
-getAppSession()
+getSupabaseSessionFromCookies();
+getSupabaseSessionFromToken(token);
+getGuestSessionFromCookies();
+createGuestSession();
+getAppSession();
 
 // AFTER: Single class with clear methods
-sessionManager.getSession()
-sessionManager.getSessionFromToken(token)
-sessionManager.createGuestSession()
+sessionManager.getSession();
+sessionManager.getSessionFromToken(token);
+sessionManager.createGuestSession();
 ```
 
 ---
@@ -746,11 +765,11 @@ sessionManager.createGuestSession()
 
 ### 8.1 Internal Dependencies
 
-| Module | Dependency | Purpose |
-|--------|------------|---------|
-| Auth Guards | Error Handling (01) | `AppError` for auth errors |
-| Auth Guards | Data Layer | `createContext()` for DB access |
-| Auth Routes | Rate Limiting | Request throttling |
+| Module      | Dependency          | Purpose                         |
+| ----------- | ------------------- | ------------------------------- |
+| Auth Guards | Error Handling (01) | `AppError` for auth errors      |
+| Auth Guards | Data Layer          | `createContext()` for DB access |
+| Auth Routes | Rate Limiting       | Request throttling              |
 
 ### 8.2 Dependency Graph
 
@@ -774,21 +793,21 @@ graph LR
 // lib/auth/index.ts - Public exports
 
 // Session management
-export { sessionManager, getAppSession } from './session';
-export type { AppSession, AppUser, UserType } from './types';
+export { sessionManager, getAppSession } from "./session";
+export type { AppSession, AppUser, UserType } from "./types";
 
 // Auth guards for protected resources
-export { 
+export {
   requireAuth,
   requireAuthForRoute,
   verifyOwnership,
   verifyOwnershipForRoute,
   requireNonGuest,
   requireNonGuestForRoute,
-} from './guards';
+} from "./guards";
 
 // Client-side Supabase (re-export)
-export { getSupabaseBrowserClient } from './client';
+export { getSupabaseBrowserClient } from "./client";
 ```
 
 ### 9.2 Client-Side API
@@ -796,37 +815,37 @@ export { getSupabaseBrowserClient } from './client';
 ```typescript
 // components/auth/index.ts - Public exports
 
-export { AuthProvider, useAuth } from './auth-provider';
-export { AuthBootstrap } from './auth-bootstrap';
+export { AuthProvider, useAuth } from "./auth-provider";
+export { AuthBootstrap } from "./auth-bootstrap";
 ```
 
 ### 9.3 Usage Examples
 
 ```typescript
 // Server Action
-import { requireAuth } from '@/lib/auth';
+import { requireAuth } from "@/lib/auth";
 
 export async function deleteChat(chatId: string) {
-  const { session, ctx } = await requireAuth('chat');
+  const { session, ctx } = await requireAuth("chat");
   // ... delete logic
 }
 
 // API Route
-import { requireAuthForRoute } from '@/lib/auth';
+import { requireAuthForRoute } from "@/lib/auth";
 
 export async function GET(request: Request) {
-  const authResult = await requireAuthForRoute('chat');
+  const authResult = await requireAuthForRoute("chat");
   if (authResult instanceof Response) return authResult;
   const { session, ctx } = authResult;
   // ... handler logic
 }
 
 // Client Component
-import { useAuth } from '@/components/auth';
+import { useAuth } from "@/components/auth";
 
 function UserMenu() {
   const { session, status } = useAuth();
-  if (status === 'unauthenticated') return <LoginButton />;
+  if (status === "unauthenticated") return <LoginButton />;
   return <UserAvatar user={session.user} />;
 }
 ```
@@ -839,7 +858,7 @@ function UserMenu() {
 
 ```typescript
 // Request-scoped caching via React cache()
-import { cache } from 'react';
+import { cache } from "react";
 
 export const getSessionCached = cache(async () => {
   return sessionManager.getSession();
@@ -850,11 +869,11 @@ export const getSessionCached = cache(async () => {
 
 ### 10.2 Token Rotation Optimization
 
-| Strategy | Implementation |
-|----------|----------------|
-| Proactive Rotation | Rotate 15min before expiry |
-| Edge-level | Rotate in proxy.ts (no Node.js overhead) |
-| Preserve Identity | Reuse guest ID during rotation |
+| Strategy           | Implementation                           |
+| ------------------ | ---------------------------------------- |
+| Proactive Rotation | Rotate 15min before expiry               |
+| Edge-level         | Rotate in proxy.ts (no Node.js overhead) |
+| Preserve Identity  | Reuse guest ID during rotation           |
 
 ### 10.3 Database Connection
 
@@ -866,10 +885,10 @@ export const getSessionCached = cache(async () => {
 
 ### 10.4 Cookie Optimization
 
-| Cookie | Size | TTL | Purpose |
-|--------|------|-----|---------|
-| `sb-access-token` | ~1KB | 1hr | Supabase JWT |
-| `guest_token` | ~200B | 7d (cookie) / 1hr (JWT) | Guest identity |
+| Cookie            | Size  | TTL                     | Purpose        |
+| ----------------- | ----- | ----------------------- | -------------- |
+| `sb-access-token` | ~1KB  | 1hr                     | Supabase JWT   |
+| `guest_token`     | ~200B | 7d (cookie) / 1hr (JWT) | Guest identity |
 
 ---
 
@@ -877,35 +896,35 @@ export const getSessionCached = cache(async () => {
 
 ### 11.1 Token Security
 
-| Measure | Implementation |
-|---------|----------------|
-| HttpOnly | Cookies not accessible via JS |
-| Secure | HTTPS only in production |
-| SameSite | Lax (prevents CSRF on mutations) |
-| Short JWT TTL | 1 hour with rotation |
+| Measure       | Implementation                   |
+| ------------- | -------------------------------- |
+| HttpOnly      | Cookies not accessible via JS    |
+| Secure        | HTTPS only in production         |
+| SameSite      | Lax (prevents CSRF on mutations) |
+| Short JWT TTL | 1 hour with rotation             |
 
 ### 11.2 CSRF Protection
 
 ```typescript
 // All mutation endpoints validate Origin/Referer
 if (!validateOrigin(request)) {
-  throw new AppError({ code: 'auth:csrf', message: 'Invalid origin' });
+  throw new AppError({ code: "auth:csrf", message: "Invalid origin" });
 }
 ```
 
 ### 11.3 Rate Limiting
 
-| Layer | Scope | Limit |
-|-------|-------|-------|
-| Edge | IP-based | 100/min general, 20/min auth |
-| App | User-based | 60/min standard, 10/min strict |
+| Layer | Scope      | Limit                          |
+| ----- | ---------- | ------------------------------ |
+| Edge  | IP-based   | 100/min general, 20/min auth   |
+| App   | User-based | 60/min standard, 10/min strict |
 
 ### 11.4 Audit Logging
 
 ```typescript
 // All auth events logged with request correlation
-logInfo('Auth exchange completed', { userId, requestId });
-logWarn('Auth failed - invalid token', { ip, requestId });
+logInfo("Auth exchange completed", { userId, requestId });
+logWarn("Auth failed - invalid token", { ip, requestId });
 ```
 
 ---
@@ -943,29 +962,29 @@ logWarn('Auth failed - invalid token', { ip, requestId });
 ### 13.1 Unit Tests
 
 ```typescript
-describe('SessionManager', () => {
-  it('returns null when no session exists');
-  it('prioritizes Supabase over guest session');
-  it('validates JWT audience and issuer');
-  it('extracts email from multiple claim locations');
+describe("SessionManager", () => {
+  it("returns null when no session exists");
+  it("prioritizes Supabase over guest session");
+  it("validates JWT audience and issuer");
+  it("extracts email from multiple claim locations");
 });
 
-describe('Auth Guards', () => {
-  it('requireAuth throws on missing session');
-  it('requireAuthForRoute returns Response on error');
-  it('verifyOwnership throws on mismatch');
-  it('requireNonGuest throws for guest users');
+describe("Auth Guards", () => {
+  it("requireAuth throws on missing session");
+  it("requireAuthForRoute returns Response on error");
+  it("verifyOwnership throws on mismatch");
+  it("requireNonGuest throws for guest users");
 });
 ```
 
 ### 13.2 Integration Tests
 
 ```typescript
-describe('Auth Flow', () => {
-  it('exchanges Supabase token for cookie');
-  it('bootstraps guest session on first visit');
-  it('rotates guest token before expiry');
-  it('upgrades guest to regular user');
+describe("Auth Flow", () => {
+  it("exchanges Supabase token for cookie");
+  it("bootstraps guest session on first visit");
+  it("rotates guest token before expiry");
+  it("upgrades guest to regular user");
 });
 ```
 
@@ -976,43 +995,49 @@ describe('Auth Flow', () => {
 ### Status: Accepted
 
 ### Context
+
 Need to decide between cookie-based vs header-based auth for Next.js 16.
 
 ### Decision
+
 Use HttpOnly cookies for session storage.
 
 ### Consequences
 
 **Positive (POS)**
+
 - **POS-001**: Automatic inclusion in requests (no client-side header management)
 - **POS-002**: HttpOnly prevents XSS token theft
 - **POS-003**: Works with RSC (cookies available server-side)
 
 **Negative (NEG)**
+
 - **NEG-001**: Requires CSRF protection (mitigated by SameSite + Origin check)
 - **NEG-002**: Cookie size limits (~4KB) - not an issue for JWTs
 
 ### Alternatives Rejected
 
 **ALT-001**: Authorization Header
+
 - Rejected: Requires client-side token storage, XSS vulnerable
 
 **ALT-002**: Server-side session store (Redis)
+
 - Rejected: Adds latency, complexity, infrastructure cost
 
 ---
 
 ## 15. Files Created/Modified Summary
 
-| Action | File | Purpose |
-|--------|------|---------|
-| Create | `lib/auth/types.ts` | Shared types |
-| Refactor | `lib/auth/session.ts` | SessionManager class |
-| Create | `lib/auth/jwt.ts` | JWT utilities |
-| Move | `lib/auth/guards.ts` | Auth guards (from api/) |
-| Refactor | `components/auth/auth-provider.tsx` | Simplified provider |
-| Create | `components/auth/auth-bootstrap.tsx` | Guest bootstrap |
-| Refactor | `proxy.ts` | Use EdgeAuthHandler |
+| Action   | File                                 | Purpose                 |
+| -------- | ------------------------------------ | ----------------------- |
+| Create   | `lib/auth/types.ts`                  | Shared types            |
+| Refactor | `lib/auth/session.ts`                | SessionManager class    |
+| Create   | `lib/auth/jwt.ts`                    | JWT utilities           |
+| Move     | `lib/auth/guards.ts`                 | Auth guards (from api/) |
+| Refactor | `components/auth/auth-provider.tsx`  | Simplified provider     |
+| Create   | `components/auth/auth-bootstrap.tsx` | Guest bootstrap         |
+| Refactor | `proxy.ts`                           | Use EdgeAuthHandler     |
 
 ---
 
@@ -1025,6 +1050,198 @@ Use HttpOnly cookies for session storage.
 - [ ] Guest token rotation works at edge
 - [ ] All existing tests pass
 - [ ] No authentication regressions in E2E tests
+
+---
+
+## 17. Session Analysis Findings (v1.2)
+
+> This section summarizes findings from the comprehensive session analysis. For complete details, see the reference documents listed in Section 19.3.
+
+### 17.1 Analysis Overview
+
+A deep-dive analysis of the authentication session lifecycle was conducted to identify performance bottlenecks, security vulnerabilities, and optimization opportunities. The analysis examined server-side session handling, client hydration timing, and network call patterns across the complete request lifecycle.
+
+### 17.2 Timeline Analysis
+
+Session creation follows a predictable waterfall pattern with opportunities for optimization:
+
+| Phase       | Time       | Operation                   | Details                          |
+| ----------- | ---------- | --------------------------- | -------------------------------- |
+| T+0-50ms    | Server SSR | `getSession()` returns null | No cookie present on first visit |
+| T+80ms      | Hydration  | `AuthBootstrap` mounts      | React hydration complete         |
+| T+100-180ms | API Call   | `POST /api/auth/guest`      | Guest session creation           |
+| T+200ms     | Ready      | Session available           | Full auth state established      |
+
+**Key Observation**: 100-200ms waterfall between SSR and session availability creates a "flash" window where UI may show unauthenticated state.
+
+### 17.3 Health Assessment
+
+| Category       | Score  | Issues                          | Notes                      |
+| -------------- | ------ | ------------------------------- | -------------------------- |
+| Overall Health | 72/100 | 2 Critical, 4 High, 4 Medium    | Requires attention         |
+| Security       | 65/100 | Rate limit bypass vulnerability | Priority fix needed        |
+| Performance    | 75/100 | 100-200ms waterfall             | Optimization opportunities |
+| Code Quality   | 85/100 | Minimal tech debt               | Clean architecture         |
+
+### 17.4 Critical Findings
+
+| ID  | Finding                              | Severity | Impact                                                      | Status  |
+| --- | ------------------------------------ | -------- | ----------------------------------------------------------- | ------- |
+| C1  | Session cycling bypasses rate limits | Critical | Attackers can reset rate limit counters by clearing cookies | 🔴 Open |
+| C2  | Guest → Auth data migration missing  | Critical | User data loss on upgrade path                              | 🔴 Open |
+
+**C1 Details**: Clearing the `guest_token` cookie and re-requesting generates a new guest ID, effectively resetting all rate limit counters tied to that identity.
+
+**C2 Details**: When a guest user registers/logs in, chat history and preferences associated with the guest ID are not migrated to the authenticated user ID.
+
+### 17.5 High Priority Issues
+
+| ID  | Finding                              | Severity | Impact                                                  | Status  |
+| --- | ------------------------------------ | -------- | ------------------------------------------------------- | ------- |
+| H1  | No session validation caching        | High     | Redundant JWT verification per request                  | 🟡 Open |
+| H2  | Duplicate rate-limit checks          | High     | Redis calls duplicated in middleware and route handlers | 🟡 Open |
+| H3  | Missing request-scoped deduplication | High     | Same session fetched multiple times per request         | 🟡 Open |
+| H4  | Token rotation race condition        | High     | Concurrent requests may rotate simultaneously           | 🟡 Open |
+
+---
+
+## 18. Network Optimization Plan
+
+### 18.1 Current Network Calls
+
+| Operation                   | Redis Calls | Supabase Calls | Total RTT |
+| --------------------------- | ----------- | -------------- | --------- |
+| Authenticated user request  | 1           | 1              | 2         |
+| Guest user request          | 1-2         | 0              | 1-2       |
+| Token exchange              | 1           | 1              | 2         |
+| Session validation (cached) | 0           | 0              | 0         |
+
+### 18.2 Redundancies Identified
+
+1. **Duplicate guest rate-limiting**: Rate limit checked in both `proxy.ts` edge middleware and individual route handlers
+2. **No request-scoped session deduplication**: Multiple components/guards calling `getSession()` in same request each trigger JWT verification
+3. **No session validation caching**: Every request re-verifies JWT even within short time windows
+4. **Unnecessary Supabase client creation**: Client instantiated multiple times per request lifecycle
+
+### 18.3 Optimizations
+
+| ID    | Optimization                         | Priority | Impact | Effort |
+| ----- | ------------------------------------ | -------- | ------ | ------ |
+| N-001 | Request-scoped session deduplication | P1       | High   | Low    |
+| N-002 | Session cache with 30s TTL           | P1       | High   | Medium |
+| N-003 | Remove duplicate rate-limit check    | P2       | Medium | Low    |
+| N-004 | Lazy Supabase client initialization  | P2       | Medium | Low    |
+| N-005 | Batch Redis operations               | P3       | Low    | Medium |
+
+**N-001 Implementation**:
+
+```typescript
+import { cache } from "react";
+
+export const getSessionCached = cache(async () => {
+  return sessionManager.getSession();
+});
+```
+
+**N-002 Implementation**:
+
+```typescript
+// Redis-backed session cache
+const SESSION_CACHE_TTL = 30; // seconds
+
+async function getCachedSession(sessionId: string): Promise<AppSession | null> {
+  const cached = await redis.get(`session:${sessionId}`);
+  if (cached) return JSON.parse(cached);
+
+  const session = await sessionManager.getSession();
+  if (session) {
+    await redis.setex(
+      `session:${session.user.id}`,
+      SESSION_CACHE_TTL,
+      JSON.stringify(session)
+    );
+  }
+  return session;
+}
+```
+
+---
+
+## 19. Implementation Tasks Reference
+
+### 19.1 Task Summary
+
+| Phase        | Task Count | Priority | Estimated Hours |
+| ------------ | ---------- | -------- | --------------- |
+| Security     | 5          | P0       | 10-12h          |
+| Network      | 5          | P1-P2    | 8-10h           |
+| Performance  | 4          | P1-P3    | 6-8h            |
+| Code Quality | 5          | P2-P3    | 4-5h            |
+| Testing      | 3          | P1-P2    | 4-5h            |
+| **Total**    | **22**     |          | **32-40h**      |
+
+### 19.2 Critical Path
+
+The following tasks form the critical implementation path and must be completed in order:
+
+```
+SEC-001 (Rate limit fix)
+    ↓
+SEC-002 (Session binding)
+    ↓
+PERF-001 (Request deduplication)
+    ↓
+PERF-002 (Session caching)
+```
+
+**Rationale**: Security issues must be resolved before performance optimizations that might interact with rate limiting or session handling.
+
+### 19.3 Reference Documents
+
+| Document             | Path                                              | Version |
+| -------------------- | ------------------------------------------------- | ------- |
+| Full Task List       | `.ouroboros/docs/session-implementation-tasks.md` | v1.0    |
+| Analysis Report      | `.ouroboros/docs/session-analysis-report.md`      | v1.2    |
+| Optimization Roadmap | `.ouroboros/docs/session-optimization-roadmap.md` | v1.1    |
+
+---
+
+## 20. Code Quality Audit
+
+### 20.1 Assessment
+
+**Overall Status**: ✅ Clean
+
+| Category              | Count | Status    | Notes                        |
+| --------------------- | ----- | --------- | ---------------------------- |
+| Duplicate functions   | 0     | ✅ Clean  | No redundant implementations |
+| Unused exports        | 5     | ⚠️ Review | Minor cleanup needed         |
+| Dead code             | 1     | ⚠️ Minor  | Legacy constant              |
+| Circular dependencies | 0     | ✅ Clean  | Import graph verified        |
+| Type coverage         | 98%   | ✅ Good   | Minor `any` usage            |
+
+### 20.2 Cleanup Candidates
+
+| Priority | Item                      | File                    | Action                 |
+| -------- | ------------------------- | ----------------------- | ---------------------- |
+| HIGH     | `invalidateGuestToken()`  | `lib/auth/jwt.ts`       | Remove (never called)  |
+| HIGH     | `_GUEST_LIMIT_MULTIPLIER` | `lib/auth/constants.ts` | Remove (dead constant) |
+| MEDIUM   | `legacySessionAdapter()`  | `lib/auth/session.ts`   | Remove after migration |
+| MEDIUM   | `getSessionUnsafe()`      | `lib/auth/session.ts`   | Deprecate, add warning |
+| LOW      | `DEBUG_AUTH`              | `lib/auth/constants.ts` | Move to env variable   |
+
+### 20.3 Recommended Cleanups
+
+```typescript
+// lib/auth/jwt.ts - Remove unused function
+- export function invalidateGuestToken(token: string): void {
+-   // This function was planned but never implemented
+-   console.warn('invalidateGuestToken not implemented');
+- }
+
+// lib/auth/constants.ts - Remove dead constant
+- export const _GUEST_LIMIT_MULTIPLIER = 0.5; // Unused
+```
 
 ---
 

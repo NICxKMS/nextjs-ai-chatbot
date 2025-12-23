@@ -145,11 +145,11 @@ const discoverOpenAI = (
 const discoverGoogleGemini = (
     options?: DiscoveryOptions
 ): Promise<ProviderCatalog> => {
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
         throw new ChatSDKError(
             "bad_request:api:missing_google_api_key",
-            "GOOGLE_GENERATIVE_AI_API_KEY is not configured"
+            "GEMINI_API_KEY is not configured"
         );
     }
 

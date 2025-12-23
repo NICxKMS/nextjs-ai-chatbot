@@ -29,8 +29,7 @@ import { getReasoningType, wrapWithReasoningMiddleware } from "./reasoning";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const GOOGLE_GENERATIVE_AI_API_KEY =
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? process.env.GEMINI_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? process.env.GEMINI_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
 // =============================================================================
@@ -63,11 +62,11 @@ if (ANTHROPIC_API_KEY) {
     );
 }
 
-if (GOOGLE_GENERATIVE_AI_API_KEY) {
+if (GEMINI_API_KEY) {
     registerProvider(
         "google",
         createGoogleGenerativeAI({
-            apiKey: GOOGLE_GENERATIVE_AI_API_KEY,
+            apiKey: GEMINI_API_KEY,
         }) as unknown as ProviderV2
     );
 }
@@ -208,13 +207,13 @@ export function getAnthropic() {
 
 /**
  * Get Google Generative AI provider instance
- * @throws Error if GOOGLE_GENERATIVE_AI_API_KEY is not configured
+ * @throws Error if GEMINI_API_KEY is not configured
  */
 export function getGoogle() {
-    if (!GOOGLE_GENERATIVE_AI_API_KEY) {
-        throw new Error("GOOGLE_GENERATIVE_AI_API_KEY not configured");
+    if (!GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY not configured");
     }
-    return createGoogleGenerativeAI({ apiKey: GOOGLE_GENERATIVE_AI_API_KEY });
+    return createGoogleGenerativeAI({ apiKey: GEMINI_API_KEY });
 }
 
 /**
@@ -299,12 +298,10 @@ export async function getCloudflareAIGateway() {
     }
 
     const googleApiKey =
-        process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? process.env.GEMINI_API_KEY;
+        process.env.GEMINI_API_KEY ?? process.env.GEMINI_API_KEY;
 
     if (!googleApiKey) {
-        throw new Error(
-            "GOOGLE_GENERATIVE_AI_API_KEY required for Cloudflare AI Gateway"
-        );
+        throw new Error("GEMINI_API_KEY required for Cloudflare AI Gateway");
     }
 
     // Dynamic import to avoid bundling issues if not used
@@ -358,10 +355,7 @@ export function getAvailableProviders(): string[] {
     if (process.env.ANTHROPIC_API_KEY) {
         providers.push("anthropic");
     }
-    if (
-        process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
-        process.env.GEMINI_API_KEY
-    ) {
+    if (process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY) {
         providers.push("google");
     }
     if (process.env.OPENROUTER_API_KEY) {

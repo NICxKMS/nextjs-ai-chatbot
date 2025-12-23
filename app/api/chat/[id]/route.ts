@@ -7,7 +7,7 @@
  */
 
 import { type NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getSessionCached } from "@/lib/auth";
 import { createContext, deleteChatCached, getChatCached } from "@/lib/data";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/utils/logger";
@@ -25,7 +25,7 @@ export async function GET(
     { params }: RouteParams
 ): Promise<NextResponse> {
     try {
-        const session = await getSession();
+        const session = await getSessionCached();
         if (!session?.user?.id) {
             return NextResponse.json(
                 { error: "Unauthorized" },
@@ -78,7 +78,7 @@ export async function DELETE(
     { params }: RouteParams
 ): Promise<NextResponse> {
     try {
-        const session = await getSession();
+        const session = await getSessionCached();
         if (!session?.user?.id) {
             return NextResponse.json(
                 { error: "Unauthorized" },

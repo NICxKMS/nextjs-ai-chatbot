@@ -41,7 +41,8 @@ export {
     getMessagesAfterTimestamp,
     getMessagesFromCache,
 } from "./messages";
-
+// PERF-004: Cache prewarming operations
+export { prewarmIfCold, prewarmUserCache } from "./prewarm";
 // Quota operations
 export {
     checkQuota,

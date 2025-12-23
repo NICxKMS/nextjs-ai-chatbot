@@ -112,9 +112,14 @@ export function toUnixTimestampMs(date: Date | string | number): number {
 
 /**
  * Convert Date to Unix timestamp (seconds)
- * @deprecated Use toUnixTimestampSeconds for clarity
+ * @deprecated CLN-002: Use toUnixTimestampSeconds for clarity.
+ * This alias is kept for backward compatibility but should not be used in new code.
+ * Will be removed in a future version.
  */
 export function toUnixTimestamp(date: Date | string | number): number {
+    console.warn(
+        "[DEPRECATED] toUnixTimestamp is deprecated. Use toUnixTimestampSeconds instead."
+    );
     return toUnixTimestampSeconds(date);
 }
 

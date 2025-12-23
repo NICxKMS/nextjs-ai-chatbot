@@ -182,6 +182,21 @@ export {
     type StorageResult,
     storage,
 } from "./storage";
+// PERF-003: Streaming optimization utilities
+export {
+    buildStreamConfig,
+    createStreamAbortSignal,
+    createStreamResponse,
+    isRequestAborted,
+    OPTIMAL_CHUNK_SIZE,
+    SSE_HEADERS,
+    STREAM_TIMEOUT_MS,
+    type StreamConfig,
+} from "./streaming";
+export {
+    constantTimeEqual,
+    constantTimeEqualOptional,
+} from "./timing-safe";
 export {
     useDynamicImport,
     useLazyLoad,

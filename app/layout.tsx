@@ -7,7 +7,7 @@ import { SWRConfig } from "swr";
 
 import { AuthProvider } from "@/features/auth";
 import { SettingsHydration } from "@/features/settings";
-import { getSession } from "@/lib/auth/session";
+import { getSessionCached } from "@/lib/auth";
 import { MotionProvider } from "@/lib/motion";
 import { ThemeProvider } from "@/shared/components/theme-provider";
 import { TooltipProvider } from "@/shared/components/tooltip";
@@ -100,7 +100,7 @@ function AppShellFallback() {
 }
 
 async function AppShell({ children }: { children: React.ReactNode }) {
-    const initialSession = await getSession();
+    const initialSession = await getSessionCached();
 
     return (
         <ThemeProvider

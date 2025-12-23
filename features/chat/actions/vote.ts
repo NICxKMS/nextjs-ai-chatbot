@@ -8,7 +8,8 @@
  * @module features/chat/actions/vote
  */
 
-import { getSession } from "@/lib/auth";
+import { getSessionCached } from "@/lib/auth";
+import { createContext, deleteVoteCached, saveVoteCached } from "@/lib/data";
 import { AppError } from "@/lib/errors";
 import type { VoteType } from "../types";
 
@@ -58,7 +59,7 @@ export type VoteResult = {
 export async function voteOnMessage(input: VoteInput): Promise<VoteResult> {
     try {
         // 1. Verify session
-        const session = await getSession();
+        const session = await getSessionCached();
         if (!session?.user?.id) {
             throw new AppError({
                 code: "auth:unauthorized",
@@ -81,11 +82,21 @@ export async function voteOnMessage(input: VoteInput): Promise<VoteResult> {
             });
         }
 
-        // 3. Check if user owns the chat or has access
-        // For now, allow voting on any message the user can see
+        // 3. Create data context and persist vote
+        const ctx = createContext(session.user.id, session.user.type);
+        const result = await saveVoteCached(
+            input.chatId,
+            input.messageId,
+            input.vote,
+            ctx
+        );
 
-        // 4. Upsert vote in database
-        // TODO: Add chatData.write.upsertVote() when implementing full data layer
+        if (!result) {
+            throw new AppError({
+                code: "resource:not_found",
+                message: "Chat not found or access denied",
+            });
+        }
 
         return { success: true };
     } catch (error) {
@@ -119,7 +130,7 @@ export async function removeVote(
 ): Promise<VoteResult> {
     try {
         // 1. Verify session
-        const session = await getSession();
+        const session = await getSessionCached();
         if (!session?.user?.id) {
             throw new AppError({
                 code: "auth:unauthorized",
@@ -135,8 +146,9 @@ export async function removeVote(
             });
         }
 
-        // 3. Remove vote from database
-        // TODO: Add chatData.write.removeVote() when implementing full data layer
+        // 3. Create data context and remove vote
+        const ctx = createContext(session.user.id, session.user.type);
+        await deleteVoteCached(chatId, messageId, ctx);
 
         return { success: true };
     } catch (error) {

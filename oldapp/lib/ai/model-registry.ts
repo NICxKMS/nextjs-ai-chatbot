@@ -16,8 +16,7 @@ import {
 } from "./model-discovery";
 import { PROVIDER_DISPLAY_NAMES } from "./provider-info";
 
-const GOOGLE_GENERATIVE_AI_API_KEY =
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? process.env.GEMINI_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? process.env.GEMINI_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
@@ -65,11 +64,11 @@ if (OPENAI_API_KEY) {
     );
 }
 
-if (GOOGLE_GENERATIVE_AI_API_KEY) {
+if (GEMINI_API_KEY) {
     registerProvider(
         "google",
         createGoogleGenerativeAI({
-            apiKey: GOOGLE_GENERATIVE_AI_API_KEY,
+            apiKey: GEMINI_API_KEY,
         }) as unknown as ProviderV2
     );
 }
@@ -102,8 +101,8 @@ if (
     CLOUDFLARE_AI_GATEWAY_NAME &&
     CLOUDFLARE_AI_GATEWAY_API_KEY
 ) {
-    const googleProvider = GOOGLE_GENERATIVE_AI_API_KEY
-        ? createGoogleGenerativeAI({ apiKey: GOOGLE_GENERATIVE_AI_API_KEY })
+    const googleProvider = GEMINI_API_KEY
+        ? createGoogleGenerativeAI({ apiKey: GEMINI_API_KEY })
         : undefined;
 
     const aigateway = createAiGateway({

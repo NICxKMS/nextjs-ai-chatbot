@@ -9,7 +9,7 @@
  */
 
 import { revalidatePath } from "next/cache";
-import { getSession } from "@/lib/auth";
+import { getSessionCached } from "@/lib/auth";
 import { updateChatVisibilityCached } from "@/lib/data/cached";
 import { AppError } from "@/lib/errors";
 import type { VisibilityType } from "../types";
@@ -55,7 +55,7 @@ export async function updateChatVisibility(
 ): Promise<UpdateVisibilityResult> {
     try {
         // 1. Verify session
-        const session = await getSession();
+        const session = await getSessionCached();
         if (!session?.user?.id) {
             throw new AppError({
                 code: "auth:unauthorized",

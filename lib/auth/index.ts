@@ -5,6 +5,20 @@
  * @module lib/auth
  */
 
+import { cache } from "react";
+import { getSessionManager } from "./session";
+
+/**
+ * Request-scoped cached session getter.
+ * Deduplicates session fetching within a single request.
+ * Use this instead of getSession() for multiple calls in the same request.
+ *
+ * @see NET-001 Network Optimization
+ */
+export const getSessionCached = cache(async () => {
+    return getSessionManager().getSession();
+});
+
 // Client utilities
 export { getSupabaseBrowserClient } from "./client";
 
@@ -25,6 +39,8 @@ export {
     getSupabaseCookieName,
     setGuestTokenCookie,
 } from "./cookies";
+// Guest token extraction (SEC-003)
+export { extractGuestIdFromToken, isGuestToken } from "./extract-guest";
 // Guards
 export {
     getOptionalAuth,
@@ -45,7 +61,14 @@ export {
     verifyJwt,
 } from "./jwt";
 // Session management
-export { getSession, getSessionManager, SessionManager } from "./session";
+export { getSessionManager, SessionManager } from "./session";
+// Session cache (NET-002)
+export {
+    extractUserIdFromToken,
+    getCachedSession,
+    invalidateCachedSession,
+    setCachedSession,
+} from "./session-cache";
 // Types
 export type {
     AppSession,
