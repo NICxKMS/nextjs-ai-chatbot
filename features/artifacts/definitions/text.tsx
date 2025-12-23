@@ -10,8 +10,20 @@ import {
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { toast } from "sonner";
+import type { SuggestionLike } from "@/lib/editor";
 import type { ArtifactContentProps } from "../types";
 import { Artifact } from "./base";
+
+// ============================================================================
+// Types
+// ============================================================================
+
+/**
+ * Metadata for text artifacts containing AI suggestions.
+ */
+type TextArtifactMetadata = {
+    suggestions: SuggestionLike[];
+};
 
 // ============================================================================
 // Dynamic Imports
@@ -47,9 +59,24 @@ const DiffView = dynamic(
 // Text Artifact Definition
 // ============================================================================
 
-export const textArtifact = new Artifact<"text", undefined>({
+export const textArtifact = new Artifact<"text", TextArtifactMetadata>({
     kind: "text",
     description: "Useful for text content, like drafting essays and emails.",
+    initialize: async ({ documentId, setMetadata }) => {
+        try {
+            const response = await fetch(
+                `/api/suggestions?documentId=${documentId}`
+            );
+            if (response.ok) {
+                const suggestions = await response.json();
+                setMetadata({ suggestions });
+            } else {
+                setMetadata({ suggestions: [] });
+            }
+        } catch {
+            setMetadata({ suggestions: [] });
+        }
+    },
     content: ({
         mode,
         status,
@@ -59,7 +86,8 @@ export const textArtifact = new Artifact<"text", undefined>({
         onSaveContent,
         getDocumentContentById,
         isLoading,
-    }: ArtifactContentProps<undefined>) => {
+        metadata,
+    }: ArtifactContentProps<TextArtifactMetadata>) => {
         if (isLoading) {
             return (
                 <div className="flex h-full items-center justify-center p-4">
@@ -76,6 +104,8 @@ export const textArtifact = new Artifact<"text", undefined>({
             return <DiffView newContent={newContent} oldContent={oldContent} />;
         }
 
+        const suggestions = metadata?.suggestions ?? [];
+
         return (
             <div className="flex flex-row px-4 py-8 md:p-20">
                 <TextEditor
@@ -83,11 +113,16 @@ export const textArtifact = new Artifact<"text", undefined>({
                     isCurrentVersion={isCurrentVersion}
                     onContentChange={onSaveContent}
                     status={status}
+                    suggestions={suggestions}
                 />
+
+                {suggestions.length > 0 && (
+                    <div className="h-dvh w-12 shrink-0 md:hidden" />
+                )}
             </div>
         );
     },
-    onStreamPart: ({ streamPart, setArtifact }) => {
+    onStreamPart: ({ streamPart, setArtifact, setMetadata }) => {
         if (streamPart.type === "data-textDelta") {
             setArtifact((draftArtifact) => ({
                 ...draftArtifact,
@@ -99,6 +134,16 @@ export const textArtifact = new Artifact<"text", undefined>({
                         ? true
                         : draftArtifact.isVisible,
                 status: "streaming",
+            }));
+        }
+
+        // Handle incoming suggestions during streaming
+        if (streamPart.type === "data-suggestion") {
+            setMetadata((currentMetadata) => ({
+                suggestions: [
+                    ...(currentMetadata?.suggestions ?? []),
+                    streamPart.data as SuggestionLike,
+                ],
             }));
         }
     },

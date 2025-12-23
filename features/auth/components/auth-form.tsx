@@ -1,7 +1,6 @@
 "use client";
 
 import Form from "next/form";
-import Link from "next/link";
 import {
     type ComponentProps,
     forwardRef,
@@ -92,7 +91,9 @@ Label.displayName = "Label";
  * Inline error message component for form validation
  */
 function ErrorMessage({ message, id }: { message?: string; id?: string }) {
-    if (!message) return null;
+    if (!message) {
+        return null;
+    }
     return (
         <p
             aria-live="polite"
@@ -364,19 +365,20 @@ export function AuthForm({
                     <SubmitButton isSuccessful={isSuccessful || isLoading}>
                         {submitText}
                     </SubmitButton>
-
-                    {/* Alternate Action Link */}
-                    <p className="mt-4 text-center text-gray-600 text-sm dark:text-zinc-400">
-                        {alternateText}
-                        <Link
-                            className="font-semibold text-gray-800 hover:underline dark:text-zinc-200"
-                            href={alternateHref}
-                        >
-                            {alternateLinkText}
-                        </Link>
-                        {alternateSuffix}
-                    </p>
                 </Form>
+
+                {/* Alternate Action Link - outside form to avoid form submission interference */}
+                <p className="-mt-8 px-4 text-center text-gray-600 text-sm sm:px-16 dark:text-zinc-400">
+                    {alternateText}
+                    <a
+                        className="font-semibold text-gray-800 hover:underline dark:text-zinc-200"
+                        data-testid="auth-alternate-link"
+                        href={alternateHref}
+                    >
+                        {alternateLinkText}
+                    </a>
+                    {alternateSuffix}
+                </p>
             </div>
         </div>
     );

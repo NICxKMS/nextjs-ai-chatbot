@@ -10,7 +10,7 @@
  * @module shared/hooks/use-reduced-motion
  */
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 // =============================================================================
 // TYPES
@@ -39,7 +39,9 @@ export interface MotionSafeOptions<T> {
  * Get the current reduced motion media query.
  */
 function getReducedMotionQuery(): MediaQueryList | null {
-    if (typeof window === "undefined") return null;
+    if (typeof window === "undefined") {
+        return null;
+    }
     return window.matchMedia("(prefers-reduced-motion: reduce)");
 }
 
@@ -63,7 +65,9 @@ function getServerSnapshot(): boolean {
  */
 function subscribe(callback: () => void): () => void {
     const query = getReducedMotionQuery();
-    if (!query) return () => {};
+    if (!query) {
+        return () => {};
+    }
 
     query.addEventListener("change", callback);
     return () => {

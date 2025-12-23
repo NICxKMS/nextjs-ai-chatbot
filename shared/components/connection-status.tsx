@@ -157,9 +157,15 @@ export function ConnectionStatus({
 
     // Get current message and styles
     const getMessage = () => {
-        if (showOnlineMessage) return onlineMessage;
-        if (connectionState === "offline") return offlineMessage;
-        if (connectionState === "reconnecting") return reconnectingMessage;
+        if (showOnlineMessage) {
+            return onlineMessage;
+        }
+        if (connectionState === "offline") {
+            return offlineMessage;
+        }
+        if (connectionState === "reconnecting") {
+            return reconnectingMessage;
+        }
         return "";
     };
 
@@ -255,14 +261,22 @@ export function ConnectionDot({
     const { isOnline, isConnected } = useNetworkStatus(networkOptions);
 
     const getColor = () => {
-        if (!isOnline) return "bg-red-500";
-        if (!isConnected && networkOptions?.enablePing) return "bg-amber-500";
+        if (!isOnline) {
+            return "bg-red-500";
+        }
+        if (!isConnected && networkOptions?.enablePing) {
+            return "bg-amber-500";
+        }
         return "bg-emerald-500";
     };
 
     const getTitle = () => {
-        if (!isOnline) return "Offline";
-        if (!isConnected && networkOptions?.enablePing) return "Reconnecting";
+        if (!isOnline) {
+            return "Offline";
+        }
+        if (!isConnected && networkOptions?.enablePing) {
+            return "Reconnecting";
+        }
         return "Connected";
     };
 

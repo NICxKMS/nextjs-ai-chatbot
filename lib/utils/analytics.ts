@@ -37,7 +37,9 @@ export interface UserProperties {
 
 // Check if analytics is enabled (stub - always false in development)
 const isAnalyticsEnabled = (): boolean => {
-    if (typeof window === "undefined") return false;
+    if (typeof window === "undefined") {
+        return false;
+    }
     return process.env.NODE_ENV === "production";
 };
 

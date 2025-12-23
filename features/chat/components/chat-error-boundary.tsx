@@ -11,6 +11,7 @@
 
 import { AlertCircle } from "lucide-react";
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { logger } from "@/lib/utils/logger";
 
 // =============================================================================
 // TYPES
@@ -112,8 +113,8 @@ export class ChatErrorBoundary extends Component<
 
     componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
         // Log error for debugging/monitoring
-        console.error("[ChatErrorBoundary] Caught error:", error);
-        console.error("[ChatErrorBoundary] Error info:", errorInfo);
+        logger.error("[ChatErrorBoundary] Caught error", { error });
+        logger.error("[ChatErrorBoundary] Error info", { errorInfo });
     }
 
     handleRetry = (): void => {

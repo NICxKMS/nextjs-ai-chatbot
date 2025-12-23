@@ -82,7 +82,9 @@ export interface ShortcutDefinition extends KeyboardShortcutOptions {
  * Check if the current platform is macOS.
  */
 function isMacOS(): boolean {
-    if (typeof navigator === "undefined") return false;
+    if (typeof navigator === "undefined") {
+        return false;
+    }
     return /Mac|iPhone|iPad|iPod/i.test(navigator.platform);
 }
 
@@ -90,7 +92,9 @@ function isMacOS(): boolean {
  * Check if an element is an input field where shortcuts should be ignored.
  */
 function isInputElement(element: EventTarget | null): boolean {
-    if (!element || !(element instanceof HTMLElement)) return false;
+    if (!element || !(element instanceof HTMLElement)) {
+        return false;
+    }
 
     const tagName = element.tagName.toLowerCase();
     const isContentEditable = element.isContentEditable;
@@ -118,9 +122,15 @@ function modifiersMatch(
     const expectedCtrlOrMeta =
         useMetaOnMac && isMac ? event.metaKey : event.ctrlKey;
 
-    if (wantsCtrl !== expectedCtrlOrMeta) return false;
-    if ((modifiers.shift ?? false) !== event.shiftKey) return false;
-    if ((modifiers.alt ?? false) !== event.altKey) return false;
+    if (wantsCtrl !== expectedCtrlOrMeta) {
+        return false;
+    }
+    if ((modifiers.shift ?? false) !== event.shiftKey) {
+        return false;
+    }
+    if ((modifiers.alt ?? false) !== event.altKey) {
+        return false;
+    }
 
     // Meta check (only if explicitly requested and not swapped)
     if (modifiers.meta !== undefined) {
@@ -183,17 +193,25 @@ export function useKeyboardShortcut(
 
     const handleKeyDown = useCallback(
         (event: KeyboardEvent) => {
-            if (!enabled) return;
+            if (!enabled) {
+                return;
+            }
 
             // Check if we should ignore input fields
-            if (!allowInInputs && isInputElement(event.target)) return;
+            if (!allowInInputs && isInputElement(event.target)) {
+                return;
+            }
 
             // Check if the key matches (case-insensitive)
-            if (event.key.toLowerCase() !== key.toLowerCase()) return;
+            if (event.key.toLowerCase() !== key.toLowerCase()) {
+                return;
+            }
 
             // Check modifiers
             const modifiers: KeyModifiers = { ctrl, shift, alt, meta };
-            if (!modifiersMatch(event, modifiers, useMetaOnMac)) return;
+            if (!modifiersMatch(event, modifiers, useMetaOnMac)) {
+                return;
+            }
 
             // Shortcut matched!
             if (preventDefault) {
@@ -220,7 +238,9 @@ export function useKeyboardShortcut(
     );
 
     useEffect(() => {
-        if (!enabled) return;
+        if (!enabled) {
+            return;
+        }
 
         document.addEventListener("keydown", handleKeyDown);
         return () => {
@@ -278,17 +298,25 @@ export function useKeyboardShortcuts(shortcuts: ShortcutDefinition[]): void {
                     useMetaOnMac = true,
                 } = shortcut;
 
-                if (!enabled) continue;
+                if (!enabled) {
+                    continue;
+                }
 
                 // Check if we should ignore input fields
-                if (!allowInInputs && isInputElement(event.target)) continue;
+                if (!allowInInputs && isInputElement(event.target)) {
+                    continue;
+                }
 
                 // Check if the key matches (case-insensitive)
-                if (event.key.toLowerCase() !== key.toLowerCase()) continue;
+                if (event.key.toLowerCase() !== key.toLowerCase()) {
+                    continue;
+                }
 
                 // Check modifiers
                 const modifiers: KeyModifiers = { ctrl, shift, alt, meta };
-                if (!modifiersMatch(event, modifiers, useMetaOnMac)) continue;
+                if (!modifiersMatch(event, modifiers, useMetaOnMac)) {
+                    continue;
+                }
 
                 // Shortcut matched!
                 if (preventDefault) {
@@ -314,7 +342,9 @@ export function useKeyboardShortcuts(shortcuts: ShortcutDefinition[]): void {
 
     useEffect(() => {
         const hasEnabledShortcuts = shortcuts.some((s) => s.enabled !== false);
-        if (!hasEnabledShortcuts) return;
+        if (!hasEnabledShortcuts) {
+            return;
+        }
 
         document.addEventListener("keydown", handleKeyDown);
         return () => {

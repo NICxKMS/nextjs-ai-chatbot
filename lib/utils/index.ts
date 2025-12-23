@@ -6,8 +6,45 @@
  * @module lib/utils
  */
 
+export {
+    type AnalyticsEvent,
+    analytics,
+    type EventCategory,
+    type TimingEvent,
+    trackAuthEvent,
+    trackChatEvent,
+    trackPerformance,
+    type UserProperties,
+} from "./analytics";
 export { cn } from "./cn";
 export { debounce, debounceLeading } from "./debounce";
+export {
+    type DebugState,
+    debug,
+    getEnvironmentInfo,
+    getMemoryUsage,
+    type PerformanceMark,
+} from "./debug";
+export {
+    BORDER_RADIUS,
+    type BorderRadius,
+    BREAKPOINTS,
+    type Breakpoint,
+    cssVar,
+    DURATION,
+    DURATION_CSS,
+    type Duration,
+    EASING,
+    type Easing,
+    getAnimationDuration,
+    MEDIA_QUERIES,
+    matchesBreakpoint,
+    prefersReducedMotion,
+    SPACING,
+    type Spacing,
+    Z_INDEX,
+    type ZIndex,
+} from "./design-tokens";
 export {
     extractErrorMessage,
     type FriendlyError,
@@ -29,6 +66,14 @@ export {
     supportsPassiveListeners,
     type ThrottledListener,
 } from "./event-listener";
+export {
+    type FeatureFlag,
+    type FeatureFlagConfig,
+    type FeatureFlagValue,
+    featureFlags,
+    useFeatureFlag,
+    withFeatureFlag,
+} from "./feature-flags";
 export type {
     FetchWithRetryOptions,
     RetryConfig,
@@ -76,39 +121,15 @@ export {
     supportsIntersectionObserver,
 } from "./lazy";
 export {
+    createRequestLogger,
     type LogContext,
     type LogEntry,
     type Logger,
     type LogLevel,
     logger,
-    serializeError,
     type SerializedError,
+    serializeError,
 } from "./logger";
-export {
-    analytics,
-    type AnalyticsEvent,
-    type EventCategory,
-    type TimingEvent,
-    trackAuthEvent,
-    trackChatEvent,
-    trackPerformance,
-    type UserProperties,
-} from "./analytics";
-export {
-    featureFlags,
-    type FeatureFlag,
-    type FeatureFlagConfig,
-    type FeatureFlagValue,
-    useFeatureFlag,
-    withFeatureFlag,
-} from "./feature-flags.js";
-export {
-    debug,
-    type DebugState,
-    getEnvironmentInfo,
-    getMemoryUsage,
-    type PerformanceMark,
-} from "./debug";
 export { fetchWithErrorHandlers } from "./network";
 export {
     type ApiResponse,
@@ -166,26 +187,6 @@ export {
     useLazyLoad,
     usePreloadOnInteraction,
 } from "./use-lazy-load";
-export {
-    type BorderRadius,
-    BORDER_RADIUS,
-    type Breakpoint,
-    BREAKPOINTS,
-    cssVar,
-    type Duration,
-    DURATION,
-    DURATION_CSS,
-    type Easing,
-    EASING,
-    getAnimationDuration,
-    matchesBreakpoint,
-    MEDIA_QUERIES,
-    prefersReducedMotion,
-    type Spacing,
-    SPACING,
-    type ZIndex,
-    Z_INDEX,
-} from "./design-tokens";
 
 /**
  * Generate a cryptographically secure UUID v4

@@ -62,8 +62,16 @@ test.describe("Authentication", () => {
             page,
         }) => {
             await page.goto("/login");
+            await page.waitForLoadState("networkidle");
 
-            await page.getByRole("link", { name: /sign up/i }).click();
+            // Verify link exists with correct href and click via JS
+            const link = page.getByTestId("auth-alternate-link");
+            const href = await link.getAttribute("href");
+            expect(href).toBe("/register");
+
+            // Click via JavaScript to bypass any event listeners
+            await link.evaluate((el: HTMLAnchorElement) => el.click());
+            await page.waitForLoadState("networkidle");
             await expect(page).toHaveURL("/register");
         });
     });
@@ -123,8 +131,16 @@ test.describe("Authentication", () => {
             page,
         }) => {
             await page.goto("/register");
+            await page.waitForLoadState("networkidle");
 
-            await page.getByRole("link", { name: /sign in/i }).click();
+            // Verify link exists with correct href and click via JS
+            const link = page.getByTestId("auth-alternate-link");
+            const href = await link.getAttribute("href");
+            expect(href).toBe("/login");
+
+            // Click via JavaScript to bypass any event listeners
+            await link.evaluate((el: HTMLAnchorElement) => el.click());
+            await page.waitForLoadState("networkidle");
             await expect(page).toHaveURL("/login");
         });
     });

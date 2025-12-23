@@ -38,6 +38,7 @@ export {
 // Connection status
 export type { ConnectionStatusProps } from "./connection-status";
 export { ConnectionDot, ConnectionStatus } from "./connection-status";
+
 // Empty state components
 export {
     EmptyChatState,
@@ -55,6 +56,17 @@ export {
     InlineEmptyState,
     type InlineEmptyStateProps,
 } from "./empty-state";
+
+// Error fallback components
+export {
+    ErrorBoundary,
+    type ErrorBoundaryProps,
+    ErrorFallback,
+    type ErrorFallbackProps,
+    type ErrorVariant,
+    InlineErrorFallback,
+    type InlineErrorFallbackProps,
+} from "./error-fallback";
 // Custom shared components
 export {
     ArrowUpIcon,
@@ -80,6 +92,13 @@ export {
     SteppedProgress,
     type SteppedProgressProps,
 } from "./progress";
+// Retry button components
+export {
+    InlineRetryButton,
+    type InlineRetryButtonProps,
+    RetryButton,
+    type RetryButtonProps,
+} from "./retry-button";
 // Skeleton components
 export {
     Skeleton,

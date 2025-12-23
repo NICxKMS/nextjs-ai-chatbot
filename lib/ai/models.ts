@@ -8,7 +8,7 @@
  * @module lib/ai/models
  */
 
-import type { ModelMetadata } from "@/features/chat/types";
+import type { ModelMetadata } from "@/lib/types";
 
 /**
  * Registry of all available AI models

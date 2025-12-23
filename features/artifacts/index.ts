@@ -1,4 +1,11 @@
-// Types
+/**
+ * Artifacts Feature Module
+ *
+ * Provides artifact editing, preview, and streaming capabilities
+ * for code, text, images, and sheets.
+ *
+ * @module features/artifacts
+ */
 
 // Actions (server actions are safe to import in client components)
 export { getSuggestions } from "./actions";

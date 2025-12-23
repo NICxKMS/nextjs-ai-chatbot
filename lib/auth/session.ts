@@ -14,12 +14,7 @@ import {
     validateDeviceFingerprint,
     verifyGuestToken,
 } from "./jwt";
-import type {
-    AppSession,
-    AppUser,
-    DataContext,
-    DeviceFingerprint,
-} from "./types";
+import type { AppSession, AppUser, DataContext } from "./types";
 
 /**
  * SessionManager - Handles all session operations

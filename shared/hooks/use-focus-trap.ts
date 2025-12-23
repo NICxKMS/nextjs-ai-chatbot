@@ -118,7 +118,7 @@ function getFirstFocusable(container: HTMLElement): HTMLElement | null {
  */
 function getLastFocusable(container: HTMLElement): HTMLElement | null {
     const focusable = getFocusableElements(container);
-    return focusable[focusable.length - 1] || null;
+    return focusable.at(-1) || null;
 }
 
 // =============================================================================
@@ -180,7 +180,9 @@ export function useFocusTrap<T extends HTMLElement = HTMLElement>(
      */
     const focusFirst = useCallback(() => {
         const container = containerRef.current;
-        if (!container) return;
+        if (!container) {
+            return;
+        }
 
         const first = getFirstFocusable(container);
         if (first) {
@@ -193,7 +195,9 @@ export function useFocusTrap<T extends HTMLElement = HTMLElement>(
      */
     const focusLast = useCallback(() => {
         const container = containerRef.current;
-        if (!container) return;
+        if (!container) {
+            return;
+        }
 
         const last = getLastFocusable(container);
         if (last) {
@@ -206,7 +210,9 @@ export function useFocusTrap<T extends HTMLElement = HTMLElement>(
      */
     const containsFocus = useCallback((): boolean => {
         const container = containerRef.current;
-        if (!container) return false;
+        if (!container) {
+            return false;
+        }
         return container.contains(document.activeElement);
     }, []);
 
@@ -220,10 +226,14 @@ export function useFocusTrap<T extends HTMLElement = HTMLElement>(
 
     // Auto-focus on mount
     useEffect(() => {
-        if (!enabled || !autoFocus) return;
+        if (!enabled || !autoFocus) {
+            return;
+        }
 
         const container = containerRef.current;
-        if (!container) return;
+        if (!container) {
+            return;
+        }
 
         // Small delay to ensure DOM is ready
         const timeoutId = setTimeout(() => {
@@ -246,7 +256,9 @@ export function useFocusTrap<T extends HTMLElement = HTMLElement>(
 
     // Restore focus on unmount or disable
     useEffect(() => {
-        if (!restoreFocus) return;
+        if (!restoreFocus) {
+            return;
+        }
 
         return () => {
             const previousElement = previouslyFocusedRef.current;
@@ -264,10 +276,14 @@ export function useFocusTrap<T extends HTMLElement = HTMLElement>(
 
     // Handle keyboard navigation
     useEffect(() => {
-        if (!enabled) return;
+        if (!enabled) {
+            return;
+        }
 
         const container = containerRef.current;
-        if (!container) return;
+        if (!container) {
+            return;
+        }
 
         const handleKeyDown = (event: KeyboardEvent) => {
             // Handle Escape key
@@ -289,12 +305,13 @@ export function useFocusTrap<T extends HTMLElement = HTMLElement>(
                 }
 
                 const firstElement = focusableElements[0];
-                const lastElement =
-                    focusableElements[focusableElements.length - 1];
+                const lastElement = focusableElements.at(-1);
                 const activeElement = document.activeElement;
 
                 // Type guard - should never be undefined after length check
-                if (!firstElement || !lastElement) return;
+                if (!firstElement || !lastElement) {
+                    return;
+                }
 
                 // Shift+Tab on first element -> go to last
                 if (event.shiftKey && activeElement === firstElement) {
@@ -330,10 +347,14 @@ export function useFocusTrap<T extends HTMLElement = HTMLElement>(
 
     // Keep focus within container
     useEffect(() => {
-        if (!enabled) return;
+        if (!enabled) {
+            return;
+        }
 
         const container = containerRef.current;
-        if (!container) return;
+        if (!container) {
+            return;
+        }
 
         const handleFocusOut = (event: FocusEvent) => {
             const relatedTarget = event.relatedTarget as HTMLElement | null;

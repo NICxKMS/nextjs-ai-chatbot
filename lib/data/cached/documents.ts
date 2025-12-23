@@ -11,7 +11,6 @@
  */
 import "server-only";
 
-import type { ArtifactKind } from "@/features/artifacts/types";
 import type {
     CachedDocumentMeta,
     CachedDocumentVersion,
@@ -25,6 +24,7 @@ import {
     getLatestVersionFromCache,
 } from "@/lib/cache-ops";
 import type { Document } from "@/lib/db";
+import type { ArtifactKind } from "@/lib/types";
 import { isGuest } from "../base";
 import {
     deleteDocumentsAfterTimestamp,
@@ -52,7 +52,9 @@ export async function getDocumentCached(
     }
 
     // Guest = cache-only
-    if (isGuest(ctx)) return null;
+    if (isGuest(ctx)) {
+        return null;
+    }
 
     // Auth = DB fallback
     const document = await getDocument(documentId, ctx);
@@ -82,7 +84,9 @@ export async function getLatestVersionCached(
     }
 
     // Guest = cache-only
-    if (isGuest(ctx)) return null;
+    if (isGuest(ctx)) {
+        return null;
+    }
 
     // Auth = DB fallback
     return getDocument(documentId, ctx);
@@ -106,7 +110,9 @@ export async function getAllVersionsCached(
     }
 
     // Guest = cache-only
-    if (isGuest(ctx)) return [];
+    if (isGuest(ctx)) {
+        return [];
+    }
 
     // Auth = DB fallback
     return getAllDocuments(documentId, ctx);

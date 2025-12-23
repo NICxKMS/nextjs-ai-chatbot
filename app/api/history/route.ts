@@ -15,6 +15,7 @@ import {
 } from "@/lib/data";
 import type { Chat } from "@/lib/db";
 import { AppError } from "@/lib/errors";
+import { logger } from "@/lib/utils/logger";
 
 export async function GET(request: NextRequest) {
     try {
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
             nextCursor: null,
         });
     } catch (error) {
-        console.error("[History API]", error);
+        logger.error("[History API]", { error });
         if (error instanceof AppError) {
             return NextResponse.json(
                 { error: error.message },
@@ -71,7 +72,7 @@ export async function DELETE(_request: NextRequest) {
 
         return NextResponse.json({ success: true });
     } catch (error) {
-        console.error("[History API]", error);
+        logger.error("[History API]", { error });
         return NextResponse.json({ error: "Internal error" }, { status: 500 });
     }
 }

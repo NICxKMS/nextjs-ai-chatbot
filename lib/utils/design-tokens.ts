@@ -253,7 +253,9 @@ export function cssVar(name: string): string {
  * @returns true if user prefers reduced motion
  */
 export function prefersReducedMotion(): boolean {
-    if (typeof window === "undefined") return false;
+    if (typeof window === "undefined") {
+        return false;
+    }
     return window.matchMedia(MEDIA_QUERIES.reducedMotion).matches;
 }
 
@@ -262,10 +264,10 @@ export function prefersReducedMotion(): boolean {
  * @param duration - Duration key or milliseconds
  * @returns Duration in milliseconds (0 if reduced motion preferred)
  */
-export function getAnimationDuration(
-    duration: Duration | number
-): number {
-    if (prefersReducedMotion()) return 0;
+export function getAnimationDuration(duration: Duration | number): number {
+    if (prefersReducedMotion()) {
+        return 0;
+    }
     return typeof duration === "number" ? duration : DURATION[duration];
 }
 
@@ -275,6 +277,8 @@ export function getAnimationDuration(
  * @returns true if viewport is at or above breakpoint
  */
 export function matchesBreakpoint(breakpoint: Breakpoint): boolean {
-    if (typeof window === "undefined") return false;
+    if (typeof window === "undefined") {
+        return false;
+    }
     return window.matchMedia(MEDIA_QUERIES[breakpoint]).matches;
 }

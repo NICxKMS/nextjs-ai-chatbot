@@ -1,6 +1,6 @@
 ---
 description: "✅ Spec Validator. Cross-document consistency, coverage analysis, gap detection."
-tools: ['read', 'execute', 'edit', 'search', 'vscode']
+tools: ['read', 'execute', 'edit', 'search/codebase','search', 'vscode']
 handoffs:
   - label: "Return to Main"
     agent: ouroboros

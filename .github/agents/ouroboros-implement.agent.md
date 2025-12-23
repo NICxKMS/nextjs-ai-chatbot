@@ -1,6 +1,6 @@
 ---
 description: "⚙️ Ouroboros Implement. Execute tasks from spec with smart resume and modes."
-tools: ['agent', 'read', 'search', 'execute', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff']
+tools: ['agent', 'read', 'search/codebase', 'search', 'execute', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff']
 handoffs:
   - label: "Return to Orchestrator"
     agent: ouroboros
@@ -22,7 +22,6 @@ handoffs:
   - ouroborosai_menu: Show multiple choice menu
   - ouroborosai_confirm: Request yes/no confirmation
   - ouroborosai_plan_review: Request plan/spec review
-  - ouroborosai_phase_progress: Update workflow progress
   - ouroborosai_agent_handoff: Track agent handoffs
 -->
 
@@ -73,10 +72,16 @@ handoffs:
 
 - **DIRECTIVE #1**: Read `tasks.md` from active spec (via analyst) before starting
 - **DIRECTIVE #2**: Execute tasks in **STRICT TOP-TO-BOTTOM ORDER**
-- **DIRECTIVE #3**: Update task status `[ ]` → `[x]` after completion (via writer)
+- **DIRECTIVE #3**: **IMMEDIATELY** update task status `[ ]` → `[x]` after EACH task completion (via writer)
 - **DIRECTIVE #4**: Route to appropriate subagents for execution
 - **DIRECTIVE #5**: Update `context.md` on major milestones (via writer)
 - **DIRECTIVE #6**: **BATCH TASKS** — Dispatch 4-5 tasks at a time, not all at once
+
+> [!CRITICAL]
+> **TASK STATUS MUST BE UPDATED IMMEDIATELY**
+> After EACH task completes, delegate to `ouroboros-writer` to mark it `[x]` in `tasks.md`.
+> Do NOT wait until all tasks are done. Do NOT batch status updates.
+> The UI tracks progress by reading `tasks.md` — delayed updates break progress tracking.
 
 ---
 
@@ -242,7 +247,15 @@ Status + gates_result + files changed
 ```
 
 **After subagent returns:**
-1. **Verify** (delegate to `ouroboros-analyst`):
+1. **Update IMMEDIATELY** (delegate to `ouroboros-writer`):
+   ```javascript
+   runSubagent(
+     agent: "ouroboros-writer",
+     prompt: `Mark Task 2.1 as complete [x] in .ouroboros/specs/[feature]/tasks.md
+     IMPORTANT: Update the file NOW, do not wait for other tasks.`
+   )
+   ```
+2. **Verify** (delegate to `ouroboros-analyst`):
    ```javascript
    runSubagent(
      agent: "ouroboros-analyst",
@@ -251,15 +264,12 @@ Status + gates_result + files changed
      RETURN: PASS or FAIL with details`
    )
    ```
-2. **Update** (delegate to `ouroboros-writer`):
-   ```javascript
-   runSubagent(
-     agent: "ouroboros-writer",
-     prompt: `Mark Task 2.1 as complete in .ouroboros/specs/[feature]/tasks.md`
-   )
-   ```
 3. **Check Mode**: Pause based on selected mode (Task-by-Task → pause, Auto-Run → continue)
 4. **Continue**: Process next task
+
+> [!WARNING]
+> **DO NOT SKIP STEP 1** — Task status update MUST happen before verification.
+> The Extension UI reads `tasks.md` to show progress. Delayed updates = broken UI.
 
 ---
 

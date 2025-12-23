@@ -85,7 +85,9 @@ export async function getSuggestionsCached(
     }
 
     // Guest = cache-only
-    if (isGuest(ctx)) return [];
+    if (isGuest(ctx)) {
+        return [];
+    }
 
     // Auth = DB fallback
     const suggestions = await getDocumentSuggestions(documentId, ctx);
@@ -112,7 +114,9 @@ export async function saveSuggestionsCached(
     suggestions: Suggestion[],
     ctx: DataContext
 ): Promise<void> {
-    if (suggestions.length === 0) return;
+    if (suggestions.length === 0) {
+        return;
+    }
 
     const userCtx = toUserContext(ctx);
     const cachedSuggestions = suggestions.map(toCachedSuggestion);

@@ -1,6 +1,14 @@
 "use client";
 
 import { memo, useEffect, useMemo, useRef } from "react";
+import {
+    createSuggestionDecorations,
+    getSuggestionPositions,
+    type SuggestionLike,
+    SuggestionsExtension,
+    suggestionsPluginKey,
+} from "@/lib/editor";
+import { logger } from "@/lib/utils/logger";
 
 // ============================================================================
 // Types
@@ -15,6 +23,8 @@ export type TextEditorProps = {
     status: "streaming" | "idle";
     /** Whether this is the current version being viewed */
     isCurrentVersion: boolean;
+    /** AI suggestions to display inline */
+    suggestions?: SuggestionLike[];
 };
 
 // ============================================================================
@@ -97,7 +107,12 @@ function EditorSkeleton() {
 // Editor Implementation
 // ============================================================================
 
-function PureTextEditor({ content, onContentChange, status }: TextEditorProps) {
+function PureTextEditor({
+    content,
+    onContentChange,
+    status,
+    suggestions = [],
+}: TextEditorProps) {
     const _isUpdatingRef = useRef(false);
     const _previousContentRef = useRef<string>(content);
     const modulesRef = useRef<TipTapModules | null>(null);
@@ -111,7 +126,7 @@ function PureTextEditor({ content, onContentChange, status }: TextEditorProps) {
                 setModules(loadedModules);
             })
             .catch((error) => {
-                console.error("[TextEditor] Failed to load modules:", error);
+                logger.error("[TextEditor] Failed to load modules", { error });
             });
     }, []);
 
@@ -125,6 +140,7 @@ function PureTextEditor({ content, onContentChange, status }: TextEditorProps) {
             modules={modules}
             onContentChange={onContentChange}
             status={status}
+            suggestions={suggestions}
         />
     );
 }
@@ -135,6 +151,7 @@ import React from "react";
 interface TextEditorInnerProps
     extends Omit<TextEditorProps, "isCurrentVersion"> {
     modules: TipTapModules;
+    suggestions: SuggestionLike[];
 }
 
 function TextEditorInner({
@@ -142,6 +159,7 @@ function TextEditorInner({
     onContentChange,
     status,
     modules,
+    suggestions,
 }: TextEditorInnerProps) {
     const isUpdatingRef = useRef(false);
     const previousContentRef = useRef<string>(content);
@@ -181,6 +199,7 @@ function TextEditorInner({
             TableRow,
             TableHeader,
             TableCell,
+            SuggestionsExtension,
         ],
         content,
         immediatelyRender: false,
@@ -232,6 +251,29 @@ function TextEditorInner({
         }
     }, [content, status, editor, migrateMathStrings]);
 
+    // Update suggestion decorations when suggestions or content changes
+    useEffect(() => {
+        if (!editor?.state.doc || !content) {
+            return;
+        }
+
+        const projectedSuggestions = getSuggestionPositions(
+            editor.state.doc,
+            suggestions
+        ).filter(
+            (suggestion) => suggestion.selectionStart && suggestion.selectionEnd
+        );
+
+        const decorations = createSuggestionDecorations(
+            projectedSuggestions,
+            editor.view
+        );
+
+        const transaction = editor.state.tr;
+        transaction.setMeta(suggestionsPluginKey, { decorations });
+        editor.view.dispatch(transaction);
+    }, [suggestions, content, editor]);
+
     return <EditorContent editor={editor} />;
 }
 
@@ -242,6 +284,7 @@ function TextEditorInner({
 function areEqual(prevProps: TextEditorProps, nextProps: TextEditorProps) {
     return (
         prevProps.isCurrentVersion === nextProps.isCurrentVersion &&
+        prevProps.suggestions === nextProps.suggestions &&
         !(
             prevProps.status === "streaming" && nextProps.status === "streaming"
         ) &&

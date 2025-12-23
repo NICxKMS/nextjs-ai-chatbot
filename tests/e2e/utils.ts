@@ -171,7 +171,7 @@ const DEFAULT_MOCK_CONFIG: MockAIConfig = {
  * @param response - The mock response configuration
  * @returns Formatted SSE stream response
  */
-function createMockStreamResponse(response: MockResponse): string {
+function _createMockStreamResponse(response: MockResponse): string {
     const chunks: string[] = [];
     const messageId = `mock-msg-${Date.now()}`;
 
@@ -185,7 +185,7 @@ function createMockStreamResponse(response: MockResponse): string {
     const words = response.text.split(" ");
     for (const word of words) {
         // Escape special characters in JSON string
-        const escapedWord = JSON.stringify(word + " ").slice(1, -1);
+        const escapedWord = JSON.stringify(`${word} `).slice(1, -1);
         chunks.push(
             `data: {"type":"text-delta","id":"${messageId}","delta":"${escapedWord}"}\n\n`
         );
@@ -254,7 +254,7 @@ async function* createStreamingChunks(
     // Text streaming chunks - each word is a separate SSE event with delay
     const words = response.text.split(" ");
     for (const word of words) {
-        const escapedWord = JSON.stringify(word + " ").slice(1, -1);
+        const escapedWord = JSON.stringify(`${word} `).slice(1, -1);
         yield `data: {"type":"text-delta","id":"${messageId}","delta":"${escapedWord}"}\n\n`;
         await new Promise((r) => setTimeout(r, chunkDelayMs));
     }

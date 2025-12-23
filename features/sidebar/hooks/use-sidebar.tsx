@@ -6,6 +6,7 @@ import {
     useCallback,
     useContext,
     useEffect,
+    useMemo,
     useState,
 } from "react";
 import type {
@@ -65,10 +66,14 @@ export function SidebarProvider({
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [toggle]);
 
+    // Memoize context value to prevent unnecessary re-renders in consumers
+    const contextValue = useMemo(
+        () => ({ state, open, close, toggle, setIsMobile }),
+        [state, open, close, toggle, setIsMobile]
+    );
+
     return (
-        <SidebarContext.Provider
-            value={{ state, open, close, toggle, setIsMobile }}
-        >
+        <SidebarContext.Provider value={contextValue}>
             {children}
         </SidebarContext.Provider>
     );

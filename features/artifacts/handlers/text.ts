@@ -6,7 +6,7 @@
  */
 import "server-only";
 
-import { type LanguageModel, smoothStream, streamText } from "ai";
+import { smoothStream, streamText } from "ai";
 
 import { createDocumentHandler } from "./base";
 

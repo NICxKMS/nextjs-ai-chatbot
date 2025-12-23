@@ -45,9 +45,9 @@ const TTL_MS = 5 * 60 * 1000;
  * Uses Map's insertion order for LRU eviction.
  */
 class LRUCache<K, V> {
-    private cache: Map<K, { value: V; expiresAt: number }>;
-    private maxSize: number;
-    private ttl: number;
+    private readonly cache: Map<K, { value: V; expiresAt: number }>;
+    private readonly maxSize: number;
+    private readonly ttl: number;
 
     constructor(options: { max: number; ttl: number }) {
         this.cache = new Map();

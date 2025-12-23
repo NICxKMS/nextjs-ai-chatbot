@@ -1,7 +1,10 @@
 import { expect, test } from "@playwright/test";
 
+import { setupMockAI } from "./utils";
+
 test.describe("Documents", () => {
     test.beforeEach(async ({ page }) => {
+        await setupMockAI(page);
         await page.goto("/");
         await page.waitForLoadState("networkidle");
     });

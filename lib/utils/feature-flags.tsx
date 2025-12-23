@@ -90,7 +90,7 @@ function simpleHash(str: string): number {
     for (let i = 0; i < str.length; i++) {
         const char = str.charCodeAt(i);
         hash = (hash << 5) - hash + char;
-        hash = hash & hash; // Convert to 32-bit integer
+        hash &= hash; // Convert to 32-bit integer
     }
     return Math.abs(hash);
 }
@@ -98,13 +98,21 @@ function simpleHash(str: string): number {
 /**
  * Check if user is in rollout percentage
  */
-function isInRollout(flagName: string, percentage: number, uid?: string): boolean {
-    if (percentage >= 100) return true;
-    if (percentage <= 0) return false;
+function isInRollout(
+    flagName: string,
+    percentage: number,
+    uid?: string
+): boolean {
+    if (percentage >= 100) {
+        return true;
+    }
+    if (percentage <= 0) {
+        return false;
+    }
 
     const identifier = uid || "anonymous";
     const hash = simpleHash(`${flagName}:${identifier}`);
-    return (hash % 100) < percentage;
+    return hash % 100 < percentage;
 }
 
 /**
@@ -135,11 +143,19 @@ export const featureFlags = {
      */
     isEnabled(flagName: string): boolean {
         const flag = flags[flagName];
-        if (!flag) return false;
+        if (!flag) {
+            return false;
+        }
 
         // Check rollout percentage if specified
-        if (flag.rolloutPercentage !== undefined && flag.rolloutPercentage < 100) {
-            return flag.enabled && isInRollout(flagName, flag.rolloutPercentage, userId);
+        if (
+            flag.rolloutPercentage !== undefined &&
+            flag.rolloutPercentage < 100
+        ) {
+            return (
+                flag.enabled &&
+                isInRollout(flagName, flag.rolloutPercentage, userId)
+            );
         }
 
         return flag.enabled;
@@ -150,7 +166,9 @@ export const featureFlags = {
      */
     getValue<T extends FeatureFlagValue>(flagName: string, defaultValue: T): T {
         const flag = flags[flagName];
-        if (!flag || flag.value === undefined) return defaultValue;
+        if (!flag || flag.value === undefined) {
+            return defaultValue;
+        }
         return flag.value as T;
     },
 
@@ -180,7 +198,11 @@ export const featureFlags = {
     /**
      * Override a flag value (useful for testing)
      */
-    override(flagName: string, enabled: boolean, value?: FeatureFlagValue): void {
+    override(
+        flagName: string,
+        enabled: boolean,
+        value?: FeatureFlagValue
+    ): void {
         const existing = flags[flagName];
         flags[flagName] = {
             name: flagName,

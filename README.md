@@ -23,6 +23,8 @@
 
 ## Features
 
+### Core Capabilities
+
 - ✨ **Real‑time streaming**: Fast, incremental responses with tool calling
 - 🔐 **Auth & history**: Secure sessions with persistent conversations
 - 🖼️ **Multimodal input**: Text, files, images, and code blocks
@@ -31,17 +33,27 @@
 - ♿ **Accessible UI**: Built on shadcn/ui and Radix primitives
 - 📱 **Responsive**: Mobile‑friendly, keyboard‑first interaction
 
+### Architecture Highlights
+
+- 🏗️ **Feature-based structure**: Modular `features/` directory with domain separation
+- 📦 **Type-safe throughout**: Comprehensive TypeScript types with runtime guards
+- 🚀 **Performance optimized**: Lazy loading, code splitting, and smart caching
+- 🔒 **Security-first**: Input sanitization, rate limiting, and CSRF protection
+- 🧪 **Fully tested**: Unit, integration, and E2E tests with Vitest and Playwright
+
 ## Tech Stack
 
-| Layer     | Technologies                                      |
-| --------- | ------------------------------------------------- |
-| Framework | Next.js (App Router, RSC, Server Actions)         |
-| Language  | TypeScript                                        |
-| Styling   | Tailwind CSS, shadcn/ui, Radix UI                 |
-| AI        | AI SDK (providers via unified interface)          |
-| Auth      | Auth.js                                           |
-| Data      | Drizzle ORM, SQL migrations (`lib/db/migrations`) |
-| Hosting   | Vercel (Edge & Serverless)                        |
+| Layer     | Technologies                                 |
+| --------- | -------------------------------------------- |
+| Framework | Next.js 15 (App Router, RSC, Server Actions) |
+| Language  | TypeScript 5 (strict mode)                   |
+| Styling   | Tailwind CSS 4, shadcn/ui, Radix UI          |
+| AI        | Vercel AI SDK 5 (unified multi-provider)     |
+| Auth      | Auth.js v5                                   |
+| Database  | Drizzle ORM, NeonDB (PostgreSQL)             |
+| Caching   | Redis/Upstash (cache-first strategy)         |
+| Testing   | Vitest (unit), Playwright (E2E)              |
+| Hosting   | Vercel (Edge & Serverless)                   |
 
 ## Architecture
 
@@ -56,16 +68,43 @@ flowchart LR
   C -- Uploads/Previews --> F[Artifacts & Storage]
 ```
 
-**Directory Structure:**
-- `app/(auth)` – authentication routes, config, and pages
-- `app/(chat)` – chat pages, API routes, and layout
-- `components/` – modular UI (chat, editors, artifacts, primitives)
-- `lib/ai/` – model registry, discovery, prompts, provider tooling
-- `lib/data/` – **unified data access layer** (cache-first, guest/auth abstraction)
-- `lib/db/` – schema, migrations, queries using Drizzle
-- `lib/cache/` – Redis operations and cache management
-- `artifacts/` – server and client handlers for generated artifacts
-- `hooks/` – reusable React hooks for chat state and UI behavior
+### Directory Structure
+
+```
+app/
+├── (auth)/            # Authentication routes and pages
+├── (chat)/            # Chat interface and layouts
+└── api/               # REST API endpoints
+    ├── chat/          # AI streaming endpoint
+    ├── history/       # Chat history CRUD
+    ├── vote/          # Message voting
+    ├── document/      # Document management
+    └── files/         # File upload handling
+
+components/
+├── ai-elements/       # AI response rendering (artifacts, code, etc.)
+└── ui/                # Base UI components (shadcn/ui)
+
+features/
+├── artifacts/         # Artifact creation and preview
+├── auth/              # Authentication logic
+├── chat/              # Chat state and components
+├── documents/         # Document management
+├── settings/          # User preferences
+└── sidebar/           # Navigation sidebar
+
+lib/
+├── ai/                # Model registry, prompts, tools
+├── api/               # API client utilities
+├── auth/              # Auth configuration and helpers
+├── cache/             # Redis cache operations
+├── data/              # Unified data access layer
+├── db/                # Drizzle schema and migrations
+├── errors/            # Error types and handlers
+├── middleware/        # Rate limiting, validation
+├── types/             # Shared TypeScript types
+└── utils/             # Common utilities
+```
 
 ### Data Access Layer
 
@@ -105,6 +144,7 @@ await messageData.saveWithContext({
 ```
 
 **Key Benefits:**
+
 - Guest users: Cache-only (no database writes)
 - Authenticated users: Cache + database persistence
 - Automatic cache warming on DB queries
@@ -112,6 +152,45 @@ await messageData.saveWithContext({
 - Type-safe with full TypeScript support
 
 See [docs/database-schema.md](docs/database-schema.md) and [docs/redis-cache-keymap.md](docs/redis-cache-keymap.md) for detailed documentation.
+
+## API Reference
+
+### REST Endpoints
+
+| Endpoint            | Method                | Description                           |
+| ------------------- | --------------------- | ------------------------------------- |
+| `/api/chat`         | POST                  | Stream AI responses with tool calling |
+| `/api/history`      | GET                   | Fetch paginated chat history          |
+| `/api/history`      | DELETE                | Delete all user chats                 |
+| `/api/vote`         | PATCH                 | Submit/update message vote            |
+| `/api/document`     | GET/POST/PATCH/DELETE | Document CRUD operations              |
+| `/api/files/upload` | POST                  | Upload files (images, documents)      |
+| `/api/health`       | GET                   | Health check endpoint                 |
+| `/api/suggestions`  | GET                   | Get AI suggestions                    |
+
+### Type Exports
+
+The application exports comprehensive TypeScript types for API responses:
+
+```typescript
+import type {
+  ApiMessage,
+  ApiChat,
+  ApiDocument,
+  ApiVote,
+  ApiErrorResponse,
+  PaginatedResponse,
+} from "@/lib/types";
+
+// Type guards for runtime validation
+import {
+  isApiMessage,
+  isApiChat,
+  isApiErrorResponse,
+  safeJsonParse,
+  assertType,
+} from "@/lib/types";
+```
 
 ## Screenshots
 
@@ -151,10 +230,18 @@ Visit: [ai.nicx.me](https://ai.nicx.me)
 
 ### Useful Scripts
 
-- `pnpm dev` – start the development server
-- `pnpm build` – build for production
-- `pnpm start` – run the production server
-- `pnpm lint` – lint and format code
+| Command            | Description                  |
+| ------------------ | ---------------------------- |
+| `pnpm dev`         | Start development server     |
+| `pnpm build`       | Build for production         |
+| `pnpm start`       | Run production server        |
+| `pnpm typecheck`   | TypeScript type checking     |
+| `pnpm lint`        | Lint and format code         |
+| `pnpm test`        | Run unit tests (Vitest)      |
+| `pnpm test:watch`  | Run tests in watch mode      |
+| `pnpm test:e2e`    | Run E2E tests (Playwright)   |
+| `pnpm db:generate` | Generate database migrations |
+| `pnpm db:migrate`  | Apply database migrations    |
 
 ## Deployment
 

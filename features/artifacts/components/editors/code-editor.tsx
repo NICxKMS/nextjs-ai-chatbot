@@ -3,6 +3,7 @@
 import type { EditorState, Transaction } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { memo, useEffect, useRef, useState } from "react";
+import { logger } from "@/lib/utils/logger";
 import type { ConsoleOutput } from "./console";
 
 // ============================================================================
@@ -95,7 +96,7 @@ function PureCodeEditor({ content, onSaveContent, status }: CodeEditorProps) {
         loadCodeMirrorModules()
             .then(setModules)
             .catch((error) => {
-                console.error("[CodeEditor] Failed to load modules:", error);
+                logger.error("[CodeEditor] Failed to load modules", { error });
             });
     }, []);
 

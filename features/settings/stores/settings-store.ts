@@ -177,3 +177,57 @@ export function useSettingsSnapshot(): AppSettings {
         modelSelectorDisplayMode: state.modelSelectorDisplayMode,
     }));
 }
+
+// =============================================================================
+// FINE-GRAINED SELECTORS
+// =============================================================================
+
+/**
+ * Selector hook for sampling settings only.
+ * Use when component only needs sampling values.
+ */
+export function useSamplingSettings(): SamplingSettings {
+    return useSettings((state) => state.sampling);
+}
+
+/**
+ * Selector hook for auto-scroll setting only.
+ */
+export function useAutoScrollSetting(): boolean {
+    return useSettings((state) => state.autoScroll);
+}
+
+/**
+ * Selector hook for selected model ID only.
+ */
+export function useSelectedModelId(): string | undefined {
+    return useSettings((state) => state.selectedModelId);
+}
+
+/**
+ * Selector hook for reasoning toggle only.
+ */
+export function useEnableReasoningSetting(): boolean {
+    return useSettings((state) => state.enableReasoning);
+}
+
+/**
+ * Selector hook for stream artifacts setting only.
+ */
+export function useStreamArtifactsSetting(): boolean {
+    return useSettings((state) => state.streamArtifacts);
+}
+
+/**
+ * Selector hook for model selector display mode only.
+ */
+export function useModelSelectorDisplayMode(): ModelSelectorDisplayMode {
+    return useSettings((state) => state.modelSelectorDisplayMode);
+}
+
+/**
+ * Selector hook for system prompt only.
+ */
+export function useSystemPromptSetting(): string {
+    return useSettings((state) => state.systemPrompt);
+}

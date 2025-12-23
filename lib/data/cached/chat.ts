@@ -52,7 +52,9 @@ export async function getChatCached(
     }
 
     // Guest = cache-only
-    if (isGuest(ctx)) return null;
+    if (isGuest(ctx)) {
+        return null;
+    }
 
     // Auth = DB fallback
     const chat = await getChat(chatId, ctx);
@@ -77,12 +79,15 @@ export async function getChatWithMessagesCached(
     ]);
 
     if (cachedChat && cachedMessages) {
-        // TODO: Convert cached messages to DB messages
-        // For now, fall through to DB
+        // FUTURE: Return cached data directly when message format conversion is implemented.
+        // Currently falls through to DB since cached messages use a different format than DB messages.
+        // This is a cache-warm optimization - the DB query will be fast due to cache priming.
     }
 
     // Guest = cache-only
-    if (isGuest(ctx)) return null;
+    if (isGuest(ctx)) {
+        return null;
+    }
 
     // Auth = DB fallback
     return getChatWithMessages(chatId, ctx);
@@ -95,12 +100,15 @@ export async function getUserChatsCached(ctx: DataContext): Promise<Chat[]> {
     // Try cache first
     const cached = await getUserChatsFromCache(ctx.userId);
     if (cached && cached.length > 0) {
-        // Cache returns chat IDs with timestamps, need to fetch full chat data
-        // For now, fall through to DB for full data
+        // FUTURE: Return cached data when full chat object caching is implemented.
+        // Currently cache stores minimal metadata (id, timestamps), not full chat objects.
+        // Falls through to DB which benefits from cache-warm indexes.
     }
 
     // Guest = cache-only, return empty
-    if (isGuest(ctx)) return [];
+    if (isGuest(ctx)) {
+        return [];
+    }
 
     // Auth = DB fallback
     const result = await listChats(ctx);

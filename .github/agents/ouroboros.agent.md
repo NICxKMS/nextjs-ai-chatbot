@@ -1,6 +1,6 @@
 ---
 description: "♾️ Ouroboros Master Orchestrator. Context window manager, session controller, task delegation."
-tools: ['agent', 'memory', 'todo', 'execute', 'vscode', 'search', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff']
+tools: ['agent', 'memory', 'todo', 'execute', 'vscode', 'search/codebase', 'search', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff']
 ---
 <!-- 
   OUROBOROS EXTENSION MODE
@@ -13,7 +13,6 @@ tools: ['agent', 'memory', 'todo', 'execute', 'vscode', 'search', 'mlgbjdlw.ouro
   - ouroborosai_menu: Show multiple choice menu
   - ouroborosai_confirm: Request yes/no confirmation
   - ouroborosai_plan_review: Request plan/spec review
-  - ouroborosai_phase_progress: Update workflow progress
   - ouroborosai_agent_handoff: Track agent handoffs
 -->
 

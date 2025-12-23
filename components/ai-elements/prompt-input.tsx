@@ -69,6 +69,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils/index";
+import { logger } from "@/lib/utils/logger";
 
 // ============================================================================
 // Provider Context & Types
@@ -1201,7 +1202,9 @@ export const PromptInputSpeechButton = ({
             speechRecognition.onerror = (
                 event: SpeechRecognitionErrorEvent
             ) => {
-                console.error("Speech recognition error:", event.error);
+                logger.error("Speech recognition error", {
+                    error: event.error,
+                });
                 setIsListening(false);
             };
 

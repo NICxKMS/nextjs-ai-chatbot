@@ -42,7 +42,6 @@
 //     "prompt-genome"
 //   ]
 // }
-
 {
   "compilerOptions": {
     "forceConsistentCasingInFileNames": true,
@@ -62,9 +61,22 @@
       "@/*": ["./*"]
     },
     "strictNullChecks": true,
-    "noUncheckedIndexedAccess": true
+    "noUncheckedIndexedAccess": true,
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "lib/editor/diff.js"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "lib/editor/diff.js",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
   "exclude": [
     "node_modules",
     ".next",

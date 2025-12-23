@@ -1,6 +1,20 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
 import type { ComponentType, Dispatch, ReactNode, SetStateAction } from "react";
+import type { SuggestionLike } from "@/lib/editor";
+
+// ============================================================================
+// Artifact Kind Types (re-exported from lib/types for layer compliance)
+// ============================================================================
+
+/**
+ * Supported artifact types in the application.
+ * Re-exported from lib/types - the canonical source.
+ */
+export type { ArtifactKind } from "@/lib/types";
+
+// Import for local use in this file
+import type { ArtifactKind } from "@/lib/types";
 
 // ============================================================================
 // Artifact Chat Helpers Type
@@ -11,16 +25,6 @@ import type { ComponentType, Dispatch, ReactNode, SetStateAction } from "react";
  * Uses UIMessage instead of `any` for proper type inference.
  */
 export type ArtifactChatHelpers = UseChatHelpers<UIMessage>;
-
-// ============================================================================
-// Artifact Kind Types
-// ============================================================================
-
-/**
- * Supported artifact types in the application.
- * Each kind has its own rendering, editing, and streaming behavior.
- */
-export type ArtifactKind = "text" | "code" | "image" | "sheet";
 
 /**
  * Status of an artifact during its lifecycle.
@@ -152,7 +156,7 @@ export type ArtifactContentProps<TMetadata = unknown> = {
     /** Current streaming/idle status */
     status: ArtifactStatus;
     /** AI-generated suggestions for the content */
-    suggestions: Array<{ id: string; content: string }>;
+    suggestions: SuggestionLike[];
     /** Callback to save content changes */
     onSaveContent: (updatedContent: string, debounce: boolean) => void;
     /** Whether artifact is displayed inline */

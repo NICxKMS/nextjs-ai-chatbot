@@ -68,8 +68,7 @@ const ChatMessagesList = memo(function ChatMessagesList({
         });
     }, []);
 
-    // Placeholder handlers for message actions
-    // These will be connected to actual implementations in future tasks
+    // Message action handlers
     const handleVote = useCallback(
         async (messageId: string, vote: VoteType) => {
             const result = await voteOnMessage({
@@ -124,10 +123,14 @@ const ChatMessagesList = memo(function ChatMessagesList({
             // Update messages state with edited content
             setMessages((prevMessages) => {
                 const index = prevMessages.findIndex((m) => m.id === messageId);
-                if (index === -1) return prevMessages;
+                if (index === -1) {
+                    return prevMessages;
+                }
 
                 const originalMessage = prevMessages[index];
-                if (!originalMessage) return prevMessages;
+                if (!originalMessage) {
+                    return prevMessages;
+                }
 
                 const updatedMessage: ChatMessage = {
                     id: originalMessage.id,
