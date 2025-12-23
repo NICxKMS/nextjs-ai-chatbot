@@ -23,6 +23,9 @@ export const GUEST_TOKEN_COOKIE = "guest_token";
 /** Default issuer for JWT */
 export const JWT_ISSUER = "nextjs-ai-chatbot";
 
+/** SEC-004: JWT audience claim for token binding */
+export const JWT_AUDIENCE = process.env.JWT_AUDIENCE || "nextjs-ai-chatbot";
+
 /**
  * Get cookie options based on environment
  */

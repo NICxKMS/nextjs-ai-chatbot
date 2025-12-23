@@ -4,6 +4,7 @@
  */
 
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import {
     GUEST_TOKEN_COOKIE,
     getCookieOptions,
@@ -14,6 +15,7 @@ import {
  * Get guest token from cookies (Server Component / Server Action)
  */
 export async function getGuestTokenCookie(): Promise<string | undefined> {
+    await connection();
     const cookieStore = await cookies();
     return cookieStore.get(GUEST_TOKEN_COOKIE)?.value;
 }
@@ -22,6 +24,7 @@ export async function getGuestTokenCookie(): Promise<string | undefined> {
  * Set guest token cookie (Server Action only)
  */
 export async function setGuestTokenCookie(token: string): Promise<void> {
+    await connection();
     const cookieStore = await cookies();
     const options = getCookieOptions(isProductionEnvironment());
 
@@ -32,6 +35,7 @@ export async function setGuestTokenCookie(token: string): Promise<void> {
  * Delete guest token cookie (Server Action only)
  */
 export async function deleteGuestTokenCookie(): Promise<void> {
+    await connection();
     const cookieStore = await cookies();
 
     cookieStore.set(GUEST_TOKEN_COOKIE, "", {

@@ -65,18 +65,18 @@ graph LR
 
 ## Environment Variables
 
-| Variable                       | Required    | Description                      |
-| ------------------------------ | ----------- | -------------------------------- |
-| `DATABASE_URL`                 | Yes         | PostgreSQL connection string     |
-| `CACHE_KV_REST_API_URL`        | Yes         | Upstash Redis REST URL           |
-| `CACHE_KV_REST_API_TOKEN`      | Yes         | Upstash Redis token              |
-| `SUPABASE_JWT_SECRET`          | Yes         | Supabase JWT verification secret |
-| `GUEST_JWT_SECRET`             | Yes         | Guest session signing secret     |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | Recommended | Google Gemini API key            |
-| `OPENAI_API_KEY`               | Optional    | OpenAI API key                   |
-| `OPENROUTER_API_KEY`           | Optional    | OpenRouter API key               |
-| `SENTRY_DSN`                   | Optional    | Sentry monitoring DSN            |
-| `NEXT_PUBLIC_SENTRY_DSN`       | Optional    | Sentry client DSN                |
+| Variable                  | Required    | Description                      |
+| ------------------------- | ----------- | -------------------------------- |
+| `DATABASE_URL`            | Yes         | PostgreSQL connection string     |
+| `CACHE_KV_REST_API_URL`   | Yes         | Upstash Redis REST URL           |
+| `CACHE_KV_REST_API_TOKEN` | Yes         | Upstash Redis token              |
+| `SUPABASE_JWT_SECRET`     | Yes         | Supabase JWT verification secret |
+| `GUEST_JWT_SECRET`        | Yes         | Guest session signing secret     |
+| `GEMINI_API_KEY`          | Recommended | Google Gemini API key            |
+| `OPENAI_API_KEY`          | Optional    | OpenAI API key                   |
+| `OPENROUTER_API_KEY`      | Optional    | OpenRouter API key               |
+| `SENTRY_DSN`              | Optional    | Sentry monitoring DSN            |
+| `NEXT_PUBLIC_SENTRY_DSN`  | Optional    | Sentry client DSN                |
 
 ## Architecture Overview
 

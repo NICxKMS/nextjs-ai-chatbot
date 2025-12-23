@@ -6,7 +6,7 @@
  */
 
 import type { ArtifactKind } from "@/features/artifacts/types";
-import { getSession } from "@/lib/auth/session";
+import { getSessionCached } from "@/lib/auth";
 import {
     appendVersionCached,
     createContext,
@@ -55,7 +55,7 @@ export async function GET(request: Request) {
     }
 
     // Require authenticated session
-    const session = await getSession();
+    const session = await getSessionCached();
     if (!session) {
         return new AppError({
             code: "auth:unauthorized",
@@ -112,7 +112,7 @@ export async function POST(request: Request) {
     }
 
     // Require authenticated session
-    const session = await getSession();
+    const session = await getSessionCached();
     if (!session) {
         return new AppError({
             code: "auth:unauthorized",
@@ -242,7 +242,7 @@ export async function DELETE(request: Request) {
     }
 
     // Require authenticated session
-    const session = await getSession();
+    const session = await getSessionCached();
     if (!session) {
         return new AppError({
             code: "auth:unauthorized",

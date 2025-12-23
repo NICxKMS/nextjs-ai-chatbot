@@ -141,14 +141,14 @@ const stream = createUIMessageStream({
 
 Dynamic model registration based on environment:
 
-| Provider              | Env Variable                   | Models                   |
-| --------------------- | ------------------------------ | ------------------------ |
-| OpenAI                | `OPENAI_API_KEY`               | GPT-4o, o3-mini, GPT-4.1 |
-| Google                | `GOOGLE_GENERATIVE_AI_API_KEY` | Gemini 3.0, 2.5 family   |
-| OpenRouter            | `OPENROUTER_API_KEY`           | Claude, DeepSeek, Qwen   |
-| Cloudflare Workers    | `CLOUDFLARE_API_KEY`           | Llama 3.3                |
-| Cloudflare AI Gateway | `CLOUDFLARE_AI_GATEWAY_*`      | Multi-provider fallback  |
-| Vercel Gateway        | `AI_GATEWAY_API_KEY`           | Routed models            |
+| Provider              | Env Variable              | Models                   |
+| --------------------- | ------------------------- | ------------------------ |
+| OpenAI                | `OPENAI_API_KEY`          | GPT-4o, o3-mini, GPT-4.1 |
+| Google                | `GEMINI_API_KEY`          | Gemini 3.0, 2.5 family   |
+| OpenRouter            | `OPENROUTER_API_KEY`      | Claude, DeepSeek, Qwen   |
+| Cloudflare Workers    | `CLOUDFLARE_API_KEY`      | Llama 3.3                |
+| Cloudflare AI Gateway | `CLOUDFLARE_AI_GATEWAY_*` | Multi-provider fallback  |
+| Vercel Gateway        | `AI_GATEWAY_API_KEY`      | Routed models            |
 
 **Implementation:** [lib/ai/model-registry.ts](file:///f:/Study/Code/git/nextjs-ai-chatbot/lib/ai/model-registry.ts)
 

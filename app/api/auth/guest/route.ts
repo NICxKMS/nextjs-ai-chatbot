@@ -3,6 +3,8 @@
  * Creates or retrieves guest session for anonymous users
  *
  * POST /api/auth/guest
+ *
+ * @security SEC-001: Rate limited to prevent session cycling attacks
  */
 
 import { NextResponse } from "next/server";
@@ -10,6 +12,7 @@ import { NextResponse } from "next/server";
 import { getSessionManager } from "@/lib/auth/session";
 import type { AppUser } from "@/lib/auth/types";
 import { AppError } from "@/lib/errors";
+import { checkRateLimit } from "@/lib/middleware/rate-limit";
 
 /**
  * Create or retrieve guest session
@@ -17,8 +20,35 @@ import { AppError } from "@/lib/errors";
  * Returns existing Supabase session if authenticated,
  * existing guest session if present,
  * or creates new guest session.
+ *
+ * @security SEC-001: IP-based rate limiting prevents session cycling to bypass rate limits.
+ * Users cannot create unlimited guest sessions by clearing cookies.
  */
-export async function POST(_request: Request): Promise<Response> {
+export async function POST(request: Request): Promise<Response> {
+    // SEC-001: Rate limit guest session creation per IP to prevent session cycling attacks
+    const ip =
+        request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+        request.headers.get("x-real-ip") ??
+        "unknown";
+
+    const rateResult = await checkRateLimit(`guest-create:${ip}`, "strict");
+    if (!rateResult.success) {
+        const retryAfter = Math.ceil((rateResult.reset - Date.now()) / 1000);
+        return new Response(
+            JSON.stringify({
+                error: "Too many session requests",
+                retryAfter,
+            }),
+            {
+                status: 429,
+                headers: {
+                    "Content-Type": "application/json",
+                    "Retry-After": String(retryAfter),
+                },
+            }
+        );
+    }
+
     const sessionManager = getSessionManager();
 
     // Check for existing session (Supabase or guest)

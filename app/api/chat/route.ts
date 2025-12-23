@@ -33,7 +33,7 @@ import {
     isValidModel,
     MODEL_REGISTRY,
 } from "@/lib/ai";
-import { getSession } from "@/lib/auth";
+import { getSessionCached } from "@/lib/auth";
 import type { AppSession } from "@/lib/auth/types";
 import {
     appendMessagesCached,
@@ -41,21 +41,20 @@ import {
     createContext,
 } from "@/lib/data";
 import type { Message } from "@/lib/db";
-import {
-    AppError,
-    forbiddenError,
-    rateLimitError,
-    validationError,
-} from "@/lib/errors";
-import { checkRateLimit } from "@/lib/middleware/rate-limit";
+import { AppError, forbiddenError, validationError } from "@/lib/errors";
 import { generateUUID } from "@/lib/utils";
 import { logger } from "@/lib/utils/logger";
+// PERF-003: Import streaming optimization utilities
+import { createStreamAbortSignal, SSE_HEADERS } from "@/lib/utils/streaming";
 
 // =============================================================================
 // CONSTANTS
 // =============================================================================
 
-/** Timeout for AI completion requests (55 seconds to stay under serverless limits) */
+/**
+ * Timeout for AI completion requests (55 seconds to stay under serverless limits)
+ * PERF-003: Used in combined abort signal with client disconnect handling
+ */
 const AI_COMPLETION_TIMEOUT_MS = 55_000;
 
 /**
@@ -193,7 +192,7 @@ const chatRequestSchema = z.object({
 export async function POST(request: Request): Promise<Response> {
     try {
         // Get session (optional - guests can chat with restrictions)
-        const session = await getSession();
+        const session = await getSessionCached();
         const userId = session?.user?.id;
         const isGuest = !session || session.user?.type === "guest";
 
@@ -224,29 +223,12 @@ export async function POST(request: Request): Promise<Response> {
         // GUEST RESTRICTIONS
         // =============================================================================
 
-        // Guests have stricter rate limits (applied in addition to edge middleware)
+        // NET-003: Removed duplicate guest rate-limiting
+        // Guest requests are already rate-limited in middleware.ts (edge middleware)
+        // See: middleware.ts for "guest:" rate limit bucket
+        // Only model restrictions remain here
+
         if (isGuest) {
-            // Use IP-based identifier for guest rate limiting
-            const ip =
-                request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-                request.headers.get("x-real-ip") ??
-                "unknown";
-
-            const guestRateResult = await checkRateLimit(
-                `guest:${ip}`,
-                "guest"
-            );
-            if (!guestRateResult.success) {
-                const retryAfter = Math.ceil(
-                    (guestRateResult.reset - Date.now()) / 1000
-                );
-                throw rateLimitError(retryAfter, {
-                    reason: "Guest rate limit exceeded",
-                    limit: guestRateResult.limit,
-                    remaining: guestRateResult.remaining,
-                });
-            }
-
             // Guests can only use affordable models to prevent cost abuse
             if (!GUEST_ALLOWED_MODELS.has(modelId)) {
                 throw forbiddenError("model", {
@@ -256,11 +238,15 @@ export async function POST(request: Request): Promise<Response> {
                 });
             }
 
+            const ip =
+                request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+                request.headers.get("x-real-ip") ??
+                "unknown";
+
             logger.info("[Chat API] Guest access", {
                 ip,
                 modelId,
                 chatId,
-                rateRemaining: guestRateResult.remaining,
             });
         }
 
@@ -343,7 +329,8 @@ export async function POST(request: Request): Promise<Response> {
                 const providerOptions = buildProviderOptions(modelId);
                 const hasReasoning = isReasoningModel(modelId);
 
-                // Stream the AI response
+                // PERF-003: Stream the AI response with optimized abort handling
+                // Uses combined signal for both timeout AND client disconnect
                 const result = streamText({
                     model,
                     messages: coreMessages,
@@ -354,7 +341,13 @@ export async function POST(request: Request): Promise<Response> {
                         delayInMs: 2,
                         chunking: "word",
                     }),
-                    abortSignal: AbortSignal.timeout(AI_COMPLETION_TIMEOUT_MS),
+                    // PERF-003: Combined abort signal handles:
+                    // 1. Timeout (55s) - prevents runaway requests
+                    // 2. Client disconnect - stops processing when client leaves
+                    abortSignal: createStreamAbortSignal(
+                        request,
+                        AI_COMPLETION_TIMEOUT_MS
+                    ),
                     providerOptions,
                     stopWhen: stepCountIs(5), // Allow multi-step tool calls
                     onFinish: async ({ text, usage }) => {
@@ -491,16 +484,16 @@ export async function POST(request: Request): Promise<Response> {
             },
         });
 
-        // Return streaming response with proper headers
+        // PERF-003: Return streaming response with optimized SSE headers
+        // SSE_HEADERS includes:
+        // - Content-Type: text/event-stream
+        // - Cache-Control: no-cache, no-transform
+        // - X-Accel-Buffering: no (disables nginx proxy buffering)
+        // - Content-Encoding: identity (prevents compression buffering)
+        // - Connection: keep-alive
         return new Response(
             stream.pipeThrough(new JsonToSseTransformStream()),
-            {
-                headers: {
-                    "Content-Type": "text/event-stream",
-                    "Cache-Control": "no-cache, no-transform",
-                    Connection: "keep-alive",
-                },
-            }
+            { headers: SSE_HEADERS }
         );
     } catch (error) {
         logger.error("[Chat API] Error", { error });

@@ -4,6 +4,8 @@
  * Server component that loads and displays an existing chat session.
  * Handles authentication, authorization, and message loading.
  *
+ * PERF-002: Uses parallel data loading to eliminate request waterfalls.
+ *
  * @module app/(chat)/chat/[id]/page
  */
 
@@ -11,8 +13,7 @@ import type { UIMessage } from "@ai-sdk/react";
 import { notFound, redirect } from "next/navigation";
 import { Chat, DataStreamHandler } from "@/features/chat";
 import { DEFAULT_MODEL_ID } from "@/lib/ai";
-import { getSession } from "@/lib/auth";
-import { createContext, getChatWithMessagesCached, voteDb } from "@/lib/data";
+import { loadChatPageData } from "@/lib/data";
 import { convertToUIMessages } from "@/lib/utils";
 
 type ChatPageProps = {
@@ -22,20 +23,16 @@ type ChatPageProps = {
 export default async function ChatPage({ params }: ChatPageProps) {
     const { id } = await params;
 
-    // Get current session
-    const session = await getSession();
-    const user = session?.user;
+    // PERF-002: Load session, chat, and votes in parallel
+    // Session first (required), then chat+votes together
+    const { session, chatWithMessages, votes } = await loadChatPageData(id);
 
     // If no session, redirect to login
-    if (!user) {
+    if (!session?.user) {
         redirect("/login");
     }
 
-    // Create data context
-    const ctx = createContext(user.id, user.type);
-
-    // Try to load existing chat with messages
-    const chatWithMessages = await getChatWithMessagesCached(id, ctx);
+    const user = session.user;
 
     // If chat doesn't exist, show 404
     if (!chatWithMessages) {
@@ -58,32 +55,6 @@ export default async function ChatPage({ params }: ChatPageProps) {
     // Get model from lastContext or use default
     const lastContext = chat.lastContext as { modelId?: string } | null;
     const selectedModelId = lastContext?.modelId ?? DEFAULT_MODEL_ID;
-
-    // Load votes for authenticated (non-guest) users
-    let votes: Array<{
-        chatId: string;
-        messageId: string;
-        vote: "up" | "down";
-    }> = [];
-    if (rawMessages.length >= 2 && user.type !== "guest") {
-        try {
-            const dbVotes = await voteDb.getVotesByChatId(id, ctx);
-            votes = dbVotes.map(
-                (v: {
-                    chatId: string;
-                    messageId: string;
-                    isUpvoted: boolean;
-                }) => ({
-                    chatId: v.chatId,
-                    messageId: v.messageId,
-                    vote: v.isUpvoted ? "up" : "down",
-                })
-            );
-        } catch {
-            // Continue without votes on error
-            votes = [];
-        }
-    }
 
     return (
         <>

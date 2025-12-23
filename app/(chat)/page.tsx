@@ -8,14 +8,16 @@
  */
 
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 
 import { Chat, DataStreamHandler } from "@/features/chat";
 import { DEFAULT_MODEL_ID, getAvailableModels } from "@/lib/ai";
 import { generateUUID } from "@/lib/utils";
 
 export default async function NewChatPage() {
-    // Access request data before using random values to satisfy Next.js
-    // cache constraints for server components.
+    // Defer to request time - prevents prerender errors with cookies()
+    await connection();
+
     const cookieStore = await cookies();
 
     // Get available models and determine initial model

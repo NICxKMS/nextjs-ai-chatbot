@@ -9,7 +9,7 @@
  */
 
 import { revalidatePath } from "next/cache";
-import { getSession } from "@/lib/auth";
+import { getSessionCached } from "@/lib/auth";
 import { deleteMessagesAfterTimestampCached } from "@/lib/data/cached";
 import { AppError } from "@/lib/errors";
 
@@ -56,7 +56,7 @@ export async function deleteTrailingMessages(
 ): Promise<DeleteTrailingMessagesResult> {
     try {
         // 1. Verify session
-        const session = await getSession();
+        const session = await getSessionCached();
         if (!session?.user?.id) {
             throw new AppError({
                 code: "auth:unauthorized",

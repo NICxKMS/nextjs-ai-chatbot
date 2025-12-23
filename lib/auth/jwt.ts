@@ -6,7 +6,8 @@
  */
 
 import * as jose from "jose";
-import { JWT_EXPIRATION_SECONDS, JWT_ISSUER } from "./constants";
+import { constantTimeEqual } from "@/lib/utils/timing-safe";
+import { JWT_AUDIENCE, JWT_EXPIRATION_SECONDS, JWT_ISSUER } from "./constants";
 import type { DeviceFingerprint, GuestTokenPayload, JWTPayload } from "./types";
 
 // ============== DEVICE FINGERPRINT ==============
@@ -71,13 +72,15 @@ export async function validateDeviceFingerprint(
 
     const current = await createDeviceFingerprint(currentIp, currentUserAgent);
 
+    // SEC-005: Use constant-time comparison to prevent timing attacks
     // User-Agent must match (strict validation)
-    if (stored.uaHash !== current.uaHash) {
+    if (!constantTimeEqual(stored.uaHash, current.uaHash)) {
         return { valid: false, ipChanged: false };
     }
 
+    // SEC-005: Use constant-time comparison for IP hash as well
     // IP can change (network mobility), but flag it
-    const ipChanged = stored.ipHash !== current.ipHash;
+    const ipChanged = !constantTimeEqual(stored.ipHash, current.ipHash);
 
     return { valid: true, ipChanged };
 }
@@ -95,16 +98,27 @@ function getSecret(): Uint8Array {
 
 /**
  * Verify and decode a JWT token
+ * CLN-004: Improved error handling with debug logging.
  */
 export async function verifyJwt<T extends JWTPayload>(
     token: string
 ): Promise<T | null> {
     try {
+        // SEC-004: Validate both issuer and audience claims
         const { payload } = await jose.jwtVerify(token, getSecret(), {
             issuer: JWT_ISSUER,
+            audience: JWT_AUDIENCE,
         });
         return payload as T;
-    } catch {
+    } catch (error) {
+        // CLN-004: Debug log for JWT verification failures (expected for expired/invalid tokens)
+        // Not using logger to avoid import in edge-compatible code
+        if (process.env.NODE_ENV === "development") {
+            console.debug(
+                "[jwt] verifyJwt failed:",
+                error instanceof Error ? error.message : "Unknown error"
+            );
+        }
         return null;
     }
 }
@@ -118,10 +132,12 @@ export async function signJwt(
 ): Promise<string> {
     const secret = getSecret();
 
+    // SEC-004: Include audience claim for token binding
     return new jose.SignJWT(payload)
         .setProtectedHeader({ alg: "HS256" })
         .setIssuedAt()
         .setIssuer(JWT_ISSUER)
+        .setAudience(JWT_AUDIENCE)
         .setExpirationTime(`${expiresIn}s`)
         .sign(secret);
 }

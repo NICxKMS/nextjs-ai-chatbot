@@ -12,11 +12,14 @@
  * - Ephemeral cache for attack mitigation
  * - Fail-open by default (configurable)
  * - Analytics enabled for Upstash dashboard
+ *
+ * CLN-003: Uses centralized config from rate-limit-config.ts
  */
 
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { logger } from "@/lib/utils/logger";
+import { type LimiterType, RATE_LIMITS } from "./rate-limit-config";
 
 // ============== REDIS CLIENT (EDGE) ==============
 
@@ -46,6 +49,12 @@ const ephemeralCache = new Map<string, number>();
 
 /**
  * Create a rate limiter with fallback handling
+ *
+ * Configuration:
+ * - timeout: 1000ms - Controls max latency at the edge; if Redis is slow,
+ *   the request fails closed rather than hanging indefinitely
+ * - enableProtection: Enables Upstash's enhanced DDoS protection features
+ *   including deny lists managed via the Upstash dashboard
  */
 function createLimiter(
     limiter: ReturnType<typeof Ratelimit.slidingWindow>,
@@ -61,61 +70,78 @@ function createLimiter(
         analytics: true,
         prefix,
         ephemeralCache,
+        timeout: 1000, // 1 second timeout for edge latency control
+        enableProtection: true, // Enhanced DDoS protection (deny lists via dashboard)
     });
 }
 
-/** Standard API: 100 requests per 60 seconds */
+// CLN-003: Limiters now reference centralized RATE_LIMITS config
+
+/** Standard API: Uses RATE_LIMITS.standard */
 export const standardLimiter = createLimiter(
-    Ratelimit.slidingWindow(100, "60s"),
+    Ratelimit.slidingWindow(
+        RATE_LIMITS.standard.requests,
+        RATE_LIMITS.standard.window
+    ),
     "ratelimit:standard"
 );
 
-/** Strict: 10 requests per 60 seconds (sensitive operations) */
+/** Strict: Uses RATE_LIMITS.strict (sensitive operations) */
 export const strictLimiter = createLimiter(
-    Ratelimit.slidingWindow(10, "60s"),
+    Ratelimit.slidingWindow(
+        RATE_LIMITS.strict.requests,
+        RATE_LIMITS.strict.window
+    ),
     "ratelimit:strict"
 );
 
-/** Auth: 20 requests per 60 seconds */
+/** Auth: Uses RATE_LIMITS.auth */
 export const authLimiter = createLimiter(
-    Ratelimit.slidingWindow(20, "60s"),
+    Ratelimit.slidingWindow(RATE_LIMITS.auth.requests, RATE_LIMITS.auth.window),
     "ratelimit:auth"
 );
 
-/** Chat/AI: 50 requests per 60 seconds with burst support */
+/** Chat/AI: Uses RATE_LIMITS.chat with burst support */
 export const chatLimiter = createLimiter(
-    Ratelimit.tokenBucket(50, "60s", 10), // 50/min, burst of 10
+    Ratelimit.tokenBucket(
+        RATE_LIMITS.chat.requests,
+        RATE_LIMITS.chat.window,
+        RATE_LIMITS.chat.burst ?? 10
+    ),
     "ratelimit:chat"
 );
 
-/** Upload: 10 requests per hour */
+/** Upload: Uses RATE_LIMITS.upload */
 export const uploadLimiter = createLimiter(
-    Ratelimit.fixedWindow(10, "1h"),
+    Ratelimit.fixedWindow(
+        RATE_LIMITS.upload.requests,
+        RATE_LIMITS.upload.window
+    ),
     "ratelimit:upload"
 );
 
-/** Guest: 20 requests per 60 seconds */
+/** Guest: Uses RATE_LIMITS.guest */
 export const guestLimiter = createLimiter(
-    Ratelimit.slidingWindow(20, "60s"),
+    Ratelimit.slidingWindow(
+        RATE_LIMITS.guest.requests,
+        RATE_LIMITS.guest.window
+    ),
     "ratelimit:guest"
 );
 
-/** Search: 1000 requests per 60 seconds */
+/** Search: Uses RATE_LIMITS.search */
 export const searchLimiter = createLimiter(
-    Ratelimit.slidingWindow(1000, "60s"),
+    Ratelimit.slidingWindow(
+        RATE_LIMITS.search.requests,
+        RATE_LIMITS.search.window
+    ),
     "ratelimit:search"
 );
 
 // ============== LIMITER MAP ==============
 
-export type LimiterType =
-    | "standard"
-    | "strict"
-    | "auth"
-    | "chat"
-    | "upload"
-    | "guest"
-    | "search";
+// CLN-003: LimiterType re-exported from rate-limit-config.ts
+export type { LimiterType } from "./rate-limit-config";
 
 export const limiters: Record<LimiterType, Ratelimit | null> = {
     standard: standardLimiter,
@@ -125,17 +151,19 @@ export const limiters: Record<LimiterType, Ratelimit | null> = {
     upload: uploadLimiter,
     guest: guestLimiter,
     search: searchLimiter,
+    globalIp: standardLimiter, // Global IP uses standard limiter
 };
 
-// Default limits for when Redis is unavailable
+// CLN-003: Default limits derived from centralized config
 const DEFAULT_LIMITS: Record<LimiterType, number> = {
-    standard: 100,
-    strict: 10,
-    auth: 20,
-    chat: 50,
-    upload: 10,
-    guest: 20,
-    search: 1000,
+    standard: RATE_LIMITS.standard.requests,
+    strict: RATE_LIMITS.strict.requests,
+    auth: RATE_LIMITS.auth.requests,
+    chat: RATE_LIMITS.chat.requests,
+    upload: RATE_LIMITS.upload.requests,
+    guest: RATE_LIMITS.guest.requests,
+    search: RATE_LIMITS.search.requests,
+    globalIp: RATE_LIMITS.globalIp.requests,
 };
 
 // ============== RATE LIMIT HELPERS ==============

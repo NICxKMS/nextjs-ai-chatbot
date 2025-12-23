@@ -7,7 +7,7 @@
  * Server actions for artifact operations.
  */
 
-import { getSession } from "@/lib/auth/session";
+import { getSessionCached } from "@/lib/auth";
 import { createContext } from "@/lib/data/base";
 import { documentData } from "@/lib/data/documents";
 import { type AppError, isAppError } from "@/lib/errors";
@@ -37,7 +37,7 @@ export async function getSuggestions({
 }): Promise<string[]> {
     try {
         // Validate session
-        const session = await getSession();
+        const session = await getSessionCached();
         if (!session) {
             return [];
         }

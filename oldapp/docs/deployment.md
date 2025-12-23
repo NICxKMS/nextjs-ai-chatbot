@@ -58,7 +58,7 @@ SUPABASE_ACCESS_TOKEN_COOKIE_NAME="sb-access-token"
 
 ```bash
 # Google Gemini (recommended)
-GOOGLE_GENERATIVE_AI_API_KEY="your-key"
+GEMINI_API_KEY="your-key"
 
 # OpenAI
 OPENAI_API_KEY="sk-..."
