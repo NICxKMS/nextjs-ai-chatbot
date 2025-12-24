@@ -20,6 +20,10 @@ vi.mock("@/lib/data", () => ({
     saveVoteCached: vi.fn(),
 }));
 
+vi.mock("@/lib/middleware/rate-limit", () => ({
+    checkRateLimit: vi.fn(),
+}));
+
 import { PATCH } from "@/app/api/vote/route";
 // Import after mocks
 import { isAuthResponse, requireAuthForRoute } from "@/lib/auth";
@@ -28,6 +32,7 @@ import {
     getChatWithMessagesCached,
     saveVoteCached,
 } from "@/lib/data";
+import { checkRateLimit } from "@/lib/middleware/rate-limit";
 
 // Type helpers
 const mockRequireAuthForRoute = vi.mocked(requireAuthForRoute);
@@ -35,6 +40,7 @@ const mockIsAuthResponse = vi.mocked(isAuthResponse);
 const mockGetChatCached = vi.mocked(getChatCached);
 const mockGetChatWithMessagesCached = vi.mocked(getChatWithMessagesCached);
 const mockSaveVoteCached = vi.mocked(saveVoteCached);
+const mockCheckRateLimit = vi.mocked(checkRateLimit);
 
 // Test fixtures
 const testUserId = "user-123";
@@ -80,6 +86,14 @@ function createRequest(body: unknown): Request {
 describe("Vote API Route /api/vote", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+
+        // Default: rate limit passes
+        mockCheckRateLimit.mockResolvedValue({
+            success: true,
+            limit: 100,
+            remaining: 99,
+            reset: Date.now() + 60_000,
+        });
 
         // Default: authenticated regular user
         mockRequireAuthForRoute.mockResolvedValue({

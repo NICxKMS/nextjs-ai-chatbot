@@ -95,16 +95,20 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
             return;
         }
 
-        const timeoutId = setTimeout(resolve, ms);
+        let resolved = false;
+        const timeoutId = setTimeout(() => {
+            resolved = true;
+            resolve();
+        }, ms);
 
-        signal?.addEventListener(
-            "abort",
-            () => {
+        const abortHandler = () => {
+            if (!resolved) {
                 clearTimeout(timeoutId);
                 reject(new DOMException("Aborted", "AbortError"));
-            },
-            { once: true }
-        );
+            }
+        };
+
+        signal?.addEventListener("abort", abortHandler, { once: true });
     });
 }
 

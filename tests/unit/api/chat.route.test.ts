@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock dependencies before imports
 vi.mock("@/lib/auth", () => ({
-    getSession: vi.fn(),
+    getSessionCached: vi.fn(),
 }));
 
 vi.mock("@/lib/data", () => ({
@@ -29,11 +29,11 @@ vi.mock("@/lib/utils/logger", () => ({
 
 import { DELETE, GET } from "@/app/api/chat/[id]/route";
 // Import after mocks
-import { getSession } from "@/lib/auth";
+import { getSessionCached } from "@/lib/auth";
 import { createContext, deleteChatCached, getChatCached } from "@/lib/data";
 
 // Type helpers
-const mockGetSession = vi.mocked(getSession);
+const mockGetSessionCached = vi.mocked(getSessionCached);
 const mockGetChatCached = vi.mocked(getChatCached);
 const mockDeleteChatCached = vi.mocked(deleteChatCached);
 const mockCreateContext = vi.mocked(createContext);
@@ -89,18 +89,18 @@ describe("Chat API Route /api/chat/[id]", () => {
 
     describe("GET /api/chat/[id]", () => {
         it("should return 401 if not authenticated", async () => {
-            mockGetSession.mockResolvedValue(null);
+            mockGetSessionCached.mockResolvedValue(null);
 
             const request = createRequest(`/api/chat/${testChatId}`);
             const response = await GET(request, createRouteParams(testChatId));
 
             expect(response.status).toBe(401);
             const json = await response.json();
-            expect(json.error).toBe("Unauthorized");
+            expect(json.error.code).toBe("auth:unauthorized");
         });
 
         it("should return 401 if session has no user ID", async () => {
-            mockGetSession.mockResolvedValue({
+            mockGetSessionCached.mockResolvedValue({
                 user: { id: "", type: "regular" },
                 expires: new Date().toISOString(),
             } as typeof mockSession);
@@ -112,7 +112,7 @@ describe("Chat API Route /api/chat/[id]", () => {
         });
 
         it("should return 404 if chat not found", async () => {
-            mockGetSession.mockResolvedValue(mockSession);
+            mockGetSessionCached.mockResolvedValue(mockSession);
             mockGetChatCached.mockResolvedValue(null);
 
             const request = createRequest(`/api/chat/${testChatId}`);
@@ -120,11 +120,11 @@ describe("Chat API Route /api/chat/[id]", () => {
 
             expect(response.status).toBe(404);
             const json = await response.json();
-            expect(json.error).toBe("Chat not found");
+            expect(json.error.code).toBe("resource:not_found:chat");
         });
 
         it("should return chat data if authenticated and chat exists", async () => {
-            mockGetSession.mockResolvedValue(mockSession);
+            mockGetSessionCached.mockResolvedValue(mockSession);
             mockGetChatCached.mockResolvedValue(mockChat);
 
             const request = createRequest(`/api/chat/${testChatId}`);
@@ -142,7 +142,7 @@ describe("Chat API Route /api/chat/[id]", () => {
         });
 
         it("should create context with correct user info", async () => {
-            mockGetSession.mockResolvedValue(mockSession);
+            mockGetSessionCached.mockResolvedValue(mockSession);
             mockGetChatCached.mockResolvedValue(mockChat);
 
             const request = createRequest(`/api/chat/${testChatId}`);
@@ -155,7 +155,7 @@ describe("Chat API Route /api/chat/[id]", () => {
         });
 
         it("should pass correct chatId to getChatCached", async () => {
-            mockGetSession.mockResolvedValue(mockSession);
+            mockGetSessionCached.mockResolvedValue(mockSession);
             mockGetChatCached.mockResolvedValue(mockChat);
 
             const request = createRequest(`/api/chat/${testChatId}`);
@@ -172,7 +172,7 @@ describe("Chat API Route /api/chat/[id]", () => {
                 user: { id: "guest-123", type: "guest" as const },
                 expires: new Date().toISOString(),
             };
-            mockGetSession.mockResolvedValue(guestSession);
+            mockGetSessionCached.mockResolvedValue(guestSession);
             mockGetChatCached.mockResolvedValue({
                 ...mockChat,
                 userId: "guest-123",
@@ -191,7 +191,7 @@ describe("Chat API Route /api/chat/[id]", () => {
 
     describe("DELETE /api/chat/[id]", () => {
         it("should return 401 if not authenticated", async () => {
-            mockGetSession.mockResolvedValue(null);
+            mockGetSessionCached.mockResolvedValue(null);
 
             const request = createRequest(`/api/chat/${testChatId}`);
             const response = await DELETE(
@@ -201,11 +201,11 @@ describe("Chat API Route /api/chat/[id]", () => {
 
             expect(response.status).toBe(401);
             const json = await response.json();
-            expect(json.error).toBe("Unauthorized");
+            expect(json.error.code).toBe("auth:unauthorized");
         });
 
         it("should return 404 if chat not found or not owned", async () => {
-            mockGetSession.mockResolvedValue(mockSession);
+            mockGetSessionCached.mockResolvedValue(mockSession);
             mockDeleteChatCached.mockResolvedValue(false);
 
             const request = createRequest(`/api/chat/${testChatId}`);
@@ -216,11 +216,11 @@ describe("Chat API Route /api/chat/[id]", () => {
 
             expect(response.status).toBe(404);
             const json = await response.json();
-            expect(json.error).toBe("Chat not found");
+            expect(json.error.code).toBe("resource:not_found:chat");
         });
 
         it("should return 204 on successful deletion", async () => {
-            mockGetSession.mockResolvedValue(mockSession);
+            mockGetSessionCached.mockResolvedValue(mockSession);
             mockDeleteChatCached.mockResolvedValue(true);
 
             const request = createRequest(`/api/chat/${testChatId}`);
@@ -233,7 +233,7 @@ describe("Chat API Route /api/chat/[id]", () => {
         });
 
         it("should call deleteChatCached with correct params", async () => {
-            mockGetSession.mockResolvedValue(mockSession);
+            mockGetSessionCached.mockResolvedValue(mockSession);
             mockDeleteChatCached.mockResolvedValue(true);
 
             const request = createRequest(`/api/chat/${testChatId}`);
@@ -246,7 +246,7 @@ describe("Chat API Route /api/chat/[id]", () => {
         });
 
         it("should create context for deletion", async () => {
-            mockGetSession.mockResolvedValue(mockSession);
+            mockGetSessionCached.mockResolvedValue(mockSession);
             mockDeleteChatCached.mockResolvedValue(true);
 
             const request = createRequest(`/api/chat/${testChatId}`);

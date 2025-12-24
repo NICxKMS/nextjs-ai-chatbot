@@ -23,7 +23,7 @@ export {
     configureMockProvider,
     createMockModel,
     getModelWithMockFallback,
-    MockLanguageModel,
+    type MockLanguageModel,
     type MockProviderConfig,
     resetMockProvider,
     shouldUseMockAI,

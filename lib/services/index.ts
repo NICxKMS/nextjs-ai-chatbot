@@ -71,6 +71,19 @@ export type {
 export { errorLogger } from "./error-logger";
 
 // =============================================================================
+// API METRICS SERVICE
+// =============================================================================
+
+export type {
+    ApiMetricsConfig,
+    EndpointMetrics,
+    ErrorMetric,
+    MetricsSummary,
+    RequestMetric,
+} from "./api-metrics";
+export { ApiMetricsCollector, apiMetrics, withMetrics } from "./api-metrics";
+
+// =============================================================================
 // RE-EXPORT CONFIG
 // =============================================================================
 
