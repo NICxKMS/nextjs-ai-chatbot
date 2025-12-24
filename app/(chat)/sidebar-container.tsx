@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Suspense } from "react";
+import { SidebarSkeleton } from "@/components/ui/skeleton-sidebar";
 import { AppSidebar, useChatHistory } from "@/features/sidebar";
 import { generateUUID } from "@/lib/utils";
 
@@ -28,30 +29,9 @@ function SidebarContent() {
     );
 }
 
-function SidebarSkeleton() {
-    return (
-        <aside className="flex h-full w-64 flex-col border-r bg-background">
-            <div className="border-b p-2">
-                <div className="flex items-center justify-between">
-                    <div className="h-8 w-24 animate-pulse rounded bg-muted" />
-                    <div className="h-8 w-8 animate-pulse rounded bg-muted" />
-                </div>
-            </div>
-            <div className="flex-1 space-y-2 p-2">
-                {Array.from({ length: 5 }).map((_, i) => (
-                    <div
-                        className="h-10 animate-pulse rounded bg-muted"
-                        key={i}
-                    />
-                ))}
-            </div>
-        </aside>
-    );
-}
-
 export function SidebarContainer() {
     return (
-        <Suspense fallback={<SidebarSkeleton />}>
+        <Suspense fallback={<SidebarSkeleton itemCount={5} />}>
             <SidebarContent />
         </Suspense>
     );

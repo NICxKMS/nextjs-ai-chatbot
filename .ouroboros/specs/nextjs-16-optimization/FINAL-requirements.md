@@ -13,12 +13,12 @@ This document contains all 27 requirements for the Next.js 16.1.0 optimization p
 
 ### Requirements by Priority
 
-| Priority | Count | Domains |
-|----------|-------|---------|
-| P0 (Critical) | 2 | Security (SEV-001, SEV-003) |
-| P1 (Must) | 13 | Caching, Security, Performance, Session |
-| P2 (Should) | 14 | Metadata, UX, A11y, DX, Architecture, Security |
-| P3 (Could) | 1 | Audit Logging |
+| Priority      | Count | Domains                                        |
+| ------------- | ----- | ---------------------------------------------- |
+| P0 (Critical) | 2     | Security (SEV-001, SEV-003)                    |
+| P1 (Must)     | 13    | Caching, Security, Performance, Session        |
+| P2 (Should)   | 14    | Metadata, UX, A11y, DX, Architecture, Security |
+| P3 (Could)    | 1     | Audit Logging                                  |
 
 ### Breaking Changes 🔴
 
@@ -37,53 +37,53 @@ This document contains all 27 requirements for the Next.js 16.1.0 optimization p
 
 ## Glossary
 
-| Term | Definition |
-|------|------------|
-| EARS | Easy Approach to Requirements Syntax |
-| `"use cache"` | Next.js 16 directive marking functions for caching |
-| `cacheLife` | Cache duration profiles (`max`, `hours`, `days`, custom) |
-| `cacheTag` | API for tagging cached data for targeted invalidation |
-| `revalidateTag` | Cache invalidation API (now requires profile argument) |
-| `updateTag` | Server Actions-only API for immediate cache updates |
-| DataContext | Current function parameter pattern (userId + userType) |
-| Core Web Vitals | Google's metrics: LCP, INP, CLS |
+| Term            | Definition                                               |
+| --------------- | -------------------------------------------------------- |
+| EARS            | Easy Approach to Requirements Syntax                     |
+| `"use cache"`   | Next.js 16 directive marking functions for caching       |
+| `cacheLife`     | Cache duration profiles (`max`, `hours`, `days`, custom) |
+| `cacheTag`      | API for tagging cached data for targeted invalidation    |
+| `revalidateTag` | Cache invalidation API (now requires profile argument)   |
+| `updateTag`     | Server Actions-only API for immediate cache updates      |
+| DataContext     | Current function parameter pattern (userId + userType)   |
+| Core Web Vitals | Google's metrics: LCP, INP, CLS                          |
 
 ---
 
 ## Requirements Matrix
 
-| REQ ID | Priority | Category | Wave | Title |
-|--------|----------|----------|------|-------|
-| REQ-001 | P1 🎯 | Caching | 2 | Adopt "use cache" directive |
-| REQ-002 | P1 🎯 | Caching | 1 | Configure cacheLife profiles |
-| REQ-003 | P1 | Caching | 3 | Implement updateTag invalidation |
-| REQ-004 | P1 🔴 | Migration | 3 | Update revalidateTag signature |
-| REQ-005 | P1 🎯 | Caching | 1 | Refactor function signatures |
-| REQ-006 | P2 | Metadata | 5 | Add generateMetadata |
-| REQ-007 | P1 🎯 | Performance | 6 | Core Web Vitals targets |
-| REQ-008 | P2 | Performance | 6 | Data fetch performance |
-| REQ-009 | P1 🎯 | Compatibility | 6 | Backward compatibility |
-| REQ-010 | P2 | Compatibility | 5 | Incremental rollout support |
-| REQ-011 | P1 🔴 | Session | 4 | Multi-tab session sync |
-| REQ-012 | P1 🔴 | Security | 0 | Fail-closed rate limiting |
-| REQ-013 | P1 | Caching | 2 | Invalidation fallback strategy |
-| REQ-014 | P2 | Caching | 1 | Cache tag naming convention |
-| REQ-015 | P2 | DX | 5 | Cache pattern documentation |
-| REQ-016 | P2 | UX | 5 | Loading state consistency |
-| REQ-017 | P1 | Operations | 4 | Redis graceful degradation |
-| REQ-018 | P3 | Security | 5 | Cache invalidation audit log |
-| REQ-019 | P2 | Architecture | 1 | Split AuthProvider contexts |
-| REQ-020 | P2 | Architecture | 1 | Consolidate SidebarProvider |
-| REQ-021 | P2 | UX | 5 | Auth route loading.tsx |
-| REQ-022 | P2 | UX | 5 | Auth route error.tsx |
-| REQ-023 | P2 | A11y | 5 | Loading state accessibility |
-| REQ-024 | P1 | Race Condition | 1.5 | Auth flow AbortController |
-| REQ-025 | P1 🔴 | Session | 1.5 | BroadcastChannel session sync |
-| REQ-026 | P2 | Error Handling | 5 | Auth error boundaries |
-| REQ-027 | P2 | UX | 5 | Offline detection |
-| REQ-028 | P0 🔴 | Security | 0 | Fix withRateLimit HOF default |
-| REQ-029 | P0 🔴 | Security | 0 | Remove model info from guest error |
-| REQ-030 | P2 | Security | 1.5 | BroadcastChannel origin validation |
+| REQ ID  | Priority | Category       | Wave | Title                              |
+| ------- | -------- | -------------- | ---- | ---------------------------------- |
+| REQ-001 | P1 🎯    | Caching        | 2    | Adopt "use cache" directive        |
+| REQ-002 | P1 🎯    | Caching        | 1    | Configure cacheLife profiles       |
+| REQ-003 | P1       | Caching        | 3    | Implement updateTag invalidation   |
+| REQ-004 | P1 🔴    | Migration      | 3    | Update revalidateTag signature     |
+| REQ-005 | P1 🎯    | Caching        | 1    | Refactor function signatures       |
+| REQ-006 | P2       | Metadata       | 5    | Add generateMetadata               |
+| REQ-007 | P1 🎯    | Performance    | 6    | Core Web Vitals targets            |
+| REQ-008 | P2       | Performance    | 6    | Data fetch performance             |
+| REQ-009 | P1 🎯    | Compatibility  | 6    | Backward compatibility             |
+| REQ-010 | P2       | Compatibility  | 5    | Incremental rollout support        |
+| REQ-011 | P1 🔴    | Session        | 4    | Multi-tab session sync             |
+| REQ-012 | P1 🔴    | Security       | 0    | Fail-closed rate limiting          |
+| REQ-013 | P1       | Caching        | 2    | Invalidation fallback strategy     |
+| REQ-014 | P2       | Caching        | 1    | Cache tag naming convention        |
+| REQ-015 | P2       | DX             | 5    | Cache pattern documentation        |
+| REQ-016 | P2       | UX             | 5    | Loading state consistency          |
+| REQ-017 | P1       | Operations     | 4    | Redis graceful degradation         |
+| REQ-018 | P3       | Security       | 5    | Cache invalidation audit log       |
+| REQ-019 | P2       | Architecture   | 1    | Split AuthProvider contexts        |
+| REQ-020 | P2       | Architecture   | 1    | Consolidate SidebarProvider        |
+| REQ-021 | P2       | UX             | 5    | Auth route loading.tsx             |
+| REQ-022 | P2       | UX             | 5    | Auth route error.tsx               |
+| REQ-023 | P2       | A11y           | 5    | Loading state accessibility        |
+| REQ-024 | P1       | Race Condition | 1.5  | Auth flow AbortController          |
+| REQ-025 | P1 🔴    | Session        | 1.5  | BroadcastChannel session sync      |
+| REQ-026 | P2       | Error Handling | 5    | Auth error boundaries              |
+| REQ-027 | P2       | UX             | 5    | Offline detection                  |
+| REQ-028 | P0 🔴    | Security       | 0    | Fix withRateLimit HOF default      |
+| REQ-029 | P0 🔴    | Security       | 0    | Remove model info from guest error |
+| REQ-030 | P2       | Security       | 1.5  | BroadcastChannel origin validation |
 
 ---
 
@@ -98,6 +98,7 @@ This document contains all 27 requirements for the Next.js 16.1.0 optimization p
 **Depends On**: REQ-002, REQ-005, REQ-014
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN `getChatCached()` is called, THE System SHALL use `"use cache"` directive with `cacheTag("chat-{chatId}")`
 2. WHEN `getMessagesCached()` is called, THE System SHALL use `"use cache"` directive with `cacheTag("messages-{chatId}")`
 3. WHEN `getUserChatsCached()` is called, THE System SHALL use `"use cache"` directive with `cacheTag("user-chats-{userId}")`
@@ -119,6 +120,7 @@ This document contains all 27 requirements for the Next.js 16.1.0 optimization p
 **Depends On**: None
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN next.config.ts is loaded, THE System SHALL define `chatMessages` profile (stale: 60s, revalidate: 4h, expire: 24h)
 2. WHEN next.config.ts is loaded, THE System SHALL define `userChats` profile (stale: 60s, revalidate: 5m, expire: 2h)
 3. WHEN next.config.ts is loaded, THE System SHALL define `documents` profile (stale: 300s, revalidate: 4h, expire: 24h)
@@ -126,6 +128,7 @@ This document contains all 27 requirements for the Next.js 16.1.0 optimization p
 5. WHERE built-in profile suffices, THE System SHALL use `hours` or `minutes` instead of custom
 
 **Profile Configuration**:
+
 ```typescript
 cacheLife: {
   chatMessages: { stale: 60, revalidate: 14400, expire: 86400 },
@@ -150,6 +153,7 @@ cacheLife: {
 **Depends On**: REQ-001, REQ-002
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN a new message is appended, THE System SHALL call `updateTag("messages-{chatId}")`
 2. WHEN a chat is created, THE System SHALL call `updateTag("user-chats-{userId}")`
 3. WHEN a chat is deleted, THE System SHALL call `updateTag("chat-{chatId}")` AND `updateTag("user-chats-{userId}")`
@@ -171,6 +175,7 @@ cacheLife: {
 **Depends On**: REQ-002
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN `revalidateTag` is called in Server Actions, THE System SHALL include profile argument
 2. WHEN invalidating user-specific data, THE System SHALL use `revalidateTag(tag, "max")`
 3. WHEN invalidating shared data, THE System SHALL use `revalidateTag(tag, "hours")`
@@ -178,6 +183,7 @@ cacheLife: {
 5. WHEN build completes, THE System SHALL produce zero deprecation warnings
 
 **Migration Pattern**:
+
 ```typescript
 // ❌ Before (deprecated)
 revalidateTag("user-chats");
@@ -199,6 +205,7 @@ revalidateTag("user-chats", "max");
 **Depends On**: None
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN `getChatCached()` is called, THE System SHALL accept `(chatId: string, userId: string)`
 2. WHEN `getUserChatsCached()` is called, THE System SHALL accept `(userId: string)`
 3. WHEN `getMessagesCached()` is called, THE System SHALL accept `(chatId: string, userId: string)`
@@ -227,6 +234,7 @@ revalidateTag("user-chats", "max");
 **Depends On**: REQ-003, REQ-004
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN cache invalidation is needed in Server Action, THE System SHALL use `updateTag(tag)`
 2. WHEN cache invalidation is needed in Route Handler, THE System SHALL use `revalidateTag(tag, "max")`
 3. WHERE invalidation context is unknown, THE System SHALL use unified `invalidateCache(tag)` utility
@@ -248,6 +256,7 @@ revalidateTag("user-chats", "max");
 **Depends On**: REQ-001
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN tagging user-specific cache, THE System SHALL use format `user-{entity}-{userId}`
 2. WHEN tagging entity-specific cache, THE System SHALL use format `{entity}-{id}`
 3. WHEN tagging relationship cache, THE System SHALL use format `{parent}-{child}-{parentId}`
@@ -255,13 +264,15 @@ revalidateTag("user-chats", "max");
 5. IF developer uses non-conforming tag, THEN ESLint SHALL warn
 
 **Tag Schema**:
+
 ```typescript
 const CacheTags = {
   chat: (chatId: string) => `chat-${chatId}`,
   userChats: (userId: string) => `user-chats-${userId}`,
   chatMessages: (chatId: string) => `chat-messages-${chatId}`,
   document: (docId: string) => `document-${docId}`,
-  suggestions: (docId: string, userId: string) => `suggestions-${docId}-${userId}`,
+  suggestions: (docId: string, userId: string) =>
+    `suggestions-${docId}-${userId}`,
 };
 ```
 
@@ -282,6 +293,7 @@ const CacheTags = {
 **Depends On**: None
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN Redis is unavailable AND request targets `/api/auth/*`, THE System SHALL return 503 Service Unavailable
 2. WHEN Redis is unavailable AND request targets `/api/chat`, THE System SHALL apply in-memory fallback (10 req/min)
 3. WHILE Redis is down, THE System SHALL log rate limit bypass attempts
@@ -310,11 +322,13 @@ const CacheTags = {
 **Depends On**: REQ-012
 
 **Security Finding**:
+
 - **Location**: `lib/middleware/rate-limit.ts:391`
 - **Issue**: `withRateLimit` HOF defaults to `failOpen = true`, allowing requests when rate limiter fails
 - **Risk**: Attackers can bypass rate limiting during Redis outages or errors
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN `withRateLimit` is used without explicit `failOpen` parameter, THE System SHALL default to `failOpen = false`
 2. WHEN rate limiting fails AND `failOpen = false`, THE System SHALL return 503 Service Unavailable
 3. WHERE endpoint requires fail-open behavior explicitly, THE System SHALL require explicit `failOpen: true` parameter
@@ -322,11 +336,12 @@ const CacheTags = {
 5. WHEN rate limit check fails, THE System SHALL log the failure with structured context
 
 **Fix**:
+
 ```typescript
 // ❌ Before (insecure)
 export function withRateLimit(config: { failOpen?: boolean } = {}) {
   const { failOpen = true } = config;  // Line 391
-  
+
 // ✅ After (secure)
 export function withRateLimit(config: { failOpen?: boolean } = {}) {
   const { failOpen = false } = config;  // Fail-closed by default
@@ -347,11 +362,13 @@ export function withRateLimit(config: { failOpen?: boolean } = {}) {
 **Depends On**: None
 
 **Security Finding**:
+
 - **Location**: `app/api/chat/route.ts:220`
 - **Issue**: Error response includes `modelId` and `allowedModels` when guest tries restricted model
 - **Risk**: Information disclosure enables attackers to enumerate internal model configuration
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN guest user requests restricted model, THE System SHALL NOT include `modelId` in error response
 2. WHEN guest user requests restricted model, THE System SHALL NOT include `allowedModels` array in error response
 3. WHEN returning model access error, THE System SHALL use generic message without specifics
@@ -359,19 +376,26 @@ export function withRateLimit(config: { failOpen?: boolean } = {}) {
 5. IF error occurs, THEN THE System SHALL return sanitized error with correlation ID only
 
 **Fix**:
+
 ```typescript
 // ❌ Before (information disclosure)
-return new Response(JSON.stringify({
-  error: 'Model not allowed for guests',
-  modelId: selectedModelId,  // Line 220 - REMOVE
-  allowedModels: guestAllowedModels  // REMOVE
-}), { status: 403 });
+return new Response(
+  JSON.stringify({
+    error: "Model not allowed for guests",
+    modelId: selectedModelId, // Line 220 - REMOVE
+    allowedModels: guestAllowedModels, // REMOVE
+  }),
+  { status: 403 }
+);
 
 // ✅ After (secure)
-return new Response(JSON.stringify({
-  error: 'Access denied',
-  code: 'MODEL_ACCESS_DENIED'
-}), { status: 403 });
+return new Response(
+  JSON.stringify({
+    error: "Access denied",
+    code: "MODEL_ACCESS_DENIED",
+  }),
+  { status: 403 }
+);
 ```
 
 **Target Files**: `app/api/chat/route.ts`
@@ -389,11 +413,13 @@ return new Response(JSON.stringify({
 **Depends On**: REQ-025
 
 **Security Finding**:
+
 - **Location**: BroadcastChannel implementation (REQ-025)
 - **Issue**: Missing origin validation allows messages from different origins
 - **Risk**: Cross-origin tab injection attacks could manipulate session sync
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN receiving BroadcastChannel message, THE System SHALL validate origin matches `window.location.origin`
 2. WHEN message origin is invalid, THE System SHALL ignore message and log warning
 3. WHILE sending BroadcastChannel message, THE System SHALL include origin field
@@ -401,11 +427,12 @@ return new Response(JSON.stringify({
 5. IF origin validation fails repeatedly (>10/minute), THEN THE System SHALL disable cross-tab sync temporarily
 
 **Implementation Pattern**:
+
 ```typescript
 // Session sync message validation
 interface SessionMessage {
-  type: 'SESSION_LOGIN' | 'SESSION_LOGOUT';
-  origin: string;  // Required for validation
+  type: "SESSION_LOGIN" | "SESSION_LOGOUT";
+  origin: string; // Required for validation
   payload: unknown;
   timestamp: number;
 }
@@ -413,8 +440,8 @@ interface SessionMessage {
 channel.onmessage = (event: MessageEvent<SessionMessage>) => {
   // Validate origin before processing
   if (event.data.origin !== window.location.origin) {
-    console.warn('BroadcastChannel: origin mismatch', event.data.origin);
-    return;  // Ignore invalid origin
+    console.warn("BroadcastChannel: origin mismatch", event.data.origin);
+    return; // Ignore invalid origin
   }
   // Process valid message...
 };
@@ -435,6 +462,7 @@ channel.onmessage = (event: MessageEvent<SessionMessage>) => {
 **Depends On**: REQ-003, REQ-013
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN cache is invalidated, THE System SHALL log event with userId, tag, and method used
 2. WHEN bulk invalidation occurs, THE System SHALL log with aggregate count
 3. WHERE invalidation rate exceeds 100/minute, THE System SHALL alert
@@ -458,6 +486,7 @@ channel.onmessage = (event: MessageEvent<SessionMessage>) => {
 **Depends On**: None
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN a guest session is created, THE System SHALL broadcast via BroadcastChannel to other tabs
 2. WHEN a tab receives session broadcast, THE System SHALL adopt the existing session
 3. WHILE multiple tabs are open, THE System SHALL maintain single source of truth for session
@@ -479,6 +508,7 @@ channel.onmessage = (event: MessageEvent<SessionMessage>) => {
 **Depends On**: REQ-011
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN user logs in, THE System SHALL broadcast `SESSION_LOGIN` event to all tabs
 2. WHEN user logs out, THE System SHALL broadcast `SESSION_LOGOUT` event to all tabs
 3. WHEN tab receives session event, THE System SHALL update local state within 100ms
@@ -502,6 +532,7 @@ channel.onmessage = (event: MessageEvent<SessionMessage>) => {
 **Depends On**: REQ-001, REQ-002, REQ-003
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN the home page loads, THE System SHALL achieve First Contentful Paint (FCP) < 1.5 seconds
 2. WHEN the chat page loads, THE System SHALL achieve Largest Contentful Paint (LCP) < 2.5 seconds
 3. WHILE user interacts with chat input, THE System SHALL maintain Interaction to Next Paint (INP) < 200ms
@@ -521,6 +552,7 @@ channel.onmessage = (event: MessageEvent<SessionMessage>) => {
 **Depends On**: REQ-002, REQ-003
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN cached data is requested, THE System SHALL return response in < 50ms (P95)
 2. WHEN cache miss occurs, THE System SHALL fetch and cache result in < 300ms (P95)
 3. WHILE under load (100 concurrent users), THE System SHALL maintain < 200ms response time
@@ -542,6 +574,7 @@ channel.onmessage = (event: MessageEvent<SessionMessage>) => {
 **Depends On**: REQ-001
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN a chat page is rendered, THE System SHALL generate metadata with chat title from database
 2. WHEN chat title is unavailable, THE System SHALL fallback to "AI Chat - [date]" format
 3. WHEN generating metadata, THE System SHALL include Open Graph tags for social sharing
@@ -565,6 +598,7 @@ channel.onmessage = (event: MessageEvent<SessionMessage>) => {
 **Depends On**: REQ-001
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN data is loading, THE System SHALL show consistent Suspense skeleton
 2. WHEN cache miss causes >100ms delay, THE System SHALL show skeleton (not blank)
 3. WHILE streaming response, THE System SHALL show partial content + loading indicator
@@ -586,6 +620,7 @@ channel.onmessage = (event: MessageEvent<SessionMessage>) => {
 **Depends On**: None
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN navigating to `/login`, THE System SHALL display `LoginSkeleton` loading state
 2. WHEN navigating to `/register`, THE System SHALL display `RegisterSkeleton` loading state
 3. WHILE loading auth page, THE System SHALL show form skeleton with appropriate dimensions
@@ -607,6 +642,7 @@ channel.onmessage = (event: MessageEvent<SessionMessage>) => {
 **Depends On**: None
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN error occurs in `/login` route, THE System SHALL display error UI with message
 2. WHEN error occurs in `/register` route, THE System SHALL display error UI with message
 3. WHILE error is displayed, THE System SHALL offer "Try Again" action
@@ -628,6 +664,7 @@ channel.onmessage = (event: MessageEvent<SessionMessage>) => {
 **Depends On**: None
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN loading state is displayed, THE System SHALL include `role="status"` attribute
 2. WHEN loading state is displayed, THE System SHALL include `aria-label="Loading"` attribute
 3. WHILE loading, THE System SHALL include `aria-busy="true"` on container
@@ -649,6 +686,7 @@ channel.onmessage = (event: MessageEvent<SessionMessage>) => {
 **Depends On**: None
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN loading state is displayed AND navigator.onLine is false, THE System SHALL show offline message
 2. WHEN user goes offline during load, THE System SHALL update to show offline status
 3. WHILE offline, THE System SHALL show cached content if available
@@ -672,6 +710,7 @@ channel.onmessage = (event: MessageEvent<SessionMessage>) => {
 **Depends On**: None
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN AuthProvider mounts, THE System SHALL provide separate `AuthStateContext` and `AuthDispatchContext`
 2. WHEN auth dispatch is called, THE System SHALL only re-render components consuming dispatch context
 3. WHILE auth state changes, THE System SHALL only re-render components consuming state context
@@ -693,6 +732,7 @@ channel.onmessage = (event: MessageEvent<SessionMessage>) => {
 **Depends On**: None
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN sidebar state is needed, THE System SHALL provide single `SidebarProvider` from canonical location
 2. WHEN legacy import path is used, THE System SHALL re-export from canonical location
 3. WHILE consolidating, THE System SHALL maintain all existing functionality
@@ -716,6 +756,7 @@ channel.onmessage = (event: MessageEvent<SessionMessage>) => {
 **Depends On**: None
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN login form submits, THE System SHALL create AbortController for the request
 2. WHEN new login request starts, THE System SHALL abort any pending login request
 3. WHILE request is in-flight, THE System SHALL disable submit button
@@ -739,6 +780,7 @@ channel.onmessage = (event: MessageEvent<SessionMessage>) => {
 **Depends On**: REQ-012
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN Redis connection fails, THE System SHALL open circuit breaker after 5 failures in 10 seconds
 2. WHILE circuit breaker is open, THE System SHALL bypass Redis and use database directly
 3. WHEN circuit breaker half-opens, THE System SHALL test Redis with single request
@@ -769,6 +811,7 @@ channel.onmessage = (event: MessageEvent<SessionMessage>) => {
 **Depends On**: All other requirements
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN any optimization is applied, THE System SHALL maintain all existing functionality
 2. WHEN cache is introduced, THE System SHALL support both authenticated and guest user flows
 3. WHILE migrating revalidateTag calls, THE System SHALL not change cache invalidation behavior
@@ -776,6 +819,7 @@ channel.onmessage = (event: MessageEvent<SessionMessage>) => {
 5. IF any regression is detected, THEN THE implementation SHALL be rolled back
 
 **Regression Test Coverage**:
+
 - Guest user chat flow
 - Authenticated user chat flow
 - Message sending/receiving
@@ -796,6 +840,7 @@ channel.onmessage = (event: MessageEvent<SessionMessage>) => {
 **Depends On**: None
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN deploying cache changes, THE System SHALL support A/B testing via feature flags
 2. WHEN issues are detected, THE System SHALL allow rollback without code deployment
 3. WHILE in rollout phase, THE System SHALL log cache hit/miss rates for monitoring
@@ -819,6 +864,7 @@ channel.onmessage = (event: MessageEvent<SessionMessage>) => {
 **Depends On**: REQ-003, REQ-004
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN developer needs to invalidate cache, THE System documentation SHALL provide decision flowchart
 2. WHEN using `"use cache"` pattern, THE documentation SHALL include code examples
 3. WHERE pattern is deprecated, THE documentation SHALL include migration guide
@@ -842,6 +888,7 @@ channel.onmessage = (event: MessageEvent<SessionMessage>) => {
 **Depends On**: REQ-022
 
 **Acceptance Criteria** (EARS):
+
 1. WHEN error occurs in auth route child, THE System SHALL catch at route error boundary
 2. WHEN auth error is caught, THE System SHALL display user-friendly message
 3. WHILE error boundary is active, THE System SHALL offer recovery options
@@ -899,33 +946,33 @@ Wave 6 (Verification)
 
 ## Edge Cases
 
-| ID | Scenario | Expected Behavior | Related REQ |
-|----|----------|-------------------|-------------|
-| EC-001 | Cache unavailable (Redis down) | Fall back to database | REQ-001, REQ-017 |
-| EC-002 | Database unavailable | Serve stale cache with warning | REQ-001, REQ-008 |
-| EC-003 | Concurrent cache invalidation | Last write wins | REQ-003 |
-| EC-004 | Non-serializable argument | TypeScript error at compile time | REQ-005 |
-| EC-005 | Cache tag collision | Namespace tags by feature | REQ-014 |
-| EC-006 | Private chat metadata request | Return generic metadata | REQ-006 |
-| EC-007 | revalidateTag without profile | Deprecated warning | REQ-004 |
-| EC-008 | Large chat history (>1000 messages) | Paginate cache | REQ-008 |
-| EC-009 | Simultaneous read/write | Read-your-writes via updateTag | REQ-003 |
-| EC-010 | Deployment during active sessions | Graceful transition | REQ-009 |
-| EC-011 | Multi-tab guest session race 🔴 | BroadcastChannel sync | REQ-011, REQ-025 |
-| EC-012 | Redis unavailable during auth 🔴 | Fail-closed (503) | REQ-012 |
-| EC-013 | updateTag in Route Handler | Fallback to revalidateTag | REQ-013 |
-| EC-014 | Cache invalidation from webhook | Use invalidateCache utility | REQ-013, REQ-018 |
-| EC-015 | Rapid double-click login | AbortController cancels previous | REQ-024 |
-| EC-016 | Auth error during form submit | Error boundary catches | REQ-022, REQ-026 |
-| EC-017 | User goes offline during load | Offline indicator shown | REQ-027 |
-| EC-018 | Screen reader on loading state | Announces via aria-live | REQ-023 |
-| EC-019 | Tab A logout, Tab B active | Tab B receives logout broadcast | REQ-025 |
-| EC-020 | Safari <15.4 multi-tab sync | Falls back to localStorage events | REQ-025 |
-| EC-021 | AuthProvider re-render cascade | Split contexts prevent cascade | REQ-019 |
-| EC-022 | withRateLimit default during outage 🔴 | Fail-closed (503) | REQ-028 |
-| EC-023 | Guest requests restricted model 🔴 | Generic error, no model info | REQ-029 |
-| EC-024 | Cross-origin BroadcastChannel message | Ignored, logged as warning | REQ-030 |
-| EC-025 | Origin spoofing attempt (>10/min) | Cross-tab sync temporarily disabled | REQ-030 |
+| ID     | Scenario                               | Expected Behavior                   | Related REQ      |
+| ------ | -------------------------------------- | ----------------------------------- | ---------------- |
+| EC-001 | Cache unavailable (Redis down)         | Fall back to database               | REQ-001, REQ-017 |
+| EC-002 | Database unavailable                   | Serve stale cache with warning      | REQ-001, REQ-008 |
+| EC-003 | Concurrent cache invalidation          | Last write wins                     | REQ-003          |
+| EC-004 | Non-serializable argument              | TypeScript error at compile time    | REQ-005          |
+| EC-005 | Cache tag collision                    | Namespace tags by feature           | REQ-014          |
+| EC-006 | Private chat metadata request          | Return generic metadata             | REQ-006          |
+| EC-007 | revalidateTag without profile          | Deprecated warning                  | REQ-004          |
+| EC-008 | Large chat history (>1000 messages)    | Paginate cache                      | REQ-008          |
+| EC-009 | Simultaneous read/write                | Read-your-writes via updateTag      | REQ-003          |
+| EC-010 | Deployment during active sessions      | Graceful transition                 | REQ-009          |
+| EC-011 | Multi-tab guest session race 🔴        | BroadcastChannel sync               | REQ-011, REQ-025 |
+| EC-012 | Redis unavailable during auth 🔴       | Fail-closed (503)                   | REQ-012          |
+| EC-013 | updateTag in Route Handler             | Fallback to revalidateTag           | REQ-013          |
+| EC-014 | Cache invalidation from webhook        | Use invalidateCache utility         | REQ-013, REQ-018 |
+| EC-015 | Rapid double-click login               | AbortController cancels previous    | REQ-024          |
+| EC-016 | Auth error during form submit          | Error boundary catches              | REQ-022, REQ-026 |
+| EC-017 | User goes offline during load          | Offline indicator shown             | REQ-027          |
+| EC-018 | Screen reader on loading state         | Announces via aria-live             | REQ-023          |
+| EC-019 | Tab A logout, Tab B active             | Tab B receives logout broadcast     | REQ-025          |
+| EC-020 | Safari <15.4 multi-tab sync            | Falls back to localStorage events   | REQ-025          |
+| EC-021 | AuthProvider re-render cascade         | Split contexts prevent cascade      | REQ-019          |
+| EC-022 | withRateLimit default during outage 🔴 | Fail-closed (503)                   | REQ-028          |
+| EC-023 | Guest requests restricted model 🔴     | Generic error, no model info        | REQ-029          |
+| EC-024 | Cross-origin BroadcastChannel message  | Ignored, logged as warning          | REQ-030          |
+| EC-025 | Origin spoofing attempt (>10/min)      | Cross-tab sync temporarily disabled | REQ-030          |
 
 ---
 
@@ -933,33 +980,33 @@ Wave 6 (Verification)
 
 ### Performance Metrics
 
-| Metric | Requirement | Measurement |
-|--------|-------------|-------------|
-| FCP | < 1.5s (P75) | Lighthouse, RUM |
-| LCP | < 2.5s (P75) | Core Web Vitals |
-| INP | < 200ms (P75) | Core Web Vitals |
-| CLS | < 0.1 | Lighthouse |
-| TTFB | < 500ms (P95) | Server monitoring |
-| Cache Hit Rate | > 80% for reads | Cache analytics |
-| Cache Response | < 50ms (P95) | APM |
-| DB Fallback | < 300ms (P95) | APM |
+| Metric         | Requirement     | Measurement       |
+| -------------- | --------------- | ----------------- |
+| FCP            | < 1.5s (P75)    | Lighthouse, RUM   |
+| LCP            | < 2.5s (P75)    | Core Web Vitals   |
+| INP            | < 200ms (P75)   | Core Web Vitals   |
+| CLS            | < 0.1           | Lighthouse        |
+| TTFB           | < 500ms (P95)   | Server monitoring |
+| Cache Hit Rate | > 80% for reads | Cache analytics   |
+| Cache Response | < 50ms (P95)    | APM               |
+| DB Fallback    | < 300ms (P95)   | APM               |
 
 ### Security
 
-| Requirement | Implementation | Verification |
-|-------------|----------------|--------------|
-| Cache isolation | User-scoped cache keys | Integration tests |
-| Serializable args only | TypeScript enforcement | Compile-time checks |
-| No sensitive data in keys | Hash or omit PII | Code review |
+| Requirement               | Implementation         | Verification        |
+| ------------------------- | ---------------------- | ------------------- |
+| Cache isolation           | User-scoped cache keys | Integration tests   |
+| Serializable args only    | TypeScript enforcement | Compile-time checks |
+| No sensitive data in keys | Hash or omit PII       | Code review         |
 
 ### Reliability
 
-| Metric | Requirement | Measurement |
-|--------|-------------|-------------|
-| Availability | 99.9% uptime | Monitoring |
-| Cache Fallback | Graceful degradation | Chaos testing |
-| Error Rate | < 0.1% increase | Error tracking |
-| Recovery Time | < 30 seconds | Incident drill |
+| Metric         | Requirement          | Measurement    |
+| -------------- | -------------------- | -------------- |
+| Availability   | 99.9% uptime         | Monitoring     |
+| Cache Fallback | Graceful degradation | Chaos testing  |
+| Error Rate     | < 0.1% increase      | Error tracking |
+| Recovery Time  | < 30 seconds         | Incident drill |
 
 ---
 

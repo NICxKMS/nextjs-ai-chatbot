@@ -1,13 +1,34 @@
 /**
  * Error Handling Module - Public API
  * Ref: 01-error-handling-optimal-design.md
+ * Ref: REQ-018 (Typed Error Handling)
  *
  * @module lib/errors
  */
 
+// AI Error Classes
+export {
+    AIProviderError,
+    ContentFilterError,
+    ModelNotFoundError,
+    StreamingError,
+    TokenLimitError,
+} from "./ai";
+
+// API Error Classes
+export {
+    AuthenticationError,
+    AuthorizationError,
+    ConflictError,
+    NotFoundError,
+    RateLimitError,
+    ServiceUnavailableError,
+    ValidationError,
+} from "./api";
 // Core class
 export { AppError } from "./app-error";
-// Factory functions
+
+// Factory functions (legacy compatibility)
 export {
     authError,
     externalError,

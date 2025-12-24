@@ -59,6 +59,18 @@ export {
 } from "./document-service";
 
 // =============================================================================
+// ERROR LOGGER SERVICE
+// =============================================================================
+
+export type {
+    ErrorLogEntry,
+    ErrorLogLevel,
+    ErrorLogOptions,
+    ScopedErrorLogger,
+} from "./error-logger";
+export { errorLogger } from "./error-logger";
+
+// =============================================================================
 // RE-EXPORT CONFIG
 // =============================================================================
 

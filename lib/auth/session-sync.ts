@@ -147,7 +147,9 @@ export function createSessionSync(
 
     return {
         broadcastLogin(userId: string): void {
-            if (!channel) { return; }
+            if (!channel) {
+                return;
+            }
             const message: SessionMessage = {
                 type: "session-change",
                 isAuthenticated: true,
@@ -157,7 +159,9 @@ export function createSessionSync(
         },
 
         broadcastLogout(): void {
-            if (!channel) { return; }
+            if (!channel) {
+                return;
+            }
             // Send both logout and session-change for flexibility
             const logoutMessage: SessionMessage = { type: "logout" };
             const sessionMessage: SessionMessage = {
@@ -169,8 +173,12 @@ export function createSessionSync(
         },
 
         requestRefresh(): void {
-            if (!channel) { return; }
-            const message: SessionMessage = { type: "session-refresh-requested" };
+            if (!channel) {
+                return;
+            }
+            const message: SessionMessage = {
+                type: "session-refresh-requested",
+            };
             channel.postMessage(message);
         },
 
@@ -285,7 +293,8 @@ export function useSessionSyncBroadcast(
     // Return stable no-op functions that delegate to ref
     // This ensures consistent return value even before effect runs
     return {
-        broadcastLogin: (userId: string) => syncRef.current?.broadcastLogin(userId),
+        broadcastLogin: (userId: string) =>
+            syncRef.current?.broadcastLogin(userId),
         broadcastLogout: () => syncRef.current?.broadcastLogout(),
         requestRefresh: () => syncRef.current?.requestRefresh(),
         destroy: () => syncRef.current?.destroy(),

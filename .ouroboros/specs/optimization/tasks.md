@@ -30,15 +30,15 @@
 
 ## Executive Summary
 
-| Metric                 | Value                                  |
-| ---------------------- | -------------------------------------- |
-| **Total Requirements** | 27 (REQ-001 to REQ-027)                |
-| **Active ADRs**        | 11 (ADR-001 to ADR-012, excl. ADR-003) |
-| **Total Tasks**        | 48                                     |
-| **Total Effort**       | ~60h                                   |
-| **Waves**              | 8 (Wave 0–6 + Wave 1.5)                |
-| **Critical P0 Tasks**  | 2 (Security blockers)                  |
-| **High Priority Tasks**| 3 (OPT-045, OPT-046, OPT-P0-001/002)   |
+| Metric                  | Value                                  |
+| ----------------------- | -------------------------------------- |
+| **Total Requirements**  | 27 (REQ-001 to REQ-027)                |
+| **Active ADRs**         | 11 (ADR-001 to ADR-012, excl. ADR-003) |
+| **Total Tasks**         | 48                                     |
+| **Total Effort**        | ~60h                                   |
+| **Waves**               | 8 (Wave 0–6 + Wave 1.5)                |
+| **Critical P0 Tasks**   | 2 (Security blockers)                  |
+| **High Priority Tasks** | 3 (OPT-045, OPT-046, OPT-P0-001/002)   |
 
 ---
 
@@ -99,17 +99,17 @@
 
 ## Progress Summary (v4)
 
-| Wave         | Name                        | Tasks  | Effort   | Status | Blocking           |
-| ------------ | --------------------------- | ------ | -------- | ------ | ------------------ |
-| **Wave 0**   | P0 Security Fixes           | 2      | ~4h      | ⬜     | 🔴 Deploy Blocker  |
-| **Wave 1**   | Foundation + Architecture   | 9      | ~10h     | ⬜     | Blocks Wave 1.5+   |
-| **Wave 1.5** | Risk Mitigation + Session   | 2      | ~5h      | ⬜     | 🔴 Blocks Wave 2+  |
-| **Wave 2**   | Caching Implementation      | 7      | ~12h     | ⬜     | Blocks Wave 3      |
-| **Wave 3**   | Cache Invalidation          | 5      | ~8h      | ⬜     | Blocks Wave 4      |
-| **Wave 4**   | Edge Cases & Resilience     | 6      | ~10h     | ⬜     | Blocks Wave 5      |
-| **Wave 5**   | UX/DX/A11y Polish           | 10     | ~12h     | ⬜     | Blocks Wave 6      |
-| **Wave 6**   | Verification & Testing      | 7      | ~11h     | ⬜     | Release Gate       |
-| **Total**    |                             | **48** | **~60h** | **0%** |                    |
+| Wave         | Name                      | Tasks  | Effort   | Status | Blocking          |
+| ------------ | ------------------------- | ------ | -------- | ------ | ----------------- |
+| **Wave 0**   | P0 Security Fixes         | 2      | ~4h      | ⬜     | 🔴 Deploy Blocker |
+| **Wave 1**   | Foundation + Architecture | 9      | ~10h     | ⬜     | Blocks Wave 1.5+  |
+| **Wave 1.5** | Risk Mitigation + Session | 2      | ~5h      | ⬜     | 🔴 Blocks Wave 2+ |
+| **Wave 2**   | Caching Implementation    | 7      | ~12h     | ⬜     | Blocks Wave 3     |
+| **Wave 3**   | Cache Invalidation        | 5      | ~8h      | ⬜     | Blocks Wave 4     |
+| **Wave 4**   | Edge Cases & Resilience   | 6      | ~10h     | ⬜     | Blocks Wave 5     |
+| **Wave 5**   | UX/DX/A11y Polish         | 10     | ~12h     | ⬜     | Blocks Wave 6     |
+| **Wave 6**   | Verification & Testing    | 7      | ~11h     | ⬜     | Release Gate      |
+| **Total**    |                           | **48** | **~60h** | **0%** |                   |
 
 ### Effort Distribution
 
@@ -282,26 +282,26 @@ NEW PATH: OPT-040 → OPT-046 → OPT-020 → OPT-035 (Session sync critical)
 
 > **Prerequisite for all caching work. Now includes architecture improvements.**
 
-| Task ID     | Title                              | Effort | REQ     | Target Files                            |
-| ----------- | ---------------------------------- | ------ | ------- | --------------------------------------- |
-| OPT-001     | Configure cacheLife profiles       | M      | REQ-002 | `next.config.ts`                        |
-| OPT-002     | Refactor chat.ts signatures        | M      | REQ-005 | `lib/data/cached/chat.ts`               |
-| OPT-003     | Refactor messages.ts signatures    | S      | REQ-005 | `lib/data/cached/messages.ts`           |
-| OPT-004     | Refactor documents.ts signatures   | M      | REQ-005 | `lib/data/cached/documents.ts`          |
-| OPT-005     | Refactor votes.ts signatures       | S      | REQ-005 | `lib/data/cached/votes.ts`              |
-| OPT-006     | Refactor suggestions.ts signatures | S      | REQ-005 | `lib/data/cached/suggestions.ts`        |
-| OPT-007     | Create CacheTags utility           | S      | REQ-014 | `lib/cache/tags.ts` (new)               |
-| **OPT-040** | Split AuthProvider into contexts   | M      | REQ-019 | `features/auth/components/auth-provider.tsx` |
+| Task ID     | Title                              | Effort | REQ     | Target Files                                     |
+| ----------- | ---------------------------------- | ------ | ------- | ------------------------------------------------ |
+| OPT-001     | Configure cacheLife profiles       | M      | REQ-002 | `next.config.ts`                                 |
+| OPT-002     | Refactor chat.ts signatures        | M      | REQ-005 | `lib/data/cached/chat.ts`                        |
+| OPT-003     | Refactor messages.ts signatures    | S      | REQ-005 | `lib/data/cached/messages.ts`                    |
+| OPT-004     | Refactor documents.ts signatures   | M      | REQ-005 | `lib/data/cached/documents.ts`                   |
+| OPT-005     | Refactor votes.ts signatures       | S      | REQ-005 | `lib/data/cached/votes.ts`                       |
+| OPT-006     | Refactor suggestions.ts signatures | S      | REQ-005 | `lib/data/cached/suggestions.ts`                 |
+| OPT-007     | Create CacheTags utility           | S      | REQ-014 | `lib/cache/tags.ts` (new)                        |
+| **OPT-040** | Split AuthProvider into contexts   | M      | REQ-019 | `features/auth/components/auth-provider.tsx`     |
 | **OPT-041** | Consolidate SidebarProvider        | M      | REQ-020 | `features/sidebar/`, `components/ui/sidebar.tsx` |
 
 ### Wave 1.5: Risk Mitigation + Session Sync (~5h) 🔴 HIGH PRIORITY
 
 > **NEW WAVE: Address critical race conditions and session sync. Blocks Wave 2.**
 
-| Task ID     | Title                              | Effort | REQ     | Target Files                            |
-| ----------- | ---------------------------------- | ------ | ------- | --------------------------------------- |
-| **OPT-045** | Add AbortController to auth flows  | M      | REQ-024 | `features/auth/actions/*.ts`, `features/auth/components/*-form.tsx` |
-| **OPT-046** | BroadcastChannel session sync      | L      | REQ-025 | `lib/auth/session-sync.ts` (new), `features/auth/hooks/use-session-sync.ts` (new) |
+| Task ID     | Title                             | Effort | REQ     | Target Files                                                                      |
+| ----------- | --------------------------------- | ------ | ------- | --------------------------------------------------------------------------------- |
+| **OPT-045** | Add AbortController to auth flows | M      | REQ-024 | `features/auth/actions/*.ts`, `features/auth/components/*-form.tsx`               |
+| **OPT-046** | BroadcastChannel session sync     | L      | REQ-025 | `lib/auth/session-sync.ts` (new), `features/auth/hooks/use-session-sync.ts` (new) |
 
 ### Wave 2: Caching Implementation (~12h)
 
@@ -346,17 +346,17 @@ NEW PATH: OPT-040 → OPT-046 → OPT-020 → OPT-035 (Session sync critical)
 
 > **User experience improvements, accessibility, and developer documentation.**
 
-| Task ID     | Title                              | Effort | REQ     | Target Files                           |
-| ----------- | ---------------------------------- | ------ | ------- | -------------------------------------- |
-| OPT-026     | Add generateMetadata to /chat/[id] | M      | REQ-006 | `app/(chat)/chat/[id]/page.tsx`        |
-| OPT-027     | Create loading state skeletons     | M      | REQ-016 | `components/ui/skeletons/*.tsx`        |
-| OPT-028     | Add cache pattern documentation    | M      | REQ-015 | `docs/caching/*.md` (new)              |
-| OPT-029     | Implement cache audit logger       | M      | REQ-018 | `lib/cache-ops/audit.ts` (new)         |
-| OPT-030     | Add feature flag support           | M      | REQ-010 | `lib/flags/*.ts`                       |
-| **OPT-042** | Add auth route loading.tsx         | S      | REQ-021 | `app/(auth)/login/loading.tsx`, `app/(auth)/register/loading.tsx` |
-| **OPT-043** | Add auth route error.tsx           | S      | REQ-022 | `app/(auth)/login/error.tsx`, `app/(auth)/register/error.tsx` |
-| **OPT-044** | Add a11y attrs to loading states   | M      | REQ-023 | `app/(chat)/chat/[id]/loading.tsx`, `app/(auth)/*/loading.tsx` |
-| **OPT-047** | Auth error boundaries              | M      | REQ-026 | `app/(auth)/layout.tsx`, `components/auth-error-fallback.tsx` |
+| Task ID     | Title                              | Effort | REQ     | Target Files                                                                 |
+| ----------- | ---------------------------------- | ------ | ------- | ---------------------------------------------------------------------------- |
+| OPT-026     | Add generateMetadata to /chat/[id] | M      | REQ-006 | `app/(chat)/chat/[id]/page.tsx`                                              |
+| OPT-027     | Create loading state skeletons     | M      | REQ-016 | `components/ui/skeletons/*.tsx`                                              |
+| OPT-028     | Add cache pattern documentation    | M      | REQ-015 | `docs/caching/*.md` (new)                                                    |
+| OPT-029     | Implement cache audit logger       | M      | REQ-018 | `lib/cache-ops/audit.ts` (new)                                               |
+| OPT-030     | Add feature flag support           | M      | REQ-010 | `lib/flags/*.ts`                                                             |
+| **OPT-042** | Add auth route loading.tsx         | S      | REQ-021 | `app/(auth)/login/loading.tsx`, `app/(auth)/register/loading.tsx`            |
+| **OPT-043** | Add auth route error.tsx           | S      | REQ-022 | `app/(auth)/login/error.tsx`, `app/(auth)/register/error.tsx`                |
+| **OPT-044** | Add a11y attrs to loading states   | M      | REQ-023 | `app/(chat)/chat/[id]/loading.tsx`, `app/(auth)/*/loading.tsx`               |
+| **OPT-047** | Auth error boundaries              | M      | REQ-026 | `app/(auth)/layout.tsx`, `components/auth-error-fallback.tsx`                |
 | **OPT-048** | Offline detection in loading       | M      | REQ-027 | `hooks/use-online-status.ts` (new), `components/offline-indicator.tsx` (new) |
 
 ### Wave 6: Verification & Testing (~11h)
@@ -377,48 +377,48 @@ NEW PATH: OPT-040 → OPT-046 → OPT-020 → OPT-035 (Session sync critical)
 
 ## Traceability Matrix (REQ → Task)
 
-| REQ     | Description                      | Wave     | Tasks                                                |
-| ------- | -------------------------------- | -------- | ---------------------------------------------------- |
-| REQ-001 | Adopt "use cache" directive      | 2        | OPT-008, OPT-009, OPT-010, OPT-011, OPT-012, OPT-023 |
-| REQ-002 | Configure cacheLife profiles     | 1        | OPT-001                                              |
-| REQ-003 | Implement updateTag invalidation | 3        | OPT-015, OPT-016, OPT-018, OPT-019, OPT-025          |
-| REQ-004 | Update revalidateTag signature   | 3        | OPT-017                                              |
-| REQ-005 | Refactor function signatures     | 1        | OPT-002, OPT-003, OPT-004, OPT-005, OPT-006          |
-| REQ-006 | Add generateMetadata             | 5        | OPT-026                                              |
-| REQ-007 | Core Web Vitals targets          | 6        | OPT-031, OPT-032, OPT-037                            |
-| REQ-008 | Data fetch performance           | 6        | OPT-013, OPT-033                                     |
-| REQ-009 | Backward compatibility           | 6        | OPT-034                                              |
-| REQ-010 | Incremental rollout support      | 5        | OPT-030                                              |
-| REQ-011 | Multi-tab session sync           | 4, 6     | OPT-020, OPT-035                                     |
-| REQ-012 | Fail-closed rate limiting        | 0, 6     | **OPT-P0-001**, OPT-036                              |
-| REQ-013 | Invalidation fallback strategy   | 0, 2     | **OPT-P0-002**, OPT-014                              |
-| REQ-014 | Cache tag naming convention      | 1        | OPT-007                                              |
-| REQ-015 | Cache pattern documentation      | 5        | OPT-028                                              |
-| REQ-016 | Loading state consistency        | 4, 5     | OPT-024, OPT-027                                     |
-| REQ-017 | Redis graceful degradation       | 4        | OPT-021, OPT-022                                     |
-| REQ-018 | Cache invalidation audit log     | 5        | OPT-029                                              |
-| REQ-019 | Split AuthProvider contexts      | 1        | **OPT-040**                                          |
-| REQ-020 | Consolidate SidebarProvider      | 1        | **OPT-041**                                          |
-| REQ-021 | Auth route loading.tsx           | 5        | **OPT-042**                                          |
-| REQ-022 | Auth route error.tsx             | 5        | **OPT-043**                                          |
-| REQ-023 | Loading state accessibility      | 5        | **OPT-044**                                          |
-| REQ-024 | Auth flow AbortController        | 1.5      | **OPT-045**                                          |
-| REQ-025 | BroadcastChannel session sync    | 1.5      | **OPT-046**                                          |
-| REQ-026 | Auth error boundaries            | 5        | **OPT-047**                                          |
-| REQ-027 | Offline detection                | 5        | **OPT-048**                                          |
+| REQ     | Description                      | Wave | Tasks                                                |
+| ------- | -------------------------------- | ---- | ---------------------------------------------------- |
+| REQ-001 | Adopt "use cache" directive      | 2    | OPT-008, OPT-009, OPT-010, OPT-011, OPT-012, OPT-023 |
+| REQ-002 | Configure cacheLife profiles     | 1    | OPT-001                                              |
+| REQ-003 | Implement updateTag invalidation | 3    | OPT-015, OPT-016, OPT-018, OPT-019, OPT-025          |
+| REQ-004 | Update revalidateTag signature   | 3    | OPT-017                                              |
+| REQ-005 | Refactor function signatures     | 1    | OPT-002, OPT-003, OPT-004, OPT-005, OPT-006          |
+| REQ-006 | Add generateMetadata             | 5    | OPT-026                                              |
+| REQ-007 | Core Web Vitals targets          | 6    | OPT-031, OPT-032, OPT-037                            |
+| REQ-008 | Data fetch performance           | 6    | OPT-013, OPT-033                                     |
+| REQ-009 | Backward compatibility           | 6    | OPT-034                                              |
+| REQ-010 | Incremental rollout support      | 5    | OPT-030                                              |
+| REQ-011 | Multi-tab session sync           | 4, 6 | OPT-020, OPT-035                                     |
+| REQ-012 | Fail-closed rate limiting        | 0, 6 | **OPT-P0-001**, OPT-036                              |
+| REQ-013 | Invalidation fallback strategy   | 0, 2 | **OPT-P0-002**, OPT-014                              |
+| REQ-014 | Cache tag naming convention      | 1    | OPT-007                                              |
+| REQ-015 | Cache pattern documentation      | 5    | OPT-028                                              |
+| REQ-016 | Loading state consistency        | 4, 5 | OPT-024, OPT-027                                     |
+| REQ-017 | Redis graceful degradation       | 4    | OPT-021, OPT-022                                     |
+| REQ-018 | Cache invalidation audit log     | 5    | OPT-029                                              |
+| REQ-019 | Split AuthProvider contexts      | 1    | **OPT-040**                                          |
+| REQ-020 | Consolidate SidebarProvider      | 1    | **OPT-041**                                          |
+| REQ-021 | Auth route loading.tsx           | 5    | **OPT-042**                                          |
+| REQ-022 | Auth route error.tsx             | 5    | **OPT-043**                                          |
+| REQ-023 | Loading state accessibility      | 5    | **OPT-044**                                          |
+| REQ-024 | Auth flow AbortController        | 1.5  | **OPT-045**                                          |
+| REQ-025 | BroadcastChannel session sync    | 1.5  | **OPT-046**                                          |
+| REQ-026 | Auth error boundaries            | 5    | **OPT-047**                                          |
+| REQ-027 | Offline detection                | 5    | **OPT-048**                                          |
 
 ---
 
 ## Agent Assignments Summary
 
-| Agent                 | Task Count | Primary Responsibility                      |
-| --------------------- | ---------- | ------------------------------------------- |
-| `ouroboros-coder`     | 37         | Implementation, refactoring                 |
-| `ouroboros-architect` | 10         | Design review, ADR compliance               |
-| `ouroboros-qa`        | 18         | Testing, regression, chaos testing, a11y    |
-| `ouroboros-devops`    | 4          | Performance monitoring, deployment          |
-| `ouroboros-security`  | 4          | Security review (P0 + AbortController)      |
-| `ouroboros-writer`    | 2          | Documentation                               |
+| Agent                 | Task Count | Primary Responsibility                   |
+| --------------------- | ---------- | ---------------------------------------- |
+| `ouroboros-coder`     | 37         | Implementation, refactoring              |
+| `ouroboros-architect` | 10         | Design review, ADR compliance            |
+| `ouroboros-qa`        | 18         | Testing, regression, chaos testing, a11y |
+| `ouroboros-devops`    | 4          | Performance monitoring, deployment       |
+| `ouroboros-security`  | 4          | Security review (P0 + AbortController)   |
+| `ouroboros-writer`    | 2          | Documentation                            |
 
 ---
 
@@ -888,12 +888,10 @@ const AuthDispatchContext = createContext<AuthDispatch | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(authReducer, initialState);
-  
+
   return (
     <AuthDispatchContext value={dispatch}>
-      <AuthStateContext value={state}>
-        {children}
-      </AuthStateContext>
+      <AuthStateContext value={state}>{children}</AuthStateContext>
     </AuthDispatchContext>
   );
 }
@@ -922,10 +920,10 @@ export function useAuth() {
 
 #### Risk Assessment
 
-| Risk                    | Probability | Impact | Mitigation                          |
-| ----------------------- | ----------- | ------ | ----------------------------------- |
-| Breaking existing usage | Medium      | High   | Keep useAuth() wrapper              |
-| Context undefined error | Low         | Medium | Add null checks in hooks            |
+| Risk                    | Probability | Impact | Mitigation               |
+| ----------------------- | ----------- | ------ | ------------------------ |
+| Breaking existing usage | Medium      | High   | Keep useAuth() wrapper   |
+| Context undefined error | Low         | Medium | Add null checks in hooks |
 
 ---
 
@@ -961,11 +959,14 @@ export function useAuth() {
 
 ```typescript
 // features/sidebar/components/sidebar-provider.tsx (canonical)
-export { SidebarProvider, useSidebar } from './sidebar-context';
+export { SidebarProvider, useSidebar } from "./sidebar-context";
 
 // components/ui/sidebar.tsx (deprecated re-export)
 /** @deprecated Use 'features/sidebar/components/sidebar-provider' instead */
-export { SidebarProvider, useSidebar } from '@/features/sidebar/components/sidebar-provider';
+export {
+  SidebarProvider,
+  useSidebar,
+} from "@/features/sidebar/components/sidebar-provider";
 ```
 
 #### Acceptance Criteria
@@ -977,10 +978,10 @@ export { SidebarProvider, useSidebar } from '@/features/sidebar/components/sideb
 
 #### Risk Assessment
 
-| Risk                       | Probability | Impact | Mitigation                   |
-| -------------------------- | ----------- | ------ | ---------------------------- |
-| Import path breaks         | Medium      | Medium | Add re-export for transition |
-| Missing functionality      | Low         | High   | Full feature parity audit    |
+| Risk                  | Probability | Impact | Mitigation                   |
+| --------------------- | ----------- | ------ | ---------------------------- |
+| Import path breaks    | Medium      | Medium | Add re-export for transition |
+| Missing functionality | Low         | High   | Full feature parity audit    |
 
 ---
 
@@ -1041,23 +1042,23 @@ export async function loginAction(formData: FormData) {
   if (abortController) {
     abortController.abort();
   }
-  
+
   abortController = new AbortController();
-  
+
   try {
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
       body: formData,
       signal: abortController.signal,
     });
-    
+
     if (abortController.signal.aborted) {
       return; // Don't process aborted response
     }
-    
+
     return response.json();
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
+    if (error instanceof DOMException && error.name === "AbortError") {
       return; // Silently handle abort
     }
     throw error;
@@ -1117,10 +1118,10 @@ export async function loginAction(formData: FormData) {
 
 ```typescript
 // lib/auth/session-sync.ts
-const CHANNEL_NAME = 'session-sync';
+const CHANNEL_NAME = "session-sync";
 
 export function createSessionSync() {
-  if (typeof BroadcastChannel !== 'undefined') {
+  if (typeof BroadcastChannel !== "undefined") {
     return new BroadcastChannelSync(CHANNEL_NAME);
   }
   return new LocalStorageSync(CHANNEL_NAME);
@@ -1128,28 +1129,28 @@ export function createSessionSync() {
 
 class BroadcastChannelSync {
   private channel: BroadcastChannel;
-  
+
   constructor(name: string) {
     this.channel = new BroadcastChannel(name);
   }
-  
+
   broadcast(event: SessionEvent) {
     this.channel.postMessage(event);
   }
-  
+
   onMessage(handler: (event: SessionEvent) => void) {
     this.channel.onmessage = (e) => handler(e.data);
   }
-  
+
   close() {
     this.channel.close();
   }
 }
 
-type SessionEvent = 
-  | { type: 'SESSION_LOGIN'; userId: string; timestamp: number }
-  | { type: 'SESSION_LOGOUT'; timestamp: number }
-  | { type: 'SESSION_REFRESH'; timestamp: number };
+type SessionEvent =
+  | { type: "SESSION_LOGIN"; userId: string; timestamp: number }
+  | { type: "SESSION_LOGOUT"; timestamp: number }
+  | { type: "SESSION_REFRESH"; timestamp: number };
 ```
 
 #### Acceptance Criteria
@@ -2235,7 +2236,7 @@ export default function LoginLoading() {
 
 ```tsx
 // app/(auth)/login/error.tsx
-'use client';
+"use client";
 
 export default function LoginError({
   error,
@@ -2308,9 +2309,9 @@ export default function LoginError({
 // app/(chat)/chat/[id]/loading.tsx
 export default function ChatLoading() {
   return (
-    <div 
-      role="status" 
-      aria-label="Loading chat" 
+    <div
+      role="status"
+      aria-label="Loading chat"
       aria-busy="true"
       className="flex flex-col h-full"
     >
@@ -2332,9 +2333,9 @@ export default function ChatLoading() {
 
 #### Risk Assessment
 
-| Risk                  | Probability | Impact | Mitigation           |
-| --------------------- | ----------- | ------ | -------------------- |
-| Verbose announcements | Low         | Low    | Test with VoiceOver  |
+| Risk                  | Probability | Impact | Mitigation          |
+| --------------------- | ----------- | ------ | ------------------- |
+| Verbose announcements | Low         | Low    | Test with VoiceOver |
 
 ---
 
@@ -2369,9 +2370,13 @@ export default function ChatLoading() {
 
 ```tsx
 // app/(auth)/layout.tsx
-import { ErrorBoundary } from '@/components/error-boundary';
+import { ErrorBoundary } from "@/components/error-boundary";
 
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
+export default function AuthLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <ErrorBoundary
       fallback={({ error, reset }) => (
@@ -2434,33 +2439,33 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 // hooks/use-online-status.ts
 export function useOnlineStatus() {
   const [isOnline, setIsOnline] = useState(
-    typeof navigator !== 'undefined' ? navigator.onLine : true
+    typeof navigator !== "undefined" ? navigator.onLine : true
   );
-  
+
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-    
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
     };
   }, []);
-  
+
   return isOnline;
 }
 
 // Usage in loading.tsx
 export default function ChatLoading() {
   const isOnline = useOnlineStatus();
-  
+
   if (!isOnline) {
     return <OfflineIndicator />;
   }
-  
+
   return <ChatSkeleton />;
 }
 ```
@@ -2474,10 +2479,10 @@ export default function ChatLoading() {
 
 #### Risk Assessment
 
-| Risk                    | Probability | Impact | Mitigation                    |
-| ----------------------- | ----------- | ------ | ----------------------------- |
-| Hydration mismatch      | Medium      | Medium | Check typeof navigator first  |
-| False offline detection | Low         | Low    | Add timeout fallback          |
+| Risk                    | Probability | Impact | Mitigation                   |
+| ----------------------- | ----------- | ------ | ---------------------------- |
+| Hydration mismatch      | Medium      | Medium | Check typeof navigator first |
+| False offline detection | Low         | Low    | Add timeout fallback         |
 
 ---
 
@@ -2767,13 +2772,13 @@ export default function ChatLoading() {
 
 ### Sprint 0 (Day 0): P0 Security + Architecture
 
-| Task             | Effort  | Assignee  |
-| ---------------- | ------- | --------- |
-| OPT-P0-001       | M       | coder     |
-| OPT-P0-002       | M       | coder     |
-| OPT-040          | M       | coder     |
-| OPT-041          | M       | coder     |
-| **Sprint Total** | **~6h** |           |
+| Task             | Effort  | Assignee |
+| ---------------- | ------- | -------- |
+| OPT-P0-001       | M       | coder    |
+| OPT-P0-002       | M       | coder    |
+| OPT-040          | M       | coder    |
+| OPT-041          | M       | coder    |
+| **Sprint Total** | **~6h** |          |
 
 ### Sprint 1 (Days 1-2): Foundation + Risk Mitigation
 
@@ -2847,18 +2852,18 @@ export default function ChatLoading() {
 
 ## Total Effort Summary (v4)
 
-| Category                   | Tasks  | Effort     |
-| -------------------------- | ------ | ---------- |
-| P0 Security Fixes          | 2      | 3h         |
-| Architecture (New)         | 2      | 3h         |
-| Foundation                 | 7      | 7h         |
-| Risk Mitigation (New)      | 2      | 5h         |
-| "use cache" Implementation | 7      | 10h        |
-| Cache Invalidation         | 5      | 8h         |
-| Edge Cases & Resilience    | 6      | 10h        |
-| UX/DX/A11y (Expanded)      | 10     | 12h        |
-| Verification               | 7      | 11h        |
-| **Grand Total**            | **48** | **~60h**   |
+| Category                   | Tasks  | Effort   |
+| -------------------------- | ------ | -------- |
+| P0 Security Fixes          | 2      | 3h       |
+| Architecture (New)         | 2      | 3h       |
+| Foundation                 | 7      | 7h       |
+| Risk Mitigation (New)      | 2      | 5h       |
+| "use cache" Implementation | 7      | 10h      |
+| Cache Invalidation         | 5      | 8h       |
+| Edge Cases & Resilience    | 6      | 10h      |
+| UX/DX/A11y (Expanded)      | 10     | 12h      |
+| Verification               | 7      | 11h      |
+| **Grand Total**            | **48** | **~60h** |
 
 **Estimated Duration**: 10 working days (with parallelization: ~7 days)
 
@@ -2881,49 +2886,49 @@ export default function ChatLoading() {
 
 ## Requirements Traceability (v4 - 27 REQs)
 
-| REQ     | Tasks                                | Status |
-| ------- | ------------------------------------ | ------ |
-| REQ-001 | OPT-008 to OPT-012, OPT-023          | ⬜     |
-| REQ-002 | OPT-001                              | ⬜     |
-| REQ-003 | OPT-015, OPT-016, OPT-018, OPT-019, OPT-025 | ⬜ |
-| REQ-004 | OPT-017                              | ⬜     |
-| REQ-005 | OPT-002 to OPT-006                   | ⬜     |
-| REQ-006 | OPT-026                              | ⬜     |
-| REQ-007 | OPT-031, OPT-032, OPT-037            | ⬜     |
-| REQ-008 | OPT-013, OPT-033                     | ⬜     |
-| REQ-009 | OPT-034                              | ⬜     |
-| REQ-010 | OPT-030                              | ⬜     |
-| REQ-011 | OPT-020, OPT-035                     | ⬜     |
-| REQ-012 | OPT-P0-001, OPT-036                  | ⬜     |
-| REQ-013 | OPT-P0-002, OPT-014                  | ⬜     |
-| REQ-014 | OPT-007                              | ⬜     |
-| REQ-015 | OPT-028                              | ⬜     |
-| REQ-016 | OPT-024, OPT-027                     | ⬜     |
-| REQ-017 | OPT-021, OPT-022                     | ⬜     |
-| REQ-018 | OPT-029                              | ⬜     |
-| REQ-019 | **OPT-040**                          | ⬜     |
-| REQ-020 | **OPT-041**                          | ⬜     |
-| REQ-021 | **OPT-042**                          | ⬜     |
-| REQ-022 | **OPT-043**                          | ⬜     |
-| REQ-023 | **OPT-044**                          | ⬜     |
-| REQ-024 | **OPT-045**                          | ⬜     |
-| REQ-025 | **OPT-046**                          | ⬜     |
-| REQ-026 | **OPT-047**                          | ⬜     |
-| REQ-027 | **OPT-048**                          | ⬜     |
+| REQ     | Tasks                                       | Status |
+| ------- | ------------------------------------------- | ------ |
+| REQ-001 | OPT-008 to OPT-012, OPT-023                 | ⬜     |
+| REQ-002 | OPT-001                                     | ⬜     |
+| REQ-003 | OPT-015, OPT-016, OPT-018, OPT-019, OPT-025 | ⬜     |
+| REQ-004 | OPT-017                                     | ⬜     |
+| REQ-005 | OPT-002 to OPT-006                          | ⬜     |
+| REQ-006 | OPT-026                                     | ⬜     |
+| REQ-007 | OPT-031, OPT-032, OPT-037                   | ⬜     |
+| REQ-008 | OPT-013, OPT-033                            | ⬜     |
+| REQ-009 | OPT-034                                     | ⬜     |
+| REQ-010 | OPT-030                                     | ⬜     |
+| REQ-011 | OPT-020, OPT-035                            | ⬜     |
+| REQ-012 | OPT-P0-001, OPT-036                         | ⬜     |
+| REQ-013 | OPT-P0-002, OPT-014                         | ⬜     |
+| REQ-014 | OPT-007                                     | ⬜     |
+| REQ-015 | OPT-028                                     | ⬜     |
+| REQ-016 | OPT-024, OPT-027                            | ⬜     |
+| REQ-017 | OPT-021, OPT-022                            | ⬜     |
+| REQ-018 | OPT-029                                     | ⬜     |
+| REQ-019 | **OPT-040**                                 | ⬜     |
+| REQ-020 | **OPT-041**                                 | ⬜     |
+| REQ-021 | **OPT-042**                                 | ⬜     |
+| REQ-022 | **OPT-043**                                 | ⬜     |
+| REQ-023 | **OPT-044**                                 | ⬜     |
+| REQ-024 | **OPT-045**                                 | ⬜     |
+| REQ-025 | **OPT-046**                                 | ⬜     |
+| REQ-026 | **OPT-047**                                 | ⬜     |
+| REQ-027 | **OPT-048**                                 | ⬜     |
 
 ---
 
 ## ADR Compliance
 
-| ADR     | Implementing Tasks               |
-| ------- | -------------------------------- |
-| ADR-001 | OPT-008 to OPT-012               |
-| ADR-002 | OPT-015 to OPT-019               |
-| ADR-005 | OPT-026                          |
-| ADR-006 | OPT-001                          |
-| ADR-007 | OPT-002 to OPT-006               |
-| ADR-009 | OPT-P0-001                       |
-| ADR-010 | OPT-P0-002, OPT-014              |
+| ADR     | Implementing Tasks  |
+| ------- | ------------------- |
+| ADR-001 | OPT-008 to OPT-012  |
+| ADR-002 | OPT-015 to OPT-019  |
+| ADR-005 | OPT-026             |
+| ADR-006 | OPT-001             |
+| ADR-007 | OPT-002 to OPT-006  |
+| ADR-009 | OPT-P0-001          |
+| ADR-010 | OPT-P0-002, OPT-014 |
 
 ---
 

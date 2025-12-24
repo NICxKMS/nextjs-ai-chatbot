@@ -12,11 +12,11 @@
 import "server-only";
 
 import { cacheLife, cacheTag } from "next/cache";
+import { CacheTags } from "@/lib/cache/tags";
 import type {
     CachedDocumentMeta,
     CachedDocumentVersion,
 } from "@/lib/cache/types";
-import { CacheTags } from "@/lib/cache/tags";
 import {
     appendVersionToCache,
     createDocumentInCache,

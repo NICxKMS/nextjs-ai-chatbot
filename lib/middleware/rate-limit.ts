@@ -417,16 +417,23 @@ export function withRateLimit<
         } catch (error) {
             // If rate limiting fails and failOpen is true, allow the request
             if (failOpen) {
-                logger.warn("[RateLimit] Redis error, failing open (non-sensitive endpoint)", { error });
+                logger.warn(
+                    "[RateLimit] Redis error, failing open (non-sensitive endpoint)",
+                    { error }
+                );
                 return handler(request, ...args);
             }
 
             // SECURITY: Fail-closed - block request when rate limit service is unavailable.
             // This prevents bypass attacks where attacker DoS's rate limit service.
-            logger.error("[RateLimit] Service unavailable, failing closed (security)", {
-                error,
-                message: "Rate limit service failure - blocking request for security",
-            });
+            logger.error(
+                "[RateLimit] Service unavailable, failing closed (security)",
+                {
+                    error,
+                    message:
+                        "Rate limit service failure - blocking request for security",
+                }
+            );
             return new Response(
                 JSON.stringify({
                     error: "Service Unavailable",
@@ -487,7 +494,6 @@ export function createRateLimitMiddleware(config: MiddlewareConfig) {
         failOpen = false,
     } = config;
 
-
     return async (request: Request): Promise<Response | null> => {
         const pathname = new URL(request.url).pathname;
 
@@ -515,18 +521,25 @@ export function createRateLimitMiddleware(config: MiddlewareConfig) {
         } catch (error) {
             // Handle errors based on failOpen setting
             if (failOpen) {
-                logger.warn("[RateLimit Middleware] Error, failing open (non-sensitive endpoint)", {
-                    error,
-                });
+                logger.warn(
+                    "[RateLimit Middleware] Error, failing open (non-sensitive endpoint)",
+                    {
+                        error,
+                    }
+                );
                 return null;
             }
 
             // SECURITY: Fail-closed - block request when rate limit service is unavailable.
             // This prevents bypass attacks where attacker DoS's rate limit service.
-            logger.error("[RateLimit Middleware] Service unavailable, failing closed (security)", {
-                error,
-                message: "Rate limit service failure - blocking request for security",
-            });
+            logger.error(
+                "[RateLimit Middleware] Service unavailable, failing closed (security)",
+                {
+                    error,
+                    message:
+                        "Rate limit service failure - blocking request for security",
+                }
+            );
             return new Response(
                 JSON.stringify({
                     error: "Service Unavailable",
