@@ -12,8 +12,8 @@
 import "server-only";
 
 import { cacheLife, cacheTag } from "next/cache";
-import type { CachedChatMeta } from "@/lib/cache/types";
 import { CacheTags } from "@/lib/cache/tags";
+import type { CachedChatMeta } from "@/lib/cache/types";
 import {
     createChatInCache,
     deleteAllUserChatsFromCache,

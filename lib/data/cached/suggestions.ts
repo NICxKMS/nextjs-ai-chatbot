@@ -12,8 +12,8 @@
 import "server-only";
 
 import { cacheLife, cacheTag } from "next/cache";
-import type { UserContext } from "@/lib/cache/types";
 import { CacheTags } from "@/lib/cache/tags";
+import type { UserContext } from "@/lib/cache/types";
 import type { CachedSuggestion } from "@/lib/cache-ops/suggestions";
 import {
     deleteSuggestionsFromCache,

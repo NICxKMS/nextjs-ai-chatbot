@@ -77,20 +77,20 @@ This architecture blueprint defines the technical approach for adopting Next.js 
 
 ## ADR Index
 
-| ADR | Title | Status | REQs |
-|-----|-------|--------|------|
-| ADR-001 | Caching Architecture with "use cache" | ✅ Active | REQ-001, REQ-008 |
-| ADR-002 | Cache Invalidation Strategy | ✅ Active | REQ-003, REQ-004 |
-| ADR-003 | ~~Proxy Migration~~ | ❌ Invalidated | N/A |
-| ADR-004 | Component Boundary Optimization | ✅ Active | REQ-007 |
-| ADR-005 | generateMetadata for Dynamic Routes | ✅ Active | REQ-006 |
-| ADR-006 | cacheLife Profile Configuration | ✅ Active | REQ-002 |
-| ADR-007 | Function Signature Patterns | ✅ Active | REQ-005 |
-| ADR-008 | Multi-Tab Session Sync | ✅ Active | REQ-011, REQ-025 |
-| ADR-009 | Fail-Closed Rate Limiting | ✅ Active | REQ-012 |
-| ADR-010 | Cache Invalidation Fallback | ✅ Active | REQ-013 |
-| ADR-011 | Cache Tag Naming Convention | ✅ Active | REQ-014 |
-| ADR-012 | Redis Circuit Breaker | ✅ Active | REQ-017 |
+| ADR     | Title                                 | Status         | REQs             |
+| ------- | ------------------------------------- | -------------- | ---------------- |
+| ADR-001 | Caching Architecture with "use cache" | ✅ Active      | REQ-001, REQ-008 |
+| ADR-002 | Cache Invalidation Strategy           | ✅ Active      | REQ-003, REQ-004 |
+| ADR-003 | ~~Proxy Migration~~                   | ❌ Invalidated | N/A              |
+| ADR-004 | Component Boundary Optimization       | ✅ Active      | REQ-007          |
+| ADR-005 | generateMetadata for Dynamic Routes   | ✅ Active      | REQ-006          |
+| ADR-006 | cacheLife Profile Configuration       | ✅ Active      | REQ-002          |
+| ADR-007 | Function Signature Patterns           | ✅ Active      | REQ-005          |
+| ADR-008 | Multi-Tab Session Sync                | ✅ Active      | REQ-011, REQ-025 |
+| ADR-009 | Fail-Closed Rate Limiting             | ✅ Active      | REQ-012          |
+| ADR-010 | Cache Invalidation Fallback           | ✅ Active      | REQ-013          |
+| ADR-011 | Cache Tag Naming Convention           | ✅ Active      | REQ-014          |
+| ADR-012 | Redis Circuit Breaker                 | ✅ Active      | REQ-017          |
 
 ---
 
@@ -128,14 +128,14 @@ export async function getChatCached(
 
 ### Cache Profile Mapping
 
-| Data Type | Profile | Rationale |
-|-----------|---------|-----------|
-| Chat metadata | `chatMessages` | Rarely changes after creation |
-| Messages | `chatMessages` | Append-only, stable |
-| User chat list | `userChats` | Frequently updated |
-| Documents | `documents` | Version-controlled |
-| Votes | `hours` (built-in) | Low-frequency updates |
-| Suggestions | `suggestions` | Context-dependent |
+| Data Type      | Profile            | Rationale                     |
+| -------------- | ------------------ | ----------------------------- |
+| Chat metadata  | `chatMessages`     | Rarely changes after creation |
+| Messages       | `chatMessages`     | Append-only, stable           |
+| User chat list | `userChats`        | Frequently updated            |
+| Documents      | `documents`        | Version-controlled            |
+| Votes          | `hours` (built-in) | Low-frequency updates         |
+| Suggestions    | `suggestions`      | Context-dependent             |
 
 ### Consequences
 
@@ -151,6 +151,7 @@ export async function getChatCached(
 ### Context
 
 Next.js 16 provides two invalidation methods:
+
 - `updateTag(tag)` - Server Actions only, immediate
 - `revalidateTag(tag, profile)` - Breaking change: requires profile argument
 
@@ -182,10 +183,10 @@ export async function POST(request: Request) {
 
 ### revalidateTag Migration
 
-| Old Signature | New Signature |
-|---------------|---------------|
+| Old Signature                 | New Signature                        |
+| ----------------------------- | ------------------------------------ |
 | `revalidateTag("user-chats")` | `revalidateTag("user-chats", "max")` |
-| `revalidateTag("chat-123")` | `revalidateTag("chat-123", "max")` |
+| `revalidateTag("chat-123")`   | `revalidateTag("chat-123", "max")`   |
 
 ### Invalidation Tag Taxonomy
 
@@ -207,6 +208,7 @@ suggestions-{userId}    → User suggestions
 ### Invalidation Reason
 
 Research confirmed:
+
 1. No `unstable_noStore` usage in codebase
 2. `middleware.ts` not deprecated in Next.js 16
 3. No migration required
@@ -245,11 +247,11 @@ Optimize Suspense boundaries for Core Web Vitals (LCP < 2.5s, CLS < 0.1):
 
 ### Suspense Boundary Strategy
 
-| Boundary | Fallback Component | Purpose |
-|----------|-------------------|---------|
+| Boundary    | Fallback Component | Purpose                         |
+| ----------- | ------------------ | ------------------------------- |
 | Root layout | `AppShellFallback` | Minimal shell during auth check |
-| Chat layout | `SidebarSkeleton` | Sidebar placeholder |
-| Chat page | `loading.tsx` | Chat UI skeleton |
+| Chat layout | `SidebarSkeleton`  | Sidebar placeholder             |
+| Chat page   | `loading.tsx`      | Chat UI skeleton                |
 
 ---
 
@@ -267,7 +269,9 @@ import type { Metadata } from "next";
 
 export async function generateMetadata({
   params,
-}: { params: Promise<{ id: string }> }): Promise<Metadata> {
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
   const { id } = await params;
   const session = await getSessionCached();
 
@@ -307,24 +311,24 @@ const nextConfig: NextConfig = {
   experimental: {
     cacheLife: {
       chatMessages: {
-        stale: 60,        // Serve stale for 60s
+        stale: 60, // Serve stale for 60s
         revalidate: 14400, // Revalidate every 4 hours
-        expire: 86400,    // Hard expire after 24 hours
+        expire: 86400, // Hard expire after 24 hours
       },
       userChats: {
         stale: 60,
-        revalidate: 300,  // 5 minutes
-        expire: 7200,     // 2 hours
+        revalidate: 300, // 5 minutes
+        expire: 7200, // 2 hours
       },
       documents: {
-        stale: 300,       // 5 minutes
+        stale: 300, // 5 minutes
         revalidate: 14400,
         expire: 86400,
       },
       suggestions: {
         stale: 60,
         revalidate: 300,
-        expire: 3600,     // 1 hour
+        expire: 3600, // 1 hour
       },
     },
   },
@@ -333,13 +337,13 @@ const nextConfig: NextConfig = {
 
 ### Profile-to-Function Mapping
 
-| Profile | Functions |
-|---------|-----------|
-| `chatMessages` | `getChatCached`, `getMessagesCached` |
-| `userChats` | `getUserChatsCached` |
-| `documents` | `getDocumentCached`, `getLatestVersionCached` |
-| `suggestions` | `getSuggestionsCached` |
-| `hours` (built-in) | `getVoteCached`, `getVotesByChatIdCached` |
+| Profile            | Functions                                     |
+| ------------------ | --------------------------------------------- |
+| `chatMessages`     | `getChatCached`, `getMessagesCached`          |
+| `userChats`        | `getUserChatsCached`                          |
+| `documents`        | `getDocumentCached`, `getLatestVersionCached` |
+| `suggestions`      | `getSuggestionsCached`                        |
+| `hours` (built-in) | `getVoteCached`, `getVotesByChatIdCached`     |
 
 ---
 
@@ -357,15 +361,15 @@ Refactor all cached read functions to accept primitive serializable arguments:
 
 ### Signature Changes
 
-| Function | Before | After |
-|----------|--------|-------|
-| `getChatCached` | `(chatId, ctx)` | `(chatId, userId)` |
-| `getUserChatsCached` | `(ctx)` | `(userId, userType?)` |
-| `getChatWithMessagesCached` | `(chatId, ctx)` | `(chatId, userId)` |
-| `getMessagesCached` | `(chatId, ctx)` | `(chatId, userId)` |
-| `getDocumentCached` | `(docId, ctx)` | `(docId, userId)` |
-| `getSuggestionsCached` | `(ctx)` | `(userId)` |
-| `getVoteCached` | `(chatId, messageId, ctx)` | `(chatId, messageId, userId)` |
+| Function                    | Before                     | After                         |
+| --------------------------- | -------------------------- | ----------------------------- |
+| `getChatCached`             | `(chatId, ctx)`            | `(chatId, userId)`            |
+| `getUserChatsCached`        | `(ctx)`                    | `(userId, userType?)`         |
+| `getChatWithMessagesCached` | `(chatId, ctx)`            | `(chatId, userId)`            |
+| `getMessagesCached`         | `(chatId, ctx)`            | `(chatId, userId)`            |
+| `getDocumentCached`         | `(docId, ctx)`             | `(docId, userId)`             |
+| `getSuggestionsCached`      | `(ctx)`                    | `(userId)`                    |
+| `getVoteCached`             | `(chatId, messageId, ctx)` | `(chatId, messageId, userId)` |
 
 ### Call Site Migration
 
@@ -394,10 +398,10 @@ Implement BroadcastChannel API with localStorage fallback for Safari <15.4:
 
 ```typescript
 // lib/auth/session-sync.ts
-const CHANNEL_NAME = 'session-sync';
+const CHANNEL_NAME = "session-sync";
 
 export function createSessionSync() {
-  if (typeof BroadcastChannel !== 'undefined') {
+  if (typeof BroadcastChannel !== "undefined") {
     return new BroadcastChannelSync(CHANNEL_NAME);
   }
   return new LocalStorageSync(CHANNEL_NAME);
@@ -405,20 +409,20 @@ export function createSessionSync() {
 
 class BroadcastChannelSync {
   private channel: BroadcastChannel;
-  
+
   broadcast(event: SessionEvent) {
     this.channel.postMessage(event);
   }
-  
+
   onMessage(handler: (event: SessionEvent) => void) {
     this.channel.onmessage = (e) => handler(e.data);
   }
 }
 
-type SessionEvent = 
-  | { type: 'SESSION_LOGIN'; userId: string; timestamp: number }
-  | { type: 'SESSION_LOGOUT'; timestamp: number }
-  | { type: 'SESSION_REFRESH'; timestamp: number };
+type SessionEvent =
+  | { type: "SESSION_LOGIN"; userId: string; timestamp: number }
+  | { type: "SESSION_LOGOUT"; timestamp: number }
+  | { type: "SESSION_REFRESH"; timestamp: number };
 ```
 
 ### Integration
@@ -428,15 +432,15 @@ type SessionEvent =
 function useSessionSync() {
   useEffect(() => {
     const sync = createSessionSync();
-    
+
     sync.onMessage((event) => {
-      if (event.type === 'SESSION_LOGOUT') {
+      if (event.type === "SESSION_LOGOUT") {
         logout();
-      } else if (event.type === 'SESSION_LOGIN') {
+      } else if (event.type === "SESSION_LOGIN") {
         refreshSession();
       }
     });
-    
+
     return () => sync.close();
   }, []);
 }
@@ -458,17 +462,22 @@ Fail-closed for sensitive endpoints, fail-open with memory limit for others:
 
 ```typescript
 // lib/middleware/rate-limit-config.ts
-export const SENSITIVE_PATTERNS = ['/api/auth', '/api/files/upload'];
+export const SENSITIVE_PATTERNS = ["/api/auth", "/api/files/upload"];
 
 export function shouldFailClosed(pathname: string): boolean {
-  return SENSITIVE_PATTERNS.some(p => pathname.startsWith(p));
+  return SENSITIVE_PATTERNS.some((p) => pathname.startsWith(p));
 }
 
 // lib/middleware/rate-limit.ts
 if (!limiter) {
   if (shouldFailClosed(pathname)) {
-    logger.error('Redis unavailable - blocking sensitive endpoint');
-    return { success: false, limit: 0, remaining: 0, reset: Date.now() + 60000 };
+    logger.error("Redis unavailable - blocking sensitive endpoint");
+    return {
+      success: false,
+      limit: 0,
+      remaining: 0,
+      reset: Date.now() + 60000,
+    };
   }
   return applyMemoryRateLimit(identifier);
 }
@@ -476,11 +485,11 @@ if (!limiter) {
 
 ### Endpoint Classification
 
-| Endpoint Pattern | Classification | Fail Behavior |
-|-----------------|----------------|---------------|
-| `/api/auth/*` | Sensitive | Fail-Closed (503) |
-| `/api/chat` | Standard | Fail-Open with Memory Limit |
-| `/api/files/upload` | Sensitive | Fail-Closed (503) |
+| Endpoint Pattern    | Classification | Fail Behavior               |
+| ------------------- | -------------- | --------------------------- |
+| `/api/auth/*`       | Sensitive      | Fail-Closed (503)           |
+| `/api/chat`         | Standard       | Fail-Open with Memory Limit |
+| `/api/files/upload` | Sensitive      | Fail-Closed (503)           |
 
 ---
 
@@ -498,7 +507,7 @@ Create unified `invalidateCache()` utility:
 
 ```typescript
 // lib/cache-ops/invalidation.ts
-import { updateTag, revalidateTag } from 'next/cache';
+import { updateTag, revalidateTag } from "next/cache";
 
 export async function invalidateCache(
   tag: string,
@@ -512,13 +521,13 @@ export async function invalidateCache(
   } catch {
     // Not in Server Action context
   }
-  
-  revalidateTag(tag, options.immediate ? 'max' : 'hours');
+
+  revalidateTag(tag, options.immediate ? "max" : "hours");
 }
 
 function isServerActionContext(): boolean {
   // Detection logic based on async context
-  return typeof (globalThis as any).__NEXT_PRIVATE_MUTATION === 'function';
+  return typeof (globalThis as any).__NEXT_PRIVATE_MUTATION === "function";
 }
 ```
 
@@ -556,11 +565,11 @@ export const CacheTags = {
 
 ### Naming Convention
 
-| Pattern | Example | Use Case |
-|---------|---------|----------|
-| `{entity}-{id}` | `chat-abc123` | Single entity |
-| `user-{entity}-{userId}` | `user-chats-xyz789` | User-scoped list |
-| `{parent}-{child}-{parentId}` | `chat-messages-abc123` | Relationship |
+| Pattern                       | Example                | Use Case         |
+| ----------------------------- | ---------------------- | ---------------- |
+| `{entity}-{id}`               | `chat-abc123`          | Single entity    |
+| `user-{entity}-{userId}`      | `user-chats-xyz789`    | User-scoped list |
+| `{parent}-{child}-{parentId}` | `chat-messages-abc123` | Relationship     |
 
 ---
 
@@ -577,7 +586,7 @@ Implement circuit breaker pattern for Redis connections:
 interface CircuitBreakerState {
   failures: number;
   lastFailure: number;
-  state: 'closed' | 'open' | 'half-open';
+  state: "closed" | "open" | "half-open";
 }
 
 const FAILURE_THRESHOLD = 5;
@@ -587,13 +596,16 @@ export class RedisCircuitBreaker {
   private state: CircuitBreakerState = {
     failures: 0,
     lastFailure: 0,
-    state: 'closed'
+    state: "closed",
   };
 
-  async execute<T>(operation: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
-    if (this.state.state === 'open') {
+  async execute<T>(
+    operation: () => Promise<T>,
+    fallback: () => Promise<T>
+  ): Promise<T> {
+    if (this.state.state === "open") {
       if (Date.now() - this.state.lastFailure > RESET_TIMEOUT) {
-        this.state.state = 'half-open';
+        this.state.state = "half-open";
       } else {
         return fallback();
       }
@@ -610,14 +622,14 @@ export class RedisCircuitBreaker {
   }
 
   private onSuccess() {
-    this.state = { failures: 0, lastFailure: 0, state: 'closed' };
+    this.state = { failures: 0, lastFailure: 0, state: "closed" };
   }
 
   private onFailure() {
     this.state.failures++;
     this.state.lastFailure = Date.now();
     if (this.state.failures >= FAILURE_THRESHOLD) {
-      this.state.state = 'open';
+      this.state.state = "open";
     }
   }
 }
@@ -625,11 +637,11 @@ export class RedisCircuitBreaker {
 
 ### Degradation Behavior
 
-| Component | Redis Available | Redis Unavailable |
-|-----------|----------------|-------------------|
-| Session Cache | Redis (30s TTL) | Database (each request) |
-| Chat Cache | Redis + framework | Database + framework |
-| Rate Limiting | Upstash Ratelimit | Memory fallback |
+| Component     | Redis Available   | Redis Unavailable       |
+| ------------- | ----------------- | ----------------------- |
+| Session Cache | Redis (30s TTL)   | Database (each request) |
+| Chat Cache    | Redis + framework | Database + framework    |
+| Rate Limiting | Upstash Ratelimit | Memory fallback         |
 
 ---
 
@@ -700,13 +712,13 @@ stateDiagram-v2
     Error --> Stale: Serve stale on error
 ```
 
-| State | Description | Transitions |
-|-------|-------------|-------------|
-| Fresh | Cache valid, serving data | → Stale (TTL), → Invalid (mutation) |
-| Stale | TTL expired, background revalidate | → Revalidating |
-| Invalid | Explicitly invalidated via updateTag | → Fresh (next read) |
-| Revalidating | Fetching new data in background | → Fresh, → Error |
-| Error | Revalidation failed | → Stale (fallback), → Fresh (retry) |
+| State        | Description                          | Transitions                         |
+| ------------ | ------------------------------------ | ----------------------------------- |
+| Fresh        | Cache valid, serving data            | → Stale (TTL), → Invalid (mutation) |
+| Stale        | TTL expired, background revalidate   | → Revalidating                      |
+| Invalid      | Explicitly invalidated via updateTag | → Fresh (next read)                 |
+| Revalidating | Fetching new data in background      | → Fresh, → Error                    |
+| Error        | Revalidation failed                  | → Stale (fallback), → Fresh (retry) |
 
 ---
 
@@ -714,48 +726,48 @@ stateDiagram-v2
 
 ### Files to Create
 
-| File | Purpose |
-|------|---------|
-| `lib/cache/tags.ts` | CacheTags utility |
-| `lib/cache-ops/invalidation.ts` | Unified invalidation |
-| `lib/auth/session-sync.ts` | BroadcastChannel sync |
+| File                                  | Purpose                 |
+| ------------------------------------- | ----------------------- |
+| `lib/cache/tags.ts`                   | CacheTags utility       |
+| `lib/cache-ops/invalidation.ts`       | Unified invalidation    |
+| `lib/auth/session-sync.ts`            | BroadcastChannel sync   |
 | `lib/middleware/rate-limit-config.ts` | Endpoint classification |
 
 ### Files to Modify
 
-| File | Changes | Risk |
-|------|---------|------|
-| `next.config.ts` | Add cacheLife profiles | 🟢 Low |
+| File                             | Changes                               | Risk      |
+| -------------------------------- | ------------------------------------- | --------- |
+| `next.config.ts`                 | Add cacheLife profiles                | 🟢 Low    |
 | `lib/data/cached/*.ts` (6 files) | Add "use cache" + refactor signatures | 🟡 Medium |
-| `features/*/actions/*.ts` | Add updateTag, migrate revalidateTag | 🟡 Medium |
-| `lib/middleware/rate-limit.ts` | Fail-closed for auth | 🟡 Medium |
-| `app/(chat)/chat/[id]/page.tsx` | Add generateMetadata | 🟡 Medium |
+| `features/*/actions/*.ts`        | Add updateTag, migrate revalidateTag  | 🟡 Medium |
+| `lib/middleware/rate-limit.ts`   | Fail-closed for auth                  | 🟡 Medium |
+| `app/(chat)/chat/[id]/page.tsx`  | Add generateMetadata                  | 🟡 Medium |
 
 ### Files NOT Modified
 
-| File | Reason |
-|------|--------|
-| `middleware.ts` | Not deprecated; no migration needed |
-| `proxy.ts` | Not creating; no unstable_noStore usage |
+| File            | Reason                                  |
+| --------------- | --------------------------------------- |
+| `middleware.ts` | Not deprecated; no migration needed     |
+| `proxy.ts`      | Not creating; no unstable_noStore usage |
 
 ---
 
 ## Requirements Traceability
 
-| REQ ID | Requirement | ADR | Component |
-|--------|-------------|-----|-----------|
-| REQ-001 | Adopt "use cache" | ADR-001 | Cached Data Functions |
-| REQ-002 | Configure cacheLife | ADR-006 | next.config.ts |
-| REQ-003 | Implement updateTag | ADR-002 | Server Actions |
-| REQ-004 | Update revalidateTag | ADR-002 | All revalidateTag calls |
-| REQ-005 | Refactor signatures | ADR-007 | Cached Data Functions |
-| REQ-006 | Add generateMetadata | ADR-005 | Chat Page |
-| REQ-007 | Core Web Vitals | ADR-004 | All components |
-| REQ-011 | Multi-tab session sync | ADR-008 | Session Sync |
-| REQ-012 | Fail-closed rate limiting | ADR-009 | Rate Limit |
-| REQ-013 | Invalidation fallback | ADR-010 | invalidation.ts |
-| REQ-014 | Tag naming convention | ADR-011 | CacheTags |
-| REQ-017 | Redis degradation | ADR-012 | Circuit Breaker |
+| REQ ID  | Requirement               | ADR     | Component               |
+| ------- | ------------------------- | ------- | ----------------------- |
+| REQ-001 | Adopt "use cache"         | ADR-001 | Cached Data Functions   |
+| REQ-002 | Configure cacheLife       | ADR-006 | next.config.ts          |
+| REQ-003 | Implement updateTag       | ADR-002 | Server Actions          |
+| REQ-004 | Update revalidateTag      | ADR-002 | All revalidateTag calls |
+| REQ-005 | Refactor signatures       | ADR-007 | Cached Data Functions   |
+| REQ-006 | Add generateMetadata      | ADR-005 | Chat Page               |
+| REQ-007 | Core Web Vitals           | ADR-004 | All components          |
+| REQ-011 | Multi-tab session sync    | ADR-008 | Session Sync            |
+| REQ-012 | Fail-closed rate limiting | ADR-009 | Rate Limit              |
+| REQ-013 | Invalidation fallback     | ADR-010 | invalidation.ts         |
+| REQ-014 | Tag naming convention     | ADR-011 | CacheTags               |
+| REQ-017 | Redis degradation         | ADR-012 | Circuit Breaker         |
 
 ---
 
@@ -763,19 +775,19 @@ stateDiagram-v2
 
 ### High Risk
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Cache tag collision | Data served to wrong user | Namespace all tags with userId |
-| Migration breaks rate limiting | Security vulnerability | Feature flag, canary deployment |
-| Cache invalidation missed | Stale data displayed | Audit all mutation points |
+| Risk                           | Impact                    | Mitigation                      |
+| ------------------------------ | ------------------------- | ------------------------------- |
+| Cache tag collision            | Data served to wrong user | Namespace all tags with userId  |
+| Migration breaks rate limiting | Security vulnerability    | Feature flag, canary deployment |
+| Cache invalidation missed      | Stale data displayed      | Audit all mutation points       |
 
 ### Medium Risk
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| cacheLife profile too long | Stale data | Start conservative, tune based on metrics |
-| generateMetadata slows TTFB | Performance regression | Cache hit should make it fast |
-| Suspense boundaries cause CLS | Web Vitals fail | Fixed-size skeleton components |
+| Risk                          | Impact                 | Mitigation                                |
+| ----------------------------- | ---------------------- | ----------------------------------------- |
+| cacheLife profile too long    | Stale data             | Start conservative, tune based on metrics |
+| generateMetadata slows TTFB   | Performance regression | Cache hit should make it fast             |
+| Suspense boundaries cause CLS | Web Vitals fail        | Fixed-size skeleton components            |
 
 ---
 

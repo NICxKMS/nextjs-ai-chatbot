@@ -89,7 +89,7 @@ const nextConfig: NextConfig = {
         suggestions: {
             stale: 300, // 5 min - serve stale while revalidating
             revalidate: 900, // 15 min - background revalidation
-            expire: 86400, // 24 hours - hard expiry
+            expire: 86_400, // 24 hours - hard expiry
         },
     }, // Next.js 16: Partial Prerendering
     images: {

@@ -35,6 +35,18 @@ export {
     isValidModel,
     MODEL_REGISTRY,
 } from "./models";
+// Provider Utilities - Circuit Breaker Pattern
+export {
+    anthropicCircuit,
+    type CircuitBreaker,
+    CircuitBreakerOpenError,
+    type CircuitBreakerOptions,
+    type CircuitState,
+    createCircuitBreaker,
+    googleCircuit,
+    openaiCircuit,
+    openrouterCircuit,
+} from "./provider-utils";
 // Providers - Unified Registry Pattern (like OldApp)
 export {
     getAnthropic,
@@ -45,7 +57,6 @@ export {
     ModelResolutionError,
     myProvider,
 } from "./providers";
-
 // Reasoning
 export {
     buildProviderOptions,
@@ -54,7 +65,6 @@ export {
     type ReasoningType,
     wrapWithReasoningMiddleware,
 } from "./reasoning";
-
 // Tools
 export {
     type CreateDocumentToolProps,
@@ -64,16 +74,3 @@ export {
     type UpdateDocumentToolProps,
     updateDocument,
 } from "./tools";
-
-// Provider Utilities - Circuit Breaker Pattern
-export {
-    anthropicCircuit,
-    CircuitBreakerOpenError,
-    createCircuitBreaker,
-    type CircuitBreaker,
-    type CircuitBreakerOptions,
-    type CircuitState,
-    googleCircuit,
-    openaiCircuit,
-    openrouterCircuit,
-} from "./provider-utils";

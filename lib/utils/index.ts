@@ -158,6 +158,15 @@ export {
     type RateLimitResult,
     withRateLimit,
 } from "./rate-limit-client";
+export type {
+    RetryOptions,
+    RetryResult,
+} from "./retry";
+export {
+    createRetryable,
+    withRetry,
+    withRetryResult,
+} from "./retry";
 export {
     isNonEmptyString,
     isPositiveInteger,

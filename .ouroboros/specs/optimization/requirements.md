@@ -10,20 +10,20 @@
 
 ## Changelog from v3 → v4
 
-| Change      | Description                                        | Rationale                                               |
-| ----------- | -------------------------------------------------- | ------------------------------------------------------- |
-| **ADDED**   | REQ-019 (AuthProvider Context Split)               | Performance: Reduce unnecessary re-renders from auth    |
-| **ADDED**   | REQ-020 (SidebarProvider Consolidation)            | DX: Duplicate implementations causing confusion         |
-| **ADDED**   | REQ-021 (Auth Route loading.tsx)                   | UX: Missing loading states for login/register           |
-| **ADDED**   | REQ-022 (Auth Route error.tsx)                     | UX: Missing error handling for login/register           |
-| **ADDED**   | REQ-023 (Loading State Accessibility)              | A11y: Missing ARIA attributes in chat/[id]/loading.tsx  |
-| **ADDED**   | REQ-024 (Auth Flow AbortController)                | Race: Login/register flows need cancellation support    |
-| **ADDED**   | REQ-025 (BroadcastChannel Session Sync) 🔴         | HIGH: Multi-tab session sync (extends REQ-011)          |
-| **ADDED**   | REQ-026 (Auth Error Boundaries)                    | Error: Missing boundaries for auth route error recovery |
-| **ADDED**   | REQ-027 (Offline Detection in Loading States)     | UX: Offline state detection for better feedback         |
-| **UPDATED** | Edge Cases                                         | Added EC-015 through EC-021 for new scenarios           |
-| **UPDATED** | Priority Matrix                                    | Added 9 new requirements to priority assessment         |
-| **UPDATED** | Wave allocation                                    | Expanded waves for new requirements                     |
+| Change      | Description                                   | Rationale                                               |
+| ----------- | --------------------------------------------- | ------------------------------------------------------- |
+| **ADDED**   | REQ-019 (AuthProvider Context Split)          | Performance: Reduce unnecessary re-renders from auth    |
+| **ADDED**   | REQ-020 (SidebarProvider Consolidation)       | DX: Duplicate implementations causing confusion         |
+| **ADDED**   | REQ-021 (Auth Route loading.tsx)              | UX: Missing loading states for login/register           |
+| **ADDED**   | REQ-022 (Auth Route error.tsx)                | UX: Missing error handling for login/register           |
+| **ADDED**   | REQ-023 (Loading State Accessibility)         | A11y: Missing ARIA attributes in chat/[id]/loading.tsx  |
+| **ADDED**   | REQ-024 (Auth Flow AbortController)           | Race: Login/register flows need cancellation support    |
+| **ADDED**   | REQ-025 (BroadcastChannel Session Sync) 🔴    | HIGH: Multi-tab session sync (extends REQ-011)          |
+| **ADDED**   | REQ-026 (Auth Error Boundaries)               | Error: Missing boundaries for auth route error recovery |
+| **ADDED**   | REQ-027 (Offline Detection in Loading States) | UX: Offline state detection for better feedback         |
+| **UPDATED** | Edge Cases                                    | Added EC-015 through EC-021 for new scenarios           |
+| **UPDATED** | Priority Matrix                               | Added 9 new requirements to priority assessment         |
+| **UPDATED** | Wave allocation                               | Expanded waves for new requirements                     |
 
 ---
 
@@ -974,12 +974,10 @@ const AuthDispatchContext = createContext<AuthDispatch | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(authReducer, initialState);
-  
+
   return (
     <AuthDispatchContext value={dispatch}>
-      <AuthStateContext value={state}>
-        {children}
-      </AuthStateContext>
+      <AuthStateContext value={state}>{children}</AuthStateContext>
     </AuthDispatchContext>
   );
 }
@@ -1038,11 +1036,14 @@ export function useAuth() {
 // Re-exports from: components/ui/sidebar.tsx (deprecated)
 
 // features/sidebar/components/sidebar-provider.tsx
-export { SidebarProvider, useSidebar } from './sidebar-context';
+export { SidebarProvider, useSidebar } from "./sidebar-context";
 
 // components/ui/sidebar.tsx (deprecated re-export)
 /** @deprecated Use 'features/sidebar/components/sidebar-provider' instead */
-export { SidebarProvider, useSidebar } from '@/features/sidebar/components/sidebar-provider';
+export {
+  SidebarProvider,
+  useSidebar,
+} from "@/features/sidebar/components/sidebar-provider";
 ```
 
 **Target Files**:
@@ -1140,7 +1141,7 @@ export default function LoginLoading() {
 
 ```tsx
 // app/(auth)/login/error.tsx
-'use client';
+"use client";
 
 export default function LoginError({
   error,
@@ -1201,9 +1202,9 @@ export default function LoginError({
 // app/(chat)/chat/[id]/loading.tsx
 export default function ChatLoading() {
   return (
-    <div 
-      role="status" 
-      aria-label="Loading chat" 
+    <div
+      role="status"
+      aria-label="Loading chat"
       aria-busy="true"
       className="flex flex-col h-full"
     >
@@ -1267,23 +1268,23 @@ export async function loginAction(formData: FormData) {
   if (abortController) {
     abortController.abort();
   }
-  
+
   abortController = new AbortController();
-  
+
   try {
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
       body: formData,
       signal: abortController.signal,
     });
-    
+
     if (abortController.signal.aborted) {
       return; // Don't process aborted response
     }
-    
+
     return response.json();
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
+    if (error instanceof DOMException && error.name === "AbortError") {
       return; // Silently handle abort
     }
     throw error;
@@ -1331,11 +1332,11 @@ export async function loginAction(formData: FormData) {
 
 ```typescript
 // lib/auth/session-sync.ts
-const CHANNEL_NAME = 'session-sync';
+const CHANNEL_NAME = "session-sync";
 
 export function createSessionSync() {
   // Try BroadcastChannel first
-  if (typeof BroadcastChannel !== 'undefined') {
+  if (typeof BroadcastChannel !== "undefined") {
     return new BroadcastChannelSync(CHANNEL_NAME);
   }
   // Fallback to localStorage
@@ -1344,29 +1345,29 @@ export function createSessionSync() {
 
 class BroadcastChannelSync {
   private channel: BroadcastChannel;
-  
+
   constructor(name: string) {
     this.channel = new BroadcastChannel(name);
   }
-  
+
   broadcast(event: SessionEvent) {
     this.channel.postMessage(event);
   }
-  
+
   onMessage(handler: (event: SessionEvent) => void) {
     this.channel.onmessage = (e) => handler(e.data);
   }
-  
+
   close() {
     this.channel.close();
   }
 }
 
 // Session events
-type SessionEvent = 
-  | { type: 'SESSION_LOGIN'; userId: string; timestamp: number }
-  | { type: 'SESSION_LOGOUT'; timestamp: number }
-  | { type: 'SESSION_REFRESH'; timestamp: number };
+type SessionEvent =
+  | { type: "SESSION_LOGIN"; userId: string; timestamp: number }
+  | { type: "SESSION_LOGOUT"; timestamp: number }
+  | { type: "SESSION_REFRESH"; timestamp: number };
 ```
 
 **Target Files**:
@@ -1412,9 +1413,13 @@ type SessionEvent =
 
 ```tsx
 // app/(auth)/layout.tsx - add error boundary
-import { ErrorBoundary } from '@/components/error-boundary';
+import { ErrorBoundary } from "@/components/error-boundary";
 
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
+export default function AuthLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <ErrorBoundary
       fallback={({ error, reset }) => (
@@ -1471,33 +1476,33 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 // hooks/use-online-status.ts
 export function useOnlineStatus() {
   const [isOnline, setIsOnline] = useState(
-    typeof navigator !== 'undefined' ? navigator.onLine : true
+    typeof navigator !== "undefined" ? navigator.onLine : true
   );
-  
+
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-    
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
     };
   }, []);
-  
+
   return isOnline;
 }
 
 // Usage in loading.tsx
 export default function ChatLoading() {
   const isOnline = useOnlineStatus();
-  
+
   if (!isOnline) {
     return <OfflineIndicator />;
   }
-  
+
   return <ChatSkeleton />;
 }
 ```
@@ -1765,16 +1770,16 @@ graph TD
 
 ### Wave 3: Metadata, DX, UX & A11y (Days 4-5)
 
-| REQ     | Task                                        | Effort |
-| ------- | ------------------------------------------- | ------ |
-| REQ-006 | Add generateMetadata to chat/[id] page      | 2h     |
-| REQ-015 | Create cache pattern documentation          | 2h     |
-| REQ-016 | Ensure Suspense loading state consistency   | 2h     |
-| REQ-021 | Add loading.tsx to auth routes (login, register) | 1h |
-| REQ-022 | Add error.tsx to auth routes (login, register)   | 1h |
-| REQ-023 | Add accessibility attributes to loading states   | 1h |
-| REQ-026 | Add error boundaries to auth layout              | 1h |
-| REQ-027 | Add offline detection to loading states          | 2h |
+| REQ     | Task                                             | Effort |
+| ------- | ------------------------------------------------ | ------ |
+| REQ-006 | Add generateMetadata to chat/[id] page           | 2h     |
+| REQ-015 | Create cache pattern documentation               | 2h     |
+| REQ-016 | Ensure Suspense loading state consistency        | 2h     |
+| REQ-021 | Add loading.tsx to auth routes (login, register) | 1h     |
+| REQ-022 | Add error.tsx to auth routes (login, register)   | 1h     |
+| REQ-023 | Add accessibility attributes to loading states   | 1h     |
+| REQ-026 | Add error boundaries to auth layout              | 1h     |
+| REQ-027 | Add offline detection to loading states          | 2h     |
 
 ### Wave 4: Verification & Ops (Days 5-6)
 
@@ -1792,12 +1797,12 @@ graph TD
 
 ## Priority Matrix (Updated v4)
 
-| Priority     | Count  | Requirements                                                     | Estimated Effort |
-| ------------ | ------ | ---------------------------------------------------------------- | ---------------- |
+| Priority     | Count  | Requirements                                                        | Estimated Effort |
+| ------------ | ------ | ------------------------------------------------------------------- | ---------------- |
 | P1 (Must) 🎯 | 13     | REQ-001, 002, 003, 004, 005, 007, 009, 011, 012, 013, 017, 024, 025 | 40h              |
 | P2 (Should)  | 13     | REQ-006, 008, 010, 014, 015, 016, 019, 020, 021, 022, 023, 026, 027 | 15h              |
-| P3 (Could)   | 1      | REQ-018                                                          | 1h               |
-| **Total**    | **27** | -                                                                | **~56 hours**    |
+| P3 (Could)   | 1      | REQ-018                                                             | 1h               |
+| **Total**    | **27** | -                                                                   | **~56 hours**    |
 
 ### Critical Path (P1 Blocking)
 
@@ -1854,12 +1859,12 @@ REQ-002 (cacheLife) + REQ-005 (signatures) + REQ-014 (tags) + REQ-019/020 (provi
 
 ## Requirements Summary (v4 - Exhaustive Deep Dive)
 
-| Priority    | Count  | Coverage                                                            | Estimated Effort |
-| ----------- | ------ | ------------------------------------------------------------------- | ---------------- |
-| P1 (Must)   | 13     | REQ-001-005, 007, 009, 011-013, 017, 024, 025                       | 40h              |
-| P2 (Should) | 13     | REQ-006, 008, 010, 014-016, 019-023, 026, 027                       | 15h              |
-| P3 (Could)  | 1      | REQ-018                                                             | 1h               |
-| **Total**   | **27** | -                                                                   | **~56 hours**    |
+| Priority    | Count  | Coverage                                      | Estimated Effort |
+| ----------- | ------ | --------------------------------------------- | ---------------- |
+| P1 (Must)   | 13     | REQ-001-005, 007, 009, 011-013, 017, 024, 025 | 40h              |
+| P2 (Should) | 13     | REQ-006, 008, 010, 014-016, 019-023, 026, 027 | 15h              |
+| P3 (Could)  | 1      | REQ-018                                       | 1h               |
+| **Total**   | **27** | -                                             | **~56 hours**    |
 
 **Key Changes from v3 → v4**:
 

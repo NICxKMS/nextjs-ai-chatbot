@@ -9,87 +9,87 @@
 
 ## Executive Summary
 
-| Metric | Value |
-|--------|-------|
-| **Total Requirements** | 30 (REQ-001 to REQ-030) |
-| **Active ADRs** | 11 (ADR-001 to ADR-012, excl. ADR-003) |
-| **Total Tasks** | 51 |
-| **Total Effort** | ~62h |
-| **Waves** | 8 (Wave 0–6 + Wave 1.5) |
-| **Critical P0 Tasks** | 4 (Security blockers) |
+| Metric                 | Value                                  |
+| ---------------------- | -------------------------------------- |
+| **Total Requirements** | 30 (REQ-001 to REQ-030)                |
+| **Active ADRs**        | 11 (ADR-001 to ADR-012, excl. ADR-003) |
+| **Total Tasks**        | 51                                     |
+| **Total Effort**       | ~62h                                   |
+| **Waves**              | 8 (Wave 0–6 + Wave 1.5)                |
+| **Critical P0 Tasks**  | 4 (Security blockers)                  |
 
 ---
 
 ## Wave Overview
 
-| Wave | Name | Tasks | Effort | Status | Blocking |
-|------|------|-------|--------|--------|----------|
-| **Wave 0** | P0 Security Fixes | 4 | ~5h | ⬜ | 🔴 Deploy Blocker |
-| **Wave 1** | Foundation + Architecture | 9 | ~10h | ⬜ | Blocks Wave 1.5+ |
-| **Wave 1.5** | Risk Mitigation + Session | 3 | ~6h | ⬜ | 🔴 Blocks Wave 2+ |
-| **Wave 2** | Caching Implementation | 7 | ~12h | ⬜ | Blocks Wave 3 |
-| **Wave 3** | Cache Invalidation | 5 | ~8h | ⬜ | Blocks Wave 4 |
-| **Wave 4** | Edge Cases & Resilience | 6 | ~10h | ⬜ | Blocks Wave 5 |
-| **Wave 5** | UX/DX/A11y Polish | 10 | ~12h | ⬜ | Blocks Wave 6 |
-| **Wave 6** | Verification & Testing | 7 | ~11h | ⬜ | Release Gate |
+| Wave         | Name                      | Tasks | Effort | Status | Blocking          |
+| ------------ | ------------------------- | ----- | ------ | ------ | ----------------- |
+| **Wave 0**   | P0 Security Fixes         | 4     | ~5h    | ⬜     | 🔴 Deploy Blocker |
+| **Wave 1**   | Foundation + Architecture | 9     | ~10h   | ⬜     | Blocks Wave 1.5+  |
+| **Wave 1.5** | Risk Mitigation + Session | 3     | ~6h    | ⬜     | 🔴 Blocks Wave 2+ |
+| **Wave 2**   | Caching Implementation    | 7     | ~12h   | ⬜     | Blocks Wave 3     |
+| **Wave 3**   | Cache Invalidation        | 5     | ~8h    | ⬜     | Blocks Wave 4     |
+| **Wave 4**   | Edge Cases & Resilience   | 6     | ~10h   | ⬜     | Blocks Wave 5     |
+| **Wave 5**   | UX/DX/A11y Polish         | 10    | ~12h   | ⬜     | Blocks Wave 6     |
+| **Wave 6**   | Verification & Testing    | 7     | ~11h   | ⬜     | Release Gate      |
 
 ---
 
 ## Task Summary Table
 
-| Task ID | Title | Wave | REQ | Priority | Effort | Status |
-|---------|-------|------|-----|----------|--------|--------|
-| OPT-P0-001 | Fix Rate Limit Fail-Open | 0 | REQ-012 | P0 🔴 | M | ⬜ |
-| OPT-P0-002 | Add updateTag() Support | 0 | REQ-013 | P0 🔴 | M | ⬜ |
-| OPT-P0-003 | Fix withRateLimit failOpen default | 0 | REQ-028 | P0 🔴 | S | ⬜ |
-| OPT-P0-004 | Remove model info from guest error | 0 | REQ-029 | P0 🔴 | S | ⬜ |
-| OPT-001 | Configure cacheLife Profiles | 1 | REQ-002 | P1 | M | ⬜ |
-| OPT-002 | Refactor chat.ts Signatures | 1 | REQ-005 | P1 | M | ⬜ |
-| OPT-003 | Refactor messages.ts Signatures | 1 | REQ-005 | P1 | S | ⬜ |
-| OPT-004 | Refactor documents.ts Signatures | 1 | REQ-005 | P1 | M | ⬜ |
-| OPT-005 | Refactor votes.ts Signatures | 1 | REQ-005 | P1 | S | ⬜ |
-| OPT-006 | Refactor suggestions.ts Signatures | 1 | REQ-005 | P1 | S | ⬜ |
-| OPT-007 | Create CacheTags Utility | 1 | REQ-014 | P2 | S | ⬜ |
-| OPT-040 | Split AuthProvider Contexts | 1 | REQ-019 | P2 | M | ⬜ |
-| OPT-041 | Consolidate SidebarProvider | 1 | REQ-020 | P2 | M | ⬜ |
-| OPT-045 | Add AbortController to Auth | 1.5 | REQ-024 | P1 🔴 | M | ⬜ |
-| OPT-046 | BroadcastChannel Session Sync | 1.5 | REQ-025 | P1 🔴 | L | ⬜ |
-| OPT-049 | Add BroadcastChannel origin validation | 1.5 | REQ-030 | P2 | M | ⬜ |
-| OPT-008 | Add "use cache" to chat.ts | 2 | REQ-001 | P1 | M | ⬜ |
-| OPT-009 | Add "use cache" to messages.ts | 2 | REQ-001 | P1 | M | ⬜ |
-| OPT-010 | Add "use cache" to documents.ts | 2 | REQ-001 | P1 | M | ⬜ |
-| OPT-011 | Add "use cache" to votes.ts | 2 | REQ-001 | P1 | S | ⬜ |
-| OPT-012 | Add "use cache" to suggestions.ts | 2 | REQ-001 | P1 | S | ⬜ |
-| OPT-013 | Implement parallel-loader | 2 | REQ-007 | P2 | M | ⬜ |
-| OPT-014 | Create invalidation.ts Utility | 2 | REQ-013 | P1 | M | ⬜ |
-| OPT-015 | Add updateTag to message.ts | 3 | REQ-003 | P1 | M | ⬜ |
-| OPT-016 | Add updateTag to visibility.ts | 3 | REQ-003 | P1 | S | ⬜ |
-| OPT-017 | Migrate revalidateTag Calls | 3 | REQ-004 | P1 | M | ⬜ |
-| OPT-018 | Add updateTag to document actions | 3 | REQ-003 | P1 | M | ⬜ |
-| OPT-019 | Add updateTag to vote/suggestion | 3 | REQ-003 | P1 | S | ⬜ |
-| OPT-020 | Multi-Tab Session Sync | 4 | REQ-011 | P1 | L | ⬜ |
-| OPT-021 | Redis Circuit Breaker | 4 | REQ-017 | P1 | M | ⬜ |
-| OPT-022 | Graceful Degradation Handling | 4 | REQ-017 | P1 | M | ⬜ |
-| OPT-023 | Streaming Cache Edge Cases | 4 | REQ-001 | P2 | M | ⬜ |
-| OPT-024 | Error Boundaries for Cache | 4 | REQ-016 | P2 | M | ⬜ |
-| OPT-025 | Test Concurrent Invalidation | 4 | REQ-003 | P2 | M | ⬜ |
-| OPT-026 | Add generateMetadata | 5 | REQ-006 | P2 | M | ⬜ |
-| OPT-027 | Create Loading Skeletons | 5 | REQ-016 | P2 | M | ⬜ |
-| OPT-028 | Cache Pattern Documentation | 5 | REQ-015 | P2 | M | ⬜ |
-| OPT-029 | Cache Audit Logger | 5 | REQ-018 | P3 | M | ⬜ |
-| OPT-030 | Feature Flag Support | 5 | REQ-010 | P2 | M | ⬜ |
-| OPT-042 | Auth Route loading.tsx | 5 | REQ-021 | P2 | S | ⬜ |
-| OPT-043 | Auth Route error.tsx | 5 | REQ-022 | P2 | S | ⬜ |
-| OPT-044 | A11y Attrs to Loading States | 5 | REQ-023 | P2 | M | ⬜ |
-| OPT-047 | Auth Error Boundaries | 5 | REQ-026 | P2 | M | ⬜ |
-| OPT-048 | Offline Detection | 5 | REQ-027 | P2 | M | ⬜ |
-| OPT-031 | Baseline Web Vitals | 6 | REQ-007 | P1 | M | ⬜ |
-| OPT-032 | Web Vitals Monitoring | 6 | REQ-007 | P1 | M | ⬜ |
-| OPT-033 | Cache Hit Rate Analysis | 6 | REQ-008 | P2 | M | ⬜ |
-| OPT-034 | Full Regression Test Suite | 6 | REQ-009 | P1 | L | ⬜ |
-| OPT-035 | Multi-Tab E2E Tests | 6 | REQ-011 | P1 | M | ⬜ |
-| OPT-036 | Rate Limit Chaos Testing | 6 | REQ-012 | P1 | M | ⬜ |
-| OPT-037 | Final Performance Audit | 6 | REQ-007 | P1 | L | ⬜ |
+| Task ID    | Title                                  | Wave | REQ     | Priority | Effort | Status |
+| ---------- | -------------------------------------- | ---- | ------- | -------- | ------ | ------ |
+| OPT-P0-001 | Fix Rate Limit Fail-Open               | 0    | REQ-012 | P0 🔴    | M      | ⬜     |
+| OPT-P0-002 | Add updateTag() Support                | 0    | REQ-013 | P0 🔴    | M      | ⬜     |
+| OPT-P0-003 | Fix withRateLimit failOpen default     | 0    | REQ-028 | P0 🔴    | S      | ⬜     |
+| OPT-P0-004 | Remove model info from guest error     | 0    | REQ-029 | P0 🔴    | S      | ⬜     |
+| OPT-001    | Configure cacheLife Profiles           | 1    | REQ-002 | P1       | M      | ⬜     |
+| OPT-002    | Refactor chat.ts Signatures            | 1    | REQ-005 | P1       | M      | ⬜     |
+| OPT-003    | Refactor messages.ts Signatures        | 1    | REQ-005 | P1       | S      | ⬜     |
+| OPT-004    | Refactor documents.ts Signatures       | 1    | REQ-005 | P1       | M      | ⬜     |
+| OPT-005    | Refactor votes.ts Signatures           | 1    | REQ-005 | P1       | S      | ⬜     |
+| OPT-006    | Refactor suggestions.ts Signatures     | 1    | REQ-005 | P1       | S      | ⬜     |
+| OPT-007    | Create CacheTags Utility               | 1    | REQ-014 | P2       | S      | ⬜     |
+| OPT-040    | Split AuthProvider Contexts            | 1    | REQ-019 | P2       | M      | ⬜     |
+| OPT-041    | Consolidate SidebarProvider            | 1    | REQ-020 | P2       | M      | ⬜     |
+| OPT-045    | Add AbortController to Auth            | 1.5  | REQ-024 | P1 🔴    | M      | ⬜     |
+| OPT-046    | BroadcastChannel Session Sync          | 1.5  | REQ-025 | P1 🔴    | L      | ⬜     |
+| OPT-049    | Add BroadcastChannel origin validation | 1.5  | REQ-030 | P2       | M      | ⬜     |
+| OPT-008    | Add "use cache" to chat.ts             | 2    | REQ-001 | P1       | M      | ⬜     |
+| OPT-009    | Add "use cache" to messages.ts         | 2    | REQ-001 | P1       | M      | ⬜     |
+| OPT-010    | Add "use cache" to documents.ts        | 2    | REQ-001 | P1       | M      | ⬜     |
+| OPT-011    | Add "use cache" to votes.ts            | 2    | REQ-001 | P1       | S      | ⬜     |
+| OPT-012    | Add "use cache" to suggestions.ts      | 2    | REQ-001 | P1       | S      | ⬜     |
+| OPT-013    | Implement parallel-loader              | 2    | REQ-007 | P2       | M      | ⬜     |
+| OPT-014    | Create invalidation.ts Utility         | 2    | REQ-013 | P1       | M      | ⬜     |
+| OPT-015    | Add updateTag to message.ts            | 3    | REQ-003 | P1       | M      | ⬜     |
+| OPT-016    | Add updateTag to visibility.ts         | 3    | REQ-003 | P1       | S      | ⬜     |
+| OPT-017    | Migrate revalidateTag Calls            | 3    | REQ-004 | P1       | M      | ⬜     |
+| OPT-018    | Add updateTag to document actions      | 3    | REQ-003 | P1       | M      | ⬜     |
+| OPT-019    | Add updateTag to vote/suggestion       | 3    | REQ-003 | P1       | S      | ⬜     |
+| OPT-020    | Multi-Tab Session Sync                 | 4    | REQ-011 | P1       | L      | ⬜     |
+| OPT-021    | Redis Circuit Breaker                  | 4    | REQ-017 | P1       | M      | ⬜     |
+| OPT-022    | Graceful Degradation Handling          | 4    | REQ-017 | P1       | M      | ⬜     |
+| OPT-023    | Streaming Cache Edge Cases             | 4    | REQ-001 | P2       | M      | ⬜     |
+| OPT-024    | Error Boundaries for Cache             | 4    | REQ-016 | P2       | M      | ⬜     |
+| OPT-025    | Test Concurrent Invalidation           | 4    | REQ-003 | P2       | M      | ⬜     |
+| OPT-026    | Add generateMetadata                   | 5    | REQ-006 | P2       | M      | ⬜     |
+| OPT-027    | Create Loading Skeletons               | 5    | REQ-016 | P2       | M      | ⬜     |
+| OPT-028    | Cache Pattern Documentation            | 5    | REQ-015 | P2       | M      | ⬜     |
+| OPT-029    | Cache Audit Logger                     | 5    | REQ-018 | P3       | M      | ⬜     |
+| OPT-030    | Feature Flag Support                   | 5    | REQ-010 | P2       | M      | ⬜     |
+| OPT-042    | Auth Route loading.tsx                 | 5    | REQ-021 | P2       | S      | ⬜     |
+| OPT-043    | Auth Route error.tsx                   | 5    | REQ-022 | P2       | S      | ⬜     |
+| OPT-044    | A11y Attrs to Loading States           | 5    | REQ-023 | P2       | M      | ⬜     |
+| OPT-047    | Auth Error Boundaries                  | 5    | REQ-026 | P2       | M      | ⬜     |
+| OPT-048    | Offline Detection                      | 5    | REQ-027 | P2       | M      | ⬜     |
+| OPT-031    | Baseline Web Vitals                    | 6    | REQ-007 | P1       | M      | ⬜     |
+| OPT-032    | Web Vitals Monitoring                  | 6    | REQ-007 | P1       | M      | ⬜     |
+| OPT-033    | Cache Hit Rate Analysis                | 6    | REQ-008 | P2       | M      | ⬜     |
+| OPT-034    | Full Regression Test Suite             | 6    | REQ-009 | P1       | L      | ⬜     |
+| OPT-035    | Multi-Tab E2E Tests                    | 6    | REQ-011 | P1       | M      | ⬜     |
+| OPT-036    | Rate Limit Chaos Testing               | 6    | REQ-012 | P1       | M      | ⬜     |
+| OPT-037    | Final Performance Audit                | 6    | REQ-007 | P1       | L      | ⬜     |
 
 ---
 
@@ -175,28 +175,36 @@ Wave 6 (Verification) ───────────────────�
 **Priority**: P0 🔴 **SECURITY BLOCKER** | **Effort**: M (1.5h) | **REQ**: REQ-012
 
 **Files**:
+
 - `lib/middleware/rate-limit.ts`
 - `lib/middleware/rate-limit-config.ts` (new)
 
 **Implementation**:
+
 ```typescript
 // lib/middleware/rate-limit-config.ts
-export const SENSITIVE_PATTERNS = ['/api/auth', '/api/files/upload'];
+export const SENSITIVE_PATTERNS = ["/api/auth", "/api/files/upload"];
 
 export function shouldFailClosed(pathname: string): boolean {
-  return SENSITIVE_PATTERNS.some(p => pathname.startsWith(p));
+  return SENSITIVE_PATTERNS.some((p) => pathname.startsWith(p));
 }
 
 // lib/middleware/rate-limit.ts
 if (!limiter) {
   if (shouldFailClosed(pathname)) {
-    return { success: false, limit: 0, remaining: 0, reset: Date.now() + 60000 };
+    return {
+      success: false,
+      limit: 0,
+      remaining: 0,
+      reset: Date.now() + 60000,
+    };
   }
   return applyMemoryRateLimit(identifier);
 }
 ```
 
 **Done When**:
+
 - [ ] `/api/auth/*` returns 503 when Redis unavailable
 - [ ] `/api/chat` uses memory fallback
 - [ ] Rate limit bypass attempts are logged
@@ -208,11 +216,13 @@ if (!limiter) {
 **Priority**: P0 🔴 **FUNCTIONAL BLOCKER** | **Effort**: M (1.5h) | **REQ**: REQ-013
 
 **Files**:
+
 - `lib/cache-ops/invalidation.ts` (new)
 - `features/chat/actions/message.ts`
 - `features/chat/actions/visibility.ts`
 
 **Implementation**:
+
 ```typescript
 // lib/cache-ops/invalidation.ts
 export async function invalidateCache(tag: string): Promise<void> {
@@ -222,11 +232,12 @@ export async function invalidateCache(tag: string): Promise<void> {
       return;
     }
   } catch {}
-  revalidateTag(tag, 'max');
+  revalidateTag(tag, "max");
 }
 ```
 
 **Done When**:
+
 - [ ] `invalidateCache()` utility created
 - [ ] Server Actions use `updateTag()`
 - [ ] Route Handlers fall back to `revalidateTag()`
@@ -238,11 +249,13 @@ export async function invalidateCache(tag: string): Promise<void> {
 **Priority**: P0 🔴 **SECURITY** | **Effort**: S (30m) | **REQ**: REQ-028
 
 **Files**:
+
 - `lib/middleware/rate-limit.ts`
 
 **Problem**: The `withRateLimit` HOF defaults to `failOpen: true`, which bypasses rate limiting when Redis is unavailable. This is insecure for sensitive endpoints.
 
 **Implementation**:
+
 ```typescript
 // Change default from true to false
 interface RateLimitOptions {
@@ -258,6 +271,7 @@ export function withRateLimit<T extends (...args: any[]) => any>(
 ```
 
 **Done When**:
+
 - [ ] `failOpen` defaults to `false`
 - [ ] Existing callers explicitly set `failOpen: true` if needed
 - [ ] Unit test verifies fail-closed behavior
@@ -269,32 +283,36 @@ export function withRateLimit<T extends (...args: any[]) => any>(
 **Priority**: P0 🔴 **SECURITY** | **Effort**: S (30m) | **REQ**: REQ-029
 
 **Files**:
+
 - `app/(chat)/api/chat/route.ts`
 
 **Problem**: Error response exposes model information when guests exceed message limit.
 
 **Before**:
+
 ```typescript
 return new Response(
-  JSON.stringify({ 
-    error: 'Message limit exceeded',
-    model: selectedChatModel // ❌ Leaks model info
+  JSON.stringify({
+    error: "Message limit exceeded",
+    model: selectedChatModel, // ❌ Leaks model info
   }),
   { status: 429 }
 );
 ```
 
 **After**:
+
 ```typescript
 return new Response(
-  JSON.stringify({ 
-    error: 'Message limit exceeded. Please sign in to continue.'
+  JSON.stringify({
+    error: "Message limit exceeded. Please sign in to continue.",
   }),
   { status: 429 }
 );
 ```
 
 **Done When**:
+
 - [ ] Model info removed from error response
 - [ ] Only generic user-friendly message returned
 - [ ] Integration test verifies no model leakage
@@ -310,6 +328,7 @@ return new Response(
 **Files**: `next.config.ts`
 
 **Implementation**:
+
 ```typescript
 experimental: {
   cacheLife: {
@@ -322,6 +341,7 @@ experimental: {
 ```
 
 **Done When**:
+
 - [ ] 4 custom profiles defined
 - [ ] Build completes without errors
 - [ ] TypeScript compilation passes
@@ -343,6 +363,7 @@ experimental: {
 | OPT-006 | `getSuggestionsCached` | `(ctx)` | `(userId)` |
 
 **Done When**:
+
 - [ ] All functions accept serializable arguments
 - [ ] All call sites updated
 - [ ] No runtime errors
@@ -356,17 +377,20 @@ experimental: {
 **Files**: `lib/cache/tags.ts` (new)
 
 **Implementation**:
+
 ```typescript
 export const CacheTags = {
   chat: (chatId: string) => `chat-${chatId}`,
   userChats: (userId: string) => `user-chats-${userId}`,
   chatMessages: (chatId: string) => `chat-messages-${chatId}`,
   document: (docId: string) => `document-${docId}`,
-  suggestions: (docId: string, userId: string) => `suggestions-${docId}-${userId}`,
+  suggestions: (docId: string, userId: string) =>
+    `suggestions-${docId}-${userId}`,
 } as const;
 ```
 
 **Done When**:
+
 - [ ] CacheTags utility exported
 - [ ] All cached functions use utility
 - [ ] No hardcoded tag strings
@@ -380,6 +404,7 @@ export const CacheTags = {
 **Files**: `features/auth/components/auth-provider.tsx`, `features/auth/hooks/use-auth.ts`
 
 **Implementation**:
+
 ```typescript
 const AuthStateContext = createContext<AuthState | null>(null);
 const AuthDispatchContext = createContext<AuthDispatch | null>(null);
@@ -399,6 +424,7 @@ export function useAuth() {
 ```
 
 **Done When**:
+
 - [ ] Separate state/dispatch contexts
 - [ ] `useAuth()` continues working
 - [ ] React DevTools shows reduced re-renders
@@ -412,6 +438,7 @@ export function useAuth() {
 **Files**: `features/sidebar/components/sidebar-provider.tsx`, `components/ui/sidebar.tsx`
 
 **Done When**:
+
 - [ ] Single canonical location
 - [ ] All imports migrated
 - [ ] Deprecated path shows warning
@@ -427,27 +454,29 @@ export function useAuth() {
 **Files**: `features/auth/actions/login.ts`, `register.ts`, `*-form.tsx`
 
 **Implementation**:
+
 ```typescript
 let abortController: AbortController | null = null;
 
 export async function loginAction(formData: FormData) {
   if (abortController) abortController.abort();
   abortController = new AbortController();
-  
+
   try {
-    const response = await fetch('/api/auth/login', {
+    const response = await fetch("/api/auth/login", {
       signal: abortController.signal,
     });
     if (abortController.signal.aborted) return;
     return response.json();
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') return;
+    if (error instanceof DOMException && error.name === "AbortError") return;
     throw error;
   }
 }
 ```
 
 **Done When**:
+
 - [ ] Rapid double-click only processes last request
 - [ ] Submit button disabled during request
 - [ ] Component unmount aborts pending requests
@@ -461,16 +490,18 @@ export async function loginAction(formData: FormData) {
 **Files**: `lib/auth/session-sync.ts` (new), `features/auth/hooks/use-session-sync.ts` (new)
 
 **Implementation**:
+
 ```typescript
 export function createSessionSync() {
-  if (typeof BroadcastChannel !== 'undefined') {
-    return new BroadcastChannelSync('session-sync');
+  if (typeof BroadcastChannel !== "undefined") {
+    return new BroadcastChannelSync("session-sync");
   }
-  return new LocalStorageSync('session-sync');
+  return new LocalStorageSync("session-sync");
 }
 ```
 
 **Done When**:
+
 - [ ] Login in Tab A propagates to Tab B within 100ms
 - [ ] Logout in Tab A logs out Tab B immediately
 - [ ] Safari <15.4 uses localStorage fallback
@@ -486,9 +517,11 @@ export function createSessionSync() {
 **Problem**: BroadcastChannel messages should validate origin to prevent cross-origin attacks in certain embedding scenarios.
 
 **Implementation**:
+
 ```typescript
 // lib/auth/session-sync.ts
-const ALLOWED_ORIGIN = typeof window !== 'undefined' ? window.location.origin : '';
+const ALLOWED_ORIGIN =
+  typeof window !== "undefined" ? window.location.origin : "";
 
 export class BroadcastChannelSync {
   private channel: BroadcastChannel;
@@ -498,7 +531,10 @@ export class BroadcastChannelSync {
     this.channel.onmessage = (event: MessageEvent) => {
       // Validate origin for security
       if (event.origin && event.origin !== ALLOWED_ORIGIN) {
-        console.warn('Rejected BroadcastChannel message from unauthorized origin:', event.origin);
+        console.warn(
+          "Rejected BroadcastChannel message from unauthorized origin:",
+          event.origin
+        );
         return;
       }
       this.handleMessage(event.data);
@@ -508,6 +544,7 @@ export class BroadcastChannelSync {
 ```
 
 **Done When**:
+
 - [ ] Origin validation added to BroadcastChannel message handler
 - [ ] Cross-origin messages are rejected with warning log
 - [ ] Same-origin messages continue to work normally
@@ -522,12 +559,13 @@ export class BroadcastChannelSync {
 **Priority**: P1 | **Effort**: 5h total | **REQ**: REQ-001
 
 **Pattern**:
+
 ```typescript
 export async function getChatCached(chatId: string, userId: string) {
   "use cache";
   cacheTag(CacheTags.chat(chatId));
   cacheLife("chatMessages");
-  
+
   // ... existing implementation
 }
 ```
@@ -550,6 +588,7 @@ export async function getChatCached(chatId: string, userId: string) {
 **Files**: `lib/data/parallel-loader.ts`
 
 **Implementation**:
+
 ```typescript
 export async function loadChatPageData(chatId: string): Promise<ChatPageData> {
   const session = await getSessionCached();
@@ -562,8 +601,9 @@ export async function loadChatPageData(chatId: string): Promise<ChatPageData> {
 
   return {
     session,
-    chatWithMessages: chatResult.status === 'fulfilled' ? chatResult.value : null,
-    votes: votesResult.status === 'fulfilled' ? votesResult.value : [],
+    chatWithMessages:
+      chatResult.status === "fulfilled" ? chatResult.value : null,
+    votes: votesResult.status === "fulfilled" ? votesResult.value : [],
   };
 }
 ```
@@ -587,14 +627,15 @@ See OPT-P0-002 for implementation.
 **Priority**: P1 | **Effort**: 5h total | **REQ**: REQ-003
 
 **Pattern**:
+
 ```typescript
 "use server";
-import { invalidateCache } from '@/lib/cache-ops/invalidation';
-import { CacheTags } from '@/lib/cache/tags';
+import { invalidateCache } from "@/lib/cache-ops/invalidation";
+import { CacheTags } from "@/lib/cache/tags";
 
 export async function deleteMessage(chatId: string, messageId: string) {
   await db.delete(messages).where(eq(messages.id, messageId));
-  
+
   invalidateCache(CacheTags.chatMessages(chatId));
   invalidateCache(CacheTags.chat(chatId));
 }
@@ -607,6 +648,7 @@ export async function deleteMessage(chatId: string, messageId: string) {
 **Priority**: P1 | **Effort**: M (1.5h) | **REQ**: REQ-004
 
 **Migration**:
+
 ```typescript
 // ❌ Before (deprecated)
 revalidateTag("user-chats");
@@ -616,6 +658,7 @@ revalidateTag("user-chats", "max");
 ```
 
 **Done When**:
+
 - [ ] All revalidateTag calls have profile argument
 - [ ] No deprecation warnings in build
 - [ ] No deprecated usage at runtime
@@ -639,6 +682,7 @@ Extends OPT-046 with integration into AuthProvider.
 **Files**: `lib/cache/circuit-breaker.ts`
 
 **Done When**:
+
 - [ ] Circuit opens after 5 failures in 10s
 - [ ] Half-opens after 30s
 - [ ] Logs state changes
@@ -650,6 +694,7 @@ Extends OPT-046 with integration into AuthProvider.
 **Priority**: P1 | **Effort**: M (1.5h) | **REQ**: REQ-017
 
 **Done When**:
+
 - [ ] Session falls back to database
 - [ ] Chat cache falls back to database
 - [ ] Degradation state logged
@@ -665,14 +710,15 @@ Extends OPT-046 with integration into AuthProvider.
 **Files**: `app/(chat)/chat/[id]/page.tsx`
 
 **Implementation**:
+
 ```typescript
 export async function generateMetadata({ params }): Promise<Metadata> {
   const { id } = await params;
-  const chat = await getChatCached(id, 'metadata-fetch');
-  
+  const chat = await getChatCached(id, "metadata-fetch");
+
   return {
-    title: chat?.title || 'AI Chat',
-    openGraph: { title: chat?.title || 'AI Chat' },
+    title: chat?.title || "AI Chat",
+    openGraph: { title: chat?.title || "AI Chat" },
   };
 }
 ```
@@ -683,7 +729,8 @@ export async function generateMetadata({ params }): Promise<Metadata> {
 
 **Priority**: P2 | **Effort**: 1h total | **REQ**: REQ-021, REQ-022
 
-**Files**: 
+**Files**:
+
 - `app/(auth)/login/loading.tsx` (new)
 - `app/(auth)/login/error.tsx` (new)
 - `app/(auth)/register/loading.tsx` (new)
@@ -696,6 +743,7 @@ export async function generateMetadata({ params }): Promise<Metadata> {
 **Priority**: P2 | **Effort**: M (1.5h) | **REQ**: REQ-023
 
 **Pattern**:
+
 ```tsx
 <div role="status" aria-label="Loading chat" aria-busy="true">
   <span className="sr-only">Loading chat conversation...</span>
@@ -712,15 +760,16 @@ export async function generateMetadata({ params }): Promise<Metadata> {
 **Files**: `hooks/use-online-status.ts` (new), `components/offline-indicator.tsx` (new)
 
 **Implementation**:
+
 ```typescript
 export function useOnlineStatus() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  
+
   useEffect(() => {
-    window.addEventListener('online', () => setIsOnline(true));
-    window.addEventListener('offline', () => setIsOnline(false));
+    window.addEventListener("online", () => setIsOnline(true));
+    window.addEventListener("offline", () => setIsOnline(false));
   }, []);
-  
+
   return isOnline;
 }
 ```
@@ -748,6 +797,7 @@ export function useOnlineStatus() {
 **Priority**: P1 | **Effort**: L (3h) | **REQ**: REQ-009
 
 **Coverage**:
+
 - [ ] Guest user chat flow
 - [ ] Authenticated user chat flow
 - [ ] Message sending/receiving
@@ -783,46 +833,48 @@ export function useOnlineStatus() {
 
 ## Traceability Matrix
 
-| REQ | Tasks |
-|-----|-------|
+| REQ     | Tasks                                                |
+| ------- | ---------------------------------------------------- |
 | REQ-001 | OPT-008, OPT-009, OPT-010, OPT-011, OPT-012, OPT-023 |
-| REQ-002 | OPT-001 |
-| REQ-003 | OPT-015, OPT-016, OPT-018, OPT-019, OPT-025 |
-| REQ-004 | OPT-017 |
-| REQ-005 | OPT-002, OPT-003, OPT-004, OPT-005, OPT-006 |
-| REQ-006 | OPT-026 |
-| REQ-007 | OPT-013, OPT-031, OPT-032, OPT-037 |
-| REQ-008 | OPT-033 |
-| REQ-009 | OPT-034 |
-| REQ-010 | OPT-030 |
-| REQ-011 | OPT-020, OPT-035 |
-| REQ-012 | OPT-P0-001, OPT-036 |
-| REQ-013 | OPT-P0-002, OPT-014 |
-| REQ-014 | OPT-007 |
-| REQ-015 | OPT-028 |
-| REQ-016 | OPT-024, OPT-027 |
-| REQ-017 | OPT-021, OPT-022 |
-| REQ-018 | OPT-029 |
-| REQ-019 | OPT-040 |
-| REQ-020 | OPT-041 |
-| REQ-021 | OPT-042 |
-| REQ-022 | OPT-043 |
-| REQ-023 | OPT-044 |
-| REQ-024 | OPT-045 |
-| REQ-025 | OPT-046 |
-| REQ-026 | OPT-047 |
-| REQ-027 | OPT-048 |
+| REQ-002 | OPT-001                                              |
+| REQ-003 | OPT-015, OPT-016, OPT-018, OPT-019, OPT-025          |
+| REQ-004 | OPT-017                                              |
+| REQ-005 | OPT-002, OPT-003, OPT-004, OPT-005, OPT-006          |
+| REQ-006 | OPT-026                                              |
+| REQ-007 | OPT-013, OPT-031, OPT-032, OPT-037                   |
+| REQ-008 | OPT-033                                              |
+| REQ-009 | OPT-034                                              |
+| REQ-010 | OPT-030                                              |
+| REQ-011 | OPT-020, OPT-035                                     |
+| REQ-012 | OPT-P0-001, OPT-036                                  |
+| REQ-013 | OPT-P0-002, OPT-014                                  |
+| REQ-014 | OPT-007                                              |
+| REQ-015 | OPT-028                                              |
+| REQ-016 | OPT-024, OPT-027                                     |
+| REQ-017 | OPT-021, OPT-022                                     |
+| REQ-018 | OPT-029                                              |
+| REQ-019 | OPT-040                                              |
+| REQ-020 | OPT-041                                              |
+| REQ-021 | OPT-042                                              |
+| REQ-022 | OPT-043                                              |
+| REQ-023 | OPT-044                                              |
+| REQ-024 | OPT-045                                              |
+| REQ-025 | OPT-046                                              |
+| REQ-026 | OPT-047                                              |
+| REQ-027 | OPT-048                                              |
 
 ---
 
 ## Implementation Checklist
 
 ### Wave 0 Checkpoint
+
 - [ ] OPT-P0-001: Rate limit fail-closed
 - [ ] OPT-P0-002: updateTag support
 - [ ] Security review approved
 
 ### Wave 1 Checkpoint
+
 - [ ] All signatures refactored
 - [ ] cacheLife profiles configured
 - [ ] CacheTags utility created
@@ -831,32 +883,38 @@ export function useOnlineStatus() {
 - [ ] `npm run build` succeeds
 
 ### Wave 1.5 Checkpoint
+
 - [ ] AbortController in auth flows
 - [ ] BroadcastChannel sync working
 - [ ] Multi-tab session test passes
 
 ### Wave 2 Checkpoint
+
 - [ ] All "use cache" directives added
 - [ ] Cache hit/miss visible in dev mode
 - [ ] invalidation.ts utility complete
 
 ### Wave 3 Checkpoint
+
 - [ ] All updateTag calls added
 - [ ] revalidateTag migration complete
 - [ ] No deprecation warnings
 
 ### Wave 4 Checkpoint
+
 - [ ] Circuit breaker implemented
 - [ ] Graceful degradation tested
 - [ ] Edge cases handled
 
 ### Wave 5 Checkpoint
+
 - [ ] generateMetadata working
 - [ ] Loading skeletons consistent
 - [ ] A11y attributes added
 - [ ] Documentation complete
 
 ### Wave 6 Checkpoint
+
 - [ ] Baseline metrics captured
 - [ ] Regression tests pass
 - [ ] Multi-tab E2E passes

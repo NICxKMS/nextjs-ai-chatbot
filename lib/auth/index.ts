@@ -69,16 +69,16 @@ export {
     invalidateCachedSession,
     setCachedSession,
 } from "./session-cache";
+export type {
+    SessionMessage,
+    SessionSyncInstance,
+    SessionSyncOptions,
+} from "./session-sync";
 // Session sync (REQ-030 Multi-Tab Sync)
 export {
     createSessionSync,
     useSessionSync,
     useSessionSyncBroadcast,
-} from "./session-sync";
-export type {
-    SessionMessage,
-    SessionSyncInstance,
-    SessionSyncOptions,
 } from "./session-sync";
 // Types
 export type {
