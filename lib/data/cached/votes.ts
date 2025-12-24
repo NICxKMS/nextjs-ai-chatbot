@@ -11,7 +11,9 @@
  */
 import "server-only";
 
+import { cacheLife, cacheTag } from "next/cache";
 import type { UserContext } from "@/lib/cache/types";
+import { CacheTags } from "@/lib/cache/tags";
 import {
     deleteVoteFromCache,
     getVoteFromCache,
@@ -84,6 +86,10 @@ export async function getVotesByChatIdCached(
     chatId: string,
     ctx: DataContext
 ): Promise<Vote[]> {
+    "use cache";
+    cacheLife("chatMessages");
+    cacheTag(CacheTags.votes(chatId));
+
     // Guest = no persistence
     if (isGuest(ctx)) {
         return [];

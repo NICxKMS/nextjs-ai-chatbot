@@ -11,10 +11,12 @@
  */
 import "server-only";
 
+import { cacheLife, cacheTag } from "next/cache";
 import type {
     CachedDocumentMeta,
     CachedDocumentVersion,
 } from "@/lib/cache/types";
+import { CacheTags } from "@/lib/cache/tags";
 import {
     appendVersionToCache,
     createDocumentInCache,
@@ -41,6 +43,10 @@ export async function getDocumentCached(
     documentId: string,
     ctx: DataContext
 ): Promise<Document | null> {
+    "use cache";
+    cacheLife("documents");
+    cacheTag(CacheTags.document(documentId));
+
     // Try cache first (get meta + latest version)
     const [cachedMeta, cachedVersion] = await Promise.all([
         getDocumentMetaFromCache(ctx.userId, documentId),

@@ -11,7 +11,9 @@
  */
 import "server-only";
 
+import { cacheLife, cacheTag } from "next/cache";
 import type { UserContext } from "@/lib/cache/types";
+import { CacheTags } from "@/lib/cache/tags";
 import type { CachedSuggestion } from "@/lib/cache-ops/suggestions";
 import {
     deleteSuggestionsFromCache,
@@ -76,6 +78,10 @@ export async function getSuggestionsCached(
     documentId: string,
     ctx: DataContext
 ): Promise<Suggestion[]> {
+    "use cache";
+    cacheLife("suggestions");
+    cacheTag(CacheTags.suggestions(documentId));
+
     const userCtx = toUserContext(ctx);
 
     // Try cache first
