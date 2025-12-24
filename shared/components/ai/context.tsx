@@ -168,7 +168,12 @@ export function useContextCalculation(
     maxTokens: number
 ): { usedTokens: number; maxTokens: number; percentage: number } {
     return useMemo(() => {
-        // Simple estimation: ~4 characters per token
+        /**
+         * Approximate characters per token for estimation.
+         * Based on OpenAI's rule of thumb: ~4 characters per token for English text.
+         * This is a rough estimate; actual tokenization varies by model and content.
+         * @see https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count-them
+         */
         const CHARS_PER_TOKEN = 4;
         const totalChars = messages.reduce(
             (acc, msg) => acc + (msg.content?.length ?? 0),

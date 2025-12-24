@@ -141,7 +141,7 @@ function ModelRow({
 }) {
     const capabilities = model.capabilities
         ? Object.entries(model.capabilities)
-              .filter(([key, value]) => value === true && capabilityLabels[key])
+              .filter(([key, value]) => value && capabilityLabels[key])
               .map(([key]) => capabilityLabels[key])
         : [];
 
@@ -331,6 +331,7 @@ export function ModelSelector({
                     <div>Choose a model</div>
                     {onRefresh && (
                         <Button
+                            aria-busy={isRefreshing}
                             className="h-6 px-2 text-xs"
                             disabled={isRefreshing}
                             onClick={async (e) => {
@@ -351,7 +352,9 @@ export function ModelSelector({
                                     isRefreshing && "animate-spin"
                                 )}
                             />
-                            {isRefreshing ? "Refreshing…" : "Refresh"}
+                            <span aria-live="polite">
+                                {isRefreshing ? "Refreshing…" : "Refresh"}
+                            </span>
                         </Button>
                     )}
                 </div>

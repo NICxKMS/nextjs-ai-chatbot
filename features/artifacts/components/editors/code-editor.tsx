@@ -125,7 +125,7 @@ function PureCodeEditor({ content, onSaveContent, status }: CodeEditorProps) {
                 editorRef.current = null;
             }
         };
-        // NOTE: we only want to run this effect once after modules load
+        // Modules are loaded once; content changes handled by separate effect
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [modules, content]);
 

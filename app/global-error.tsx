@@ -49,7 +49,9 @@ export default function GlobalError({
                         </button>
                         <button
                             className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-                            onClick={() => (window.location.href = "/")}
+                            onClick={() => {
+                                window.location.href = "/";
+                            }}
                             type="button"
                         >
                             Go home

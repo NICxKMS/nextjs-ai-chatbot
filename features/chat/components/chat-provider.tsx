@@ -166,6 +166,8 @@ export function ChatProvider({
     );
 
     // Calculate adaptive throttle (memoized)
+    // Empty deps intentional: connection type is static per session, no need to recalculate
+    // getAdaptiveThrottle() reads navigator.connection which doesn't change after mount
     const throttleValue = useMemo(() => getAdaptiveThrottle(), []);
 
     // Get available models
@@ -247,7 +249,11 @@ export function ChatProvider({
                 // Title received: streamData.data
             }
             if (streamData.type === "data-usage") {
-                // Handle usage tracking
+                // TODO(token-tracking): Implement token usage display in chat UI.
+                // This data can be used for:
+                // - Displaying token count per message
+                // - Context window usage indicator
+                // - Cost estimation features
                 const _usage = streamData.data as
                     | {
                           inputTokens?: number;

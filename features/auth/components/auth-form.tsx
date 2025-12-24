@@ -333,7 +333,11 @@ export function AuthForm({
                         </Label>
                         <Input
                             aria-describedby={
-                                errors.password ? "password-error" : undefined
+                                errors.password
+                                    ? "password-error"
+                                    : isLogin
+                                      ? undefined
+                                      : "password-help"
                             }
                             aria-invalid={!!errors.password}
                             autoComplete={
@@ -353,6 +357,15 @@ export function AuthForm({
                             ref={passwordRef}
                             type="password"
                         />
+                        {!isLogin && !errors.password && (
+                            <p
+                                className="text-muted-foreground text-xs"
+                                id="password-help"
+                            >
+                                Must be at least {MIN_PASSWORD_LENGTH}{" "}
+                                characters
+                            </p>
+                        )}
                         <ErrorMessage
                             id="password-error"
                             message={

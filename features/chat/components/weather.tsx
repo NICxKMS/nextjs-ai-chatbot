@@ -18,7 +18,15 @@ import { useIsMobile } from "@/shared/hooks/use-mobile";
 // =============================================================================
 
 const SunIcon = ({ size = 40 }: { size?: number }) => (
-    <svg fill="none" height={size} viewBox="0 0 24 24" width={size}>
+    <svg
+        aria-labelledby="sun-icon-title"
+        fill="none"
+        height={size}
+        role="img"
+        viewBox="0 0 24 24"
+        width={size}
+    >
+        <title id="sun-icon-title">Sun - clear weather</title>
         <circle cx="12" cy="12" fill="currentColor" r="5" />
         <line
             stroke="currentColor"
@@ -88,7 +96,15 @@ const SunIcon = ({ size = 40 }: { size?: number }) => (
 );
 
 const MoonIcon = ({ size = 40 }: { size?: number }) => (
-    <svg fill="none" height={size} viewBox="0 0 24 24" width={size}>
+    <svg
+        aria-labelledby="moon-icon-title"
+        fill="none"
+        height={size}
+        role="img"
+        viewBox="0 0 24 24"
+        width={size}
+    >
+        <title id="moon-icon-title">Moon - nighttime</title>
         <path
             d="M21 12.79A9 9 0 1 1 11.21 3A7 7 0 0 0 21 12.79z"
             fill="currentColor"
@@ -97,7 +113,15 @@ const MoonIcon = ({ size = 40 }: { size?: number }) => (
 );
 
 const CloudIcon = ({ size = 24 }: { size?: number }) => (
-    <svg fill="none" height={size} viewBox="0 0 24 24" width={size}>
+    <svg
+        aria-labelledby="cloud-icon-title"
+        fill="none"
+        height={size}
+        role="img"
+        viewBox="0 0 24 24"
+        width={size}
+    >
+        <title id="cloud-icon-title">Cloud - cloudy weather</title>
         <path
             d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"
             fill="none"

@@ -2,139 +2,114 @@
  * Error Message Catalog
  * Ref: 01-error-handling-optimal-design.md §5
  *
- * Extracted from OldApp: oldapp/lib/errors.ts
+ * @deprecated This module is a compatibility layer. For new code, import directly from:
+ *   `import { getFriendlyError } from '@/lib/utils/error-messages'`
+ *
+ * This module re-exports from lib/utils/error-messages.ts (the source of truth)
+ * and provides backward-compatible getMessage() for existing consumers.
  */
 
+import {
+    type FriendlyError,
+    getFriendlyError,
+} from "@/lib/utils/error-messages";
 import type { ErrorCode, MessageConfig } from "./types";
 
-const messages: Record<string, MessageConfig> = {
-    // Auth errors
-    "auth:unauthorized": {
-        default: "You need to sign in before continuing.",
-        guest: "Sign in to access this feature.",
-    },
-    "auth:forbidden": {
-        default: "Your account does not have access to this feature.",
-    },
-    "auth:session_expired": {
-        default: "Your session has expired. Please sign in again.",
-    },
-    "auth:invalid_credentials": {
-        default: "Invalid email or password.",
-    },
-    "auth:guest_not_configured": {
-        default: "Guest authentication is not configured.",
-    },
+// Re-export for consumers who want the richer UI-oriented types
+export {
+    type FriendlyError,
+    getFriendlyError,
+} from "@/lib/utils/error-messages";
 
-    // Validation errors
-    "validation:invalid_input": {
-        default: "The provided input is invalid.",
-    },
-    "validation:missing_field": {
-        default: "A required field is missing.",
-    },
-    "validation:invalid_format": {
-        default: "The input format is invalid.",
-    },
-
-    // Resource errors
-    "resource:not_found": {
-        default: "The requested resource was not found.",
-    },
-    "resource:not_found:chat": {
-        default: "The requested chat was not found.",
-        guest: "Chat not found. Guest chat history is temporary and may have expired.",
-    },
-    "resource:not_found:document": {
-        default: "The requested document was not found.",
-    },
-    "resource:not_found:message": {
-        default: "The requested message was not found.",
-    },
-    "resource:not_found:user": {
-        default: "User not found.",
-    },
-    "resource:already_exists": {
-        default: "A record with the same value already exists.",
-    },
-    "resource:access_denied": {
-        default: "This resource belongs to another user.",
-        guest: "You don't have access to this resource.",
-    },
-
-    // Rate limit errors
-    "rate_limit:exceeded": {
-        default: "Too many requests. Please try again later.",
-    },
-    "rate_limit:daily_exceeded": {
-        default:
-            "You have exceeded your maximum number of messages for the day. Please try again later.",
-        guest: "Daily message limit exceeded. Sign in to increase your message allowance.",
-    },
-
-    // External errors
-    "external:service_unavailable": {
-        default:
-            "An external service is currently unavailable. Please try again later.",
-    },
-    "external:timeout": {
-        default: "The request timed out. Please try again.",
-    },
-    "external:database:connection_failure": {
-        default: "Unable to connect to the database. Please try again later.",
-    },
-    "external:ai_provider": {
-        default: "AI service is temporarily unavailable. Please try again.",
-    },
-
-    // Internal errors
-    "internal:unknown": {
-        default: "An unexpected error occurred. Please try again.",
-    },
-    "internal:configuration": {
-        default: "Server configuration error.",
-    },
+/**
+ * Guest-specific message overrides.
+ * These provide alternative messages for guest users where applicable.
+ */
+const GUEST_OVERRIDES: Record<string, string> = {
+    "auth:unauthorized": "Sign in to access this feature.",
+    "resource:not_found:chat":
+        "Chat not found. Guest chat history is temporary and may have expired.",
+    "resource:access_denied": "You don't have access to this resource.",
+    "rate_limit:daily_exceeded":
+        "Daily message limit exceeded. Sign in to increase your message allowance.",
 };
 
 /**
- * Get error message by code
- * @param code - Error code
- * @param isGuest - Whether user is a guest
- * @param variant - Optional variant key
+ * Custom messages registry for feature modules.
+ * Allows runtime registration of additional error messages.
+ */
+const customMessages: Record<string, MessageConfig> = {};
+
+/**
+ * Convert FriendlyError to MessageConfig format.
+ * This bridges the UI-oriented format to the simpler API format.
+ */
+function toMessageConfig(friendly: FriendlyError, code: string): MessageConfig {
+    return {
+        default: friendly.message,
+        guest: GUEST_OVERRIDES[code],
+    };
+}
+
+/**
+ * Get error message by code.
+ *
+ * @deprecated For new UI code, use `getFriendlyError()` which provides richer
+ *   information including title and action buttons.
+ *
+ * @param code - Error code (e.g., 'auth:unauthorized')
+ * @param isGuest - Whether user is a guest (returns guest-specific message if available)
+ * @param variant - Optional variant key for custom message variants
+ * @returns Plain text error message
  */
 export function getMessage(
     code: ErrorCode,
     isGuest = false,
     variant?: string
 ): string {
-    const config = messages[code];
+    // Check custom registered messages first
+    const customConfig = customMessages[code];
+    if (customConfig) {
+        if (variant && customConfig.variants?.[variant]) {
+            return customConfig.variants[variant];
+        }
+        if (isGuest && customConfig.guest) {
+            return customConfig.guest;
+        }
+        return customConfig.default;
+    }
 
-    if (!config) {
-        // Try parent code (e.g., 'auth:unauthorized' for 'auth:unauthorized:expired')
+    // Get from source of truth (lib/utils/error-messages.ts)
+    const friendly = getFriendlyError(code);
+    const config = toMessageConfig(friendly, code);
+
+    // Handle guest-specific messages
+    if (isGuest && config.guest) {
+        return config.guest;
+    }
+
+    // Handle parent code fallback for deeply nested codes
+    if (friendly.title === "Something went wrong") {
         const parts = code.split(":");
         if (parts.length > 2) {
             const parentCode = parts.slice(0, 2).join(":") as ErrorCode;
             return getMessage(parentCode, isGuest, variant);
         }
-        return "An error occurred.";
-    }
-
-    if (variant && config.variants?.[variant]) {
-        return config.variants[variant];
-    }
-
-    if (isGuest && config.guest) {
-        return config.guest;
     }
 
     return config.default;
 }
 
 /**
- * Register custom error messages (for feature modules)
+ * Register custom error messages (for feature modules).
+ *
+ * Use this to add module-specific error messages at runtime.
+ * Custom messages take precedence over the default message catalog.
+ *
+ * @param newMessages - Record of error codes to MessageConfig
  */
 export function registerMessages(
     newMessages: Record<string, MessageConfig>
 ): void {
-    Object.assign(messages, newMessages);
+    Object.assign(customMessages, newMessages);
 }

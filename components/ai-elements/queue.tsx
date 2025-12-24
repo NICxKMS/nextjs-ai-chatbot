@@ -153,6 +153,7 @@ export const QueueItemImage = ({
 }: QueueItemImageProps) => (
     <img
         alt=""
+        aria-hidden="true"
         className={cn("h-8 w-8 rounded border object-cover", className)}
         height={32}
         width={32}

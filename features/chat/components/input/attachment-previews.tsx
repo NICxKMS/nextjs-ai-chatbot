@@ -54,7 +54,7 @@ export function AttachmentPreview({
                 />
             ) : (
                 <div className="flex size-full items-center justify-center text-muted-foreground">
-                    <File className="h-8 w-8" />
+                    <File aria-hidden="true" className="h-8 w-8" />
                 </div>
             )}
 
@@ -69,7 +69,7 @@ export function AttachmentPreview({
             {!isUploading && (
                 <button
                     aria-label={`Remove ${attachment.name}`}
-                    className="absolute top-0.5 right-0.5 flex size-4 items-center justify-center rounded-full bg-destructive p-0 text-destructive-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                    className="absolute top-0.5 right-0.5 flex size-4 items-center justify-center rounded-full bg-destructive p-0 text-destructive-foreground opacity-0 transition-opacity focus-within:opacity-100 focus:opacity-100 group-hover:opacity-100"
                     onClick={onRemove}
                     type="button"
                 >

@@ -37,12 +37,18 @@ export function useDebounce<
     deps: React.DependencyList = []
 ): (...args: Parameters<T>) => void {
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Ref initialization - only needs initial value, updates handled in useEffect below.
+    // The callback reference is intentionally captured once and updated separately to
+    // avoid recreating the debounced function on every callback change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     const callbackRef = useRef(callback);
 
     // Update callback ref when deps change
     useEffect(() => {
         callbackRef.current = callback;
+        // Custom dependency array: The caller controls when the callback should be
+        // recreated via the `deps` parameter. Using `callback` directly would cause
+        // unnecessary updates since functions are recreated on each render.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, deps);
 

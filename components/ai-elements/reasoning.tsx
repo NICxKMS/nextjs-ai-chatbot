@@ -3,7 +3,14 @@
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
 import { BrainIcon, ChevronDownIcon } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
-import { createContext, memo, useContext, useEffect, useState } from "react";
+import {
+    createContext,
+    memo,
+    useContext,
+    useEffect,
+    useRef,
+    useState,
+} from "react";
 import { Streamdown } from "streamdown";
 import {
     Collapsible,
@@ -64,6 +71,7 @@ export const Reasoning = memo(
 
         const [hasAutoClosed, setHasAutoClosed] = useState(false);
         const [startTime, setStartTime] = useState<number | null>(null);
+        const collapsibleRef = useRef<HTMLDivElement>(null);
 
         // Track duration when streaming starts and ends
         useEffect(() => {
@@ -82,7 +90,14 @@ export const Reasoning = memo(
             if (defaultOpen && !isStreaming && isOpen && !hasAutoClosed) {
                 // Add a small delay before closing to allow user to see the content
                 const timer = setTimeout(() => {
-                    setIsOpen(false);
+                    // Don't steal focus if user is currently focused within the collapsible
+                    const isFocusedWithin =
+                        collapsibleRef.current?.contains(
+                            document.activeElement
+                        ) ?? false;
+                    if (!isFocusedWithin) {
+                        setIsOpen(false);
+                    }
                     setHasAutoClosed(true);
                 }, AUTO_CLOSE_DELAY);
 
@@ -102,6 +117,7 @@ export const Reasoning = memo(
                     className={cn("not-prose mb-4", className)}
                     onOpenChange={handleOpenChange}
                     open={isOpen}
+                    ref={collapsibleRef}
                     {...props}
                 >
                     {children}

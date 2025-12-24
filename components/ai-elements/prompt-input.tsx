@@ -892,6 +892,7 @@ export const PromptInputTextarea = ({
 
         const files: File[] = [];
 
+        // biome-ignore lint/style/useForOf: DataTransferItemList is not iterable
         for (let i = 0; i < items.length; i++) {
             const item = items[i];
             if (item && item.kind === "file") {

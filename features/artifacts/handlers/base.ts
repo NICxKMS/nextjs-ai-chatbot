@@ -56,10 +56,31 @@ export type DocumentHandlerConfig<T extends ArtifactKind> = {
 };
 
 /**
- * Create a document handler with automatic database saving
+ * Factory function to create artifact document handlers with automatic database persistence.
  *
- * @param config Handler configuration with stream callbacks
- * @returns DocumentHandler with onCreateDocument and onUpdateDocument
+ * Creates a handler that wraps stream-based content generation with automatic
+ * database saving for authenticated users. Handles both create and update operations.
+ *
+ * @template T - The artifact kind type (e.g., "text", "code", "sheet")
+ * @param config - Handler configuration with stream callbacks
+ * @param config.kind - The artifact kind identifier
+ * @param config.onCreateDocument - Async callback for generating new document content via streaming
+ * @param config.onUpdateDocument - Async callback for updating existing document content
+ * @returns DocumentHandler with onCreateDocument and onUpdateDocument methods that auto-save to database
+ *
+ * @example
+ * ```ts
+ * const textHandler = createDocumentHandler<"text">({
+ *   kind: "text",
+ *   onCreateDocument: async ({ dataStream }) => {
+ *     // Stream content generation
+ *     return draftContent;
+ *   },
+ *   onUpdateDocument: async ({ currentContent }) => {
+ *     return updatedContent;
+ *   },
+ * });
+ * ```
  */
 export function createDocumentHandler<T extends ArtifactKind>(
     config: DocumentHandlerConfig<T>

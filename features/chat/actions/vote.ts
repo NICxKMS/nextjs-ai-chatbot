@@ -11,6 +11,7 @@
 import { getSessionCached } from "@/lib/auth";
 import { createContext, deleteVoteCached, saveVoteCached } from "@/lib/data";
 import { AppError } from "@/lib/errors";
+import { logger } from "@/lib/utils/logger";
 import type { VoteType } from "../types";
 
 // =============================================================================
@@ -103,7 +104,7 @@ export async function voteOnMessage(input: VoteInput): Promise<VoteResult> {
         if (error instanceof AppError) {
             return { success: false, error: error.message };
         }
-        console.error("[Vote] Failed to save vote:", error);
+        logger.errorWithCause("[Vote] Failed to save vote", error);
         return { success: false, error: "Failed to save vote" };
     }
 }
@@ -155,7 +156,7 @@ export async function removeVote(
         if (error instanceof AppError) {
             return { success: false, error: error.message };
         }
-        console.error("[Vote] Failed to remove vote:", error);
+        logger.errorWithCause("[Vote] Failed to remove vote", error);
         return { success: false, error: "Failed to remove vote" };
     }
 }

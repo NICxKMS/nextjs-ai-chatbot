@@ -80,6 +80,11 @@ export const voteData = {
     /**
      * Save or update a vote (upsert)
      * Uses ON CONFLICT for atomic upsert
+     *
+     * Validation strategy: Manual type-safe destructuring with TypeScript.
+     * SaveVoteParams interface provides compile-time validation.
+     * Runtime validation occurs at API boundary (route handler).
+     * TODO: Consider zod schema if params come from untrusted sources directly.
      */
     save: async (
         params: SaveVoteParams,

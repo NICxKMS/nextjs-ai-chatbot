@@ -9,12 +9,11 @@ import { imageArtifact } from "./image";
 import { sheetArtifact } from "./sheet";
 import { textArtifact } from "./text";
 
-// Re-export base utilities
+// Re-export base utilities and artifact definitions
 export { Artifact, artifactRegistry, isArtifactDefinition } from "./base";
 export { codeArtifact } from "./code";
 export { imageArtifact } from "./image";
 export { sheetArtifact } from "./sheet";
-// Re-export individual artifact definitions
 export { textArtifact } from "./text";
 
 /**

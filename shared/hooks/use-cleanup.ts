@@ -10,6 +10,7 @@
  */
 
 import { useCallback, useEffect, useRef } from "react";
+import { logger } from "@/lib/utils/logger";
 
 // =============================================================================
 // TYPES
@@ -114,7 +115,7 @@ export function useCleanup(): UseCleanupReturn {
                 try {
                     cleanup();
                 } catch (error) {
-                    console.error("[useCleanup] Cleanup error:", error);
+                    logger.errorWithCause("[useCleanup] Cleanup error", error);
                 }
             }
             cleanupsRef.current.clear();
@@ -129,7 +130,10 @@ export function useCleanup(): UseCleanupReturn {
             try {
                 cleanupsRef.current.get(cleanupKey)?.();
             } catch (error) {
-                console.error("[useCleanup] Cleanup error on replace:", error);
+                logger.errorWithCause(
+                    "[useCleanup] Cleanup error on replace",
+                    error
+                );
             }
         }
 
@@ -146,7 +150,7 @@ export function useCleanup(): UseCleanupReturn {
             try {
                 cleanup();
             } catch (error) {
-                console.error("[useCleanup] Cleanup error:", error);
+                logger.errorWithCause("[useCleanup] Cleanup error", error);
             }
             cleanupsRef.current.delete(key);
         }
@@ -157,7 +161,7 @@ export function useCleanup(): UseCleanupReturn {
             try {
                 cleanup();
             } catch (error) {
-                console.error("[useCleanup] Cleanup error:", error);
+                logger.errorWithCause("[useCleanup] Cleanup error", error);
             }
         }
         cleanupsRef.current.clear();
@@ -219,7 +223,7 @@ export function useResource<T>(
                 try {
                     cleanupRef.current(resourceRef.current);
                 } catch (error) {
-                    console.error("[useResource] Cleanup error:", error);
+                    logger.errorWithCause("[useResource] Cleanup error", error);
                 }
                 resourceRef.current = null;
             }
@@ -232,7 +236,10 @@ export function useResource<T>(
             try {
                 cleanupRef.current(resourceRef.current);
             } catch (error) {
-                console.error("[useResource] Cleanup error on replace:", error);
+                logger.errorWithCause(
+                    "[useResource] Cleanup error on replace",
+                    error
+                );
             }
         }
         resourceRef.current = resource;
@@ -243,7 +250,7 @@ export function useResource<T>(
             try {
                 cleanupRef.current(resourceRef.current);
             } catch (error) {
-                console.error("[useResource] Cleanup error:", error);
+                logger.errorWithCause("[useResource] Cleanup error", error);
             }
             resourceRef.current = null;
         }

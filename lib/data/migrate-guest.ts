@@ -147,18 +147,22 @@ export async function migrateGuestToAuthUser(
             chatsToMigrate.push({
                 meta: {
                     id: chatMeta.id,
-                    title: chatMeta.title || "Untitled Chat",
+                    title: chatMeta.title ?? "Untitled Chat",
+                    // TYPE-MISMATCH: CachedChatMeta.visibility uses string literal, Chat.visibility uses enum
+                    // Fix: Update CachedChatMeta type in lib/cache/types.ts to use "public" | "private"
                     visibility:
-                        (chatMeta.visibility as "public" | "private") ||
+                        (chatMeta.visibility as "public" | "private") ??
                         "private",
                     createdAt: new Date(chatMeta.createdAt),
                     updatedAt: new Date(chatMeta.updatedAt),
                 },
-                messages: (cachedMessages || []).map((msg) => ({
+                messages: (cachedMessages ?? []).map((msg) => ({
                     id: msg.id,
+                    // TYPE-MISMATCH: CachedMessage.role uses string, Message.role uses union type
+                    // Fix: Update CachedMessage type in lib/cache/types.ts to use "user" | "assistant" | "system"
                     role: msg.role as "user" | "assistant" | "system",
                     parts: msg.parts,
-                    attachments: msg.attachments || [],
+                    attachments: msg.attachments ?? [],
                     createdAt: new Date(msg.createdAt),
                 })),
             });

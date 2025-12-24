@@ -63,7 +63,12 @@ const getStatusBadge = (status: ExtendedToolState) => {
     };
 
     return (
-        <Badge className="gap-1.5 rounded-full text-xs" variant="secondary">
+        <Badge
+            aria-live="polite"
+            className="gap-1.5 rounded-full text-xs"
+            role="status"
+            variant="secondary"
+        >
             {icons[status]}
             {labels[status]}
         </Badge>

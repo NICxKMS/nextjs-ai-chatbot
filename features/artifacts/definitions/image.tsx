@@ -44,6 +44,12 @@ export const imageArtifact = new Artifact<"image", undefined>({
             icon: <ClipboardCopy size={18} />,
             description: "Copy image to clipboard",
             onClick: ({ content }) => {
+                // Feature detection for ClipboardItem API
+                if (typeof ClipboardItem === "undefined") {
+                    toast.error("Clipboard API not supported in this browser");
+                    return;
+                }
+
                 const img = new Image();
                 img.src = `data:image/png;base64,${content}`;
 

@@ -57,7 +57,11 @@ function PureChatHeader({
             <SidebarToggle onClick={onToggleSidebar} />
 
             {/* Actions - right */}
-            <div className="flex items-center gap-1">
+            <div
+                aria-label="Chat actions"
+                className="flex items-center gap-1"
+                role="toolbar"
+            >
                 {/* Visibility selector - only for existing chats */}
                 {isExistingChat && !isReadonly && selectedVisibilityType && (
                     <VisibilitySelector

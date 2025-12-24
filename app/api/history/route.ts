@@ -11,17 +11,14 @@ import { getSessionCached } from "@/lib/auth";
 import { chatDb, createContext, deleteAllUserChatsCached } from "@/lib/data";
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "@/lib/data/types";
 import type { Chat } from "@/lib/db";
-import { AppError } from "@/lib/errors";
+import { AppError, authError } from "@/lib/errors";
 import { logger } from "@/lib/utils/logger";
 
 export async function GET(request: NextRequest) {
     try {
         const session = await getSessionCached();
         if (!session?.user?.id) {
-            return NextResponse.json(
-                { error: "Unauthorized" },
-                { status: 401 }
-            );
+            return authError("unauthorized", { route: "history" }).toResponse();
         }
 
         const ctx = createContext(session.user.id, session.user.type);
@@ -59,12 +56,13 @@ export async function GET(request: NextRequest) {
     } catch (error) {
         logger.error("[History API]", { error });
         if (error instanceof AppError) {
-            return NextResponse.json(
-                { error: error.message },
-                { status: error.statusCode }
-            );
+            return error.toResponse();
         }
-        return NextResponse.json({ error: "Internal error" }, { status: 500 });
+        return new AppError({
+            code: "internal:error",
+            message: "Failed to fetch chat history",
+            cause: error instanceof Error ? error : undefined,
+        }).toResponse();
     }
 }
 
@@ -72,10 +70,7 @@ export async function DELETE(_request: NextRequest) {
     try {
         const session = await getSessionCached();
         if (!session?.user?.id) {
-            return NextResponse.json(
-                { error: "Unauthorized" },
-                { status: 401 }
-            );
+            return authError("unauthorized", { route: "history" }).toResponse();
         }
 
         const ctx = createContext(session.user.id, session.user.type);
@@ -86,6 +81,10 @@ export async function DELETE(_request: NextRequest) {
         return NextResponse.json({ success: true });
     } catch (error) {
         logger.error("[History API]", { error });
-        return NextResponse.json({ error: "Internal error" }, { status: 500 });
+        return new AppError({
+            code: "internal:error",
+            message: "Failed to delete chat history",
+            cause: error instanceof Error ? error : undefined,
+        }).toResponse();
     }
 }

@@ -9,7 +9,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getSessionCached } from "@/lib/auth";
 import { createContext, deleteChatCached, getChatCached } from "@/lib/data";
-import { AppError } from "@/lib/errors";
+import { AppError, authError, notFoundError } from "@/lib/errors";
 import { logger } from "@/lib/utils/logger";
 
 type RouteParams = {
@@ -23,14 +23,11 @@ type RouteParams = {
 export async function GET(
     _request: NextRequest,
     { params }: RouteParams
-): Promise<NextResponse> {
+): Promise<Response> {
     try {
         const session = await getSessionCached();
         if (!session?.user?.id) {
-            return NextResponse.json(
-                { error: "Unauthorized" },
-                { status: 401 }
-            );
+            return authError().toResponse();
         }
 
         const { id: chatId } = await params;
@@ -39,10 +36,7 @@ export async function GET(
         const chat = await getChatCached(chatId, ctx);
 
         if (!chat) {
-            return NextResponse.json(
-                { error: "Chat not found" },
-                { status: 404 }
-            );
+            return notFoundError("chat").toResponse();
         }
 
         return NextResponse.json({
@@ -55,10 +49,7 @@ export async function GET(
     } catch (error) {
         logger.error("[Chat API GET]", { error });
         if (error instanceof AppError) {
-            return NextResponse.json(
-                { error: error.message },
-                { status: error.statusCode }
-            );
+            return error.toResponse();
         }
         return NextResponse.json({ error: "Internal error" }, { status: 500 });
     }
@@ -76,14 +67,11 @@ export async function GET(
 export async function DELETE(
     _request: NextRequest,
     { params }: RouteParams
-): Promise<NextResponse> {
+): Promise<Response> {
     try {
         const session = await getSessionCached();
         if (!session?.user?.id) {
-            return NextResponse.json(
-                { error: "Unauthorized" },
-                { status: 401 }
-            );
+            return authError().toResponse();
         }
 
         const { id: chatId } = await params;
@@ -97,10 +85,7 @@ export async function DELETE(
 
         if (!deleted) {
             // Chat not found or not owned by user
-            return NextResponse.json(
-                { error: "Chat not found" },
-                { status: 404 }
-            );
+            return notFoundError("chat").toResponse();
         }
 
         // 204 No Content - successful deletion
@@ -108,10 +93,7 @@ export async function DELETE(
     } catch (error) {
         logger.error("[Chat API DELETE]", { error });
         if (error instanceof AppError) {
-            return NextResponse.json(
-                { error: error.message },
-                { status: error.statusCode }
-            );
+            return error.toResponse();
         }
         return NextResponse.json({ error: "Internal error" }, { status: 500 });
     }

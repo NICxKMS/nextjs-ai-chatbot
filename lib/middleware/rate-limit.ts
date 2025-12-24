@@ -18,8 +18,23 @@
 
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { jwtVerify } from "jose";
 import { logger } from "@/lib/utils/logger";
 import { type LimiterType, RATE_LIMITS } from "./rate-limit-config";
+
+// ============== JWT SECRET (LAZY LOADED) ==============
+
+/**
+ * Lazily get the JWT secret for signature verification.
+ * Returns null if AUTH_SECRET is not configured (allows fail-open).
+ */
+function getJwtSecret(): Uint8Array | null {
+    const secret = process.env.AUTH_SECRET;
+    if (!secret) {
+        return null;
+    }
+    return new TextEncoder().encode(secret);
+}
 
 // ============== REDIS CLIENT (EDGE) ==============
 
@@ -294,6 +309,9 @@ export function getIpIdentifier(request: Request): string {
 /**
  * Extract user ID from session cookie
  * Falls back to IP if no valid session
+ *
+ * SEC-FIX: JWT signature is now verified before trusting the `sub` claim.
+ * This prevents attackers from crafting fake JWTs with arbitrary user IDs.
  */
 export async function getUserIdentifier(request: Request): Promise<string> {
     const ip = getIpIdentifier(request);
@@ -310,23 +328,33 @@ export async function getUserIdentifier(request: Request): Promise<string> {
     }
 
     try {
-        // JWT format: header.payload.signature
         const token = sessionMatch[1];
+
+        // Basic JWT structure validation
         const parts = token.split(".");
-        if (parts.length !== 3 || !parts[1]) {
+        if (parts.length !== 3) {
             return `ip:${ip}`;
         }
 
-        // Decode payload (base64url)
-        const payload = JSON.parse(
-            atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
-        ) as { sub?: string };
+        // Get secret for verification
+        const secret = getJwtSecret();
+        if (!secret) {
+            // AUTH_SECRET not configured - fall back to IP for safety
+            // Don't trust unverifiable tokens
+            return `ip:${ip}`;
+        }
 
-        if (payload.sub) {
+        // SEC-FIX: Verify JWT signature before trusting payload
+        // Skip issuer/audience validation for rate limiting (just verify signature)
+        // This is faster and sufficient for rate bucket assignment
+        const { payload } = await jwtVerify(token, secret);
+
+        if (payload.sub && typeof payload.sub === "string") {
             return `user:${payload.sub}`;
         }
     } catch {
-        // Invalid session, fallback to IP
+        // JWT verification failed (invalid/expired/tampered)
+        // Fall back to IP-based rate limiting silently
     }
 
     return `ip:${ip}`;

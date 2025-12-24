@@ -23,6 +23,7 @@ import {
     DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { updateChatVisibility } from "@/features/chat/actions";
 import type { VisibilityType } from "@/features/chat/types";
 import { cn, createRateLimiter } from "@/lib/utils";
 import {
@@ -97,19 +98,18 @@ export const SidebarHistoryItem = memo(function SidebarHistoryItem({
             setIsUpdating(true);
 
             try {
-                const response = await fetch("/api/chat/visibility", {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        chatId: chat.id,
-                        visibility: newVisibility,
-                    }),
+                const result = await updateChatVisibility({
+                    chatId: chat.id,
+                    visibility: newVisibility,
                 });
 
-                if (!response.ok) {
-                    throw new Error("Failed to update visibility");
+                if (!result.success) {
+                    throw new Error(
+                        result.error || "Failed to update visibility"
+                    );
                 }
 
+                // Note: sonner toast has built-in ARIA live region support
                 toast.success(`Chat is now ${newVisibility}`);
             } catch {
                 setVisibility(previousVisibility);

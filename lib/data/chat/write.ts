@@ -5,7 +5,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { Chat, NewChat, Visibility } from "@/lib/db";
 import { getDb, schema, withTransaction } from "@/lib/db";
 import { requireNonGuest } from "../base";
@@ -96,11 +96,11 @@ export async function deleteAllChats(ctx: DataContext): Promise<number> {
 
         const chatIds = userChats.map((c) => c.id);
 
-        // Delete all related data
-        for (const chatId of chatIds) {
-            await tx.delete(vote).where(eq(vote.chatId, chatId));
-            await tx.delete(message).where(eq(message.chatId, chatId));
-        }
+        // Delete all related data in batch (more efficient than serial loop)
+        await Promise.all([
+            tx.delete(vote).where(inArray(vote.chatId, chatIds)),
+            tx.delete(message).where(inArray(message.chatId, chatIds)),
+        ]);
 
         // Delete all chats
         await tx.delete(chat).where(eq(chat.userId, ctx.userId));

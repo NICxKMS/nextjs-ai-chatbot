@@ -11,6 +11,7 @@ import { getSessionCached } from "@/lib/auth";
 import { createContext } from "@/lib/data/base";
 import { documentData } from "@/lib/data/documents";
 import { type AppError, isAppError } from "@/lib/errors";
+import { logger } from "@/lib/utils/logger";
 
 /**
  * Validate UUID format
@@ -70,12 +71,12 @@ export async function getSuggestions({
         // Graceful degradation: log error and return empty array
         // This prevents errors from disrupting the user experience
         if (isAppError(error)) {
-            console.warn("getSuggestions graceful degradation:", {
+            logger.warn("getSuggestions graceful degradation:", {
                 code: (error as AppError).code,
                 documentId,
             });
         } else {
-            console.warn("getSuggestions unexpected error:", {
+            logger.warn("getSuggestions unexpected error:", {
                 error: error instanceof Error ? error.message : "Unknown error",
                 documentId,
             });

@@ -46,12 +46,15 @@ export function isBoolean(value: unknown): value is boolean {
 // API Response Type Guards
 // =============================================================================
 
+/** Valid message roles for chat messages */
+const VALID_MESSAGE_ROLES = ["user", "assistant", "system"] as const;
+
 /**
  * Chat message from API response.
  */
 export interface ApiMessage {
     id: string;
-    role: "user" | "assistant" | "system";
+    role: (typeof VALID_MESSAGE_ROLES)[number];
     content?: string;
     parts?: unknown[];
     createdAt?: string | Date;
@@ -70,7 +73,9 @@ export function isApiMessage(value: unknown): value is ApiMessage {
     return (
         isString(msg.id) &&
         isString(msg.role) &&
-        ["user", "assistant", "system"].includes(msg.role as string)
+        VALID_MESSAGE_ROLES.includes(
+            msg.role as (typeof VALID_MESSAGE_ROLES)[number]
+        )
     );
 }
 

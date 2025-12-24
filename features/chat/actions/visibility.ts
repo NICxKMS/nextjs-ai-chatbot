@@ -12,6 +12,7 @@ import { revalidatePath } from "next/cache";
 import { getSessionCached } from "@/lib/auth";
 import { updateChatVisibilityCached } from "@/lib/data/cached";
 import { AppError } from "@/lib/errors";
+import { logger } from "@/lib/utils/logger";
 import type { VisibilityType } from "../types";
 
 // =============================================================================
@@ -93,7 +94,10 @@ export async function updateChatVisibility(
             return { success: false, error: error.message };
         }
 
-        console.error("[Visibility] Failed to update visibility:", error);
+        logger.errorWithCause(
+            "[Visibility] Failed to update visibility",
+            error
+        );
         return { success: false, error: "Failed to update visibility" };
     }
 }

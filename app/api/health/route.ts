@@ -158,6 +158,12 @@ function determineOverallStatus(
  * Health check response cache
  * Prevents DB/Redis calls on every health check during load tests
  * TTL of 5 seconds balances freshness with performance
+ *
+ * NOTE: Module-level cache has limitations in serverless environments:
+ * - Each serverless instance maintains its own cache
+ * - Cache resets on cold starts
+ * - This is intentional for edge-case tolerance - provides best-effort caching
+ *   without external dependencies while remaining resilient to instance recycling
  */
 type CachedHealth = {
     response: { status: string; timestamp: string; details?: unknown };
@@ -183,10 +189,16 @@ export async function GET(): Promise<Response> {
 
     // Return cached health response if still fresh (within TTL)
     // This prevents DB pool exhaustion during load tests
-    if (cachedHealth && Date.now() - cachedHealth.timestamp < HEALTH_CACHE_TTL_MS) {
+    if (
+        cachedHealth &&
+        Date.now() - cachedHealth.timestamp < HEALTH_CACHE_TTL_MS
+    ) {
         return Response.json(cachedHealth.response, {
             status: cachedHealth.httpStatus,
-            headers: { "Cache-Control": "public, max-age=0", "X-Health-Cache": "HIT" },
+            headers: {
+                "Cache-Control": "public, max-age=0",
+                "X-Health-Cache": "HIT",
+            },
         });
     }
 
@@ -228,7 +240,10 @@ export async function GET(): Promise<Response> {
 
         return Response.json(response, {
             status: httpStatus,
-            headers: { "Cache-Control": "public, max-age=0", "X-Health-Cache": "MISS" },
+            headers: {
+                "Cache-Control": "public, max-age=0",
+                "X-Health-Cache": "MISS",
+            },
         });
     } catch (error) {
         logger.error("[Health Check] Failed", { error });

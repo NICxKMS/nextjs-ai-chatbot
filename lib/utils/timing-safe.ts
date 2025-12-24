@@ -71,12 +71,13 @@ export function constantTimeEqualOptional(
     b: string | undefined | null
 ): boolean {
     // Both undefined/null is considered equal
-    if (a == null && b == null) {
+    // SEC-005: Explicit null/undefined checks for clarity in security-sensitive code
+    if ((a === null || a === undefined) && (b === null || b === undefined)) {
         return true;
     }
 
     // One undefined/null and one not - do dummy work before returning
-    if (a == null || b == null) {
+    if (a === null || a === undefined || b === null || b === undefined) {
         // Dummy work to maintain timing consistency
         // Compare against empty string to keep timing similar
         const nonNull = a ?? b ?? "";

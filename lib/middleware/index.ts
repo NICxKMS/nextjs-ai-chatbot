@@ -68,3 +68,13 @@ export {
     // Response helpers
     setRequestIdHeaders,
 } from "./request-id";
+
+export {
+    // Security headers
+    applySecurityHeaders,
+    getCSPHeader,
+    getHSTSHeader,
+    getSecurityHeaders,
+    securityHeaders,
+    withSecurityHeaders,
+} from "./security-headers";

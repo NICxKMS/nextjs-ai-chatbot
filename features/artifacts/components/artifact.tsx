@@ -94,7 +94,7 @@ function PureArtifact({
         Document[]
     >(
         artifact.documentId !== "init" && artifact.status !== "streaming"
-            ? `/api/document?id=${artifact.documentId}`
+            ? `/api/document?id=${artifact.documentId}&chatId=${chatId}`
             : null,
         fetcher
     );
@@ -397,6 +397,7 @@ function PureArtifact({
                                     {/* TODO: Add MultimodalInput from features/chat when available */}
                                     <div className="w-full rounded-lg border bg-background p-3 dark:bg-muted">
                                         <input
+                                            aria-label="Type a message to send"
                                             className="w-full bg-transparent text-sm outline-none"
                                             onChange={(e) =>
                                                 setInput(e.target.value)

@@ -21,7 +21,12 @@ import { useScrollToBottom } from "./use-scroll-to-bottom";
 export type UseMessagesOptions = {
     /** Current chat status from AI SDK */
     status: ChatStatus;
-    /** Optional callback when a message is sent */
+    /**
+     * Optional callback when a message is sent.
+     * @warning This callback should be memoized (via useCallback) to avoid
+     * triggering unnecessary re-renders. If not memoized, the useEffect
+     * dependency may cause the callback to fire multiple times.
+     */
     onMessageSent?: () => void;
 };
 

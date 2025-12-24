@@ -37,7 +37,22 @@ type StoredItem<T> = {
 };
 
 /**
- * Result of a storage operation
+ * Result of a storage operation.
+ *
+ * Uses discriminated union pattern for type-safe error handling:
+ * - Check `success` property to narrow the type
+ * - On success: access `value` safely
+ * - On failure: access `error` message for logging/display
+ *
+ * @example
+ * ```ts
+ * const result = storage.get(StorageKeys.settings);
+ * if (result.success) {
+ *   console.log(result.value); // Type-safe access
+ * } else {
+ *   console.error(result.error); // Error message
+ * }
+ * ```
  */
 export type StorageResult<T> =
     | { success: true; value: T }
@@ -128,6 +143,10 @@ function safeJsonParse<T>(json: string): T | null {
 
 /**
  * Get value from localStorage with type safety
+ *
+ * Note: This function provides compile-time type safety via generics,
+ * but runtime type validation is the caller's responsibility.
+ * For critical data, consider adding zod schema validation at the call site.
  *
  * @param config - Storage key configuration
  * @returns The stored value or default value

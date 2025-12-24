@@ -12,6 +12,7 @@ import { revalidatePath } from "next/cache";
 import { getSessionCached } from "@/lib/auth";
 import { deleteMessagesAfterTimestampCached } from "@/lib/data/cached";
 import { AppError } from "@/lib/errors";
+import { logger } from "@/lib/utils/logger";
 
 // =============================================================================
 // TYPES
@@ -100,7 +101,10 @@ export async function deleteTrailingMessages(
             return { success: false, error: error.message };
         }
 
-        console.error("[Message] Failed to delete trailing messages:", error);
+        logger.errorWithCause(
+            "[Message] Failed to delete trailing messages",
+            error
+        );
         return { success: false, error: "Failed to delete messages" };
     }
 }

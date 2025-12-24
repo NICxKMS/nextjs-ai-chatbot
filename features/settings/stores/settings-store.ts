@@ -9,6 +9,7 @@
 
 "use client";
 
+import { useEffect } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -157,10 +158,10 @@ export const useSettings = create<SettingsStore>()(
  * ```
  */
 export function useSettingsHydration(): void {
-    if (typeof window !== "undefined") {
-        // Only rehydrate once when the module loads on the client
+    useEffect(() => {
+        // Only rehydrate once when the component mounts on the client
         useSettings.persist.rehydrate();
-    }
+    }, []);
 }
 
 /**

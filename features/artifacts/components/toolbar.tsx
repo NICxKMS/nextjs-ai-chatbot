@@ -96,6 +96,7 @@ const Tool = ({
             <TooltipTrigger asChild>
                 <motion.div
                     animate={{ opacity: 1, transition: { delay: 0.1 } }}
+                    aria-label={description}
                     className={cn("rounded-full p-3", {
                         "bg-primary text-primary-foreground!":
                             selectedTool === description,
@@ -122,6 +123,8 @@ const Tool = ({
                             handleSelect();
                         }
                     }}
+                    role="button"
+                    tabIndex={0}
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.95 }}
                 >

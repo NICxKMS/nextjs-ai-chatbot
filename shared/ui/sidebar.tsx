@@ -345,6 +345,8 @@ const SidebarRail = forwardRef<HTMLButtonElement, ComponentProps<"button">>(
                 data-sidebar="rail"
                 onClick={toggleSidebar}
                 ref={ref}
+                // tabIndex={-1}: Remove from tab order - this is a visual drag handle,
+                // keyboard users can toggle sidebar via the SidebarTrigger button instead
                 tabIndex={-1}
                 title="Toggle Sidebar"
                 {...props}

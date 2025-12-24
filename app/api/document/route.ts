@@ -124,6 +124,9 @@ export async function POST(request: Request) {
     const ctx = createContext(session.user.id, session.user.type);
 
     // Parse and validate request body
+    // Note: Body size limits are enforced by:
+    // 1. Next.js default body parser limits (configurable in next.config.ts)
+    // 2. documentPostSchema validation (content length checked via zod)
     let body: unknown;
     try {
         body = await request.json();
@@ -270,6 +273,14 @@ export async function DELETE(request: Request) {
         timestampDate,
         ctx
     );
+
+    if (deletedDocuments.length === 0) {
+        return new AppError({
+            code: "resource:not_found:document",
+            message: "No document versions found to delete",
+            statusCode: 404,
+        }).toResponse();
+    }
 
     return Response.json(deletedDocuments, { status: 200 });
 }

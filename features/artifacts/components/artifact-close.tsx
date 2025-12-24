@@ -11,6 +11,7 @@ function PureArtifactClose() {
 
     return (
         <Button
+            aria-label="Close artifact panel"
             className="h-fit p-2 dark:hover:bg-zinc-700"
             data-testid="artifact-close-button"
             onClick={() => {

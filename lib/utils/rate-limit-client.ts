@@ -59,14 +59,19 @@ export function createRateLimiter(config: RateLimitConfig) {
 
     /**
      * Remove expired timestamps from the window
+     * Uses in-place splice to maintain array reference while removing expired entries
      */
     const cleanup = () => {
         const now = Date.now();
         const cutoff = now - windowMs;
-        let first = timestamps[0];
-        while (timestamps.length > 0 && first !== undefined && first < cutoff) {
-            timestamps.shift();
-            first = timestamps[0];
+        // Find first valid timestamp index and remove all expired ones
+        const validIndex = timestamps.findIndex((ts) => ts >= cutoff);
+        if (validIndex === -1) {
+            // All expired
+            timestamps.length = 0;
+        } else if (validIndex > 0) {
+            // Remove expired entries from start
+            timestamps.splice(0, validIndex);
         }
     };
 
