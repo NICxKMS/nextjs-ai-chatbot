@@ -6,6 +6,9 @@
  *
  * Enable by setting USE_MOCK_AI=true in environment.
  *
+ * Custom implementation that doesn't require 'ai/test' or 'msw',
+ * making it safe to import in production builds.
+ *
  * @module lib/ai/mock-provider
  */
 
@@ -14,6 +17,7 @@ import type {
     LanguageModelV2CallOptions,
     LanguageModelV2StreamPart,
 } from "@ai-sdk/provider";
+import { simulateReadableStream } from "ai";
 
 /**
  * Configuration for the mock provider.
@@ -132,105 +136,70 @@ function extractPromptText(options: LanguageModelV2CallOptions): string {
 }
 
 /**
- * Create a delay promise.
+ * Create stream chunks in V2 format for simulateReadableStream.
+ *
+ * @param responseText - The full response text to chunk
+ * @param chunkSize - Size of each text chunk (default: 10)
+ * @returns Array of LanguageModelV2StreamPart chunks
  */
-function delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+function createStreamChunks(
+    responseText: string,
+    chunkSize = 10
+): LanguageModelV2StreamPart[] {
+    const partId = `part-${Date.now()}`;
+    const chunks: LanguageModelV2StreamPart[] = [];
+
+    // Add text-start
+    chunks.push({
+        type: "text-start",
+        id: partId,
+    });
+
+    // Add text-delta chunks
+    if (globalConfig.simulateStreaming) {
+        for (let i = 0; i < responseText.length; i += chunkSize) {
+            chunks.push({
+                type: "text-delta",
+                id: partId,
+                delta: responseText.slice(i, i + chunkSize),
+            });
+        }
+    } else {
+        // Single chunk for non-streaming mode
+        chunks.push({
+            type: "text-delta",
+            id: partId,
+            delta: responseText,
+        });
+    }
+
+    // Add text-end
+    chunks.push({
+        type: "text-end",
+        id: partId,
+    });
+
+    // Add finish
+    chunks.push({
+        type: "finish",
+        finishReason: "stop",
+        usage: {
+            inputTokens: 10,
+            outputTokens: responseText.length,
+            totalTokens: responseText.length + 10,
+        },
+    });
+
+    return chunks;
 }
 
 /**
  * Mock Language Model implementation.
  *
- * Implements the LanguageModelV2 interface from the AI SDK.
- * Returns predefined responses based on configuration.
+ * Custom implementation that conforms to LanguageModelV2 spec
+ * without requiring 'ai/test' (which depends on msw).
  */
-export class MockLanguageModel implements LanguageModelV2 {
-    readonly specificationVersion = "v2" as const;
-    readonly provider = "mock";
-    readonly modelId: string;
-    readonly defaultObjectGenerationMode = "json" as const;
-    readonly supportedUrls: Record<string, RegExp[]> = {};
-
-    constructor(modelId = "mock-model") {
-        this.modelId = modelId;
-    }
-
-    async doGenerate(options: LanguageModelV2CallOptions) {
-        const promptText = extractPromptText(options);
-        const responseText = getResponseForPrompt(promptText);
-
-        if (globalConfig.delay > 0) {
-            await delay(globalConfig.delay);
-        }
-
-        return {
-            content: [
-                {
-                    type: "text" as const,
-                    text: responseText,
-                },
-            ],
-            finishReason: "stop" as const,
-            usage: {
-                inputTokens: promptText.length,
-                outputTokens: responseText.length,
-                totalTokens: promptText.length + responseText.length,
-            },
-            warnings: [] as never[],
-        };
-    }
-
-    async doStream(options: LanguageModelV2CallOptions) {
-        const promptText = extractPromptText(options);
-        const responseText = getResponseForPrompt(promptText);
-        const partId = `part-${Date.now()}`;
-
-        const stream = new ReadableStream<LanguageModelV2StreamPart>({
-            async start(controller) {
-                if (globalConfig.simulateStreaming) {
-                    // Simulate streaming by sending text in chunks
-                    const chunkSize = 10;
-                    for (let i = 0; i < responseText.length; i += chunkSize) {
-                        const chunk = responseText.slice(i, i + chunkSize);
-                        controller.enqueue({
-                            type: "text-delta",
-                            id: partId,
-                            delta: chunk,
-                        });
-
-                        if (globalConfig.delay > 0) {
-                            await delay(globalConfig.delay / 10);
-                        }
-                    }
-                } else {
-                    // Send all at once
-                    controller.enqueue({
-                        type: "text-delta",
-                        id: partId,
-                        delta: responseText,
-                    });
-                }
-
-                controller.enqueue({
-                    type: "finish",
-                    finishReason: "stop",
-                    usage: {
-                        inputTokens: promptText.length,
-                        outputTokens: responseText.length,
-                        totalTokens: promptText.length + responseText.length,
-                    },
-                    providerMetadata: undefined,
-                });
-
-                controller.close();
-            },
-        });
-
-        return {
-            stream,
-        };
-    }
-}
+export type MockLanguageModel = LanguageModelV2;
 
 /**
  * Check if mock AI should be used.
@@ -244,8 +213,13 @@ export function shouldUseMockAI(): boolean {
 /**
  * Create a mock language model instance.
  *
+ * Custom implementation that conforms to LanguageModelV2 interface
+ * without requiring 'ai/test' or 'msw' dependencies.
+ *
+ * Uses `simulateReadableStream` from 'ai' for streaming responses.
+ *
  * @param modelId - Optional model ID for the mock
- * @returns MockLanguageModel instance
+ * @returns LanguageModelV2 instance
  *
  * @example
  * ```ts
@@ -253,8 +227,58 @@ export function shouldUseMockAI(): boolean {
  * const response = await generateText({ model, prompt: 'Hello' });
  * ```
  */
-export function createMockModel(modelId = "mock-model"): MockLanguageModel {
-    return new MockLanguageModel(modelId);
+export function createMockModel(modelId = "mock-model"): LanguageModelV2 {
+    return {
+        specificationVersion: "v2" as const,
+        provider: "mock",
+        modelId,
+        supportedUrls: {},
+
+        async doGenerate(options: LanguageModelV2CallOptions) {
+            const promptText = extractPromptText(options);
+            const responseText = getResponseForPrompt(promptText);
+
+            // Add simulated delay
+            if (globalConfig.delay > 0) {
+                await new Promise((resolve) =>
+                    setTimeout(resolve, globalConfig.delay)
+                );
+            }
+
+            return {
+                content: [
+                    {
+                        type: "text" as const,
+                        text: responseText,
+                    },
+                ],
+                finishReason: "stop" as const,
+                usage: {
+                    inputTokens: promptText.length,
+                    outputTokens: responseText.length,
+                    totalTokens: promptText.length + responseText.length,
+                },
+                warnings: [],
+            };
+        },
+
+        async doStream(options: LanguageModelV2CallOptions) {
+            const promptText = extractPromptText(options);
+            const responseText = getResponseForPrompt(promptText);
+            const chunks = createStreamChunks(responseText);
+
+            return {
+                stream: simulateReadableStream({
+                    chunks,
+                    chunkDelayInMs: globalConfig.simulateStreaming
+                        ? Math.max(1, globalConfig.delay / 10)
+                        : null,
+                    initialDelayInMs:
+                        globalConfig.delay > 0 ? globalConfig.delay : null,
+                }),
+            };
+        },
+    };
 }
 
 /**
@@ -278,7 +302,7 @@ export function createMockModel(modelId = "mock-model"): MockLanguageModel {
 export function getModelWithMockFallback<T extends LanguageModelV2>(
     realModelFactory: () => T,
     mockModelId?: string
-): T | MockLanguageModel {
+): T | LanguageModelV2 {
     if (shouldUseMockAI()) {
         return createMockModel(mockModelId);
     }

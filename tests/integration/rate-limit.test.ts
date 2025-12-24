@@ -143,9 +143,9 @@ describe("TEST-002: Rate Limiting Integration", () => {
                 "@/lib/middleware/rate-limit-config"
             );
 
-            const validWindowFormats = ["60s", "1h", "1m", "1d"];
+            const _validWindowFormats = ["60s", "1h", "1m", "1d"];
 
-            for (const [name, config] of Object.entries(RATE_LIMITS)) {
+            for (const [_name, config] of Object.entries(RATE_LIMITS)) {
                 const typedConfig = config as { window: string };
                 const window = typedConfig.window;
                 const isValidFormat = /^\d+[smhd]$/.test(window);
@@ -214,8 +214,8 @@ describe("TEST-002: Rate Limiting Integration", () => {
             // Clear env vars to simulate no Redis
             const originalUrl = process.env.CACHE_KV_REST_API_URL;
             const originalToken = process.env.CACHE_KV_REST_API_TOKEN;
-            delete process.env.CACHE_KV_REST_API_URL;
-            delete process.env.CACHE_KV_REST_API_TOKEN;
+            process.env.CACHE_KV_REST_API_URL = undefined;
+            process.env.CACHE_KV_REST_API_TOKEN = undefined;
 
             try {
                 const { checkRateLimit } = await import(
@@ -229,10 +229,12 @@ describe("TEST-002: Rate Limiting Integration", () => {
                 expect(result.remaining).toBe(0);
             } finally {
                 // Restore env vars
-                if (originalUrl)
+                if (originalUrl) {
                     process.env.CACHE_KV_REST_API_URL = originalUrl;
-                if (originalToken)
+                }
+                if (originalToken) {
                     process.env.CACHE_KV_REST_API_TOKEN = originalToken;
+                }
             }
         });
 
@@ -241,8 +243,8 @@ describe("TEST-002: Rate Limiting Integration", () => {
 
             const originalUrl = process.env.CACHE_KV_REST_API_URL;
             const originalToken = process.env.CACHE_KV_REST_API_TOKEN;
-            delete process.env.CACHE_KV_REST_API_URL;
-            delete process.env.CACHE_KV_REST_API_TOKEN;
+            process.env.CACHE_KV_REST_API_URL = undefined;
+            process.env.CACHE_KV_REST_API_TOKEN = undefined;
 
             try {
                 const { checkRateLimit } = await import(
@@ -258,10 +260,12 @@ describe("TEST-002: Rate Limiting Integration", () => {
                 expect(result).toHaveProperty("reset");
                 expect(result).toHaveProperty("pending");
             } finally {
-                if (originalUrl)
+                if (originalUrl) {
                     process.env.CACHE_KV_REST_API_URL = originalUrl;
-                if (originalToken)
+                }
+                if (originalToken) {
                     process.env.CACHE_KV_REST_API_TOKEN = originalToken;
+                }
             }
         });
 
@@ -270,8 +274,8 @@ describe("TEST-002: Rate Limiting Integration", () => {
 
             const originalUrl = process.env.CACHE_KV_REST_API_URL;
             const originalToken = process.env.CACHE_KV_REST_API_TOKEN;
-            delete process.env.CACHE_KV_REST_API_URL;
-            delete process.env.CACHE_KV_REST_API_TOKEN;
+            process.env.CACHE_KV_REST_API_URL = undefined;
+            process.env.CACHE_KV_REST_API_TOKEN = undefined;
 
             try {
                 const { checkRateLimit } = await import(
@@ -298,10 +302,12 @@ describe("TEST-002: Rate Limiting Integration", () => {
                 const chatResult = await checkRateLimit("test-user", "chat");
                 expect(chatResult.limit).toBe(RATE_LIMITS.chat.requests);
             } finally {
-                if (originalUrl)
+                if (originalUrl) {
                     process.env.CACHE_KV_REST_API_URL = originalUrl;
-                if (originalToken)
+                }
+                if (originalToken) {
                     process.env.CACHE_KV_REST_API_TOKEN = originalToken;
+                }
             }
         });
     });
@@ -327,7 +333,7 @@ describe("TEST-002: Rate Limiting Integration", () => {
             );
 
             // All values in ROUTE_LIMITER_MAP should exist in RATE_LIMITS
-            for (const [route, limiterType] of Object.entries(
+            for (const [_route, limiterType] of Object.entries(
                 ROUTE_LIMITER_MAP
             )) {
                 expect(RATE_LIMITS[limiterType]).toBeDefined();

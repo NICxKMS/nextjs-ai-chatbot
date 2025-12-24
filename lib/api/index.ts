@@ -43,3 +43,15 @@ export {
     type PaginationMeta,
     withApiErrorHandling,
 } from "./response";
+
+// Response caching
+export {
+    type CacheEntry,
+    type CacheOptions,
+    type CacheStats,
+    createCachedFetch,
+    ResponseCache,
+    type ResponseCacheConfig,
+    responseCache,
+    withCache,
+} from "./response-cache";

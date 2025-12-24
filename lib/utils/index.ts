@@ -17,6 +17,15 @@ export {
     type UserProperties,
 } from "./analytics";
 export { cn } from "./cn";
+// Context optimization utilities (OPT-022)
+export {
+    createContextSelector,
+    createContextSelectors,
+    type EqualityFn,
+    shallowEqual,
+    useContextSlice,
+    useSubscriptionSelector,
+} from "./context-selectors";
 export { debounce, debounceLeading } from "./debounce";
 export {
     type DebugState,

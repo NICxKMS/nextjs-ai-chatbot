@@ -63,12 +63,12 @@ describe("TEST-002: Data Flow Integration", () => {
             const { getUserChatsFromCache } = await import("@/lib/cache-ops");
 
             // Parallel loading pattern
-            const startTime = Date.now();
+            const _startTime = Date.now();
             const [session, chats] = await Promise.all([
                 getCachedSession("parallel-user"),
                 getUserChatsFromCache("parallel-user"),
             ]);
-            const endTime = Date.now();
+            const _endTime = Date.now();
 
             // Both should complete (chats may be null or array depending on circuit breaker)
             expect(session).toBeDefined();
@@ -156,7 +156,7 @@ describe("TEST-002: Data Flow Integration", () => {
 
             const { getChatFromCache } = await import("@/lib/cache-ops");
 
-            const result = await getChatFromCache(
+            const _result = await getChatFromCache(
                 "cached-chat",
                 "cache-first-user"
             );

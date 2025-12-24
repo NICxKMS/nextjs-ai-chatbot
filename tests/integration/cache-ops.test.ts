@@ -176,7 +176,7 @@ describe("TEST-002: Cache Operations Integration", () => {
                 createdAt: Date.now(),
             };
 
-            const result = await createChatInCache(newChat, false);
+            const _result = await createChatInCache(newChat, false);
 
             // Should call Lua script for atomic creation
             expect(mockRedis.eval).toHaveBeenCalled();

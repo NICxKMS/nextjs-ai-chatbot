@@ -3,6 +3,25 @@
  * Ref: lib/middleware/
  */
 
+// Middleware chain composition
+export {
+    type AcceptValue,
+    acceptsContentType,
+    type CacheControl,
+    type ChainOptions,
+    type ContextMiddleware,
+    createContextChain,
+    createMiddlewareChain,
+    extractBearerToken,
+    type Middleware,
+    type MiddlewareResult,
+    parseAccept,
+    parseCacheControl,
+    parseCookies,
+    skipPath,
+    whenMethod,
+    whenPath,
+} from "./chain";
 export {
     cacheDeduplicationResponse,
     clearDeduplicationStore,
@@ -13,7 +32,6 @@ export {
     isDuplicateRequest,
     withDeduplication,
 } from "./deduplication";
-
 export {
     authLimiter,
     chatLimiter,
@@ -43,14 +61,12 @@ export {
     // HOF wrapper
     withRateLimit,
 } from "./rate-limit";
-
 // CLN-003: Centralized rate limit configuration
 export {
     GUEST_LIMITER_OVERRIDES,
     RATE_LIMITS,
     ROUTE_LIMITER_MAP,
 } from "./rate-limit-config";
-
 export {
     // Constants
     CORRELATION_ID_HEADER,
@@ -68,7 +84,6 @@ export {
     // Response helpers
     setRequestIdHeaders,
 } from "./request-id";
-
 export {
     // Security headers
     applySecurityHeaders,
