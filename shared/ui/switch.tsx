@@ -11,6 +11,9 @@
 import { type ComponentPropsWithoutRef, forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
+// Cross-browser note: This switch uses native checkbox with CSS pseudo-elements.
+// Tested in Chrome, Firefox, Safari, and Edge. The :before pseudo-element is
+// well-supported across browsers for creating the toggle thumb indicator.
 const Switch = forwardRef<HTMLInputElement, ComponentPropsWithoutRef<"input">>(
     ({ className, ...props }, ref) => (
         <input

@@ -78,18 +78,24 @@ export function useChatVisibility({
     }, [localVisibility, initialVisibilityType]);
 
     // Update visibility with optimistic update
+    // @todo Consider adding rate limiting here, extracting config to lib/config/rate-limits.ts
     const setVisibilityType = useCallback(
         async (updatedVisibilityType: VisibilityType) => {
             // Cancel any pending visibility update to prevent race conditions
             if (pendingUpdateRef.current) {
                 pendingUpdateRef.current.abort();
             }
+            // Note: AbortController kept for request deduplication tracking.
+            // Server actions don't support abort, but we use it to detect superseded requests.
             pendingUpdateRef.current = new AbortController();
 
-            const previousVisibility = localVisibility;
-
-            // Optimistic update
-            setLocalVisibility(updatedVisibilityType);
+            // Capture previous value before optimistic update using functional update
+            // This ensures we always have the correct value for rollback
+            let previousVisibility: VisibilityType | undefined;
+            setLocalVisibility((current: VisibilityType | undefined) => {
+                previousVisibility = current;
+                return updatedVisibilityType;
+            });
 
             try {
                 const result = await updateChatVisibility({
@@ -108,14 +114,16 @@ export function useChatVisibility({
                     return;
                 }
 
-                // Rollback optimistic update on failure
-                setLocalVisibility(previousVisibility);
+                // Rollback optimistic update on failure using captured previousVisibility
+                if (previousVisibility !== undefined) {
+                    setLocalVisibility(previousVisibility);
+                }
                 toast.error("Failed to update visibility");
             } finally {
                 pendingUpdateRef.current = null;
             }
         },
-        [chatId, localVisibility, setLocalVisibility]
+        [chatId, setLocalVisibility]
     );
 
     return { visibilityType, setVisibilityType };

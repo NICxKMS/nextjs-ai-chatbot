@@ -32,20 +32,22 @@ export function SidebarProvider({
         isMobile: false,
     });
 
+    // Spread required: SidebarState has multiple properties (isOpen, isMobile)
+    // Must preserve other state properties when updating individual fields
     const open = useCallback(() => {
         setState((s) => ({ ...s, isOpen: true }));
-        document.cookie = `${SIDEBAR_COOKIE_NAME}=true; path=/`;
+        document.cookie = `${SIDEBAR_COOKIE_NAME}=true; path=/; SameSite=Lax`;
     }, []);
 
     const close = useCallback(() => {
         setState((s) => ({ ...s, isOpen: false }));
-        document.cookie = `${SIDEBAR_COOKIE_NAME}=false; path=/`;
+        document.cookie = `${SIDEBAR_COOKIE_NAME}=false; path=/; SameSite=Lax`;
     }, []);
 
     const toggle = useCallback(() => {
         setState((s) => {
             const newOpen = !s.isOpen;
-            document.cookie = `${SIDEBAR_COOKIE_NAME}=${newOpen}; path=/`;
+            document.cookie = `${SIDEBAR_COOKIE_NAME}=${newOpen}; path=/; SameSite=Lax`;
             return { ...s, isOpen: newOpen };
         });
     }, []);

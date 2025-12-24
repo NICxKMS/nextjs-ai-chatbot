@@ -29,11 +29,7 @@ function SheetLoadingSkeleton() {
         <div className="animate-pulse p-4">
             <div className="grid grid-cols-5 gap-2">
                 {Array.from({ length: 25 }).map((_, i) => (
-                    <div
-                        // biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton
-                        className="h-8 rounded bg-muted"
-                        key={i}
-                    />
+                    <div className="h-8 rounded bg-muted" key={i} />
                 ))}
             </div>
         </div>

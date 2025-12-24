@@ -18,7 +18,12 @@ function SheetPreviewComponent({ content, maxRows = 5 }: SheetPreviewProps) {
         try {
             // Try parsing as JSON first
             const data = JSON.parse(content);
-            if (Array.isArray(data) && data.length > 0) {
+            if (
+                Array.isArray(data) &&
+                data.length > 0 &&
+                data[0] != null &&
+                typeof data[0] === "object"
+            ) {
                 const headerRow = Object.keys(data[0]);
                 const dataRows = data
                     .slice(0, maxRows)

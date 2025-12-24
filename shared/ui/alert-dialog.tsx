@@ -45,6 +45,8 @@ const AlertDialogContent = React.forwardRef<
                         triggerRef.current.focus();
                         event.preventDefault();
                     }
+                    // Reset ref to prevent stale references and potential memory leaks
+                    triggerRef.current = null;
                     onCloseAutoFocus?.(event);
                 }}
                 onOpenAutoFocus={(event) => {

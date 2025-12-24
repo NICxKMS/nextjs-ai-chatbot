@@ -113,8 +113,9 @@ function PureTextEditor({
     status,
     suggestions = [],
 }: TextEditorProps) {
-    const _isUpdatingRef = useRef(false);
-    const _previousContentRef = useRef<string>(content);
+    // TODO(editor-sync): Reserved for future content synchronization optimization
+    // const _isUpdatingRef = useRef(false);
+    // const _previousContentRef = useRef<string>(content);
     const modulesRef = useRef<TipTapModules | null>(null);
     const [modules, setModules] = React.useState<TipTapModules | null>(null);
 

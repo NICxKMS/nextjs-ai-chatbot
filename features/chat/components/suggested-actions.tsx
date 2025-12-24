@@ -10,6 +10,7 @@
 "use client";
 
 import type { UseChatHelpers } from "@ai-sdk/react";
+import { useRouter } from "next/navigation";
 import { memo, useCallback, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { Suggestion } from "@/components/ai-elements/suggestion";
@@ -24,6 +25,8 @@ import type { ChatMessage, VisibilityType } from "../types";
 export type SuggestedActionsProps = {
     /** Chat session identifier */
     chatId: string;
+    /** Whether the suggestions are disabled */
+    disabled?: boolean;
     /** AI SDK sendMessage function to send messages */
     sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
     /** Current visibility setting (for memoization) */
@@ -78,7 +81,13 @@ const SUGGESTION_POOL = [
 /**
  * Pure implementation of suggested actions.
  */
-function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
+function PureSuggestedActions({
+    chatId,
+    disabled,
+    sendMessage,
+}: SuggestedActionsProps) {
+    const router = useRouter();
+
     // Use stable first 4 suggestions to prevent SSR/client hydration mismatch
     const suggestions = useMemo(() => SUGGESTION_POOL.slice(0, 4), []);
 
@@ -98,8 +107,8 @@ function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
                 return;
             }
 
-            // Update URL to include chat ID
-            window.history.replaceState({}, "", `/chat/${chatId}`);
+            // Update URL to include chat ID (SSR-safe)
+            router.replace(`/chat/${chatId}`, { scroll: false });
 
             // Send the suggested message
             sendMessage({
@@ -107,7 +116,7 @@ function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
                 parts: [{ type: "text", text: suggestion }],
             });
         },
-        [chatId, sendMessage]
+        [chatId, router, sendMessage]
     );
 
     return (
@@ -125,6 +134,7 @@ function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
                 >
                     <Suggestion
                         className="h-auto w-full cursor-pointer whitespace-normal rounded-full p-3 px-4 text-left"
+                        disabled={disabled}
                         onClick={handleClick}
                         suggestion={suggestion}
                     />

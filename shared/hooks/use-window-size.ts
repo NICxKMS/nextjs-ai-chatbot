@@ -57,32 +57,71 @@ const TABLET_BREAKPOINT = 1024;
  * return isMobile ? <MobileView /> : <DesktopView />;
  * ```
  */
+/** Throttle delay for resize events (ms) */
+const RESIZE_THROTTLE_MS = 100;
+
 export function useWindowSize(): UseWindowSizeReturn {
     const [windowSize, setWindowSize] = useState<WindowSize | null>(null);
     const [isReady, setIsReady] = useState(false);
 
     useEffect(() => {
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        let lastExecution = 0;
+
         function handleResize() {
-            setWindowSize({
-                width: window.innerWidth,
-                height: window.innerHeight,
-            });
+            const now = Date.now();
+            const timeSinceLastExecution = now - lastExecution;
+
+            if (timeSinceLastExecution >= RESIZE_THROTTLE_MS) {
+                // Execute immediately if enough time has passed
+                lastExecution = now;
+                setWindowSize({
+                    width: window.innerWidth,
+                    height: window.innerHeight,
+                });
+            } else {
+                // Schedule execution for remaining time
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                }
+                timeoutId = setTimeout(() => {
+                    lastExecution = Date.now();
+                    setWindowSize({
+                        width: window.innerWidth,
+                        height: window.innerHeight,
+                    });
+                }, RESIZE_THROTTLE_MS - timeSinceLastExecution);
+            }
         }
 
-        // Initial measurement
-        handleResize();
+        // Initial measurement (no throttle needed)
+        setWindowSize({
+            width: window.innerWidth,
+            height: window.innerHeight,
+        });
         setIsReady(true);
 
         window.addEventListener("resize", handleResize);
-        return () => window.removeEventListener("resize", handleResize);
+        return () => {
+            window.removeEventListener("resize", handleResize);
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+        };
     }, []);
 
     const width = windowSize?.width ?? 0;
     const height = windowSize?.height ?? 0;
 
-    // Memoize derived breakpoint values to prevent unnecessary recalculations
-    const breakpoints = useMemo(
+    // Single useMemo for all derived values - breakpoints are simple boolean
+    // comparisons that don't warrant a separate memoization layer.
+    // The nested useMemo was redundant since both depend on the same values.
+    return useMemo(
         () => ({
+            windowSize,
+            width,
+            height,
+            isReady,
             isMobile: isReady && width > 0 && width < MOBILE_BREAKPOINT,
             isTablet:
                 isReady &&
@@ -90,17 +129,6 @@ export function useWindowSize(): UseWindowSizeReturn {
                 width < TABLET_BREAKPOINT,
             isDesktop: isReady && width >= TABLET_BREAKPOINT,
         }),
-        [isReady, width]
-    );
-
-    return useMemo(
-        () => ({
-            windowSize,
-            width,
-            height,
-            isReady,
-            ...breakpoints,
-        }),
-        [windowSize, width, height, isReady, breakpoints]
+        [windowSize, width, height, isReady]
     );
 }

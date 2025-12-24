@@ -26,7 +26,9 @@ export default function ChatError({
                 retryLabel="Try again"
                 secondaryAction={{
                     label: "Go home",
-                    onClick: () => (window.location.href = "/"),
+                    onClick: () => {
+                        window.location.href = "/";
+                    },
                 }}
             />
         </div>

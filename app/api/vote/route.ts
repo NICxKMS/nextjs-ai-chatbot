@@ -18,6 +18,7 @@ import {
     notFoundError,
     validationError,
 } from "@/lib/errors";
+import { checkRateLimit } from "@/lib/middleware/rate-limit";
 
 export const maxDuration = 10;
 
@@ -38,6 +39,30 @@ type VoteRequestBody = z.infer<typeof voteRequestSchema>;
  * PATCH /api/vote - Submit or update a vote
  */
 export async function PATCH(request: Request): Promise<Response> {
+    // 0. Rate limiting
+    const ip =
+        request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+        request.headers.get("x-real-ip") ??
+        "unknown";
+
+    const rateResult = await checkRateLimit(`vote:${ip}`, "standard");
+    if (!rateResult.success) {
+        const retryAfter = Math.ceil((rateResult.reset - Date.now()) / 1000);
+        return new Response(
+            JSON.stringify({
+                error: "Too many vote requests",
+                retryAfter,
+            }),
+            {
+                status: 429,
+                headers: {
+                    "Content-Type": "application/json",
+                    "Retry-After": String(retryAfter),
+                },
+            }
+        );
+    }
+
     // 1. Authentication
     const authResult = await requireAuthForRoute("vote");
     if (isAuthResponse(authResult)) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
@@ -31,43 +31,6 @@ import {
 import type { ChatHistoryItem } from "../types";
 import { SidebarHistory } from "./sidebar-history";
 import { SidebarUserNav } from "./sidebar-user-nav";
-
-function PlusIcon({ className }: { className?: string }) {
-    return (
-        <svg
-            className={className}
-            fill="none"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-        >
-            <path d="M5 12h14" />
-            <path d="M12 5v14" />
-        </svg>
-    );
-}
-
-function TrashIcon({ className }: { className?: string }) {
-    return (
-        <svg
-            className={className}
-            fill="none"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-        >
-            <path d="M3 6h18" />
-            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-        </svg>
-    );
-}
 
 export type AppSidebarProps = {
     chats?: ChatHistoryItem[];
@@ -156,7 +119,7 @@ export function AppSidebar({
                                                 type="button"
                                                 variant="ghost"
                                             >
-                                                <TrashIcon className="size-4" />
+                                                <Trash2 className="size-4" />
                                             </Button>
                                         </TooltipTrigger>
                                         <TooltipContent
@@ -177,7 +140,7 @@ export function AppSidebar({
                                             type="button"
                                             variant="ghost"
                                         >
-                                            <PlusIcon className="size-4" />
+                                            <Plus className="size-4" />
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent

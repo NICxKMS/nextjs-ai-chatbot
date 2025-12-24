@@ -52,6 +52,7 @@ const MAX_CONCURRENT_UPLOADS = 3;
 
 /**
  * Maximum file size in bytes (10MB).
+ * @todo Consider moving to lib/config/upload.ts for centralized configuration
  */
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -70,18 +71,6 @@ const LOCAL_STORAGE_KEY = "chat-input";
  * Prevents excessive writes during rapid typing.
  */
 const LOCAL_STORAGE_DEBOUNCE_MS = 500;
-
-/**
- * Delay in milliseconds before clearing attachments after successful submission.
- * Allows for visual feedback before removal.
- */
-const _ATTACHMENT_CLEAR_DELAY = 100;
-
-/**
- * Pattern to identify temporary/draft files that should not be uploaded.
- * Matches common temp file patterns like .tmp, ~, .swp, etc.
- */
-const _TEMP_FILE_PATTERN = /^~|\.(tmp|swp|bak|temp)$/i;
 
 /**
  * Multimodal chat input component with text and file attachment support.
@@ -118,11 +107,13 @@ export const ChatInput = memo(function ChatInput({
     const uploadAbortControllersRef = useRef<UploadAbortMap>(new Map());
 
     // Rate limiter for message submission (10 per minute)
+    // @todo Consider extracting rate limit values to lib/config/rate-limits.ts
     const submitLimiterRef = useRef(
         createRateLimiter({ maxRequests: 10, windowMs: 60_000 })
     );
 
     // Rate limiter for file uploads (5 per minute)
+    // @todo Consider extracting rate limit values to lib/config/rate-limits.ts
     const uploadLimiterRef = useRef(
         createRateLimiter({ maxRequests: 5, windowMs: 60_000 })
     );
@@ -138,17 +129,32 @@ export const ChatInput = memo(function ChatInput({
         };
     }, []);
 
-    // Load from localStorage on mount
+    // Track if localStorage has been loaded to prevent duplicate loads
+    const hasLoadedFromStorageRef = useRef(false);
+
+    // Load from localStorage on mount only
     useEffect(() => {
+        if (typeof window === "undefined") {
+            return;
+        }
+        if (hasLoadedFromStorageRef.current) {
+            return;
+        }
+        hasLoadedFromStorageRef.current = true;
+
+        // Note: !input check removed - on mount input is always empty,
+        // and hasLoadedFromStorageRef guard already prevents duplicate loads
         const savedInput = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (savedInput && !input) {
+        if (savedInput) {
             setInput(savedInput);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [input]);
+    }, []);
 
     // Save to localStorage on change (debounced)
     useEffect(() => {
+        if (typeof window === "undefined") {
+            return;
+        }
         const timeout = setTimeout(() => {
             if (input) {
                 localStorage.setItem(LOCAL_STORAGE_KEY, input);
@@ -180,6 +186,11 @@ export const ChatInput = memo(function ChatInput({
     /**
      * Upload a single file to the server.
      * Uses AbortController for cancellation support.
+     *
+     * Note: Empty dependency array is intentional:
+     * - uploadAbortControllersRef is a ref (stable reference)
+     * - toast and fetch are module-level imports (stable)
+     * - mapHttpError is a module-level function (stable)
      */
     const uploadFile = useCallback(
         async (file: File): Promise<Attachment | undefined> => {
@@ -304,6 +315,8 @@ export const ChatInput = memo(function ChatInput({
 
     /**
      * Cancel a pending upload by file name.
+     * @remarks Reserved for future cancel button feature in file upload UI.
+     * TODO(upload-cancel): Expose in return object when cancel button is implemented.
      */
     const _cancelUpload = useCallback((fileName: string) => {
         const controller = uploadAbortControllersRef.current.get(fileName);
@@ -466,6 +479,7 @@ export const ChatInput = memo(function ChatInput({
                         className="max-h-[200px] min-h-[44px] grow resize-none border-none bg-transparent p-2 text-sm outline-none ring-0 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-50"
                         data-testid="chat-input"
                         disabled={isLoading || isDisabled}
+                        maxLength={32_000}
                         onChange={handleInputChange}
                         onKeyDown={handleKeyDown}
                         placeholder={placeholder ?? "Send a message..."}

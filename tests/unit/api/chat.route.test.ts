@@ -59,6 +59,9 @@ const mockChat = {
     userId: testUserId,
 };
 
+/** Base URL for test requests */
+const TEST_BASE_URL = "http://localhost:3000";
+
 // Helper to create route params
 function createRouteParams(id: string) {
     return { params: Promise.resolve({ id }) };
@@ -66,7 +69,7 @@ function createRouteParams(id: string) {
 
 // Helper to create NextRequest
 function createRequest(path: string): NextRequest {
-    return new NextRequest(`http://localhost:3000${path}`);
+    return new NextRequest(`${TEST_BASE_URL}${path}`);
 }
 
 describe("Chat API Route /api/chat/[id]", () => {

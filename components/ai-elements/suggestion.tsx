@@ -36,6 +36,7 @@ export const Suggestion = ({
     className,
     variant = "outline",
     size = "sm",
+    disabled,
     children,
     ...props
 }: SuggestionProps) => {
@@ -45,7 +46,10 @@ export const Suggestion = ({
 
     return (
         <Button
+            aria-disabled={disabled}
+            aria-label={`Use suggestion: ${suggestion}`}
             className={cn("cursor-pointer rounded-full px-4", className)}
+            disabled={disabled}
             onClick={handleClick}
             size={size}
             type="button"

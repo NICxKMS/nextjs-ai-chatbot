@@ -50,7 +50,24 @@ export interface EnhancedToolProps extends BaseToolProps {
 }
 
 // Simple in-memory storage for collapsed state persistence
+// Limit to prevent memory leaks in long-running sessions
+const MAX_PERSISTED_STATES = 100;
 const collapsedStateStorage = new Map<string, boolean>();
+
+/** LRU-style cleanup when storage limit is reached */
+function setCollapsedState(key: string, value: boolean): void {
+    // If at limit and adding new key, remove oldest entry (first in Map)
+    if (
+        !collapsedStateStorage.has(key) &&
+        collapsedStateStorage.size >= MAX_PERSISTED_STATES
+    ) {
+        const oldestKey = collapsedStateStorage.keys().next().value;
+        if (oldestKey) {
+            collapsedStateStorage.delete(oldestKey);
+        }
+    }
+    collapsedStateStorage.set(key, value);
+}
 
 /**
  * Enhanced Tool wrapper with custom rendering and state persistence.
@@ -80,7 +97,7 @@ export function Tool({
         (newOpen: boolean) => {
             setOpen(newOpen);
             if (persistKey) {
-                collapsedStateStorage.set(persistKey, newOpen);
+                setCollapsedState(persistKey, newOpen);
             }
             onOpenChange?.(newOpen);
         },

@@ -234,10 +234,12 @@ export async function middleware(request: NextRequest) {
             } catch (error) {
                 // If session creation fails, continue without session
                 // The app will fall back to client-side session creation
-                console.error(
-                    "[PERF-001] Edge session creation failed:",
-                    error
-                );
+                if (process.env.NODE_ENV === "development") {
+                    console.error(
+                        "[PERF-001] Edge session creation failed:",
+                        error
+                    );
+                }
             }
         }
 

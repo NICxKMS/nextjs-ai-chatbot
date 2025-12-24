@@ -90,41 +90,36 @@ export async function POST(request: Request): Promise<Response> {
     if (guestToken) {
         const guestId = extractGuestIdFromToken(guestToken);
         if (guestId) {
-            // Migrate guest data in the background
-            // We don't await this - let it complete asynchronously
-            // The migration is idempotent, so retries are safe
-            migrateGuestToAuthUser(guestId, user.id)
-                .then((result) => {
-                    if (result.success) {
-                        console.info(
-                            "[SEC-003] Guest data migration completed",
-                            {
-                                guestId,
-                                authUserId: user.id,
-                                chats: result.migratedChats,
-                                messages: result.migratedMessages,
-                            }
-                        );
-                    } else {
-                        console.error("[SEC-003] Guest data migration failed", {
-                            guestId,
-                            authUserId: user.id,
-                            error: result.error,
-                        });
-                    }
-                })
-                .catch((error) => {
-                    console.error("[SEC-003] Guest data migration error", {
+            // Await migration to prevent race condition with cookie deletion
+            // The migration must complete before we delete the guest cookie
+            try {
+                const result = await migrateGuestToAuthUser(guestId, user.id);
+                if (result.success) {
+                    console.info("[SEC-003] Guest data migration completed", {
                         guestId,
                         authUserId: user.id,
-                        error,
+                        chats: result.migratedChats,
+                        messages: result.migratedMessages,
                     });
+                } else {
+                    console.error("[SEC-003] Guest data migration failed", {
+                        guestId,
+                        authUserId: user.id,
+                        error: result.error,
+                    });
+                }
+            } catch (error) {
+                // Log error but continue - don't block auth flow
+                console.error("[SEC-003] Guest data migration error", {
+                    guestId,
+                    authUserId: user.id,
+                    error,
                 });
+            }
         }
+        // Delete guest cookie after migration attempt (success or failure)
+        cookieStore.delete(GUEST_TOKEN_COOKIE);
     }
-
-    // Delete guest cookie on auth upgrade
-    cookieStore.delete(GUEST_TOKEN_COOKIE);
 
     // PERF-004: Prewarm caches for the authenticated user
     // Run in background - don't block the auth response

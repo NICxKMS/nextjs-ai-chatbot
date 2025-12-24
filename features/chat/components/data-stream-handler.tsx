@@ -9,7 +9,7 @@
 
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import type { DataStreamPart } from "./data-stream-provider";
 
 // =============================================================================
@@ -181,6 +181,14 @@ export type DataStreamHandlerProps = {
  * @deprecated Use useDataStreamHandler hook instead
  */
 export function DataStreamHandler(_props: DataStreamHandlerProps): null {
+    useEffect(() => {
+        if (process.env.NODE_ENV === "development") {
+            console.warn(
+                "[DataStreamHandler] This component is deprecated. Use useDataStreamHandler hook instead."
+            );
+        }
+    }, []);
+
     // Data stream processing is handled via useChat's onData callback
     // using the useDataStreamHandler hook
     return null;

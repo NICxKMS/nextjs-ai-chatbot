@@ -9,15 +9,24 @@
 import { describe, it } from "vitest";
 
 /**
+ * Helper to check if cache credentials are available.
+ * Reused in both testConfig.useRealCache and isServiceAvailable('cache').
+ */
+function hasCacheCredentials(): boolean {
+    return (
+        !!process.env.CACHE_KV_REST_API_URL &&
+        !!process.env.CACHE_KV_REST_API_TOKEN
+    );
+}
+
+/**
  * Test configuration that controls whether tests use real or mock services.
  */
 export const testConfig = {
     // Use real Redis (Upstash) instead of mocks
     // Requires both the flag AND valid credentials
     useRealCache:
-        process.env.TEST_USE_REAL_CACHE === "true" &&
-        !!process.env.CACHE_KV_REST_API_URL &&
-        !!process.env.CACHE_KV_REST_API_TOKEN,
+        process.env.TEST_USE_REAL_CACHE === "true" && hasCacheCredentials(),
 
     // Use real database (Drizzle/Postgres) instead of mocks
     useRealDatabase: process.env.TEST_USE_REAL_DB === "true",
@@ -48,11 +57,10 @@ export type ServiceType = "cache" | "database" | "blob";
 export function isServiceAvailable(service: ServiceType): boolean {
     switch (service) {
         case "cache":
-            // Check env vars directly since testConfig.useRealCache already includes this check
+            // Reuse shared helper for credential check
             return (
                 process.env.TEST_USE_REAL_CACHE === "true" &&
-                !!process.env.CACHE_KV_REST_API_URL &&
-                !!process.env.CACHE_KV_REST_API_TOKEN
+                hasCacheCredentials()
             );
         case "database":
             return testConfig.useRealDatabase && !!testConfig.database.url;

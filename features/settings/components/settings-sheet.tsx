@@ -10,7 +10,7 @@
 "use client";
 
 import { Settings2Icon } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -114,16 +114,19 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
         resetSettings,
     } = useSettings();
 
-    const handleNumericInput = (
-        event: React.ChangeEvent<HTMLInputElement>,
-        updater: (value: number) => void
-    ) => {
-        const value = Number.parseFloat(event.target.value);
-        if (Number.isNaN(value)) {
-            return;
-        }
-        updater(value);
-    };
+    const handleNumericInput = useCallback(
+        (
+            event: React.ChangeEvent<HTMLInputElement>,
+            updater: (value: number) => void
+        ) => {
+            const value = Number.parseFloat(event.target.value);
+            if (Number.isNaN(value)) {
+                return;
+            }
+            updater(value);
+        },
+        []
+    );
 
     return (
         <Sheet onOpenChange={onOpenChange} open={open}>
@@ -153,6 +156,8 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
                             </span>
                         </Label>
                         <Input
+                            aria-describedby="temperature-help"
+                            id="temperature-input"
                             max={1.5}
                             min={0}
                             onChange={(event) =>
@@ -172,6 +177,12 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
                             type="number"
                             value={sampling.temperature}
                         />
+                        <p
+                            className="text-muted-foreground text-xs"
+                            id="temperature-help"
+                        >
+                            Valid range: 0.00 - 1.50
+                        </p>
                     </div>
 
                     {/* Top P */}
@@ -304,7 +315,11 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
                     >
                         Reset to defaults
                     </Button>
-                    <Button onClick={() => onOpenChange(false)} type="button">
+                    <Button
+                        aria-label="Close settings"
+                        onClick={() => onOpenChange(false)}
+                        type="button"
+                    >
                         Close
                     </Button>
                 </SheetFooter>

@@ -36,6 +36,8 @@ export type UseScrollToBottomReturn = {
 // =============================================================================
 // CONSTANTS
 // =============================================================================
+// Note: These constants are specific to this hook's behavior.
+// Consider moving to shared/constants if reused across multiple scroll hooks.
 
 /** Distance from bottom (in pixels) to consider "at bottom" */
 const SCROLL_BOTTOM_THRESHOLD = 100;
@@ -118,10 +120,8 @@ export function useScrollToBottom(): UseScrollToBottomReturn {
                 cancelAnimationFrame(rafIdRef.current);
             }
             rafIdRef.current = requestAnimationFrame(() => {
-                rafIdRef.current = requestAnimationFrame(() => {
-                    handleScroll();
-                    rafIdRef.current = null;
-                });
+                handleScroll();
+                rafIdRef.current = null;
             });
         });
 

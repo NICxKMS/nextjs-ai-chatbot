@@ -9,6 +9,19 @@ const GROUP_LABELS = [
     "Older",
 ] as const;
 
+/**
+ * Groups chat history items by date ranges for sidebar display.
+ *
+ * @param chats - Array of chat history items to group
+ * @param now - Optional reference date for grouping (defaults to current time)
+ * @returns Array of chat groups with labels and associated chats, excluding empty groups
+ *
+ * @example
+ * ```ts
+ * const groups = groupChatsByDate(chats);
+ * // Returns: [{ label: "Today", chats: [...] }, { label: "Yesterday", chats: [...] }]
+ * ```
+ */
 export function groupChatsByDate(
     chats: ChatHistoryItem[],
     now?: Date

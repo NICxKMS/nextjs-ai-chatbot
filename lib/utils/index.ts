@@ -236,6 +236,8 @@ export function convertToUIMessages<
     return messages.map((message) => ({
         id: message.id,
         role: message.role,
+        // Cross-system type boundary: DB stores jsonb (unknown), UI expects unknown[]
+        // TODO: Add runtime validation or align message types to remove cast
         parts: (message.parts ?? []) as unknown[],
         createdAt: message.createdAt,
     }));

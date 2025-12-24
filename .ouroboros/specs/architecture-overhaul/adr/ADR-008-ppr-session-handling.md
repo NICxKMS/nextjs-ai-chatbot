@@ -44,10 +44,7 @@ try {
   const cookieStore = await cookies();
   // ...
 } catch (error) {
-  if (
-    error instanceof Error &&
-    error.message.includes("During prerendering")
-  ) {
+  if (error instanceof Error && error.message.includes("During prerendering")) {
     return null; // Bail during prerender
   }
   throw error;
@@ -55,6 +52,7 @@ try {
 ```
 
 **Problems with this approach:**
+
 1. **Fragile**: Relies on error message text that could change between Next.js versions
 2. **Performance**: Exception throwing has overhead
 3. **Obscure**: Hides the actual intent of the code
@@ -80,12 +78,12 @@ export async function getSupabaseSession(): Promise<AuthSession | null> {
 
 ### Files Changed
 
-| File | Change |
-|------|--------|
-| `lib/auth/session.ts` | Added `connection()` to `getSupabaseSession()` & `getGuestSession()` |
-| `lib/auth/index.ts` | Added `connection()` to `getAccessToken()`, `getRefreshToken()`, `getGuestCookie()` |
-| `app/(chat)/layout.tsx` | Added `connection()` before `cookies()`/`headers()` |
-| `app/(chat)/page.tsx` | Added `connection()` before redirect check |
+| File                    | Change                                                                              |
+| ----------------------- | ----------------------------------------------------------------------------------- |
+| `lib/auth/session.ts`   | Added `connection()` to `getSupabaseSession()` & `getGuestSession()`                |
+| `lib/auth/index.ts`     | Added `connection()` to `getAccessToken()`, `getRefreshToken()`, `getGuestCookie()` |
+| `app/(chat)/layout.tsx` | Added `connection()` before `cookies()`/`headers()`                                 |
+| `app/(chat)/page.tsx`   | Added `connection()` before redirect check                                          |
 
 ### Pattern
 
@@ -167,8 +165,8 @@ if (process.env.NEXT_PHASE === "phase-production-build") {
 
 - [lib/auth/session.ts](../../../lib/auth/session.ts) - Session retrieval functions
 - [lib/auth/index.ts](../../../lib/auth/index.ts) - Cookie helper exports
-- [app/(chat)/layout.tsx](../../../app/(chat)/layout.tsx) - Chat layout with auth
-- [app/(chat)/page.tsx](../../../app/(chat)/page.tsx) - Chat page with redirect
+- [app/(chat)/layout.tsx](<../../../app/(chat)/layout.tsx>) - Chat layout with auth
+- [app/(chat)/page.tsx](<../../../app/(chat)/page.tsx>) - Chat page with redirect
 
 ## References
 

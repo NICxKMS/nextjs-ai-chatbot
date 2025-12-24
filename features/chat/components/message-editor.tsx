@@ -20,6 +20,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { logger } from "@/lib/utils/logger";
 import { Textarea } from "@/shared/components";
 import { deleteTrailingMessages } from "../actions";
 import type { ChatMessage } from "../types";
@@ -134,7 +135,11 @@ export function MessageEditor({
                 chatId,
                 createdAt,
             });
-        } catch (_error) {
+        } catch (error) {
+            logger.errorWithCause(
+                "[MessageEditor] Failed to edit message",
+                error
+            );
             setIsSubmitting(false);
             toast.error("Failed to edit message");
             return;
@@ -180,6 +185,7 @@ export function MessageEditor({
     return (
         <div className="flex w-full flex-col gap-2">
             <Textarea
+                aria-label="Edit message content"
                 className="w-full resize-none overflow-hidden rounded-xl bg-transparent text-base! outline-hidden"
                 data-testid="message-editor"
                 onChange={handleInput}

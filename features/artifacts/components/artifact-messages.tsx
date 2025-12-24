@@ -43,11 +43,12 @@ function PureArtifactMessages({
     }, [status]);
 
     // Auto-scroll to bottom when new messages arrive
+    // biome-ignore lint/correctness/useExhaustiveDependencies: messages reference changes on new message; intentional trigger
     useEffect(() => {
         if (isAtBottom && messagesEndRef.current) {
             messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
         }
-    }, [isAtBottom]);
+    }, [isAtBottom, messages]);
 
     const handleScroll = () => {
         if (!messagesContainerRef.current) {

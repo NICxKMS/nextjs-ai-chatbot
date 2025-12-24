@@ -160,12 +160,14 @@ export function Console({
             />
 
             <div
+                aria-label="Code execution console"
                 className={cn(
                     "fixed bottom-0 z-40 flex w-full flex-col overflow-x-hidden overflow-y-scroll border-zinc-200 border-t bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900",
                     {
                         "select-none": isResizing,
                     }
                 )}
+                role="region"
                 style={{ height }}
             >
                 <div className="sticky top-0 z-50 flex h-fit w-full flex-row items-center justify-between border-zinc-200 border-b bg-muted px-2 py-1 dark:border-zinc-700">

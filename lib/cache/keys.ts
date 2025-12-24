@@ -119,6 +119,15 @@ export const CacheKeys = {
      */
     suggestions: (documentId: string, userId: string) =>
         `suggestions:${documentId}:${userId}`,
+
+    /**
+     * Document preview cache key
+     * Format: preview:{documentId}
+     *
+     * Note: User-agnostic key since document previews are
+     * the same HTML content regardless of viewer.
+     */
+    documentPreview: (documentId: string) => `preview:${documentId}`,
 } as const;
 
 /**

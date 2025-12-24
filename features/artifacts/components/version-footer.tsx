@@ -66,6 +66,7 @@ export const VersionFooter = ({
 
             <div className="flex flex-row gap-4">
                 <Button
+                    aria-label="Restore this version"
                     disabled={isMutating}
                     onClick={async () => {
                         setIsMutating(true);
@@ -108,6 +109,7 @@ export const VersionFooter = ({
                     {isMutating && <Loader size={16} />}
                 </Button>
                 <Button
+                    aria-label="Back to latest version"
                     onClick={() => {
                         handleVersionChange("latest");
                     }}

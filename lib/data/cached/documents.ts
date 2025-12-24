@@ -195,7 +195,13 @@ export async function appendVersionCached(
     const document = await saveDocument(params, ctx);
     const version = documentVersionToCached(document);
     await appendVersionToCache(ctx.userId, params.id, version, false).catch(
-        () => {}
+        (err) => {
+            // Log cache errors for observability while preventing failure
+            console.warn(
+                "[CachedDocuments] Failed to append version to cache:",
+                err
+            );
+        }
     );
     return document;
 }

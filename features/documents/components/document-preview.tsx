@@ -82,7 +82,16 @@ function FullscreenIcon({ size = 16 }: { size?: number }) {
 const fetcher = async (url: string) => {
     const response = await fetch(url);
     if (!response.ok) {
-        throw new Error("Failed to fetch document");
+        switch (response.status) {
+            case 401:
+                throw new Error("You must be logged in to view this document");
+            case 404:
+                throw new Error("Document not found");
+            case 429:
+                throw new Error("Too many requests. Please try again later");
+            default:
+                throw new Error("Failed to fetch document");
+        }
     }
     return response.json();
 };
@@ -183,13 +192,22 @@ const PureHitboxLayer = memo(function HitboxLayer({
         [setArtifact, result]
     );
 
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            handleClick(event as unknown as React.MouseEvent<HTMLDivElement>);
+        }
+    };
+
     return (
         <div
-            aria-hidden="true"
-            className="absolute top-0 left-0 z-10 size-full rounded-xl"
+            aria-label="View document preview"
+            className="absolute top-0 left-0 z-10 size-full cursor-pointer rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
             onClick={handleClick}
+            onKeyDown={handleKeyDown}
             ref={hitboxRef}
-            role="presentation"
+            role="button"
+            tabIndex={0}
         >
             <div className="flex w-full items-center justify-end p-4">
                 <div className="absolute top-[13px] right-[9px] rounded-md p-2 hover:bg-zinc-100 dark:hover:bg-zinc-700">

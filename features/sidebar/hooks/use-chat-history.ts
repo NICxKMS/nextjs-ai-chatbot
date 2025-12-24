@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
+import { toast } from "sonner";
 import useSWRInfinite from "swr/infinite";
 import { extractErrorMessage, normalizeChatItem } from "@/lib/utils";
+import { logger } from "@/lib/utils/logger";
 import type { ChatHistoryItem } from "../types";
 
 type HistoryResponse = {
@@ -38,7 +40,9 @@ const fetcher = async (url: string): Promise<HistoryResponse> => {
             ),
         };
     } catch (error) {
-        console.error("[useChatHistory] Fetch error:", error);
+        if (process.env.NODE_ENV === "development") {
+            logger.errorWithCause("[useChatHistory] Fetch error", error);
+        }
         throw new Error(
             extractErrorMessage(error, "Failed to load chat history")
         );
@@ -63,17 +67,20 @@ const getKey = (
     pageIndex: number,
     previousPageData: HistoryResponse | null
 ): string | null => {
-    // Reached the end
+    // Return null to stop fetching: previous page exists and has no more data
+    // This signals SWR infinite to stop requesting additional pages
     if (previousPageData && !previousPageData.hasMore) {
         return null;
     }
 
-    // First page
+    // Return base URL for first page: no cursor needed
+    // pageIndex 0 is the initial fetch before any data exists
     if (pageIndex === 0) {
         return "/api/history?limit=20";
     }
 
-    // Add cursor for subsequent pages
+    // Return cursor-based URL for subsequent pages
+    // Uses optional chain because previousPageData may be null on error recovery
     return `/api/history?limit=20&cursor=${previousPageData?.nextCursor}`;
 };
 
@@ -135,7 +142,7 @@ export function useChatHistory() {
                 if (previousData) {
                     mutate(previousData, false);
                 }
-                throw new Error(
+                toast.error(
                     extractErrorMessage(error, "Failed to delete chat")
                 );
             }
