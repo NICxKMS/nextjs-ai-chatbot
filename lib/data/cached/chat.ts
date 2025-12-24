@@ -11,7 +11,9 @@
  */
 import "server-only";
 
+import { cacheLife, cacheTag } from "next/cache";
 import type { CachedChatMeta } from "@/lib/cache/types";
+import { CacheTags } from "@/lib/cache/tags";
 import {
     createChatInCache,
     deleteAllUserChatsFromCache,
@@ -45,6 +47,10 @@ export async function getChatCached(
     chatId: string,
     ctx: DataContext
 ): Promise<Chat | null> {
+    "use cache";
+    cacheLife("chatMessages");
+    cacheTag(CacheTags.chat(chatId));
+
     // Try cache first
     const cached = await getChatFromCache(chatId, ctx.userId);
     if (cached) {

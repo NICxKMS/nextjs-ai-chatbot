@@ -384,7 +384,10 @@ export function withRateLimit<
     const {
         type = "standard",
         getIdentifier = getIpIdentifier,
-        failOpen = true,
+        // SECURITY: Default to fail-closed to prevent rate limit bypass attacks.
+        // If Redis/rate-limit service fails, requests are BLOCKED (503) rather than allowed.
+        // This prevents attackers from DoS-ing the rate limit service to bypass limits.
+        failOpen = false,
     } = options;
 
     return (async (request: Request, ...args: unknown[]) => {
@@ -414,11 +417,16 @@ export function withRateLimit<
         } catch (error) {
             // If rate limiting fails and failOpen is true, allow the request
             if (failOpen) {
-                logger.warn("[RateLimit] Redis error, failing open", { error });
+                logger.warn("[RateLimit] Redis error, failing open (non-sensitive endpoint)", { error });
                 return handler(request, ...args);
             }
 
-            // failOpen is false, return 503
+            // SECURITY: Fail-closed - block request when rate limit service is unavailable.
+            // This prevents bypass attacks where attacker DoS's rate limit service.
+            logger.error("[RateLimit] Service unavailable, failing closed (security)", {
+                error,
+                message: "Rate limit service failure - blocking request for security",
+            });
             return new Response(
                 JSON.stringify({
                     error: "Service Unavailable",
@@ -442,7 +450,7 @@ export interface MiddlewareConfig {
     defaultType?: LimiterType;
     /** Custom identifier extractor */
     getIdentifier?: IdentifierExtractor;
-    /** Whether to fail open on errors (default: true) */
+    /** Whether to fail open on errors (default: false for security - fail-closed) */
     failOpen?: boolean;
 }
 
@@ -473,8 +481,12 @@ export function createRateLimitMiddleware(config: MiddlewareConfig) {
         routes,
         defaultType = "standard",
         getIdentifier = getIpIdentifier,
-        failOpen = true,
+        // SECURITY: Default to fail-closed to prevent rate limit bypass attacks.
+        // If Redis/rate-limit service fails, requests are BLOCKED (503) rather than allowed.
+        // This prevents attackers from DoS-ing the rate limit service to bypass limits.
+        failOpen = false,
     } = config;
+
 
     return async (request: Request): Promise<Response | null> => {
         const pathname = new URL(request.url).pathname;
@@ -503,13 +515,18 @@ export function createRateLimitMiddleware(config: MiddlewareConfig) {
         } catch (error) {
             // Handle errors based on failOpen setting
             if (failOpen) {
-                logger.warn("[RateLimit Middleware] Error, failing open", {
+                logger.warn("[RateLimit Middleware] Error, failing open (non-sensitive endpoint)", {
                     error,
                 });
                 return null;
             }
 
-            // Fail closed - return 503
+            // SECURITY: Fail-closed - block request when rate limit service is unavailable.
+            // This prevents bypass attacks where attacker DoS's rate limit service.
+            logger.error("[RateLimit Middleware] Service unavailable, failing closed (security)", {
+                error,
+                message: "Rate limit service failure - blocking request for security",
+            });
             return new Response(
                 JSON.stringify({
                     error: "Service Unavailable",

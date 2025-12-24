@@ -8,8 +8,9 @@
  * @module features/chat/actions/visibility
  */
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { getSessionCached } from "@/lib/auth";
+import { CacheTags } from "@/lib/cache";
 import { updateChatVisibilityCached } from "@/lib/data/cached";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/utils/logger";
@@ -85,7 +86,12 @@ export async function updateChatVisibility(
             userType: "regular",
         });
 
-        // 4. Revalidate chat page
+        // 4. Invalidate cache tags for read-your-writes consistency
+        // updateTag MUST be called BEFORE revalidatePath for immediate user visibility
+        updateTag(CacheTags.chat(input.chatId));
+        updateTag(CacheTags.userChats(session.user.id));
+
+        // 5. Revalidate chat page for other users
         revalidatePath(`/chat/${input.chatId}`);
 
         return { success: true };

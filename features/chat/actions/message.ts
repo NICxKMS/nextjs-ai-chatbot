@@ -8,8 +8,9 @@
  * @module features/chat/actions/message
  */
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { getSessionCached } from "@/lib/auth";
+import { CacheTags } from "@/lib/cache";
 import { deleteMessagesAfterTimestampCached } from "@/lib/data/cached";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/utils/logger";
@@ -92,7 +93,13 @@ export async function deleteTrailingMessages(
             }
         );
 
-        // 5. Revalidate chat page
+        // 5. Invalidate cache tags for read-your-writes consistency
+        // updateTag MUST be called BEFORE revalidatePath for immediate user visibility
+        updateTag(CacheTags.chat(input.chatId));
+        updateTag(CacheTags.chatMessages(input.chatId));
+        updateTag(CacheTags.userChats(session.user.id));
+
+        // 6. Revalidate chat page for other users
         revalidatePath(`/chat/${input.chatId}`);
 
         return { success: true };

@@ -11,7 +11,9 @@
  */
 import "server-only";
 
+import { cacheLife, cacheTag } from "next/cache";
 import { and, eq, gt } from "drizzle-orm";
+import { CacheTags } from "@/lib/cache/tags";
 import type { CachedMessage } from "@/lib/cache/types";
 import {
     appendMessagesToCache,
@@ -32,6 +34,10 @@ export async function getMessagesCached(
     chatId: string,
     ctx: DataContext
 ): Promise<Message[]> {
+    "use cache";
+    cacheLife("chatMessages");
+    cacheTag(CacheTags.chatMessages(chatId));
+
     // Try cache first
     const cached = await getMessagesFromCache(chatId, ctx.userId);
     if (cached && cached.length > 0) {

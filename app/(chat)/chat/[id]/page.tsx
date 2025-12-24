@@ -5,16 +5,59 @@
  * Handles authentication, authorization, and message loading.
  *
  * PERF-002: Uses parallel data loading to eliminate request waterfalls.
+ * OPT-008: Dynamic metadata generation for SEO.
  *
  * @module app/(chat)/chat/[id]/page
  */
 
 import type { UIMessage } from "@ai-sdk/react";
+import { eq } from "drizzle-orm";
+import type { Metadata, ResolvingMetadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { Chat, DataStreamHandler } from "@/features/chat";
 import { DEFAULT_MODEL_ID } from "@/lib/ai";
 import { loadChatPageData } from "@/lib/data";
+import { getDb, schema } from "@/lib/db";
 import { convertToUIMessages } from "@/lib/utils";
+
+type Props = {
+    params: Promise<{ id: string }>;
+};
+
+/**
+ * Generate dynamic metadata for SEO and social sharing.
+ * OPT-008: Fetches chat title without auth requirement.
+ */
+export async function generateMetadata(
+    { params }: Props,
+    _parent: ResolvingMetadata
+): Promise<Metadata> {
+    const { id } = await params;
+
+    try {
+        // Direct DB query for title only - no auth required for public metadata
+        const db = getDb();
+        const [result] = await db
+            .select({ title: schema.chat.title })
+            .from(schema.chat)
+            .where(eq(schema.chat.id, id))
+            .limit(1);
+
+        if (result?.title) {
+            return {
+                title: result.title,
+                description: `Chat: ${result.title}`,
+            };
+        }
+    } catch {
+        // Fallback for invalid/missing chat - graceful degradation
+    }
+
+    return {
+        title: "Chat",
+        description: "AI Chat Conversation",
+    };
+}
 
 type ChatPageProps = {
     params: Promise<{ id: string }>;

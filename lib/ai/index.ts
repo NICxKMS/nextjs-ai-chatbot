@@ -64,3 +64,16 @@ export {
     type UpdateDocumentToolProps,
     updateDocument,
 } from "./tools";
+
+// Provider Utilities - Circuit Breaker Pattern
+export {
+    anthropicCircuit,
+    CircuitBreakerOpenError,
+    createCircuitBreaker,
+    type CircuitBreaker,
+    type CircuitBreakerOptions,
+    type CircuitState,
+    googleCircuit,
+    openaiCircuit,
+    openrouterCircuit,
+} from "./provider-utils";

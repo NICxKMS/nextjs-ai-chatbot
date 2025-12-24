@@ -63,6 +63,8 @@ export {
 } from "./invalidation";
 // Keys
 export { CacheKeys, getChatCacheKeys, parseKeyId } from "./keys";
+// Tags (Next.js 16.1.0 cache invalidation)
+export { CacheTags, type CacheTagValue } from "./tags";
 // Types
 export type {
     CachedChat,

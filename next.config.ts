@@ -35,6 +35,8 @@ const nextConfig: NextConfig = {
     productionBrowserSourceMaps: false, // Disabled: Saves ~50% bundle size in production
     reactStrictMode: true,
     experimental: {
+        // @ts-expect-error - dynamicIO is valid in Next.js 16.1.0 but not in types yet
+        dynamicIO: true, // Required for cacheLife profiles (Next.js 16.1.0)
         // postcss not compatible with lightningcss yet
         // useLightningcss: true,
         viewTransition: true, // Smooth navigation animations
@@ -62,6 +64,33 @@ const nextConfig: NextConfig = {
             "cytoscape-dagre",
             "mermaid",
         ],
+    },
+    // Custom cacheLife profiles for "use cache" directive (OPT-001)
+    cacheLife: {
+        // Message history - medium freshness
+        chatMessages: {
+            stale: 60, // 1 min - serve stale while revalidating
+            revalidate: 300, // 5 min - background revalidation
+            expire: 3600, // 1 hour - hard expiry
+        },
+        // Chat sidebar list - higher freshness needed
+        userChats: {
+            stale: 30, // 30s - serve stale while revalidating
+            revalidate: 120, // 2 min - background revalidation
+            expire: 1800, // 30 min - hard expiry
+        },
+        // Document content - lower freshness acceptable
+        documents: {
+            stale: 120, // 2 min - serve stale while revalidating
+            revalidate: 600, // 10 min - background revalidation
+            expire: 7200, // 2 hours - hard expiry
+        },
+        // AI suggestions - lowest freshness needed
+        suggestions: {
+            stale: 300, // 5 min - serve stale while revalidating
+            revalidate: 900, // 15 min - background revalidation
+            expire: 86400, // 24 hours - hard expiry
+        },
     }, // Next.js 16: Partial Prerendering
     images: {
         remotePatterns: [

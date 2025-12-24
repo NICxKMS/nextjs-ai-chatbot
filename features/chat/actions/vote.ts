@@ -8,7 +8,9 @@
  * @module features/chat/actions/vote
  */
 
+import { updateTag } from "next/cache";
 import { getSessionCached } from "@/lib/auth";
+import { CacheTags } from "@/lib/cache";
 import { createContext, deleteVoteCached, saveVoteCached } from "@/lib/data";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/utils/logger";
@@ -99,6 +101,9 @@ export async function voteOnMessage(input: VoteInput): Promise<VoteResult> {
             });
         }
 
+        // 4. Invalidate vote cache for read-your-writes consistency
+        updateTag(CacheTags.votes(input.chatId));
+
         return { success: true };
     } catch (error) {
         if (error instanceof AppError) {
@@ -150,6 +155,9 @@ export async function removeVote(
         // 3. Create data context and remove vote
         const ctx = createContext(session.user.id, session.user.type);
         await deleteVoteCached(chatId, messageId, ctx);
+
+        // 4. Invalidate vote cache for read-your-writes consistency
+        updateTag(CacheTags.votes(chatId));
 
         return { success: true };
     } catch (error) {

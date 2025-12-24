@@ -78,7 +78,8 @@ const GUEST_ALLOWED_MODELS = new Set([
  */
 function getModel(modelId: string): LanguageModel {
     if (!MODEL_REGISTRY[modelId]) {
-        throw validationError(`Invalid model: ${modelId}`);
+        // OPT-P0-002: Generic error message - don't expose model ID to clients
+        throw validationError("Invalid model configuration");
     }
 
     // Use unified getLanguageModel which handles:
@@ -216,7 +217,9 @@ export async function POST(request: Request): Promise<Response> {
 
         // Validate model
         if (!isValidModel(modelId)) {
-            throw validationError(`Invalid model: ${modelId}`);
+            // OPT-P0-002: Generic error message - don't expose model ID to clients
+            logger.warn("[Chat API] Invalid model requested", { modelId });
+            throw validationError("Invalid model configuration");
         }
 
         // =============================================================================
@@ -231,10 +234,14 @@ export async function POST(request: Request): Promise<Response> {
         if (isGuest) {
             // Guests can only use affordable models to prevent cost abuse
             if (!GUEST_ALLOWED_MODELS.has(modelId)) {
-                throw forbiddenError("model", {
-                    reason: "This model requires authentication",
+                // OPT-P0-002: Log details server-side, but don't include in error response
+                // Security: Prevents model enumeration attacks
+                logger.warn("[Chat API] Guest attempted restricted model", {
                     modelId,
                     allowedModels: Array.from(GUEST_ALLOWED_MODELS),
+                });
+                throw forbiddenError("model", {
+                    reason: "Model configuration error",
                 });
             }
 
