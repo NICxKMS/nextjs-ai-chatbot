@@ -27,6 +27,7 @@ import {
 } from "@/lib/cache-ops";
 import type { Document } from "@/lib/db";
 import type { ArtifactKind } from "@/lib/types";
+import { logger } from "@/lib/utils/logger";
 import { isGuest } from "../base";
 import {
     deleteDocumentsAfterTimestamp,
@@ -67,7 +68,13 @@ export async function getDocumentCached(
     if (document) {
         // Background warm cache
         const { meta, version } = documentToCached(document);
-        createDocumentInCache(meta, version, false).catch(() => {});
+        createDocumentInCache(meta, version, false).catch((error) => {
+            logger.warn("Cache write failed", {
+                operation: "createDocumentInCache",
+                documentId: document.id,
+                error: error.message,
+            });
+        });
     }
     return document;
 }
@@ -160,7 +167,13 @@ export async function createDocumentCached(
     // Auth = DB first, then cache
     const document = await saveDocument(params, ctx);
     const { meta, version } = documentToCached(document);
-    await createDocumentInCache(meta, version, false).catch(() => {});
+    await createDocumentInCache(meta, version, false).catch((error) => {
+        logger.warn("Cache write failed", {
+            operation: "createDocumentInCache",
+            documentId: document.id,
+            error: error.message,
+        });
+    });
     return document;
 }
 
@@ -201,12 +214,12 @@ export async function appendVersionCached(
     const document = await saveDocument(params, ctx);
     const version = documentVersionToCached(document);
     await appendVersionToCache(ctx.userId, params.id, version, false).catch(
-        (err) => {
-            // Log cache errors for observability while preventing failure
-            console.warn(
-                "[CachedDocuments] Failed to append version to cache:",
-                err
-            );
+        (error) => {
+            logger.warn("Cache append failed", {
+                operation: "appendVersionToCache",
+                documentId: params.id,
+                error: error.message,
+            });
         }
     );
     return document;
@@ -235,9 +248,51 @@ export async function deleteDocumentCached(
         ctx
     );
     if (deleted.length > 0) {
-        await deleteDocumentFromCache(ctx.userId, documentId).catch(() => {});
+        await deleteDocumentFromCache(ctx.userId, documentId).catch((error) => {
+            logger.warn("Cache delete failed", {
+                operation: "deleteDocumentFromCache",
+                documentId,
+                error: error.message,
+            });
+        });
     }
     return deleted.length > 0;
+}
+
+/**
+ * Delete document versions after timestamp: Delete from DB first, then invalidate cache
+ */
+export async function deleteVersionsAfterTimestampCached(
+    documentId: string,
+    timestamp: Date,
+    ctx: DataContext
+): Promise<Document[]> {
+    const guestMode = isGuest(ctx);
+
+    // Guest = cache-only (not supported for partial deletes)
+    if (guestMode) {
+        // For guests, we delete the entire document from cache
+        await deleteDocumentFromCache(ctx.userId, documentId);
+        return [];
+    }
+
+    // Auth = DB first, then invalidate cache
+    const deleted = await deleteDocumentsAfterTimestamp(
+        documentId,
+        timestamp,
+        ctx
+    );
+    if (deleted.length > 0) {
+        // Invalidate cache to ensure fresh read on next access
+        await deleteDocumentFromCache(ctx.userId, documentId).catch((error) => {
+            logger.warn("Cache invalidation failed", {
+                operation: "deleteVersionsAfterTimestampCached",
+                documentId,
+                error: error.message,
+            });
+        });
+    }
+    return deleted;
 }
 
 // ============================================================================

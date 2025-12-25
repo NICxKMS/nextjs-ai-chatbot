@@ -11,8 +11,8 @@ export type ChatGroup = {
     chats: ChatHistoryItem[];
 };
 
-// Re-export VisibilityType from canonical source
-export type { VisibilityType } from "@/features/chat/types";
+// Re-export VisibilityType from shared types (canonical source)
+export type { VisibilityType } from "@/shared/types";
 
 export type SidebarState = {
     isOpen: boolean;

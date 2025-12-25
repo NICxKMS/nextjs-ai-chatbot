@@ -25,6 +25,7 @@ export {
     appendVersionCached,
     createDocumentCached,
     deleteDocumentCached,
+    deleteVersionsAfterTimestampCached,
     getAllVersionsCached,
     getDocumentCached,
     getLatestVersionCached,

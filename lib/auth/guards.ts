@@ -7,7 +7,7 @@
 
 import { nanoid } from "nanoid";
 import { authError, forbiddenError } from "@/lib/errors";
-import { getSessionManager } from "./session";
+import { buildContext, getSession } from "./session";
 import type { AppSession, AuthResult } from "./types";
 
 type Surface = "chat" | "document" | "history" | "vote" | "api";
@@ -17,15 +17,14 @@ type Surface = "chat" | "document" | "history" | "vote" | "api";
  * Throws AppError if not authenticated
  */
 export async function requireAuth(surface: Surface): Promise<AuthResult> {
-    const manager = getSessionManager();
-    const session = await manager.getSession();
+    const session = await getSession();
 
     if (!session) {
         throw authError("unauthorized", { surface });
     }
 
     const requestId = nanoid();
-    const ctx = manager.buildContext(session, requestId);
+    const ctx = buildContext(session, requestId);
 
     return { session, ctx };
 }
@@ -37,15 +36,14 @@ export async function requireAuth(surface: Surface): Promise<AuthResult> {
 export async function requireAuthForRoute(
     surface: Surface
 ): Promise<AuthResult | Response> {
-    const manager = getSessionManager();
-    const session = await manager.getSession();
+    const session = await getSession();
 
     if (!session) {
         return authError("unauthorized", { surface }).toResponse();
     }
 
     const requestId = nanoid();
-    const ctx = manager.buildContext(session, requestId);
+    const ctx = buildContext(session, requestId);
 
     return { session, ctx };
 }
@@ -94,15 +92,14 @@ export function requireRegularUser(session: AppSession, feature: string): void {
  * Returns null if not authenticated
  */
 export async function getOptionalAuth(): Promise<AuthResult | null> {
-    const manager = getSessionManager();
-    const session = await manager.getSession();
+    const session = await getSession();
 
     if (!session) {
         return null;
     }
 
     const requestId = nanoid();
-    const ctx = manager.buildContext(session, requestId);
+    const ctx = buildContext(session, requestId);
 
     return { session, ctx };
 }

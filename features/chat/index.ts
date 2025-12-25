@@ -63,7 +63,6 @@ export type {
     FullChatProps,
     ModelSelectorProps,
     NewChatButtonProps,
-    SidebarToggleProps,
     UseDataStreamHandlerOptions,
 } from "./components";
 // Main Chat component (primary export)
@@ -81,7 +80,6 @@ export {
     isDataUsagePart,
     ModelSelector,
     NewChatButton,
-    SidebarToggle,
     useDataStream,
     useDataStreamHandler,
 } from "./components";
@@ -122,3 +120,15 @@ export {
 
 export type { VoteInput, VoteResult } from "./actions";
 export { removeVote, voteOnMessage } from "./actions";
+
+// =============================================================================
+// SERVICE EXPORTS
+// =============================================================================
+
+export type { IModelPersistence, IModelService } from "./services";
+export {
+    createModelService,
+    defaultModelService,
+    getDefaultModelId,
+    getModels,
+} from "./services";

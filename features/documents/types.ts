@@ -6,7 +6,7 @@
  * @module features/documents/types
  */
 
-import type { ArtifactKind } from "@/features/artifacts";
+import type { ArtifactKind } from "@/shared/types";
 
 // =============================================================================
 // DOCUMENT TYPES (re-export from schema)

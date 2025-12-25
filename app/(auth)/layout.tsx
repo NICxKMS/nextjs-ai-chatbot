@@ -1,11 +1,10 @@
-import { Toaster } from "sonner";
-
 /**
  * Auth Layout
  * Ref: oldapp/app/(auth)/layout.tsx
  *
- * Simple centered layout for auth pages with toast support.
+ * Simple centered layout for auth pages.
  * Dark background, centered content.
+ * Note: Toaster is provided by root layout - no duplicate needed.
  */
 export default function AuthLayout({
     children,
@@ -15,7 +14,6 @@ export default function AuthLayout({
     return (
         <div className="flex min-h-dvh w-full flex-col bg-background">
             {children}
-            <Toaster position="top-center" />
         </div>
     );
 }

@@ -43,17 +43,26 @@
 
 ## Tech Stack
 
-| Layer     | Technologies                                 |
-| --------- | -------------------------------------------- |
-| Framework | Next.js 15 (App Router, RSC, Server Actions) |
-| Language  | TypeScript 5 (strict mode)                   |
-| Styling   | Tailwind CSS 4, shadcn/ui, Radix UI          |
-| AI        | Vercel AI SDK 5 (unified multi-provider)     |
-| Auth      | Auth.js v5                                   |
-| Database  | Drizzle ORM, NeonDB (PostgreSQL)             |
-| Caching   | Redis/Upstash (cache-first strategy)         |
-| Testing   | Vitest (unit), Playwright (E2E)              |
-| Hosting   | Vercel (Edge & Serverless)                   |
+| Layer     | Technologies                                     |
+| --------- | ------------------------------------------------ |
+| Framework | Next.js 16.1.0 (App Router, RSC, Server Actions) |
+| Language  | TypeScript 5 (strict mode)                       |
+| Styling   | Tailwind CSS 4, shadcn/ui, Radix UI              |
+| AI        | Vercel AI SDK 5 (unified multi-provider)         |
+| Auth      | Auth.js v5                                       |
+| Database  | Drizzle ORM, NeonDB (PostgreSQL)                 |
+| Caching   | Redis/Upstash (cache-first strategy)             |
+| Testing   | Vitest (unit), Playwright (E2E)                  |
+| Hosting   | Vercel (Edge & Serverless)                       |
+
+### Next.js 16.1.0 Features
+
+This project leverages cutting-edge Next.js 16.1.0 features:
+
+- **`"use cache"` Directive** - Declarative caching with custom `cacheLife` profiles
+- **`cacheTag()` API** - Granular cache invalidation for targeted revalidation
+- **Enhanced Streaming** - Optimized SSE with abort signal handling
+- **Improved RSC** - Better React Server Component integration
 
 ## Architecture
 
@@ -89,6 +98,13 @@ features/
 ├── artifacts/         # Artifact creation and preview
 ├── auth/              # Authentication logic
 ├── chat/              # Chat state and components
+
+## Legacy Code
+
+The `oldapp/` directory contains the original implementation before the feature-based architecture refactor. It is preserved for:
+- Historical reference and migration verification
+- Comparing implementation approaches
+- **Do not modify** - this folder is archived and not part of the active codebase
 ├── documents/         # Document management
 ├── settings/          # User preferences
 └── sidebar/           # Navigation sidebar
@@ -228,20 +244,55 @@ Visit: [ai.nicx.me](https://ai.nicx.me)
    ```
    App runs at [http://localhost:3000](http://localhost:3000)
 
+### Environment Variables
+
+Copy `.env.example` to `.env.local` and configure the following variables:
+
+| Variable                        | Required | Description                                                      |
+| ------------------------------- | -------- | ---------------------------------------------------------------- |
+| `AUTH_SECRET`                   | Yes      | Session encryption key (generate with `openssl rand -base64 32`) |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Yes      | Supabase project URL                                             |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes      | Supabase anonymous key                                           |
+| `SUPABASE_JWT_SECRET`           | Yes      | Supabase JWT secret for auth                                     |
+| `DATABASE_URL`                  | Yes      | PostgreSQL connection string (NeonDB recommended)                |
+| `CACHE_KV_REST_API_URL`         | No       | Upstash Redis URL for caching                                    |
+| `CACHE_KV_REST_API_TOKEN`       | No       | Upstash Redis token                                              |
+| `OPENAI_API_KEY`                | No\*     | OpenAI API key                                                   |
+| `ANTHROPIC_API_KEY`             | No\*     | Anthropic API key                                                |
+| `GEMINI_API_KEY`                | No\*     | Google Gemini API key                                            |
+| `OPENROUTER_API_KEY`            | No\*     | OpenRouter API key                                               |
+| `BLOB_READ_WRITE_TOKEN`         | No       | Vercel Blob storage token                                        |
+
+\*At least one AI provider API key is required.
+
+See `.env.example` for all available configuration options including Cloudflare AI Gateway and advanced settings.
+
 ### Useful Scripts
 
-| Command            | Description                  |
-| ------------------ | ---------------------------- |
-| `pnpm dev`         | Start development server     |
-| `pnpm build`       | Build for production         |
-| `pnpm start`       | Run production server        |
-| `pnpm typecheck`   | TypeScript type checking     |
-| `pnpm lint`        | Lint and format code         |
-| `pnpm test`        | Run unit tests (Vitest)      |
-| `pnpm test:watch`  | Run tests in watch mode      |
-| `pnpm test:e2e`    | Run E2E tests (Playwright)   |
-| `pnpm db:generate` | Generate database migrations |
-| `pnpm db:migrate`  | Apply database migrations    |
+| Command                 | Description                  |
+| ----------------------- | ---------------------------- |
+| `pnpm dev`              | Start development server     |
+| `pnpm build`            | Build for production         |
+| `pnpm start`            | Run production server        |
+| `pnpm typecheck`        | TypeScript type checking     |
+| `pnpm lint`             | Lint and format code         |
+| `pnpm test`             | Run unit tests (Vitest)      |
+| `pnpm test:watch`       | Run tests in watch mode      |
+| `pnpm test:coverage`    | Run tests with coverage      |
+| `pnpm test:e2e`         | Run E2E tests (Playwright)   |
+| `pnpm test:integration` | Run integration tests        |
+| `pnpm db:generate`      | Generate database migrations |
+| `pnpm db:migrate`       | Apply database migrations    |
+
+## Documentation
+
+Detailed documentation is available in the [docs/](docs/) folder:
+
+- [Architecture](docs/ARCHITECTURE.md) - System design and patterns
+- [API Reference](docs/API.md) - REST API documentation
+- [Caching](docs/CACHING.md) - Cache strategy and invalidation
+- [Error Handling](docs/ERROR-HANDLING.md) - Error types and handling
+- [Testing](docs/TESTING.md) - Test suite overview (395 tests)
 
 ## Deployment
 

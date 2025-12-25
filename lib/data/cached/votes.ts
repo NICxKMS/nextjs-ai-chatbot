@@ -20,6 +20,7 @@ import {
     setVoteInCache,
 } from "@/lib/cache-ops/votes";
 import type { Vote } from "@/lib/db";
+import { logger } from "@/lib/utils/logger";
 import { isGuest } from "../base";
 import type { DataContext } from "../types";
 import type { VoteType } from "../votes";
@@ -70,7 +71,14 @@ export async function getVoteCached(
     if (vote) {
         // Warm cache
         setVoteInCache(chatId, messageId, vote.isUpvoted, userCtx).catch(
-            () => {}
+            (error) => {
+                logger.warn("Cache write failed", {
+                    operation: "setVoteInCache",
+                    chatId,
+                    messageId,
+                    error: error.message,
+                });
+            }
         );
     }
     return vote;

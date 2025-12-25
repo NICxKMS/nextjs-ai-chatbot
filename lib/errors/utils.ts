@@ -7,25 +7,35 @@ import { AppError } from "./app-error";
 import type { ErrorCategory, ErrorCode } from "./types";
 
 /**
- * Infer HTTP status code from error code
+ * P4-043: Strategy pattern - Category to status code mapping.
+ * Base status codes per error category.
+ */
+const CATEGORY_STATUS_MAP: Record<ErrorCategory, number> = {
+    auth: 401,
+    validation: 400,
+    resource: 403,
+    rate_limit: 429,
+    external: 503,
+    internal: 500,
+};
+
+/**
+ * Infer HTTP status code from error code.
+ * P4-043: Uses lookup table with special case handling.
  */
 export function inferStatusCode(code: ErrorCode): number {
     const category = code.split(":")[0] as ErrorCategory;
+    const baseStatus = CATEGORY_STATUS_MAP[category] ?? 500;
 
-    switch (category) {
-        case "auth":
-            return code.includes("forbidden") ? 403 : 401;
-        case "validation":
-            return 400;
-        case "resource":
-            return code.includes("not_found") ? 404 : 403;
-        case "rate_limit":
-            return 429;
-        case "external":
-            return 503;
-        default:
-            return 500;
+    // Special case overrides based on specific error codes
+    if (category === "auth" && code.includes("forbidden")) {
+        return 403;
     }
+    if (category === "resource" && code.includes("not_found")) {
+        return 404;
+    }
+
+    return baseStatus;
 }
 
 /**

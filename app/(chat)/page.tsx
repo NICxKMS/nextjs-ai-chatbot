@@ -10,9 +10,10 @@
 import { cookies } from "next/headers";
 import { connection } from "next/server";
 
-import { Chat, DataStreamHandler } from "@/features/chat";
+import { DataStreamHandler } from "@/features/chat";
 import { DEFAULT_MODEL_ID, getAvailableModels } from "@/lib/ai";
 import { generateUUID } from "@/lib/utils";
+import { ChatWithSlots } from "./chat-with-slots";
 
 export default async function NewChatPage() {
     // Defer to request time - prevents prerender errors with cookies()
@@ -34,7 +35,7 @@ export default async function NewChatPage() {
 
     return (
         <>
-            <Chat
+            <ChatWithSlots
                 id={chatId}
                 initialMessages={[]}
                 isReadonly={false}

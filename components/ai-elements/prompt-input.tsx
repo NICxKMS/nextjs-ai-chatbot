@@ -617,14 +617,12 @@ export const PromptInput = ({
         }
     }, [files, syncHiddenInput]);
 
-    // Attach drop handlers on nearest form and document (opt-in)
+    // Attach drag/drop handlers - form-level or document-level based on globalDrop flag
     useEffect(() => {
         const form = formRef.current;
-        if (!form) {
+        // Skip if no form or if globalDrop is enabled (document-level handlers take over)
+        if (!form || globalDrop) {
             return;
-        }
-        if (globalDrop) {
-            return; // when global drop is on, let the document-level handler own drops
         }
 
         const onDragOver = (e: DragEvent) => {
@@ -640,6 +638,7 @@ export const PromptInput = ({
                 add(e.dataTransfer.files);
             }
         };
+
         form.addEventListener("dragover", onDragOver);
         form.addEventListener("drop", onDrop);
         return () => {
@@ -648,6 +647,7 @@ export const PromptInput = ({
         };
     }, [add, globalDrop]);
 
+    // Document-level drag/drop handlers for globalDrop mode
     useEffect(() => {
         if (!globalDrop) {
             return;
@@ -666,6 +666,7 @@ export const PromptInput = ({
                 add(e.dataTransfer.files);
             }
         };
+
         document.addEventListener("dragover", onDragOver);
         document.addEventListener("drop", onDrop);
         return () => {

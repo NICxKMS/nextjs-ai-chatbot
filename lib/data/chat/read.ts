@@ -140,3 +140,19 @@ export async function getChatCount(ctx: DataContext): Promise<number> {
 
     return result.length;
 }
+
+/**
+ * Get chat title by ID (public, no auth required)
+ * Used for SEO metadata generation - returns only the title field.
+ * OPT-008: Minimal query for metadata without auth overhead.
+ */
+export async function getChatTitle(chatId: string): Promise<string | null> {
+    const db = getDb();
+    const [result] = await db
+        .select({ title: chat.title })
+        .from(chat)
+        .where(eq(chat.id, chatId))
+        .limit(1);
+
+    return result?.title ?? null;
+}

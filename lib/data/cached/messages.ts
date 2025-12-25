@@ -22,6 +22,7 @@ import {
     getMessagesFromCache,
 } from "@/lib/cache-ops";
 import { getDb, type Message, schema } from "@/lib/db";
+import { logger } from "@/lib/utils/logger";
 import { isGuest } from "../base";
 import type { DataContext } from "../types";
 
@@ -64,7 +65,14 @@ export async function getMessagesCached(
             ctx.userId,
             messages.map(messageToCached),
             false
-        ).catch(() => {});
+        ).catch((error) => {
+            logger.warn("Cache write failed", {
+                operation: "appendMessagesToCache",
+                chatId,
+                messageCount: messages.length,
+                error: error.message,
+            });
+        });
     }
 
     return messages;
@@ -91,7 +99,14 @@ export async function appendMessageCached(
     const db = getDb();
     await db.insert(messageTable).values(message);
     await appendMessageToCache(chatId, ctx.userId, cachedMsg, false).catch(
-        () => {}
+        (error) => {
+            logger.warn("Cache write failed", {
+                operation: "appendMessageToCache",
+                chatId,
+                messageId: message.id,
+                error: error.message,
+            });
+        }
     );
 }
 
@@ -120,7 +135,14 @@ export async function appendMessagesCached(
     const db = getDb();
     await db.insert(messageTable).values(messages);
     await appendMessagesToCache(chatId, ctx.userId, cachedMsgs, false).catch(
-        () => {}
+        (error) => {
+            logger.warn("Cache write failed", {
+                operation: "appendMessagesToCache",
+                chatId,
+                messageCount: messages.length,
+                error: error.message,
+            });
+        }
     );
 }
 

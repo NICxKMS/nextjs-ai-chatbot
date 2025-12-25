@@ -2,6 +2,7 @@
 
 import {
     type Dispatch,
+    memo,
     type SetStateAction,
     useCallback,
     useEffect,
@@ -81,7 +82,7 @@ function CrossSmallIcon({ size = 16 }: { size?: number }) {
 // Component
 // ============================================================================
 
-export function Console({
+function ConsoleImpl({
     consoleOutputs,
     setConsoleOutputs,
     isArtifactVisible = true,
@@ -122,12 +123,10 @@ export function Console({
         };
     }, [resize, stopResizing]);
 
-    // Scroll to bottom when console outputs change
+    // Combined effect: scroll to bottom on mount and clear outputs when artifact is hidden
     useEffect(() => {
         consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, []);
 
-    useEffect(() => {
         if (!isArtifactVisible) {
             setConsoleOutputs([]);
         }
@@ -266,3 +265,9 @@ export function Console({
         </>
     );
 }
+
+/**
+ * Memoized Console component to prevent unnecessary re-renders.
+ * Re-renders only when consoleOutputs, setConsoleOutputs, or isArtifactVisible change.
+ */
+export const Console = memo(ConsoleImpl);

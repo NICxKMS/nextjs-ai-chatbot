@@ -51,7 +51,21 @@ export {
     resetQuota,
 } from "./quota";
 // Re-export Lua scripts (for advanced use)
-export * from "./scripts";
+export {
+    APPEND_MESSAGE_SCRIPT,
+    APPEND_MESSAGES_BULK_SCRIPT,
+    APPEND_VERSION_SCRIPT,
+    CREATE_CHAT_SCRIPT,
+    DELETE_ALL_USER_CHATS_SCRIPT,
+    DELETE_CHAT_SCRIPT,
+    FORK_CHAT_SCRIPT,
+    FORK_DOCUMENT_SCRIPT,
+    INCREMENT_QUOTA_SCRIPT,
+    PRUNE_VERSIONS_SCRIPT,
+    SCRIPTS,
+    type ScriptName,
+    UPDATE_METADATA_SCRIPT,
+} from "./scripts";
 export type { CachedSuggestion } from "./suggestions";
 // Suggestion operations
 export {

@@ -16,8 +16,14 @@ import { Suspense, useEffect } from "react";
 import { toast } from "sonner";
 
 import { DataStreamProvider } from "@/features/chat";
+import {
+    DocumentPreview,
+    DocumentToolCall,
+    DocumentToolResult,
+} from "@/features/documents";
 import { OptimisticChatsProvider } from "@/features/sidebar";
 import { AnnouncerProvider } from "@/shared/components";
+import { ToolRendererProvider, type ToolRenderers } from "@/shared/services";
 import { SidebarInset, SidebarProvider } from "@/shared/ui/sidebar";
 import { SidebarContainer } from "./sidebar-container";
 
@@ -92,6 +98,16 @@ export type ChatLayoutClientProps = {
     defaultSidebarOpen?: boolean;
 };
 
+/**
+ * Tool renderers for document tools.
+ * Injected via context to avoid direct feature imports in chat components.
+ */
+const toolRenderers: ToolRenderers = {
+    DocumentPreview,
+    DocumentToolCall,
+    DocumentToolResult,
+};
+
 export function ChatLayoutClient({
     children,
     defaultSidebarOpen = true,
@@ -105,25 +121,27 @@ export function ChatLayoutClient({
             />
 
             <AnnouncerProvider>
-                <DataStreamProvider>
-                    <SidebarProvider defaultOpen={defaultSidebarOpen}>
-                        <OptimisticChatsProvider>
-                            {/* Handle URL notices */}
-                            <Suspense fallback={null}>
-                                <NoticeHandler />
-                            </Suspense>
-
-                            <Suspense fallback={<SidebarSkeleton />}>
-                                <SidebarContainer />
-                            </Suspense>
-                            <SidebarInset>
-                                <Suspense fallback={<ContentLoader />}>
-                                    {children}
+                <ToolRendererProvider renderers={toolRenderers}>
+                    <DataStreamProvider>
+                        <SidebarProvider defaultOpen={defaultSidebarOpen}>
+                            <OptimisticChatsProvider>
+                                {/* Handle URL notices */}
+                                <Suspense fallback={null}>
+                                    <NoticeHandler />
                                 </Suspense>
-                            </SidebarInset>
-                        </OptimisticChatsProvider>
-                    </SidebarProvider>
-                </DataStreamProvider>
+
+                                <Suspense fallback={<SidebarSkeleton />}>
+                                    <SidebarContainer />
+                                </Suspense>
+                                <SidebarInset>
+                                    <Suspense fallback={<ContentLoader />}>
+                                        {children}
+                                    </Suspense>
+                                </SidebarInset>
+                            </OptimisticChatsProvider>
+                        </SidebarProvider>
+                    </DataStreamProvider>
+                </ToolRendererProvider>
             </AnnouncerProvider>
         </>
     );

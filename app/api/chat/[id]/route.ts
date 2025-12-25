@@ -51,7 +51,11 @@ export async function GET(
         if (error instanceof AppError) {
             return error.toResponse();
         }
-        return NextResponse.json({ error: "Internal error" }, { status: 500 });
+        return new AppError({
+            code: "internal:error",
+            message: "Failed to fetch chat",
+            cause: error instanceof Error ? error : undefined,
+        }).toResponse();
     }
 }
 
@@ -95,6 +99,10 @@ export async function DELETE(
         if (error instanceof AppError) {
             return error.toResponse();
         }
-        return NextResponse.json({ error: "Internal error" }, { status: 500 });
+        return new AppError({
+            code: "internal:error",
+            message: "Failed to delete chat",
+            cause: error instanceof Error ? error : undefined,
+        }).toResponse();
     }
 }

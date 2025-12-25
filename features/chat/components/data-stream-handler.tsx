@@ -10,6 +10,7 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
+import { logger } from "@/lib/utils/logger";
 import type { DataStreamPart } from "./data-stream-provider";
 
 // =============================================================================
@@ -183,7 +184,7 @@ export type DataStreamHandlerProps = {
 export function DataStreamHandler(_props: DataStreamHandlerProps): null {
     useEffect(() => {
         if (process.env.NODE_ENV === "development") {
-            console.warn(
+            logger.warn(
                 "[DataStreamHandler] This component is deprecated. Use useDataStreamHandler hook instead."
             );
         }

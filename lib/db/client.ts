@@ -4,11 +4,15 @@
  *
  * Uses postgres (porsager/postgres) driver with Drizzle ORM
  * Supabase PostgreSQL compatible
+ *
+ * P2-019: Uses Zod-validated DATABASE_URL from env
  */
 import "server-only";
 
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+
+import { env } from "@/lib/config/env";
 import * as schema from "./schema";
 
 /**
@@ -45,8 +49,8 @@ function getPoolConfig() {
     };
 }
 
-// Create postgres client
-const client = postgres(process.env.DATABASE_URL!, getPoolConfig());
+// Create postgres client with validated DATABASE_URL
+const client = postgres(env.DATABASE_URL, getPoolConfig());
 
 // Create drizzle instance
 const db = drizzle(client, { schema });

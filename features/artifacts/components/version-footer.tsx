@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { motion } from "@/lib/motion";
 import { useWindowSize } from "@/shared/hooks";
 import { useArtifact } from "../hooks";
+import { restoreArtifactVersion } from "../services/artifact-api";
 
 type Document = {
     id: string;
@@ -71,37 +72,33 @@ export const VersionFooter = ({
                     onClick={async () => {
                         setIsMutating(true);
 
+                        const timestamp = getDocumentTimestampByIndex(
+                            documents,
+                            currentVersionIndex
+                        );
+
+                        try {
+                            await restoreArtifactVersion(
+                                artifact.documentId,
+                                timestamp
+                            );
+                        } finally {
+                            // Trigger revalidation regardless of success/failure
+                        }
+
                         mutate(
                             `/api/document?id=${artifact.documentId}`,
-                            await fetch(
-                                `/api/document?id=${artifact.documentId}&timestamp=${getDocumentTimestampByIndex(
-                                    documents,
-                                    currentVersionIndex
-                                )}`,
-                                {
-                                    method: "DELETE",
-                                }
-                            ),
-                            {
-                                optimisticData: documents
-                                    ? [
-                                          ...documents.filter(
-                                              (document) =>
-                                                  !isAfter(
-                                                      new Date(
-                                                          document.createdAt
-                                                      ),
-                                                      new Date(
-                                                          getDocumentTimestampByIndex(
-                                                              documents,
-                                                              currentVersionIndex
-                                                          )
-                                                      )
-                                                  )
-                                          ),
-                                      ]
-                                    : [],
-                            }
+                            documents
+                                ? [
+                                      ...documents.filter(
+                                          (document) =>
+                                              !isAfter(
+                                                  new Date(document.createdAt),
+                                                  new Date(timestamp)
+                                              )
+                                      ),
+                                  ]
+                                : []
                         );
                     }}
                 >

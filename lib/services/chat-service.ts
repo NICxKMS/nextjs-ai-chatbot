@@ -11,6 +11,7 @@ import "server-only";
 import { getChatConfig, isFeatureEnabled } from "@/lib/config/app-config";
 import {
     createChatCached,
+    deleteAllUserChatsCached,
     deleteChatCached,
     getChatCached,
     getChatWithMessagesCached,
@@ -209,7 +210,13 @@ export const ChatService = {
     async list(
         options: ListChatsOptions,
         ctx: DataContext
-    ): Promise<ChatServiceResult<{ chats: Chat[]; hasMore: boolean }>> {
+    ): Promise<
+        ChatServiceResult<{
+            chats: Chat[];
+            hasMore: boolean;
+            nextCursor?: string;
+        }>
+    > {
         try {
             if (!isFeatureEnabled("chatHistory")) {
                 return { success: true, data: { chats: [], hasMore: false } };
@@ -229,12 +236,14 @@ export const ChatService = {
                 : 0;
             const sliced = chats.slice(startIndex, startIndex + limit);
             const hasMore = startIndex + limit < chats.length;
+            const nextCursor = hasMore ? sliced.at(-1)?.id : undefined;
 
             return {
                 success: true,
                 data: {
                     chats: sliced,
                     hasMore,
+                    nextCursor,
                 },
             };
         } catch (error) {
@@ -359,6 +368,32 @@ export const ChatService = {
     },
 
     /**
+     * Delete all chats for a user
+     *
+     * @param ctx - Data context with user info
+     * @returns Number of deleted chats or error
+     */
+    async deleteAll(ctx: DataContext): Promise<ChatServiceResult<number>> {
+        try {
+            const count = await deleteAllUserChatsCached(ctx);
+            return { success: true, data: count };
+        } catch (error) {
+            if (error instanceof AppError) {
+                return {
+                    success: false,
+                    error: error.message,
+                    code: error.code,
+                };
+            }
+            return {
+                success: false,
+                error: "Failed to delete all chats",
+                code: "internal:unknown",
+            };
+        }
+    },
+
+    /**
      * Verify chat ownership
      *
      * @param chatId - Chat ID
@@ -415,5 +450,6 @@ export const getChatWithMessages = ChatService.getWithMessages;
 export const listChats = ChatService.list;
 export const updateChat = ChatService.update;
 export const deleteChat = ChatService.delete;
+export const deleteAllUserChats = ChatService.deleteAll;
 export const verifyChatOwnership = ChatService.verifyOwnership;
 export const generateChatTitle = ChatService.generateTitle;

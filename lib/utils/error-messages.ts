@@ -105,6 +105,16 @@ const ERROR_MESSAGE_MAP: Record<string, FriendlyError> = {
         message: "The server took too long to respond. Please try again.",
         action: "Retry",
     },
+    "network:aborted": {
+        title: "Request cancelled",
+        message: "The request was cancelled.",
+    },
+    "network:connection_failed": {
+        title: "Connection failed",
+        message:
+            "Unable to connect to the server. Please check your connection and try again.",
+        action: "Retry",
+    },
 
     // Resource errors
     "resource:not_found": {
@@ -133,6 +143,29 @@ const ERROR_MESSAGE_MAP: Record<string, FriendlyError> = {
         message: "There was an issue with the AI service. Please try again.",
         action: "Retry",
     },
+    "external:api_error": {
+        title: "Service error",
+        message:
+            "An error occurred while communicating with the service. Please try again.",
+        action: "Retry",
+    },
+
+    // Database errors
+    "database:connection_failed": {
+        title: "Database unavailable",
+        message: "Unable to connect to the database. Please try again later.",
+        action: "Retry",
+    },
+    "database:query_failed": {
+        title: "Database error",
+        message: "A database error occurred. Please try again.",
+        action: "Retry",
+    },
+    "database:transaction_failed": {
+        title: "Operation failed",
+        message: "The operation could not be completed. Please try again.",
+        action: "Retry",
+    },
 
     // File errors
     "file:too_large": {
@@ -148,6 +181,18 @@ const ERROR_MESSAGE_MAP: Record<string, FriendlyError> = {
         title: "Upload failed",
         message: "Failed to upload your file. Please try again.",
         action: "Retry",
+    },
+
+    // Internal errors - user-friendly wrappers for system errors
+    "internal:unknown": {
+        title: "Something went wrong",
+        message: "An unexpected error occurred. Please try again later.",
+        action: "Retry",
+    },
+    "internal:configuration": {
+        title: "Configuration error",
+        message:
+            "There's a configuration issue. Please contact support if this persists.",
     },
 };
 
@@ -389,4 +434,83 @@ export function extractErrorMessage(
     }
 
     return fallback;
+}
+
+// =============================================================================
+// SYSTEM ERROR MAPPING (P3-075)
+// =============================================================================
+
+/**
+ * Map of technical error patterns to user-friendly codes.
+ * Used to convert system-level errors into displayable messages.
+ */
+const SYSTEM_ERROR_PATTERNS: Array<{
+    pattern: RegExp;
+    code: string;
+}> = [
+    // Network errors
+    { pattern: /ECONNREFUSED/i, code: "network:connection_failed" },
+    { pattern: /ENOTFOUND/i, code: "network:connection_failed" },
+    { pattern: /ETIMEDOUT/i, code: "network:timeout" },
+    { pattern: /ECONNRESET/i, code: "network:connection_failed" },
+    { pattern: /network\s*(error|fail)/i, code: "network:offline" },
+    { pattern: /failed\s*to\s*fetch/i, code: "network:connection_failed" },
+    { pattern: /abort/i, code: "network:aborted" },
+    { pattern: /timeout/i, code: "network:timeout" },
+
+    // Database errors
+    { pattern: /ECONNREFUSED.*5432/i, code: "database:connection_failed" },
+    { pattern: /database.*connection/i, code: "database:connection_failed" },
+    { pattern: /query.*failed/i, code: "database:query_failed" },
+    { pattern: /transaction.*failed/i, code: "database:transaction_failed" },
+
+    // Auth errors
+    { pattern: /unauthorized/i, code: "auth:unauthorized" },
+    { pattern: /forbidden/i, code: "auth:forbidden" },
+    { pattern: /not\s*authenticated/i, code: "auth:unauthorized" },
+    { pattern: /session.*expired/i, code: "auth:session_expired" },
+
+    // Rate limiting
+    { pattern: /rate\s*limit/i, code: "rate_limit:exceeded" },
+    { pattern: /too\s*many\s*requests/i, code: "rate_limit:exceeded" },
+];
+
+/**
+ * Convert a system-level error to a user-friendly message.
+ * Detects common error patterns and maps them to appropriate codes.
+ *
+ * @param error - The error to convert (Error, string, or unknown)
+ * @returns User-friendly error object
+ *
+ * @example
+ * ```ts
+ * // Network error
+ * const friendly = mapSystemError(new Error("ECONNREFUSED 127.0.0.1:5432"));
+ * // { title: "Connection failed", message: "Unable to connect...", action: "Retry" }
+ *
+ * // Unknown error
+ * const friendly = mapSystemError(new Error("Something went wrong"));
+ * // { title: "Something went wrong", message: "An unexpected error occurred...", action: "Retry" }
+ * ```
+ */
+export function mapSystemError(error: unknown): FriendlyError {
+    // Extract message from error
+    let errorMessage = "";
+    if (error instanceof Error) {
+        errorMessage = error.message;
+    } else if (typeof error === "string") {
+        errorMessage = error;
+    } else if (error && typeof error === "object" && "message" in error) {
+        errorMessage = String((error as { message: unknown }).message);
+    }
+
+    // Check against known patterns
+    for (const { pattern, code } of SYSTEM_ERROR_PATTERNS) {
+        if (pattern.test(errorMessage)) {
+            return getFriendlyError(code);
+        }
+    }
+
+    // Default fallback for unknown errors
+    return getFriendlyError("internal:unknown");
 }

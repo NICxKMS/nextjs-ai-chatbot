@@ -11,9 +11,17 @@ import "server-only";
 
 import { isFeatureEnabled } from "@/lib/config/app-config";
 import {
+    DEFAULT_MAX_DOCUMENT_SIZE_BYTES,
+    MAX_CODE_DOCUMENT_SIZE_BYTES,
+    MAX_IMAGE_DOCUMENT_SIZE_BYTES,
+    MAX_SHEET_DOCUMENT_SIZE_BYTES,
+    MAX_TEXT_DOCUMENT_SIZE_BYTES,
+} from "@/lib/config/security-constants";
+import {
     appendVersionCached,
     createDocumentCached,
     deleteDocumentCached,
+    deleteVersionsAfterTimestampCached,
     getAllVersionsCached,
     getDocumentCached,
     getLatestVersionCached,
@@ -116,15 +124,16 @@ function validateContent(
 
 /**
  * Get maximum content size based on document kind
+ * P3-036: Uses centralized security constants
  */
 function getMaxContentSize(kind: ArtifactKind): number {
     const sizes: Record<ArtifactKind, number> = {
-        text: 1024 * 1024, // 1MB
-        code: 2 * 1024 * 1024, // 2MB
-        image: 10 * 1024 * 1024, // 10MB
-        sheet: 5 * 1024 * 1024, // 5MB
+        text: MAX_TEXT_DOCUMENT_SIZE_BYTES,
+        code: MAX_CODE_DOCUMENT_SIZE_BYTES,
+        image: MAX_IMAGE_DOCUMENT_SIZE_BYTES,
+        sheet: MAX_SHEET_DOCUMENT_SIZE_BYTES,
     };
-    return sizes[kind] ?? 1024 * 1024;
+    return sizes[kind] ?? DEFAULT_MAX_DOCUMENT_SIZE_BYTES;
 }
 
 // =============================================================================
@@ -405,6 +414,62 @@ export const DocumentService = {
     },
 
     /**
+     * Delete document versions after a specific timestamp
+     *
+     * @param documentId - Document ID
+     * @param timestamp - Delete versions created after this timestamp
+     * @param ctx - Data context with user info
+     * @returns Deleted documents or error
+     */
+    async deleteVersionsAfterTimestamp(
+        documentId: string,
+        timestamp: Date,
+        ctx: DataContext
+    ): Promise<DocumentServiceResult<Document[]>> {
+        try {
+            // Verify document exists and user has access
+            const existing = await getDocumentCached(documentId, ctx);
+            if (!existing) {
+                return {
+                    success: false,
+                    error: "Document not found",
+                    code: "not_found:document",
+                };
+            }
+
+            // Validate timestamp
+            if (Number.isNaN(timestamp.getTime())) {
+                return {
+                    success: false,
+                    error: "Invalid timestamp",
+                    code: "validation:invalid_timestamp",
+                };
+            }
+
+            const deleted = await deleteVersionsAfterTimestampCached(
+                documentId,
+                timestamp,
+                ctx
+            );
+
+            return { success: true, data: deleted };
+        } catch (error) {
+            if (error instanceof AppError) {
+                return {
+                    success: false,
+                    error: error.message,
+                    code: error.code,
+                };
+            }
+            return {
+                success: false,
+                error: "Failed to delete document versions",
+                code: "internal:unknown",
+            };
+        }
+    },
+
+    /**
      * Get suggestions for a document
      *
      * @param documentId - Document ID
@@ -484,6 +549,8 @@ export const getLatestDocument = DocumentService.getLatest;
 export const getAllDocumentVersions = DocumentService.getAllVersions;
 export const appendDocumentVersion = DocumentService.appendVersion;
 export const deleteDocument = DocumentService.delete;
+export const deleteDocumentVersionsAfterTimestamp =
+    DocumentService.deleteVersionsAfterTimestamp;
 export const getDocumentSuggestions = DocumentService.getSuggestions;
 export const verifyDocumentOwnership = DocumentService.verifyOwnership;
 export const getDocumentKindLabel = DocumentService.getKindLabel;

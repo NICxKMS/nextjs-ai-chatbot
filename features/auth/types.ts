@@ -1,6 +1,9 @@
 /**
  * Auth Feature Types
  * Ref: 02-authentication-optimal-design.md §3
+ *
+ * P3-019: Null object pattern - use EMPTY_AUTH_STATE
+ * instead of null checks throughout the codebase.
  */
 
 import type { AppSession, AppUser } from "@/lib/auth";
@@ -12,6 +15,31 @@ export type AuthState = {
     isGuest: boolean;
     isLoading: boolean;
 };
+
+// =============================================================================
+// NULL OBJECT PATTERNS (P3-019)
+// =============================================================================
+
+/**
+ * Empty auth state for null object pattern.
+ * Represents unauthenticated/initial state.
+ */
+export const EMPTY_AUTH_STATE: AuthState = {
+    user: null,
+    isAuthenticated: false,
+    isGuest: false,
+    isLoading: false,
+} as const;
+
+/**
+ * Loading auth state for initialization.
+ */
+export const LOADING_AUTH_STATE: AuthState = {
+    user: null,
+    isAuthenticated: false,
+    isGuest: false,
+    isLoading: true,
+} as const;
 
 /** Actions available for authentication */
 export type AuthActions = {

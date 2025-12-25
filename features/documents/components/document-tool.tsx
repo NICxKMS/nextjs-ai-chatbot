@@ -3,8 +3,10 @@
 import { memo, useCallback } from "react";
 import { toast } from "sonner";
 import { Loader } from "@/components/ai-elements/loader";
-import type { ArtifactKind } from "@/features/artifacts";
-import { useArtifact } from "@/features/artifacts";
+import type { ArtifactKind, UIArtifactState } from "@/shared/types";
+
+// Re-export UIArtifact type alias for backward compatibility
+type UIArtifact = UIArtifactState;
 
 // =============================================================================
 // ICONS
@@ -81,6 +83,10 @@ export type DocumentToolResultProps = {
         kind: ArtifactKind;
     };
     isReadonly?: boolean;
+    /** Artifact state setter (injected from artifacts feature) */
+    setArtifact?: (
+        updater: UIArtifact | ((current: UIArtifact) => UIArtifact)
+    ) => void;
 };
 
 export type DocumentToolCallProps = {
@@ -90,6 +96,10 @@ export type DocumentToolCallProps = {
         | { id: string; description: string }
         | { documentId: string };
     isReadonly?: boolean;
+    /** Artifact state setter (injected from artifacts feature) */
+    setArtifact?: (
+        updater: UIArtifact | ((current: UIArtifact) => UIArtifact)
+    ) => void;
 };
 
 // =============================================================================
@@ -126,15 +136,18 @@ function PureDocumentToolResult({
     type,
     result,
     isReadonly,
+    setArtifact,
 }: DocumentToolResultProps) {
-    const { setArtifact } = useArtifact();
-
     const handleClick = useCallback(
         (event: React.MouseEvent<HTMLButtonElement>) => {
             if (isReadonly) {
                 toast.error(
                     "Viewing files in shared chats is currently not supported."
                 );
+                return;
+            }
+
+            if (!setArtifact) {
                 return;
             }
 
@@ -195,15 +208,18 @@ function PureDocumentToolCall({
     type,
     args,
     isReadonly,
+    setArtifact,
 }: DocumentToolCallProps) {
-    const { setArtifact } = useArtifact();
-
     const handleClick = useCallback(
         (event: React.MouseEvent<HTMLButtonElement>) => {
             if (isReadonly) {
                 toast.error(
                     "Viewing files in shared chats is currently not supported."
                 );
+                return;
+            }
+
+            if (!setArtifact) {
                 return;
             }
 

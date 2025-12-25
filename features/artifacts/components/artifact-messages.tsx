@@ -1,9 +1,30 @@
 "use client";
 
 import equal from "fast-deep-equal";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "@/lib/motion";
+import { TIMING } from "@/shared/constants";
 import type { ArtifactChatHelpers, UIArtifact } from "../types";
+
+// =============================================================================
+// P3-055: Debounce utility for scroll handler
+// =============================================================================
+
+function debounce<T extends (...args: Parameters<T>) => void>(
+    fn: T,
+    delay: number
+): (...args: Parameters<T>) => void {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    return (...args: Parameters<T>) => {
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
+        timeoutId = setTimeout(() => {
+            fn(...args);
+            timeoutId = null;
+        }, delay);
+    };
+}
 
 type ArtifactMessagesProps = {
     chatId: string;
@@ -50,7 +71,8 @@ function PureArtifactMessages({
         }
     }, [isAtBottom, messages]);
 
-    const handleScroll = () => {
+    // P3-055: Calculate scroll position (inner function to be debounced)
+    const calculateScrollPosition = useCallback(() => {
         if (!messagesContainerRef.current) {
             return;
         }
@@ -58,7 +80,13 @@ function PureArtifactMessages({
             messagesContainerRef.current;
         const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
         setIsAtBottom(isNearBottom);
-    };
+    }, []);
+
+    // P3-055: Debounce scroll handler to prevent excessive state updates
+    const handleScroll = useMemo(
+        () => debounce(calculateScrollPosition, TIMING.THROTTLE_SCROLL),
+        [calculateScrollPosition]
+    );
 
     return (
         <div

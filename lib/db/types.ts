@@ -18,19 +18,6 @@ export type {
     Vote,
 } from "./schema";
 
-// Message parts type (for AI SDK compatibility)
-export type MessagePart = {
-    type: "text" | "image" | "file" | "tool-call" | "tool-result";
-    text?: string;
-    image?: string;
-    mimeType?: string;
-    data?: unknown;
-    toolCallId?: string;
-    toolName?: string;
-    args?: unknown;
-    result?: unknown;
-};
-
 // Chat with messages type
 export type ChatWithMessages = {
     chat: Chat;

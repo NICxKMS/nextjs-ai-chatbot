@@ -231,14 +231,33 @@ export async function checkRateLimit(
 }
 
 /**
- * Get rate limit headers for response
+ * Get rate limit headers for response.
+ * P2-015: Standard rate limit headers for client visibility.
  */
 export function getRateLimitHeaders(result: RateLimitResult): HeadersInit {
     return {
         "X-RateLimit-Limit": result.limit.toString(),
         "X-RateLimit-Remaining": result.remaining.toString(),
-        "X-RateLimit-Reset": result.reset.toString(),
+        // Reset is Unix timestamp in seconds (convert from ms)
+        "X-RateLimit-Reset": Math.floor(result.reset / 1000).toString(),
     };
+}
+
+/**
+ * Add rate limit headers to an existing Headers object.
+ * P2-015: Helper for middleware to add headers to responses.
+ */
+export function addRateLimitHeaders(
+    headers: Headers,
+    result: RateLimitResult
+): void {
+    headers.set("X-RateLimit-Limit", result.limit.toString());
+    headers.set("X-RateLimit-Remaining", result.remaining.toString());
+    // Reset is Unix timestamp in seconds (convert from ms)
+    headers.set(
+        "X-RateLimit-Reset",
+        Math.floor(result.reset / 1000).toString()
+    );
 }
 
 /**

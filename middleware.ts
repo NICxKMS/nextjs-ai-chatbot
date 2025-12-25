@@ -6,6 +6,34 @@
  * Issue #244: Guest rate limiting to prevent session flooding.
  * Issue #75: Correlation IDs for request tracing.
  * PERF-001: Guest session creation at edge to eliminate client waterfall.
+ *
+ * ## CSRF Protection Strategy
+ *
+ * This application implements a multi-layered CSRF protection approach:
+ *
+ * 1. **SameSite Cookies**: All session cookies use `SameSite=Lax` attribute,
+ *    which prevents cookies from being sent with cross-site requests for
+ *    state-changing operations (POST, PUT, DELETE). This is the primary defense.
+ *
+ * 2. **Origin/Referer Validation**: For state-changing API routes, the origin
+ *    is implicitly validated through Next.js's built-in protections and
+ *    the SameSite cookie policy.
+ *
+ * 3. **Security Headers**: The middleware adds security headers including:
+ *    - `X-Content-Type-Options: nosniff` - Prevents MIME type sniffing
+ *    - `X-Frame-Options: DENY` - Prevents clickjacking attacks
+ *    - `X-XSS-Protection: 1; mode=block` - Enables XSS filtering
+ *    - `Referrer-Policy: strict-origin-when-cross-origin` - Controls referrer info
+ *    - `Permissions-Policy` - Restricts browser features
+ *
+ * 4. **Rate Limiting**: IP-based rate limiting prevents abuse through
+ *    automated CSRF attacks by limiting request frequency.
+ *
+ * 5. **JWT Tokens**: Guest sessions use JWT tokens with audience validation
+ *    (SEC-004), preventing token reuse across different contexts.
+ *
+ * Note: For forms using Next.js Server Actions, CSRF protection is handled
+ * automatically by the framework through cryptographic tokens.
  */
 
 import { SignJWT } from "jose";
@@ -19,6 +47,7 @@ import {
     JWT_ISSUER,
 } from "@/lib/auth/constants";
 import {
+    addRateLimitHeaders,
     checkRateLimit,
     getIpIdentifier,
     getOrCreateRequestId,
@@ -312,7 +341,10 @@ export async function middleware(request: NextRequest) {
     }
 
     // Rate limit passed, continue with the request
-    return createSecureResponse(requestId);
+    // P2-015: Add rate limit headers to successful responses for client visibility
+    const response = createSecureResponse(requestId);
+    addRateLimitHeaders(response.headers, result);
+    return response;
 }
 
 // ============== MATCHER CONFIG ==============

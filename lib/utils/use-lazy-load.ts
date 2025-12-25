@@ -109,6 +109,7 @@ export function usePreloadOnInteraction(
 
 /**
  * Hook for loading a dynamic component with loading state.
+ * Includes cleanup for abort handling (P3-080).
  *
  * @example
  * ```tsx
@@ -142,6 +143,7 @@ export function useDynamicImport<T extends object>(
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
     const loadedRef = useRef(false);
+    const cancelledRef = useRef(false);
 
     const trigger = () => {
         if (loadedRef.current || isLoading) {
@@ -150,25 +152,43 @@ export function useDynamicImport<T extends object>(
 
         setIsLoading(true);
         setError(null);
+        cancelledRef.current = false;
 
         loader()
             .then((module) => {
+                // P3-080: Check if component was unmounted during load
+                if (cancelledRef.current) {
+                    return;
+                }
                 setComponent(() => module.default);
                 loadedRef.current = true;
             })
             .catch((err) => {
+                // P3-080: Check if component was unmounted during load
+                if (cancelledRef.current) {
+                    return;
+                }
                 setError(err instanceof Error ? err : new Error(String(err)));
             })
             .finally(() => {
+                // P3-080: Check if component was unmounted during load
+                if (cancelledRef.current) {
+                    return;
+                }
                 setIsLoading(false);
             });
     };
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: trigger is intentionally not memoized
     useEffect(() => {
         if (triggerOnMount) {
             trigger();
         }
-    }, [triggerOnMount, trigger]);
+        // P3-080: Cleanup - mark as cancelled on unmount
+        return () => {
+            cancelledRef.current = true;
+        };
+    }, [triggerOnMount]);
 
     return { Component, isLoading, error, trigger };
 }

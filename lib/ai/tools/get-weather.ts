@@ -55,15 +55,37 @@ export type WeatherAtLocation = {
 };
 
 // =============================================================================
+// CONSTANTS
+// =============================================================================
+
+/** Default timeout for external API calls (10 seconds) */
+const API_TIMEOUT_MS = 10_000;
+
+// =============================================================================
 // HELPERS
 // =============================================================================
 
+/**
+ * Create an AbortSignal that times out after specified milliseconds.
+ */
+function createTimeoutSignal(timeoutMs: number): AbortSignal {
+    return AbortSignal.timeout(timeoutMs);
+}
+
 async function geocodeCity(
-    city: string
+    city: string,
+    signal?: AbortSignal
 ): Promise<{ latitude: number; longitude: number } | null> {
+    // Combine user signal with timeout signal
+    const timeoutSignal = createTimeoutSignal(API_TIMEOUT_MS);
+    const combinedSignal = signal
+        ? AbortSignal.any([signal, timeoutSignal])
+        : timeoutSignal;
+
     try {
         const response = await fetch(
-            `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`
+            `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`,
+            { signal: combinedSignal }
         );
 
         if (!response.ok) {
@@ -81,7 +103,15 @@ async function geocodeCity(
             latitude: result.latitude,
             longitude: result.longitude,
         };
-    } catch {
+    } catch (error) {
+        // Handle abort explicitly
+        if (error instanceof DOMException && error.name === "AbortError") {
+            return null;
+        }
+        // Handle timeout
+        if (error instanceof DOMException && error.name === "TimeoutError") {
+            return null;
+        }
         return null;
     }
 }
@@ -120,15 +150,21 @@ export const getWeather = tool({
                 ),
         }),
     ]),
-    execute: async (input) => {
+    execute: async (input, options) => {
+        const abortSignal = options?.abortSignal;
+        const timeoutSignal = createTimeoutSignal(API_TIMEOUT_MS);
+        const combinedSignal = abortSignal
+            ? AbortSignal.any([abortSignal, timeoutSignal])
+            : timeoutSignal;
+
         let latitude: number;
         let longitude: number;
 
         if ("city" in input) {
-            const coords = await geocodeCity(input.city);
+            const coords = await geocodeCity(input.city, combinedSignal);
             if (!coords) {
                 return {
-                    error: `Could not find coordinates for "${input.city}". Please check the city name.`,
+                    error: `Could not find coordinates for "${input.city}". Please check the city name or try again.`,
                 };
             }
             latitude = coords.latitude;
@@ -138,16 +174,40 @@ export const getWeather = tool({
             longitude = input.longitude;
         }
 
-        const response = await fetch(
-            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m&hourly=temperature_2m&daily=sunrise,sunset&timezone=auto`
-        );
+        try {
+            const response = await fetch(
+                `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m&hourly=temperature_2m&daily=sunrise,sunset&timezone=auto`,
+                { signal: combinedSignal }
+            );
 
-        const weatherData = await response.json();
+            if (!response.ok) {
+                return {
+                    error: "Unable to fetch weather data. Please try again later.",
+                };
+            }
 
-        if ("city" in input) {
-            weatherData.cityName = input.city;
+            const weatherData = await response.json();
+
+            if ("city" in input) {
+                weatherData.cityName = input.city;
+            }
+
+            return weatherData;
+        } catch (error) {
+            if (error instanceof DOMException && error.name === "AbortError") {
+                return { error: "Weather request was cancelled." };
+            }
+            if (
+                error instanceof DOMException &&
+                error.name === "TimeoutError"
+            ) {
+                return {
+                    error: "Weather request timed out. Please try again.",
+                };
+            }
+            return {
+                error: "Unable to fetch weather data. Please try again later.",
+            };
         }
-
-        return weatherData;
     },
 });

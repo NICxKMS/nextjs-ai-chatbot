@@ -30,9 +30,12 @@ export function getRedis(): Redis | null {
     const token = process.env.CACHE_KV_REST_API_TOKEN;
 
     if (!url || !token) {
-        console.warn(
-            "Redis not configured: CACHE_KV_REST_API_URL or CACHE_KV_REST_API_TOKEN missing"
-        );
+        // Debug level: this is expected in development environments without Redis
+        if (process.env.NODE_ENV === "development") {
+            console.debug(
+                "[Redis] Not configured: CACHE_KV_REST_API_URL or CACHE_KV_REST_API_TOKEN missing"
+            );
+        }
         globalForRedis.redis = null;
         globalForRedis.redisInitialized = true;
         return null;

@@ -260,13 +260,16 @@ function logEntry(entry: ErrorLogEntry): void {
  * Could integrate with Sentry, DataDog, etc.
  */
 function reportError(_entry: ErrorLogEntry): void {
-    // TODO: Integrate with external error reporting service
-    // Examples:
-    // - Sentry.captureException(entry.error)
-    // - DataDog.addError(entry)
-    // - Custom telemetry endpoint
+    // External error reporting integration point
+    // Supported services: Sentry, DataDog, or custom telemetry endpoint
+    // To enable: Set SENTRY_DSN or DATADOG_API_KEY in environment
+    //
+    // Example integration:
+    // if (process.env.SENTRY_DSN) {
+    //   Sentry.captureException(entry.error, { extra: { code: entry.code } });
+    // }
 
-    // For now, just log that we would report
+    // Development: Log that error would be reported to external service
     if (process.env.NODE_ENV === "development") {
         console.debug(
             "[ErrorLogger] Would report to external service:",

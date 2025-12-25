@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 
-const MOBILE_BREAKPOINT = 768;
+import { BREAKPOINTS } from "@/shared/constants";
+
+const MOBILE_BREAKPOINT = BREAKPOINTS.MD;
 
 export type UseMobileOptions = {
     /** Initial mobile state from server (via x-device-type header) */

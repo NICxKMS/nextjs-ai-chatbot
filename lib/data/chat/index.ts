@@ -18,6 +18,7 @@ export const chatData = {
     // Read operations
     get: read.getChat,
     getWithMessages: read.getChatWithMessages,
+    getTitle: read.getChatTitle,
     list: read.listChats,
     exists: read.chatExists,
     count: read.getChatCount,
@@ -39,6 +40,7 @@ export {
     chatExists,
     getChat,
     getChatCount,
+    getChatTitle,
     getChatWithMessages,
     listChats,
 } from "./read";

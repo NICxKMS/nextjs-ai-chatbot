@@ -10,7 +10,34 @@ export { createContext, isGuest, requireNonGuest } from "./base";
 // ============================================================================
 // Cached operations (recommended for API routes)
 // ============================================================================
-export * from "./cached";
+export {
+    appendMessageCached,
+    appendMessagesCached,
+    appendVersionCached,
+    createChatCached,
+    createDocumentCached,
+    deleteAllUserChatsCached,
+    deleteChatCached,
+    deleteDocumentCached,
+    deleteMessagesAfterTimestampCached,
+    deleteVersionsAfterTimestampCached,
+    deleteVoteCached,
+    getAllVersionsCached,
+    getChatCached,
+    getChatWithMessagesCached,
+    getDocumentCached,
+    getLatestVersionCached,
+    getMessagesCached,
+    getSuggestionsCached,
+    getUserChatsCached,
+    getVoteCached,
+    getVotesByChatIdCached,
+    invalidateSuggestionsCache,
+    saveSuggestionsCached,
+    saveVoteCached,
+    updateChatTitleCached,
+    updateChatVisibilityCached,
+} from "./cached";
 // ============================================================================
 // Raw DB operations (for internal/admin use)
 // ============================================================================
@@ -43,6 +70,12 @@ export type {
     PaginatedResult,
     PaginationParams,
 } from "./types";
-export { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "./types";
+export {
+    DEFAULT_PAGE_SIZE,
+    // Null object patterns (P3-019)
+    EMPTY_DATA_CONTEXT,
+    isEmptyDataContext,
+    MAX_PAGE_SIZE,
+} from "./types";
 export type { SaveVoteParams, VoteType } from "./votes";
 export * as voteDb from "./votes";

@@ -5,15 +5,15 @@
  * Handles document CRUD operations.
  */
 
-import type { ArtifactKind } from "@/features/artifacts/types";
+import type { ArtifactKind } from "@/features/artifacts";
 import { getSessionCached } from "@/lib/auth";
 import {
     appendVersionCached,
     createContext,
     getAllVersionsCached,
 } from "@/lib/data";
-import { deleteDocumentsAfterTimestamp } from "@/lib/data/documents";
 import { AppError } from "@/lib/errors";
+import { DocumentService } from "@/lib/services";
 import { documentPostSchema } from "./schema";
 
 // Optimize for Vercel Fluid Compute
@@ -33,7 +33,7 @@ function isValidUUID(str: string): boolean {
  *
  * Fetch all versions of a document by ID.
  */
-export async function GET(request: Request) {
+export async function GET(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const id = url.searchParams.get("id");
 
@@ -90,7 +90,7 @@ export async function GET(request: Request) {
  *
  * Create or update a document version.
  */
-export async function POST(request: Request) {
+export async function POST(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const id = url.searchParams.get("id");
 
@@ -204,7 +204,7 @@ export async function POST(request: Request) {
  *
  * Delete document versions after a specific timestamp.
  */
-export async function DELETE(request: Request) {
+export async function DELETE(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const id = url.searchParams.get("id");
     const timestamp = url.searchParams.get("timestamp");
@@ -256,25 +256,29 @@ export async function DELETE(request: Request) {
 
     const ctx = createContext(session.user.id, session.user.type);
 
-    // Verify document exists and user owns it
-    const documents = await getAllVersionsCached(id, ctx);
-
-    if (documents.length === 0) {
-        return new AppError({
-            code: "resource:not_found:document",
-            message: "Document not found",
-            statusCode: 404,
-        }).toResponse();
-    }
-
-    // Delete document versions after timestamp
-    const deletedDocuments = await deleteDocumentsAfterTimestamp(
+    // Delete document versions after timestamp via service
+    const result = await DocumentService.deleteVersionsAfterTimestamp(
         id,
         timestampDate,
         ctx
     );
 
-    if (deletedDocuments.length === 0) {
+    if (!result.success) {
+        const statusCode = result.code.startsWith("not_found") ? 404 : 400;
+        // Map service error codes to AppError format
+        const appErrorCode = result.code.startsWith("not_found")
+            ? (`resource:${result.code}` as const)
+            : result.code.startsWith("validation")
+              ? (`validation:${result.code.replace("validation:", "")}` as const)
+              : (`internal:${result.code}` as const);
+        return new AppError({
+            code: appErrorCode,
+            message: result.error,
+            statusCode,
+        }).toResponse();
+    }
+
+    if (result.data.length === 0) {
         return new AppError({
             code: "resource:not_found:document",
             message: "No document versions found to delete",
@@ -282,5 +286,5 @@ export async function DELETE(request: Request) {
         }).toResponse();
     }
 
-    return Response.json(deletedDocuments, { status: 200 });
+    return Response.json(result.data, { status: 200 });
 }

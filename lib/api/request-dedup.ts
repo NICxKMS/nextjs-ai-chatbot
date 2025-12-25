@@ -411,7 +411,9 @@ export function createBatchLoader<K, V>(
             batch.push(key);
 
             if (batch.length >= maxBatchSize) {
-                executeBatch().catch(() => {});
+                executeBatch().catch((e) =>
+                    console.error("Batch execution failed", e)
+                );
             } else if (!batchPromise) {
                 batchPromise = new Promise<void>((r) =>
                     setTimeout(r, delayMs)

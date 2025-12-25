@@ -9,6 +9,7 @@
 
 "use client";
 
+import { memo } from "react";
 import { cn } from "@/lib/utils";
 import type { ChatMessage, MessagePart as MessagePartType } from "../../types";
 import { MessagePart } from "./message-part";
@@ -123,7 +124,7 @@ function normalizeMessagePart(part: unknown): MessagePartType | null {
  * <MessageContent message={userMessage} isUser />
  * ```
  */
-export function MessageContent({
+export const MessageContent = memo(function MessageContent({
     message,
     isStreaming,
     isUser,
@@ -196,4 +197,4 @@ export function MessageContent({
 
     // No parts - nothing to render
     return null;
-}
+});

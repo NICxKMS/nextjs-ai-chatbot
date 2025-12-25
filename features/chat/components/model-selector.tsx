@@ -19,7 +19,6 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useSettings } from "@/features/settings/stores/settings-store";
 import { cn } from "@/lib/utils";
 import {
     CheckCircleFillIcon,
@@ -27,8 +26,14 @@ import {
 } from "@/shared/components/icons";
 import type { ModelMetadata } from "../types";
 
+// =============================================================================
+// MODEL BADGE CONFIGURATION
+// =============================================================================
+
 /**
- * Featured model IDs - these are curated/flagship models
+ * Featured model IDs - curated flagship models from major providers.
+ * These models are highlighted with a "Featured" badge in the selector.
+ * @remarks Update this list when new flagship models are released.
  */
 const FEATURED_MODEL_IDS = [
     "gpt-4o",
@@ -37,10 +42,12 @@ const FEATURED_MODEL_IDS = [
     "claude-3-opus",
     "gemini-1.5-pro",
     "gemini-2.0-flash",
-];
+] as const;
 
 /**
- * New model IDs - recently released models
+ * New model IDs - recently released models.
+ * These models are highlighted with a "New" badge in the selector.
+ * @remarks Remove models from this list after ~3 months post-release.
  */
 const NEW_MODEL_IDS = [
     "gpt-4o-mini",
@@ -49,7 +56,7 @@ const NEW_MODEL_IDS = [
     "o1",
     "o1-mini",
     "o3-mini",
-];
+] as const;
 
 /**
  * Get badge type for a model based on its ID
@@ -70,19 +77,25 @@ function getModelBadge(modelId: string): "featured" | "new" | null {
     return null;
 }
 
+// =============================================================================
+// DISPLAY CONFIGURATION
+// =============================================================================
+
 /**
- * Capability labels for display
+ * Human-readable labels for model capabilities.
+ * Maps internal capability keys to user-friendly display text.
  */
-const capabilityLabels: Record<string, string> = {
+const CAPABILITY_LABELS: Readonly<Record<string, string>> = {
     supportsImages: "Vision",
     supportsTools: "Tools",
     supportsReasoning: "Reasoning",
-};
+} as const;
 
 /**
- * Provider display names
+ * Human-readable display names for AI providers.
+ * Used in the model selector dropdown headers.
  */
-const providerDisplayNames: Record<string, string> = {
+const PROVIDER_DISPLAY_NAMES: Readonly<Record<string, string>> = {
     openai: "OpenAI",
     anthropic: "Anthropic",
     google: "Google",
@@ -90,7 +103,7 @@ const providerDisplayNames: Record<string, string> = {
     groq: "Groq",
     perplexity: "Perplexity",
     xai: "xAI",
-};
+} as const;
 
 /**
  * Group models by provider
@@ -108,7 +121,8 @@ function groupModelsByProvider(models: ModelMetadata[]): ProviderGroup[] {
             if (!acc[providerId]) {
                 acc[providerId] = {
                     providerId,
-                    displayName: providerDisplayNames[providerId] || providerId,
+                    displayName:
+                        PROVIDER_DISPLAY_NAMES[providerId] || providerId,
                     models: [],
                 };
             }
@@ -141,8 +155,8 @@ function ModelRow({
 }) {
     const capabilities = model.capabilities
         ? Object.entries(model.capabilities)
-              .filter(([key, value]) => value && capabilityLabels[key])
-              .map(([key]) => capabilityLabels[key])
+              .filter(([key, value]) => value && CAPABILITY_LABELS[key])
+              .map(([key]) => CAPABILITY_LABELS[key])
         : [];
 
     const isDetailed = displayMode === "detailed";
@@ -207,7 +221,7 @@ function ModelRow({
                         model.capabilities?.maxTokens) && (
                         <div className="flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
                             <span>
-                                {providerDisplayNames[model.provider] ||
+                                {PROVIDER_DISPLAY_NAMES[model.provider] ||
                                     model.provider}
                             </span>
 
@@ -237,6 +251,13 @@ function ModelRow({
 /**
  * Props for the ModelSelector component.
  */
+/**
+ * Display mode for the model selector.
+ * - "compact": Just model name
+ * - "detailed": Model name + provider + capabilities
+ */
+export type ModelSelectorDisplayMode = "compact" | "detailed";
+
 export type ModelSelectorProps = {
     /** Currently selected model ID */
     value: string;
@@ -250,6 +271,8 @@ export type ModelSelectorProps = {
     className?: string;
     /** Optional callback to refresh the model list */
     onRefresh?: () => void | Promise<void>;
+    /** Display mode (compact or detailed), defaults to "compact" */
+    displayMode?: ModelSelectorDisplayMode;
 };
 
 /**
@@ -279,13 +302,12 @@ export function ModelSelector({
     disabled = false,
     className = "",
     onRefresh,
+    displayMode = "compact",
 }: ModelSelectorProps) {
     const [open, setOpen] = useState(false);
     const [optimisticModelId, setOptimisticModelId] = useOptimistic(value);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const modelSelectorDisplayMode = useSettings(
-        (state) => state.modelSelectorDisplayMode
-    );
+    const modelSelectorDisplayMode = displayMode;
 
     const groupedCatalog = useMemo(
         () => groupModelsByProvider(models),
@@ -314,6 +336,7 @@ export function ModelSelector({
                 disabled={disabled}
             >
                 <Button
+                    aria-label={`Select model: ${selectedModel?.name ?? "none selected"}`}
                     className="md:h-[34px] md:px-2"
                     data-testid="model-selector"
                     suppressHydrationWarning
@@ -332,6 +355,7 @@ export function ModelSelector({
                     {onRefresh && (
                         <Button
                             aria-busy={isRefreshing}
+                            aria-label="Refresh model list"
                             className="h-6 px-2 text-xs"
                             disabled={isRefreshing}
                             onClick={async (e) => {

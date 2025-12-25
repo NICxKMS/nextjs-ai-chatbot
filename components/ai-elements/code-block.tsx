@@ -29,6 +29,13 @@ const DOMPURIFY_CONFIG = {
     ALLOW_DATA_ATTR: false,
 };
 
+// SSR-safe DOMPurify wrapper - returns unsanitized HTML on server (safe since
+// code highlighting is client-only via useEffect), sanitizes on client
+const sanitizeHtml =
+    typeof window !== "undefined"
+        ? (html: string) => DOMPurify.sanitize(html, DOMPURIFY_CONFIG)
+        : (html: string) => html;
+
 type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
     code: string;
     language: BundledLanguage;
@@ -102,17 +109,9 @@ export const CodeBlock = ({
     useEffect(() => {
         highlightCode(code, language, showLineNumbers).then(([light, dark]) => {
             if (!mounted.current) {
-                // Sanitize highlighted HTML to prevent XSS attacks
-                const sanitizedLight = DOMPurify.sanitize(
-                    light,
-                    DOMPURIFY_CONFIG
-                );
-                const sanitizedDark = DOMPurify.sanitize(
-                    dark,
-                    DOMPURIFY_CONFIG
-                );
-                setHtml(sanitizedLight);
-                setDarkHtml(sanitizedDark);
+                // Sanitize highlighted HTML to prevent XSS attacks (SSR-safe)
+                setHtml(sanitizeHtml(light));
+                setDarkHtml(sanitizeHtml(dark));
                 mounted.current = true;
             }
         });

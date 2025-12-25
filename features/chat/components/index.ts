@@ -102,8 +102,6 @@ export type { ModelSelectorProps } from "./model-selector";
 export { ModelSelector } from "./model-selector";
 export type { NewChatButtonProps } from "./new-chat-button";
 export { NewChatButton } from "./new-chat-button";
-export type { SidebarToggleProps } from "./sidebar-toggle";
-export { SidebarToggle } from "./sidebar-toggle";
 export type { SuggestedActionsProps } from "./suggested-actions";
 export { SuggestedActions } from "./suggested-actions";
 export type { VisibilitySelectorProps } from "./visibility-selector";

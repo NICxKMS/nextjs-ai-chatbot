@@ -11,14 +11,13 @@
  */
 
 import type { UIMessage } from "@ai-sdk/react";
-import { eq } from "drizzle-orm";
 import type { Metadata, ResolvingMetadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { Chat, DataStreamHandler } from "@/features/chat";
+import { DataStreamHandler } from "@/features/chat";
 import { DEFAULT_MODEL_ID } from "@/lib/ai";
-import { loadChatPageData } from "@/lib/data";
-import { getDb, schema } from "@/lib/db";
+import { chatDb, loadChatPageData } from "@/lib/data";
 import { convertToUIMessages } from "@/lib/utils";
+import { ChatWithSlots } from "../../chat-with-slots";
 
 type Props = {
     params: Promise<{ id: string }>;
@@ -35,18 +34,13 @@ export async function generateMetadata(
     const { id } = await params;
 
     try {
-        // Direct DB query for title only - no auth required for public metadata
-        const db = getDb();
-        const [result] = await db
-            .select({ title: schema.chat.title })
-            .from(schema.chat)
-            .where(eq(schema.chat.id, id))
-            .limit(1);
+        // Data layer query for title only - no auth required for public metadata
+        const title = await chatDb.getChatTitle(id);
 
-        if (result?.title) {
+        if (title) {
             return {
-                title: result.title,
-                description: `Chat: ${result.title}`,
+                title,
+                description: `Chat: ${title}`,
             };
         }
     } catch {
@@ -101,7 +95,7 @@ export default async function ChatPage({ params }: ChatPageProps) {
 
     return (
         <>
-            <Chat
+            <ChatWithSlots
                 id={chat.id}
                 initialMessages={messages}
                 isReadonly={isReadonly}

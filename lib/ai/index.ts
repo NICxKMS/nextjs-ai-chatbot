@@ -10,10 +10,14 @@ export {
     DEFAULT_MODEL_ID,
     getTitleModel,
     getToolModel,
+    isValidModelId,
+    modelIdSchema,
+    parseModelId,
     TITLE_MODEL_ID,
     TOOL_MODEL_ID,
     USE_SELECTED_MODEL_FOR_TITLE,
     USE_SELECTED_MODEL_FOR_TOOLS,
+    type ValidModelId,
 } from "./config";
 
 // Mock Provider (for testing)

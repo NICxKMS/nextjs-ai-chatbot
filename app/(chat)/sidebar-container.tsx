@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Suspense } from "react";
 import { SidebarSkeleton } from "@/components/ui/skeleton-sidebar";
+import { updateChatVisibility } from "@/features/chat/actions";
 import { AppSidebar, useChatHistory } from "@/features/sidebar";
 import { generateUUID } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ function SidebarContent() {
             onDeleteChat={deleteChat}
             onLoadMore={loadMore}
             onNewChat={handleNewChat}
+            updateVisibility={updateChatVisibility}
         />
     );
 }

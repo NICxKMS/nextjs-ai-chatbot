@@ -1,65 +1,180 @@
 "use client";
 
-import { Component, type ReactNode } from "react";
+import { AlertTriangleIcon, Code2Icon, RefreshCwIcon } from "lucide-react";
+import { type ReactNode, useCallback, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { logger } from "@/lib/utils/logger";
+import { ErrorBoundary } from "@/shared/components";
 
-type ArtifactErrorBoundaryProps = {
+// =============================================================================
+// TYPES
+// =============================================================================
+
+export type ArtifactErrorBoundaryProps = {
+    /** Child components to render */
     children: ReactNode;
+    /** Custom fallback component */
     fallback?: ReactNode;
+    /** Raw content to display if available */
+    rawContent?: string;
 };
 
-type ArtifactErrorBoundaryState = {
-    hasError: boolean;
+// =============================================================================
+// EDITOR ERROR FALLBACK
+// =============================================================================
+
+type EditorErrorFallbackProps = {
+    /** The error that occurred */
     error: Error | null;
+    /** Callback to reset the error boundary */
+    resetErrorBoundary: () => void;
+    /** Raw content to display if available */
+    rawContent?: string;
 };
+
+function EditorErrorFallback({
+    error,
+    resetErrorBoundary,
+    rawContent,
+}: EditorErrorFallbackProps) {
+    const [isRetrying, setIsRetrying] = useState(false);
+    const [showRawContent, setShowRawContent] = useState(false);
+
+    const handleRetry = useCallback(async () => {
+        if (isRetrying) {
+            return;
+        }
+        setIsRetrying(true);
+        try {
+            resetErrorBoundary();
+        } finally {
+            setIsRetrying(false);
+        }
+    }, [isRetrying, resetErrorBoundary]);
+
+    return (
+        <div
+            className="flex h-full w-full flex-col items-center justify-center gap-4 p-8"
+            role="alert"
+        >
+            {/* Icon */}
+            <div className="rounded-full bg-muted p-3">
+                <AlertTriangleIcon className="size-8 text-destructive" />
+            </div>
+
+            {/* Title & Description */}
+            <div className="space-y-1 text-center">
+                <h3 className="font-semibold text-lg">Editor failed to load</h3>
+                <p className="max-w-md text-muted-foreground text-sm">
+                    The artifact editor encountered an error. You can try
+                    reloading or view the raw content if available.
+                </p>
+            </div>
+
+            {/* Error Details (development only) */}
+            {error?.message && process.env.NODE_ENV === "development" && (
+                <code className="max-w-full overflow-auto rounded bg-muted px-2 py-1 text-xs">
+                    {error.message}
+                </code>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-2">
+                <Button
+                    disabled={isRetrying}
+                    onClick={handleRetry}
+                    size="sm"
+                    type="button"
+                    variant="default"
+                >
+                    <RefreshCwIcon
+                        className={cn(
+                            "mr-2 size-4",
+                            isRetrying && "animate-spin"
+                        )}
+                    />
+                    {isRetrying ? "Retrying..." : "Retry"}
+                </Button>
+
+                {rawContent && (
+                    <Button
+                        onClick={() => setShowRawContent(!showRawContent)}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                    >
+                        <Code2Icon className="mr-2 size-4" />
+                        {showRawContent ? "Hide Raw" : "View Raw"}
+                    </Button>
+                )}
+            </div>
+
+            {/* Raw Content View */}
+            {showRawContent && rawContent && (
+                <div className="mt-4 w-full max-w-2xl">
+                    <pre className="max-h-64 overflow-auto rounded-md bg-muted p-4 text-xs">
+                        <code>{rawContent}</code>
+                    </pre>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// =============================================================================
+// ARTIFACT ERROR BOUNDARY
+// =============================================================================
 
 /**
- * Error boundary for artifact rendering.
- * Catches errors in artifact content components (code, sheet, etc.)
- * and displays a fallback UI instead of crashing the entire chat view.
+ * Error boundary wrapper for artifact editor components.
+ * Catches errors in artifact content components (code, sheet, text, etc.)
+ * and displays a fallback UI with retry capability instead of crashing the app.
+ *
+ * @example
+ * ```tsx
+ * <ArtifactErrorBoundary rawContent={artifact.content}>
+ *   <CodeEditor content={content} />
+ * </ArtifactErrorBoundary>
+ * ```
  */
-export class ArtifactErrorBoundary extends Component<
-    ArtifactErrorBoundaryProps,
-    ArtifactErrorBoundaryState
-> {
-    constructor(props: ArtifactErrorBoundaryProps) {
-        super(props);
-        this.state = { hasError: false, error: null };
-    }
+export function ArtifactErrorBoundary({
+    children,
+    fallback,
+    rawContent,
+}: ArtifactErrorBoundaryProps) {
+    const [boundaryKey, setBoundaryKey] = useState(0);
 
-    static getDerivedStateFromError(error: Error): ArtifactErrorBoundaryState {
-        return { hasError: true, error };
-    }
+    const handleReset = useCallback(() => {
+        setBoundaryKey((prev) => prev + 1);
+    }, []);
 
-    componentDidCatch(_error: Error, _errorInfo: React.ErrorInfo): void {
-        // Error is captured by getDerivedStateFromError and displayed in UI
-        // No client-side logging needed in production
-    }
+    const handleError = useCallback(
+        (error: Error, errorInfo: React.ErrorInfo) => {
+            logger.error("[ArtifactEditor] Editor error caught", {
+                error: error.message,
+                stack: error.stack,
+                componentStack: errorInfo.componentStack,
+            });
+        },
+        []
+    );
 
-    render(): ReactNode {
-        if (this.state.hasError) {
-            if (this.props.fallback) {
-                return this.props.fallback;
+    return (
+        <ErrorBoundary
+            fallback={
+                fallback ?? (
+                    <EditorErrorFallback
+                        error={null}
+                        rawContent={rawContent}
+                        resetErrorBoundary={handleReset}
+                    />
+                )
             }
-
-            return (
-                <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-4">
-                    <div className="font-medium text-destructive text-sm">
-                        Unable to display artifact
-                    </div>
-                    <p className="max-w-md text-center text-muted-foreground text-xs">
-                        This artifact could not be rendered. Try refreshing the
-                        page or creating a new version.
-                    </p>
-                    {this.state.error &&
-                        process.env.NODE_ENV === "development" && (
-                            <code className="mt-2 max-w-full overflow-auto rounded bg-muted p-2 text-xs">
-                                {this.state.error.message}
-                            </code>
-                        )}
-                </div>
-            );
-        }
-
-        return this.props.children;
-    }
+            key={boundaryKey}
+            onError={handleError}
+        >
+            {children}
+        </ErrorBoundary>
+    );
 }

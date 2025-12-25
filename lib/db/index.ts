@@ -29,8 +29,4 @@ export type { Transaction } from "./transactions";
 export { withTransaction, withTransactionSafe } from "./transactions";
 
 // Client-safe types
-export type {
-    ChatWithMessages,
-    DocumentWithSuggestions,
-    MessagePart,
-} from "./types";
+export type { ChatWithMessages, DocumentWithSuggestions } from "./types";

@@ -63,6 +63,16 @@ export {
 } from "./invalidation";
 // Keys
 export { CacheKeys, getChatCacheKeys, parseKeyId } from "./keys";
+// Cache metrics (P2-014: observability)
+export {
+    type CacheMetricsSnapshot,
+    getCacheMetrics,
+    getOperationHitRate,
+    type OperationMetrics,
+    recordCacheHit,
+    recordCacheMiss,
+    resetCacheMetrics,
+} from "./metrics";
 // Tags (Next.js 16.1.0 cache invalidation)
 export { CacheTags, type CacheTagValue } from "./tags";
 // Types

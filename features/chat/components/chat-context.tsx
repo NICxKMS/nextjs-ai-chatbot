@@ -10,12 +10,12 @@
 "use client";
 
 import { Info } from "lucide-react";
-import { DEFAULT_SETTINGS, useSettings } from "@/features/settings";
 import {
     Tooltip,
     TooltipContent,
     TooltipTrigger,
 } from "@/shared/components/tooltip";
+import type { SamplingSettings } from "@/shared/types";
 
 /**
  * Usage statistics for the current chat session.
@@ -27,11 +27,24 @@ export type ChatUsage = {
 };
 
 /**
+ * Default sampling settings for comparison.
+ */
+const DEFAULT_SAMPLING: SamplingSettings = {
+    temperature: 0.7,
+    topP: 0.95,
+    maxOutputTokens: 4096,
+};
+
+/**
  * Props for the ChatContext component.
  */
 export type ChatContextProps = {
     /** Optional usage statistics to display */
     usage?: ChatUsage;
+    /** Current sampling settings (injected from settings feature) */
+    sampling?: SamplingSettings;
+    /** Current system prompt (injected from settings feature) */
+    systemPrompt?: string;
 };
 
 /**
@@ -45,15 +58,22 @@ export type ChatContextProps = {
  *
  * @example
  * ```tsx
- * <ChatContext usage={{ totalTokens: 1500 }} />
+ * <ChatContext
+ *   usage={{ totalTokens: 1500 }}
+ *   sampling={{ temperature: 0.8, topP: 0.95, maxOutputTokens: 4096 }}
+ *   systemPrompt="You are a helpful assistant."
+ * />
  * ```
  */
-export function ChatContext({ usage }: ChatContextProps) {
-    const { sampling, systemPrompt } = useSettings();
+export function ChatContext({
+    usage,
+    sampling = DEFAULT_SAMPLING,
+    systemPrompt = "",
+}: ChatContextProps) {
     const { temperature, topP } = sampling;
 
-    const defaultTemp = DEFAULT_SETTINGS.sampling.temperature;
-    const defaultTopP = DEFAULT_SETTINGS.sampling.topP;
+    const defaultTemp = DEFAULT_SAMPLING.temperature;
+    const defaultTopP = DEFAULT_SAMPLING.topP;
 
     const hasUsage = usage?.totalTokens !== undefined && usage.totalTokens > 0;
     const hasNonDefaultTemp = temperature !== defaultTemp;

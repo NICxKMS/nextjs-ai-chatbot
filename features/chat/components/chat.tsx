@@ -9,7 +9,7 @@
 
 "use client";
 
-import { useSidebar } from "@/shared/ui/sidebar";
+import type { ReactNode } from "react";
 import type { ChatProps, MessageVote } from "../types";
 import { ArtifactWrapper } from "./artifact-wrapper";
 import { ChatContainer } from "./chat-container";
@@ -34,6 +34,16 @@ export interface FullChatProps extends ChatProps {
     onNewChat?: () => void;
     /** Visibility type for the chat */
     selectedVisibilityType?: "private" | "public";
+    /** Slot for sidebar toggle component (injected from app layer) */
+    sidebarToggle?: ReactNode;
+    /** Slot for settings button component (injected from app layer) */
+    settingsButton?: ReactNode;
+    /** Optional callback to add optimistic chat (injected from sidebar feature) */
+    onAddOptimisticChat?: (
+        chat: import("@/shared/types").OptimisticChatItem
+    ) => void;
+    /** Optional callback to persist model selection (injected from settings feature) */
+    onModelChange?: (modelId: string) => void;
 }
 
 // =============================================================================
@@ -52,14 +62,20 @@ export interface FullChatProps extends ChatProps {
  * - ChatMessages: Virtualized message list
  * - ChatInput: Multimodal input with attachments
  *
+ * Cross-feature components (sidebar toggle, settings button) are injected
+ * via slot props to avoid direct feature-to-feature coupling.
+ *
  * @example
  * ```tsx
+ * // In app layer where features are composed:
  * <Chat
  *   id="chat-123"
  *   initialMessages={messages}
  *   selectedModelId="gpt-4"
  *   votes={votes}
  *   onNewChat={() => router.push('/chat')}
+ *   sidebarToggle={<SidebarToggle />}
+ *   settingsButton={<SettingsIconButton />}
  * />
  * ```
  */
@@ -71,6 +87,10 @@ export function Chat({
     votes = [],
     onNewChat,
     selectedVisibilityType = "private",
+    sidebarToggle,
+    settingsButton,
+    onAddOptimisticChat,
+    onModelChange,
 }: FullChatProps) {
     // Convert votes to the format expected by components
     const formattedVotes = votes.map((v) => ({
@@ -78,21 +98,22 @@ export function Chat({
         vote: v.vote,
     }));
 
-    const { toggleSidebar } = useSidebar();
-
     return (
         <ChatErrorBoundary>
             <ChatProvider
                 chatId={id}
                 initialMessages={initialMessages}
                 isReadonly={isReadonly}
+                onAddOptimisticChat={onAddOptimisticChat}
+                onModelChange={onModelChange}
                 selectedModelId={selectedModelId}
             >
                 <ChatContainer>
                     <ChatHeader
                         onNewChat={onNewChat}
-                        onToggleSidebar={toggleSidebar}
                         selectedVisibilityType={selectedVisibilityType}
+                        settingsButton={settingsButton}
+                        sidebarToggle={sidebarToggle}
                     />
                     <ChatMessages isReadonly={isReadonly} votes={votes} />
                     <div className="sticky bottom-0 z-10 mx-auto flex w-full max-w-4xl gap-2 bg-background px-2 pb-3 md:px-4 md:pb-4">

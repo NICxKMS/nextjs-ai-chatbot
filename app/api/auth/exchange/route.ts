@@ -6,6 +6,7 @@
  *
  * SEC-003: Includes guest-to-auth data migration
  * PERF-004: Includes cache prewarming after successful auth
+ * P2-020: Uses Zod-validated Supabase env vars
  */
 
 import { createServerClient } from "@supabase/ssr";
@@ -22,8 +23,9 @@ import { getSupabaseCookieName } from "@/lib/auth/cookies";
 import { extractGuestIdFromToken } from "@/lib/auth/extract-guest";
 import type { AppUser } from "@/lib/auth/types";
 import { prewarmUserCache } from "@/lib/cache-ops";
-import { migrateGuestToAuthUser } from "@/lib/data/migrate-guest";
+import { env } from "@/lib/config/env";
 import { authError, validationError } from "@/lib/errors";
+import { AuthService } from "@/lib/services";
 
 /**
  * Exchange Supabase access token for session cookie
@@ -43,26 +45,21 @@ export async function POST(request: Request): Promise<Response> {
         return validationError("Missing or invalid accessToken").toResponse();
     }
 
-    // Verify token with Supabase before setting cookie
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-        return authError("server_error", {
-            message: "Supabase configuration is missing",
-        }).toResponse();
-    }
-
-    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-        cookies: {
-            getAll() {
-                return [];
+    // Create Supabase client with validated env vars
+    const supabase = createServerClient(
+        env.NEXT_PUBLIC_SUPABASE_URL,
+        env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        {
+            cookies: {
+                getAll() {
+                    return [];
+                },
+                setAll() {
+                    // Read-only context
+                },
             },
-            setAll() {
-                // Read-only context
-            },
-        },
-    });
+        }
+    );
 
     const {
         data: { user },
@@ -92,30 +89,21 @@ export async function POST(request: Request): Promise<Response> {
         if (guestId) {
             // Await migration to prevent race condition with cookie deletion
             // The migration must complete before we delete the guest cookie
-            try {
-                const result = await migrateGuestToAuthUser(guestId, user.id);
-                if (result.success) {
-                    console.info("[SEC-003] Guest data migration completed", {
-                        guestId,
-                        authUserId: user.id,
-                        chats: result.migratedChats,
-                        messages: result.migratedMessages,
-                    });
-                } else {
-                    console.error("[SEC-003] Guest data migration failed", {
-                        guestId,
-                        authUserId: user.id,
-                        error: result.error,
-                    });
-                }
-            } catch (error) {
+            const serviceResult = await AuthService.migrateGuestToAuthUser({
+                guestId,
+                authUserId: user.id,
+            });
+
+            if (!serviceResult.success) {
                 // Log error but continue - don't block auth flow
-                console.error("[SEC-003] Guest data migration error", {
+                console.error("[SEC-003] Guest data migration service error", {
                     guestId,
                     authUserId: user.id,
-                    error,
+                    error: serviceResult.error,
+                    code: serviceResult.code,
                 });
             }
+            // Success/failure logging is handled by the service
         }
         // Delete guest cookie after migration attempt (success or failure)
         cookieStore.delete(GUEST_TOKEN_COOKIE);

@@ -57,8 +57,9 @@ type ActionButtonProps = {
 
 /**
  * Individual action button with tooltip and hover states.
+ * P3-052: Memoized to prevent re-renders when parent re-renders.
  */
-function ActionButton({
+const ActionButton = memo(function ActionButton({
     onClick,
     disabled,
     active,
@@ -68,6 +69,7 @@ function ActionButton({
 }: ActionButtonProps) {
     const button = (
         <button
+            aria-label={tooltip}
             className={cn(
                 "inline-flex size-7 items-center justify-center rounded-md",
                 "text-muted-foreground transition-colors",
@@ -95,7 +97,7 @@ function ActionButton({
             <TooltipContent side="bottom">{tooltip}</TooltipContent>
         </Tooltip>
     );
-}
+});
 
 // =============================================================================
 // COMPONENT

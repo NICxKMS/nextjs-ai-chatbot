@@ -27,7 +27,18 @@ export {
 } from "./api";
 // Core class
 export { AppError } from "./app-error";
-
+export type {
+    ClientError,
+    ClientErrorReporterOptions,
+    ErrorLevel,
+} from "./client-reporter";
+// Client-side error reporting
+export {
+    ClientErrorReporter,
+    captureRenderError,
+    createErrorBoundaryHandler,
+    errorReporter,
+} from "./client-reporter";
 // Factory functions (legacy compatibility)
 export {
     authError,

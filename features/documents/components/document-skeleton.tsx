@@ -1,7 +1,7 @@
 "use client";
 
-import type { ArtifactKind } from "@/features/artifacts";
 import { SkeletonShimmer } from "@/shared/components/ai";
+import type { ArtifactKind } from "@/shared/types";
 
 // =============================================================================
 // DOCUMENT SKELETON

@@ -3,16 +3,19 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import useSWR from "swr";
 import { Loader } from "@/components/ai-elements/loader";
-import type { ArtifactKind, UIArtifact } from "@/features/artifacts";
-import { useArtifact } from "@/features/artifacts";
 import type { Document } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
+import type { ArtifactKind, UIArtifactState } from "@/shared/types";
+import { fetchDocument } from "../services/document-api";
 
 import { InlineDocumentSkeleton } from "./document-skeleton";
 import { CodePreview } from "./renderers/code-preview";
 import { ImagePreview } from "./renderers/image-preview";
 import { SheetPreview } from "./renderers/sheet-preview";
 import { TextPreview } from "./renderers/text-preview";
+
+// Re-export UIArtifact type alias for backward compatibility
+type UIArtifact = UIArtifactState;
 
 // =============================================================================
 // ICONS
@@ -79,22 +82,23 @@ function FullscreenIcon({ size = 16 }: { size?: number }) {
 // FETCHER
 // =============================================================================
 
-const fetcher = async (url: string) => {
-    const response = await fetch(url);
-    if (!response.ok) {
-        switch (response.status) {
-            case 401:
-                throw new Error("You must be logged in to view this document");
-            case 404:
-                throw new Error("Document not found");
-            case 429:
-                throw new Error("Too many requests. Please try again later");
-            default:
-                throw new Error("Failed to fetch document");
-        }
-    }
-    return response.json();
-};
+type DocumentVersions = Array<{
+    id: string;
+    title: string;
+    content: string | null;
+    kind: "text" | "code" | "image" | "sheet";
+    createdAt: Date;
+    updatedAt: Date;
+    userId: string;
+    chatId: string;
+}>;
+
+/**
+ * P3-007: Named fetcher function for SWR document loading.
+ */
+async function documentVersionsFetcher(url: string): Promise<DocumentVersions> {
+    return fetchDocument<DocumentVersions>(url);
+}
 
 // =============================================================================
 // TYPES
@@ -117,6 +121,12 @@ export type DocumentPreviewProps = {
         kind?: string;
         id?: string;
     };
+    /** Current artifact state (injected from artifacts feature) */
+    artifact?: UIArtifact;
+    /** Artifact state setter (injected from artifacts feature) */
+    setArtifact?: (
+        updater: UIArtifact | ((current: UIArtifact) => UIArtifact)
+    ) => void;
 };
 
 // =============================================================================
@@ -286,6 +296,19 @@ function DocumentContent({ document }: DocumentContentProps) {
 // =============================================================================
 
 /**
+ * Default artifact state for when artifact props are not provided.
+ */
+const defaultArtifact: UIArtifact = {
+    documentId: "init",
+    content: "",
+    kind: "text",
+    title: "",
+    status: "idle",
+    isVisible: false,
+    boundingBox: { top: 0, left: 0, width: 0, height: 0 },
+};
+
+/**
  * Document preview component for inline display in chat.
  * Fetches document by ID and renders preview based on document kind.
  */
@@ -293,12 +316,21 @@ export function DocumentPreview({
     isReadonly,
     result,
     args,
+    artifact: artifactProp,
+    setArtifact: setArtifactProp,
 }: DocumentPreviewProps) {
-    const { artifact, setArtifact } = useArtifact();
+    // Use provided artifact state or default
+    const artifact = artifactProp ?? defaultArtifact;
+    const setArtifact = setArtifactProp ?? (() => {});
 
-    const { data: documents, isLoading: isDocumentsFetching } = useSWR<
-        Document[]
-    >(result?.id ? `/api/document?id=${result.id}` : null, fetcher);
+    const {
+        data: documents,
+        isLoading: isDocumentsFetching,
+        error: fetchError,
+    } = useSWR<Document[]>(
+        result?.id ? `/api/document?id=${result.id}` : null,
+        documentVersionsFetcher
+    );
 
     const previewDocument = useMemo(() => documents?.[0], [documents]);
     const hitboxRef = useRef<HTMLDivElement>(null);
@@ -318,6 +350,24 @@ export function DocumentPreview({
             }));
         }
     }, [artifact.documentId, setArtifact]);
+
+    if (fetchError) {
+        return (
+            <div
+                className="flex h-[257px] w-full items-center justify-center rounded-2xl border bg-muted p-4 text-center dark:border-zinc-700"
+                role="alert"
+            >
+                <div className="space-y-2">
+                    <p className="font-medium text-destructive text-sm">
+                        Failed to load document
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                        Please try again later
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     if (isDocumentsFetching) {
         return (
