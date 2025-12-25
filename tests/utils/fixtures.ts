@@ -36,9 +36,9 @@ export function resetIdCounter(): void {
  * Generates a UUID-like string for testing.
  */
 export function generateUUID(): string {
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
         const r = (Math.random() * 16) | 0;
-        const v = c === "x" ? r : (r & 0x3) | 0x8;
+        const v = char === "x" ? r : (r & 0x3) | 0x8;
         return v.toString(16);
     });
 }

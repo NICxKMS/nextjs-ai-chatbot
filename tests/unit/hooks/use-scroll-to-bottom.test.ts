@@ -10,30 +10,26 @@ vi.mock("swr", () => ({
     })),
 }));
 
-// Mock ResizeObserver
-class MockResizeObserver {
-    callback: ResizeObserverCallback;
-
+// Type-safe Mock ResizeObserver implementing the full interface
+class MockResizeObserver implements ResizeObserver {
     constructor(callback: ResizeObserverCallback) {
         this.callback = callback;
     }
 
-    observe = vi.fn();
-    unobserve = vi.fn();
-    disconnect = vi.fn();
+    observe = vi.fn<ResizeObserver["observe"]>();
+    unobserve = vi.fn<ResizeObserver["unobserve"]>();
+    disconnect = vi.fn<ResizeObserver["disconnect"]>();
 }
 
-// Mock MutationObserver
-class MockMutationObserver {
-    callback: MutationCallback;
-
+// Type-safe Mock MutationObserver implementing the full interface
+class MockMutationObserver implements MutationObserver {
     constructor(callback: MutationCallback) {
         this.callback = callback;
     }
 
-    observe = vi.fn();
-    disconnect = vi.fn();
-    takeRecords = vi.fn(() => []);
+    observe = vi.fn<MutationObserver["observe"]>();
+    disconnect = vi.fn<MutationObserver["disconnect"]>();
+    takeRecords = vi.fn<MutationObserver["takeRecords"]>().mockReturnValue([]);
 }
 
 describe("useScrollToBottom", () => {
@@ -47,11 +43,9 @@ describe("useScrollToBottom", () => {
         originalMutationObserver = global.MutationObserver;
         originalRequestAnimationFrame = global.requestAnimationFrame;
 
-        // Mock globals
-        global.ResizeObserver =
-            MockResizeObserver as unknown as typeof ResizeObserver;
-        global.MutationObserver =
-            MockMutationObserver as unknown as typeof MutationObserver;
+        // Mock globals - classes implement interfaces so assignment is type-safe
+        global.ResizeObserver = MockResizeObserver;
+        global.MutationObserver = MockMutationObserver;
         global.requestAnimationFrame = vi.fn((cb) => {
             cb(0);
             return 0;

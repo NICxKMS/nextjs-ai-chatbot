@@ -9,12 +9,11 @@
 
 "use client";
 
+import type { ReactNode } from "react";
 import { memo } from "react";
-import { SettingsIconButton } from "@/features/settings";
 import { useChatMetadata } from "../hooks";
 import type { VisibilityType } from "../types";
 import { NewChatButton } from "./new-chat-button";
-import { SidebarToggle } from "./sidebar-toggle";
 import { VisibilitySelector } from "./visibility-selector";
 
 /**
@@ -23,12 +22,14 @@ import { VisibilitySelector } from "./visibility-selector";
 export type ChatHeaderProps = {
     /** Callback when new chat button is clicked */
     onNewChat?: () => void;
-    /** Callback when sidebar toggle is clicked */
-    onToggleSidebar?: () => void;
     /** Optional additional CSS classes */
     className?: string;
     /** Selected visibility type for the chat */
     selectedVisibilityType?: VisibilityType;
+    /** Slot for sidebar toggle component (injected from app layer) */
+    sidebarToggle?: ReactNode;
+    /** Slot for settings button component (injected from app layer) */
+    settingsButton?: ReactNode;
 };
 
 /**
@@ -37,11 +38,12 @@ export type ChatHeaderProps = {
  */
 function PureChatHeader({
     onNewChat,
-    onToggleSidebar,
     className = "",
     isReadonly,
     chatId,
     selectedVisibilityType,
+    sidebarToggle,
+    settingsButton,
 }: ChatHeaderProps & {
     isReadonly: boolean;
     chatId: string;
@@ -53,8 +55,8 @@ function PureChatHeader({
         <header
             className={`sticky top-0 z-10 flex items-center justify-between gap-2 bg-background px-2 py-1.5 md:px-2 ${className}`.trim()}
         >
-            {/* Sidebar toggle - left */}
-            <SidebarToggle onClick={onToggleSidebar} />
+            {/* Sidebar toggle - left (injected via slot) */}
+            {sidebarToggle}
 
             {/* Actions - right */}
             <div
@@ -71,7 +73,8 @@ function PureChatHeader({
                 )}
                 {!isReadonly && (
                     <>
-                        <SettingsIconButton />
+                        {/* Settings button (injected via slot) */}
+                        {settingsButton}
                         <NewChatButton onClick={onNewChat} />
                     </>
                 )}
@@ -87,10 +90,11 @@ const MemoizedPureChatHeader = memo(PureChatHeader, (prevProps, nextProps) => {
     return (
         prevProps.isReadonly === nextProps.isReadonly &&
         prevProps.onNewChat === nextProps.onNewChat &&
-        prevProps.onToggleSidebar === nextProps.onToggleSidebar &&
         prevProps.className === nextProps.className &&
         prevProps.chatId === nextProps.chatId &&
-        prevProps.selectedVisibilityType === nextProps.selectedVisibilityType
+        prevProps.selectedVisibilityType === nextProps.selectedVisibilityType &&
+        prevProps.sidebarToggle === nextProps.sidebarToggle &&
+        prevProps.settingsButton === nextProps.settingsButton
     );
 });
 
@@ -98,28 +102,32 @@ const MemoizedPureChatHeader = memo(PureChatHeader, (prevProps, nextProps) => {
  * Header component for the chat interface.
  *
  * Contains:
- * - Sidebar toggle (left)
+ * - Sidebar toggle (left, injected via slot)
  * - Visibility selector (right, for existing chats)
- * - Settings button (right)
+ * - Settings button (right, injected via slot)
  * - New chat button (right, hidden in readonly mode)
  *
  * @remarks
- * Uses context hooks to access chat state.
+ * Uses slot props for cross-feature components (SidebarToggle, SettingsButton).
+ * This allows the app layer to wire features together without direct coupling.
  * Memoized to prevent unnecessary re-renders when parent updates.
  *
  * @example
  * ```tsx
+ * // In app layer where features are composed:
  * <ChatHeader
  *   onNewChat={() => router.push('/')}
- *   onToggleSidebar={() => setSidebarOpen(!open)}
+ *   sidebarToggle={<SidebarToggle />}
+ *   settingsButton={<SettingsIconButton />}
  * />
  * ```
  */
 export function ChatHeader({
     onNewChat,
-    onToggleSidebar,
     className,
     selectedVisibilityType,
+    sidebarToggle,
+    settingsButton,
 }: ChatHeaderProps) {
     const { isReadonly, chatId } = useChatMetadata();
 
@@ -129,8 +137,9 @@ export function ChatHeader({
             className={className}
             isReadonly={isReadonly}
             onNewChat={onNewChat}
-            onToggleSidebar={onToggleSidebar}
             selectedVisibilityType={selectedVisibilityType}
+            settingsButton={settingsButton}
+            sidebarToggle={sidebarToggle}
         />
     );
 }

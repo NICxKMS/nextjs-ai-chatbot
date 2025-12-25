@@ -64,15 +64,12 @@ export const textArtifact = new Artifact<"text", TextArtifactMetadata>({
     description: "Useful for text content, like drafting essays and emails.",
     initialize: async ({ documentId, setMetadata }) => {
         try {
-            const response = await fetch(
-                `/api/suggestions?documentId=${documentId}`
+            const { fetchArtifactSuggestions } = await import(
+                "../services/artifact-api"
             );
-            if (response.ok) {
-                const suggestions = await response.json();
-                setMetadata({ suggestions });
-            } else {
-                setMetadata({ suggestions: [] });
-            }
+            const suggestions =
+                await fetchArtifactSuggestions<SuggestionLike[]>(documentId);
+            setMetadata({ suggestions });
         } catch {
             setMetadata({ suggestions: [] });
         }

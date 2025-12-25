@@ -7,6 +7,8 @@
  */
 import "server-only";
 
+import { logger } from "@/lib/utils/logger";
+
 import {
     CIRCUIT_FAILURE_THRESHOLD,
     CIRCUIT_RESET_TIMEOUT_MS,
@@ -89,7 +91,7 @@ export function recordSuccess(): void {
         state.failures = 0;
         state.isOpen = false;
         state.lastFailure = null;
-        console.info("Circuit breaker CLOSED (success)");
+        logger.info("Circuit breaker CLOSED (success)");
     }
 }
 

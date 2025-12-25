@@ -15,10 +15,20 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/lib/data", () => ({
     createContext: vi.fn((userId, userType) => ({ userId, userType })),
-    chatDb: {
-        listChats: vi.fn(),
+}));
+
+vi.mock("@/lib/config/app-config", () => ({
+    getChatConfig: vi.fn(() => ({
+        defaultPageSize: 20,
+        maxPageSize: 100,
+    })),
+}));
+
+vi.mock("@/lib/services", () => ({
+    ChatService: {
+        list: vi.fn(),
+        deleteAll: vi.fn(),
     },
-    deleteAllUserChatsCached: vi.fn(),
 }));
 
 vi.mock("@/lib/utils/logger", () => ({
@@ -32,12 +42,13 @@ vi.mock("@/lib/utils/logger", () => ({
 import { DELETE, GET } from "@/app/api/history/route";
 // Import after mocks
 import { getSessionCached } from "@/lib/auth";
-import { chatDb, createContext, deleteAllUserChatsCached } from "@/lib/data";
+import { createContext } from "@/lib/data";
+import { ChatService } from "@/lib/services";
 
 // Type helpers
 const mockGetSessionCached = vi.mocked(getSessionCached);
-const mockListChats = vi.mocked(chatDb.listChats);
-const mockDeleteAllUserChatsCached = vi.mocked(deleteAllUserChatsCached);
+const mockChatServiceList = vi.mocked(ChatService.list);
+const mockChatServiceDeleteAll = vi.mocked(ChatService.deleteAll);
 const mockCreateContext = vi.mocked(createContext);
 
 // Test fixtures
@@ -115,7 +126,10 @@ describe("History API Route /api/history", () => {
 
         it("should return empty chats array when no history", async () => {
             mockGetSessionCached.mockResolvedValue(mockSession);
-            mockListChats.mockResolvedValue({ items: [], hasMore: false });
+            mockChatServiceList.mockResolvedValue({
+                success: true,
+                data: { chats: [], hasMore: false },
+            });
 
             const request = createRequest("/api/history");
             const response = await GET(request);
@@ -129,9 +143,12 @@ describe("History API Route /api/history", () => {
 
         it("should return chat history when available", async () => {
             mockGetSessionCached.mockResolvedValue(mockSession);
-            mockListChats.mockResolvedValue({
-                items: mockChats,
-                hasMore: false,
+            mockChatServiceList.mockResolvedValue({
+                success: true,
+                data: {
+                    chats: mockChats,
+                    hasMore: false,
+                },
             });
 
             const request = createRequest("/api/history");
@@ -158,7 +175,10 @@ describe("History API Route /api/history", () => {
 
         it("should create context with correct user info", async () => {
             mockGetSessionCached.mockResolvedValue(mockSession);
-            mockListChats.mockResolvedValue({ items: [], hasMore: false });
+            mockChatServiceList.mockResolvedValue({
+                success: true,
+                data: { chats: [], hasMore: false },
+            });
 
             const request = createRequest("/api/history");
             await GET(request);
@@ -175,7 +195,10 @@ describe("History API Route /api/history", () => {
                 expires: new Date().toISOString(),
             };
             mockGetSessionCached.mockResolvedValue(guestSession);
-            mockListChats.mockResolvedValue({ items: [], hasMore: false });
+            mockChatServiceList.mockResolvedValue({
+                success: true,
+                data: { chats: [], hasMore: false },
+            });
 
             const request = createRequest("/api/history");
             const response = await GET(request);
@@ -189,9 +212,12 @@ describe("History API Route /api/history", () => {
 
         it("should always return hasMore as false and nextCursor as null", async () => {
             mockGetSessionCached.mockResolvedValue(mockSession);
-            mockListChats.mockResolvedValue({
-                items: mockChats,
-                hasMore: false,
+            mockChatServiceList.mockResolvedValue({
+                success: true,
+                data: {
+                    chats: mockChats,
+                    hasMore: false,
+                },
             });
 
             const request = createRequest("/api/history");
@@ -204,7 +230,7 @@ describe("History API Route /api/history", () => {
 
         it("should return 500 on internal error", async () => {
             mockGetSessionCached.mockResolvedValue(mockSession);
-            mockListChats.mockRejectedValue(new Error("Database error"));
+            mockChatServiceList.mockRejectedValue(new Error("Database error"));
 
             const request = createRequest("/api/history");
             const response = await GET(request);
@@ -242,7 +268,10 @@ describe("History API Route /api/history", () => {
 
         it("should delete all chats successfully", async () => {
             mockGetSessionCached.mockResolvedValue(mockSession);
-            mockDeleteAllUserChatsCached.mockResolvedValue(undefined);
+            mockChatServiceDeleteAll.mockResolvedValue({
+                success: true,
+                data: 5,
+            });
 
             const request = createRequest("/api/history");
             const response = await DELETE(request);
@@ -252,21 +281,27 @@ describe("History API Route /api/history", () => {
             expect(json.success).toBe(true);
         });
 
-        it("should call deleteAllUserChatsCached with correct context", async () => {
+        it("should call ChatService.deleteAll with correct context", async () => {
             mockGetSessionCached.mockResolvedValue(mockSession);
-            mockDeleteAllUserChatsCached.mockResolvedValue(undefined);
+            mockChatServiceDeleteAll.mockResolvedValue({
+                success: true,
+                data: 0,
+            });
 
             const request = createRequest("/api/history");
             await DELETE(request);
 
-            expect(mockDeleteAllUserChatsCached).toHaveBeenCalledWith(
+            expect(mockChatServiceDeleteAll).toHaveBeenCalledWith(
                 expect.objectContaining({ userId: testUserId })
             );
         });
 
         it("should create context for deletion", async () => {
             mockGetSessionCached.mockResolvedValue(mockSession);
-            mockDeleteAllUserChatsCached.mockResolvedValue(undefined);
+            mockChatServiceDeleteAll.mockResolvedValue({
+                success: true,
+                data: 0,
+            });
 
             const request = createRequest("/api/history");
             await DELETE(request);
@@ -279,7 +314,7 @@ describe("History API Route /api/history", () => {
 
         it("should return 500 on internal error", async () => {
             mockGetSessionCached.mockResolvedValue(mockSession);
-            mockDeleteAllUserChatsCached.mockRejectedValue(
+            mockChatServiceDeleteAll.mockRejectedValue(
                 new Error("Database error")
             );
 

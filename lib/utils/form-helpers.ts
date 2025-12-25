@@ -9,6 +9,22 @@
 import { sanitizeText } from "./sanitize";
 
 // =============================================================================
+// Constants (P3-036: Extracted magic numbers)
+// =============================================================================
+
+/**
+ * Maximum length for chat input messages.
+ * Prevents excessive payload sizes and ensures reasonable processing time.
+ */
+export const MAX_CHAT_INPUT_LENGTH = 32_000;
+
+/**
+ * Maximum consecutive newlines allowed in chat input.
+ * Content with more newlines will be collapsed.
+ */
+export const MAX_CONSECUTIVE_NEWLINES = 3;
+
+// =============================================================================
 // Types
 // =============================================================================
 
@@ -334,7 +350,7 @@ export function validateChatInput(
     input: string,
     options: { maxLength?: number } = {}
 ): string | undefined {
-    const { maxLength: max = 32_000 } = options;
+    const { maxLength: max = MAX_CHAT_INPUT_LENGTH } = options;
 
     if (!input || !input.trim()) {
         return "Message cannot be empty";

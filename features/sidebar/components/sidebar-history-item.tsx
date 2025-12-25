@@ -23,9 +23,8 @@ import {
     DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { updateChatVisibility } from "@/features/chat/actions";
-import type { VisibilityType } from "@/features/chat/types";
 import { cn, createRateLimiter } from "@/lib/utils";
+import type { VisibilityType } from "@/shared/types";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -37,6 +36,29 @@ import {
     AlertDialogTitle,
 } from "@/shared/ui/alert-dialog";
 import type { ChatHistoryItem as ChatHistoryItemType } from "../types";
+
+/**
+ * Input for updating chat visibility.
+ */
+type UpdateVisibilityInput = {
+    chatId: string;
+    visibility: VisibilityType;
+};
+
+/**
+ * Result from updating chat visibility.
+ */
+type UpdateVisibilityResult = {
+    success: boolean;
+    error?: string;
+};
+
+/**
+ * Type for the visibility update action (injected from chat feature or passed directly).
+ */
+export type UpdateVisibilityAction = (
+    input: UpdateVisibilityInput
+) => Promise<UpdateVisibilityResult>;
 
 function MessageIcon({ className }: { className?: string }) {
     return (
@@ -58,11 +80,14 @@ function MessageIcon({ className }: { className?: string }) {
 export type SidebarHistoryItemProps = {
     chat: ChatHistoryItemType;
     onDelete?: (id: string) => Promise<void> | void;
+    /** Action to update chat visibility (injected from app layer) */
+    updateVisibility?: UpdateVisibilityAction;
 };
 
 export const SidebarHistoryItem = memo(function SidebarHistoryItem({
     chat,
     onDelete,
+    updateVisibility,
 }: SidebarHistoryItemProps) {
     const pathname = usePathname();
     const isActive = pathname === `/chat/${chat.id}`;
@@ -80,7 +105,11 @@ export const SidebarHistoryItem = memo(function SidebarHistoryItem({
 
     const handleVisibilityChange = useCallback(
         async (newVisibility: VisibilityType) => {
-            if (newVisibility === visibility || isUpdating) {
+            if (
+                newVisibility === visibility ||
+                isUpdating ||
+                !updateVisibility
+            ) {
                 return;
             }
 
@@ -98,7 +127,7 @@ export const SidebarHistoryItem = memo(function SidebarHistoryItem({
             setIsUpdating(true);
 
             try {
-                const result = await updateChatVisibility({
+                const result = await updateVisibility({
                     chatId: chat.id,
                     visibility: newVisibility,
                 });
@@ -118,7 +147,7 @@ export const SidebarHistoryItem = memo(function SidebarHistoryItem({
                 setIsUpdating(false);
             }
         },
-        [chat.id, isUpdating, visibility]
+        [chat.id, isUpdating, visibility, updateVisibility]
     );
 
     const handleDelete = useCallback(async () => {
@@ -160,6 +189,7 @@ export const SidebarHistoryItem = memo(function SidebarHistoryItem({
                         isActive && "bg-muted font-medium"
                     )}
                     href={`/chat/${chat.id}`}
+                    prefetch={true}
                 >
                     <MessageIcon className="h-4 w-4 shrink-0" />
                     <span className="truncate">{chat.title || "New Chat"}</span>

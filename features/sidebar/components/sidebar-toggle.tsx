@@ -40,6 +40,7 @@ export const SidebarToggle = memo(function SidebarToggle() {
                         "rounded-lg p-2 transition-colors hover:bg-muted",
                         "focus:outline-none focus:ring-2 focus:ring-primary"
                     )}
+                    data-testid="sidebar-toggle-button"
                     onClick={toggle}
                     type="button"
                 >

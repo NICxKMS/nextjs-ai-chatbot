@@ -10,6 +10,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
+import { logger } from "@/lib/utils/logger";
 
 // =============================================================================
 // TYPES
@@ -251,8 +252,17 @@ export function useMessageRetry(
 
                     try {
                         await sleep(delay, controller.signal);
-                    } catch {
-                        // Aborted during sleep
+                    } catch (sleepError) {
+                        // Aborted during sleep - log for visibility
+                        logger.warn("Message retry aborted during sleep", {
+                            operation: "messageRetry",
+                            messageId,
+                            attempt,
+                            error:
+                                sleepError instanceof Error
+                                    ? sleepError.message
+                                    : "Unknown error",
+                        });
                         setRetryState({
                             messageId,
                             attempt,

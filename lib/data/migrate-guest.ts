@@ -21,6 +21,7 @@ import {
 } from "@/lib/cache-ops";
 import { schema, withTransaction } from "@/lib/db";
 import type { NewChat, NewMessage } from "@/lib/db/schema";
+import { logger } from "@/lib/utils/logger";
 
 const { chat, message } = schema;
 
@@ -99,14 +100,14 @@ export async function migrateGuestToAuthUser(
         const cachedChats = await getUserChatsFromCache(guestId);
 
         if (!cachedChats || cachedChats.length === 0) {
-            console.info("[SEC-003] No guest data to migrate", {
+            logger.info("[SEC-003] No guest data to migrate", {
                 guestId,
                 authUserId,
             });
             return EMPTY_RESULT;
         }
 
-        console.info("[SEC-003] Starting guest data migration", {
+        logger.info("[SEC-003] Starting guest data migration", {
             guestId,
             authUserId,
             chatCount: cachedChats.length,
@@ -169,7 +170,7 @@ export async function migrateGuestToAuthUser(
         }
 
         if (chatsToMigrate.length === 0) {
-            console.info(
+            logger.info(
                 "[SEC-003] No valid chats to migrate after validation",
                 {
                     guestId,
@@ -227,7 +228,7 @@ export async function migrateGuestToAuthUser(
         // Note: We do this AFTER successful migration to prevent data loss
         try {
             await deleteAllUserChatsFromCache(guestId);
-            console.info("[SEC-003] Guest cache cleaned up", { guestId });
+            logger.info("[SEC-003] Guest cache cleaned up", { guestId });
         } catch (cleanupError) {
             // Log but don't fail - data is already migrated
             console.warn("[SEC-003] Failed to clean up guest cache", {
@@ -237,7 +238,7 @@ export async function migrateGuestToAuthUser(
             warnings.push("Cache cleanup failed - data may persist in cache");
         }
 
-        console.info("[SEC-003] Migration completed successfully", {
+        logger.info("[SEC-003] Migration completed successfully", {
             guestId,
             authUserId,
             chats: result.chatCount,

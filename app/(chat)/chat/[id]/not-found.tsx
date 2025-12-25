@@ -19,6 +19,7 @@ export default function ChatNotFound() {
             <Link
                 className="rounded-lg bg-primary px-4 py-2 text-primary-foreground"
                 href="/"
+                prefetch={true}
             >
                 Start new chat
             </Link>

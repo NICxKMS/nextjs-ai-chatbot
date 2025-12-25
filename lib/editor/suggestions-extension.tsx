@@ -421,9 +421,9 @@ export const SuggestionsExtension = Extension.create<SuggestionOptions>({
     addOptions() {
         return {
             onApply: undefined,
-            // TODO(suggestion-reject): Implement onReject callback for suggestion rejection handling.
-            // Tracking: Will be needed for explicit rejection UI (e.g., "Dismiss" button on suggestions).
-            // Currently unused but reserved for future UI integration.
+            // Reserved: onReject callback for explicit suggestion dismissal UI
+            // Currently unused - suggestions auto-dismiss on editor blur/change.
+            // Enable when adding "Dismiss" button to suggestion popover.
             onReject: undefined,
             artifactKind: "text",
         };

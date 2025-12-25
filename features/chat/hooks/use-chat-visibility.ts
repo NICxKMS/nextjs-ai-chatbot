@@ -78,7 +78,8 @@ export function useChatVisibility({
     }, [localVisibility, initialVisibilityType]);
 
     // Update visibility with optimistic update
-    // @todo Consider adding rate limiting here, extracting config to lib/config/rate-limits.ts
+    // NOTE: Rate limiting handled at API layer (see lib/middleware/rate-limit.ts)
+    // Client-side limiting not needed - optimistic updates provide natural debounce.
     const setVisibilityType = useCallback(
         async (updatedVisibilityType: VisibilityType) => {
             // Cancel any pending visibility update to prevent race conditions

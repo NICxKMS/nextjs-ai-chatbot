@@ -8,13 +8,14 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import { getSessionCached } from "@/lib/auth";
-import { chatDb, createContext, deleteAllUserChatsCached } from "@/lib/data";
-import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "@/lib/data/types";
+import { getChatConfig } from "@/lib/config/app-config";
+import { createContext } from "@/lib/data";
 import type { Chat } from "@/lib/db";
 import { AppError, authError } from "@/lib/errors";
+import { ChatService } from "@/lib/services";
 import { logger } from "@/lib/utils/logger";
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<Response> {
     try {
         const session = await getSessionCached();
         if (!session?.user?.id) {
@@ -22,6 +23,7 @@ export async function GET(request: NextRequest) {
         }
 
         const ctx = createContext(session.user.id, session.user.type);
+        const config = getChatConfig();
 
         // Parse pagination params from query string
         const searchParams = request.nextUrl.searchParams;
@@ -31,27 +33,38 @@ export async function GET(request: NextRequest) {
         const limit = Math.min(
             Math.max(
                 1,
-                Number.parseInt(limitParam ?? "", 10) || DEFAULT_PAGE_SIZE
+                Number.parseInt(limitParam ?? "", 10) || config.defaultPageSize
             ),
-            MAX_PAGE_SIZE
+            config.maxPageSize
         );
 
-        // Fetch chats with cursor-based pagination
-        const result = await chatDb.listChats(ctx, {
-            limit,
-            startingAfter: cursor ?? undefined,
-        });
+        // Fetch chats with cursor-based pagination via service
+        const result = await ChatService.list(
+            {
+                limit,
+                startingAfter: cursor ?? undefined,
+            },
+            ctx
+        );
+
+        if (!result.success) {
+            return new AppError({
+                code: `internal:${result.code}`,
+                message: result.error,
+                statusCode: 500,
+            }).toResponse();
+        }
 
         return NextResponse.json({
-            chats: result.items.map((chat: Chat) => ({
+            chats: result.data.chats.map((chat: Chat) => ({
                 id: chat.id,
                 title: chat.title,
                 createdAt: chat.createdAt,
                 visibility: chat.visibility,
                 userId: chat.userId,
             })),
-            hasMore: result.hasMore,
-            nextCursor: result.nextCursor ?? null,
+            hasMore: result.data.hasMore,
+            nextCursor: result.data.nextCursor ?? null,
         });
     } catch (error) {
         logger.error("[History API]", { error });
@@ -66,7 +79,7 @@ export async function GET(request: NextRequest) {
     }
 }
 
-export async function DELETE(_request: NextRequest) {
+export async function DELETE(_request: NextRequest): Promise<Response> {
     try {
         const session = await getSessionCached();
         if (!session?.user?.id) {
@@ -75,8 +88,16 @@ export async function DELETE(_request: NextRequest) {
 
         const ctx = createContext(session.user.id, session.user.type);
 
-        // Delete all chats for user
-        await deleteAllUserChatsCached(ctx);
+        // Delete all chats for user via service
+        const result = await ChatService.deleteAll(ctx);
+
+        if (!result.success) {
+            return new AppError({
+                code: `internal:${result.code}`,
+                message: result.error,
+                statusCode: 500,
+            }).toResponse();
+        }
 
         return NextResponse.json({ success: true });
     } catch (error) {

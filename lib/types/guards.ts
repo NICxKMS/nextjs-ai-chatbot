@@ -9,6 +9,22 @@
 
 /**
  * Type guard for checking if a value is a non-null object.
+ *
+ * This guard ensures the value is:
+ * - Not null
+ * - Not an array (arrays are objects in JavaScript)
+ * - A plain object type
+ *
+ * @param value - The unknown value to check
+ * @returns `true` if value is a non-null, non-array object; narrows type to `Record<string, unknown>`
+ *
+ * @example
+ * ```ts
+ * const data: unknown = { name: 'test' };
+ * if (isObject(data)) {
+ *   console.log(data.name); // TypeScript knows data is Record<string, unknown>
+ * }
+ * ```
  */
 export function isObject(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -16,6 +32,19 @@ export function isObject(value: unknown): value is Record<string, unknown> {
 
 /**
  * Type guard for checking if a value is an array.
+ *
+ * Uses JavaScript's native `Array.isArray()` for reliable detection.
+ *
+ * @param value - The unknown value to check
+ * @returns `true` if value is an array; narrows type to `unknown[]`
+ *
+ * @example
+ * ```ts
+ * const data: unknown = [1, 2, 3];
+ * if (isArray(data)) {
+ *   data.forEach(item => console.log(item)); // TypeScript knows data is unknown[]
+ * }
+ * ```
  */
 export function isArray(value: unknown): value is unknown[] {
     return Array.isArray(value);
@@ -23,6 +52,20 @@ export function isArray(value: unknown): value is unknown[] {
 
 /**
  * Type guard for checking if a value is a string.
+ *
+ * Checks using `typeof` operator for primitive string detection.
+ * Note: Does not match String objects created via `new String()`.
+ *
+ * @param value - The unknown value to check
+ * @returns `true` if value is a primitive string; narrows type to `string`
+ *
+ * @example
+ * ```ts
+ * const data: unknown = 'hello';
+ * if (isString(data)) {
+ *   console.log(data.toUpperCase()); // TypeScript knows data is string
+ * }
+ * ```
  */
 export function isString(value: unknown): value is string {
     return typeof value === "string";
@@ -30,6 +73,23 @@ export function isString(value: unknown): value is string {
 
 /**
  * Type guard for checking if a value is a number.
+ *
+ * Checks using `typeof` and excludes NaN values since NaN is technically
+ * a number type but usually indicates invalid data.
+ *
+ * @param value - The unknown value to check
+ * @returns `true` if value is a finite number (excluding NaN); narrows type to `number`
+ *
+ * @example
+ * ```ts
+ * const data: unknown = 42;
+ * if (isNumber(data)) {
+ *   console.log(data * 2); // TypeScript knows data is number
+ * }
+ *
+ * isNumber(NaN);       // false
+ * isNumber(Infinity);  // true (use Number.isFinite for stricter check)
+ * ```
  */
 export function isNumber(value: unknown): value is number {
     return typeof value === "number" && !Number.isNaN(value);
@@ -37,6 +97,20 @@ export function isNumber(value: unknown): value is number {
 
 /**
  * Type guard for checking if a value is a boolean.
+ *
+ * Checks for primitive boolean values (`true` or `false`).
+ * Note: Does not match Boolean objects created via `new Boolean()`.
+ *
+ * @param value - The unknown value to check
+ * @returns `true` if value is a primitive boolean; narrows type to `boolean`
+ *
+ * @example
+ * ```ts
+ * const data: unknown = true;
+ * if (isBoolean(data)) {
+ *   const result = data ? 'yes' : 'no'; // TypeScript knows data is boolean
+ * }
+ * ```
  */
 export function isBoolean(value: unknown): value is boolean {
     return typeof value === "boolean";
@@ -62,6 +136,22 @@ export interface ApiMessage {
 
 /**
  * Type guard for API message objects.
+ *
+ * Validates that a value conforms to the `ApiMessage` interface structure.
+ * Checks for required `id` (string) and `role` (valid message role) properties.
+ *
+ * @param value - The unknown value to validate
+ * @returns `true` if value is a valid ApiMessage; narrows type to `ApiMessage`
+ *
+ * @example
+ * ```ts
+ * const data: unknown = await fetchMessage();
+ * if (isApiMessage(data)) {
+ *   console.log(data.id, data.role); // Safe access to ApiMessage properties
+ * }
+ * ```
+ *
+ * @see {@link ApiMessage} for the validated interface structure
  */
 export function isApiMessage(value: unknown): value is ApiMessage {
     if (!isObject(value)) {
@@ -99,6 +189,23 @@ export interface ApiChat {
 
 /**
  * Type guard for API chat objects.
+ *
+ * Validates that a value conforms to the `ApiChat` interface structure.
+ * Checks for required `id` (string) property. Optional fields (title, createdAt,
+ * updatedAt, userId) are not validated but available on the narrowed type.
+ *
+ * @param value - The unknown value to validate
+ * @returns `true` if value is a valid ApiChat; narrows type to `ApiChat`
+ *
+ * @example
+ * ```ts
+ * const data: unknown = await fetchChat();
+ * if (isApiChat(data)) {
+ *   console.log(data.id, data.title); // Safe access to ApiChat properties
+ * }
+ * ```
+ *
+ * @see {@link ApiChat} for the validated interface structure
  */
 export function isApiChat(value: unknown): value is ApiChat {
     if (!isObject(value)) {
@@ -129,6 +236,23 @@ export interface ApiDocument {
 
 /**
  * Type guard for API document objects.
+ *
+ * Validates that a value conforms to the `ApiDocument` interface structure.
+ * Checks for required `id` (string) property. Optional fields (title, content,
+ * kind, createdAt) are not validated but available on the narrowed type.
+ *
+ * @param value - The unknown value to validate
+ * @returns `true` if value is a valid ApiDocument; narrows type to `ApiDocument`
+ *
+ * @example
+ * ```ts
+ * const data: unknown = await fetchDocument();
+ * if (isApiDocument(data)) {
+ *   console.log(data.id, data.title); // Safe access to ApiDocument properties
+ * }
+ * ```
+ *
+ * @see {@link ApiDocument} for the validated interface structure
  */
 export function isApiDocument(value: unknown): value is ApiDocument {
     if (!isObject(value)) {
@@ -149,6 +273,22 @@ export interface ApiVote {
 
 /**
  * Type guard for API vote objects.
+ *
+ * Validates that a value conforms to the `ApiVote` interface structure.
+ * Checks for required `messageId` (string) and `vote` ('up' | 'down') properties.
+ *
+ * @param value - The unknown value to validate
+ * @returns `true` if value is a valid ApiVote; narrows type to `ApiVote`
+ *
+ * @example
+ * ```ts
+ * const data: unknown = await submitVote();
+ * if (isApiVote(data)) {
+ *   console.log(`Vote ${data.vote} on message ${data.messageId}`);
+ * }
+ * ```
+ *
+ * @see {@link ApiVote} for the validated interface structure
  */
 export function isApiVote(value: unknown): value is ApiVote {
     if (!isObject(value)) {

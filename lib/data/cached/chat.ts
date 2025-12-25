@@ -24,6 +24,7 @@ import {
     updateChatInCache,
 } from "@/lib/cache-ops";
 import type { Chat, ChatWithMessages, Visibility } from "@/lib/db";
+import { logger } from "@/lib/utils/logger";
 import { isGuest } from "../base";
 import {
     createChat,
@@ -66,7 +67,13 @@ export async function getChatCached(
     const chat = await getChat(chatId, ctx);
     if (chat) {
         // Background warm cache
-        createChatInCache(chatToCachedMeta(chat), false).catch(() => {});
+        createChatInCache(chatToCachedMeta(chat), false).catch((error) => {
+            logger.warn("Cache write failed", {
+                operation: "createChatInCache",
+                chatId: chat.id,
+                error: error.message,
+            });
+        });
     }
     return chat;
 }
@@ -147,7 +154,13 @@ export async function createChatCached(
 
     // Auth = DB first, then cache
     const chat = await createChat(data, ctx);
-    await createChatInCache(chatToCachedMeta(chat), false).catch(() => {});
+    await createChatInCache(chatToCachedMeta(chat), false).catch((error) => {
+        logger.warn("Cache write failed", {
+            operation: "createChatInCache",
+            chatId: chat.id,
+            error: error.message,
+        });
+    });
     return chat;
 }
 
@@ -169,7 +182,13 @@ export async function deleteChatCached(
     // Auth = DB first, then cache
     const deleted = await deleteChat(chatId, ctx);
     if (deleted) {
-        await deleteChatFromCache(chatId, ctx.userId).catch(() => {});
+        await deleteChatFromCache(chatId, ctx.userId).catch((error) => {
+            logger.warn("Cache delete failed", {
+                operation: "deleteChatFromCache",
+                chatId,
+                error: error.message,
+            });
+        });
     }
     return deleted;
 }
@@ -190,7 +209,13 @@ export async function deleteAllUserChatsCached(
 
     // Auth = DB first, then cache
     const count = await deleteAllChats(ctx);
-    await deleteAllUserChatsFromCache(ctx.userId).catch(() => {});
+    await deleteAllUserChatsFromCache(ctx.userId).catch((error) => {
+        logger.warn("Cache delete failed", {
+            operation: "deleteAllUserChatsFromCache",
+            userId: ctx.userId,
+            error: error.message,
+        });
+    });
     return count;
 }
 
@@ -213,7 +238,15 @@ export async function updateChatTitleCached(
     // Auth = DB first, then cache
     const chat = await updateChatTitle(chatId, title, ctx);
     if (chat) {
-        await updateChatInCache(chatId, ctx.userId, { title }).catch(() => {});
+        await updateChatInCache(chatId, ctx.userId, { title }).catch(
+            (error) => {
+                logger.warn("Cache update failed", {
+                    operation: "updateChatInCache",
+                    chatId,
+                    error: error.message,
+                });
+            }
+        );
     }
     return chat;
 }
@@ -238,7 +271,13 @@ export async function updateChatVisibilityCached(
     const chat = await updateChatVisibility(chatId, visibility, ctx);
     if (chat) {
         await updateChatInCache(chatId, ctx.userId, { visibility }).catch(
-            () => {}
+            (error) => {
+                logger.warn("Cache update failed", {
+                    operation: "updateChatInCache",
+                    chatId,
+                    error: error.message,
+                });
+            }
         );
     }
     return chat;

@@ -27,8 +27,8 @@
         "noImgElement": "off"
       },
       "suspicious": {
-        /* Needs more work to fix */
-        "noExplicitAny": "off",
+        /* P3-029: Warn about explicit any to encourage proper typing */
+        "noExplicitAny": "warn",
 
         /* Allow for Tailwind @ rules */
         "noUnknownAtRules": "off",
@@ -78,6 +78,8 @@
         "useConsistentTypeDefinitions": "off"
       },
       "complexity": {
+        /* P3-029: Encourage for...of over forEach for better performance and break/continue support */
+        "noForEach": "warn",
         /* Needs more work to fix */
         "noExcessiveCognitiveComplexity": "off",
 
@@ -98,6 +100,20 @@
         /* Allow onClick on div for focus forwarding patterns in input addons */
         "noNoninteractiveElementInteractions": "off"
       }
+      /*
+       * P3-035: Cross-feature import restriction
+       * Features should only import from each other's public API (index.ts)
+       * Not from internal components/hooks/services directly
+       *
+       * NOTE: Biome doesn't support noRestrictedImports yet.
+       * See docs/ARCHITECTURE.md for import guidelines.
+       *
+       * For ESLint users, add to .eslintrc:
+       * no-restricted-imports with patterns:
+       * - @/features/star/components/star
+       * - @/features/star/hooks/star
+       * - @/features/star/services/star
+       */
     }
   },
   "overrides": [

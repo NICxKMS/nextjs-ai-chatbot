@@ -9,10 +9,11 @@
 
 import { NextResponse } from "next/server";
 
-import { getSessionManager } from "@/lib/auth/session";
+import { getSession } from "@/lib/auth/session";
 import type { AppUser } from "@/lib/auth/types";
 import { AppError } from "@/lib/errors";
 import { checkRateLimit } from "@/lib/middleware/rate-limit";
+import { logger } from "@/lib/utils/logger";
 
 /**
  * Create or retrieve guest session
@@ -49,10 +50,8 @@ export async function POST(request: Request): Promise<Response> {
         );
     }
 
-    const sessionManager = getSessionManager();
-
     // Check for existing session (Supabase or guest)
-    const existingSession = await sessionManager.getSession();
+    const existingSession = await getSession();
 
     if (existingSession) {
         // Return existing session
@@ -83,8 +82,11 @@ export async function POST(request: Request): Promise<Response> {
             },
             { status: 200 }
         );
-    } catch (_error) {
-        // Guest session creation failed
+    } catch (error) {
+        // Guest session creation failed - log for visibility
+        logger.error("[Guest API] Session creation failed", {
+            error: error instanceof Error ? error.message : "Unknown error",
+        });
         return new AppError({
             code: "auth:guest_unavailable",
             message: "Guest authentication is not configured",

@@ -9,15 +9,14 @@ import { randomUUID } from "node:crypto";
 import { put } from "@vercel/blob";
 import { z } from "zod";
 import { isAuthResponse, requireAuthForRoute } from "@/lib/auth";
+import {
+    MAX_DISPLAY_FILENAME_LENGTH,
+    MAX_UPLOAD_FILE_SIZE_BYTES,
+} from "@/lib/config/security-constants";
 import { AppError, validationError } from "@/lib/errors";
 import { logger } from "@/lib/utils/logger";
 
 export const maxDuration = 30;
-
-/**
- * Maximum file size in bytes (5MB)
- */
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 /**
  * Allowed MIME types for upload
@@ -49,11 +48,12 @@ function isAllowedMimeType(type: string): boolean {
 
 /**
  * File upload validation schema
+ * P3-036: Uses centralized security constants
  */
 const fileUploadSchema = z.object({
     file: z
         .instanceof(Blob)
-        .refine((file) => file.size <= MAX_FILE_SIZE, {
+        .refine((file) => file.size <= MAX_UPLOAD_FILE_SIZE_BYTES, {
             message: "File size should be less than 5MB",
         })
         .refine((file) => isAllowedMimeType(file.type), {
@@ -63,6 +63,7 @@ const fileUploadSchema = z.object({
 
 /**
  * Sanitize filename to prevent path traversal and special character issues
+ * P3-036: Uses MAX_DISPLAY_FILENAME_LENGTH constant
  */
 function sanitizeFilename(name: string): string {
     // Remove path separators and null bytes
@@ -78,8 +79,8 @@ function sanitizeFilename(name: string): string {
     // Replace non-alphanumeric characters (except dash, underscore, dot) with underscore
     const cleanBaseName = baseName.replace(/[^a-zA-Z0-9._-]/g, "_");
 
-    // Limit total length to 100 characters (including extension)
-    const maxBaseLength = 100 - extension.length;
+    // Limit total length to MAX_DISPLAY_FILENAME_LENGTH characters (including extension)
+    const maxBaseLength = MAX_DISPLAY_FILENAME_LENGTH - extension.length;
     const truncatedBase = cleanBaseName.slice(0, maxBaseLength);
 
     return truncatedBase + extension;

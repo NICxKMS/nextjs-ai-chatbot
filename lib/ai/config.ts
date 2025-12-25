@@ -9,6 +9,62 @@
  * @module lib/ai/config
  */
 
+import { z } from "zod";
+import { MODEL_REGISTRY } from "./models";
+
+// =============================================================================
+// MODEL ID VALIDATION (P3-024)
+// =============================================================================
+
+/**
+ * Get all valid model IDs from the registry.
+ */
+const validModelIds = Object.keys(MODEL_REGISTRY) as [string, ...string[]];
+
+/**
+ * Zod schema for validating model IDs against the registry.
+ * Special value "USE_SELECTED_MODEL" is also allowed for configuration.
+ */
+export const modelIdSchema = z.enum([...validModelIds, "USE_SELECTED_MODEL"]);
+
+/**
+ * Type for valid model IDs.
+ */
+export type ValidModelId = z.infer<typeof modelIdSchema>;
+
+/**
+ * Validate a model ID against the registry.
+ *
+ * @param modelId - The model ID to validate
+ * @returns true if valid, false otherwise
+ *
+ * @example
+ * ```ts
+ * if (isValidModelId(userInput)) {
+ *   // Safe to use
+ * }
+ * ```
+ */
+export function isValidModelId(modelId: string): modelId is ValidModelId {
+    return modelIdSchema.safeParse(modelId).success;
+}
+
+/**
+ * Parse and validate a model ID, throwing on invalid input.
+ *
+ * @param modelId - The model ID to validate
+ * @returns The validated model ID
+ * @throws ZodError if model ID is invalid
+ *
+ * @example
+ * ```ts
+ * const validId = parseModelId(userInput); // throws if invalid
+ * ```
+ */
+export function parseModelId(modelId: string): ValidModelId {
+    return modelIdSchema.parse(modelId);
+}
+
 // =============================================================================
 // TOOL MODEL CONFIGURATION
 // =============================================================================

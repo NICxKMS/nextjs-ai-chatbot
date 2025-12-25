@@ -160,7 +160,8 @@ class LRUCache<K, V> {
  * In serverless environments, this cache is per-instance and not shared.
  * Redis is used as primary cache; this serves as fallback when Redis unavailable.
  *
- * TODO: Consider implementing cache warming strategies for frequently accessed documents
+ * @note Cache Warming: Not implemented - Redis handles persistence across instances.
+ * For high-traffic scenarios, consider preloading recent documents on cold start.
  */
 const previewCache = new LRUCache<string, CachedPreview>({
     max: MAX_ENTRIES,

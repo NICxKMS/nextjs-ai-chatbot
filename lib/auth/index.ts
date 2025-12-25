@@ -6,7 +6,7 @@
  */
 
 import { cache } from "react";
-import { getSessionManager } from "./session";
+import { getSession } from "./session";
 
 /**
  * Request-scoped cached session getter.
@@ -16,7 +16,7 @@ import { getSessionManager } from "./session";
  * @see NET-001 Network Optimization
  */
 export const getSessionCached = cache(async () => {
-    return getSessionManager().getSession();
+    return getSession();
 });
 
 // Client utilities
@@ -91,4 +91,11 @@ export type {
     GuestTokenPayload,
     JWTPayload,
     UserType,
+} from "./types";
+// Null object patterns (P3-019)
+export {
+    EMPTY_SESSION,
+    EMPTY_USER,
+    isEmptySession,
+    isEmptyUser,
 } from "./types";

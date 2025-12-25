@@ -4,54 +4,37 @@
  * Public API for fetch client, request deduplication, and response handling.
  *
  * @module lib/api
+ *
+ * NOTE (P4-017): This barrel exports only commonly-used utilities.
+ * For advanced utilities (ResponseCache, RequestDeduplicator, etc.),
+ * import directly from the submodule:
+ * - `@/lib/api/fetch-client` - Low-level fetch utilities
+ * - `@/lib/api/request-dedup` - Request deduplication
+ * - `@/lib/api/response` - Response builders
+ * - `@/lib/api/response-cache` - Response caching
  */
 
-// Fetch client
+// =============================================================================
+// FETCH CLIENT (Primary Export)
+// =============================================================================
+
 export {
     type ApiErrorResponse,
     type ApiSuccessResponse,
     apiClient,
-    createArrayGuard,
-    createNullableGuard,
-    createObjectGuard,
-    FetchClient,
     type FetchClientConfig,
     type FetchOptions,
-    fetchWithTimeout,
     type RequestContext,
-    type TypeGuard,
 } from "./fetch-client";
 
-// Request deduplication
-export {
-    cachedRequestDedup,
-    createBatchLoader,
-    createDedupFetcher,
-    createSwrFetcher,
-    type DedupConfig,
-    RequestDeduplicator,
-    requestDedup,
-} from "./request-dedup";
+// =============================================================================
+// RESPONSE UTILITIES
+// =============================================================================
 
-// Response utilities
 export {
-    type ApiResponseHandler,
     createApiResponse,
     createErrorResponse,
-    createPaginatedResponse,
     handleApiError,
     type PaginationMeta,
     withApiErrorHandling,
 } from "./response";
-
-// Response caching
-export {
-    type CacheEntry,
-    type CacheOptions,
-    type CacheStats,
-    createCachedFetch,
-    ResponseCache,
-    type ResponseCacheConfig,
-    responseCache,
-    withCache,
-} from "./response-cache";

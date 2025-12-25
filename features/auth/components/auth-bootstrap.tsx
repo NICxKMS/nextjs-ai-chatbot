@@ -3,7 +3,8 @@
 import { type ReactNode, useEffect, useState } from "react";
 
 import { Loader } from "@/components/ai-elements/loader";
-import type { AppSession } from "@/lib/auth";
+import { logger } from "@/lib/utils/logger";
+import { createGuestSession } from "../services/auth-api";
 import { useAuth } from "./auth-provider";
 
 // ============================================================================
@@ -39,26 +40,25 @@ export function AuthBootstrap({ children }: AuthBootstrapProps) {
 
         (async () => {
             try {
-                const response = await fetch("/api/auth/guest", {
-                    method: "POST",
-                    credentials: "include",
-                });
+                const data = await createGuestSession();
 
-                if (!response.ok || cancelled) {
+                if (cancelled || !data) {
                     setIsBootstrapping(false);
                     return;
                 }
 
-                const data = (await response.json()) as {
-                    user?: AppSession["user"] | null;
-                    isNewSession?: boolean;
-                };
-
                 if (!cancelled && data.user) {
                     setSession({ user: data.user });
                 }
-            } catch {
-                // Swallow errors – guest bootstrap is best-effort
+            } catch (error) {
+                // Guest bootstrap is best-effort, but log for visibility
+                logger.warn("Auth bootstrap failed", {
+                    operation: "authBootstrap",
+                    error:
+                        error instanceof Error
+                            ? error.message
+                            : "Unknown error",
+                });
             } finally {
                 if (!cancelled) {
                     setIsBootstrapping(false);

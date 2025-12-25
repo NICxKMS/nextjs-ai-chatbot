@@ -55,13 +55,28 @@ export type GetToolsProps = {
 // =============================================================================
 
 /**
+ * Null object pattern for empty tools (P4-036).
+ * Returned when no valid tools can be created.
+ */
+export const EMPTY_TOOLS = {} as const;
+
+/**
+ * Available tool names for type safety.
+ */
+export type ToolName =
+    | "createDocument"
+    | "updateDocument"
+    | "getWeather"
+    | "requestSuggestions";
+
+/**
  * Get all available AI tools.
  *
  * Returns an object containing all registered tools, ready for use
- * in streamText calls.
+ * in streamText calls. Uses null object pattern (P4-036) for safe defaults.
  *
  * @param props - Tool configuration
- * @returns Object containing all tools
+ * @returns Object containing all tools, or EMPTY_TOOLS if model unavailable
  *
  * @example
  * ```ts

@@ -1,6 +1,9 @@
 /**
  * Authentication Types
  * Ref: 02-authentication-optimal-design.md §3
+ *
+ * P3-019: Null object pattern - use EMPTY_USER and EMPTY_SESSION
+ * instead of null checks throughout the codebase.
  */
 
 export type UserType = "guest" | "regular";
@@ -14,6 +17,42 @@ export type AppUser = {
 export type AppSession = {
     user: AppUser;
 };
+
+// =============================================================================
+// NULL OBJECT PATTERNS (P3-019)
+// =============================================================================
+
+/**
+ * Empty user object for null object pattern.
+ * Use instead of null checks: `user ?? EMPTY_USER`
+ */
+export const EMPTY_USER: AppUser = {
+    id: "",
+    type: "guest",
+    email: null,
+} as const;
+
+/**
+ * Empty session object for null object pattern.
+ * Use instead of null checks: `session ?? EMPTY_SESSION`
+ */
+export const EMPTY_SESSION: AppSession = {
+    user: EMPTY_USER,
+} as const;
+
+/**
+ * Check if a user is the empty/null user object.
+ */
+export function isEmptyUser(user: AppUser): boolean {
+    return user.id === "";
+}
+
+/**
+ * Check if a session is the empty/null session object.
+ */
+export function isEmptySession(session: AppSession): boolean {
+    return isEmptyUser(session.user);
+}
 
 export type AuthState =
     | { status: "loading" }

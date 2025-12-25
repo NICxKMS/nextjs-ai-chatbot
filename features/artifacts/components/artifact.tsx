@@ -13,12 +13,16 @@ import {
 } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { useDebounceCallback } from "usehooks-ts";
-import type { VisibilityType } from "@/features/chat/types";
 import { AnimatePresence, motion } from "@/lib/motion";
 import { useWindowSize } from "@/shared/hooks";
+import type { VisibilityType } from "@/shared/types";
 import { useSidebar } from "@/shared/ui/sidebar";
 import { artifactRegistry } from "../definitions/base";
 import { useArtifact } from "../hooks";
+import {
+    fetchArtifactDocuments,
+    saveArtifactContent,
+} from "../services/artifact-api";
 import type { ArtifactChatHelpers } from "../types";
 import { ArtifactActions } from "./artifact-actions";
 import { ArtifactClose } from "./artifact-close";
@@ -36,13 +40,12 @@ type Document = {
     userId: string;
 };
 
-const fetcher = async (url: string) => {
-    const response = await fetch(url);
-    if (!response.ok) {
-        throw new Error("Failed to fetch document. Please refresh the page.");
-    }
-    return response.json();
-};
+/**
+ * P3-007: Named fetcher function for SWR artifact loading.
+ */
+async function artifactDocumentsFetcher(url: string) {
+    return fetchArtifactDocuments(url);
+}
 
 type ArtifactProps = {
     chatId: string;
@@ -90,13 +93,15 @@ function PureArtifact({
 }: ArtifactProps) {
     const { artifact, setArtifact, metadata, setMetadata } = useArtifact();
 
-    const { data: documents, isLoading: isDocumentsFetching } = useSWR<
-        Document[]
-    >(
+    const {
+        data: documents,
+        isLoading: isDocumentsFetching,
+        error: documentFetchError,
+    } = useSWR<Document[]>(
         artifact.documentId !== "init" && artifact.status !== "streaming"
             ? `/api/document?id=${artifact.documentId}&chatId=${chatId}`
             : null,
-        fetcher
+        artifactDocumentsFetcher
     );
 
     const [mode, setMode] = useState<"edit" | "diff">("edit");
@@ -162,26 +167,18 @@ function PureArtifact({
 
                     if (currentDocument.content !== updatedContent) {
                         try {
-                            const response = await fetch(
-                                `/api/document?id=${artifact.documentId}`,
+                            await saveArtifactContent(
+                                artifact.documentId,
                                 {
-                                    method: "POST",
-                                    body: JSON.stringify({
-                                        title: artifact.title,
-                                        content: updatedContent,
-                                        kind: artifact.kind,
-                                    }),
-                                    signal: abortController.signal,
-                                }
+                                    title: artifact.title,
+                                    content: updatedContent,
+                                    kind: artifact.kind,
+                                },
+                                abortController.signal
                             );
 
                             setIsContentDirty(false);
                             pendingSaveRef.current = null;
-
-                            // If save failed, don't update cache with optimistic data
-                            if (!response.ok) {
-                                return currentDocuments;
-                            }
                         } catch (error) {
                             // If request was aborted, return current data without updating
                             if (
@@ -313,8 +310,28 @@ function PureArtifact({
         }
     }, [artifact.documentId, safeArtifactDefinition, setMetadata]);
 
+    // Return null if definition is missing
     if (!safeArtifactDefinition) {
         return null;
+    }
+
+    // Show error state if document fetch failed
+    if (documentFetchError) {
+        return (
+            <div
+                className="flex h-full items-center justify-center p-8"
+                role="alert"
+            >
+                <div className="text-center">
+                    <p className="font-medium text-destructive">
+                        Failed to load artifact
+                    </p>
+                    <p className="text-muted-foreground text-sm">
+                        Please try again later
+                    </p>
+                </div>
+            </div>
+        );
     }
 
     const ContentComponent = safeArtifactDefinition.content;
@@ -394,7 +411,7 @@ function PureArtifact({
                                 />
 
                                 <div className="relative flex w-full flex-row items-end gap-2 px-4 pb-4">
-                                    {/* TODO: Add MultimodalInput from features/chat when available */}
+                                    {/* Simplified input for artifact context. Full MultimodalInput not needed here. */}
                                     <div className="w-full rounded-lg border bg-background p-3 dark:bg-muted">
                                         <input
                                             aria-label="Type a message to send"
@@ -540,7 +557,15 @@ function PureArtifact({
 
                         <div className="h-full max-w-full! items-center overflow-y-scroll bg-background dark:bg-muted">
                             {/* Wrap artifact rendering in error boundary with fallback UI */}
-                            <ArtifactErrorBoundary>
+                            <ArtifactErrorBoundary
+                                rawContent={
+                                    isCurrentVersion
+                                        ? artifact.content
+                                        : getDocumentContentById(
+                                              currentVersionIndex
+                                          )
+                                }
+                            >
                                 <ContentComponent
                                     content={
                                         isCurrentVersion

@@ -84,7 +84,10 @@ export const voteData = {
      * Validation strategy: Manual type-safe destructuring with TypeScript.
      * SaveVoteParams interface provides compile-time validation.
      * Runtime validation occurs at API boundary (route handler).
-     * TODO: Consider zod schema if params come from untrusted sources directly.
+     *
+     * @note Zod validation deferred: API routes already validate with zod schemas.
+     * Adding zod here would be redundant since this is an internal data layer.
+     * If params ever come from untrusted sources directly, add zod validation.
      */
     save: async (
         params: SaveVoteParams,

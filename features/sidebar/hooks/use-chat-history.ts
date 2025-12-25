@@ -5,28 +5,25 @@ import { toast } from "sonner";
 import useSWRInfinite from "swr/infinite";
 import { extractErrorMessage, normalizeChatItem } from "@/lib/utils";
 import { logger } from "@/lib/utils/logger";
+import {
+    deleteAllChatHistory,
+    deleteChat as deleteChatApi,
+    fetchChatHistory,
+    type HistoryResponse,
+} from "../services/history-api";
 import type { ChatHistoryItem } from "../types";
 
-type HistoryResponse = {
-    chats: ChatHistoryItem[];
-    hasMore: boolean;
-    nextCursor?: string;
-};
+// =============================================================================
+// FETCHER
+// =============================================================================
 
-const fetcher = async (url: string): Promise<HistoryResponse> => {
+/**
+ * P3-007: Named fetcher function for SWR.
+ * Validates and normalizes chat history response data.
+ */
+async function historyFetcher(url: string): Promise<HistoryResponse> {
     try {
-        const res = await fetch(url);
-        if (!res.ok) {
-            // Provide user-friendly error based on status
-            if (res.status === 401) {
-                throw new Error("Please sign in to view your chat history");
-            }
-            if (res.status === 429) {
-                throw new Error("Too many requests. Please wait a moment");
-            }
-            throw new Error("Unable to load chat history. Please try again");
-        }
-        const data = await res.json();
+        const data = await fetchChatHistory(url);
         // Validate and normalize response structure
         if (!isValidHistoryResponse(data)) {
             throw new Error("Received invalid data format");
@@ -47,19 +44,22 @@ const fetcher = async (url: string): Promise<HistoryResponse> => {
             extractErrorMessage(error, "Failed to load chat history")
         );
     }
-};
+}
 
 /**
  * Type guard for validating HistoryResponse structure.
+ * P3-003: Proper type narrowing without unsafe casting.
  */
 function isValidHistoryResponse(data: unknown): data is HistoryResponse {
+    if (typeof data !== "object" || data === null) {
+        return false;
+    }
+    const obj = data as Record<string, unknown>;
     return (
-        typeof data === "object" &&
-        data !== null &&
-        "chats" in data &&
-        Array.isArray((data as HistoryResponse).chats) &&
-        "hasMore" in data &&
-        typeof (data as HistoryResponse).hasMore === "boolean"
+        "chats" in obj &&
+        Array.isArray(obj.chats) &&
+        "hasMore" in obj &&
+        typeof obj.hasMore === "boolean"
     );
 }
 
@@ -86,7 +86,7 @@ const getKey = (
 
 export function useChatHistory() {
     const { data, error, size, setSize, isLoading, isValidating, mutate } =
-        useSWRInfinite<HistoryResponse>(getKey, fetcher, {
+        useSWRInfinite<HistoryResponse>(getKey, historyFetcher, {
             revalidateOnFocus: false,
             revalidateFirstPage: false,
         });
@@ -124,16 +124,8 @@ export function useChatHistory() {
             );
 
             try {
-                // Call API
-                const response = await fetch(`/api/chat?id=${chatId}`, {
-                    method: "DELETE",
-                });
-
-                if (!response.ok) {
-                    throw new Error(
-                        "Couldn't delete this chat. Please try again"
-                    );
-                }
+                // Call API via service
+                await deleteChatApi(chatId);
 
                 // Revalidate on success
                 mutate();
@@ -158,14 +150,8 @@ export function useChatHistory() {
         mutate([], false);
 
         try {
-            // Call API
-            const response = await fetch("/api/history", { method: "DELETE" });
-
-            if (!response.ok) {
-                throw new Error(
-                    "Couldn't clear your history. Please try again"
-                );
-            }
+            // Call API via service
+            await deleteAllChatHistory();
 
             // Revalidate on success
             mutate();

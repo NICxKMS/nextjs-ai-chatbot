@@ -3,6 +3,11 @@
  * Ref: System health monitoring endpoint
  *
  * @module app/api/health/route
+ *
+ * NOTE: This is the legacy health check endpoint maintained for backwards compatibility.
+ * For Kubernetes deployments, prefer:
+ * - /api/healthz - Liveness probe (is the process alive?)
+ * - /api/readyz - Readiness probe (is the app ready for traffic?)
  */
 
 import { sql } from "drizzle-orm";
@@ -10,7 +15,25 @@ import { getRedis, isRedisAvailable } from "@/lib/cache";
 import { getDb } from "@/lib/db";
 import { logger } from "@/lib/utils/logger";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 export const maxDuration = 10;
+
+// =============================================================================
+// HEALTH CHECK CONSTANTS
+// =============================================================================
+
+/** Maximum acceptable database latency in milliseconds before marking as degraded */
+const DB_LATENCY_THRESHOLD_MS = 1000;
+
+/** Maximum acceptable cache latency in milliseconds before marking as degraded */
+const CACHE_LATENCY_THRESHOLD_MS = 500;
+
+/** Cache TTL for health check responses in milliseconds */
+const HEALTH_CACHE_TTL_MS = 5000;
+
+/** Maximum acceptable external API latency in milliseconds */
+const EXTERNAL_API_LATENCY_THRESHOLD_MS = 2000;
 
 type HealthStatus = "healthy" | "degraded" | "unhealthy";
 
@@ -27,6 +50,7 @@ type HealthResponse = {
         database: HealthCheckResult;
         environment: HealthCheckResult;
         cache: HealthCheckResult;
+        external?: HealthCheckResult;
     };
 };
 
@@ -44,8 +68,8 @@ async function checkDatabaseHealth(): Promise<HealthCheckResult> {
         await db.execute(sql`SELECT 1`);
         const latency = Date.now() - startTime;
 
-        // Warn if latency is high (> 1000ms)
-        if (latency > 1000) {
+        // Warn if latency is high
+        if (latency > DB_LATENCY_THRESHOLD_MS) {
             return {
                 status: "degraded",
                 latency,
@@ -100,8 +124,8 @@ async function checkCacheHealth(): Promise<HealthCheckResult> {
             };
         }
 
-        // Warn if latency > 500ms
-        if (latency > 500) {
+        // Warn if latency exceeds threshold
+        if (latency > CACHE_LATENCY_THRESHOLD_MS) {
             return {
                 status: "degraded",
                 latency,
@@ -116,6 +140,81 @@ async function checkCacheHealth(): Promise<HealthCheckResult> {
             latency: 0,
             error:
                 error instanceof Error ? error.message : "Cache check failed",
+        };
+    }
+}
+
+/**
+ * Check external service connectivity (P4-031)
+ * Tests connectivity to critical external APIs (e.g., Supabase auth)
+ */
+async function checkExternalServiceHealth(): Promise<HealthCheckResult> {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+    // Skip if Supabase is not configured
+    if (!supabaseUrl) {
+        return {
+            status: "degraded",
+            latency: 0,
+            error: "Supabase URL not configured",
+        };
+    }
+
+    try {
+        const startTime = Date.now();
+
+        // Ping Supabase health endpoint with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(
+            () => controller.abort(),
+            EXTERNAL_API_LATENCY_THRESHOLD_MS
+        );
+
+        const response = await fetch(`${supabaseUrl}/rest/v1/`, {
+            method: "HEAD",
+            signal: controller.signal,
+            headers: {
+                apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+            },
+        });
+
+        clearTimeout(timeoutId);
+        const latency = Date.now() - startTime;
+
+        // Even 400/401 means the service is reachable
+        if (response.status >= 500) {
+            return {
+                status: "unhealthy",
+                latency,
+                error: `Supabase returned ${response.status}`,
+            };
+        }
+
+        // Warn if latency exceeds threshold
+        if (latency > EXTERNAL_API_LATENCY_THRESHOLD_MS) {
+            return {
+                status: "degraded",
+                latency,
+                error: "High external service latency",
+            };
+        }
+
+        return { status: "healthy", latency };
+    } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+            return {
+                status: "degraded",
+                latency: EXTERNAL_API_LATENCY_THRESHOLD_MS,
+                error: "External service timeout",
+            };
+        }
+        return {
+            status: "degraded",
+            latency: 0,
+            error:
+                error instanceof Error
+                    ? error.message
+                    : "External service check failed",
         };
     }
 }
@@ -143,7 +242,9 @@ function checkEnvironmentHealth(): HealthCheckResult {
 function determineOverallStatus(
     checks: HealthResponse["checks"]
 ): HealthStatus {
-    const statuses = Object.values(checks).map((c) => c.status);
+    const statuses = Object.values(checks)
+        .filter((c): c is HealthCheckResult => c !== undefined)
+        .map((c) => c.status);
 
     if (statuses.includes("unhealthy")) {
         return "unhealthy";
@@ -172,7 +273,6 @@ type CachedHealth = {
 };
 
 let cachedHealth: CachedHealth | null = null;
-const HEALTH_CACHE_TTL_MS = 5000; // 5 seconds
 
 /**
  * GET /api/health - Health check endpoint
@@ -203,16 +303,19 @@ export async function GET(): Promise<Response> {
     }
 
     try {
-        const [dbHealth, envHealth, cacheHealth] = await Promise.all([
-            checkDatabaseHealth(),
-            Promise.resolve(checkEnvironmentHealth()),
-            checkCacheHealth(),
-        ]);
+        const [dbHealth, envHealth, cacheHealth, externalHealth] =
+            await Promise.all([
+                checkDatabaseHealth(),
+                Promise.resolve(checkEnvironmentHealth()),
+                checkCacheHealth(),
+                checkExternalServiceHealth(),
+            ]);
 
-        const checks = {
+        const checks: HealthResponse["checks"] = {
             database: dbHealth,
             environment: envHealth,
             cache: cacheHealth,
+            external: externalHealth,
         };
 
         const overallStatus = determineOverallStatus(checks);
@@ -266,6 +369,10 @@ export async function GET(): Promise<Response> {
                             error: "Check failed",
                         },
                         cache: {
+                            status: "unhealthy" as HealthStatus,
+                            error: "Check failed",
+                        },
+                        external: {
                             status: "unhealthy" as HealthStatus,
                             error: "Check failed",
                         },

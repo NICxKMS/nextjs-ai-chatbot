@@ -21,6 +21,7 @@ import {
     setSuggestionsInCache,
 } from "@/lib/cache-ops/suggestions";
 import type { Suggestion } from "@/lib/db";
+import { logger } from "@/lib/utils/logger";
 import { isGuest } from "../base";
 import { getDocumentSuggestions, saveSuggestions } from "../documents";
 import type { DataContext } from "../types";
@@ -101,7 +102,14 @@ export async function getSuggestionsCached(
         // Warm cache
         const cachedSuggestions = suggestions.map(toCachedSuggestion);
         setSuggestionsInCache(documentId, cachedSuggestions, userCtx).catch(
-            () => {}
+            (error) => {
+                logger.warn("Cache write failed", {
+                    operation: "setSuggestionsInCache",
+                    documentId,
+                    suggestionCount: suggestions.length,
+                    error: error.message,
+                });
+            }
         );
     }
     return suggestions;

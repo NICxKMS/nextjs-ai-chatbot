@@ -293,10 +293,11 @@ export type UpdateVisibilityParams = {
 };
 
 // =============================================================================
-// VISIBILITY TYPES
+// VISIBILITY TYPES (re-exported from shared/types to prevent circular deps)
 // =============================================================================
 
 /**
  * Chat visibility options.
+ * Re-exported from shared/types - the canonical source.
  */
-export type VisibilityType = "public" | "private";
+export type { VisibilityType } from "@/shared/types";

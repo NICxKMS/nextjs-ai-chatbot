@@ -29,13 +29,21 @@ type UploadAbortMap = Map<string, AbortController>;
 
 import { toast } from "sonner";
 import {
+    CLIENT_SUBMIT_RATE_LIMIT,
+    CLIENT_UPLOAD_RATE_LIMIT,
+    MAX_ATTACHMENT_FILE_SIZE_BYTES,
+    MAX_CONCURRENT_UPLOADS,
+} from "@/lib/config/security-constants";
+import {
     createRateLimiter,
-    mapHttpError,
     sanitizeChatInput,
     validateChatInput,
 } from "@/lib/utils";
+import { logger } from "@/lib/utils/logger";
 import { useChatHelpers, useChatMetadata, useModelState } from "../hooks";
+import { uploadFile as uploadFileApi } from "../services/chat-api";
 import type { Attachment, ChatInputProps } from "../types";
+import { validateFileUploadResponse } from "../types/api-schemas";
 import {
     AttachmentButton,
     AttachmentPreviews,
@@ -45,19 +53,13 @@ import {
 import { ModelSelectorCompact } from "./model-selector-compact";
 import { SuggestedActions } from "./suggested-actions";
 
-/**
- * Maximum number of concurrent file uploads.
- */
-const MAX_CONCURRENT_UPLOADS = 3;
-
-/**
- * Maximum file size in bytes (10MB).
- * @todo Consider moving to lib/config/upload.ts for centralized configuration
- */
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+// =============================================================================
+// CONSTANTS (P3-036: Using centralized security constants)
+// =============================================================================
 
 /**
  * Accepted file types for attachments.
+ * Supports images, PDFs, and common text formats.
  */
 const ACCEPTED_FILE_TYPES = "image/*,application/pdf,.txt,.md,.csv,.json";
 
@@ -106,16 +108,14 @@ export const ChatInput = memo(function ChatInput({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const uploadAbortControllersRef = useRef<UploadAbortMap>(new Map());
 
-    // Rate limiter for message submission (10 per minute)
-    // @todo Consider extracting rate limit values to lib/config/rate-limits.ts
+    // Rate limiter for message submission (P3-036: centralized constants)
     const submitLimiterRef = useRef(
-        createRateLimiter({ maxRequests: 10, windowMs: 60_000 })
+        createRateLimiter(CLIENT_SUBMIT_RATE_LIMIT)
     );
 
-    // Rate limiter for file uploads (5 per minute)
-    // @todo Consider extracting rate limit values to lib/config/rate-limits.ts
+    // Rate limiter for file uploads (P3-036: centralized constants)
     const uploadLimiterRef = useRef(
-        createRateLimiter({ maxRequests: 5, windowMs: 60_000 })
+        createRateLimiter(CLIENT_UPLOAD_RATE_LIMIT)
     );
 
     // Cleanup: abort all pending uploads on unmount
@@ -194,46 +194,45 @@ export const ChatInput = memo(function ChatInput({
      */
     const uploadFile = useCallback(
         async (file: File): Promise<Attachment | undefined> => {
-            const formData = new FormData();
-            formData.append("file", file);
-
             // Create AbortController for this upload
             const abortController = new AbortController();
             uploadAbortControllersRef.current.set(file.name, abortController);
 
             try {
-                const response = await fetch("/api/files/upload", {
-                    method: "POST",
-                    body: formData,
-                    signal: abortController.signal,
-                });
+                const rawData = await uploadFileApi(
+                    file,
+                    abortController.signal
+                );
 
-                if (response.ok) {
-                    const data = await response.json();
-                    const { url, pathname, contentType, filename } = data;
-
-                    return {
-                        url,
-                        name: filename ?? pathname ?? file.name,
-                        contentType,
-                    };
+                // Validate response schema
+                const validation = validateFileUploadResponse(rawData);
+                if (!validation.success) {
+                    logger.error("Invalid file upload response", {
+                        endpoint: "/api/files/upload",
+                        error: validation.error.format(),
+                        fileName: file.name,
+                    });
+                    toast.error("Upload failed: Invalid response from server");
+                    return;
                 }
 
-                // Handle specific HTTP errors with friendly messages
-                const friendlyError = mapHttpError(response.status, "upload");
-                try {
-                    const { error } = await response.json();
-                    toast.error(error || friendlyError.message);
-                } catch {
-                    toast.error(friendlyError.message);
-                }
+                const { url, pathname, contentType, filename } =
+                    validation.data;
+
+                return {
+                    url,
+                    name: filename ?? pathname ?? file.name,
+                    contentType,
+                };
             } catch (error) {
                 // Don't show error toast if the upload was aborted
                 if (error instanceof Error && error.name === "AbortError") {
                     return;
                 }
                 toast.error(
-                    "Upload failed. Please check your connection and try again."
+                    error instanceof Error
+                        ? error.message
+                        : "Upload failed. Please check your connection and try again."
                 );
             } finally {
                 // Cleanup: remove this controller from the map
@@ -269,12 +268,13 @@ export const ChatInput = memo(function ChatInput({
 
             // Validate file sizes before upload
             const oversizedFiles = files.filter(
-                (file) => file.size > MAX_FILE_SIZE
+                (file) => file.size > MAX_ATTACHMENT_FILE_SIZE_BYTES
             );
             if (oversizedFiles.length > 0) {
                 const fileNames = oversizedFiles.map((f) => f.name).join(", ");
+                const maxSizeMB = MAX_ATTACHMENT_FILE_SIZE_BYTES / 1024 / 1024;
                 toast.error(
-                    `File(s) too large: ${fileNames}. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`
+                    `File(s) too large: ${fileNames}. Maximum size is ${maxSizeMB}MB.`
                 );
                 // Reset file input
                 if (fileInputRef.current) {
@@ -315,8 +315,8 @@ export const ChatInput = memo(function ChatInput({
 
     /**
      * Cancel a pending upload by file name.
-     * @remarks Reserved for future cancel button feature in file upload UI.
-     * TODO(upload-cancel): Expose in return object when cancel button is implemented.
+     * @internal Reserved for future cancel button in file upload progress UI.
+     * Currently prefixed with _ as unused. Expose when adding cancel button.
      */
     const _cancelUpload = useCallback((fileName: string) => {
         const controller = uploadAbortControllersRef.current.get(fileName);

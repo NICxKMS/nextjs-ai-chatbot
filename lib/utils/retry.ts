@@ -294,3 +294,112 @@ export function createRetryable<TArgs extends unknown[], TResult>(
 ): (...args: TArgs) => Promise<TResult> {
     return (...args: TArgs) => withRetry(() => fn(...args), defaultOptions);
 }
+
+// =============================================================================
+// TIMEOUT UTILITIES (P3-079)
+// =============================================================================
+
+export interface TimeoutOptions {
+    /** Timeout in milliseconds */
+    timeoutMs: number;
+    /** Custom error message for timeout */
+    message?: string;
+    /** AbortSignal for external cancellation */
+    signal?: AbortSignal;
+}
+
+/**
+ * Error thrown when an operation times out.
+ */
+export class TimeoutError extends Error {
+    public readonly name = "TimeoutError";
+    public readonly timeoutMs: number;
+
+    constructor(timeoutMs: number, message?: string) {
+        super(message ?? `Operation timed out after ${timeoutMs}ms`);
+        this.timeoutMs = timeoutMs;
+    }
+}
+
+/**
+ * Execute an async function with a timeout.
+ *
+ * @param fn - The async function to execute
+ * @param options - Timeout configuration
+ * @returns Promise resolving to the function result
+ * @throws TimeoutError if the operation times out
+ * @throws AbortError if cancelled via signal
+ *
+ * @example
+ * ```ts
+ * // Basic usage
+ * const result = await withTimeout(
+ *   () => slowOperation(),
+ *   { timeoutMs: 5000 }
+ * );
+ *
+ * // With custom message
+ * const data = await withTimeout(
+ *   () => fetchData(),
+ *   {
+ *     timeoutMs: 10000,
+ *     message: "Data fetch timed out. Please try again.",
+ *   }
+ * );
+ *
+ * // With external abort signal
+ * const controller = new AbortController();
+ * const result = await withTimeout(
+ *   () => longOperation(),
+ *   { timeoutMs: 30000, signal: controller.signal }
+ * );
+ * // Cancel early: controller.abort();
+ * ```
+ */
+export async function withTimeout<T>(
+    fn: () => Promise<T>,
+    options: TimeoutOptions
+): Promise<T> {
+    const { timeoutMs, message, signal } = options;
+
+    // Check if already aborted
+    if (signal?.aborted) {
+        throw new DOMException("Aborted", "AbortError");
+    }
+
+    // Create timeout promise
+    const timeoutPromise = new Promise<never>((_, reject) => {
+        const timeoutId = setTimeout(() => {
+            reject(new TimeoutError(timeoutMs, message));
+        }, timeoutMs);
+
+        // Clean up timeout if signal is aborted
+        signal?.addEventListener(
+            "abort",
+            () => {
+                clearTimeout(timeoutId);
+                reject(new DOMException("Aborted", "AbortError"));
+            },
+            { once: true }
+        );
+    });
+
+    // Race between the operation and timeout
+    return Promise.race([fn(), timeoutPromise]);
+}
+
+/**
+ * Create a timeout-wrapped version of an async function.
+ *
+ * @example
+ * ```ts
+ * const fetchWithTimeout = createTimeoutable(fetchData, { timeoutMs: 5000 });
+ * const data = await fetchWithTimeout();
+ * ```
+ */
+export function createTimeoutable<TArgs extends unknown[], TResult>(
+    fn: (...args: TArgs) => Promise<TResult>,
+    defaultOptions: TimeoutOptions
+): (...args: TArgs) => Promise<TResult> {
+    return (...args: TArgs) => withTimeout(() => fn(...args), defaultOptions);
+}

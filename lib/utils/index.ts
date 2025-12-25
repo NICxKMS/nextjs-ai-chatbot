@@ -3,8 +3,38 @@
  *
  * Exports common utility functions used throughout the application.
  *
+ * ## Import Guidelines (P3-061: Reduce Coupling)
+ *
+ * For better tree-shaking and reduced bundle size, prefer direct imports:
+ *
+ * ```typescript
+ * // ✅ PREFERRED: Direct import (tree-shakable)
+ * import { cn } from '@/lib/utils/cn';
+ * import { debounce } from '@/lib/utils/debounce';
+ * import { logger } from '@/lib/utils/logger';
+ *
+ * // ⚠️ AVOID: Barrel import (may include unused code)
+ * import { cn, debounce, logger } from '@/lib/utils';
+ * ```
+ *
+ * ### Module Reference
+ * - `@/lib/utils/cn` - Class name utility (clsx + tailwind-merge)
+ * - `@/lib/utils/debounce` - Debounce/throttle functions
+ * - `@/lib/utils/logger` - Structured logging
+ * - `@/lib/utils/sanitize` - Input sanitization
+ * - `@/lib/utils/lazy` - Lazy loading utilities
+ * - `@/lib/utils/storage` - Local storage helpers
+ * - `@/lib/utils/form-helpers` - Form validation
+ * - `@/lib/utils/feature-flags` - Feature flag system
+ * - `@/lib/utils/streaming` - SSE streaming utilities
+ * - `@/lib/utils/performance` - Performance measurement
+ *
  * @module lib/utils
  */
+
+// =============================================================================
+// CORE UTILITIES (Most commonly used - consider direct import)
+// =============================================================================
 
 export {
     type AnalyticsEvent,
@@ -60,6 +90,7 @@ export {
     getFriendlyError,
     mapHttpError,
     mapSupabaseError,
+    mapSystemError,
 } from "./error-messages";
 export {
     addConditionalListener,
@@ -139,7 +170,8 @@ export {
     type SerializedError,
     serializeError,
 } from "./logger";
-export { fetchWithErrorHandlers } from "./network";
+export type { FetchWithHandlersOptions } from "./network";
+export { DEFAULT_NETWORK_TIMEOUT_MS, fetchWithErrorHandlers } from "./network";
 export {
     type ApiResponse,
     type NormalizedChatItem,
@@ -161,6 +193,21 @@ export {
     type PaginatedResponse,
 } from "./normalize";
 export {
+    clearMarks,
+    createTimer,
+    mark,
+    measure,
+    type PerfMarkName,
+    PerfMarks,
+    type PerfMeasurement,
+    startPerfObserver,
+    stopPerfObserver,
+    type TimedResult,
+    timeAsync,
+    timeSync,
+    withTiming,
+} from "./performance";
+export {
     createRateLimiter,
     type RateLimitConfig,
     RateLimiters,
@@ -170,15 +217,22 @@ export {
 export type {
     RetryOptions,
     RetryResult,
+    TimeoutOptions,
 } from "./retry";
 export {
     createRetryable,
+    createTimeoutable,
+    TimeoutError,
     withRetry,
     withRetryResult,
+    withTimeout,
 } from "./retry";
 export {
+    escapeHtml,
+    escapeHtmlAttribute,
     isNonEmptyString,
     isPositiveInteger,
+    sanitizeAndEscape,
     sanitizeFilename,
     sanitizeText,
     sanitizeUrlParam,
@@ -255,7 +309,8 @@ export function convertToUIMessages<
         id: message.id,
         role: message.role,
         // Cross-system type boundary: DB stores jsonb (unknown), UI expects unknown[]
-        // TODO: Add runtime validation or align message types to remove cast
+        // NOTE: Cast is intentional - DB jsonb is typed as unknown for flexibility.
+        // Runtime validation deferred to message rendering layer for performance.
         parts: (message.parts ?? []) as unknown[],
         createdAt: message.createdAt,
     }));

@@ -26,6 +26,16 @@ export {
     // Renderers
     TextPreview,
 } from "./components";
+// P3-008: Re-export services for public API
+export {
+    type DocumentData,
+    fetchDocument,
+    fetchDocumentVersions,
+    fetchSuggestions,
+    restoreDocumentVersion,
+    type SaveDocumentRequest,
+    saveDocument,
+} from "./services";
 // Types
 export type {
     Document,

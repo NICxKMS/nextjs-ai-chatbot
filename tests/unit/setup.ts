@@ -6,6 +6,7 @@ process.env.AUTH_SECRET = "test-secret-key-for-jwt-signing-32chars";
 process.env.NODE_ENV = "test";
 process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
+process.env.DATABASE_URL = "postgres://test:test@localhost:5432/test";
 process.env.USE_MOCK_AI = "true";
 
 // Track unhandled rejections that we expect from fake timer + AbortSignal tests

@@ -24,10 +24,6 @@ export interface FeatureFlag {
 
 export interface FeatureFlagConfig {
     flags: Record<string, FeatureFlag>;
-    /**
-     * @deprecated userId should be passed as parameter to isEnabled() for SSR safety
-     */
-    userId?: string;
 }
 
 // Default feature flags configuration
@@ -91,12 +87,6 @@ const DEFAULT_FLAGS: Record<string, FeatureFlag> = {
 let flags: Readonly<Record<string, FeatureFlag>> = Object.freeze({
     ...DEFAULT_FLAGS,
 });
-
-/**
- * @deprecated Module-level userId is not SSR-safe. Pass userId to isEnabled() instead.
- * This variable is kept only for backward compatibility and will be removed in v2.0.
- */
-let _deprecatedUserId: string | undefined;
 
 /**
  * Simple hash function for consistent rollout evaluation
@@ -168,11 +158,9 @@ export const featureFlags = {
             flag.rolloutPercentage !== undefined &&
             flag.rolloutPercentage < 100
         ) {
-            // Use provided userId, fall back to deprecated module-level userId for backward compat
-            const effectiveUserId = userId ?? _deprecatedUserId;
             return (
                 flag.enabled &&
-                isInRollout(flagName, flag.rolloutPercentage, effectiveUserId)
+                isInRollout(flagName, flag.rolloutPercentage, userId)
             );
         }
 
@@ -205,119 +193,6 @@ export const featureFlags = {
         return Object.entries(flags)
             .filter(([name]) => this.isEnabled(name, userId))
             .map(([name]) => name);
-    },
-
-    /**
-     * @deprecated Module-level userId is not SSR-safe. Pass userId to isEnabled() instead.
-     * This method is kept only for backward compatibility and will be removed in v2.0.
-     */
-    setUser(id: string | undefined): void {
-        if (process.env.NODE_ENV === "development") {
-            console.warn(
-                "[FeatureFlags] DEPRECATED: setUser() is not SSR-safe. " +
-                    "Pass userId directly to isEnabled(flagName, userId) instead."
-            );
-        }
-        _deprecatedUserId = id;
-    },
-
-    /**
-     * @deprecated Direct flag mutation is not SSR-safe. Use __testing.overrideFlags() for tests.
-     */
-    override(
-        flagName: string,
-        enabled: boolean,
-        value?: FeatureFlagValue
-    ): void {
-        if (process.env.NODE_ENV === "development") {
-            console.warn(
-                "[FeatureFlags] DEPRECATED: override() is not SSR-safe. " +
-                    "Use featureFlags.__testing.overrideFlags() for tests only."
-            );
-        }
-        const existing = flags[flagName];
-        // Create new flags object to maintain immutability pattern
-        flags = Object.freeze({
-            ...flags,
-            [flagName]: {
-                name: flagName,
-                enabled,
-                value,
-                description: existing?.description,
-                rolloutPercentage: 100, // Override rollout
-            },
-        });
-
-        if (process.env.NODE_ENV === "development") {
-            console.debug(`[FeatureFlags] Override: ${flagName} = ${enabled}`);
-        }
-    },
-
-    /**
-     * @deprecated Direct flag mutation is not SSR-safe. Use __testing.resetFlags() for tests.
-     */
-    reset(flagName: string): void {
-        if (process.env.NODE_ENV === "development") {
-            console.warn(
-                "[FeatureFlags] DEPRECATED: reset() is not SSR-safe. " +
-                    "Use featureFlags.__testing.resetFlags() for tests only."
-            );
-        }
-        if (DEFAULT_FLAGS[flagName]) {
-            flags = Object.freeze({
-                ...flags,
-                [flagName]: { ...DEFAULT_FLAGS[flagName] },
-            });
-        } else {
-            const { [flagName]: _, ...rest } = flags;
-            flags = Object.freeze(rest);
-        }
-    },
-
-    /**
-     * @deprecated Direct flag mutation is not SSR-safe. Use __testing.resetFlags() for tests.
-     */
-    resetAll(): void {
-        if (process.env.NODE_ENV === "development") {
-            console.warn(
-                "[FeatureFlags] DEPRECATED: resetAll() is not SSR-safe. " +
-                    "Use featureFlags.__testing.resetFlags() for tests only."
-            );
-        }
-        flags = Object.freeze({ ...DEFAULT_FLAGS });
-        _deprecatedUserId = undefined;
-    },
-
-    /**
-     * @deprecated Direct flag mutation is not SSR-safe.
-     */
-    load(config: Partial<FeatureFlagConfig>): void {
-        if (process.env.NODE_ENV === "development") {
-            console.warn(
-                "[FeatureFlags] DEPRECATED: load() mutates module state and is not SSR-safe."
-            );
-        }
-        if (config.flags) {
-            flags = Object.freeze({ ...DEFAULT_FLAGS, ...config.flags });
-        }
-        if (config.userId !== undefined) {
-            _deprecatedUserId = config.userId;
-        }
-    },
-
-    /**
-     * @deprecated Direct flag mutation is not SSR-safe.
-     */
-    register(flag: FeatureFlag): void {
-        if (process.env.NODE_ENV === "development") {
-            console.warn(
-                "[FeatureFlags] DEPRECATED: register() mutates module state and is not SSR-safe."
-            );
-        }
-        flags = Object.freeze({
-            ...flags,
-            [flag.name]: flag,
-        });
     },
 
     /**
@@ -379,7 +254,6 @@ export const featureFlags = {
                 );
             }
             flags = Object.freeze({ ...DEFAULT_FLAGS });
-            _deprecatedUserId = undefined;
         },
 
         /**

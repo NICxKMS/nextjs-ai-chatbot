@@ -9,6 +9,16 @@
  */
 
 // =============================================================================
+// AUTH SERVICE
+// =============================================================================
+
+export type {
+    AuthServiceResult,
+    MigrateGuestParams,
+} from "./auth-service";
+export { AuthService, migrateGuestToAuthUser } from "./auth-service";
+
+// =============================================================================
 // CHAT SERVICE
 // =============================================================================
 
@@ -24,6 +34,7 @@ export {
     ChatService,
     // Individual functions
     createChat,
+    deleteAllUserChats,
     deleteChat,
     generateChatTitle,
     getChat,
@@ -50,6 +61,7 @@ export {
     // Main service object
     DocumentService,
     deleteDocument,
+    deleteDocumentVersionsAfterTimestamp,
     getAllDocumentVersions,
     getDocument,
     getDocumentKindLabel,

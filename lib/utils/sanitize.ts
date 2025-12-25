@@ -117,3 +117,83 @@ export function isPositiveInteger(value: unknown): value is number {
         Number.isFinite(value)
     );
 }
+
+// =============================================================================
+// OUTPUT ENCODING (P3-031)
+// =============================================================================
+
+/**
+ * HTML entity map for escaping special characters.
+ * Prevents XSS by encoding characters that have special meaning in HTML.
+ */
+const HTML_ESCAPE_MAP: Record<string, string> = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#x27;",
+    "/": "&#x2F;",
+    "`": "&#x60;",
+    "=": "&#x3D;",
+};
+
+/**
+ * Regex pattern matching HTML special characters.
+ */
+const HTML_ESCAPE_REGEX = /[&<>"'`=/]/g;
+
+/**
+ * Escape HTML special characters to prevent XSS attacks.
+ * Use this when inserting user content into HTML contexts.
+ *
+ * Note: React automatically escapes content in JSX, so this is primarily
+ * for non-React contexts (e.g., dangerouslySetInnerHTML, server-side rendering,
+ * email templates, or raw HTML string manipulation).
+ *
+ * @param text - Raw text to escape
+ * @returns HTML-safe escaped string
+ *
+ * @example
+ * ```ts
+ * const userInput = '<script>alert("XSS")</script>';
+ * const safe = escapeHtml(userInput);
+ * // Returns: '&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;'
+ * ```
+ */
+export function escapeHtml(text: string): string {
+    if (typeof text !== "string") {
+        return "";
+    }
+
+    return text.replace(
+        HTML_ESCAPE_REGEX,
+        (char) => HTML_ESCAPE_MAP[char] ?? char
+    );
+}
+
+/**
+ * Escape text for use in HTML attributes.
+ * More aggressive escaping for attribute contexts.
+ *
+ * @param value - Raw value to escape
+ * @returns Attribute-safe escaped string
+ */
+export function escapeHtmlAttribute(value: string): string {
+    if (typeof value !== "string") {
+        return "";
+    }
+
+    // Escape HTML entities and remove any control characters
+    return escapeHtml(value).replace(/[\x00-\x1f\x7f]/g, "");
+}
+
+/**
+ * Sanitize user input and escape for safe HTML output.
+ * Combines input sanitization with output encoding.
+ *
+ * @param text - Raw user input
+ * @returns Sanitized and HTML-escaped string
+ */
+export function sanitizeAndEscape(text: string): string {
+    return escapeHtml(sanitizeText(text));
+}

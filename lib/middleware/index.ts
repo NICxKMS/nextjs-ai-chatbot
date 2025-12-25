@@ -33,6 +33,27 @@ export {
     withDeduplication,
 } from "./deduplication";
 export {
+    // Metrics - Types
+    type ApiMetric,
+    // Metrics - Core functions
+    clearApiMetrics,
+    configureMetrics,
+    // Metrics - Helpers
+    createMetricsRecorder,
+    type EndpointMetrics,
+    exportJsonMetrics,
+    exportPrometheusMetrics,
+    getApiMetrics,
+    getMetricsBufferSize,
+    getRawMetrics,
+    type MetricsConfig,
+    type MetricsSnapshot,
+    recordApiMetric,
+    withMetrics,
+} from "./metrics";
+export {
+    // Helpers
+    addRateLimitHeaders,
     authLimiter,
     chatLimiter,
     // Core functions
