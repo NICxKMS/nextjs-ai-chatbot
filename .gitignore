@@ -54,16 +54,6 @@ yarn-error.log*
 .agent/*
 
 tsconfig.tsbuildinfo
-rework.md
 
-promptarch.md
-prompt.md
-# prompt copy.md
-# prompt copy 2.md
-prompt-genome/
-prompt-initial-newarch-impl.md
-ULTIMATE-AI-CODING-AGENT-PROMPT.md
-plan_archived.md
 archive/
-plan24.md
-oldapp/
+.ouroboros\specs\archive
