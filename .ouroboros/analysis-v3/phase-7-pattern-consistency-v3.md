@@ -817,3 +817,4 @@ const session = await getSessionCached();  // ✅ Consistent
 
 **Depth Level:** MAXIMUM - Call site-level, file-level, pattern-level analysis complete
 
+

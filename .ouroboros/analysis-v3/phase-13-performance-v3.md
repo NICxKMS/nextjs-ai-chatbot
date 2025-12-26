@@ -683,3 +683,4 @@ const key = `messages:${chatId}:${userId}`;  // ⚠️ ~60% hit rate
 
 **Depth Level:** MAXIMUM - Query-level, cache key-level, operation-level analysis complete
 
+
