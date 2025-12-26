@@ -822,3 +822,4 @@ const result = await service.method1().then(r => service.method2(r));  // ⚠️
 
 **Depth Level:** MAXIMUM - Import-level, function call-level, module-level analysis complete
 
+
