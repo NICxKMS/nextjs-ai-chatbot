@@ -4,7 +4,6 @@
 node_modules
 .pnp
 .pnp.js
-scripts
 # testing
 coverage
 
@@ -49,8 +48,7 @@ yarn-error.log*
 /playwright/*
 
 # Sentry Config File
-.env.sentry-build-plugin
-
+.ouroboros/scripts/
 .agent/*
 
 tsconfig.tsbuildinfo
