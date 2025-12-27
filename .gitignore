@@ -54,6 +54,4 @@ yarn-error.log*
 .agent/*
 
 tsconfig.tsbuildinfo
-
-archive/
-.ouroboros\specs\archive
+.ouroboros/specs/archive/
