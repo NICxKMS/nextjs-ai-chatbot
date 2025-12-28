@@ -1,8 +1,0 @@
-{
-	"extends": ["next/core-web-vitals", "./.eslintrc.boundaries.js"],
-	"plugins": ["boundaries"],
-	"parserOptions": {
-		"project": "./tsconfig.json"
-	},
-	"ignorePatterns": ["node_modules/", "archive/", ".next/", "dist/"]
-}
