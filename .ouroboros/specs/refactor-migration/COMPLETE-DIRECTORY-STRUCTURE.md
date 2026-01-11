@@ -32,14 +32,15 @@
 | Directory | Files | Purpose | Layer |
 |-----------|-------|---------|-------|
 | `app/` | 83 | Next.js App Router | Presentation |
+| `artifacts/` | ~10 | Artifact type renderers | Presentation |
 | `features/` | 265 | Feature modules (+schemas, +constants) | Presentation |
 | `shared/` | 133 | Reusable utilities (+ai components) | Cross-cutting |
-| `lib/` | 126 | Infrastructure utilities (+repositories) | Infrastructure |
+| `lib/` | ~65 | Infrastructure utilities (+repositories) | Infrastructure |
 | `src/` | 15 | Cross-cutting concerns (v5 minimal) | Cross-cutting |
 | `components/` | 84 | UI components | Presentation |
 | `tests/` | 66 | Test infrastructure | Testing |
 | Root Config | 20 | Configuration files | Configuration |
-| **TOTAL** | **~757** | | |
+| **TOTAL** | **~767** | | |
 
 > **v5 Note**: Reduced from ~864 to ~757 files by simplifying `src/` from elaborate Clean Architecture (~137 files) to v5's minimal cross-cutting pattern (~15 files).
 
@@ -48,13 +49,35 @@
 ```
 /
 ├── app/                    # Next.js App Router (83 files)
+├── artifacts/             # Artifact renderers (~10 files)
 ├── features/              # Feature modules (265 files)
 ├── shared/               # Shared utilities (133 files)
-├── lib/                  # Infrastructure (126 files)
+├── lib/                  # Infrastructure (~65 files)
 ├── src/                  # Cross-cutting concerns (15 files) ← v5 simplified
 ├── components/           # UI components (84 files)
 ├── tests/               # Test infrastructure (66 files)
 └── [root config]        # Configuration (20 files)
+```
+
+### 1.3 artifacts/ Directory (Top-Level)
+
+> **Files**: ~10 | **Purpose**: Artifact type renderers for AI-generated content
+
+```
+artifacts/
+├── index.ts                              # Public exports
+├── actions.ts                            # getSuggestions server action
+├── code/
+│   ├── client.tsx                        # Code artifact client renderer
+│   └── server.ts                         # Code artifact server utilities
+├── image/
+│   └── client.tsx                        # Image artifact client renderer
+├── sheet/
+│   ├── client.tsx                        # Sheet artifact client renderer
+│   └── server.ts                         # Sheet artifact server utilities
+└── text/
+    ├── client.tsx                        # Text artifact client renderer
+    └── server.ts                         # Text artifact server utilities
 ```
 
 ---
@@ -159,11 +182,23 @@ app/
     ├── auth/
     │   ├── [...nextauth]/
     │   │   └── route.ts             # NextAuth handler
+    │   ├── exchange/
+    │   │   └── route.ts             # Token exchange
+    │   ├── guest/
+    │   │   └── route.ts             # Guest authentication
+    │   ├── logout/
+    │   │   └── route.ts             # Logout handler
     │   └── session/
     │       └── route.ts             # Session endpoint
     │
     ├── chat/
-    │   └── route.ts                 # Chat streaming endpoint
+    │   ├── route.ts                 # Chat CRUD
+    │   └── [id]/
+    │       ├── route.ts             # Single chat ops
+    │       ├── messages/
+    │       │   └── route.ts         # Messages API
+    │       └── stream/
+    │           └── route.ts         # Streaming API
     │
     ├── document/
     │   └── route.ts                 # Document CRUD
@@ -208,17 +243,18 @@ app/
 
 ### 4.1 Feature Summary
 
-| Feature | Components | Hooks | Stores | Types | Schemas | Constants | Utils | Tests | Total |
-|---------|------------|-------|--------|-------|---------|-----------|-------|-------|-------|
-| chat | 18 | 8 | 3 | 4 | 2 | 2 | 6 | 35 | 78 |
-| artifacts | 12 | 4 | 2 | 3 | 2 | 2 | 4 | 22 | 51 |
-| auth | 6 | 3 | 1 | 2 | 2 | 2 | 2 | 14 | 32 |
-| documents | 8 | 4 | 2 | 3 | 2 | 2 | 3 | 20 | 44 |
-| settings | 5 | 2 | 1 | 2 | 2 | 2 | 1 | 11 | 26 |
-| sidebar | 6 | 3 | 2 | 2 | 2 | 2 | 2 | 15 | 34 |
-| **TOTAL** | **55** | **24** | **11** | **16** | **12** | **12** | **18** | **117** | **265** |
+| Feature | Actions | Components | Hooks | Stores | Types | Schemas | Constants | Lib | Utils | Tests | Total |
+|---------|---------|------------|-------|--------|-------|---------|-----------|-----|-------|-------|-------|
+| chat | 4 | 20 | 10 | 3 | 4 | 2 | 2 | 5 | 6 | 35 | 91 |
+| artifacts | 3 | 21 | 4 | 2 | 4 | 2 | 2 | 5 | 3 | 22 | 68 |
+| models | 2 | 3 | 0 | 0 | 2 | 1 | 1 | 5 | 0 | 8 | 22 |
+| auth | 0 | 6 | 3 | 1 | 2 | 2 | 2 | 0 | 2 | 14 | 32 |
+| documents | 0 | 8 | 4 | 2 | 3 | 2 | 2 | 0 | 3 | 20 | 44 |
+| settings | 0 | 5 | 2 | 1 | 2 | 2 | 2 | 0 | 1 | 11 | 26 |
+| sidebar | 0 | 6 | 3 | 2 | 2 | 2 | 2 | 0 | 2 | 15 | 34 |
+| **TOTAL** | **9** | **69** | **26** | **11** | **19** | **13** | **13** | **15** | **17** | **125** | **317** |
 
-> **v5 Note**: Added `schemas/` and `constants/` folders to all 6 features (+24 files).
+> **SRP Note**: Added `actions/` and `lib/` folders. Tools moved from lib/ai/tools/ to features/chat/lib/tools/. Editor moved to features/artifacts/lib/editor/. Models promoted to full feature.
 
 ### 4.2 Complete File Tree
 
@@ -228,41 +264,61 @@ features/
 │
 ├── chat/
 │   ├── index.ts                          # Public API
+│   │
+│   ├── actions/                           # Server Actions (SRP)
+│   │   ├── index.ts
+│   │   ├── send-message.action.ts         # Send message action
+│   │   ├── delete-chat.action.ts          # Delete chat action
+│   │   ├── update-visibility.action.ts    # Visibility toggle
+│   │   └── vote-message.action.ts         # Vote on message
+│   │
 │   ├── components/
 │   │   ├── index.ts
-│   │   ├── Chat.tsx                      # Main chat container
-│   │   ├── ChatHeader.tsx                # Chat header
-│   │   ├── ChatInput.tsx                 # Message input
-│   │   ├── ChatMessages.tsx              # Message list
-│   │   ├── ChatMessage.tsx               # Single message
-│   │   ├── ChatMessageContent.tsx        # Message content
-│   │   ├── ChatMessageActions.tsx        # Message actions
-│   │   ├── ChatAttachments.tsx           # Attachments
-│   │   ├── ChatSuggestions.tsx           # Suggestions
-│   │   ├── ChatToolCall.tsx              # Tool call display
-│   │   ├── ChatToolResult.tsx            # Tool result
-│   │   ├── ChatStreamingText.tsx         # Streaming text
-│   │   ├── ChatThinkingIndicator.tsx     # Thinking animation
-│   │   ├── ChatErrorBoundary.tsx         # Error boundary
-│   │   ├── ChatEmptyState.tsx            # Empty state
-│   │   ├── ChatScrollAnchor.tsx          # Scroll anchor
-│   │   ├── ChatModelSelector.tsx         # Model selector
-│   │   └── ChatVisibilitySelector.tsx    # Visibility toggle
+│   │   ├── Chat.tsx                       # Main chat container
+│   │   ├── ChatHeader.tsx                 # Chat header
+│   │   ├── ChatInput.tsx                  # Message input
+│   │   ├── ChatMessages.tsx               # Message list
+│   │   ├── ChatMessage.tsx                # Single message
+│   │   ├── ChatMessageContent.tsx         # Message content
+│   │   ├── ChatMessageActions.tsx         # Message actions
+│   │   ├── ChatAttachments.tsx            # Attachments
+│   │   ├── ChatSuggestions.tsx            # Suggestions
+│   │   ├── ChatToolCall.tsx               # Tool call display
+│   │   ├── ChatToolResult.tsx             # Tool result
+│   │   ├── ChatStreamingText.tsx          # Streaming text
+│   │   ├── ChatThinkingIndicator.tsx      # Thinking animation
+│   │   ├── ChatErrorBoundary.tsx          # Error boundary
+│   │   ├── ChatEmptyState.tsx             # Empty state
+│   │   ├── ChatScrollAnchor.tsx           # Scroll anchor
+│   │   ├── ChatModelSelector.tsx          # Model selector
+│   │   ├── ChatVisibilitySelector.tsx     # Visibility toggle
+│   │   └── Weather.tsx                    # Weather tool display (from components/)
 │   │
 │   ├── hooks/
 │   │   ├── index.ts
-│   │   ├── use-chat.ts                   # Main chat hook
-│   │   ├── use-chat-scroll.ts            # Scroll behavior
-│   │   ├── use-chat-input.ts             # Input state
-│   │   ├── use-chat-attachments.ts       # Attachments
-│   │   ├── use-chat-messages.ts          # Message ops
-│   │   ├── use-chat-streaming.ts         # Streaming state
-│   │   ├── use-chat-suggestions.ts       # Suggestions
-│   │   └── use-chat-keyboard.ts          # Keyboard
+│   │   ├── use-chat.ts                    # Main chat hook
+│   │   ├── use-chat-scroll.ts             # Scroll behavior
+│   │   ├── use-chat-input.ts              # Input state
+│   │   ├── use-chat-attachments.ts        # Attachments
+│   │   ├── use-chat-messages.ts           # Message ops (from hooks/use-messages.tsx)
+│   │   ├── use-chat-streaming.ts          # Streaming state
+│   │   ├── use-chat-suggestions.ts        # Suggestions
+│   │   ├── use-chat-keyboard.ts           # Keyboard
+│   │   ├── use-chat-visibility.ts         # Visibility toggle (from hooks/)
+│   │   └── use-optimistic-chats.tsx       # Optimistic updates (from hooks/)
+│   │
+│   ├── lib/                               # Feature-specific lib (SRP)
+│   │   ├── index.ts
+│   │   └── tools/                         # AI Tools for chat
+│   │       ├── index.ts
+│   │       ├── create-document.tool.ts    # Document creation tool
+│   │       ├── update-document.tool.ts    # Document update tool
+│   │       ├── weather.tool.ts            # Weather lookup tool
+│   │       └── suggestions.tool.ts        # Suggestions tool
 │   │
 │   ├── stores/
 │   │   ├── index.ts
-│   │   ├── chat-store.ts                 # Main chat state
+│   │   ├── chat-store.ts                  # Main chat state
 │   │   ├── chat-ui-store.ts              # UI state
 │   │   └── chat-drafts-store.ts          # Drafts
 │   │
@@ -299,32 +355,89 @@ features/
 │
 ├── artifacts/
 │   ├── index.ts
+│   │
+│   ├── actions/                           # Server Actions (SRP)
+│   │   ├── index.ts
+│   │   ├── get-suggestions.action.ts      # Get document suggestions
+│   │   ├── create-artifact.action.ts      # Create new artifact
+│   │   └── update-artifact.action.ts      # Update existing artifact
+│   │
 │   ├── components/
 │   │   ├── index.ts
-│   │   ├── Artifact.tsx
-│   │   ├── ArtifactHeader.tsx
-│   │   ├── ArtifactActions.tsx
-│   │   ├── ArtifactVersions.tsx
-│   │   ├── ArtifactDiff.tsx
-│   │   ├── CodeArtifact.tsx
-│   │   ├── TextArtifact.tsx
-│   │   ├── ImageArtifact.tsx
-│   │   ├── SheetArtifact.tsx
-│   │   ├── MermaidArtifact.tsx
-│   │   ├── ArtifactSkeleton.tsx
-│   │   └── ArtifactErrorState.tsx
+│   │   ├── Artifact.tsx                   # Main artifact container
+│   │   ├── ArtifactHeader.tsx             # Artifact header
+│   │   ├── ArtifactActions.tsx            # Copy, download, share actions
+│   │   ├── ArtifactVersions.tsx           # Version history
+│   │   ├── ArtifactDiff.tsx               # Diff view component
+│   │   ├── ArtifactCloseButton.tsx        # Close button (from components/)
+│   │   ├── ArtifactErrorBoundary.tsx      # Error boundary (from components/)
+│   │   ├── ArtifactMessages.tsx           # Artifact chat (from components/)
+│   │   ├── CodeArtifact.tsx               # Code artifact display
+│   │   ├── TextArtifact.tsx               # Text artifact display
+│   │   ├── ImageArtifact.tsx              # Image artifact display
+│   │   ├── SheetArtifact.tsx              # Sheet artifact display
+│   │   ├── MermaidArtifact.tsx            # Mermaid diagram display
+│   │   ├── ArtifactSkeleton.tsx           # Loading skeleton
+│   │   ├── ArtifactErrorState.tsx         # Error state display
+│   │   ├── CodeEditor.tsx                 # Monaco code editor (from components/)
+│   │   ├── Console.tsx                    # Console output (from components/)
+│   │   ├── ImageEditor.tsx                # Image editing (from components/)
+│   │   ├── SheetEditor.tsx                # Spreadsheet editor (from components/)
+│   │   └── TextEditor.tsx                 # Rich text editor (from components/)
+│   │
 │   ├── hooks/
+│   │   ├── index.ts
+│   │   ├── use-artifact.ts                # Artifact state (from hooks/)
+│   │   ├── use-artifact-versions.ts       # Version management
+│   │   ├── use-artifact-actions.ts        # Action handlers
+│   │   └── use-artifact-keyboard.ts       # Keyboard shortcuts
+│   │
+│   ├── lib/                               # Feature-specific lib (SRP)
+│   │   ├── index.ts
+│   │   └── editor/                        # Editor utilities
+│   │       ├── index.ts
+│   │       ├── suggestions.ts             # TipTap suggestions (from lib/editor)
+│   │       ├── renderer.tsx               # Editor renderer (from lib/editor)
+│   │       ├── diff.ts                    # Diff algorithm (from lib/editor)
+│   │       └── types.ts                   # Editor types (from lib/editor)
+│   │
+│   ├── renderers/                         # Artifact type renderers (SRP)
+│   │   ├── index.ts
+│   │   ├── code/
+│   │   │   ├── client.tsx                 # Code renderer client
+│   │   │   └── server.ts                  # Code renderer server
+│   │   ├── image/
+│   │   │   └── client.tsx                 # Image renderer client
+│   │   ├── sheet/
+│   │   │   ├── client.tsx                 # Sheet renderer client
+│   │   │   └── server.ts                  # Sheet renderer server
+│   │   └── text/
+│   │       ├── client.tsx                 # Text renderer client
+│   │       └── server.ts                  # Text renderer server
+│   │
 │   ├── stores/
+│   │   ├── index.ts
+│   │   ├── artifact-store.ts              # Artifact state
+│   │   └── artifact-ui-store.ts           # UI state
+│   │
 │   ├── types/
-│   ├── schemas/                          # v5: Artifact validation
+│   │   ├── index.ts
+│   │   ├── artifact.types.ts
+│   │   ├── version.types.ts
+│   │   └── editor.types.ts
+│   │
+│   ├── schemas/                           # v5: Artifact validation
 │   │   ├── index.ts
 │   │   ├── artifact.schema.ts
 │   │   └── version.schema.ts
-│   ├── constants/                        # v5: Artifact constants
+│   ├── constants/                         # v5: Artifact constants
 │   │   ├── index.ts
 │   │   ├── artifact.constants.ts
 │   │   └── mime-types.constants.ts
 │   ├── utils/
+│   │   ├── index.ts
+│   │   ├── artifact-parser.ts
+│   │   └── artifact-validator.ts
 │   └── __tests__/
 │
 ├── auth/
@@ -398,6 +511,43 @@ features/
 │   │   ├── settings.constants.ts
 │   │   └── themes.constants.ts
 │   ├── utils/
+│   └── __tests__/
+│
+├── models/                               # Model management feature (SRP)
+│   ├── index.ts                          # Public API
+│   │
+│   ├── actions/                          # Server Actions
+│   │   ├── index.ts
+│   │   ├── get-models.action.ts          # Fetch available models
+│   │   └── validate-model.action.ts      # Validate model access
+│   │
+│   ├── components/
+│   │   ├── index.ts
+│   │   ├── ModelSelector.tsx             # Model dropdown selector
+│   │   ├── ModelCard.tsx                 # Model info card
+│   │   └── ModelBadge.tsx                # Model tier badge
+│   │
+│   ├── lib/                              # Model utilities
+│   │   ├── index.ts
+│   │   ├── discovery.ts                  # Dynamic model discovery
+│   │   ├── registry.ts                   # Model definitions
+│   │   ├── metadata.ts                   # ModelMetadata types
+│   │   ├── limits.ts                     # User tier limits
+│   │   └── helpers.ts                    # Model helpers
+│   │
+│   ├── types/
+│   │   ├── index.ts
+│   │   ├── model.types.ts                # Model type definitions
+│   │   └── tier.types.ts                 # Tier definitions
+│   │
+│   ├── schemas/
+│   │   ├── index.ts
+│   │   └── model.schema.ts               # Model validation
+│   │
+│   ├── constants/
+│   │   ├── index.ts
+│   │   └── models.constants.ts           # Model constants
+│   │
 │   └── __tests__/
 │
 └── sidebar/
@@ -524,7 +674,7 @@ shared/
 │   ├── limits.constants.ts               # Rate limits
 │   └── regex.constants.ts                # Common patterns
 │
-├── hooks/
+├── hooks/                                # Cross-feature hooks ONLY (SRP)
 │   ├── index.ts
 │   ├── use-debounce.ts                   # Debounce hook
 │   ├── use-throttle.ts                   # Throttle hook
@@ -540,7 +690,16 @@ shared/
 │   ├── use-copy-to-clipboard.ts          # Clipboard
 │   ├── use-toggle.ts                     # Toggle state
 │   ├── use-async.ts                      # Async state
-│   └── use-intersection-observer.ts      # Intersection observer
+│   ├── use-intersection-observer.ts      # Intersection observer
+│   ├── use-mobile.ts                     # Mobile detection (cross-feature)
+│   ├── use-scroll-to-bottom.tsx          # Auto-scroll behavior (cross-feature)
+│   └── use-window-size.ts                # Window dimensions (cross-feature)
+│   │
+│   # MOVED TO FEATURES (SRP):
+│   # - use-artifact.ts → features/artifacts/hooks/
+│   # - use-chat-visibility.ts → features/chat/hooks/
+│   # - use-messages.tsx → features/chat/hooks/use-chat-messages.ts
+│   # - use-optimistic-chats.tsx → features/chat/hooks/
 │
 ├── services/
 │   ├── index.ts
@@ -632,147 +791,108 @@ shared/
 
 ## 6. lib/ Directory
 
-> **Files**: 126 | **Layer**: Infrastructure | **Pattern**: Framework utilities
+> **Files**: ~65 | **Layer**: Infrastructure | **Pattern**: Framework utilities
 
 ### 6.1 Complete File Tree
 
 ```
 lib/
-├── index.ts                              # Main barrel export
+├── index.ts
+├── constants.ts                      # TTLs, pagination limits, cookie options
+├── errors.ts                         # ChatSDKError (433 LOC)
+├── files.ts                          # Attachment validation, MIME types
+├── log.ts                            # OTel-based logging (186 LOC)
+├── motion.tsx                        # Lazy Framer Motion provider
+├── request-context.ts                # AsyncLocalStorage for request scope
+├── usage.ts                          # AppUsage type with TokenLens
+├── utils.ts                          # General utilities
 │
-├── ai/
+├── ai/                               # AI Infrastructure ONLY (SRP)
 │   ├── index.ts
-│   ├── provider.ts                       # AI SDK provider setup
-│   ├── models.ts                         # Model definitions
-│   ├── tools/                            # v5: .tool.ts suffix convention
+│   ├── constants.ts                  # AI constants
+│   ├── curated-models.ts             # Static curated model list
+│   │
+│   ├── providers/                    # Provider configurations
 │   │   ├── index.ts
-│   │   ├── web-search.tool.ts            # Web search tool
-│   │   ├── get-weather.tool.ts           # Weather tool
-│   │   ├── create-document.tool.ts       # Document creation
-│   │   ├── request-suggestions.tool.ts   # Suggestions tool
-│   │   └── code-exec.tool.ts             # Code execution tool
-│   └── prompts/
+│   │   ├── openai.ts
+│   │   ├── anthropic.ts
+│   │   ├── google.ts
+│   │   ├── openrouter.ts
+│   │   ├── cloudflare.ts
+│   │   └── vercel-gateway.ts
+│   │
+│   └── prompts/                      # Static prompts
 │       ├── index.ts
-│       ├── system.ts                     # System prompts
-│       ├── regular.ts                    # Regular prompts
-│       └── artifacts.ts                  # Artifact prompts
+│       ├── system.ts
+│       ├── title-generation.ts
+│       └── hints.ts
+│   │
+│   # MOVED TO FEATURES (SRP):
+│   # - chat.ts → features/chat/lib/
+│   # - models/* → features/models/lib/
+│   # - tools/* → features/chat/lib/tools/
 │
 ├── api/
 │   ├── index.ts
-│   ├── fetcher.ts                        # Fetch wrapper
-│   ├── client.ts                         # API client
-│   ├── error-handler.ts                  # Error handling
-│   └── response-builder.ts               # Response helpers
+│   ├── guards.ts                     # Auth/rate-limit guards (353 LOC)
+│   ├── validation.ts                 # Request validation (295 LOC)
+│   └── helpers.ts
 │
 ├── auth/
 │   ├── index.ts
-│   ├── config.ts                         # NextAuth config
-│   ├── providers.ts                      # Auth providers
-│   ├── callbacks.ts                      # Auth callbacks
-│   └── session.ts                        # Session utilities
+│   ├── config.ts
+│   ├── session.ts                    # AppSession, getAppSession
+│   └── client.ts                     # Client-side auth helpers
 │
 ├── cache/
 │   ├── index.ts
-│   ├── cache-client.ts                   # Cache abstraction
-│   ├── memory-cache.ts                   # In-memory cache
-│   ├── redis-cache.ts                    # Redis cache
-│   └── keys.ts                           # v5: Renamed from cache-keys.ts
-│
-├── cache-ops/
-│   ├── index.ts
-│   ├── chat-cache.ts                     # Chat caching
-│   ├── user-cache.ts                     # User caching
-│   └── document-cache.ts                 # Document caching
-│
-├── config/
-│   ├── index.ts
-│   ├── env.ts                            # Environment config
-│   ├── feature-flags.ts                  # Feature flags
-│   ├── app-config.ts                     # App configuration
-│   └── sentry.config.ts                  # Sentry config
+│   ├── client.ts                     # Redis client singleton
+│   ├── operations.ts                 # ZSET operations (1080 LOC)
+│   ├── scripts.ts                    # Lua scripts (326 LOC)
+│   ├── quota.ts                      # User quota tracking
+│   ├── keys.ts                       # Cache key patterns
+│   ├── circuit-breaker.ts            # Graceful degradation
+│   └── types.ts                      # CachedChat, CachedMessage
 │
 ├── data/
 │   ├── index.ts
-│   ├── chat-data.ts                      # Chat data access
-│   ├── message-data.ts                   # Message data access
-│   ├── document-data.ts                  # Document data access
-│   ├── vote-data.ts                      # Vote data access
-│   └── repositories/                     # v5: Repository Pattern (Pattern 10)
-│       ├── index.ts
-│       ├── base.repository.ts            # Abstract base repository
-│       ├── chat.repository.ts            # Chat repository
-│       ├── message.repository.ts         # Message repository
-│       ├── document.repository.ts        # Document repository
-│       └── user.repository.ts            # User repository
+│   ├── chat.ts                       # Chat data access (1256 LOC)
+│   ├── document.ts                   # Document data access (517 LOC)
+│   ├── message.ts
+│   ├── user.ts
+│   ├── vote.ts
+│   ├── suggestion.ts
+│   └── types.ts                      # DataContext, pagination types
 │
 ├── db/
 │   ├── index.ts
-│   ├── client.ts                         # Drizzle client
+│   ├── client.ts                     # Drizzle client
+│   ├── transactions.ts               # Transaction wrapper with OTel
+│   ├── pagination.ts                 # Cursor-based pagination (330 LOC)
+│   ├── batch.ts                      # Batch operations (372 LOC)
 │   ├── schema/
-│   │   ├── index.ts
-│   │   ├── users.ts                      # User schema
-│   │   ├── chats.ts                      # Chat schema
-│   │   ├── messages.ts                   # Message schema
-│   │   ├── documents.ts                  # Document schema
-│   │   ├── suggestions.ts                # Suggestion schema
-│   │   └── votes.ts                      # Vote schema
+│   │   └── (existing)
 │   └── migrations/
-│       └── ...                           # Migration files
+│       └── (12+ SQL files)
 │
-├── editor/
-│   ├── index.ts
-│   ├── config.ts                         # Editor config
-│   ├── extensions.ts                     # Editor extensions
-│   └── toolbar.ts                        # Toolbar config
-│
-├── errors/
-│   ├── index.ts
-│   ├── app-error.ts                      # Base error class
-│   ├── validation-error.ts               # Validation errors
-│   ├── auth-error.ts                     # Auth errors
-│   └── not-found-error.ts                # Not found errors
+# MOVED: editor/ → features/artifacts/lib/editor/ (SRP)
+# Editor utilities now live with artifact feature
 │
 ├── middleware/
 │   ├── index.ts
-│   ├── auth.middleware.ts                # Auth middleware
-│   ├── rate-limit.middleware.ts          # Rate limiting
-│   └── logging.middleware.ts             # Request logging
+│   ├── rate-limiter.ts               # Rate limiting (476 LOC)
+│   ├── rate-limit-constants.ts
+│   ├── edge-rate-limit.ts            # Edge-compatible (192 LOC)
+│   └── deduplication.ts              # Request dedup (387 LOC)
 │
-├── providers/
+├── settings/
 │   ├── index.ts
-│   ├── ThemeProvider.tsx                 # Theme provider
-│   ├── SessionProvider.tsx               # Session provider
-│   ├── QueryProvider.tsx                 # TanStack Query
-│   └── ToastProvider.tsx                 # Toast provider
+│   ├── constants.ts
+│   └── types.ts
 │
-├── services/
-│   ├── index.ts
-│   ├── chat.service.ts                   # Chat operations
-│   ├── message.service.ts                # Message operations
-│   ├── document.service.ts               # Document operations
-│   └── suggestion.service.ts             # Suggestion operations
-│
-> **Note**: `lib/services/` contains framework-level thin wrappers and orchestration utilities. Business logic orchestration should go in `src/application/services/`. Both are valid; lib/services acts as the bridge between Next.js APIs and domain use-cases.
-│
-├── types/
-│   ├── index.ts
-│   ├── database.types.ts                 # DB types (generated)
-│   ├── api.types.ts                      # API types
-│   └── auth.types.ts                     # Auth types
-│
-├── utils/
-│   ├── index.ts
-│   ├── stream-utils.ts                   # Streaming utilities
-│   ├── token-utils.ts                    # Token counting
-│   ├── message-utils.ts                  # Message helpers
-│   └── file-utils.ts                     # File helpers
-│
-└── __tests__/
-    ├── ai/
-    ├── api/
-    ├── auth/
-    ├── cache/
-    └── services/
+└── types/
+    ├── index.ts
+    └── message-parts.ts              # Message part types (416 LOC)
 ```
 
 ### 6.2 Key Exports
@@ -826,10 +946,41 @@ src/                                      # Cross-Cutting Concerns ONLY
 │   ├── base.error.ts                     # Abstract base error class
 │   └── api.errors.ts                     # HTTP error classes (4xx, 5xx)
 │
-└── services/
+└── services/                             # Cross-cutting services (SRP)
     ├── index.ts                          # Service barrel
-    ├── analytics.service.ts              # Analytics integration
-    └── telemetry.service.ts              # Telemetry/logging service
+    │
+    ├── cache/                            # Cache services
+    │   ├── index.ts
+    │   ├── cache.service.ts              # Generic cache operations
+    │   ├── message-cache.service.ts      # Message-specific caching
+    │   ├── circuit-breaker.ts            # Graceful degradation
+    │   └── lua-scripts.ts                # Redis Lua scripts
+    │
+    ├── rate-limit/                       # Rate limiting services
+    │   ├── index.ts
+    │   ├── rate-limit.service.ts         # Standard rate limiting
+    │   └── edge-rate-limit.service.ts    # Edge-compatible limiting
+    │
+    ├── deduplication/                    # Request deduplication
+    │   ├── index.ts
+    │   └── deduplication.service.ts      # Duplicate request handling
+    │
+    ├── quota/                            # User quota management
+    │   ├── index.ts
+    │   └── quota.service.ts              # Usage quota tracking
+    │
+    ├── logging/                          # Logging services
+    │   ├── index.ts
+    │   └── logger.service.ts             # Structured logging
+    │
+    ├── telemetry/                        # Telemetry services
+    │   ├── index.ts
+    │   ├── telemetry.service.ts          # Telemetry/tracing
+    │   └── request-context.ts            # AsyncLocalStorage context
+    │
+    └── analytics/                        # Analytics services
+        ├── index.ts
+        └── analytics.service.ts          # Usage analytics
 ```
 
 ### 7.2 Key Concepts
@@ -953,8 +1104,8 @@ components/
 │   │   ├── select.tsx
 │   │   ├── checkbox.tsx
 │   │   ├── radio-group.tsx
-│   │   ├── switch.tsx
-│   │   ├── slider.tsx
+│   │   ├── switch.tsx                    # Toggle switch component
+│   │   ├── slider.tsx                    # Range slider component
 │   │   ├── label.tsx
 │   │   ├── badge.tsx
 │   │   ├── avatar.tsx
@@ -965,7 +1116,7 @@ components/
 │   │   ├── alert.tsx
 │   │   ├── toast.tsx
 │   │   ├── toaster.tsx
-│   │   ├── progress.tsx
+│   │   ├── progress.tsx                  # Progress bar/indicator
 │   │   ├── spinner.tsx
 │   │   └── tooltip.tsx
 │   ├── overlay/
@@ -982,10 +1133,11 @@ components/
 │   │   ├── card.tsx
 │   │   ├── tabs.tsx
 │   │   ├── accordion.tsx
-│   │   ├── collapsible.tsx
-│   │   ├── scroll-area.tsx
+│   │   ├── collapsible.tsx               # Collapsible panel
+│   │   ├── scroll-area.tsx               # Custom scrollbar area
 │   │   ├── aspect-ratio.tsx
-│   │   └── resizable.tsx
+│   │   ├── resizable.tsx
+│   │   └── carousel.tsx                  # Image/content carousel
 │   ├── navigation/
 │   │   ├── index.ts
 │   │   ├── navigation-menu.tsx
@@ -995,39 +1147,47 @@ components/
 │   │   ├── index.ts
 │   │   ├── table.tsx
 │   │   ├── data-table.tsx
-│   │   └── hover-card.tsx
+│   │   └── hover-card.tsx                # Hover tooltip card
 │   └── form/
 │       ├── index.ts
 │       ├── form.tsx
 │       ├── form-field.tsx
 │       └── form-error.tsx
 │
-├── ai-elements/
+├── ai-elements/                              # Shared AI components (SRP)
 │   ├── index.ts
-│   ├── streaming/
+│   │
+│   ├── streaming/                            # Streaming display components
 │   │   ├── index.ts
 │   │   ├── streaming-text.tsx
 │   │   ├── thinking-indicator.tsx
 │   │   └── typing-cursor.tsx
-│   ├── artifacts/
+│   │
+│   ├── display/                              # General AI display components
 │   │   ├── index.ts
-│   │   ├── artifact-container.tsx
-│   │   ├── code-block.tsx
-│   │   ├── markdown-renderer.tsx
-│   │   ├── mermaid-diagram.tsx
-│   │   ├── image-artifact.tsx
-│   │   ├── file-preview.tsx
-│   │   └── diff-viewer.tsx
-│   ├── tools/
+│   │   ├── code-block.tsx                    # Syntax highlighting
+│   │   ├── markdown-renderer.tsx             # Markdown display
+│   │   ├── mermaid-diagram.tsx               # Mermaid charts
+│   │   ├── file-preview.tsx                  # File previews
+│   │   ├── greeting.tsx                      # Welcome message
+│   │   └── version-footer.tsx                # Version display
+│   │
+│   ├── tools/                                # Tool display components
 │   │   ├── index.ts
-│   │   ├── tool-call.tsx
-│   │   ├── tool-result.tsx
-│   │   └── tool-progress.tsx
-│   └── attachments/
+│   │   ├── tool-call.tsx                     # Tool invocation display
+│   │   ├── tool-result.tsx                   # Tool result display
+│   │   └── tool-progress.tsx                 # Tool progress indicator
+│   │
+│   └── attachments/                          # Attachment components
 │       ├── index.ts
 │       ├── attachment-preview.tsx
 │       ├── attachment-list.tsx
 │       └── file-uploader.tsx
+│   │
+│   # MOVED TO FEATURES (SRP):
+│   # - artifacts/* → features/artifacts/components/
+│   # - tools/weather.tsx → features/chat/components/Weather.tsx
+│   # - tools/console.tsx → features/artifacts/components/Console.tsx
 │
 ├── providers/
 │   ├── index.ts
@@ -1052,6 +1212,9 @@ components/
 
 ```
 tests/
+├── fixtures.ts                       # Test fixtures (root)
+├── helpers.ts                        # Test helpers (root)
+│
 ├── config/
 │   ├── setup.ts
 │   ├── vitest.setup.ts
@@ -1115,6 +1278,10 @@ tests/
 │       └── queries.test.ts
 │
 ├── e2e/
+│   ├── auth.test.ts                  # Auth E2E tests
+│   ├── chat.test.ts                  # Chat E2E tests
+│   ├── document.test.ts              # Document E2E tests
+│   ├── settings.test.ts              # Settings E2E tests
 │   ├── fixtures/
 │   │   ├── auth.fixture.ts
 │   │   └── test-user.ts
@@ -1137,6 +1304,21 @@ tests/
 │   └── accessibility/
 │       ├── home.a11y.spec.ts
 │       └── chat.a11y.spec.ts
+│
+├── pages/
+│   ├── home.page.ts                  # Page Object: Home
+│   ├── chat.page.ts                  # Page Object: Chat
+│   └── login.page.ts                 # Page Object: Login
+│
+├── prompts/
+│   ├── basic.prompts.ts              # Basic test prompts
+│   ├── code.prompts.ts               # Code generation prompts
+│   └── reasoning.prompts.ts          # Reasoning test prompts
+│
+├── routes/
+│   ├── chat.route.test.ts            # Chat route tests
+│   ├── auth.route.test.ts            # Auth route tests
+│   └── document.route.test.ts        # Document route tests
 │
 └── load/
     ├── k6.config.ts
@@ -1174,12 +1356,13 @@ tests/
 ├── components.json                   # shadcn/ui config
 ├── docker-compose.yml                # Local services
 ├── drizzle.config.ts                 # Drizzle ORM config
-├── instrumentation.ts                # Next.js instrumentation
-├── middleware.ts                     # Next.js middleware
+├── instrumentation.ts                # Server OpenTelemetry instrumentation
+├── instrumentation-client.ts         # Client-side instrumentation
+├── middleware.ts                     # Next.js middleware (see 10.3)
 ├── next-env.d.ts                     # Next.js TypeScript
 ├── next.config.ts                    # Next.js configuration
 ├── package.json                      # Package manifest
-├── playwright.config.ts              # Playwright config
+├── playwright.config.ts              # E2E test config (Playwright)
 ├── pnpm-lock.yaml                    # Lockfile
 ├── postcss.config.mjs                # PostCSS config
 ├── README.md                         # Documentation
@@ -1188,6 +1371,17 @@ tests/
 ├── vercel.json                       # Vercel deployment
 └── vitest.config.ts                  # Vitest config
 ```
+
+### 10.3 Middleware Responsibilities (middleware.ts)
+
+The Next.js middleware handles:
+
+| Responsibility | Description |
+|----------------|-------------|
+| **Guest JWT Token** | Creates/validates guest session tokens for unauthenticated users |
+| **Edge Rate Limiting** | Applies rate limits at edge before hitting origin |
+| **Mobile Detection** | Sets headers/cookies for mobile device detection |
+| **Auth Session Refresh** | Refreshes session tokens before expiry |
 
 ### 10.2 Key Scripts (package.json)
 
@@ -1310,17 +1504,19 @@ tests/
 
 | Metric | Count | v5 Change |
 |--------|-------|-----------|
-| **Total Files** | ~757 | ↓107 from ~864 |
-| **Source Files** | ~610 | ↓110 |
+| **Total Files** | ~787 | ↓77 from ~864 |
+| **Source Files** | ~640 | ↓80 |
 | **Test Files** | ~220 | (unchanged) |
 | **Config Files** | 20 | (unchanged) |
-| **Directories** | 8 top-level | (unchanged) |
+| **Directories** | 9 top-level | +1 (artifacts/) |
 | **Features** | 6 | (unchanged) |
 | **Feature Schemas** | 12 | +12 (new) |
 | **Feature Constants** | 12 | +12 (new) |
 | **Repositories** | 5 | +5 (new) |
-| **UI Components** | 50+ | (unchanged) |
-| **AI Wrapper Components** | 14 | +14 (new) |
+| **UI Components** | 57+ | +7 (carousel, collapsible, etc.) |
+| **AI Wrapper Components** | 28 | +28 (editors, tools, display) |
+| **Artifact Renderers** | 10 | +10 (new top-level) |
+| **Shared Hooks** | 22 | +7 (oldapp hooks) |
 | **src/ Files** | 15 | ↓122 from 137 |
 
 ### v5 Alignment Summary
@@ -1334,6 +1530,10 @@ tests/
 | `cache-keys.ts` naming | ✅ Renamed to `keys.ts` |
 | Elaborate `src/` structure | ✅ Simplified to 15 files |
 | Missing `shared/components/ai/` | ✅ Added with 14 components |
+| Missing oldapp hooks | ✅ Added 7 hooks to shared/hooks/ |
+| Missing artifacts/ top-level | ✅ Added artifacts/ with code/image/sheet/text |
+| Missing UI primitives | ✅ Added carousel, collapsible, hover-card, etc. |
+| Missing feature components | ✅ Added weather, console, diffview, editors |
 
 ---
 

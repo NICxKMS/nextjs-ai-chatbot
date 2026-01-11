@@ -1,6 +1,6 @@
 ---
 description: "📦 Ouroboros Archive. Archive completed specs, cleanup old docs, maintain history."
-tools: ['agent', 'read', 'search/codebase', 'search', 'execute', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff']
+tools: ['agent', 'read', 'smart-search/a_semantic_search', 'search/codebase', 'search', 'execute', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_digest', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_issues', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_impact']
 handoffs:
   - label: "Return to Orchestrator"
     agent: ouroboros
@@ -116,13 +116,26 @@ handoffs:
 .ouroboros/specs/
 ├── templates/
 ├── archived/                          ← Destination
-│   └── [date]-[feature-name]/        ← Timestamped folder
+│   └── YYYY-MM-DD-[feature-name]/    ← Timestamped folder (DATE IS MANDATORY!)
 │       ├── requirements.md
 │       ├── design.md
 │       ├── tasks.md
 │       └── ARCHIVE_SUMMARY.md
 └── [active-feature]/                  ← Source
 ```
+
+> [!CAUTION]
+> **DATE PREFIX FORMAT: `YYYY-MM-DD-`**
+> - ✅ Correct: `2025-01-15-auth-feature`
+> - ❌ Wrong: `auth-feature` (missing date)
+> - ❌ Wrong: `20250115-auth-feature` (wrong format)
+> - ❌ Wrong: `Jan-15-auth-feature` (wrong format)
+
+> [!WARNING]
+> **MOVE FILES, DON'T REWRITE!**
+> - ✅ Correct: Use `mv` or file system move operations
+> - ❌ Wrong: Read file content, then write to new location
+> - The original files should be MOVED, not copied or recreated
 
 ---
 
@@ -219,15 +232,39 @@ runSubagent(
 [Skills]: (Include any matched skill paths here)
 
 ADOPT persona: Spec Archiver
+
+⚠️ CRITICAL: USE FILE MOVE OPERATIONS, NOT REWRITE!
+- Do NOT manually recreate file contents
+- Use shell commands or file system operations to MOVE files
+
 EXECUTE:
    - **STEP 0: MAINTENANCE CLEANUP**
      - Check .ouroboros/subagent-docs/ for files > 3 days old -> **DELETE**
      - Check .ouroboros/history/ for files > 7 days old -> Move to archived/
-   - **STEP 1: SPEC ARCHIVAL**
-     - Validate [feature-name] tasks are complete
-     - Create .ouroboros/specs/archived/[date]-[feature]/ARCHIVE_SUMMARY.md
-     - Move spec folder to archived/[date]-[feature]/
-     - Update .ouroboros/history/context-*.md
+
+   - **STEP 1: CREATE ARCHIVE FOLDER**
+     - Get today's date in format: YYYY-MM-DD (e.g., 2025-01-15)
+     - Create folder: .ouroboros/specs/archived/YYYY-MM-DD-[feature-name]/
+     - ⚠️ DATE PREFIX IS MANDATORY - never omit it!
+
+   - **STEP 2: MOVE SPEC FILES (NOT COPY/REWRITE)**
+     - MOVE (not copy, not rewrite) these files from .ouroboros/specs/[feature-name]/:
+       - requirements.md → archived/YYYY-MM-DD-[feature-name]/
+       - design.md → archived/YYYY-MM-DD-[feature-name]/
+       - tasks.md → archived/YYYY-MM-DD-[feature-name]/
+       - research.md (if exists) → archived/YYYY-MM-DD-[feature-name]/
+     - Use: mv or rename commands, NOT read+write!
+
+   - **STEP 3: CREATE ARCHIVE SUMMARY**
+     - Create NEW file: .ouroboros/specs/archived/YYYY-MM-DD-[feature-name]/ARCHIVE_SUMMARY.md
+     - Include: date, task count, completion status
+
+   - **STEP 4: UPDATE CONTEXT**
+     - Update .ouroboros/history/context-*.md with archive record
+
+   - **STEP 5: DELETE EMPTY SOURCE FOLDER**
+     - Remove .ouroboros/specs/[feature-name]/ (should be empty now)
+
 RETURN: Output [ARCHIVE COMPLETE]
   `
 )

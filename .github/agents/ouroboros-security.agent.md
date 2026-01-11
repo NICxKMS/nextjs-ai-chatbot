@@ -1,6 +1,6 @@
 ---
 description: "🔒 Elite AppSec. Pragmatic vulnerability assessment, actionable findings, minimal-disruption fixes."
-tools: ["read", "search/codebase", "search", "web", "vscode"]
+tools: ["read", 'smart-search/a_semantic_search' , 'search/codebase', "search", "web", "vscode"]
 handoffs:
   - label: "Return to Main"
     agent: ouroboros

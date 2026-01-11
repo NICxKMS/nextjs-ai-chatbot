@@ -128,7 +128,7 @@ ELSE:
 | Level | Agent | CCL Behavior |
 |-------|-------|--------------|
 | 0 | `ouroboros` | ✅ MUST execute CCL after every response |
-| 1 | `init`, `spec`, `implement`, `archive` | ✅ MUST execute CCL after every response |
+| 1 | `init`, `spec`, `implement`, `archive`, `prd` | ✅ MUST execute CCL after every response |
 | 2 | `coder`, `qa`, `writer`, `analyst`, `devops`, `security`, `researcher`, `requirements`, `architect`, `tasks`, `validator` | ❌ **FORBIDDEN** - handoff only, NEVER CCL |
 
 ### CCL Command (Level 0 & 1 Only)Use the `ouroborosai_ask` tool with:
@@ -264,6 +264,7 @@ When input starts with `/`, treat as MODE SWITCH:
 | `/ouroboros-spec` | Read `ouroboros-spec.agent.md`, adopt rules |
 | `/ouroboros-implement` | Read `ouroboros-implement.agent.md`, adopt rules |
 | `/ouroboros-archive` | Read `ouroboros-archive.agent.md`, adopt rules |
+| `/ouroboros-prd` | Read `ouroboros-prd.agent.md`, adopt rules |
 
 ⚠️ EXCEPTION: Reading `.github/agents/*.agent.md` is ALLOWED for mode switching.
 

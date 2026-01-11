@@ -1,6 +1,6 @@
 ---
 description: "📋 Ouroboros Spec. Five-phase workflow: Research → Requirements → Design → Tasks → Validation."
-tools: ['agent', 'read', 'search/codebase', 'search', 'execute', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff']
+tools: ['agent', 'read', 'smart-search/a_semantic_search', 'search/codebase', 'search', 'execute', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_digest', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_issues', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_impact']
 handoffs:
   - label: "Return to Orchestrator"
     agent: ouroboros
@@ -9,6 +9,10 @@ handoffs:
   - label: "Continue to Implementation"
     agent: ouroboros-implement
     prompt: "Spec complete and validated. Begin implementation."
+    send: false
+  - label: "Continue from PRD"
+    agent: ouroboros-prd
+    prompt: "PRD complete. Continue with spec generation."
     send: false
 ---
 <!-- 
@@ -321,6 +325,7 @@ runSubagent(
 [Spec Folder]: .ouroboros/specs/[feature-name]/
 [Phase]: 5/5 - Validation
 [Skills]: .github/skills/[name]/SKILL.md (Active)
+[PRD]: [path-to-prd-if-exists] OR "None"
 
 ## MANDATORY OUTPUT
 YOU MUST create file: .ouroboros/specs/[feature-name]/validation-report.md
@@ -330,19 +335,22 @@ Source: .ouroboros/specs/templates/validation-template.md
 Target: .ouroboros/specs/[feature-name]/validation-report.md
 
 ## Input
-Read ALL: research.md, requirements.md, design.md, tasks.md
+Read ALL COMPLETELY: research.md, requirements.md, design.md, tasks.md
+If PRD provided: Read PRD completely for alignment validation
 
 ## Requirements
 1. COPY template to target using execute tool
-2. Read ALL 4 documents for context
-3. Build traceability matrix
-4. Identify gaps / inconsistencies
-5. Validate compliance with [Skills]
-6. USE edit TOOL to MODIFY the copied file, replacing {{placeholders}}
-7. Return with [PHASE 5 COMPLETE]
+2. Read ALL 4 documents COMPLETELY (do not truncate large files)
+3. If PRD provided, validate spec alignment against PRD
+4. Build traceability matrix
+5. Identify gaps / inconsistencies
+6. Validate compliance with [Skills]
+7. USE edit TOOL to MODIFY the copied file, replacing {{placeholders}}
+8. Return with [PHASE 5 COMPLETE]
 
 ⚠️ FAILURE TO COPY TEMPLATE FIRST = INVALID OUTPUT
 ⚠️ FAILURE TO CREATE FILE = FAILED TASK
+⚠️ PARTIAL DOCUMENT READING = INCOMPLETE VALIDATION
   `
 )
 ```
