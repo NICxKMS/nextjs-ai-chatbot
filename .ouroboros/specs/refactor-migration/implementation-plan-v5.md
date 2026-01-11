@@ -7962,10 +7962,10 @@ P0 → P1 → P2 → P4 → P9 → P14 → P15 → P16
 | `inline-citation.tsx` | `message/inline-citation.tsx` | 299 | Citations |
 | `sources.tsx` | `message/sources.tsx` | 72 | Source list |
 
-### Tool Components (363 LOC)
+### Tool Components (364 LOC)
 | Source File | Target Path | LOC | Description |
 |-------------|-------------|-----|-------------|
-| `tool.tsx` | `tools/tool-invocation.tsx` | 174 | Tool display |
+| `tool.tsx` | `tools/tool-invocation.tsx` | 175 | Tool display |
 | `confirmation.tsx` | `tools/confirmation.tsx` | 189 | Approval UI |
 
 ### Canvas Components (331 LOC)
@@ -8123,3 +8123,130 @@ P0 → P1 → P2 → P4 → P9 → P14 → P15 → P16
 **Phase 9 (Chat Feature) Enhancements:**
 - T9.1: Complete type definitions including all component props
 - T9.6: Full message component implementations with code examples
+
+---
+
+## Phase 17: Oldapp Feature Parity (NEW)
+
+> **Est. Duration**: 24-32 hours
+> **Dependencies**: Phases 0-16
+> **Reference**: `archive/oldapp/`
+
+### Task 17.1: Cache Infrastructure
+
+| Field | Value |
+|-------|-------|
+| **Task ID** | 17.1 |
+| **Description** | Migrate cache and quota services to SRP-compliant locations |
+| **Source** | `archive/oldapp/lib/cache/messages.ts`, `archive/oldapp/lib/cache/quotas.ts` |
+| **Target** | `src/services/cache/message-cache.service.ts`, `src/services/quota/quota.service.ts` |
+| **Effort** | 3h |
+
+### Task 17.2: Rate Limiting
+
+| Field | Value |
+|-------|-------|
+| **Task ID** | 17.2 |
+| **Description** | Migrate rate limiting middleware to dedicated service layer |
+| **Source** | `archive/oldapp/lib/middleware/rate-limiter.ts`, `archive/oldapp/lib/middleware/edge-rate-limit.ts` |
+| **Target** | `src/services/rate-limit/rate-limit.service.ts`, `src/services/rate-limit/edge-rate-limit.service.ts` |
+| **Effort** | 3h |
+
+### Task 17.3: AI Chat Logic
+
+| Field | Value |
+|-------|-------|
+| **Task ID** | 17.3 |
+| **Description** | Migrate AI chat completion logic to feature-based action |
+| **Source** | `archive/oldapp/lib/ai/chat.ts` (291 LOC) |
+| **Target** | `features/chat/actions/chat-completion.action.ts` |
+| **Effort** | 2h |
+
+### Task 17.4: AI Tools
+
+| Field | Value |
+|-------|-------|
+| **Task ID** | 17.4 |
+| **Description** | Migrate AI tool definitions to chat feature lib |
+| **Source** | `archive/oldapp/lib/ai/tools/*` |
+| **Target** | `features/chat/lib/tools/*` |
+| **Effort** | 3h |
+
+### Task 17.5: Model Discovery
+
+| Field | Value |
+|-------|-------|
+| **Task ID** | 17.5 |
+| **Description** | Migrate model discovery, registry, metadata, and limits to models feature |
+| **Source** | `archive/oldapp/lib/ai/models/*` |
+| **Target** | `features/models/lib/*` |
+| **Effort** | 4h |
+
+### Task 17.6: Editor Lib
+
+| Field | Value |
+|-------|-------|
+| **Task ID** | 17.6 |
+| **Description** | Migrate editor utilities (suggestions, renderer, diff) to artifacts feature |
+| **Source** | `archive/oldapp/lib/editor/*` |
+| **Target** | `features/artifacts/lib/editor/*` |
+| **Effort** | 2h |
+
+### Task 17.7: Middleware Services
+
+| Field | Value |
+|-------|-------|
+| **Task ID** | 17.7 |
+| **Description** | Migrate deduplication and remaining middleware to service layer |
+| **Source** | `archive/oldapp/lib/middleware/*` |
+| **Target** | `src/services/deduplication/`, `src/services/rate-limit/` |
+| **Effort** | 2h |
+
+### Task 17.8: Components Migration
+
+| Field | Value |
+|-------|-------|
+| **Task ID** | 17.8 |
+| **Description** | Migrate UI components to feature-based locations |
+| **Source** | `archive/oldapp/components/artifact*.tsx`, `chat*.tsx`, `message*.tsx`, `weather.tsx`, `console.tsx`, `code-editor.tsx` |
+| **Target** | `features/artifacts/components/` (artifact*, console, code-editor), `features/chat/components/` (chat*, message*, weather) |
+| **Effort** | 4h |
+
+### Task 17.9: Hooks Migration
+
+| Field | Value |
+|-------|-------|
+| **Task ID** | 17.9 |
+| **Description** | Migrate hooks to feature-based locations |
+| **Source** | `archive/oldapp/hooks/use-artifact.ts`, `use-messages.tsx`, `use-optimistic-chats.tsx` |
+| **Target** | `features/artifacts/hooks/use-artifact.ts`, `features/chat/hooks/use-messages.tsx`, `features/chat/hooks/use-optimistic-chats.tsx` |
+| **Effort** | 2h |
+
+### Task 17.10: Logging & Telemetry
+
+| Field | Value |
+|-------|-------|
+| **Task ID** | 17.10 |
+| **Description** | Migrate logging and request context to service layer |
+| **Source** | `archive/oldapp/lib/log.ts` (186 LOC), `archive/oldapp/lib/request-context.ts` |
+| **Target** | `src/services/logging/logger.service.ts`, `src/services/telemetry/request-context.ts` |
+| **Effort** | 2h |
+
+### Task 17.11: API Route Tasks
+
+| Task | Type | Duration | Files |
+|------|------|----------|-------|
+| P17-ROUTE-001 | CREATE | 2h | api/auth/exchange, guest, logout |
+| P17-ROUTE-002 | CREATE | 2h | api/chat/[id]/messages, stream |
+| P17-ROUTE-003 | CREATE | 1h | api/files/upload, api/history, api/suggestions |
+
+---
+
+## Updated Statistics
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Total Phases | 16 | **17** |
+| Total Tasks | 137 | **165** |
+| Est. Duration | ~68h | **~96h** |
+| Files to Create | ~420 | **~540** |

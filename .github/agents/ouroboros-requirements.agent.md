@@ -1,6 +1,6 @@
 ---
 description: "📋 Requirements Engineer. EARS notation, user stories, acceptance criteria."
-tools: ["read", "execute", "edit", "search/codebase", "search", "vscode"]
+tools: ["read", "execute", "edit", 'smart-search/a_semantic_search' , 'search/codebase', "search", "vscode"]
 handoffs:
   - label: "Return to Main"
     agent: ouroboros
@@ -215,6 +215,44 @@ Before completing, verify:
 - [ ] NO ambiguous language (fast, easy, better)
 - [ ] All requirements are TESTABLE
 - [ ] I linked to research.md where relevant
+- [ ] Requirements align with PRD (if exists)
+- [ ] No scope creep beyond PRD boundaries
+
+---
+
+## 🔍 PRD ALIGNMENT (WHEN PRD EXISTS)
+
+> [!IMPORTANT]
+> **If a PRD exists, requirements MUST align with it.**
+
+### PRD Locations to Check
+- `.ouroboros/specs/[feature]/prd.md`
+- `.ouroboros/prd/[feature].md`
+- User-provided PRD path
+
+### Alignment Verification
+
+| Check | Action |
+|-------|--------|
+| **Scope Match** | Every PRD feature → at least one REQ |
+| **Priority Match** | PRD priorities reflected in P1/P2/P3 |
+| **No Scope Creep** | No REQs outside PRD scope without justification |
+| **Success Metrics** | PRD metrics → acceptance criteria |
+
+### If PRD Conflict Found
+
+```markdown
+> [!WARNING]
+> **PRD CONFLICT DETECTED**
+> 
+> REQ-XXX conflicts with PRD section Y:
+> - PRD says: [quote]
+> - REQ says: [quote]
+> 
+> **Recommendation**: [resolution]
+```
+
+Mark requirement with `[NEEDS CLARIFICATION: PRD conflict]` and continue.
 
 ---
 

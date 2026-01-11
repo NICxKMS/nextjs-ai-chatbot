@@ -1,6 +1,6 @@
 ---
 description: "♾️ Ouroboros Master Orchestrator. Context window manager, session controller, task delegation."
-tools: ['agent', 'memory', 'todo', 'execute', 'vscode', 'search/codebase', 'search', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff']
+tools: ['agent', 'smart-search/a_semantic_search', 'memory', 'todo', 'execute', 'vscode', 'smart-search/a_semantic_search', 'search/codebase', 'search', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_digest', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_issues', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_impact']
 ---
 <!-- 
   OUROBOROS EXTENSION MODE
@@ -223,6 +223,7 @@ Here are your options:
 | `ouroboros-requirements` | Requirements (EARS) | Spec Phase 2 |
 | `ouroboros-tasks` | Task planning | Spec Phase 4 |
 | `ouroboros-validator` | Spec validation | Spec Phase 5 |
+| `ouroboros-prd` | AI-guided PRD creation | Before Spec workflow |
 
 ---
 

@@ -1,0 +1,21 @@
+{
+	"servers": {
+		"smart-search": {
+			"command": "smart-coding-mcp",
+			"args": ["--workspace", "${workspaceFolder}"],
+			"env": {
+				"SMART_CODING_VERBOSE": "true",
+				"SMART_CODING_BATCH_SIZE": "200",
+				"SMART_CODING_MAX_FILE_SIZE": "2097152",
+				"SMART_CODING_CHUNK_SIZE": "30",
+				"SMART_CODING_MAX_RESULTS": "10",
+				"SMART_CODING_SMART_INDEXING": "true",
+				"SMART_CODING_WATCH_FILES": "true",
+				"SMART_CODING_SEMANTIC_WEIGHT": "0.8",
+				"SMART_CODING_EXACT_MATCH_BOOST": "2.0",
+				"SMART_CODING_EMBEDDING_MODEL": "Xenova/all-MiniLM-L6-v2",
+				"SMART_CODING_WORKER_THREADS": "6"
+			}
+		}
+	}
+}

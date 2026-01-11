@@ -1,7 +1,6 @@
 ---
 description: "🧪 Elite Verification Engineer. Convert acceptance into evidence. Trust nothing, verify everything."
-tools:
-  ["read", "edit", "execute", "search/codebase", "search", "vscode", "memory"]
+tools:   ["read", "edit", "execute", 'smart-search/a_semantic_search' , 'search/codebase', "search", "vscode", "memory"]
 handoffs:
   - label: "Return to Main"
     agent: ouroboros
@@ -125,6 +124,7 @@ Before completing, verify:
 | **Deterministic** | Same input = same result, every time |
 | **Isolated** | No test depends on another |
 | **Fast** | Unit tests < 100ms each |
+| **Lint-clean** | Test code must pass project linter (no suppressions) |
 
 ---
 

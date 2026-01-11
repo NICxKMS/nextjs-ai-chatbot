@@ -1666,6 +1666,285 @@ lib/                              # All utilities
 
 ---
 
+## 11. Oldapp Feature Parity (SRP-Compliant Placements)
+
+### 11.1 Migration Summary
+
+All oldapp functionality preserved with CORRECT layer placement per SRP Matrix:
+
+| Layer | Purpose | Content |
+|-------|---------|---------|
+| `features/` | Business logic per feature | Actions, feature components, hooks |
+| `src/services/` | Cross-cutting services | Cache, rate-limit, logging |
+| `shared/` | Cross-feature utilities | Generic hooks, guards |
+| `lib/` | Framework setup ONLY | Clients, configs, constants |
+
+### 11.2 features/chat/ (FROM: lib/ai/ + components/)
+
+**Purpose**: All chat-related business logic, UI, and tools.
+
+```
+features/chat/
+├── actions/
+│   ├── chat-completion.action.ts    # lib/ai/chat.ts → orchestration logic
+│   ├── send-message.action.ts
+│   └── stream-response.action.ts
+├── components/
+│   ├── chat.tsx                     # components/chat.tsx
+│   ├── chat-header.tsx
+│   ├── greeting.tsx
+│   ├── message.tsx
+│   ├── message-actions.tsx
+│   ├── message-editor.tsx
+│   ├── message-reasoning.tsx
+│   ├── messages.tsx
+│   ├── multimodal-input.tsx
+│   ├── submit-button.tsx
+│   ├── suggested-actions.tsx
+│   ├── toolbar.tsx
+│   └── weather.tsx                  # Weather display component
+├── hooks/
+│   ├── use-messages.tsx             # hooks/use-messages.tsx
+│   ├── use-optimistic-chats.tsx
+│   └── use-chat-visibility.ts
+├── lib/
+│   └── tools/                       # lib/ai/tools/*
+│       ├── create-document.tool.ts
+│       ├── update-document.tool.ts
+│       ├── weather.tool.ts
+│       └── suggestions.tool.ts
+└── schemas/
+    └── message.schema.ts
+```
+
+**Key Files**:
+| File | LOC | Origin | Contains |
+|------|-----|--------|----------|
+| chat-completion.action.ts | ~300 | lib/ai/chat.ts | Multi-provider chat orchestration |
+| weather.tsx | ~470 | components/weather.tsx | Weather UI + visualization |
+| use-messages.tsx | ~150 | hooks/use-messages.tsx | Message state management |
+
+### 11.3 features/artifacts/ (FROM: artifacts/ + components/ + lib/editor/)
+
+**Purpose**: All artifact-related functionality.
+
+```
+features/artifacts/
+├── actions/
+│   └── get-suggestions.action.ts    # artifacts/actions.ts
+├── components/
+│   ├── artifact.tsx                 # components/artifact.tsx (622 LOC)
+│   ├── artifact-actions.tsx
+│   ├── artifact-close-button.tsx
+│   ├── artifact-error-boundary.tsx
+│   ├── artifact-messages.tsx
+│   ├── code-editor.tsx              # components/code-editor.tsx (199 LOC)
+│   ├── console.tsx                  # components/console.tsx (209 LOC)
+│   ├── image-editor.tsx
+│   ├── sheet-editor.tsx
+│   ├── text-editor.tsx
+│   ├── diffview.tsx
+│   ├── document.tsx
+│   ├── document-preview.tsx
+│   ├── document-skeleton.tsx
+│   └── create-artifact.tsx
+├── hooks/
+│   └── use-artifact.ts              # hooks/use-artifact.ts
+├── lib/
+│   └── editor/                      # lib/editor/*
+│       ├── suggestions.ts
+│       ├── renderer.tsx
+│       ├── diff.ts
+│       └── types.ts
+├── renderers/                       # artifacts/code|image|sheet|text/
+│   ├── code/
+│   │   ├── client.tsx
+│   │   └── server.ts
+│   ├── image/
+│   │   └── client.tsx
+│   ├── sheet/
+│   │   ├── client.tsx
+│   │   └── server.ts
+│   └── text/
+│       ├── client.tsx
+│       └── server.ts
+└── schemas/
+    └── artifact.schema.ts
+```
+
+### 11.4 features/models/ (FROM: lib/ai/models/)
+
+**Purpose**: Model discovery, catalog, and provider management.
+
+```
+features/models/
+├── actions/
+│   └── refresh-models.action.ts
+├── lib/
+│   ├── discovery.ts                 # lib/ai/models/discovery.ts (408 LOC)
+│   ├── registry.ts                  # lib/ai/models/registry.ts
+│   └── provider-catalog.ts
+├── components/
+│   └── model-selector.tsx           # components/model-selector.tsx
+└── types/
+    └── model.types.ts
+```
+
+### 11.5 src/services/ (FROM: lib/cache/ + lib/middleware/)
+
+**Purpose**: Cross-cutting infrastructure services.
+
+```
+src/services/
+├── cache/
+│   ├── index.ts
+│   ├── cache.service.ts             # lib/cache/operations.ts logic
+│   ├── message-cache.service.ts     # lib/cache/messages.ts (1080 LOC)
+│   ├── circuit-breaker.ts           # Extracted from messages.ts
+│   ├── lua-scripts.ts               # lib/cache/scripts.ts
+│   └── types.ts
+├── rate-limit/
+│   ├── index.ts
+│   ├── rate-limit.service.ts        # lib/middleware/rate-limiter.ts (476 LOC)
+│   ├── edge-rate-limit.service.ts   # lib/middleware/edge-rate-limit.ts
+│   └── constants.ts
+├── deduplication/
+│   ├── index.ts
+│   └── deduplication.service.ts     # lib/middleware/deduplication.ts
+├── quota/
+│   ├── index.ts
+│   └── quota.service.ts             # lib/cache/quotas.ts (186 LOC)
+├── logging/
+│   ├── index.ts
+│   └── logger.service.ts            # lib/log.ts
+├── telemetry/
+│   ├── index.ts
+│   └── request-context.ts           # lib/request-context.ts
+└── analytics/
+    └── index.ts
+```
+
+**Key Services**:
+| Service | LOC | Origin | Contains |
+|---------|-----|--------|----------|
+| message-cache.service.ts | ~1080 | lib/cache/messages.ts | Full message cache with versioning |
+| rate-limit.service.ts | ~476 | lib/middleware/rate-limiter.ts | Sliding window rate limiting |
+| circuit-breaker.ts | ~200 | Extracted | Circuit breaker pattern |
+
+### 11.6 shared/hooks/ (Cross-Feature Utilities)
+
+**Purpose**: Generic hooks used across multiple features.
+
+```
+shared/hooks/
+├── use-debounce.ts
+├── use-mobile.ts                    # hooks/use-mobile.ts (unchanged)
+├── use-scroll-to-bottom.tsx         # hooks/use-scroll-to-bottom.tsx
+└── use-window-size.ts               # hooks/use-window-size.ts
+```
+
+### 11.7 lib/ (Framework Setup ONLY)
+
+**Purpose**: Client initialization, configs, constants. NO business logic.
+
+```
+lib/
+├── ai/
+│   ├── index.ts                     # Provider exports
+│   ├── providers/                   # Provider initialization
+│   │   ├── openai.ts
+│   │   ├── anthropic.ts
+│   │   ├── google.ts
+│   │   ├── xai.ts
+│   │   └── groq.ts
+│   ├── prompts/                     # Static prompts (templates only)
+│   │   └── system.ts
+│   ├── constants.ts                 # Static constants
+│   └── curated-models.ts            # Static model definitions
+├── cache/
+│   ├── index.ts
+│   ├── client.ts                    # Redis client singleton
+│   └── keys.ts                      # Cache key patterns
+├── db/
+│   ├── index.ts
+│   ├── client.ts                    # Drizzle client
+│   ├── schema.ts                    # Schema definitions
+│   └── migrations/
+└── auth/
+    ├── index.ts
+    ├── config.ts                    # Auth.js config
+    └── session.ts                   # Session utilities
+```
+
+### 11.8 SRP Compliance Matrix (Post-Migration)
+
+| Item | Old Location | New Location | SRP Layer |
+|------|-------------|--------------|-----------|
+| chat.ts (orchestration) | lib/ai/chat.ts | features/chat/actions/ | Application |
+| model discovery | lib/ai/models/ | features/models/lib/ | Application |
+| AI tools | lib/ai/tools/ | features/chat/lib/tools/ | Application |
+| messages cache | lib/cache/messages.ts | src/services/cache/ | Infrastructure |
+| rate limiter | lib/middleware/rate-limiter.ts | src/services/rate-limit/ | Infrastructure |
+| deduplication | lib/middleware/deduplication.ts | src/services/deduplication/ | Infrastructure |
+| quota tracking | lib/cache/quotas.ts | src/services/quota/ | Infrastructure |
+| logging | lib/log.ts | src/services/logging/ | Infrastructure |
+| request context | lib/request-context.ts | src/services/telemetry/ | Infrastructure |
+| artifact components | components/artifact*.tsx | features/artifacts/components/ | Presentation |
+| chat components | components/chat*.tsx | features/chat/components/ | Presentation |
+| use-artifact | hooks/use-artifact.ts | features/artifacts/hooks/ | Presentation |
+| use-messages | hooks/use-messages.tsx | features/chat/hooks/ | Presentation |
+| editor lib | lib/editor/ | features/artifacts/lib/editor/ | Application |
+
+### 11.9 What Stays in lib/
+
+Only these items remain in lib/ (framework setup):
+- **lib/ai/providers/**: Provider initialization configs
+- **lib/ai/prompts/**: Static prompt templates
+- **lib/ai/constants.ts**: Static constants
+- **lib/ai/curated-models.ts**: Static model list
+- **lib/cache/client.ts**: Redis client singleton
+- **lib/cache/keys.ts**: Cache key pattern definitions
+- **lib/db/**: Database client, schema, migrations
+- **lib/auth/**: Auth.js config and session
+
+### 11.10 Migration Priority
+
+| Priority | Items | Effort |
+|----------|-------|--------|
+| P1 | src/services/* (cache, rate-limit) | 8h |
+| P2 | features/chat/ (actions, tools) | 6h |
+| P3 | features/artifacts/ (components, renderers) | 4h |
+| P4 | features/models/ | 2h |
+| P5 | shared/hooks/ | 1h |
+
+---
+
+## 12. Feature Parity Checklist
+
+| Category | Files | Status |
+|----------|-------|--------|
+| AI Infrastructure | 20+ | Required |
+| Cache System | 8 | Required |
+| Middleware | 4 | Required |
+| Database Utils | 5 | Required |
+| API Utils | 4 | Required |
+| Observability | 3 | Required |
+| Artifacts | 8 | Required |
+| Editor | 5 | Required |
+| Components | 15+ | Required |
+| Hooks | 7 | Required |
+| API Routes | 8 | Required |
+| UI Primitives | 7 | Required |
+| Settings | 4 | Required |
+| Auth Extensions | 3 | Required |
+| Types | 2 | Required |
+| Utilities | 4 | Required |
+| Tests | 13+ | Required |
+
+**Total Missing Files: ~120 files**
+
+---
+
 ## Summary
 
 **Architecture v5: OPTIMAL** provides:

@@ -52,5 +52,7 @@ yarn-error.log*
 .agent/*
 
 tsconfig.tsbuildinfo
-.ouroboros/specs/archive/
+.ouroboros/specs/archives/
 .cursor
+config.json
+.smart-coding-cache

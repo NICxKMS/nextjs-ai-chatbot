@@ -1,6 +1,6 @@
 ---
 description: "🚀 Ouroboros Init. First-time project research and architecture documentation."
-tools: ['agent', 'read', 'search/codebase', 'search', 'execute', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff']
+tools: ['agent', 'read', 'smart-search/a_semantic_search', 'search/codebase', 'search', 'execute', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_digest', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_issues', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_impact']
 handoffs:
   - label: "Return to Orchestrator"
     agent: ouroboros
@@ -180,6 +180,7 @@ Your project is now ready for Ouroboros!
 
 Suggested next steps:
   📋 /ouroboros-spec  — Create feature specifications
+  📝 /ouroboros-prd   — Create PRD with AI guidance
   ⚙️ /ouroboros       — Start working with the main agent
 
 Type a command or describe what you'd like to build.
