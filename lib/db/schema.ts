@@ -2,6 +2,7 @@ import type { InferSelectModel } from "drizzle-orm";
 import {
   boolean,
   foreignKey,
+  index,
   json,
   jsonb,
   pgTable,
@@ -21,18 +22,27 @@ export const user = pgTable("User", {
 
 export type User = InferSelectModel<typeof user>;
 
-export const chat = pgTable("Chat", {
-  id: uuid("id").primaryKey().notNull().defaultRandom(),
-  createdAt: timestamp("createdAt").notNull(),
-  title: text("title").notNull(),
-  userId: uuid("userId")
-    .notNull()
-    .references(() => user.id),
-  visibility: varchar("visibility", { enum: ["public", "private"] })
-    .notNull()
-    .default("private"),
-  lastContext: jsonb("lastContext").$type<AppUsage | null>(),
-});
+export const chat = pgTable(
+  "Chat",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    createdAt: timestamp("createdAt").notNull(),
+    title: text("title").notNull(),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id),
+    visibility: varchar("visibility", { enum: ["public", "private"] })
+      .notNull()
+      .default("private"),
+    lastContext: jsonb("lastContext").$type<AppUsage | null>(),
+  },
+  (table) => ({
+    userIdCreatedAtIdx: index("chat_userId_createdAt_idx").on(
+      table.userId,
+      table.createdAt
+    ),
+  })
+);
 
 export type Chat = InferSelectModel<typeof chat>;
 
@@ -50,16 +60,25 @@ export const messageDeprecated = pgTable("Message", {
 
 export type MessageDeprecated = InferSelectModel<typeof messageDeprecated>;
 
-export const message = pgTable("Message_v2", {
-  id: uuid("id").primaryKey().notNull().defaultRandom(),
-  chatId: uuid("chatId")
-    .notNull()
-    .references(() => chat.id),
-  role: varchar("role").notNull(),
-  parts: json("parts").notNull(),
-  attachments: json("attachments").notNull(),
-  createdAt: timestamp("createdAt").notNull(),
-});
+export const message = pgTable(
+  "Message_v2",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    chatId: uuid("chatId")
+      .notNull()
+      .references(() => chat.id),
+    role: varchar("role").notNull(),
+    parts: json("parts").notNull(),
+    attachments: json("attachments").notNull(),
+    createdAt: timestamp("createdAt").notNull(),
+  },
+  (table) => ({
+    chatIdCreatedAtIdx: index("message_chatId_createdAt_idx").on(
+      table.chatId,
+      table.createdAt
+    ),
+  })
+);
 
 export type DBMessage = InferSelectModel<typeof message>;
 

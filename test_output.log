@@ -1,0 +1,48 @@
+
+Running 1 test using 1 worker
+
+[1A[2K[1/1] [routes] › tests/routes/document.test.ts:36:9 › /api/document › Ada can create a document
+[1A[2K[2m[WebServer] [22m[31m[auth][error][0m MissingSecret: Please define a `secret`. Read more at https://errors.authjs.dev#missingsecret
+
+[1A[2K[2m[WebServer] [22m    at assertConfig (/app/.next/server/chunks/c1962_@auth_core_bae3e6e3._.js:633:16)
+[2m[WebServer] [22m    at Auth (/app/.next/server/chunks/c1962_@auth_core_bae3e6e3._.js:5059:264)
+[2m[WebServer] [22m    at async signIn (/app/.next/server/chunks/node_modules__pnpm_5bfc5fa3._.js:699:17)
+[2m[WebServer] [22m    at async AppRouteRouteModule.do (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/compiled/next-server/app-route-experimental.runtime.dev.js:26:34172)
+[2m[WebServer] [22m    at async AppRouteRouteModule.handle (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/compiled/next-server/app-route-experimental.runtime.dev.js:26:41056)
+[2m[WebServer] [22m    at async doRender (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/base-server.js:1514:42)
+[2m[WebServer] [22m    at async DevServer.renderToResponseWithComponentsImpl (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/base-server.js:1916:28)
+[2m[WebServer] [22m    at async DevServer.renderPageComponent (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/base-server.js:2394:24)
+[2m[WebServer] [22m    at async DevServer.renderToResponseImpl (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/base-server.js:2431:32)
+[2m[WebServer] [22m    at async DevServer.pipeImpl (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/base-server.js:1004:25)
+[2m[WebServer] [22m    at async NextNodeServer.handleCatchallRenderRequest (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/next-server.js:305:17)
+[2m[WebServer] [22m    at async DevServer.handleRequestImpl (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/base-server.js:896:17)
+[2m[WebServer] [22m    at async /app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/dev/next-dev-server.js:371:20
+[2m[WebServer] [22m    at async Span.traceAsyncFn (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/trace/trace.js:157:20)
+[2m[WebServer] [22m    at async DevServer.handleRequest (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/dev/next-dev-server.js:368:24)
+[2m[WebServer] [22m    at async invokeRender (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/lib/router-server.js:235:21)
+[2m[WebServer] [22m    at async handleRequest (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/lib/router-server.js:426:24)
+[2m[WebServer] [22m    at async requestHandlerImpl (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/lib/router-server.js:450:13)
+[2m[WebServer] [22m    at async Server.requestListener (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/lib/start-server.js:158:13)
+
+[1A[2K[2m[WebServer] [22m[31m[auth][error][0m MissingSecret: Please define a `secret`. Read more at https://errors.authjs.dev#missingsecret
+[2m[WebServer] [22m    at assertConfig (/app/.next/server/chunks/c1962_@auth_core_bae3e6e3._.js:633:16)
+[2m[WebServer] [22m    at Auth (/app/.next/server/chunks/c1962_@auth_core_bae3e6e3._.js:5059:264)
+[2m[WebServer] [22m    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+[2m[WebServer] [22m    at async AppRouteRouteModule.do (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/compiled/next-server/app-route-experimental.runtime.dev.js:26:34172)
+
+[1A[2K[2m[WebServer] [22m [31m[1m⨯[22m[39m TypeError: Invalid URL
+[2m[WebServer] [22m    at [project]/lib/db/queries.ts [app-route] (ecmascript) (lib/db/queries.ts:42:24)
+[2m[WebServer] [22m    at [project][90m/app/[39m(auth)/auth.ts [app-route] (ecmascript) (app/(auth)/auth.ts:5:0)
+[2m[WebServer] [22m    at [project][90m/app/[39m(auth)/api/auth/guest/route.ts [app-route] (ecmascript) (app/(auth)/api/auth/guest/route.ts:3:0)
+[2m[WebServer] [22m    at Object.<anonymous> (.next/server[90m/app/[39m(auth)/api/auth/guest/route.js:11:9)
+[2m[WebServer] [22m[0m [90m 40 |[39m[0m
+[2m[WebServer] [22m[0m [90m 41 |[39m [90m// biome-ignore lint: Forbidden non-null assertion.[39m[0m
+[2m[WebServer] [22m[0m[31m[1m>[22m[39m[90m 42 |[39m [36mconst[39m client [33m=[39m postgres(process[33m.[39menv[33m.[39m[33mPOSTGRES_URL[39m[33m![39m)[33m;[39m[0m
+[2m[WebServer] [22m[0m [90m    |[39m                        [31m[1m^[22m[39m[0m
+[2m[WebServer] [22m[0m [90m 43 |[39m [36mconst[39m db [33m=[39m drizzle(client)[33m;[39m[0m
+[2m[WebServer] [22m[0m [90m 44 |[39m[0m
+[2m[WebServer] [22m[0m [90m 45 |[39m [36mexport[39m [36masync[39m [36mfunction[39m getUser(email[33m:[39m string)[33m:[39m [33mPromise[39m[33m<[39m[33mUser[39m[][33m>[39m {[0m {
+[2m[WebServer] [22m  code: [32m'ERR_INVALID_URL'[39m,
+[2m[WebServer] [22m  input: [32m'****'[39m,
+[2m[WebServer] [22m  page: [32m'/api/auth/guest'[39m
+[2m[WebServer] [22m}
