@@ -40,6 +40,7 @@ export const Suggestion = ({
               <div className="font-medium">Assistant</div>
             </div>
             <button
+              aria-label="Close suggestion"
               className="cursor-pointer text-gray-500 text-xs"
               onClick={() => {
                 setIsExpanded(false);
