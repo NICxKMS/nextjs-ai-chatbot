@@ -292,10 +292,22 @@ export const PreviewMessage = memo(
     if (prevProps.isLoading !== nextProps.isLoading) {
       return false;
     }
+    if (prevProps.isReadonly !== nextProps.isReadonly) {
+      return false;
+    }
     if (prevProps.message.id !== nextProps.message.id) {
       return false;
     }
     if (prevProps.requiresScrollPadding !== nextProps.requiresScrollPadding) {
+      return false;
+    }
+    if (prevProps.chatId !== nextProps.chatId) {
+      return false;
+    }
+    if (prevProps.setMessages !== nextProps.setMessages) {
+      return false;
+    }
+    if (prevProps.regenerate !== nextProps.regenerate) {
       return false;
     }
     if (!equal(prevProps.message.parts, nextProps.message.parts)) {
@@ -305,7 +317,7 @@ export const PreviewMessage = memo(
       return false;
     }
 
-    return false;
+    return true;
   }
 );
 
@@ -328,12 +340,9 @@ export const ThinkingMessage = () => {
         </div>
 
         <div className="flex w-full flex-col gap-2 md:gap-4">
-          <div className="p-0 text-muted-foreground text-sm">
-            Thinking...
-          </div>
+          <div className="p-0 text-muted-foreground text-sm">Thinking...</div>
         </div>
       </div>
     </motion.div>
   );
 };
-
