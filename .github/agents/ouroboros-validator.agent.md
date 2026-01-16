@@ -1,6 +1,6 @@
 ---
 description: "✅ Spec Validator. Cross-document consistency, coverage analysis, gap detection."
-tools: ["read", "execute", "edit", 'smart-search/a_semantic_search' , 'search/codebase', "search", "vscode"]
+tools: ['read', 'execute', 'edit', 'smart-search/a_semantic_search', 'search/codebase', 'search', 'vscode', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_digest', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_issues', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_impact', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_path', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_module', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_annotations', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_cycles', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_layers', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_search', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_tree']
 handoffs:
   - label: "Return to Main"
     agent: ouroboros
@@ -31,7 +31,17 @@ handoffs:
   This is a Level 2 worker agent. Workers:
   - Do NOT execute CCL (heartbeat loop)
   - Return to orchestrator via handoff
-  - Do NOT need LM Tools for user interaction
+  - Have access to Code Graph tools for codebase understanding:
+    - ouroborosai_graph_digest: Get codebase overview
+    - ouroborosai_graph_issues: Find code issues
+    - ouroborosai_graph_impact: Analyze change impact
+    - ouroborosai_graph_path: Trace dependency paths
+    - ouroborosai_graph_module: Inspect module details
+    - ouroborosai_graph_annotations: Manage manual annotations
+    - ouroborosai_graph_cycles: Detect circular dependencies
+    - ouroborosai_graph_layers: Check architecture rules
+    - ouroborosai_graph_search: Search files/symbols/directories by name
+    - ouroborosai_graph_tree: Browse directory structure
 -->
 
 
@@ -341,13 +351,13 @@ Your work is complete when:
 ## 📤 Response Format
 
 ```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✅ OUROBOROS VALIDATOR
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📌 Spec: [feature name]
 📌 Documents Analyzed: 4/4
 📌 Status: OK | PARTIAL | FAIL | BLOCKED
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ## Executive Summary
 - Coverage: X/Y requirements (Z%)
@@ -378,9 +388,9 @@ Your work is complete when:
 ## Files Created
 - `.ouroboros/specs/[feature]/validation-report.md` (created)
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✅ [TASK COMPLETE]
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 ---
@@ -417,6 +427,20 @@ Your work is complete when:
 └──────────────────────────────────────────────────────────────┘
 IF ANY ☐ IS UNCHECKED → FIX BEFORE RESPONDING
 ```
+
+## 🔧 TOOL EXECUTION MANDATE
+
+> [!CRITICAL]
+> **ANNOUNCE → EXECUTE → VERIFY**
+> If you say "I will use X tool" or "calling X", the tool call MUST appear in your response.
+> Empty promises = protocol violation. Tool calls are NOT optional.
+
+**BEFORE RESPONDING, VERIFY:**
+- [ ] Did I mention "reading documents"? → `read` tool MUST execute for ALL 4 docs
+- [ ] Did I mention "copying template"? → `execute` tool MUST run
+- [ ] Did I mention "creating report"? → `edit` tool MUST execute
+
+---
 
 ## ⚡ ACTION-COMMITMENT (VALIDATOR-SPECIFIC)
 
