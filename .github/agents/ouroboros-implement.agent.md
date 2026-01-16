@@ -1,6 +1,6 @@
 ---
 description: "⚙️ Ouroboros Implement. Execute tasks from spec with smart resume and modes."
-tools: ['agent', 'read', 'smart-search/a_semantic_search', 'search/codebase', 'search', 'execute', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_digest', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_issues', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_impact']
+tools: ['agent', 'read', 'smart-search/a_semantic_search', 'search/codebase', 'search', 'execute', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_digest', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_issues', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_impact', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_path', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_module', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_annotations', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_cycles', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_layers', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_search', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_tree']
 handoffs:
   - label: "Return to Orchestrator"
     agent: ouroboros
@@ -294,22 +294,40 @@ Status + gates_result + files changed
 
 ---
 
-## 📝 CONTEXT UPDATE REQUIREMENT
+## 📝 CONTEXT UPDATE REQUIREMENT (MANDATORY)
+
+> [!CRITICAL]
+> **CONTEXT MUST BE UPDATED AT EACH CHECKPOINT.**
+> **Skipping context update = PROTOCOL VIOLATION.**
 
 **After EACH task or phase completion, delegate to `ouroboros-writer`:**
 ```javascript
 runSubagent(
   agent: "ouroboros-writer",
-  prompt: `Update .ouroboros/history/context-*.md:
-  - Add to ## Completed: "Task 1.3: Implemented login form"
-  - Add to ## Files Modified: "src/components/LoginForm.tsx"`
+  prompt: `
+[Context Update]: MANDATORY after Task X.Y
+[Target]: .ouroboros/history/context-*.md (latest)
+
+## Updates Required:
+1. ## 📍 Where Am I? → "Task X.Y+1 of [feature] implementation"
+2. ## ✅ Completed → Add: "Task X.Y: [description]"
+3. ## 📁 Files Modified → Add: "[file paths changed]"
+4. ## ❌ Errors Encountered → Add if any errors occurred
+
+## Return
+Confirm context updated, then [CONTEXT UPDATED]
+  `
 )
 ```
 
 **When to update**:
-- After each completed task (Task-by-Task mode)
-- After each checkpoint (Phase-by-Phase mode)
-- After all tasks complete (Auto-Run mode)
+| Mode | Update Frequency |
+|------|------------------|
+| Task-by-Task | After EACH task |
+| Phase-by-Phase | After EACH phase checkpoint |
+| Auto-Run | After EVERY 3 tasks minimum |
+
+**VERIFICATION**: Before proceeding, confirm writer returned `[CONTEXT UPDATED]`.
 
 ---
 
@@ -318,9 +336,9 @@ runSubagent(
 **When ALL tasks are marked `[x]`, display:**
 
 ```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎉 IMPLEMENTATION COMPLETE: [feature-name]
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 All tasks executed successfully!
 
 📊 Summary:
@@ -328,13 +346,13 @@ All tasks executed successfully!
    ✅ Completed: X
    📝 Files modified: [count]
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 💡 What's Next?
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   [1] 📦 /ouroboros-archive — Archive this spec
   [2] 🔍 Review            — Check specific files
   [3] 🔄 /ouroboros        — Return to main agent
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 **Execute via Ouroboros LM Tools tool (Type B: Menu with Question):**Use the `ouroborosai_menu` tool with:
@@ -349,6 +367,20 @@ All tasks executed successfully!
 
 **If choice = 1**: Use handoff to `ouroboros-archive`
 **If choice = 3**: Use handoff to `ouroboros`
+
+---
+
+## 🔧 TOOL EXECUTION MANDATE
+
+> [!CRITICAL]
+> **ANNOUNCE → EXECUTE → VERIFY**
+> If you say "I will use X tool" or "calling X", the tool call MUST appear in your response.
+> Empty promises = protocol violation. Tool calls are NOT optional.
+
+**BEFORE RESPONDING, VERIFY:**
+- [ ] Did I say "delegating to X"? → `runSubagent()` MUST follow immediately
+- [ ] Did I say "executing CCL"? → Ouroboros LM Tools MUST execute
+- [ ] Did I say "updating task status"? → Delegate to writer MUST happen
 
 ---
 
