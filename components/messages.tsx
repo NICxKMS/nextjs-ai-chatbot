@@ -6,7 +6,6 @@ import { memo, useEffect } from "react";
 import { useMessages } from "@/hooks/use-messages";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
-import { useDataStream } from "./data-stream-provider";
 import { Conversation, ConversationContent } from "./elements/conversation";
 import { Greeting } from "./greeting";
 import { PreviewMessage, ThinkingMessage } from "./message";
@@ -43,7 +42,8 @@ function PureMessages({
     status,
   });
 
-  useDataStream();
+  // Optimization: This component does not subscribe to useDataStream to prevent
+  // unnecessary re-renders on every stream chunk. Use useDataStream only if necessary.
 
   useEffect(() => {
     if (status === "submitted") {

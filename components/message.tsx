@@ -6,7 +6,6 @@ import { memo, useState } from "react";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
-import { useDataStream } from "./data-stream-provider";
 import { DocumentToolResult } from "./document";
 import { DocumentPreview } from "./document-preview";
 import { MessageContent } from "./elements/message";
@@ -50,7 +49,8 @@ const PurePreviewMessage = ({
     (part) => part.type === "file"
   );
 
-  useDataStream();
+  // Optimization: This component does not subscribe to useDataStream to prevent
+  // unnecessary re-renders on every stream chunk. Use useDataStream only if necessary.
 
   return (
     <motion.div
