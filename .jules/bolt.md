@@ -1,0 +1,3 @@
+## 2024-05-23 - Unused Context Subscriptions
+**Learning:** React Context consumers re-render on *every* context update, even if they don't use the data. In high-frequency update scenarios (like streaming AI responses), unused `useContext` calls can cause massive performance degradation by forcing re-renders of the entire component tree.
+**Action:** Always verify if a component actually needs the data from a context hook. If not, remove the hook. For components that only need a stable setter (like `setData`), consider splitting the context or using a stable callback reference to avoid re-renders.
