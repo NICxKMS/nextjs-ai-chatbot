@@ -6,7 +6,6 @@ import { memo, useEffect } from "react";
 import { useMessages } from "@/hooks/use-messages";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
-import { useDataStream } from "./data-stream-provider";
 import { Conversation, ConversationContent } from "./elements/conversation";
 import { Greeting } from "./greeting";
 import { PreviewMessage, ThinkingMessage } from "./message";
@@ -42,8 +41,6 @@ function PureMessages({
   } = useMessages({
     status,
   });
-
-  useDataStream();
 
   useEffect(() => {
     if (status === "submitted") {
