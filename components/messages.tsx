@@ -31,7 +31,6 @@ function PureMessages({
   setMessages,
   regenerate,
   isReadonly,
-  selectedModelId,
 }: MessagesProps) {
   const {
     containerRef: messagesContainerRef,
@@ -137,5 +136,5 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
     return false;
   }
 
-  return false;
+  return true;
 });
