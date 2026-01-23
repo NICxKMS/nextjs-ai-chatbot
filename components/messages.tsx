@@ -136,6 +136,12 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
   if (!equal(prevProps.votes, nextProps.votes)) {
     return false;
   }
+  if (prevProps.isReadonly !== nextProps.isReadonly) {
+    return false;
+  }
+  if (prevProps.chatId !== nextProps.chatId) {
+    return false;
+  }
 
-  return false;
+  return true;
 });

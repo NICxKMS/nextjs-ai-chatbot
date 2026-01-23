@@ -304,8 +304,14 @@ export const PreviewMessage = memo(
     if (!equal(prevProps.vote, nextProps.vote)) {
       return false;
     }
+    if (prevProps.isReadonly !== nextProps.isReadonly) {
+      return false;
+    }
+    if (prevProps.chatId !== nextProps.chatId) {
+      return false;
+    }
 
-    return false;
+    return true;
   }
 );
 
