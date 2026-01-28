@@ -31,7 +31,6 @@ function PureMessages({
   setMessages,
   regenerate,
   isReadonly,
-  selectedModelId,
 }: MessagesProps) {
   const {
     containerRef: messagesContainerRef,
@@ -124,9 +123,6 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
   if (prevProps.status !== nextProps.status) {
     return false;
   }
-  if (prevProps.selectedModelId !== nextProps.selectedModelId) {
-    return false;
-  }
   if (prevProps.messages.length !== nextProps.messages.length) {
     return false;
   }
@@ -136,6 +132,12 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
   if (!equal(prevProps.votes, nextProps.votes)) {
     return false;
   }
+  if (prevProps.isReadonly !== nextProps.isReadonly) {
+    return false;
+  }
+  if (prevProps.chatId !== nextProps.chatId) {
+    return false;
+  }
 
-  return false;
+  return true;
 });
