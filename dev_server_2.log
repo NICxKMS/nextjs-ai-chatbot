@@ -1,0 +1,83 @@
+
+> ai-chatbot@3.1.0 dev /app
+> next dev --turbo
+
+ ⚠ Port 3000 is in use, trying 3001 instead.
+   ▲ Next.js 15.3.0-canary.31 (Turbopack)
+   - Local:        http://localhost:3001
+   - Network:      http://192.168.0.2:3001
+   - Environments: .env
+   - Experiments (use with caution):
+     ✓ ppr
+
+ ✓ Starting...
+ ✓ Compiled in 2.7s
+ ✓ Ready in 5.2s
+ ○ Compiling /api/auth/guest ...
+ ✓ Compiled /api/auth/guest in 4.1s
+[31m[auth][error][0m CallbackRouteError: Read more at https://errors.authjs.dev#callbackrouteerror
+[31m[auth][cause][0m: Error: An error occurred while executing a database query.
+    at createGuestUser (/app/.next/server/chunks/[root-of-the-server]__3cb9af23._.js:722:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Object.authorize (/app/.next/server/chunks/[root-of-the-server]__3cb9af23._.js:1066:37)
+    at async callback (/app/.next/server/chunks/c1962_@auth_core_bae3e6e3._.js:4004:39)
+    at async AuthInternal (/app/.next/server/chunks/c1962_@auth_core_bae3e6e3._.js:4860:24)
+    at async Auth (/app/.next/server/chunks/c1962_@auth_core_bae3e6e3._.js:5099:34)
+    at async signIn (/app/.next/server/chunks/node_modules__pnpm_5bfc5fa3._.js:699:17)
+    at async AppRouteRouteModule.do (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/compiled/next-server/app-route-experimental.runtime.dev.js:26:34172)
+    at async AppRouteRouteModule.handle (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/compiled/next-server/app-route-experimental.runtime.dev.js:26:41056)
+    at async doRender (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/base-server.js:1514:42)
+    at async DevServer.renderToResponseWithComponentsImpl (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/base-server.js:1916:28)
+    at async DevServer.renderPageComponent (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/base-server.js:2394:24)
+    at async DevServer.renderToResponseImpl (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/base-server.js:2431:32)
+    at async DevServer.pipeImpl (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/base-server.js:1004:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/next-server.js:305:17)
+    at async DevServer.handleRequestImpl (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/base-server.js:896:17)
+    at async /app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/dev/next-dev-server.js:371:20
+    at async Span.traceAsyncFn (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/dev/next-dev-server.js:368:24)
+    at async invokeRender (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/lib/router-server.js:235:21)
+    at async handleRequest (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/lib/router-server.js:426:24)
+    at async requestHandlerImpl (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/lib/router-server.js:450:13)
+    at async Server.requestListener (/app/node_modules/.pnpm/next@15.3.0-canary.31_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.0-rc-45_mlqzopqn56t6gad76627omqvii/node_modules/next/dist/server/lib/start-server.js:158:13)
+[31m[auth][details][0m: {
+  "0": "F",
+  "1": "a",
+  "2": "i",
+  "3": "l",
+  "4": "e",
+  "5": "d",
+  "6": " ",
+  "7": "t",
+  "8": "o",
+  "9": " ",
+  "10": "c",
+  "11": "r",
+  "12": "e",
+  "13": "a",
+  "14": "t",
+  "15": "e",
+  "16": " ",
+  "17": "g",
+  "18": "u",
+  "19": "e",
+  "20": "s",
+  "21": "t",
+  "22": " ",
+  "23": "u",
+  "24": "s",
+  "25": "e",
+  "26": "r",
+  "provider": "guest"
+}
+ ⨯ [Error [CallbackRouteError]: Read more at https://errors.authjs.dev#callbackrouteerror] {
+  type: 'CallbackRouteError',
+  kind: 'error',
+  [cause]: [Object]
+}
+ ⨯ [Error [CallbackRouteError]: Read more at https://errors.authjs.dev#callbackrouteerror] {
+  type: 'CallbackRouteError',
+  kind: 'error',
+  [cause]: [Object]
+}
+ GET /api/auth/guest?redirectUrl=http%3A%2F%2Flocalhost%3A3001%2F 500 in 5558ms
