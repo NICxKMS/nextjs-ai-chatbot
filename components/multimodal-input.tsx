@@ -20,6 +20,11 @@ import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import { saveChatModelAsCookie } from "@/app/(chat)/actions";
 import { SelectItem } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { chatModels } from "@/lib/ai/models";
 import { myProvider } from "@/lib/ai/providers";
 import type { Attachment, ChatMessage } from "@/lib/types";
@@ -329,13 +334,19 @@ function PureMultimodalInput({
           {status === "submitted" ? (
             <StopButton setMessages={setMessages} stop={stop} />
           ) : (
-            <PromptInputSubmit
-              className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
-              disabled={!input.trim() || uploadQueue.length > 0}
-              status={status}
-            >
-              <ArrowUpIcon size={14} />
-            </PromptInputSubmit>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <PromptInputSubmit
+                  aria-label="Send message"
+                  className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
+                  disabled={!input.trim() || uploadQueue.length > 0}
+                  status={status}
+                >
+                  <ArrowUpIcon size={14} />
+                </PromptInputSubmit>
+              </TooltipTrigger>
+              <TooltipContent>Send message</TooltipContent>
+            </Tooltip>
           )}
         </PromptInputToolbar>
       </PromptInput>
@@ -378,18 +389,24 @@ function PureAttachmentsButton({
   const isReasoningModel = selectedModelId === "chat-model-reasoning";
 
   return (
-    <Button
-      className="aspect-square h-8 rounded-lg p-1 transition-colors hover:bg-accent"
-      data-testid="attachments-button"
-      disabled={status !== "ready" || isReasoningModel}
-      onClick={(event) => {
-        event.preventDefault();
-        fileInputRef.current?.click();
-      }}
-      variant="ghost"
-    >
-      <PaperclipIcon size={14} style={{ width: 14, height: 14 }} />
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          aria-label="Attach files"
+          className="aspect-square h-8 rounded-lg p-1 transition-colors hover:bg-accent"
+          data-testid="attachments-button"
+          disabled={status !== "ready" || isReasoningModel}
+          onClick={(event) => {
+            event.preventDefault();
+            fileInputRef.current?.click();
+          }}
+          variant="ghost"
+        >
+          <PaperclipIcon size={14} style={{ width: 14, height: 14 }} />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Attach files</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -462,17 +479,23 @@ function PureStopButton({
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
 }) {
   return (
-    <Button
-      className="size-7 rounded-full bg-foreground p-1 text-background transition-colors duration-200 hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground"
-      data-testid="stop-button"
-      onClick={(event) => {
-        event.preventDefault();
-        stop();
-        setMessages((messages) => messages);
-      }}
-    >
-      <StopIcon size={14} />
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          aria-label="Stop generating"
+          className="size-7 rounded-full bg-foreground p-1 text-background transition-colors duration-200 hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground"
+          data-testid="stop-button"
+          onClick={(event) => {
+            event.preventDefault();
+            stop();
+            setMessages((messages) => messages);
+          }}
+        >
+          <StopIcon size={14} />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Stop generating</TooltipContent>
+    </Tooltip>
   );
 }
 
