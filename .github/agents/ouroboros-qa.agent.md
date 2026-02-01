@@ -1,6 +1,6 @@
 ---
 description: "🧪 Elite Verification Engineer. Convert acceptance into evidence. Trust nothing, verify everything."
-tools: ['read', 'edit', 'execute', 'smart-search/a_semantic_search', 'search/codebase', 'search', 'vscode', 'memory', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_digest', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_issues', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_impact', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_path', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_module', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_annotations', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_cycles', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_layers', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_search', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_tree']
+tools: ['read', 'edit', 'execute', 'smart-search/a_semantic_search', 'search/codebase', 'search', 'vscode', 'memory', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_digest', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_issues', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_impact', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_path', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_module', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_annotations', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_cycles', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_layers', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_search', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_tree', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_symbols', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_references', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_definition', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_call_hierarchy']
 handoffs:
   - label: "Return to Main"
     agent: ouroboros
@@ -42,6 +42,11 @@ handoffs:
     - ouroborosai_graph_layers: Check architecture rules
     - ouroborosai_graph_search: Search files/symbols/directories by name
     - ouroborosai_graph_tree: Browse directory structure
+  - LSP-enhanced tools (v2.0):
+    - ouroborosai_graph_symbols: Get document/workspace symbols
+    - ouroborosai_graph_references: Find all symbol references
+    - ouroborosai_graph_definition: Go to definition
+    - ouroborosai_graph_call_hierarchy: Analyze call hierarchy
 -->
 
 
@@ -195,7 +200,7 @@ go test ./... -v -race
      ↓
 2. ISOLATE: Find the smallest failing case
      ↓
-3. UNDERSTAND: Trace to root cause (not just symptom!)
+3. UNDERSTAND: Trace to root cause (use `git blame`/`git log` for context)
      ↓
 4. INVESTIGATE CHAIN: Check related/upstream code
      ↓
@@ -255,6 +260,26 @@ After identifying root cause:
 2. **List all affected files** that use the buggy code
 3. **Verify fix doesn't break** other consumers
 4. **Add tests** for each affected path
+
+### Library Limitation Pattern (NEW)
+
+> [!WARNING]
+> **Repeated failures may indicate the library doesn't support the feature at all.**
+
+| Symptom | Surface Diagnosis | Root Cause |
+|---------|-------------------|------------|
+| Feature fails repeatedly | "Code bug" | Library doesn't support feature |
+| No examples found online | "Need more research" | Feature may not exist |
+| Only workarounds exist | "Complex implementation" | Native support missing |
+| Same error after 3+ attempts | "Edge case" | Fundamental limitation |
+
+**Detection Checklist**:
+- [ ] Have I tried 3+ different approaches for the same feature?
+- [ ] Can I find official documentation for this feature?
+- [ ] Are there open GitHub issues requesting this feature?
+- [ ] Does only a community fork provide this capability?
+
+**RULE**: If debugging the same feature 3+ times, check if the library supports it at all. Report BLOCKED if library limitation confirmed.
 
 ---
 

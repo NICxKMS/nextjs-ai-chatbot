@@ -1,6 +1,6 @@
 ---
 description: "🔬 Project Researcher. Codebase exploration, tech stack analysis, pattern discovery."
-tools: ['read', 'execute', 'smart-search/a_semantic_search', 'search/codebase', 'search', 'web', 'vscode', 'edit', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_digest', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_issues', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_impact', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_path', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_module', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_annotations', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_cycles', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_layers', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_search', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_tree']
+tools: ['read', 'execute', 'smart-search/a_semantic_search', 'search/codebase', 'search', 'web', 'vscode', 'edit', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_digest', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_issues', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_impact', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_path', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_module', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_annotations', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_cycles', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_layers', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_search', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_tree', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_symbols', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_references', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_definition', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_call_hierarchy']
 handoffs:
   - label: "Return to Main"
     agent: ouroboros
@@ -42,6 +42,11 @@ handoffs:
     - ouroborosai_graph_layers: Check architecture rules
     - ouroborosai_graph_search: Search files/symbols/directories by name
     - ouroborosai_graph_tree: Browse directory structure
+  - LSP-enhanced tools (v2.0):
+    - ouroborosai_graph_symbols: Get document/workspace symbols
+    - ouroborosai_graph_references: Find all symbol references
+    - ouroborosai_graph_definition: Go to definition
+    - ouroborosai_graph_call_hierarchy: Analyze call hierarchy
 -->
 
 
@@ -220,6 +225,24 @@ After completing research, suggest relevant next steps:
 - List all dependencies with versions
 - Categorize: Framework, Library, Tool, DevDep
 - Note any outdated or deprecated packages
+
+### Step 4.5: Assess Library Capabilities (NEW)
+
+For key libraries central to planned features:
+1. **Identify feature requirements** from the task/spec
+2. **Verify capabilities** in official library documentation
+3. **Check GitHub issues** for open feature requests (implies not supported)
+4. **Note limitations** and potential fork/alternative packages
+
+| Finding | Report Action |
+|---------|---------------|
+| Feature not in docs | ⚠️ Flag: Verify if supported |
+| Open feature request 2+ years | 🔴 Risk: Likely not implemented |
+| Only workarounds exist | 🟡 Risk: May need custom solution |
+| Feature in fork only | Note fork as alternative |
+
+> [!IMPORTANT]
+> If a planned feature relies on a library capability that cannot be verified, flag it as a **technical risk** in the research output.
 
 ### Step 5: Discover Patterns
 - Identify architectural patterns (MVC, Clean Architecture, etc.)

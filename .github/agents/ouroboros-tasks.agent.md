@@ -1,6 +1,6 @@
 ---
 description: "📋 Project Manager & Planner. Task breakdown, dependency management, execution planning."
-tools: ['read', 'execute', 'edit', 'todo', 'vscode', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_digest', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_issues', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_impact', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_path', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_module', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_annotations', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_cycles', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_layers', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_search', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_tree']
+tools: ['read', 'execute', 'edit', 'todo', 'vscode', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_digest', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_issues', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_impact', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_path', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_module', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_annotations', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_cycles', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_layers', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_search', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_tree', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_symbols', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_references', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_definition', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_call_hierarchy']
 handoffs:
   - label: "Return to Main"
     agent: ouroboros
@@ -42,6 +42,11 @@ handoffs:
     - ouroborosai_graph_layers: Check architecture rules
     - ouroborosai_graph_search: Search files/symbols/directories by name
     - ouroborosai_graph_tree: Browse directory structure
+  - LSP-enhanced tools (v2.0):
+    - ouroborosai_graph_symbols: Get document/workspace symbols
+    - ouroborosai_graph_references: Find all symbol references
+    - ouroborosai_graph_definition: Go to definition
+    - ouroborosai_graph_call_hierarchy: Analyze call hierarchy
 -->
 
 
