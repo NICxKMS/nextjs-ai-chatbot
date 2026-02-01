@@ -1,6 +1,5 @@
 ---
-priority: 2
-command_name: initiate-manager
+name: initiate-manager
 description: Initializes a Manager Agent to oversee project execution and task coordination
 ---
 

@@ -1,6 +1,6 @@
 ---
 description: "📋 Ouroboros Spec. Five-phase workflow: Research → Requirements → Design → Tasks → Validation."
-tools: ['agent', 'read', 'smart-search/a_semantic_search', 'search/codebase', 'search', 'execute', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_digest', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_issues', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_impact', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_path', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_module', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_annotations', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_cycles', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_layers', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_search', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_tree']
+tools: ['agent', 'read', 'smart-search/a_semantic_search', 'search/codebase', 'search', 'execute', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_digest', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_issues', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_impact', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_path', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_module', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_annotations', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_cycles', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_layers', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_search', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_tree', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_symbols', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_references', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_definition', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_call_hierarchy']
 handoffs:
   - label: "Return to Orchestrator"
     agent: ouroboros
@@ -65,6 +65,29 @@ handoffs:
 - **DIRECTIVE #3**: Documents must be **internally consistent** and reference each other
 - **DIRECTIVE #4**: Use **EARS notation** for requirements
 - **DIRECTIVE #5**: Always include **Mermaid diagrams** in design docs
+- **DIRECTIVE #6**: **Relay L2 `[CONCERN]` markers** to user for decision
+
+---
+
+## 🔬 CONCERN RELAY PROTOCOL
+
+> [!IMPORTANT]
+> **L2 subagents may flag `[CONCERN]`. You MUST present these to user.**
+
+When L2 handoff contains `[CONCERN]`:
+1. **Parse** the concern text
+2. **Present** to user via CCL CONFIRM type
+3. **Document** user decision in spec files
+
+Example CCL:Use the `ouroborosai_menu` tool with:
+```json
+{
+  "agentName": "[current-agent]",
+  "agentLevel": 0,
+  "question": "⚠️ Technical Concern from [agent]:",
+  "options": ["[parse from context]"]
+}
+```
 
 ---
 
