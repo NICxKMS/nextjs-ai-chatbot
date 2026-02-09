@@ -1,4 +1,4 @@
-# APM 0.5.3 - Project Breakdown Guide
+# APM 0.5.4 - Project Breakdown Guide
 This guide defines how Setup Agents transform Context Synthesis findings into structured, agent-assigned task breakdowns. Following systematic high-level-to-detail methodology, it prevents template matching through strategic workflow sequencing and chat-to-file output switching. The guide ensures task breakdown precision required for Implementation Agent success while minimizing Manager Agent coordination overhead.
 
 ## 1. Context Integration & Breakdown Overview
@@ -320,14 +320,9 @@ Present **in chat** high-level plan statistics:
 - Direct User to review complete structured plan in `Implementation_Plan.md`
 - Reference detailed breakdown reasoning from previous chat exchanges (§2-§4)
 - Confirm that Context Synthesis insights, including process requirements and quality standards, are reflected in task specifications
-- Handle modification requests through targeted revisions to affected plan sections
-- Iterate until explicit User approval.
-
-#### Next Step Routing:
-Once the plan is approved:
-1. **If User requests Systematic Review:** Proceed to read .apm/guides/Project_Breakdown_Review_Guide.md`.
-2. **If User skips Review:** Proceed directly to **Manager Bootstrap Creation**.
-  - **CRITICAL:** You must generate the Bootstrap Prompt using the **EXACT TEMPLATE** defined in your initiation prompt .github/prompts/apm-1-initiate-setup.prompt.md.
-  - **Context Recovery:** If you cannot retrieve the template word-for-word from your context, you must **READ** the .github/prompts/apm-1-initiate-setup.prompt.md file to refresh your memory before generating the prompt. Do not approximate the template.
+- Present options as defined in .github/prompts/apm-1-initiate-setup.prompt.md §2:
+  - **Plan looks good** → Setup Phase complete, proceed to Manager Agent
+  - **Modifications needed** → Apply changes and re-present options
+  - **Systematic Review requested** → Proceed to .apm/guides/Project_Breakdown_Review_Guide.md
 
 **End of Guide**
