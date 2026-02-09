@@ -1,4 +1,4 @@
-# APM 0.5.3 - Memory System Guide 
+# APM 0.5.4 - Memory System Guide 
 This guide explains how APM sessions store and evolve memory using the **Dynamic-MD** system.
 
 Memory duties are assigned to the *Manager Agent* - who maintains the system. Details on individual Memory Log files reside in .apm/guides/Memory_Log_Guide.md.

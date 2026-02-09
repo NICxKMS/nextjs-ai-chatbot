@@ -1,4 +1,4 @@
-# APM 0.5.3 - Context Synthesis Guide
+# APM 0.5.4 - Context Synthesis Guide
 This guide defines how the Setup Agent collects all information needed to build an accurate and detailed Implementation Plan. The goal is gathering enough context to break work into focused, manageable tasks that can be assigned to specialized agents. At this stage, the Setup Agent passes control flow to this guide.
 
 ## Principles for Discovery & Objectives

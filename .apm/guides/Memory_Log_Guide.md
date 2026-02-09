@@ -1,4 +1,4 @@
-# APM 0.5.3 - Memory Log Guide
+# APM 0.5.4 - Memory Log Guide
 This guide defines how Implementation Agents log their work for Manager Agents and Users. Memory Logs capture task-level context using **Dynamic-MD** format.
 
 Both Manager and Implementation Agents must read this guide during session initialization. Implementation Agents reference it when logging; Manager Agents use it when reviewing logs.

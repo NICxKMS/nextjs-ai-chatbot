@@ -1,4 +1,4 @@
-# APM 0.5.3 - Task Assignment Guide
+# APM 0.5.4 - Task Assignment Guide
 This guide defines how Manager Agents issue task assignments to Implementation Agents and evaluate their completion. Task assignments coordinate agent work during the Task Loop of an APM session, following the Implementation Plan.
 
 ## 1. Task Loop Overview

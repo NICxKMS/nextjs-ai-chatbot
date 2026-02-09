@@ -92,7 +92,7 @@ delegation_attempt: [1|2|3|...]
 ### Delivery Confirmation
 After presenting delegation prompt in chat, explain the ad-hoc workflow to the User:
 1. Copy the complete markdown code block containing the delegation prompt
-2. Open new Ad-Hoc agent chat session & initialize it with .github/prompts/apm-4-initiate-adhoc.prompt.md
+2. Open new Ad-Hoc agent chat session & initialize it with .kilocode/workflows/apm-4-initiate-adhoc.md
 3. Paste delegation prompt to start ad-hoc work
 4. Return with findings for integration
 
