@@ -103,22 +103,36 @@ This document describes the adaptation of the standard APM workflows to support 
 
 ## Manager Agent Adaptations
 
-### 7. Automatic Subtask Delegation (NEW - Section 6)
+### 7. CRITICAL: No Direct File Operations
 
-**Purpose**: Replace user-pasting workflow with automatic `new_task` tool delegation.
+**Purpose**: Manager Agent is PURE ORCHESTRATOR - never touches files directly.
 
-**Key Changes**:
-- Manager uses `new_task` tool to spawn Implementation Agent subtasks
-- No user copy-paste required between agents
-- Subagents receive complete Task Assignment Prompt via `message` parameter
+**CRITICAL CONSTRAINTS**:
+- ❌ **NEVER use `read_file` tool** - Delegate to "ask" subtask
+- ❌ **NEVER use `write_file` or `edit_file` tools** - Delegate to "code" subtask
+- ❌ **NEVER execute commands directly**
+- ✅ **ONLY use `new_task` tool** for ALL operations
+
+### 8. Delegation Patterns
+
+| Operation | Mode | Example |
+|-----------|------|---------|
+| Read file | ask | `new_task(mode: "ask", message: "Read [path] and report [info]")` |
+| Write file | code | `new_task(mode: "code", message: "Create [path] with [content]")` |
+| Analyze plan | ask | `new_task(mode: "ask", message: "Read Implementation Plan and report next task")` |
+| Execute task | code | `new_task(mode: "code", message: <Full Task Assignment Prompt>)` |
+| Review log | ask | `new_task(mode: "ask", message: "Review Memory Log at [path]")` |
+| Debug issue | debug | `new_task(mode: "debug", message: "Debug issue: [description]")` |
+
+### 9. Automatic Subtask Delegation
 
 **Delegation Protocol**:
-1. Identify next ready task from Implementation Plan
-2. Create empty Memory Log file
-3. Build Task Assignment Prompt per Task_Assignment_Guide.md
-4. Call `new_task(mode: "code", message: <prompt>, todos: <optional>)`
-5. Wait for subagent completion
-6. Read and evaluate Memory Log
+1. Delegate plan analysis to "ask" subtask → Get next task info
+2. Delegate Memory Log creation to "code" subtask
+3. Delegate task execution to appropriate mode subtask
+4. Wait for subagent completion
+5. Delegate log review to "ask" subtask
+6. If plan update needed, delegate to "code" subtask
 
 ### 8. Workflow-First Instruction (NEW)
 
@@ -174,10 +188,12 @@ while (tasks remain in Implementation Plan):
 
 | Feature | Standard Workflow | Autonomous Workflow |
 |---------|------------------|---------------------|
+| **File operations** | Reads files directly | **NEVER reads files - delegates ALL to subtasks** |
 | Task delegation | User pastes prompts between agents | Automatic via `new_task` tool |
 | Subagent instruction | Assumes workflow knowledge | Explicit workflow-first instruction |
 | Initialization | Awaits user confirmation | Proceeds autonomously |
-| Phase management | User-triggered | Automatic phase transitions |
+| Phase management | User-triggered | Delegated to code subtasks |
+| Log review | Reads logs directly | Delegates to ask subtask |
 
 ## Workflow Diagrams
 
