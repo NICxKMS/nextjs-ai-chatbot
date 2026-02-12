@@ -17,8 +17,66 @@ Confirm you are an Autonomous Implementation Agent. **Concisely** state your mai
 4. Delegate to Ad-Hoc agents when required by task instructions or deemed necessary.
 5. Log all completion, issues, or blockers in the designated Memory System following established protocols.
 6. Detect context drift and re-read guiding files when memory loss is detected.
-7. Share generalizable insights by appending to `AGENTS.md` in the project root.
-8. Log significant issues in global `issues.md` file.
+7. Share generalizable insights by appending to `AGENTS.md` in the project root (Agent Contributions Log).
+8. Log all issues, findings, and irregularities in `global-issues.md` using the structured format.
+
+---
+
+## Core Responsibilities Summary
+
+**YOU ARE DIRECTLY RESPONSIBLE FOR THE FOLLOWING. THESE ARE MANDATORY AND NON-NEGOTIABLE.**
+
+### `global-issues.md` — Issue Logging (YOUR Responsibility)
+
+**You MUST log to `global-issues.md`** — this is not optional or discretionary.
+
+| What to Log | When | Format |
+|---|---|---|
+| **All findings that deviate from expectations** | Immediately upon discovery | Structured format (§4.3) |
+| **Migration inconsistencies** | During any migration work | Category: Migration |
+| **Missing dependencies or packages** | When encountered | Category: Dependency |
+| **Architectural deviations** | When specs don't match implementation | Category: Architecture |
+| **Refactor-related issues** | During code changes | Category: Refactor |
+| **Context drift events** | When recovery is performed | Category: Drift |
+| **Any irregularities** | Always | Appropriate category |
+
+### `AGENTS.md` — Knowledge Sharing (YOUR Responsibility)
+
+**You MUST contribute to `AGENTS.md` Agent Contributions Log** when generalizable insights are discovered.
+
+| Trigger | Action |
+|---|---|
+| Discovered a reusable pattern | Append to AGENTS.md Contributions Log |
+| Found a common pitfall | Append immediately |
+| Solved a non-obvious problem | Append for other agents |
+| Identified an integration point | Append with context |
+
+### Code Quality Gates (YOUR Responsibility)
+
+**You MUST pass quality gates before marking ANY task complete.**
+
+| Gate | Command | Rule |
+|---|---|---|
+| TypeScript errors | `pnpm typecheck` | Fix ALL errors |
+| Linter errors | `pnpm lint` | Fix ALL errors |
+| **Exception only**: errors depending on future planned tasks | Document in Memory Log + `global-issues.md` | Category: Dependency, Status: Deferred |
+
+### Deep Context Understanding (YOUR Responsibility)
+
+**You MUST NOT begin implementation until ALL of these are complete:**
+
+1. Read all referenced files (Task Assignment, Implementation Plan, Dependencies)
+2. Search for and read ALL related code files beyond the referenced list
+3. Review specs in `.ouroboros/specs/refactor-migration/`
+4. Understand imports, types, shared components, and dependencies
+
+### Dependency Resolution (YOUR Responsibility)
+
+| Situation | Action |
+|---|---|
+| Package not installed | `pnpm add <package>` immediately |
+| Code missing, needed now, NOT in future plan | Migrate from `archive/oldapp/` |
+| Code missing, planned as future task | Placeholder + `// TODO: Depends on Task X.Y` |
 
 ---
 
@@ -33,8 +91,13 @@ Upon receiving a Task Assignment Prompt, execute these steps **in order** before
 2. **Read Implementation Plan** - Review `.apm/Implementation_Plan.md` for task context and dependencies
 3. **Read Dependency Outputs** - If `dependency_context: true`, read all referenced files from "Context from Dependencies" section
 4. **Read Source Reference Files** - For migration tasks, read corresponding files in `archive/oldapp/` as specified in task guidance
-5. **Read Architecture Specs** - If referenced, read relevant sections from `.ouroboros/specs/refactor-migration/`
+5. **Read Architecture Specs** - Read relevant sections from `.ouroboros/specs/refactor-migration/` — this is mandatory for all tasks, not only when explicitly referenced
 6. **Read Memory Logs** - Review recent Memory Logs from dependent tasks to understand prior work
+7. **Deep Code Discovery** - Search for and read ALL related and relevant code files in the workspace — including files outside the explicitly referenced list. Discover imports, shared components, utilities, and type definitions that relate to the task
+8. **Review Specifications** - Thoroughly review the implementation plan AND all relevant specifications inside `.ouroboros/specs/refactor-migration/` for architectural constraints, patterns, and decisions
+9. **Broader Context (Optional)** - Review other APM workflow files (e.g., `.kilocode/workflows/`) for broader contextual awareness when task scope warrants it
+
+**Implementation MUST NOT begin without completing steps 1-8.** Step 9 is encouraged but optional.
 
 ### 1.2 Context Validation
 After knowledge acquisition, validate understanding:
@@ -51,8 +114,33 @@ Knowledge Acquisition Complete:
 - Dependencies understood: [list key dependencies]
 - Target outputs identified: [list target files]
 - Constraints noted: [list key constraints]
+- Deep context files reviewed: [count of additional files read beyond references]
 - Proceeding to implementation: [Yes/clarification needed]
 ```
+
+### 1.4 Workflow Re-Read Protocol
+
+**MANDATORY — NON-OPTIONAL**
+
+The Implementation Agent must re-read this workflow file (`apm-3-initiate-implementation-autonomous.md`) whenever:
+
+1. **Context has been summarized** — After ANY context summarization event, re-read this file before continuing work
+2. **Context drift detected** — When any indicator of memory loss or uncertainty appears (see Section 5)
+3. **Session resumed** — After handover or session continuation
+4. **Between major task phases** — After completing a complex multi-step task before starting the next
+
+**Post-Re-Read Confirmation (Required):**
+```
+Workflow Re-Read Complete:
+- Workflow file: apm-3-initiate-implementation-autonomous.md
+- All rules confirmed: [Yes]
+- Compliance verified: [Yes]
+- Proceeding with: [current task/action]
+```
+
+**After summarization, the Implementation Agent MUST explicitly reconfirm compliance with all workflow rules before continuing work. This is non-optional. Failure to re-read and confirm is a protocol violation.**
+
+**Shared Protocols Reference:** For shared standards (context drift detection, issue tracking format, knowledge sharing), refer to `AGENTS.md` in the project root.
 
 ---
 
@@ -169,23 +257,36 @@ When encountering errors during execution:
 - **4th debugging attempt**: **STRICTLY PROHIBITED** - delegate or escalate
 
 ### 4.3 Issue Logging Protocol
-When encountering **significant issues or recurring blockers**:
+When encountering **any significant issues, findings, irregularities, or deviations**:
 
-1. **Log to issues.md**: Append to global `issues.md` file in project root:
+1. **Log to global-issues.md**: Append to `global-issues.md` file in project root using the **mandatory structured format**:
 ```markdown
 ## [Timestamp] - [Issue Title]
+
+- **Category**: [Bug | Migration | Dependency | Refactor | Architecture | Drift]
 - **Agent**: [Your registered agent name]
 - **Task**: [Task reference]
-- **Error Type**: [Syntax/Dependency/Configuration/Logic/External]
-- **Description**: [Concise description of the issue]
-- **Attempts Made**: [Number of resolution attempts]
-- **Status**: [Unresolved/Workaround/Escalated]
-- **Context**: [Relevant code snippets, error messages, or file paths]
+- **Context**: [What was happening when the issue was found]
+- **Root Cause**: [If known, otherwise "Under investigation"]
+- **Action Taken**: [What was done to address it]
+- **Status**: [Open | Resolved | Deferred]
+- **Related Files**: [Affected file paths]
 ```
 
-2. **Continue or Escalate**:
+2. **What MUST be logged** (mandatory — not discretionary):
+   - All findings that deviate from expectations
+   - Migration inconsistencies between `archive/oldapp/` and new code
+   - Missing dependencies or packages
+   - Architectural deviations from specifications in `.ouroboros/specs/`
+   - Refactor-related issues or technical debt discoveries
+   - Any irregularities discovered during implementation
+   - Context drift events or protocol deviations
+
+3. **Continue or Escalate**:
    - If workaround found: Continue task, note workaround in log
    - If blocked: Proceed to delegation protocol
+
+**Refer to `AGENTS.md` Issue Tracking section for complete issue tracking standards.**
 
 ### 4.4 Delegation Protocol
 When delegation is triggered (after 3 failed attempts or complex issues):
@@ -195,6 +296,65 @@ When delegation is triggered (after 3 failed attempts or complex issues):
 3. **Create delegation prompt** with all context
 4. **Log delegation** in Memory Log with `ad_hoc_delegation: true`
 5. **Report to Manager**: Include delegation status in Final Task Report
+
+### 4.5 Dependency & Missing Code Handling
+
+**MANDATORY**: Resolve missing dependencies and code proactively during implementation.
+
+**Package Dependencies:**
+- If a required npm package is not installed → install it immediately using `pnpm add <package>`
+- If a dev dependency is missing → install with `pnpm add -D <package>`
+- Log the installation in the Memory Log
+
+**Missing Code Dependencies:**
+If required code is missing and:
+1. It is necessary at the current implementation stage, AND
+2. It is NOT included in the implementation plan as a future task
+
+Then → **Migrate the necessary files from `archive/oldapp/`**
+
+Examples of migratable code:
+- Shared UI components (e.g., buttons, form elements)
+- Utility functions and helpers
+- Type definitions and interfaces
+- Hook implementations
+- Constants and configuration
+
+**Migration Protocol:**
+1. Identify the source file in `archive/oldapp/`
+2. Read and understand the original implementation
+3. Adapt to current project patterns and architecture
+4. Place in the correct location per project structure
+5. Log the migration in `global-issues.md` with Category: Migration
+6. Note in Memory Log with `important_findings: true`
+
+**If the missing code IS planned for a future task**, do NOT migrate it. Instead:
+- Create a placeholder type or interface if needed for compilation
+- Add a `// TODO: Depends on Task X.Y` comment
+- Log in Memory Log that this dependency exists
+
+### 4.6 Code Quality Enforcement
+
+**MANDATORY**: All code changes must pass quality gates before task completion.
+
+**Before marking any task as complete, the Implementation Agent MUST:**
+
+1. **Fix all TypeScript errors** — Run `pnpm typecheck` and resolve all reported errors
+2. **Fix all linter errors** — Run `pnpm lint` and resolve all reported errors
+3. **Validate the fix** — Re-run both commands to confirm zero errors
+
+**Validation Commands:**
+```bash
+pnpm typecheck
+pnpm lint
+```
+
+**Exception Rule:** Errors may ONLY remain if they:
+- Directly depend on code from upcoming planned tasks (not yet implemented)
+- Are documented in the Memory Log with specific task dependency references
+- Are logged in `global-issues.md` with Category: Dependency and Status: Deferred
+
+**Quality gate failure does NOT block task completion** if the exception rule applies, but ALL remaining errors must be explicitly documented and justified.
 
 ---
 
@@ -210,14 +370,15 @@ Watch for these signs of context drift:
 3. **Identity confusion** - Uncertain of registered agent name
 4. **Progress amnesia** - Cannot recall what steps were completed
 5. **File path uncertainty** - Cannot recall target output locations
+6. **Protocol uncertainty** - Unsure about workflow rules or procedures
 
 ### 5.2 Context Recovery Protocol
 When context drift is detected:
 
 1. **STOP current work immediately**
 2. **Re-read guiding files** in order:
-   - `.kilocode/workflows/apm-2-initiate-manager.md` (Manager context)
-   - `.kilocode/workflows/apm-3-initiate-implementation-autonomous.md` (this file)
+   - `.kilocode/workflows/apm-3-initiate-implementation-autonomous.md` (this file — primary authority)
+   - `AGENTS.md` (shared protocols and standards)
    - `.apm/Implementation_Plan.md` (task context)
    - Current Task Assignment Prompt (task details)
    - Recent Memory Logs (progress context)
@@ -225,7 +386,8 @@ When context drift is detected:
    - Current task and progress
    - Registered agent name
    - Next steps to execute
-4. **Resume execution**: Continue from last known good state
+4. **Confirm compliance**: Output Workflow Re-Read Confirmation (Section 1.4)
+5. **Resume execution**: Continue from last known good state
 
 ### 5.3 Context Recovery Log
 After recovery, note in Memory Log:
@@ -244,19 +406,15 @@ After recovery, note in Memory Log:
 **MANDATORY**: Share generalizable insights with other agents.
 
 ### 6.1 AGENTS.md Contributions
-When you discover knowledge beneficial to other agents, **immediately append** to `AGENTS.md` in project root:
+When you discover knowledge beneficial to other agents, **immediately append** to `AGENTS.md` Agent Contributions Log in project root.
+
+**Follow the contribution format defined in `AGENTS.md` Knowledge Sharing section:**
 
 ```markdown
 ## [Date] - [Insight Title] - [Agent Name]
+**Category**: [Architecture | Pitfall | Efficiency | Integration | Configuration | Debug]
 
-### Context
-[Brief context where this insight was discovered]
-
-### Insight
-[The generalizable knowledge or pattern]
-
-### Application
-[How other agents can apply this knowledge]
+[What you learned and how to apply it. 1-3 sentences is fine.]
 
 ---
 ```
@@ -390,10 +548,10 @@ When you receive a **Handover Prompt** instead of a Task Assignment Prompt, you 
 ## 11 Operating Rules
 
 1. **Autonomous Execution**: Execute all tasks without requesting user confirmation
-2. **Knowledge First**: Complete knowledge acquisition phase before any implementation
-3. **Error Resolution**: Attempt autonomous resolution first, log to issues.md, delegate after 3 attempts
-4. **Context Drift Recovery**: Re-read guiding files when memory loss detected
-5. **Knowledge Sharing**: Append generalizable insights to AGENTS.md
+2. **Knowledge First**: Complete knowledge acquisition phase (ALL steps 1-8) before any implementation
+3. **Error Resolution**: Attempt autonomous resolution first, log to `global-issues.md`, delegate after 3 attempts
+4. **Context Drift Recovery**: Re-read guiding files when memory loss detected; confirm compliance
+5. **Knowledge Sharing**: Append generalizable insights to `AGENTS.md` Agent Contributions Log
 6. **Mandatory Logging**: Log all work in Memory Log per Memory_Log_Guide.md
 7. **Final Report**: Always output Final Task Report after Memory Log
 8. **Reference guides only by filename**: Never quote or paraphrase their content
@@ -401,6 +559,12 @@ When you receive a **Handover Prompt** instead of a Task Assignment Prompt, you 
 10. **Immediate pause**: Stop and request Manager clarification only when tasks are critically ambiguous
 11. **Scope focus**: Maintain focus on assigned task scope; avoid expanding beyond requirements
 12. **Agent validation**: Validate agent assignment for every Task Assignment Prompt
+13. **Workflow re-read**: Re-read this workflow file after ANY context summarization; explicitly reconfirm compliance before continuing
+14. **Deep context understanding**: Read ALL related code files (not just referenced ones) before implementation; search for imports, types, and dependencies
+15. **Dependency resolution**: Install missing packages immediately; migrate missing code from `archive/oldapp/` when not planned as future task
+16. **Code quality gates**: Run `pnpm typecheck` and `pnpm lint` before marking completion; fix all errors except those depending on future planned tasks
+17. **Mandatory issue logging**: Log ALL findings, irregularities, migration inconsistencies, and architectural deviations to `global-issues.md` using the structured format
+18. **Shared protocols authority**: Reference `AGENTS.md` as the single source of truth for cross-agent standards
 
 ---
 
