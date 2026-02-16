@@ -1,40 +1,77 @@
-# Phase 11: Configuration Files Comparison
+# Phase 11: Configuration Files - Issues
 
-**Comparison Date:** 2026-02-15
-**Phase:** Configuration Files
-**Status:** Completed
+**Phase Name:** Configuration Files
+**Comparison Scope:** next.config.ts, package.json, instrumentation.ts, instrumentation-client.ts, postcss.config.mjs, playwright.config.ts
+**Date Started:** 2026-02-15
+**Date Completed:** 2026-02-15
 
----
+## Issue Counts
 
-## Files Analyzed
+| Category | Count |
+|----------|-------|
+| UI Inconsistencies | 0 |
+| Bugs | 0 |
+| Broken Code | 0 |
+| Functional Discrepancies | 2 |
+| Improvement Only | 6 |
+| **Total** | **8** |
 
-| File | OLD Location | NEW Location | Status |
-|------|--------------|--------------|--------|
-| Next.js Configuration | `archive/oldapp/next.config.ts` | `next.config.ts` | Compared |
-| Package Configuration | `archive/oldapp/package.json` | `package.json` | Compared |
-| Server Instrumentation | `archive/oldapp/instrumentation.ts` | `instrumentation.ts` | Compared |
-| Client Instrumentation | `archive/oldapp/instrumentation-client.ts` | N/A | Compared |
-| PostCSS Configuration | `archive/oldapp/postcss.config.mjs` | `postcss.config.mjs` | Compared |
-| Playwright Configuration | `archive/oldapp/playwright.config.ts` | `playwright.config.ts` | Compared |
+### By Severity
 
----
+| Severity | Count |
+|----------|-------|
+| Critical | 0 |
+| High | 0 |
+| Medium | 1 |
+| Low | 1 |
 
-## Issues Identified
+## Table of Contents
 
-### Verification Summary
+- [Issue Counts](#issue-counts)
+- [UI Inconsistencies](#ui-inconsistencies)
+- [Bugs](#bugs)
+- [Broken Code](#broken-code)
+- [Functional Discrepancies](#functional-discrepancies)
+- [Improvement Only](#improvement-only)
+- [Files With No Issues](#files-with-no-issues)
+- [Recommendations](#recommendations)
 
-| Issue ID | Title | Original Status | Verified Status | Timestamp |
-|----------|-------|-----------------|-----------------|----------|
-| P11-FNC-001 | Missing instrumentation-client.ts File | Open | ✅ Verified | 2026-02-16T14:00:00Z |
+## VERIFICATION SUMMARY
+
+| Issue | Status | Timestamp |
+|-------|--------|-----------|
+| P11-FNC-001 | Verified | 2026-02-16T14:00:00Z |
+| P11-FNC-002 | Verified | 2026-02-16T00:00:00Z |
+| P11-IMP-001 | Improvement | 2026-02-16T00:00:00Z |
+| P11-IMP-002 | Improvement | 2026-02-16T00:00:00Z |
+| P11-IMP-003 | Improvement | 2026-02-16T00:00:00Z |
+| P11-IMP-004 | Improvement | 2026-02-16T00:00:00Z |
+| P11-IMP-005 | Improvement | 2026-02-16T00:00:00Z |
+| P11-IMP-006 | Improvement | 2026-02-16T00:00:00Z |
+
+## UI Inconsistencies
+
+*No UI Inconsistencies identified in this phase.*
+
+## Bugs
+
+*No Bugs identified in this phase.*
+
+## Broken Code
+
+*No Broken Code identified in this phase.*
+
+## Functional Discrepancies
 
 ### [P11-FNC-001] Missing instrumentation-client.ts File
 
-**Severity:** Low
-**Status:** Verified
-**Verified:** 2026-02-16T14:00:00Z
-**OLD File:** `archive/oldapp/instrumentation-client.ts`
-**NEW File:** N/A
-**Line Ref:** L1-L4
+| Field | Value |
+|-------|-------|
+| **Issue ID** | P11-FNC-001 |
+| **Severity** | Low |
+| **Status** | Open |
+| **OLD Path** | `archive/oldapp/instrumentation-client.ts:1-4` |
+| **NEW Path** | N/A |
 
 **Description:**
 The OLD app has an `instrumentation-client.ts` file that exports an empty object. This file is used by Next.js for client-side instrumentation hooks. The NEW app does not have this file.
@@ -53,25 +90,26 @@ Create `instrumentation-client.ts` in the project root with:
 export {};
 ```
 
-**Verification Findings:**
-- OLD `archive/oldapp/instrumentation-client.ts` confirmed (4 lines): `// Client-side instrumentation` + `// Sentry has been removed - using Vercel Analytics and Speed Insights only` + `export {};`
-- `file_search` for `**/instrumentation-client*` returns ONLY `archive/oldapp/instrumentation-client.ts` — no NEW equivalent.
-- NEW root contains `instrumentation.ts` (server-side, uses `@vercel/otel` + registers global error handlers) but NOT `instrumentation-client.ts`.
-- Next.js [docs](https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation) support `instrumentation-client.ts` for client-side hooks since v15. Without it, Next.js falls back to an empty module — no runtime error, but no client-side instrumentation hook point.
-- Since the OLD file was just `export {}` (placeholder after Sentry removal), functional impact is minimal — but having the file provides a documented hook point for future client-side observability integration.
-- **Issue is accurate**: file is absent, impact is low as described.
+#### Verification
+
+| Field | Value |
+|-------|-------|
+| **Verification Status** | Verified |
+| **Verified At** | 2026-02-16T14:00:00Z |
+
+**Findings:** OLD `archive/oldapp/instrumentation-client.ts` confirmed (4 lines): `// Client-side instrumentation` + `// Sentry has been removed - using Vercel Analytics and Speed Insights only` + `export {};`. `file_search` for `**/instrumentation-client*` returns ONLY `archive/oldapp/instrumentation-client.ts` — no NEW equivalent. NEW root contains `instrumentation.ts` (server-side, uses `@vercel/otel` + registers global error handlers) but NOT `instrumentation-client.ts`. Next.js docs support `instrumentation-client.ts` for client-side hooks since v15. Without it, Next.js falls back to an empty module — no runtime error, but no client-side instrumentation hook point. Since the OLD file was just `export {}` (placeholder after Sentry removal), functional impact is minimal — but having the file provides a documented hook point for future client-side observability integration. Issue is accurate: file is absent, impact is low as described.
 
 ---
 
 ### [P11-FNC-002] Test Script Missing PLAYWRIGHT Environment Variable
 
-**Severity:** Medium
-**Status:** Verified
-**Verified:** 2026-02-16T00:00:00Z
-**Findings:** Confirmed difference: OLD script sets `PLAYWRIGHT=True` explicitly; NEW `test:e2e` does not. However, Playwright auto-sets `PLAYWRIGHT_TEST_BASE_URL` when `webServer` config is present, so `isTestEnvironment` in `lib/constants.ts:18-22` still evaluates to `true` during E2E runs. Additionally, `isTestEnvironment` is defined/exported in the NEW codebase (`lib/constants.ts`, `lib/index.ts`) but never actually imported or consumed by any NEW app code (only by OLD `archive/oldapp/lib/ai/providers.ts` and `archive/oldapp/lib/ai/title-generation.ts`). Real-world impact is currently **nil** but becomes relevant once test-aware code is migrated.
-**OLD File:** `archive/oldapp/package.json`
-**NEW File:** `package.json`
-**Line Ref:** L18 (OLD), L23 (NEW)
+| Field | Value |
+|-------|-------|
+| **Issue ID** | P11-FNC-002 |
+| **Severity** | Medium |
+| **Status** | Open |
+| **OLD Path** | `archive/oldapp/package.json:18` |
+| **NEW Path** | `package.json:23` |
 
 **Description:**
 The OLD test script set the `PLAYWRIGHT` environment variable:
@@ -84,7 +122,7 @@ The NEW test script does not:
 "test:e2e": "playwright test"
 ```
 
-However, both OLD and NEW apps check for this environment variable in [`lib/constants.ts`](lib/constants.ts:18-22):
+However, both OLD and NEW apps check for this environment variable in `lib/constants.ts:18-22`:
 ```typescript
 export const isTestEnvironment = Boolean(
   process.env.PLAYWRIGHT_TEST_BASE_URL ||
@@ -105,202 +143,146 @@ Update the test script to set the PLAYWRIGHT environment variable:
 ```
 Or use a cross-platform solution since `export` doesn't work on Windows.
 
----
+#### Verification
 
-### [P11-FNC-003] Playwright Test Directory Changed
+| Field | Value |
+|-------|-------|
+| **Verification Status** | Verified |
+| **Verified At** | 2026-02-16T00:00:00Z |
 
-**Severity:** Low
-**Status:** Improvement
-**Verified:** 2026-02-16T00:00:00Z
-**Findings:** Confirmed intentional architectural change. OLD: `testDir: "./tests"`. NEW: `testDir: "./e2e"`. The `e2e/` directory exists and contains 4 spec files (`artifacts.spec.ts`, `auth.spec.ts`, `chat.spec.ts`, `sidebar.spec.ts`) plus a `visual/` subdirectory. Naming convention changed from `.test.ts` to `.spec.ts`. No migration gap — tests are already in the new location.
-**OLD File:** `archive/oldapp/playwright.config.ts`
-**NEW File:** `playwright.config.ts`
-**Line Ref:** L26 (OLD), L27 (NEW)
+**Findings:** Confirmed difference: OLD script sets `PLAYWRIGHT=True` explicitly; NEW `test:e2e` does not. However, Playwright auto-sets `PLAYWRIGHT_TEST_BASE_URL` when `webServer` config is present, so `isTestEnvironment` in `lib/constants.ts:18-22` still evaluates to `true` during E2E runs. Additionally, `isTestEnvironment` is defined/exported in the NEW codebase (`lib/constants.ts`, `lib/index.ts`) but never actually imported or consumed by any NEW app code (only by OLD `archive/oldapp/lib/ai/providers.ts` and `archive/oldapp/lib/ai/title-generation.ts`). Real-world impact is currently nil but becomes relevant once test-aware code is migrated.
 
-**Description:**
-The test directory changed from `./tests` to `./e2e`. This is an architectural change, but test files may need to be migrated.
+## Improvement Only
 
-**OLD:**
-```typescript
-testDir: "./tests",
-```
+### [P11-IMP-001] Playwright Test Directory Changed
 
-**NEW:**
-```typescript
-testDir: "./e2e",
-```
+| Field | Value |
+|-------|-------|
+| **Issue ID** | P11-IMP-001 |
+| **Location** | `playwright.config.ts:27` |
 
-**Impact:**
-- Old test files in `./tests` directory won't be discovered
-- Tests need to be migrated to `./e2e` directory
-- Test file pattern changed from `*.test.ts` to `*.spec.ts`
+**Description:** The test directory changed from `./tests` (OLD `archive/oldapp/playwright.config.ts:26`) to `./e2e` (NEW `playwright.config.ts:27`). This is an intentional architectural change. The `e2e/` directory exists and contains 4 spec files (`artifacts.spec.ts`, `auth.spec.ts`, `chat.spec.ts`, `sidebar.spec.ts`) plus a `visual/` subdirectory. Naming convention changed from `.test.ts` to `.spec.ts`. No migration gap — tests are already in the new location.
 
-**Suggested Fix:**
-Ensure all test files are migrated to the `./e2e` directory and renamed to use `.spec.ts` extension. Verify the e2e directory exists and contains tests.
+**Status:** Enhancement - No action required.
+
+#### Verification
+
+| Field | Value |
+|-------|-------|
+| **Verification Status** | Improvement |
+| **Verified At** | 2026-02-16T00:00:00Z |
+
+**Findings:** Confirmed intentional architectural change. OLD: `testDir: "./tests"`. NEW: `testDir: "./e2e"`. The `e2e/` directory exists with spec files and `visual/` subdirectory. No functional regression.
 
 ---
 
-### [P11-FNC-004] Playwright Health Check Endpoint Changed
+### [P11-IMP-002] Playwright Health Check Endpoint Changed
 
-**Severity:** Low
-**Status:** Improvement
-**Verified:** 2026-02-16T00:00:00Z
-**Findings:** Confirmed intentional change. OLD: `/ping`. NEW: `/api/health`. The endpoint `app/api/health/route.ts` exists and implements comprehensive health checks (database connectivity via `SELECT 1`, Redis ping, environment variable validation). Returns HTTP 200 when healthy, 503 when unhealthy. This is a strict upgrade over the OLD `/ping` which was a simple liveness probe.
-**OLD File:** `archive/oldapp/playwright.config.ts`
-**NEW File:** `playwright.config.ts`
-**Line Ref:** L103 (OLD), L122 (NEW)
+| Field | Value |
+|-------|-------|
+| **Issue ID** | P11-IMP-002 |
+| **Location** | `playwright.config.ts:122` |
 
-**Description:**
-The web server health check URL changed from `/ping` to `/api/health`.
+**Description:** The web server health check URL changed from `/ping` (OLD `archive/oldapp/playwright.config.ts:103`) to `/api/health` (NEW `playwright.config.ts:122`). The endpoint `app/api/health/route.ts` exists and implements comprehensive health checks (database connectivity via `SELECT 1`, Redis ping, environment variable validation). Returns HTTP 200 when healthy, 503 when unhealthy. This is a strict upgrade over the OLD `/ping` which was a simple liveness probe.
 
-**OLD:**
-```typescript
-url: `${baseURL}/ping`,
-```
+**Status:** Enhancement - No action required.
 
-**NEW:**
-```typescript
-url: `${baseURL}/api/health`,
-```
+#### Verification
 
-**Impact:**
-- The `/ping` endpoint may not exist in the NEW app
-- The `/api/health` endpoint must exist and return a valid response
-- If the health endpoint doesn't exist, tests may fail to start
+| Field | Value |
+|-------|-------|
+| **Verification Status** | Improvement |
+| **Verified At** | 2026-02-16T00:00:00Z |
 
-**Suggested Fix:**
-Verify that `/api/health` endpoint exists and returns a 200 response. The endpoint exists at [`app/api/health/route.ts`](app/api/health/route.ts).
+**Findings:** Confirmed intentional change. `/api/health` endpoint exists with comprehensive health checks. Strict upgrade from `/ping`.
 
 ---
 
-### [P11-FNC-005] Playwright Test Projects Configuration Changed
+### [P11-IMP-003] Playwright Test Projects Configuration Changed
 
-**Severity:** Low
-**Status:** Improvement
-**Verified:** 2026-02-16T00:00:00Z
-**Findings:** Confirmed intentional simplification. OLD had two projects (`e2e` matching `e2e/.*.test.ts`, `routes` matching `routes/.*.test.ts`). NEW has one project (`e2e-chrome` matching `.*\.spec\.ts`). The `routes` project type was part of OLD architecture; the NEW app consolidates all E2E tests under `e2e/` with `.spec.ts` extension. Additional enhancements in NEW: visual regression config (`toHaveScreenshot`), screenshot/video on failure, action/navigation timeouts. No functional regression.
-**OLD File:** `archive/oldapp/playwright.config.ts`
-**NEW File:** `playwright.config.ts`
-**Line Ref:** L53-L98 (OLD), L82-L117 (NEW)
+| Field | Value |
+|-------|-------|
+| **Issue ID** | P11-IMP-003 |
+| **Location** | `playwright.config.ts:82-117` |
 
-**Description:**
-The OLD app had two test projects: `e2e` and `routes`. The NEW app only has `e2e-chrome`.
+**Description:** OLD had two projects (`e2e` matching `e2e/.*.test.ts`, `routes` matching `routes/.*.test.ts`; `archive/oldapp/playwright.config.ts:53-98`). NEW has one project (`e2e-chrome` matching `.*\.spec\.ts`; `playwright.config.ts:82-117`). The `routes` project type was part of OLD architecture; the NEW app consolidates all E2E tests under `e2e/` with `.spec.ts` extension. Additional enhancements in NEW: visual regression config (`toHaveScreenshot`), screenshot/video on failure, action/navigation timeouts. No functional regression.
 
-**OLD Projects:**
-- `e2e` - matches `e2e/.*.test.ts`
-- `routes` - matches `routes/.*.test.ts`
+**Status:** Enhancement - No action required.
 
-**NEW Projects:**
-- `e2e-chrome` - matches `.*\.spec\.ts`
+#### Verification
 
-**Impact:**
-- Routes tests are no longer configured
-- Test file naming convention changed from `.test.ts` to `.spec.ts`
-- Project name changed from `e2e` to `e2e-chrome`
+| Field | Value |
+|-------|-------|
+| **Verification Status** | Improvement |
+| **Verified At** | 2026-02-16T00:00:00Z |
 
-**Suggested Fix:**
-If routes tests are needed, add a corresponding project configuration. Ensure all test files use the `.spec.ts` extension.
+**Findings:** Confirmed intentional simplification with additional enhancements. No functional regression.
 
 ---
 
-### [P11-FNC-006] Missing @vercel/postgres Dependency
+### [P11-IMP-004] Removed Deprecated @vercel/postgres Dependency
 
-**Severity:** Medium
-**Status:** Improvement
-**Verified:** 2026-02-16T00:00:00Z
-**Findings:** Confirmed removal from `package.json` dependencies. Zero source code imports of `@vercel/postgres` found in the NEW codebase (grep returned no matches outside lock files and issue docs). The package is officially **deprecated** — `pnpm-lock.yaml` shows the deprecation notice directing to Neon SDKs. It remains as a transitive dependency of `drizzle-orm` in the lock file, which is expected. The NEW app uses the `postgres` package directly for DB connections. Removal is correct and intentional.
-**OLD File:** `archive/oldapp/package.json`
-**NEW File:** `package.json`
-**Line Ref:** L58 (OLD)
+| Field | Value |
+|-------|-------|
+| **Issue ID** | P11-IMP-004 |
+| **Location** | `package.json` |
 
-**Description:**
-The OLD app had `@vercel/postgres` as a dependency. The NEW app does not have this package.
+**Description:** OLD `archive/oldapp/package.json:58` had `@vercel/postgres` as a dependency. The NEW app does not. Zero source code imports of `@vercel/postgres` found in the NEW codebase. The package is officially deprecated — `pnpm-lock.yaml` shows the deprecation notice directing to Neon SDKs. It remains as a transitive dependency of `drizzle-orm` in the lock file, which is expected. The NEW app uses the `postgres` package directly for DB connections. Removal is correct and intentional.
 
-**OLD:**
-```json
-"@vercel/postgres": "^0.10.0",
-```
+**Status:** Enhancement - No action required.
 
-**NEW:** Not present
+#### Verification
 
-**Impact:**
-- If any code imports from `@vercel/postgres`, it will fail
-- The app uses `postgres` package directly instead (present in both)
-- Vercel-specific database optimizations may be lost
+| Field | Value |
+|-------|-------|
+| **Verification Status** | Improvement |
+| **Verified At** | 2026-02-16T00:00:00Z |
 
-**Suggested Fix:**
-Verify that no code requires `@vercel/postgres`. The app appears to use the `postgres` package directly for database connections, which is a valid alternative. If Vercel-specific features are needed, add the dependency back.
+**Findings:** Confirmed removal. Zero source imports. Package is officially deprecated. Correct simplification.
 
 ---
 
-### [P11-FNC-007] Missing @google/genai Dev Dependency
+### [P11-IMP-005] Removed Unused @google/genai Dev Dependency
 
-**Severity:** Low
-**Status:** Improvement
-**Verified:** 2026-02-16T00:00:00Z
-**Findings:** Confirmed removal from `devDependencies`. Zero source code imports of `@google/genai` found in either OLD or NEW codebase (grep returned no matches in any `.ts`/`.tsx` files). The package was unused even in the OLD app — it was likely added provisionally. The app uses `@ai-sdk/google` (present in both OLD and NEW) for Google AI integration via the AI SDK abstraction layer. Removal is correct.
-**OLD File:** `archive/oldapp/package.json`
-**NEW File:** `package.json`
-**Line Ref:** L103 (OLD)
+| Field | Value |
+|-------|-------|
+| **Issue ID** | P11-IMP-005 |
+| **Location** | `package.json` |
 
-**Description:**
-The OLD app had `@google/genai` as a dev dependency. The NEW app does not have this package.
+**Description:** OLD `archive/oldapp/package.json:103` had `@google/genai` as a dev dependency. The NEW app does not. Zero source code imports of `@google/genai` found in either OLD or NEW codebase. The package was unused even in the OLD app — it was likely added provisionally. The app uses `@ai-sdk/google` (present in both OLD and NEW) for Google AI integration via the AI SDK abstraction layer. Removal is correct.
 
-**OLD:**
-```json
-"@google/genai": "^1.27.0",
-```
+**Status:** Enhancement - No action required.
 
-**NEW:** Not present
+#### Verification
 
-**Impact:**
-- If any code imports from `@google/genai`, it will fail
-- This was a dev dependency, so likely used for development/testing
-- The app still has `@ai-sdk/google` for Google AI integration
+| Field | Value |
+|-------|-------|
+| **Verification Status** | Improvement |
+| **Verified At** | 2026-02-16T00:00:00Z |
 
-**Suggested Fix:**
-Verify that no code requires `@google/genai`. If needed for development or testing, add the dependency back.
+**Findings:** Confirmed removal. Zero imports in either codebase. Was unused even in OLD. Correct cleanup.
 
 ---
 
-### [P11-FNC-008] Missing ultracite Package
+### [P11-IMP-006] Replaced ultracite with Direct Biome Usage
 
-**Severity:** Low
-**Status:** Improvement
-**Verified:** 2026-02-16T00:00:00Z
-**Findings:** Confirmed intentional tooling migration. OLD used `ultracite` (a Biome wrapper) with scripts `npx ultracite check` / `npx ultracite fix`. NEW uses Biome directly (`biome check .`, `biome check --write .`, `biome format --write .`) with `@biomejs/biome` upgraded from 2.2.2 to 2.3.14. Comprehensive `biome.json` config exists with linter rules, formatter settings, and test file overrides. Zero references to `ultracite` in NEW source code. This is a correct simplification — removing the wrapper layer.
-**OLD File:** `archive/oldapp/package.json`
-**NEW File:** `package.json`
-**Line Ref:** L120 (OLD)
+| Field | Value |
+|-------|-------|
+| **Issue ID** | P11-IMP-006 |
+| **Location** | `package.json`, `biome.json` |
 
-**Description:**
-The OLD app used `ultracite` for linting and formatting. The NEW app uses Biome directly.
+**Description:** OLD `archive/oldapp/package.json:120` used `ultracite` (a Biome wrapper) with scripts `npx ultracite check` / `npx ultracite fix`. NEW uses Biome directly (`biome check .`, `biome check --write .`, `biome format --write .`) with `@biomejs/biome` upgraded from 2.2.2 to 2.3.14. Comprehensive `biome.json` config exists with linter rules, formatter settings, and test file overrides. Zero references to `ultracite` in NEW source code. This is a correct simplification — removing the wrapper layer.
 
-**OLD:**
-```json
-"lint": "npx ultracite check",
-"format": "npx ultracite fix",
-```
-```json
-"ultracite": "5.3.9"
-```
+**Status:** Enhancement - No action required.
 
-**NEW:**
-```json
-"lint": "biome check .",
-"lint:fix": "biome check --write .",
-"format": "biome format --write .",
-```
+#### Verification
 
-**Impact:**
-- This is an intentional architectural change
-- Biome is now used directly instead of through ultracite wrapper
-- Functionality is preserved with different tooling
+| Field | Value |
+|-------|-------|
+| **Verification Status** | Improvement |
+| **Verified At** | 2026-02-16T00:00:00Z |
 
-**Suggested Fix:**
-No fix needed - this is an intentional refactoring. The NEW approach is valid.
-
----
+**Findings:** Confirmed intentional tooling migration. Direct Biome usage with comprehensive config. Correct simplification.
 
 ## Files With No Issues
 
@@ -373,44 +355,6 @@ Most dependency changes are intentional:
 3. **Version Upgrades**:
    - `@biomejs/biome`: 2.2.2 -> 2.3.14
 
----
-
-## Summary
-
-| Category | Count |
-|----------|-------|
-| Critical Issues | 0 |
-| High Issues | 0 |
-| Medium Issues | 2 |
-| Low Issues | 6 |
-| No Issues Found | 4 |
-
-### Verification Results (P11-FNC-002 through P11-FNC-008)
-
-| Issue | Title | Status | Verified |
-|-------|-------|--------|----------|
-| P11-FNC-002 | Test Script Missing PLAYWRIGHT Env Var | **Verified** | 2026-02-16 |
-| P11-FNC-003 | Playwright Test Directory Changed | **Improvement** | 2026-02-16 |
-| P11-FNC-004 | Playwright Health Check Endpoint Changed | **Improvement** | 2026-02-16 |
-| P11-FNC-005 | Playwright Test Projects Config Changed | **Improvement** | 2026-02-16 |
-| P11-FNC-006 | Missing @vercel/postgres Dependency | **Improvement** | 2026-02-16 |
-| P11-FNC-007 | Missing @google/genai Dev Dependency | **Improvement** | 2026-02-16 |
-| P11-FNC-008 | Missing ultracite Package | **Improvement** | 2026-02-16 |
-
-### Medium Priority Issues:
-1. **P11-FNC-002**: Test script missing PLAYWRIGHT environment variable — **Verified** (mitigated by `PLAYWRIGHT_TEST_BASE_URL` auto-set; `isTestEnvironment` unused in NEW code currently)
-2. **P11-FNC-006**: Missing @vercel/postgres dependency — **Improvement** (deprecated package correctly removed; no source imports)
-
-### Low Priority Issues:
-1. **P11-FNC-001**: Missing instrumentation-client.ts file
-2. **P11-FNC-003**: Playwright test directory changed — **Improvement** (tests already migrated to `e2e/`)
-3. **P11-FNC-004**: Playwright health check endpoint changed — **Improvement** (comprehensive `/api/health` exists)
-4. **P11-FNC-005**: Playwright test projects configuration changed — **Improvement** (simplified; visual regression added)
-5. **P11-FNC-007**: Missing @google/genai dev dependency — **Improvement** (was unused even in OLD)
-6. **P11-FNC-008**: Missing ultracite package — **Improvement** (intentional Biome direct usage)
-
----
-
 ## Recommendations
 
 1. **Low Priority (P11-FNC-002):**
@@ -421,7 +365,7 @@ Most dependency changes are intentional:
    - Create placeholder instrumentation-client.ts (P11-FNC-001)
 
 3. **No Action Required:**
-   - P11-FNC-003, P11-FNC-004, P11-FNC-005: Intentional improvements, fully implemented
-   - P11-FNC-006: Deprecated dependency correctly removed
-   - P11-FNC-007: Unused dependency correctly removed
-   - P11-FNC-008: Intentional tooling migration complete
+   - P11-IMP-001, P11-IMP-002, P11-IMP-003: Intentional improvements, fully implemented
+   - P11-IMP-004: Deprecated dependency correctly removed
+   - P11-IMP-005: Unused dependency correctly removed
+   - P11-IMP-006: Intentional tooling migration complete

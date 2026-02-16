@@ -1,49 +1,80 @@
-# Phase 7: State Management & Context Providers Comparison
+# Phase 7: State Management & Context Providers - Issues
 
-**Comparison Date:** 2026-02-15
-**Phase:** 7 - State Management and Context Providers
-**Status:** Completed
+**Phase Name:** State Management & Context Providers
+**Comparison Scope:** Auth Provider, Theme Provider, Data Stream Provider, Data Stream Handler, Request Context
+**Date Started:** 2026-02-15
+**Date Completed:** 2026-02-15
+
+## Issue Counts
+
+| Category | Count |
+|----------|-------|
+| UI Inconsistencies | 0 |
+| Bugs | 0 |
+| Broken Code | 0 |
+| Functional Discrepancies | 4 |
+| Improvement Only | 1 |
+| **Total** | **5** |
+
+### By Severity
+
+| Severity | Count |
+|----------|-------|
+| Critical | 0 |
+| High | 1 |
+| Medium | 2 |
+| Low | 2 |
+
+### Priority Order for Fixes
+1. **P7-FNC-001** - Auth state sync mechanism (affects multi-tab UX)
+2. **P7-FNC-002** - Artifact auto-visibility (affects streaming UX)
+3. **P7-FNC-003** - Suggestion accumulation (affects AI suggestion feature)
+4. **P7-FNC-004** - Status update (minor UI consistency)
+5. **P7-IMP-001** - Supabase client (architectural decision)
+
+## Table of Contents
+
+- [Issue Counts](#issue-counts)
+- [UI Inconsistencies](#ui-inconsistencies)
+- [Bugs](#bugs)
+- [Broken Code](#broken-code)
+- [Functional Discrepancies](#functional-discrepancies)
+- [Improvement Only](#improvement-only)
+- [Files with No Issues](#files-with-no-issues)
 
 ## VERIFICATION SUMMARY
 
 | Issue | Status | Timestamp |
-|-------|--------|----------|
+|-------|--------|-----------|
 | P7-FNC-001 | Verified (Improvement) | 2026-02-16T23:50:00Z |
 | P7-FNC-002 | Verified (Defect) | 2026-02-16T23:50:00Z |
 | P7-FNC-003 | Verified (Defect) | 2026-02-16T23:50:00Z |
 | P7-FNC-004 | Verified (Defect) | 2026-02-16T23:50:00Z |
 | P7-IMP-001 | Verified (Improvement) | 2026-02-16T23:50:00Z |
 
-## Files Compared
+## UI Inconsistencies
 
-### Context Providers
-| Component | OLD File | NEW File | Status |
-|-----------|----------|----------|--------|
-| Auth Provider | `archive/oldapp/components/auth-provider.tsx` | `features/auth/components/auth-provider.tsx` | Compared |
-| Theme Provider | `archive/oldapp/components/theme-provider.tsx` | `components/theme-provider.tsx` | Compared |
-| Data Stream Provider | `archive/oldapp/components/data-stream-provider.tsx` | `features/chat/hooks/use-data-stream.tsx` | Compared |
+*No UI inconsistencies identified in this phase.*
 
-### Data Stream Handler
-| Component | OLD File | NEW File | Status |
-|-----------|----------|----------|--------|
-| Data Stream Handler | `archive/oldapp/components/data-stream-handler.tsx` | `features/chat/components/data-stream-handler.tsx` | Compared |
+## Bugs
 
-### Request Context
-| Component | OLD File | NEW File | Status |
-|-----------|----------|----------|--------|
-| Request Context | `archive/oldapp/lib/request-context.ts` | `lib/api/context.ts` | Compared |
+*No bugs identified in this phase.*
 
----
+## Broken Code
 
-## Issues Identified
+*No broken code identified in this phase.*
 
-## [P7-FNC-001] Missing Supabase Auth State Change Listener
+## Functional Discrepancies
 
-**Severity:** High
-**Status:** Verified (Improvement)
-**OLD File:** `archive/oldapp/components/auth-provider.tsx`
-**NEW File:** `features/auth/components/auth-provider.tsx`
-**Line Ref:** L102-L133
+### [P7-FNC-001] Missing Supabase Auth State Change Listener
+
+| Field | Value |
+|-------|-------|
+| **Issue ID** | P7-FNC-001 |
+| **Severity** | High |
+| **Status** | Verified (Improvement) |
+| **OLD Path** | `archive/oldapp/components/auth-provider.tsx:102-133` |
+| **NEW Path** | `features/auth/components/auth-provider.tsx` |
 
 **Description:**
 The OLD auth provider uses Supabase's `onAuthStateChange` listener for real-time authentication state synchronization across browser tabs. The NEW auth provider replaced this with a window focus event that fetches session from `/api/auth/session`.
@@ -88,12 +119,13 @@ useEffect(() => {
 **Suggested Fix:**
 If using NextAuth, consider implementing a polling mechanism or WebSocket-based session sync for real-time auth state updates. Alternatively, document this as intentional behavior change from Supabase Auth to NextAuth.
 
-**Verification:**
+#### Verification
+
 | Field | Value |
 |-------|-------|
+| **Verification Status** | Verified (Improvement) |
+| **Verified At** | 2026-02-16T23:50:00Z |
 | **Verified By** | ouroboros-qa |
-| **Timestamp** | 2026-02-16T23:50:00Z |
-| **Status** | Verified (Improvement) |
 
 **Findings:** This is an intentional architectural change from Supabase Auth to NextAuth, not a missing feature. Verified both implementations:
 
@@ -111,13 +143,15 @@ Reclassified as **Improvement**: The functionality change is an expected consequ
 
 ---
 
-## [P7-FNC-002] Missing Artifact Auto-Visibility Logic During Streaming
+### [P7-FNC-002] Missing Artifact Auto-Visibility Logic During Streaming
 
-**Severity:** Medium
-**Status:** Verified (Defect)
-**OLD File:** `archive/oldapp/artifacts/text/client.tsx`
-**NEW File:** `features/chat/components/data-stream-handler.tsx`
-**Line Ref:** L61-L71
+| Field | Value |
+|-------|-------|
+| **Issue ID** | P7-FNC-002 |
+| **Severity** | Medium |
+| **Status** | Verified (Defect) |
+| **OLD Path** | `archive/oldapp/artifacts/text/client.tsx:61-71` |
+| **NEW Path** | `features/chat/components/data-stream-handler.tsx` |
 
 **Description:**
 The OLD text artifact's `onStreamPart` handler includes logic to automatically show the artifact panel when streaming content reaches a certain length (400-450 characters). The NEW implementation is missing this visibility toggle logic.
@@ -185,13 +219,15 @@ Add the visibility toggle logic to the NEW text artifact stream handler:
 
 ---
 
-## [P7-FNC-003] Missing Suggestion Metadata Accumulation in Text Artifact
+### [P7-FNC-003] Missing Suggestion Metadata Accumulation in Text Artifact
 
-**Severity:** Medium
-**Status:** Verified (Defect)
-**OLD File:** `archive/oldapp/artifacts/text/client.tsx`
-**NEW File:** `features/chat/components/data-stream-handler.tsx`
-**Line Ref:** L61-L64
+| Field | Value |
+|-------|-------|
+| **Issue ID** | P7-FNC-003 |
+| **Severity** | Medium |
+| **Status** | Verified (Defect) |
+| **OLD Path** | `archive/oldapp/artifacts/text/client.tsx:61-64` |
+| **NEW Path** | `features/chat/components/data-stream-handler.tsx` |
 
 **Description:**
 The OLD text artifact's `onStreamPart` handler properly accumulates suggestions into the metadata array. The NEW implementation replaces the entire metadata instead of appending.
@@ -232,12 +268,13 @@ if (streamPart.type === "data-suggestion") {
 }
 ```
 
-**Verification:**
+#### Verification
+
 | Field | Value |
 |-------|-------|
+| **Verification Status** | Verified (Defect) |
+| **Verified At** | 2026-02-16T23:50:00Z |
 | **Verified By** | ouroboros-qa |
-| **Timestamp** | 2026-02-16T23:50:00Z |
-| **Status** | Verified (Defect) |
 
 **Findings:** Confirmed defect. Critical semantic difference between OLD accumulation and NEW replacement:
 
@@ -251,13 +288,15 @@ Impact: During text artifact streaming, if the AI generates multiple inline sugg
 
 ---
 
-## [P7-FNC-004] Missing Status Update in Text Delta Handler
+### [P7-FNC-004] Missing Status Update in Text Delta Handler
 
-**Severity:** Low
-**Status:** Verified (Defect)
-**OLD File:** `archive/oldapp/artifacts/text/client.tsx`
-**NEW File:** `features/chat/components/data-stream-handler.tsx`
-**Line Ref:** L65-L70
+| Field | Value |
+|-------|-------|
+| **Issue ID** | P7-FNC-004 |
+| **Severity** | Low |
+| **Status** | Verified (Defect) |
+| **OLD Path** | `archive/oldapp/artifacts/text/client.tsx:65-70` |
+| **NEW Path** | `features/chat/components/data-stream-handler.tsx` |
 
 **Description:**
 The OLD text artifact handler explicitly sets `status: "streaming"` during text delta processing. The NEW implementation doesn't update the status field.
@@ -298,12 +337,13 @@ setArtifact((draft) => ({
 }));
 ```
 
-**Verification:**
+#### Verification
+
 | Field | Value |
 |-------|-------|
+| **Verification Status** | Verified (Defect) |
+| **Verified At** | 2026-02-16T23:50:00Z |
 | **Verified By** | ouroboros-qa |
-| **Timestamp** | 2026-02-16T23:50:00Z |
-| **Status** | Verified (Defect) |
 
 **Findings:** Confirmed defect, though impact is nuanced. Traced the status management in detail:
 
@@ -317,33 +357,25 @@ The real gap: if the FIRST event is a `data-textDelta` (before any `data-id`/`da
 
 Classified as **Defect** because the explicit status guarantee in OLD is lost. The fix is trivial: add `status: "streaming"` to the text delta handler.
 
----
+## Improvement Only
 
-## [P7-IMP-001] Missing Supabase Browser Client
+### [P7-IMP-001] Missing Supabase Browser Client
 
-**Severity:** Low
-**Status:** Verified (Improvement)
-**OLD File:** `archive/oldapp/lib/auth/client.ts`
-**NEW File:** N/A (Not migrated)
-**Line Ref:** L1-L23
-
-**Description:**
-The OLD app has a Supabase browser client (`getSupabaseBrowserClient`) that provides singleton access to the Supabase client for browser-side operations. This file was not migrated to the NEW app.
-
-**Impact:**
-- No impact if NextAuth completely replaces Supabase Auth
-- If Supabase is still used for other features (realtime, storage), those features won't work
-- Architectural decision - may be intentional migration away from Supabase
-
-**Suggested Fix:**
-If Supabase is still needed for other features, migrate the browser client. Otherwise, document this as an intentional architectural change.
-
-**Verification:**
 | Field | Value |
 |-------|-------|
+| **Issue ID** | P7-IMP-001 |
+| **Location** | `archive/oldapp/lib/auth/client.ts:1-23` |
+
+**Description:** The OLD app has a Supabase browser client (`getSupabaseBrowserClient`) that provides singleton access to the Supabase client for browser-side operations. This file was not migrated to the NEW app. No impact if NextAuth completely replaces Supabase Auth. If Supabase is still used for other features (realtime, storage), those features won't work. Architectural decision - may be intentional migration away from Supabase.
+**Status:** Enhancement - No action required.
+
+#### Verification
+
+| Field | Value |
+|-------|-------|
+| **Verification Status** | Verified (Improvement) |
+| **Verified At** | 2026-02-16T23:50:00Z |
 | **Verified By** | ouroboros-qa |
-| **Timestamp** | 2026-02-16T23:50:00Z |
-| **Status** | Verified (Improvement) |
 
 **Findings:** Confirmed as intentional architectural change. The `getSupabaseBrowserClient()` singleton in `archive/oldapp/lib/auth/client.ts:7-22` uses `createBrowserClient` from `@supabase/ssr` with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` env vars. This client was used by the OLD auth provider for `supabase.auth.onAuthStateChange()` (the only consumer in `archive/oldapp/components/auth-provider.tsx:102`).
 
@@ -356,7 +388,24 @@ Verified via `file_search` and `grep_search`:
 
 The Supabase browser client was exclusively used for auth state listening. Since NextAuth replaces Supabase Auth entirely, the browser client has zero consumers in the new architecture. No other Supabase features (realtime subscriptions, storage buckets, edge functions) are used in the new codebase. This is a correct, intentional omission — not a missing migration.
 
----
+## Files Compared
+
+### Context Providers
+| Component | OLD File | NEW File | Status |
+|-----------|----------|----------|--------|
+| Auth Provider | `archive/oldapp/components/auth-provider.tsx` | `features/auth/components/auth-provider.tsx` | Compared |
+| Theme Provider | `archive/oldapp/components/theme-provider.tsx` | `components/theme-provider.tsx` | Compared |
+| Data Stream Provider | `archive/oldapp/components/data-stream-provider.tsx` | `features/chat/hooks/use-data-stream.tsx` | Compared |
+
+### Data Stream Handler
+| Component | OLD File | NEW File | Status |
+|-----------|----------|----------|--------|
+| Data Stream Handler | `archive/oldapp/components/data-stream-handler.tsx` | `features/chat/components/data-stream-handler.tsx` | Compared |
+
+### Request Context
+| Component | OLD File | NEW File | Status |
+|-----------|----------|----------|--------|
+| Request Context | `archive/oldapp/lib/request-context.ts` | `lib/api/context.ts` | Compared |
 
 ## Files with No Issues
 
@@ -371,22 +420,3 @@ The NEW request context at `lib/api/context.ts` is an enhanced version of the OL
 - Extended `RequestContext` interface with `isGuest`, `clientIp`, `userAgent` fields
 - Additional helper functions: `getApiContext`, `getClientIp`, `getSearchParams`, `validateOrigin`, `withRequestContext`
 - Better type safety and documentation
-
----
-
-## Summary
-
-| Category | Count |
-|----------|-------|
-| Critical | 0 |
-| High | 1 |
-| Medium | 2 |
-| Low | 2 |
-| **Total** | **5** |
-
-### Priority Order for Fixes
-1. **P7-FNC-001** - Auth state sync mechanism (affects multi-tab UX)
-2. **P7-FNC-002** - Artifact auto-visibility (affects streaming UX)
-3. **P7-FNC-003** - Suggestion accumulation (affects AI suggestion feature)
-4. **P7-FNC-004** - Status update (minor UI consistency)
-5. **P7-IMP-001** - Supabase client (architectural decision)
