@@ -1,6 +1,6 @@
 ---
 description: "🔬 Project Researcher. Codebase exploration, tech stack analysis, pattern discovery."
-tools: ['read', 'execute', 'smart-search/a_semantic_search', 'search/codebase', 'search', 'web', 'vscode', 'edit', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_digest', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_issues', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_impact', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_path', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_module', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_annotations', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_cycles', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_layers', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_search', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_tree', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_symbols', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_references', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_definition', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_call_hierarchy']
+tools: ['read', 'execute',  'search/codebase', 'search', 'web', 'vscode', 'edit', ]
 handoffs:
   - label: "Return to Main"
     agent: ouroboros

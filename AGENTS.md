@@ -23,7 +23,7 @@ Next.js AI chatbot with multi-model support, artifact management, real-time stre
 | `pnpm typecheck` | TypeScript type checking (`tsc --noEmit`) | **Zero errors** |
 | `pnpm lint` | Biome lint check (`biome check .`) | **Zero errors** |
 | `pnpm lint:fix` | Auto-fix lint issues (`biome check --write .`) | Use when lint fails |
-| `pnpm format` | Auto-format (`biome format --write .`) | Run after code changes |
+| `pnpm format` | Auto-format (`biome format --write .`) | Always Run after code changes and before lint and format verification |
 
 ### Testing
 
@@ -157,8 +157,8 @@ Verify before implementation — install missing with `pnpm add <package>`:
 - **Autonomous Execution**: All agents execute without user confirmation between steps. Only pause for critical ambiguity that cannot be resolved from context
 - **Logging Obligation**: All significant work, findings, and decisions must be logged:
   - Task execution details → Memory Logs (`.apm/Memory/`)
-  - Issues and irregularities → `global-issues.md`
-  - Generalizable insights → `AGENTS.md` (Contributions Log)
+ **CRITICAL** - Issues and irregularities → `global-issues.md`
+ **CRITICAL** - Generalizable insights → `AGENTS.md` (Contributions Log)
 - **Scope Discipline**: Stay within assigned task scope. Scope expansion requires justification, Memory Log entry, and a flag in the Final Task Report
 
 ### Workflow Re-Read (MANDATORY — ALL AGENTS)

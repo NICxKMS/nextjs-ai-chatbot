@@ -1,0 +1,52 @@
+/**
+ * Greeting Component
+ *
+ * Welcome message displayed when no chat is active.
+ *
+ * @module features/chat/components/greeting
+ */
+
+import { motion } from "@/lib/motion"
+
+/** Model metadata for displaying available models count */
+type ModelMetadata = {
+	id: string
+	name: string
+	description?: string
+}
+
+type GreetingProps = {
+	availableModels?: ModelMetadata[]
+}
+
+export const Greeting = ({ availableModels }: GreetingProps) => {
+	const modelCount = availableModels?.length ?? 0
+
+	return (
+		<div
+			className="mx-auto mt-4 flex size-full min-h-[120px] max-w-3xl flex-col justify-center px-4 md:mt-16 md:px-8"
+			key="overview"
+		>
+			<motion.div
+				animate={{ opacity: 1, y: 0 }}
+				className="font-semibold text-xl md:text-2xl"
+				exit={{ opacity: 0, y: 10 }}
+				initial={{ opacity: 0, y: 10 }}
+				transition={{ delay: 0.5 }}
+			>
+				Hello there!
+			</motion.div>
+			<motion.div
+				animate={{ opacity: 1, y: 0 }}
+				className="text-xl text-zinc-500 md:text-2xl"
+				exit={{ opacity: 0, y: 10 }}
+				initial={{ opacity: 0, y: 10 }}
+				transition={{ delay: 0.6 }}
+			>
+				{modelCount > 0
+					? `How can I help you today? You have access to ${modelCount} models.`
+					: "How can I help you today?"}
+			</motion.div>
+		</div>
+	)
+}

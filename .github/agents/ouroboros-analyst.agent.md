@@ -1,6 +1,6 @@
 ---
 description: "🔍 Senior Systems Analyst. Deep analysis, dependency mapping, impact assessment."
-tools: ['read', 'smart-search/a_semantic_search', 'search/codebase', 'search', 'web', 'vscode', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_digest', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_issues', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_impact', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_path', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_module', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_annotations', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_cycles', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_layers', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_search', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_tree', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_symbols', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_references', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_definition', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_call_hierarchy']
+tools: ['read','search/codebase', 'search', 'web', 'vscode', ]
 handoffs:
   - label: "Return to Main"
     agent: ouroboros

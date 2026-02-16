@@ -1,6 +1,6 @@
 ---
 description: "🚀 Ouroboros Init. First-time project research and architecture documentation."
-tools: ['agent', 'read', 'smart-search/a_semantic_search', 'search/codebase', 'search', 'execute', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_phase_progress', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_digest', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_issues', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_impact', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_path', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_module', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_annotations', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_cycles', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_layers', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_search', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_tree', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_symbols', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_references', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_definition', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_call_hierarchy']
+tools: ['agent', 'read', 'search/codebase', 'search', 'execute', 'mlgbjdlw.ouroboros-ai/ouroborosai_ask', 'mlgbjdlw.ouroboros-ai/ouroborosai_menu', 'mlgbjdlw.ouroboros-ai/ouroborosai_confirm', 'mlgbjdlw.ouroboros-ai/ouroborosai_plan_review', 'mlgbjdlw.ouroboros-ai/ouroborosai_agent_handoff', ]
 handoffs:
   - label: "Return to Orchestrator"
     agent: ouroboros
@@ -126,6 +126,14 @@ Status + [PHASE 1 COMPLETE]
 ```
 
 **After Phase 1**: Wait for user confirmation before Phase 2.
+
+> [!TIP]
+> **Parallel Opportunity**: If the project is large, you can dispatch `ouroboros-researcher` (broad scan) and `ouroboros-analyst` (deep dependency analysis) **in parallel** during Phase 1, since both are read-only:
+> ```javascript
+> // ✅ PARALLEL: Both read-only — researcher scans structure, analyst maps dependencies
+> runSubagent(agent: "ouroboros-researcher", prompt: `[Phase 1] Scan project structure...`)
+> runSubagent(agent: "ouroboros-analyst", prompt: `[Phase 1] Analyze deep dependencies...`)
+> ```
 
 ---
 

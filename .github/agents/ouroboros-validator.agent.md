@@ -1,6 +1,6 @@
 ---
 description: "✅ Spec Validator. Cross-document consistency, coverage analysis, gap detection."
-tools: ['read', 'execute', 'edit', 'smart-search/a_semantic_search', 'search/codebase', 'search', 'vscode', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_digest', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_issues', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_impact', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_path', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_module', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_annotations', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_cycles', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_layers', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_search', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_tree', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_symbols', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_references', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_definition', 'mlgbjdlw.ouroboros-ai/ouroborosai_graph_call_hierarchy']
+tools: ['read', 'execute', 'edit', 'search/codebase', 'search', 'vscode', ]
 handoffs:
   - label: "Return to Main"
     agent: ouroboros

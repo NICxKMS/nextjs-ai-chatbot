@@ -1,0 +1,1954 @@
+# Code Comparison: Old vs New Application
+
+**Generated:** 2026-02-14
+**Purpose:** Exhaustive comparison between `archive/oldapp/` and new application codebase
+
+## Summary Statistics
+
+| Metric | Count |
+|--------|-------|
+| Total Issues Found | 96 |
+| Critical | 19 |
+| High | 29 |
+| Medium | 33 |
+| Low | 15 |
+
+## Comparison Progress
+
+| Category | Status | Issues Found |
+|----------|--------|--------------|
+| Layout & Global Styles | Complete | 4 |
+| Chat Layout & Page | Complete | 11 |
+| Individual Chat Page [id] | Complete | 6 |
+| Authentication Pages | Complete | 10 |
+| Error Pages | Complete | 5 |
+| UI Primitives Part 1 (Button, Input, Textarea, Label, Badge) | Complete | 2 |
+| UI Primitives Part 2 (Card, Sheet, AlertDialog, DropdownMenu) | Complete | 0 |
+| UI Primitives Part 3 (Sidebar, ScrollArea, Separator, Skeleton, Progress, Tooltip) | Complete | 1 |
+| UI Primitives Part 4 (Select, Avatar, Carousel, Collapsible, HoverCard, Switch, Slider) | Complete | 0 |
+| Shared Components Part 1 (Chat, Messages, Message) | Complete | 22 |
+| Shared Components Part 2 (Sidebar Components) | Complete | 12 |
+| Shared Components Part 3 (Artifact Components) | Complete | 19 |
+| Hooks | Complete | 4 |
+| Utilities (lib/) | Pending | - |
+| API Routes | Pending | - |
+| State Management | Pending | - |
+| Middleware | Pending | - |
+| Type Definitions | Pending | - |
+| Configuration | Pending | - |
+
+---
+
+## Issues by Category
+
+### UI Inconsistencies
+
+| Issue | Severity | Location |
+|-------|----------|----------|
+| CodeMirror selection styles use incorrect class names | Medium | app/globals.css |
+| Error message lost context specificity | Medium | app/error.tsx |
+| Auth form layout wrapper changed (minor visual difference) | Low | app/(auth)/layout.tsx |
+| Separator replaced with custom implementation (missing Radix accessibility) | Medium | components/ui/separator.tsx |
+| Chat component missing AnimatePresence for ThinkingMessage | Medium | features/chat/components/messages.tsx |
+| Message component missing motion animations | Medium | features/chat/components/message.tsx |
+| MessageEditor missing UI components (uses plain HTML) | Medium | features/chat/components/message-editor.tsx |
+| Different empty state message in SidebarHistory | Medium | features/sidebar/components/sidebar-history.tsx |
+| Different close button icon in artifact panel | Low | features/artifact/components/artifact-close.tsx |
+
+### Bugs
+
+| Issue | Severity | Location |
+|-------|----------|----------|
+| Vote fetching missing user filter - exposes all votes | Critical | lib/data/repositories/vote.repository.ts |
+| convertToUIMessages missing message ID validation | Medium | app/(chat)/chat/[id]/page.tsx |
+| Error logging added in new app (security concern) | Low | app/error.tsx, app/global-error.tsx |
+| Chat component missing fetchWithErrorHandlers | High | features/chat/components/chat.tsx |
+| Chat component missing data stream handlers | High | features/chat/components/chat.tsx |
+| Messages component missing useDataStream hook | High | features/chat/components/messages.tsx |
+| Messages component missing autoScroll setting check | High | features/chat/components/messages.tsx |
+| Message component missing tool implementations | High | features/chat/components/message.tsx |
+| MessageActions missing SWR cache mutation | Medium | features/chat/components/message-actions.tsx |
+| MessageEditor missing server action integration | Medium | features/chat/components/message-editor.tsx |
+| Missing ChevronUp icon in dropdown trigger | High | features/sidebar/components/sidebar-user-nav.tsx |
+| Missing SWR cache clearing on logout | High | features/sidebar/components/sidebar-user-nav.tsx |
+| Missing Supabase client signOut call | High | features/sidebar/components/sidebar-user-nav.tsx |
+| Missing error toast on logout failure | Medium | features/sidebar/components/sidebar-user-nav.tsx |
+| Missing loading state toast | Medium | features/sidebar/components/sidebar-user-nav.tsx |
+| Missing isNewSession optimization | High | features/sidebar/components/sidebar-history.tsx |
+| Manual "Load More" button instead of infinite scroll | High | features/sidebar/components/sidebar-history.tsx |
+| Missing chat deduplication by ID | High | features/sidebar/components/sidebar-history.tsx |
+
+### Broken Code
+
+| Issue | Severity | Location |
+|-------|----------|----------|
+| Missing confirmPassword field in register form - registration completely broken | Critical | features/auth/components/auth-form.tsx |
+| Missing OptimisticChatsProvider in chat layout | Critical | app/(chat)/layout.tsx |
+| Missing SettingsProvider in chat layout | Critical | app/(chat)/layout.tsx |
+| Chat component missing core functionality - placeholder implementation | Critical | features/chat/components/chat.tsx |
+| Messages component missing virtualization - performance issue | Critical | features/chat/components/messages.tsx |
+| Message component missing MessageReasoning integration | Medium | features/chat/components/message.tsx |
+| Message component missing MessageEditor integration | Medium | features/chat/components/message.tsx |
+| Message component missing MessageActions integration | Medium | features/chat/components/message.tsx |
+| Message component missing PreviewAttachment | Medium | features/chat/components/message.tsx |
+| Message component uses sanitizeHtml instead of sanitizeText | Medium | features/chat/components/message.tsx |
+| Message component missing Response component | Medium | features/chat/components/message.tsx |
+| MessageReasoning missing collapsible component integration | Medium | features/chat/components/message-reasoning.tsx |
+| MessageReasoning missing default open behavior | Medium | features/chat/components/message-reasoning.tsx |
+| Missing virtualization (GroupedVirtuoso) in SidebarHistory | Critical | features/sidebar/components/sidebar-history.tsx |
+| Missing optimistic chats integration in SidebarHistory | Critical | features/sidebar/components/sidebar-history.tsx |
+| Missing chat title update event listener | Critical | features/sidebar/components/sidebar-history.tsx |
+| Missing ArtifactMessages component | Critical | features/artifact/components/ |
+| Missing Artifact class definition | Critical | features/artifact/types.ts |
+| Missing MultimodalInput in artifact panel | Critical | features/artifact/components/artifact-panel.tsx |
+| Missing Toolbar component in artifact panel | Critical | features/artifact/components/artifact-panel.tsx |
+| Missing artifact type definitions (textArtifact, codeArtifact, etc.) | High | features/artifact/ |
+| Missing VersionFooter component integration | High | features/artifact/components/artifact-panel.tsx |
+| Missing AnimatePresence and motion animations in artifact panel | High | features/artifact/components/artifact-panel.tsx |
+| Missing useWindowSize hook in artifact panel | High | features/artifact/components/artifact-panel.tsx |
+| Missing useSidebar hook integration in artifact panel | High | features/artifact/components/artifact-panel.tsx |
+| Missing artifact actions implementation | High | features/artifact/components/artifact-actions.tsx |
+| Missing diff mode implementation | Medium | features/artifact/components/artifact-panel.tsx |
+
+### Functional Discrepancies
+
+| Issue | Severity | Location |
+|-------|----------|----------|
+| Missing Vercel Analytics and Speed Insights components | Critical | app/layout.tsx |
+| Missing head.tsx with preconnect/dns-prefetch links | High | app/layout.tsx |
+| Missing email confirmation flow in register | High | features/auth/actions/register.action.ts |
+| Different post-login redirect path (/chat vs /) | High | features/auth/actions/login.action.ts |
+| Different post-registration redirect path | High | features/auth/actions/register.action.ts |
+| Missing Pyodide script for Python code execution | High | app/(chat)/layout.tsx |
+| Missing notice toast handler for redirects | High | app/(chat)/layout.tsx |
+| Missing loading.tsx for chat route | High | app/(chat)/loading.tsx |
+| Missing error.tsx for chat route | High | app/(chat)/error.tsx |
+| Missing loading.tsx for chat [id] route | High | app/(chat)/chat/[id]/loading.tsx |
+| Missing "Go Home" navigation in error boundary | High | app/error.tsx |
+| Chat component missing visibility/artifact/settings integration | Medium | features/chat/components/chat.tsx |
+| Missing dynamic import for AppSidebar | Medium | app/(chat)/layout.tsx |
+| Chat service ownership check throws vs returns null | Medium | lib/data/services/chat.service.ts |
+| Error handling changed from toast to inline | Medium | app/(auth)/login/page.tsx |
+| Missing defaultEmail prop usage in login page | Medium | app/(auth)/login/page.tsx |
+| Auth layout redirects authenticated users | Medium | app/(auth)/layout.tsx |
+| Layout props handling changed | Medium | app/(chat)/layout.tsx |
+| Missing success toast on registration | Low | features/auth/actions/register.action.ts |
+| Submit button implementation changed - missing success state | Low | app/(auth)/login/page.tsx |
+| Chat component missing Greeting import | Low | features/chat/components/messages.tsx |
+| Message component missing MessageContent component | Low | features/chat/components/message.tsx |
+| Message component missing SparklesIcon import | Low | features/chat/components/message.tsx |
+| MessageActions missing icon imports | Low | features/chat/components/message-actions.tsx |
+| MessageReasoning missing icon import | Low | features/chat/components/message-reasoning.tsx |
+| Artifact panel props significantly reduced | Medium | features/artifact/components/artifact-panel.tsx |
+| Missing onStreamPart handler | Medium | features/artifact/types.ts |
+| Missing artifact initialization | Medium | features/artifact/components/artifact-panel.tsx |
+| Different metadata management approach | Medium | features/artifact/hooks/use-artifact.ts |
+
+### Improvement Only
+
+| Feature | Location |
+|---------|----------|
+| Metadata title/description capitalization corrected ("AI Assistant") | app/layout.tsx |
+| UUID generation uses native crypto.randomUUID() | app/(chat)/page.tsx |
+| Model metadata transformation for cleaner interface | app/(chat)/page.tsx |
+| Service context simplified from data context | app/(chat)/chat/[id]/page.tsx |
+| Default model fallback chain improved | app/(chat)/chat/[id]/page.tsx |
+| Global error page with custom UI and refresh button | app/global-error.tsx |
+| Not-found page added (new feature) | app/not-found.tsx |
+| Card component adds CardAction sub-component | components/ui/card.tsx |
+| Skeleton component adds ref forwarding | components/ui/skeleton.tsx |
+| DropdownMenuCheckboxItem has default checked=false | components/ui/dropdown-menu.tsx |
+| SidebarItem improved memoization with chat.visibility and chat.id | features/sidebar/components/sidebar-item.tsx |
+| SidebarToggle uses lucide-react PanelLeft icon | features/sidebar/components/sidebar-toggle.tsx |
+| AppSidebar uses server actions instead of direct fetch calls | features/sidebar/components/sidebar.tsx |
+| Artifact close button has optional onClose prop (enhancement) | features/artifact/components/artifact-close.tsx |
+| Artifact error boundary uses proper TypeScript override keyword | features/artifact/components/artifact-error-boundary.tsx |
+
+---
+
+## Detailed Findings
+
+### UI Inconsistencies
+
+#### Medium Severity
+
+## CodeMirror Selection Class Names Changed
+**File:** app/globals.css
+**Severity:** Medium
+**Issue:** CodeMirror selection styles reference different class names between old and new applications
+**Old Code:** archive/oldapp/app/globals.css:225-229
+  ```css
+  ._GRAPHICAL_CURSOR_STYLE.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground,
+  .GRAPHICAL_CURSOR_STYLE.cm-selectionBackground,
+  .GRAPHICAL_CURSOR_STYLE.cm-content::selection {
+  ```
+**New Code:** app/globals.css:225-229
+  ```css
+  ._GRAPHICAL_CURSOR_STYLE.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground,
+  .GRAPHICAL_CURSOR_STYLE.cm-selectionBackground,
+  .GRAPHICAL_CURSOR_STYLE.cm-content::selection {
+  ```
+**Impact:** CodeMirror editor selection highlighting may not work correctly if the actual generated class names don't match these selectors. The old code used `.GRAPHICAL_CURSOR_STYLE` while new uses `._GRAPHICAL_CURSOR_STYLE` (with underscore prefix) and `.GRAPHICAL_CURSOR_STYLE` without the `.` prefix on the second selector appears to be a typo.
+**Remediation:** Verify the actual CodeMirror class names generated at runtime and ensure CSS selectors match. The inconsistency suggests possible copy-paste error or incomplete migration.
+
+## Error Message Lost Context Specificity
+**File:** app/error.tsx
+**Severity:** Medium
+**Issue:** The old app's error boundary had a context-specific message: "An error occurred while loading this chat. You can try again or return to the home page." The new app uses a generic message: "An unexpected error occurred. Please try again. If the problem persists, contact support."
+**Old Code:** archive/oldapp/app/(chat)/error.tsx:23-26
+  ```tsx
+  <p className="max-w-md text-muted-foreground text-sm">
+      An error occurred while loading this chat. You can try again
+      or return to the home page.
+  </p>
+  ```
+**New Code:** app/error.tsx:49-52
+  ```tsx
+  <p className="max-w-md text-muted-foreground">
+      An unexpected error occurred. Please try again. If the
+      problem persists, contact support.
+  </p>
+  ```
+**Impact:** Users lose context about where the error occurred. The old message helped users understand the error was chat-related. The new generic message is less helpful for troubleshooting.
+**Remediation:** Consider making the error message context-aware, or at minimum restore the chat-specific context since this error boundary is at the root level.
+
+## Separator Replaced with Custom Implementation
+**File:** components/ui/separator.tsx
+**Severity:** Medium
+**Issue:** The new Separator component does NOT use Radix UI primitive. It's a custom implementation using a plain `<div>` element instead of `SeparatorPrimitive.Root`. While the functionality is preserved (orientation, decorative prop), the Radix primitive provides additional accessibility features that may be missing.
+**Old Code:** archive/oldapp/components/ui/separator.tsx:12-33
+  ```tsx
+  const Separator = forwardRef<
+      ElementRef<typeof SeparatorPrimitive.Root>,
+      ComponentPropsWithoutRef<typeof SeparatorPrimitive.Root>
+  >(
+      (
+          { className, orientation = "horizontal", decorative = true, ...props },
+          ref
+      ) => (
+          <SeparatorPrimitive.Root
+              className={cn(
+                  "shrink-0 bg-border",
+                  orientation === "horizontal"
+                      ? "h-[1px] w-full"
+                      : "h-full w-[1px]",
+                  className
+              )}
+              decorative={decorative}
+              orientation={orientation}
+              ref={ref}
+              {...props}
+          />
+      )
+  );
+  ```
+**New Code:** components/ui/separator.tsx:20-38
+  ```tsx
+  const Separator = forwardRef<HTMLDivElement, SeparatorProps>(
+      (
+          { className, orientation = "horizontal", decorative = true, ...props },
+          ref,
+      ) => (
+          <div
+              className={cn(
+                  "shrink-0 bg-border",
+                  orientation === "horizontal"
+                      ? "h-[1px] w-full"
+                      : "h-full w-[1px]",
+                  className,
+              )}
+              ref={ref}
+              role={decorative ? "none" : "separator"}
+              {...props}
+          />
+      ),
+  )
+  ```
+**Impact:** The Radix Separator primitive automatically handles accessibility attributes like `aria-orientation` and ensures proper screen reader behavior. The custom implementation manually sets `role={decorative ? "none" : "separator"}` but may miss other accessibility features that Radix provides automatically. This could affect screen reader users.
+**Remediation:** Consider restoring the Radix UI Separator primitive for better accessibility, or ensure all necessary ARIA attributes are manually implemented in the custom version.
+
+## Chat Component Missing AnimatePresence for Thinking Message
+**File:** features/chat/components/messages.tsx
+**Severity:** Medium
+**Issue:** The new Messages component doesn't use AnimatePresence for the ThinkingMessage, losing the smooth enter/exit animations.
+**Old Code:** archive/oldapp/components/messages.tsx:170-176 - Uses AnimatePresence:
+  ```tsx
+  <AnimatePresence mode="wait">
+      {status === "submitted" && (
+          <div className="pb-4 md:pb-6">
+              <ThinkingMessage key="thinking" />
+          </div>
+      )}
+  </AnimatePresence>
+  ```
+**New Code:** features/chat/components/messages.tsx:205-209 - No animation wrapper:
+  ```tsx
+  {status === "submitted" && (
+      <div className="pb-4 md:pb-6">
+          <ThinkingMessage key="thinking" />
+      </div>
+  )}
+  ```
+**Impact:** The "Thinking..." message appears/disappears abruptly instead of with a smooth fade animation. This creates a less polished user experience.
+**Remediation:** Import AnimatePresence from motion library and wrap the ThinkingMessage for smooth animations.
+
+## Message Component Missing Motion Animations
+**File:** features/chat/components/message.tsx
+**Severity:** Medium
+**Issue:** The new Message component uses CSS animation classes instead of Framer Motion for enter/exit animations.
+**Old Code:** archive/oldapp/components/message.tsx:61-67, 364-371 - Uses motion.div with animate/initial/exit:
+  ```tsx
+  <motion.div
+      animate={{ opacity: 1 }}
+      initial={{ opacity: 0 }}
+      exit={{ opacity: 0, transition: { duration: 0.5 } }}
+      ...
+  >
+  ```
+**New Code:** features/chat/components/message.tsx:98-101 - Uses CSS classes:
+  ```tsx
+  <div className="group/message w-full animate-in fade-in-0" ...>
+  ```
+**Impact:** Animations are less smooth and controllable. The ThinkingMessage doesn't have the exit animation with custom duration. The animation consistency across the app is reduced.
+**Remediation:** Import motion from @/lib/motion and use motion.div for message animations.
+
+## MessageEditor Missing UI Components
+**File:** features/chat/components/message-editor.tsx
+**Severity:** Medium
+**Issue:** The new MessageEditor uses plain HTML elements instead of the Button and Textarea UI components.
+**Old Code:** archive/oldapp/components/message-editor.tsx:61-77 - Uses UI components:
+  ```tsx
+  <Textarea className="w-full resize-none overflow-hidden ..." ... />
+  <Button className="h-fit px-3 py-2" onClick={() => setMode("view")} variant="outline">
+      Cancel
+  </Button>
+  <Button className="h-fit px-3 py-2" ... variant="default">
+      {isSubmitting ? "Sending..." : "Send"}
+  </Button>
+  ```
+**New Code:** features/chat/components/message-editor.tsx:171-197 - Uses plain elements:
+  ```tsx
+  <textarea className="w-full resize-none overflow-hidden ..." ... />
+  <button className="h-fit px-3 py-2 text-sm font-medium rounded-md border ..." ...>
+      Cancel
+  </button>
+  <button className="h-fit px-3 py-2 text-sm font-medium rounded-md bg-primary ..." ...>
+      {isSubmitting ? "Sending..." : "Send"}
+  </button>
+  ```
+**Impact:** Styling inconsistencies with the rest of the app. The buttons and textarea may not match the design system. Focus states, disabled states, and hover effects may differ.
+**Remediation:** Import and use Button and Textarea components from @/components/ui.
+
+## Different Empty State Message
+**File:** features/sidebar/components/sidebar-history.tsx
+**Severity:** Medium
+**Issue:** The empty state message differs between old and new apps.
+**Old Code:** archive/oldapp/components/sidebar-history.tsx:514-516 - "Your conversations will appear here once you start chatting!"
+**New Code:** features/sidebar/components/sidebar-history.tsx:312-314 - "No chats yet. Start a new conversation!"
+**Impact:** Minor UX difference. The old message was more conversational.
+**Remediation:** Use the original message for consistency.
+
+#### Low Severity
+
+## Auth Form Layout Wrapper Changed
+**File:** app/(auth)/login/page.tsx, app/(auth)/register/page.tsx
+**Severity:** Low
+**Issue:** The old auth pages included full-page layout wrapper with `h-dvh w-screen` styling. The new pages rely on the auth layout for the wrapper, making the pages themselves simpler.
+**Old Code:** archive/oldapp/app/(auth)/login/page.tsx:97-98 - `<div className="flex h-dvh w-screen items-start justify-center bg-background pt-12 md:items-center md:pt-0">`
+**New Code:** app/(auth)/layout.tsx:45-47 - `<div className="flex min-h-screen w-full items-center justify-center bg-background p-4">`
+**Impact:** Minor visual difference - old app had `pt-12 md:pt-0` (top padding on mobile), new app has `p-4` (equal padding). The visual appearance may differ slightly on mobile devices.
+**Remediation:** Verify visual appearance matches design intent. The difference is minimal and may be intentional.
+
+## Different Close Button Icon
+**File:** features/artifact/components/artifact-close.tsx
+**Severity:** Low
+**Issue:** The close button uses a different icon source (lucide-react X vs custom CrossIcon).
+**Old Code:** archive/oldapp/components/artifact-close-button.tsx:3,25
+  ```typescript
+  import { CrossIcon } from "./icons";
+  <CrossIcon size={18} />
+  ```
+**New Code:** features/artifact/components/artifact-close.tsx:11,44
+  ```typescript
+  import { X } from "lucide-react"
+  <X size={18} />
+  ```
+**Impact:** Visual difference only. The icon may look slightly different.
+**Remediation:** None required if the visual appearance is acceptable.
+
+---
+
+### Bugs
+
+#### Critical Severity
+
+## Vote Fetching Missing User Filter
+**File:** lib/data/repositories/vote.repository.ts
+**Severity:** Critical
+**Issue:** The new app's vote fetching uses `voteRepository.findByChatId(id, ctx)` which only filters by chatId, while the old app used `getVotesByChatIdAndUserId({ chatId, userId })` filtering by BOTH chatId AND userId. This is a security/data isolation issue.
+**Old Code:** archive/oldapp/lib/db/queries.ts:156-160 - `where(and(eq(vote.chatId, chatId), eq(vote.userId, userId)))`
+**New Code:** lib/data/repositories/vote.repository.ts:599-603 - `where(eq(vote.chatId, chatId))` - missing userId filter
+**Impact:** The new implementation returns ALL votes for a chat, not just the current user's votes. This could expose other users' vote data if they voted on messages in the same chat. In a shared/public chat scenario, users would see votes from all participants, not just their own.
+**Remediation:** Add userId filter to the vote query in voteRepository.findByChatId or use a different method that includes userId filtering. The page should call a method like `findByChatIdAndUserId(chatId, userId, ctx)` instead.
+
+#### High Severity
+
+## Chat Component Missing fetchWithErrorHandlers
+**File:** features/chat/components/chat.tsx
+**Severity:** High
+**Issue:** The new Chat component uses the default fetch instead of the custom fetchWithErrorHandlers that handles authentication errors and session expiry.
+**Old Code:** archive/oldapp/components/chat.tsx:200-202 - `fetch: fetchWithErrorHandlers` in transport config
+**New Code:** features/chat/components/chat.tsx:132-144 - No custom fetch, uses default
+**Impact:** Authentication errors and session expiry won't be handled properly. Users with expired sessions won't be redirected to login, instead they'll see generic errors or the app will behave unexpectedly.
+**Remediation:** Import and use fetchWithErrorHandlers from lib/utils or lib/api for proper error handling.
+
+## Chat Component Missing Data Stream Handlers
+**File:** features/chat/components/chat.tsx
+**Severity:** High
+**Issue:** The new Chat component's onData handler only handles "data-usage" type, missing handlers for artifact streaming, title updates, and message appending.
+**Old Code:** archive/oldapp/components/chat.tsx:216-251 - Handles multiple data types:
+  - data-usage (line 220-222)
+  - data-chat-title with updateOptimisticChatTitle (line 223-226)
+  - data-appendMessage with JSON parsing and validation (line 227-250)
+  - Artifact streaming via setDataStream (line 217-219)
+**New Code:** features/chat/components/chat.tsx:146-152 - Only handles data-usage:
+  ```tsx
+  onData: (dataPart) => {
+      if (dataPart.type === "data-usage") {
+          setUsage(dataPart.data as AppUsage)
+      }
+  },
+  ```
+**Impact:** Artifacts won't stream in real-time, chat titles won't update optimistically, and dynamically appended messages (like from tools) won't appear. The streaming experience is significantly degraded.
+**Remediation:** Add all data type handlers from the old app, including artifact streaming, title updates, and message appending.
+
+## Messages Component Missing useDataStream Hook
+**File:** features/chat/components/messages.tsx
+**Severity:** High
+**Issue:** The new Messages component doesn't call useDataStream() hook which is required for artifact streaming to work.
+**Old Code:** archive/oldapp/components/messages.tsx:46 - `useDataStream();` called at component start
+**New Code:** features/chat/components/messages.tsx - No useDataStream import or call
+**Impact:** Artifact streaming won't work. The data stream context won't be consumed, so real-time artifact updates during AI response streaming won't be displayed.
+**Remediation:** Import and call useDataStream hook from the data-stream-provider.
+
+## Messages Component Missing useSettingsSnapshot for Auto-Scroll
+**File:** features/chat/components/messages.tsx
+**Severity:** High
+**Issue:** The new Messages component doesn't check the autoScroll setting from user preferences before auto-scrolling.
+**Old Code:** archive/oldapp/components/messages.tsx:47,57-66 - Uses `const { autoScroll } = useSettingsSnapshot();` and checks it before scrolling:
+  ```tsx
+  useEffect(() => {
+      if (status === "submitted" && autoScroll) {
+          requestAnimationFrame(() => {
+              virtuosoRef.current?.scrollToIndex({ ... });
+          });
+      }
+  }, [status, autoScroll]);
+  ```
+**New Code:** features/chat/components/messages.tsx:89-94 - Always auto-scrolls without checking preference:
+  ```tsx
+  useEffect(() => {
+      if (status === "submitted") {
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
+  }, [status]);
+  ```
+**Impact:** Users who have disabled auto-scroll in settings will still have the view scrolled automatically. This ignores user preferences and can be disruptive for users who prefer manual scroll control.
+**Remediation:** Import useSettingsSnapshot and check the autoScroll setting before auto-scrolling.
+
+## Message Component Missing Tool Implementations
+**File:** features/chat/components/message.tsx
+**Severity:** High
+**Issue:** The new Message component has placeholder implementations for all tool invocations instead of the full implementations from the old app.
+**Old Code:** archive/oldapp/components/message.tsx:188-311 - Full tool implementations:
+  - tool-getWeather with Weather component (line 188-216)
+  - tool-createDocument with DocumentPreview and error handling (line 218-240)
+  - tool-updateDocument with DocumentPreview (line 242-269)
+  - tool-requestSuggestions with DocumentToolResult (line 271-311)
+**New Code:** features/chat/components/message.tsx:248-263 - Generic placeholder:
+  ```tsx
+  if (type.startsWith("tool-")) {
+      return (
+          <div key={key} className="...">
+              <div className="font-medium">Tool: {type}</div>
+              <div className="...">Tool result placeholder</div>
+          </div>
+      );
+  }
+  ```
+**Impact:** Weather display, document creation/updates, and suggestion requests won't render properly. Users will see generic "Tool result placeholder" instead of actual tool outputs like weather cards or document previews.
+**Remediation:** Implement all tool invocation UIs with their respective components (Weather, DocumentPreview, DocumentToolResult).
+
+## Missing ChevronUp Icon in Dropdown Trigger
+**File:** features/sidebar/components/sidebar-user-nav.tsx
+**Severity:** High
+**Issue:** The new SidebarUserNav is missing the ChevronUp icon that indicates the button is a dropdown trigger.
+**Old Code:** archive/oldapp/components/sidebar-user-nav.tsx:87 - `<ChevronUp className="ml-auto" />`
+**New Code:** features/sidebar/components/sidebar-user-nav.tsx:77-99 - No ChevronUp icon in SidebarMenuButton
+**Impact:** Users may not realize the user nav is clickable/expandable. Missing visual affordance for dropdown menu.
+**Remediation:** Add ChevronUp icon from lucide-react to the SidebarMenuButton, positioned with `className="ml-auto"`.
+
+## Missing SWR Cache Clearing on Logout
+**File:** features/sidebar/components/sidebar-user-nav.tsx
+**Severity:** High
+**Issue:** The new implementation doesn't clear the SWR cache when signing out, which could show stale data.
+**Old Code:** archive/oldapp/components/sidebar-user-nav.tsx:139-147 - Uses `mutate(unstable_serialize(getChatHistoryPaginationKey), undefined, { revalidate: false })`
+**New Code:** features/sidebar/components/sidebar-user-nav.tsx:136-143 - Just redirects without clearing cache
+**Impact:** After logout, if user logs in as a different account, they might briefly see the previous user's chat history from the cached data.
+**Remediation:** Add SWR cache clearing before redirect, or ensure the history API properly returns empty for unauthenticated users.
+
+## Missing Supabase Client signOut Call
+**File:** features/sidebar/components/sidebar-user-nav.tsx
+**Severity:** High
+**Issue:** The new implementation only calls the server-side logout API but doesn't call the Supabase client signOut.
+**Old Code:** archive/oldapp/components/sidebar-user-nav.tsx:135-136 - `fetch("/api/auth/logout")...then(() => getSupabaseBrowserClient().auth.signOut())`
+**New Code:** features/sidebar/components/sidebar-user-nav.tsx:137-142 - Only calls `/api/auth/logout`
+**Impact:** The Supabase client-side session may not be properly cleared, potentially causing auth state inconsistencies.
+**Remediation:** Add `getSupabaseBrowserClient().auth.signOut()` after the logout API call.
+
+## Missing isNewSession Optimization
+**File:** features/sidebar/components/sidebar-history.tsx
+**Severity:** High
+**Issue:** The new implementation always fetches chat history on mount, even for new guest sessions that have no history.
+**Old Code:** archive/oldapp/components/sidebar-history.tsx:185-198 - getKeyWithAuth returns null for new sessions, preventing unnecessary fetches
+**New Code:** features/sidebar/components/sidebar-history.tsx:177-189 - Always fetches on mount regardless of session state
+**Impact:** Unnecessary API calls for new users/guests. Wastes server resources and adds latency to initial page load for users with no chat history.
+**Remediation:** Add isNewSession check from auth context and skip fetching when it's a new session.
+
+## Manual "Load More" Button Instead of Infinite Scroll
+**File:** features/sidebar/components/sidebar-history.tsx
+**Severity:** High
+**Issue:** The new implementation uses a manual "Load more" button instead of automatic infinite scroll via Virtuoso's endReached callback.
+**Old Code:** archive/oldapp/components/sidebar-history.tsx:441-445 - `endReached={handleEndReached}` for automatic loading
+**New Code:** features/sidebar/components/sidebar-history.tsx:347-364 - Manual button with onClick={loadMore}
+**Impact:** Worse UX - users must click to load more instead of natural scrolling. The old app seamlessly loaded more chats as users scrolled down.
+**Remediation:** Implement Virtuoso with endReached callback for automatic infinite scroll.
+
+## Missing Chat Deduplication by ID
+**File:** features/sidebar/components/sidebar-history.tsx
+**Severity:** High
+**Issue:** The new implementation doesn't deduplicate chats by ID, which could lead to duplicate entries if pagination returns overlapping data.
+**Old Code:** archive/oldapp/components/sidebar-history.tsx:347-350 - `const uniqueChats = Array.from(new Map(chatsFromHistory.map((chat) => [chat.id, chat])).values());`
+**New Code:** features/sidebar/components/sidebar-history.tsx:180-184 - No deduplication, just appends new chats to state
+**Impact:** Potential duplicate chat entries in sidebar if there are any race conditions or overlapping pagination results.
+**Remediation:** Add deduplication logic when merging new chats into state.
+
+#### Medium Severity
+
+## convertToUIMessages Missing Validation
+**File:** app/(chat)/chat/[id]/page.tsx
+**Severity:** Medium
+**Issue:** The new app's convertToUIMessages function lacks the message ID validation that the old app had.
+**Old Code:** archive/oldapp/lib/utils.ts:182-186 - Throws ChatSDKError if message.id is missing
+**New Code:** app/(chat)/chat/[id]/page.tsx:37-48 - No validation, assumes message.id always exists
+**Impact:** If a message without an ID somehow enters the system, the old app would fail fast with a clear error, while the new app would pass undefined to the UI, potentially causing harder-to-debug issues downstream.
+**Remediation:** Add validation in the convertToUIMessages function to throw a descriptive error if message.id is missing.
+
+## MessageActions Missing SWR Cache Mutation
+**File:** features/chat/components/message-actions.tsx
+**Severity:** Medium
+**Issue:** The new MessageActions component doesn't update the SWR cache after voting, so the UI won't update optimistically.
+**Old Code:** archive/oldapp/components/message-actions.tsx:92-123 - Mutates SWR cache:
+  ```tsx
+  toast.promise(upvote, {
+      success: () => {
+          mutate<UserVote[]>(
+              `/api/vote?chatId=${chatId}`,
+              (currentVotes) => {
+                  // Filter and add new vote
+                  return [...votesWithoutCurrent, { chatId, messageId, isUpvoted: true }];
+              },
+              { revalidate: false }
+          );
+          return "Upvoted Response!";
+      },
+  });
+  ```
+**New Code:** features/chat/components/message-actions.tsx:255-269 - No cache mutation:
+  ```tsx
+  const handleUpvote = () => {
+      const upvote = fetch("/api/vote", { ... });
+      toast.promise(upvote, {
+          success: () => "Upvoted Response!",
+      });
+  };
+  ```
+**Impact:** After voting, the UI won't update immediately. Users will see the old vote state until the page refreshes or the SWR cache revalidates. This creates a laggy, unresponsive feel.
+**Remediation:** Import useSWRConfig and add mutate calls to update the vote cache optimistically.
+
+## MessageEditor Missing Server Action Integration
+**File:** features/chat/components/message-editor.tsx
+**Severity:** Medium
+**Issue:** The new MessageEditor doesn't call the deleteTrailingMessages server action, using console.log instead.
+**Old Code:** archive/oldapp/components/message-editor.tsx:86-97 - Calls server action:
+  ```tsx
+  try {
+      await deleteTrailingMessages({
+          chatId,
+          createdAt: message.metadata?.createdAt ?? new Date().toISOString(),
+      });
+  } catch (_error) {
+      setIsSubmitting(false);
+      toast.error("Failed to edit message");
+      return;
+  }
+  ```
+**New Code:** features/chat/components/message-editor.tsx:134-147 - Uses console.log:
+  ```tsx
+  try {
+      const createdAt = message.metadata?.createdAt ?? new Date().toISOString();
+      // Log the action for debugging (server action would be called here)
+      console.log("deleteTrailingMessages", { chatId, createdAt });
+  } catch {
+      setIsSubmitting(false);
+      toast.error("Failed to edit message");
+      return;
+  }
+  ```
+**Impact:** Message editing is broken. When a user edits a message, the trailing messages (AI responses) won't be deleted from the database. The regeneration will fail or produce incorrect results.
+**Remediation:** Import and call the deleteTrailingMessages server action from the chat feature.
+
+## Missing Error Toast on Logout Failure
+**File:** features/sidebar/components/sidebar-user-nav.tsx
+**Severity:** Medium
+**Issue:** The new implementation doesn't show an error toast if logout fails.
+**Old Code:** archive/oldapp/components/sidebar-user-nav.tsx:151-156 - `.catch()` block with error toast
+**New Code:** features/sidebar/components/sidebar-user-nav.tsx:136-143 - No error handling
+**Impact:** Users won't know if logout failed. They might think they're logged out when they're not.
+**Remediation:** Add try/catch or .catch() handler with error toast notification.
+
+## Missing Loading State Toast
+**File:** features/sidebar/components/sidebar-user-nav.tsx
+**Severity:** Medium
+**Issue:** The old app showed a toast when clicking logout while auth status was still loading.
+**Old Code:** archive/oldapp/components/sidebar-user-nav.tsx:117-124 - Shows error toast if status is "loading"
+**New Code:** features/sidebar/components/sidebar-user-nav.tsx:128-130 - Just returns early without feedback
+**Impact:** Users clicking logout during initial auth check get no feedback about why nothing happened.
+**Remediation:** Add toast notification when status is "loading" to inform user to wait.
+
+#### Low Severity
+
+## Error Logging Added in New App
+**File:** app/error.tsx, app/global-error.tsx
+**Severity:** Low
+**Issue:** The old app intentionally avoided client-side console logging in production (per comment: "no client-side console logging in production"). The new app adds `console.error()` calls in both error boundaries.
+**Old Code:** archive/oldapp/app/(chat)/error.tsx:14-15 - No logging; comment explains intentional omission
+**New Code:** app/error.tsx:34-37 - `console.error("Error caught by error boundary:", error)`
+**Impact:** Error details are now logged to browser console, which could expose sensitive error information in production. However, this can be useful for debugging. The old app's approach was more security-conscious.
+**Remediation:** Consider conditionally logging only in development: `if (process.env.NODE_ENV === 'development') console.error(...)`. Or use a proper error reporting service.
+
+---
+
+### Broken Code
+
+#### Critical Severity
+
+## Missing Confirm Password Field in Register Form
+**File:** features/auth/components/auth-form.tsx
+**Severity:** Critical
+**Issue:** The new register schema expects a `confirmPassword` field (features/auth/schemas/auth.schema.ts:48), but the AuthForm component only renders email and password fields. The register action (features/auth/actions/register.action.ts:43) extracts `confirmPassword` from formData, but since the form doesn't have this field, it will always be null, causing validation to fail with "Please confirm your password" error.
+**Old Code:** archive/oldapp/components/auth-form.tsx:40-55 - Only email and password fields (same issue existed in old app, but old app didn't have confirmPassword validation)
+**New Code:** features/auth/components/auth-form.tsx:72-87 - Only email and password fields; register schema at features/auth/schemas/auth.schema.ts:48 requires confirmPassword
+**Impact:** Registration is completely broken. Users cannot register because the form validation will always fail with "Passwords do not match" or "Please confirm your password" error since confirmPassword is never submitted.
+**Remediation:** Either add a confirmPassword field to the AuthForm component (conditionally rendered for registration), or remove confirmPassword validation from the register schema and rely only on password field.
+
+## Missing OptimisticChatsProvider
+**File:** app/(chat)/layout.tsx
+**Severity:** Critical
+**Issue:** The new layout is missing the OptimisticChatsProvider that was present in the old application's chat-layout-client.tsx. This provider manages optimistic chat updates for the sidebar.
+**Old Code:** archive/oldapp/app/(chat)/chat-layout-client.tsx:60-77 - `<OptimisticChatsProvider>` wrapping the entire sidebar structure
+**New Code:** app/(chat)/layout.tsx:61-77 - No OptimisticChatsProvider present
+**Impact:** Sidebar will not show optimistic updates when new chats are created. Users won't see their new chat appear in the sidebar until the page refreshes or the chat is persisted to the database. This breaks the expected UX for chat creation.
+**Remediation:** Create an OptimisticChatsProvider in the new feature architecture (e.g., `features/chat/hooks/use-optimistic-chats.tsx`) and wrap it around the SidebarProvider in the layout.
+
+## Missing SettingsProvider in Chat Layout
+**File:** app/(chat)/layout.tsx
+**Severity:** Critical
+**Issue:** The new layout is missing the SettingsProvider that was present in the old application's chat-layout-client.tsx. This provider manages user settings like temperature, topP, maxOutputTokens, and model selection persistence.
+**Old Code:** archive/oldapp/app/(chat)/chat-layout-client.tsx:58-79 - `<SettingsProvider>` wrapping DataStreamProvider and other providers
+**New Code:** app/(chat)/layout.tsx:61-77 - No SettingsProvider present; settings hooks exist in features/settings/ but no provider wraps the chat layout
+**Impact:** Settings like model selection, temperature, and other preferences won't persist across sessions. The Chat component's useSettings hook will fail or return default values. Model selection won't be remembered between chats.
+**Remediation:** Either create a SettingsProvider context in the settings feature and wrap the chat layout with it, or ensure the existing useSettings hook works without a provider (currently it uses server actions but lacks client-side context for immediate UI updates).
+
+## Chat Component Missing Core Functionality
+**File:** features/chat/components/chat.tsx
+**Severity:** Critical
+**Issue:** The new Chat component is a placeholder implementation missing critical functionality present in the old app. It lacks: visibility toggle integration, artifact integration, settings integration, optimistic chat updates, model persistence to localStorage, query parameter handling, error handling with credit card alerts, and proper streaming data handlers.
+**Old Code:** archive/oldapp/components/chat.tsx:78-332 - Full implementation with:
+  - useChatVisibility hook (line 79-82)
+  - useSettings hook with model persistence (line 85, 99-117, 125-131)
+  - useOptimisticChats for sidebar updates (line 87-91)
+  - useArtifact for artifact panel (line 92)
+  - useDataStream for artifact streaming (line 84)
+  - useSearchParams for query handling (line 386-401)
+  - Credit card alert dialog for Vercel Gateway (line 98, 279-331, 489-520)
+  - Comprehensive error handling with toast notifications (line 279-331)
+  - Title polling for new chats (line 252-278)
+  - Dynamic Artifact import (line 47-49)
+**New Code:** features/chat/components/chat.tsx:72-277 - Placeholder with:
+  - Basic useChat hook only
+  - No visibility toggle
+  - No artifact integration
+  - No settings persistence
+  - No optimistic updates
+  - No query parameter handling
+  - No credit card alert
+  - Simplified error handling
+  - Placeholder header and input (lines 165-271)
+**Impact:** The chat experience is severely degraded. Users cannot: change chat visibility, use artifacts, have model selection persist, see new chats appear optimistically in sidebar, handle URL query parameters, or get proper error feedback for billing issues.
+**Remediation:** Complete the Chat component implementation by integrating all missing hooks and features from the old app. The component is marked as "placeholder for Task 3.2c" indicating it's incomplete.
+
+## Messages Component Missing Virtualization
+**File:** features/chat/components/messages.tsx
+**Severity:** Critical
+**Issue:** The new Messages component uses a simple map-based render instead of Virtuoso virtualization, which will cause severe performance issues with large message lists.
+**Old Code:** archive/oldapp/components/messages.tsx:201-215 - Uses Virtuoso for virtualized rendering:
+  ```tsx
+  <Virtuoso
+      atBottomStateChange={handleAtBottomStateChange}
+      atBottomThreshold={100}
+      className="h-full"
+      components={{ Header, Footer }}
+      data={renderableMessages}
+      followOutput="smooth"
+      increaseViewportBy={{ top: 200, bottom: 200 }}
+      itemContent={itemContent}
+      ref={virtuosoRef}
+      style={{ height: "100%" }}
+  />
+  ```
+**New Code:** features/chat/components/messages.tsx:150-187 - Uses simple map:
+  ```tsx
+  <div className="h-full overflow-y-auto ...">
+      {renderableMessages.map((message, index) => { ... })}
+  </div>
+  ```
+**Impact:** With large chat histories (100+ messages), the browser will struggle to render all messages at once, causing: slow initial render, laggy scrolling, high memory usage, and potential browser crashes on low-end devices. Virtuoso only renders visible messages for optimal performance.
+**Remediation:** Integrate react-virtuoso library and restore the virtualized rendering approach from the old app.
+
+## Missing Virtualization (GroupedVirtuoso)
+**File:** features/sidebar/components/sidebar-history.tsx
+**Severity:** Critical
+**Issue:** The new SidebarHistory uses simple map rendering instead of GroupedVirtuoso virtualization. This will cause severe performance issues with large chat histories (100+ chats).
+**Old Code:** archive/oldapp/components/sidebar-history.tsx:529-544 - Uses GroupedVirtuoso with groupCounts, increaseViewportBy, endReached callback
+**New Code:** features/sidebar/components/sidebar-history.tsx:324-344 - Uses simple `.map()` over chatGroups
+**Impact:** With hundreds of chats, the browser will struggle to render all DOM nodes, causing laggy scrolling, high memory usage, and potential crashes on mobile devices. The old app efficiently rendered only visible items.
+**Remediation:** Install react-virtuoso and implement GroupedVirtuoso with the same configuration as the old app (groupCounts, increaseViewportBy, endReached for infinite scroll).
+
+## Missing Optimistic Chats Integration in SidebarHistory
+**File:** features/sidebar/components/sidebar-history.tsx
+**Severity:** Critical
+**Issue:** The new SidebarHistory has no integration with optimistic chats. New chats won't appear in the sidebar until they're persisted to the database.
+**Old Code:** archive/oldapp/components/sidebar-history.tsx:178 - `const { optimisticChats, removeOptimisticChat } = useOptimisticChats();`
+**New Code:** features/sidebar/components/sidebar-history.tsx - No useOptimisticChats import or usage
+**Impact:** When users start a new chat, it won't appear in the sidebar history immediately. They must refresh or wait for the chat to be saved. This breaks the expected UX where new chats appear instantly.
+**Remediation:** Integrate useOptimisticChats hook and implement the optimistic chat handling logic from the old app (lines 178-254 in old file).
+
+## Missing Chat Title Update Event Listener
+**File:** features/sidebar/components/sidebar-history.tsx
+**Severity:** Critical
+**Issue:** The new SidebarHistory doesn't listen for the 'chat-title-updated' custom event that triggers history revalidation when titles are generated.
+**Old Code:** archive/oldapp/components/sidebar-history.tsx:257-267 - Event listener for 'chat-title-updated' that calls mutate()
+**New Code:** features/sidebar/components/sidebar-history.tsx - No event listener
+**Impact:** When a chat title is generated asynchronously (for short responses), the sidebar won't update to show the new title. Users will see "Untitled" or old titles until they manually refresh.
+**Remediation:** Add useEffect with window.addEventListener('chat-title-updated') that triggers a refetch of chat history.
+
+## Missing ArtifactMessages Component
+**File:** features/artifact/components/
+**Severity:** Critical
+**Issue:** The ArtifactMessages component is completely missing from the new application. This component was responsible for rendering the message list inside the artifact panel, allowing users to view and interact with chat messages while the artifact is open.
+**Old Code:** archive/oldapp/components/artifact-messages.tsx:1-115 - Complete component with:
+  - Message list rendering with PreviewMessage components
+  - ThinkingMessage for loading states
+  - useMessages hook for scroll/viewport tracking
+  - Vote display integration
+  - Regenerate functionality
+  - isReadonly prop handling
+**New Code:** features/artifact/components/artifact-panel.tsx:364-369 - Placeholder text only:
+  ```tsx
+  <div className="flex-1 overflow-auto p-4">
+    <p className="text-muted-foreground text-sm">
+      Chat messages would appear here
+    </p>
+  </div>
+  ```
+**Impact:** Users cannot view or interact with chat messages while an artifact is open. The entire left panel of the artifact view is non-functional. This breaks the split-view experience where users could chat while viewing/editing artifacts.
+**Remediation:** Create features/artifact/components/artifact-messages.tsx with full message rendering functionality, or import from features/chat/components/messages.tsx if appropriate.
+
+## Missing Artifact Class Definition
+**File:** features/artifact/types.ts
+**Severity:** Critical
+**Issue:** The old app had a sophisticated `Artifact` class (archive/oldapp/components/create-artifact.tsx:71-93) that defined artifact types with:
+  - `kind`, `description`, `content` component
+  - `actions` array with onClick handlers
+  - `toolbar` items
+  - `initialize()` method for artifact setup
+  - `onStreamPart()` handler for streaming updates
+  
+The new app only has TypeScript interfaces in types.ts without the class implementation.
+**Old Code:** archive/oldapp/components/create-artifact.tsx:71-93
+  ```typescript
+  export class Artifact<T extends string, M = any> {
+    readonly kind: T;
+    readonly description: string;
+    readonly content: ComponentType<ArtifactContent<M>>;
+    readonly actions: ArtifactAction<M>[];
+    readonly toolbar: ArtifactToolbarItem[];
+    readonly initialize?: (parameters: InitializeParameters) => void;
+    readonly onStreamPart: (args: {...}) => void;
+    constructor(config: ArtifactConfig<T, M>) {...}
+  }
+  ```
+**New Code:** features/artifact/types.ts:95-105 - Only interfaces, no class:
+  ```typescript
+  export interface ArtifactDefinition {
+    kind: ArtifactKind
+    name: string
+    description: string
+    actions: ArtifactAction[]
+    content: React.ComponentType<ArtifactContentProps>
+    initialize?: (params: {...}) => void
+  }
+  ```
+**Impact:** The artifact plugin system is broken. The old app could register new artifact types dynamically (textArtifact, codeArtifact, imageArtifact, sheetArtifact were defined in archive/oldapp/artifacts/). The new app has no mechanism to register or use artifact definitions.
+**Remediation:** Either implement the Artifact class pattern or create a registration system for artifact types. Import the artifact definitions from the old artifacts/ directory structure.
+
+## Missing MultimodalInput in Artifact Panel
+**File:** features/artifact/components/artifact-panel.tsx
+**Severity:** Critical
+**Issue:** The old artifact panel included a MultimodalInput component at the bottom for sending messages while viewing artifacts. The new panel has no input capability.
+**Old Code:** archive/oldapp/components/artifact.tsx:397-416
+  ```tsx
+  <div className="relative flex w-full flex-row items-end gap-2 px-4 pb-4">
+    <MultimodalInput
+      attachments={attachments}
+      availableModels={availableModels}
+      chatId={chatId}
+      className="bg-background dark:bg-muted"
+      input={input}
+      messages={messages}
+      selectedModelId={selectedModelId}
+      selectedVisibilityType={selectedVisibilityType}
+      sendMessage={sendMessage}
+      setAttachments={setAttachments}
+      setInput={setInput}
+      setMessages={setMessages}
+      status={status}
+      stop={stop}
+    />
+  </div>
+  ```
+**New Code:** features/artifact/components/artifact-panel.tsx - No input component at all
+**Impact:** Users cannot send messages or interact with the chat while an artifact is open. The artifact panel becomes a read-only view with no way to request changes or continue the conversation.
+**Remediation:** Add MultimodalInput component to the artifact panel, passing necessary props from the parent chat context.
+
+## Missing Toolbar Component in Artifact Panel
+**File:** features/artifact/components/artifact-panel.tsx
+**Severity:** Critical
+**Issue:** The old artifact panel included a Toolbar component that appeared when the current version was displayed, providing quick actions like summarize, improve, etc.
+**Old Code:** archive/oldapp/components/artifact.tsx:560-574
+  ```tsx
+  <AnimatePresence>
+    {isCurrentVersion && (
+      <Toolbar
+        artifactKind={artifact.kind}
+        isToolbarVisible={isToolbarVisible}
+        sendMessage={sendMessage}
+        setIsToolbarVisible={setIsToolbarVisible}
+        setMessages={setMessages}
+        status={status}
+        stop={stop}
+      />
+    )}
+  </AnimatePresence>
+  ```
+**New Code:** features/artifact/components/artifact-panel.tsx - No toolbar component
+**Impact:** Users lose quick access to artifact-specific actions like "Summarize", "Improve", etc. The toolbar was a key UX feature for interacting with artifact content.
+**Remediation:** Create a Toolbar component in features/artifact/components/toolbar.tsx and integrate it into the artifact panel.
+
+#### High Severity
+
+## Missing Artifact Type Definitions
+**File:** features/artifact/
+**Severity:** High
+**Issue:** The old app had a complete artifact type system defined in archive/oldapp/artifacts/:
+  - `textArtifact` (archive/oldapp/artifacts/text/client.tsx) - Rich text editor with suggestions
+  - `codeArtifact` (archive/oldapp/artifacts/code/client.tsx) - Code editor with Python execution
+  - `imageArtifact` (archive/oldapp/artifacts/image/client.tsx) - Image display/editing
+  - `sheetArtifact` (archive/oldapp/artifacts/sheet/client.tsx) - Spreadsheet editor
+
+The new app has inline placeholder renderers in artifact-panel.tsx (lines 48-148) that don't match the functionality.
+**Old Code:** archive/oldapp/components/artifact.tsx:36-41
+  ```typescript
+  export const artifactDefinitions = [
+    textArtifact,
+    codeArtifact,
+    imageArtifact,
+    sheetArtifact,
+  ];
+  ```
+**New Code:** features/artifact/components/artifact-panel.tsx:48-148 - Inline placeholder renderers:
+  ```typescript
+  const defaultArtifactRenderers: Record<ArtifactKind, {...}> = {
+    text: { name: "Text", component: function TextRenderer({...}) {...} },
+    code: { name: "Code", component: function CodeRenderer({...}) {...} },
+    image: { name: "Image", component: function ImageRenderer({...}) {...} },
+    sheet: { name: "Sheet", component: function SheetRenderer({...}) {...} },
+  }
+  ```
+**Impact:** All artifact types lose their specialized functionality:
+  - Text artifacts: No rich text editing, no suggestions system
+  - Code artifacts: No syntax highlighting, no Python execution
+  - Image artifacts: No image editing capabilities
+  - Sheet artifacts: No spreadsheet functionality
+**Remediation:** Migrate the artifact definitions from archive/oldapp/artifacts/ to the new feature structure, or import the editors from features/artifact/components/editors/.
+
+## Missing VersionFooter Component
+**File:** features/artifact/components/artifact-panel.tsx
+**Severity:** High
+**Issue:** The old app had a dedicated VersionFooter component for version navigation. The new app has an inline implementation that lacks the full functionality.
+**Old Code:** archive/oldapp/components/version-footer.tsx:1-87 - Complete component with:
+  - Version timestamp display
+  - Restore version functionality
+  - SWR cache mutation for restoration
+  - Formatted date display
+**New Code:** features/artifact/components/artifact-panel.tsx:434-450 - Inline simplified version:
+  ```tsx
+  {!isCurrentVersion && documents && (
+    <div className="border-t border-zinc-200 p-4 dark:border-zinc-700">
+      <div className="flex items-center justify-between">
+        <span className="text-muted-foreground text-sm">
+          Version {currentVersionIndex + 1} of {documents.length}
+        </span>
+        <button onClick={() => handleVersionChange("latest")}>
+          Return to latest version
+        </button>
+      </div>
+    </div>
+  )}
+  ```
+**Impact:** Users cannot restore previous versions of artifacts. The version history feature is incomplete.
+**Remediation:** Import and use the VersionFooter component from components/version-footer.tsx (which exists in the new app).
+
+## Missing AnimatePresence and Motion Animations
+**File:** features/artifact/components/artifact-panel.tsx
+**Severity:** High
+**Issue:** The old artifact panel had sophisticated animations using Framer Motion for:
+  - Panel entrance/exit animations
+  - Smooth transitions between mobile and desktop layouts
+  - Bounding box animations for artifact opening
+  - Overlay animations for non-current versions
+
+The new panel has no animations at all.
+**Old Code:** archive/oldapp/components/artifact.tsx:323-589 - Extensive use of:
+  - `<AnimatePresence initial={false}>`
+  - `<motion.div animate={{...}} exit={{...}} initial={{...}}>`
+  - Spring animations with stiffness/damping
+  - Staggered animations with delays
+**New Code:** features/artifact/components/artifact-panel.tsx:349-452 - Static divs only:
+  ```tsx
+  <div className="fixed top-0 left-0 z-50..." data-testid="artifact">
+    {/* No animations */}
+  </div>
+  ```
+**Impact:** The artifact panel feels abrupt and jarring. No smooth transitions when opening/closing. The UX feels unpolished compared to the old app.
+**Remediation:** Add Framer Motion animations using the pattern from the old app. Import from "@/lib/motion" (which exists in the new app).
+
+## Missing useWindowSize Hook
+**File:** features/artifact/components/artifact-panel.tsx
+**Severity:** High
+**Issue:** The old artifact panel used useWindowSize for responsive behavior, detecting mobile vs desktop layouts. The new panel has hardcoded mobile handling.
+**Old Code:** archive/oldapp/components/artifact.tsx:297-301
+  ```typescript
+  const {
+    width: windowWidth,
+    height: windowHeight,
+    isMobile,
+  } = useWindowSize();
+  ```
+**New Code:** features/artifact/components/artifact-panel.tsx - No useWindowSize import or usage
+**Impact:** The artifact panel may not adapt correctly to different screen sizes. Mobile vs desktop behavior is not properly detected.
+**Remediation:** Import and use useWindowSize from "@/hooks/use-window-size" for responsive behavior.
+
+## Missing useSidebar Hook Integration
+**File:** features/artifact/components/artifact-panel.tsx
+**Severity:** High
+**Issue:** The old artifact panel integrated with the sidebar state to adjust layout when the sidebar was open/closed.
+**Old Code:** archive/oldapp/components/artifact.tsx:109
+  ```typescript
+  const { open: isSidebarOpen } = useSidebar();
+  ```
+  Used in animation calculations (lines 336-348) to adjust width based on sidebar state.
+**New Code:** features/artifact/components/artifact-panel.tsx - No sidebar integration
+**Impact:** The artifact panel doesn't adjust its layout when the sidebar opens/closes. This could cause overlap or layout issues.
+**Remediation:** Import useSidebar and integrate sidebar state into layout calculations.
+
+## Missing Artifact Actions Implementation
+**File:** features/artifact/components/artifact-actions.tsx
+**Severity:** High
+**Issue:** The new ArtifactActions component has empty actions arrays in defaultArtifactDefinitions. The old app had fully implemented actions for each artifact type.
+**Old Code:** archive/oldapp/artifacts/text/client.tsx:100-150 - Actions like:
+  - Copy to clipboard
+  - Undo/Redo
+  - Request suggestions
+  - Send message about changes
+**New Code:** features/artifact/components/artifact-actions.tsx:33-62
+  ```typescript
+  const defaultArtifactDefinitions: ArtifactDefinition[] = [
+    { kind: "text", name: "Text", description: "Text document", actions: [], content: () => null },
+    { kind: "code", name: "Code", description: "Code artifact", actions: [], content: () => null },
+    { kind: "image", name: "Image", description: "Image artifact", actions: [], content: () => null },
+    { kind: "sheet", name: "Sheet", description: "Spreadsheet artifact", actions: [], content: () => null },
+  ]
+  ```
+**Impact:** All artifact action buttons are missing. Users cannot copy content, undo/redo, or perform type-specific actions.
+**Remediation:** Migrate artifact actions from archive/oldapp/artifacts/*/client.tsx files to the new artifact definitions.
+
+#### Medium Severity
+
+## Message Component Missing MessageReasoning Integration
+**File:** features/chat/components/message.tsx
+**Severity:** Medium
+**Issue:** The new Message component has an inline placeholder for reasoning instead of using the dedicated MessageReasoning component.
+**Old Code:** archive/oldapp/components/message.tsx:128-134 - Uses MessageReasoning component:
+  ```tsx
+  if (type === "reasoning" && part.text?.trim().length > 0) {
+      return (
+          <MessageReasoning
+              isLoading={isLoading}
+              key={key}
+              reasoning={part.text}
+          />
+      );
+  }
+  ```
+**New Code:** features/chat/components/message.tsx:157-174 - Inline placeholder:
+  ```tsx
+  if (type === "reasoning" && part.text?.trim().length > 0) {
+      return (
+          <div key={key} className="rounded-lg border bg-muted/50 p-3 ...">
+              <div className="mb-1 font-medium">Reasoning</div>
+              <div className="whitespace-pre-wrap">{part.text}</div>
+          </div>
+      );
+  }
+  ```
+**Impact:** Reasoning display lacks the collapsible UI, streaming indicators, and auto-close behavior from the MessageReasoning component. The user experience for viewing AI reasoning is degraded.
+**Remediation:** Import and use the MessageReasoning component from ./message-reasoning.
+
+## Message Component Missing MessageEditor Integration
+**File:** features/chat/components/message.tsx
+**Severity:** Medium
+**Issue:** The new Message component has a placeholder edit mode instead of using the MessageEditor component.
+**Old Code:** archive/oldapp/components/message.tsx:166-185 - Uses MessageEditor component:
+  ```tsx
+  if (mode === "edit") {
+      return (
+          <div className="flex w-full flex-row items-start gap-3" key={key}>
+              <div className="size-8" />
+              <div className="min-w-0 flex-1">
+                  <MessageEditor
+                      chatId={chatId}
+                      key={message.id}
+                      message={message}
+                      regenerate={regenerate}
+                      setMessages={setMessages}
+                      setMode={setMode}
+                  />
+              </div>
+          </div>
+      );
+  }
+  ```
+**New Code:** features/chat/components/message.tsx:206-244 - Inline placeholder with TODO comment:
+  ```tsx
+  {/* TODO: Integrate MessageEditor component from Task 3.2b */}
+  <div className="rounded-lg border p-3">
+      <textarea ... />
+      <div className="mt-2 flex gap-2">
+          <button ...>Save</button>
+          <button ...>Cancel</button>
+      </div>
+  </div>
+  ```
+**Impact:** Message editing is broken. The placeholder doesn't call the server action to delete trailing messages, doesn't properly update the message state, and doesn't trigger regeneration. Users cannot edit their messages.
+**Remediation:** Import and use the MessageEditor component from ./message-editor.
+
+## Message Component Missing MessageActions Integration
+**File:** features/chat/components/message.tsx
+**Severity:** Medium
+**Issue:** The new Message component has inline action buttons instead of using the MessageActions component with proper voting functionality.
+**Old Code:** archive/oldapp/components/message.tsx:316-325 - Uses MessageActions component:
+  ```tsx
+  {!isReadonly && (
+      <MessageActions
+          chatId={chatId}
+          isLoading={isLoading}
+          key={`action-${message.id}`}
+          message={message}
+          setMode={setMode}
+          vote={vote}
+      />
+  )}
+  ```
+**New Code:** features/chat/components/message.tsx:268-293 - Inline placeholder buttons:
+  ```tsx
+  {!isReadonly && (
+      <div className="mt-1 flex gap-1 opacity-0 ...">
+          <button ...>✏️ Edit</button>
+          <button ...>📋 Copy</button>
+          {message.role === "assistant" && (
+              <button ... onClick={() => regenerate()}>🔄 Regenerate</button>
+          )}
+      </div>
+  )}
+  ```
+**Impact:** Voting (upvote/downvote) is completely missing. Copy doesn't use the proper clipboard hook with toast feedback. The edit button doesn't work properly. Users cannot provide feedback on AI responses.
+**Remediation:** Import and use the MessageActions component from ./message-actions.
+
+## Message Component Missing PreviewAttachment
+**File:** features/chat/components/message.tsx
+**Severity:** Medium
+**Issue:** The new Message component has a placeholder attachment display instead of using the PreviewAttachment component.
+**Old Code:** archive/oldapp/components/message.tsx:98-117 - Uses PreviewAttachment:
+  ```tsx
+  {attachmentsFromMessage.length > 0 && (
+      <div className="flex flex-row justify-end gap-2" data-testid="message-attachments">
+          {attachmentsFromMessage.map((attachment) => (
+              <PreviewAttachment
+                  attachment={{ name: ..., contentType: ..., url: ... }}
+                  key={attachment.url}
+              />
+          ))}
+      </div>
+  )}
+  ```
+**New Code:** features/chat/components/message.tsx:133-151 - Inline placeholder:
+  ```tsx
+  {attachmentsFromMessage && attachmentsFromMessage.length > 0 && (
+      <div className="flex flex-row justify-end gap-2" data-testid="message-attachments">
+          {attachmentsFromMessage.map((attachment) => (
+              <div key={attachment.url} className="rounded-lg border bg-muted p-2 text-sm">
+                  📄 {attachment.name ?? attachment.filename ?? "file"}
+              </div>
+          ))}
+      </div>
+  )}
+  ```
+**Impact:** File attachments display as plain text with an emoji instead of proper cards with file type icons and preview capabilities. The UX for file attachments is degraded.
+**Remediation:** Import and use PreviewAttachment component for proper attachment display.
+
+## Message Component Uses sanitizeHtml Instead of sanitizeText
+**File:** features/chat/components/message.tsx
+**Severity:** Medium
+**Issue:** The new Message component uses sanitizeHtml while the old uses sanitizeText - these may have different sanitization behaviors.
+**Old Code:** archive/oldapp/components/message.tsx:159 - Uses sanitizeText:
+  ```tsx
+  <Response>{sanitizeText(part.text)}</Response>
+  ```
+**New Code:** features/chat/components/message.tsx:199 - Uses sanitizeHtml:
+  ```tsx
+  <div className="whitespace-pre-wrap">{sanitizeHtml(part.text)}</div>
+  ```
+**Impact:** Different sanitization could lead to different output. sanitizeText may be more appropriate for plain text content. Additionally, the Response wrapper component is missing which may provide additional formatting.
+**Remediation:** Verify sanitization functions are equivalent, or use sanitizeText. Consider using Response component for consistent text rendering.
+
+## Message Component Missing Response Component
+**File:** features/chat/components/message.tsx
+**Severity:** Medium
+**Issue:** The new Message component doesn't use the Response component which may provide markdown rendering and other text processing.
+**Old Code:** archive/oldapp/components/message.tsx:158-161 - Uses Response component:
+  ```tsx
+  <MessageContent ...>
+      <Response>{sanitizeText(part.text)}</Response>
+  </MessageContent>
+  ```
+**New Code:** features/chat/components/message.tsx:179-201 - Direct div with sanitized text:
+  ```tsx
+  <div className={cn("message-content", ...)}>
+      <div className="whitespace-pre-wrap">{sanitizeHtml(part.text)}</div>
+  </div>
+  ```
+**Impact:** Markdown rendering, code highlighting, and other text processing from the Response component are missing. Messages display as plain text without formatting.
+**Remediation:** Import and use Response component from elements/response or implement equivalent markdown rendering.
+
+## MessageReasoning Missing Collapsible Component Integration
+**File:** features/chat/components/message-reasoning.tsx
+**Severity:** Medium
+**Issue:** The new MessageReasoning uses a custom implementation instead of the Reasoning component from elements.
+**Old Code:** archive/oldapp/components/message-reasoning.tsx:48-57 - Uses Reasoning components:
+  ```tsx
+  <Reasoning data-testid="message-reasoning" defaultOpen={hasBeenStreaming} isStreaming={isReasoningStreaming}>
+      <ReasoningTrigger />
+      <ReasoningContent>{reasoning}</ReasoningContent>
+  </Reasoning>
+  ```
+**New Code:** features/chat/components/message-reasoning.tsx:164-183 - Custom implementation:
+  ```tsx
+  <div className="not-prose mb-4" data-testid="message-reasoning">
+      <button className="flex w-full items-center gap-2 ..." onClick={() => setIsOpen(!isOpen)}>
+          <BrainIcon />
+          {getThinkingMessage()}
+          <ChevronDownIcon className={`size-4 transition-transform ${isOpen ? "rotate-180" : "rotate-0"}`} />
+      </button>
+      {isOpen && <div className="mt-4 text-sm ...">{reasoning}</div>}
+  </div>
+  ```
+**Impact:** The reasoning UI may look different from other collapsible elements in the app. The Reasoning component from elements may have additional features like duration tracking, consistent styling, and accessibility attributes.
+**Remediation:** Import and use Reasoning, ReasoningTrigger, ReasoningContent from elements/reasoning.
+
+## MessageReasoning Missing Default Open Behavior
+**File:** features/chat/components/message-reasoning.tsx
+**Severity:** Medium
+**Issue:** The new MessageReasoning auto-closes after streaming ends, while the old version stayed open if it had been streaming.
+**Old Code:** archive/oldapp/components/message-reasoning.tsx:51 - `defaultOpen={hasBeenStreaming}` - stays open after streaming
+**New Code:** features/chat/components/message-reasoning.tsx:143-152 - Auto-closes after 1 second:
+  ```tsx
+  useEffect(() => {
+      if (hasBeenStreaming && !isLoading && isOpen) {
+          const timer = setTimeout(() => {
+              setIsOpen(false);
+          }, 1000);
+          return () => clearTimeout(timer);
+      }
+      return undefined;
+  }, [hasBeenStreaming, isLoading, isOpen]);
+  ```
+**Impact:** Users who want to read the reasoning after it completes need to manually re-open it. This may frustrate users who prefer to review the reasoning process after the response is complete.
+**Remediation:** Remove the auto-close behavior or make it configurable. Keep the reasoning open after streaming ends like the old app.
+
+## Missing Diff Mode Implementation
+**File:** features/artifact/components/artifact-panel.tsx
+**Severity:** Medium
+**Issue:** The new artifact panel has mode state ("edit" | "diff") but the diff mode is not properly implemented. The old app had a DiffView component.
+**Old Code:** archive/oldapp/artifacts/text/client.tsx:94-99
+  ```typescript
+  if (mode === "diff") {
+    const oldContent = getDocumentContentById(currentVersionIndex - 1);
+    const newContent = getDocumentContentById(currentVersionIndex);
+    return <DiffView newContent={newContent} oldContent={oldContent} />;
+  }
+  ```
+**New Code:** features/artifact/components/artifact-panel.tsx - Mode state exists but renderers don't implement diff view
+**Impact:** The diff mode toggle doesn't work. Users cannot compare versions of artifacts.
+**Remediation:** Implement diff view in the artifact renderers or add a DiffView component.
+
+---
+
+### Functional Discrepancies
+
+#### Critical Severity
+
+## Missing Analytics Components
+**File:** app/layout.tsx
+**Severity:** Critical
+**Issue:** Missing Vercel Analytics and Speed Insights components that were present in the old application
+**Old Code:** archive/oldapp/app/layout.tsx:76-77 - `<SpeedInsights />` and `<Analytics />` components
+**New Code:** app/layout.tsx - These components are completely missing
+**Impact:** Production monitoring and performance insights will not function. Vercel deployment will lack analytics data collection.
+**Remediation:** Add imports for `Analytics` from `@vercel/analytics/next` and `SpeedInsights` from `@vercel/speed-insights/next`, then include both components in the body element.
+
+#### High Severity
+
+## Missing head.tsx with Resource Hints
+**File:** app/layout.tsx (missing head.tsx)
+**Severity:** High
+**Issue:** The old application had a dedicated head.tsx file with preconnect and dns-prefetch links for performance optimization. The new application has no equivalent.
+**Old Code:** archive/oldapp/app/head.tsx:1-47 - Contains preconnect/dns-prefetch for:
+  - cdn.jsdelivr.net (Pyodide CDN)
+  - va.vercel-scripts.com (Vercel Analytics)
+  - vitals.vercel-insights.com (Vercel Speed Insights)
+  - fonts.gstatic.com (Google Fonts)
+  - api.openai.com (OpenAI API)
+  - generativelanguage.googleapis.com (Google AI)
+  - api.open-meteo.com (Weather API)
+**New Code:** No head.tsx exists; no preconnect/dns-prefetch links found in app/ directory
+**Impact:** Performance degradation due to missing early DNS resolution and connection establishment for critical external resources. Slower font loading, API calls, and CDN access.
+**Remediation:** Either create app/head.tsx with the same preconnect/dns-prefetch links, or integrate them into layout.tsx using Next.js metadata API or direct head elements.
+
+## Missing Email Confirmation Flow in Register
+**File:** features/auth/actions/register.action.ts
+**Severity:** High
+**Issue:** The old app handled Supabase email confirmation flow - when email confirmation is enabled, Supabase returns a user but no session, and the app redirected to /login with a success message. The new app uses NextAuth with credentials provider and immediately signs in the user after creation, bypassing any email verification flow.
+**Old Code:** archive/oldapp/app/(auth)/register/page.tsx:48-60 - Checks for `!data.session` after signup, shows toast "Account created! Please check your email to verify your account.", and redirects to /login
+**New Code:** features/auth/actions/register.action.ts:60-77 - Immediately calls signIn() after createUser(), no email verification handling
+**Impact:** If email verification is required by the authentication provider, users will be signed in without verifying their email. This bypasses email verification security measures. Additionally, the success message differs - old app showed specific email verification message, new app shows generic success.
+**Remediation:** Implement email verification flow: after createUser(), check if email verification is required and handle accordingly (redirect to a "check your email" page instead of signing in immediately).
+
+## Different Post-Login Redirect Path
+**File:** features/auth/actions/login.action.ts
+**Severity:** High
+**Issue:** The old app redirected to "/" after successful login, while the new app redirects to "/chat". This is a functional change in user flow.
+**Old Code:** archive/oldapp/app/(auth)/login/page.tsx:92 - `router.push("/")`
+**New Code:** features/auth/actions/login.action.ts:63 - `redirectTo: "/chat"`
+**Impact:** Users will land on a different page after login. While this may be intentional (chat is the main feature), it changes the expected user flow. The old app's "/" route likely redirected to "/chat" anyway, but the direct path should be verified.
+**Remediation:** Verify if "/" redirects to "/chat" in the old app. If so, this is an acceptable change. Otherwise, ensure the redirect target matches user expectations.
+
+## Different Post-Registration Redirect Path
+**File:** features/auth/actions/register.action.ts
+**Severity:** High
+**Issue:** The old app redirected to "/" after successful registration (with session), while the new app redirects to "/chat". Additionally, old app redirected to "/login" when email confirmation was needed.
+**Old Code:** archive/oldapp/app/(auth)/register/page.tsx:58,111 - `router.push("/login")` for email confirmation, `router.push("/")` for immediate login
+**New Code:** features/auth/actions/register.action.ts:76 - `redirectTo: "/chat"`
+**Impact:** Same as login redirect issue - users land on different page. Also, the email confirmation redirect to /login is completely missing.
+**Remediation:** Align redirect paths with old app behavior or document the intentional change.
+
+## Missing Pyodide Script for Python Code Execution
+**File:** app/(chat)/layout.tsx
+**Severity:** High
+**Issue:** The new layout is missing the Pyodide script tag that enables Python code execution in artifacts.
+**Old Code:** archive/oldapp/app/(chat)/chat-layout-client.tsx:54-57 - `<Script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js" strategy="lazyOnload" />`
+**New Code:** app/(chat)/layout.tsx - No Pyodide script present
+**Impact:** Python code artifacts will not execute. The code artifact component (if migrated) will fail to run Python code in the browser. This breaks a core feature for code artifacts.
+**Remediation:** Add the Pyodide script tag to the chat layout, or ensure it's loaded dynamically in the code artifact component itself (the old app also has fallback loading in archive/oldapp/artifacts/code/client.tsx).
+
+## Missing Notice Toast Handler
+**File:** app/(chat)/layout.tsx
+**Severity:** High
+**Issue:** The new layout doesn't handle URL query parameter notices (chat_not_found, user_not_found) that trigger toast notifications in the old app.
+**Old Code:** archive/oldapp/app/(chat)/chat-layout-client.tsx:27-50 - useEffect that reads searchParams for "notice" and shows toast.warning/toast.error
+**New Code:** app/(chat)/layout.tsx - No notice handling; app/(chat)/chat/[id]/page.tsx redirects with notice params but no component displays them
+**Impact:** When users are redirected due to missing chats or user sessions, they won't see any notification explaining what happened. The UX will be confusing - users will be redirected without explanation.
+**Remediation:** Add a client component that handles the "notice" query parameter and displays appropriate toast notifications using sonner.
+
+## Missing loading.tsx for Chat Route
+**File:** app/(chat)/loading.tsx
+**Severity:** High
+**Issue:** The new application is missing the loading.tsx file for the (chat) route group.
+**Old Code:** archive/oldapp/app/(chat)/loading.tsx:1-10 - Loading component with spinner and "Loading chat..." text
+**New Code:** No loading.tsx exists in app/(chat)/
+**Impact:** No loading state is shown during navigation to chat pages. Users may see blank screens during route transitions, especially on slower connections.
+**Remediation:** Create app/(chat)/loading.tsx with a loading spinner component similar to the old implementation.
+
+## Missing error.tsx for Chat Route
+**File:** app/(chat)/error.tsx
+**Severity:** High
+**Issue:** The new application is missing the error.tsx file for the (chat) route group.
+**Old Code:** archive/oldapp/app/(chat)/error.tsx:1-41 - ChatError component with error display, digest, and recovery buttons (Go Home, Try Again)
+**New Code:** No error.tsx exists in app/(chat)/
+**Impact:** Unhandled errors in the chat route will show a generic error page or crash the application without recovery options. Users won't have a way to retry or navigate home.
+**Remediation:** Create app/(chat)/error.tsx with an error boundary component that provides recovery options.
+
+## Missing loading.tsx for Chat [id] Route
+**File:** app/(chat)/chat/[id]/loading.tsx
+**Severity:** High
+**Issue:** The new application is missing the loading.tsx file for the individual chat route.
+**Old Code:** archive/oldapp/app/(chat)/chat/[id]/loading.tsx:1-12 - Loading component with spinner and "Loading conversation..." text
+**New Code:** No loading.tsx exists in app/(chat)/chat/[id]/
+**Impact:** No loading state is shown during navigation to individual chat pages. Users may see blank screens during route transitions, especially on slower connections or when loading large chat histories.
+**Remediation:** Create app/(chat)/chat/[id]/loading.tsx with a loading spinner component similar to the old implementation.
+
+## Missing "Go Home" Navigation in Error Boundary
+**File:** app/error.tsx
+**Severity:** High
+**Issue:** The old app's chat error boundary provided TWO recovery options: "Go Home" button (navigates to "/") and "Try Again" button (calls reset()). The new app only has "Try Again" button, removing the ability to navigate away from the error page.
+**Old Code:** archive/oldapp/app/(chat)/error.tsx:33-38
+  ```tsx
+  <div className="flex gap-3">
+      <Button onClick={() => router.push("/")} variant="outline">
+          Go Home
+      </Button>
+      <Button onClick={() => reset()}>Try Again</Button>
+  </div>
+  ```
+**New Code:** app/error.tsx:60-63
+  ```tsx
+  <Button onClick={reset} size="lg" variant="outline">
+      <RefreshCw className="mr-2 h-4 w-4" />
+      Try Again
+  </Button>
+  ```
+**Impact:** Users who encounter a persistent error cannot navigate to safety (home page). They're stuck on the error page with only a "Try Again" button that may not resolve the issue. This degrades the user experience for unrecoverable errors.
+**Remediation:** Add a "Go Home" or "Return to Home" button alongside the "Try Again" button, using `useRouter().push("/")` for navigation.
+
+#### Medium Severity
+
+## Chat Component Missing Multiple Features
+**File:** features/chat/components/chat.tsx
+**Severity:** Medium
+**Issue:** The new Chat component is significantly simplified compared to the old one, missing several features: visibility toggle, artifact integration, settings integration, optimistic chat updates, and model persistence.
+**Old Code:** archive/oldapp/components/chat.tsx:78-100 - Uses useChatVisibility, useSettings, useOptimisticChats, useArtifact hooks
+**New Code:** features/chat/components/chat.tsx:72-81 - Only uses basic state management; no visibility, artifact, or optimistic chat integration
+**Impact:** Chat visibility cannot be changed, artifacts won't work, model selection isn't persisted, and new chats won't appear optimistically in sidebar. The component is marked as a "placeholder for Task 3.2c" suggesting it's incomplete.
+**Remediation:** Complete the Chat component implementation with the missing hooks and features. This appears to be a known work-in-progress based on the comments.
+
+## Missing Dynamic Import for AppSidebar
+**File:** app/(chat)/layout.tsx
+**Severity:** Medium
+**Issue:** The old app used dynamic import with ssr: false for AppSidebar to prevent server-side rendering issues. The new app imports it directly.
+**Old Code:** archive/oldapp/app/(chat)/chat-layout-client.tsx:16-22 - `dynamic(() => import("@/components/app-sidebar")..., { ssr: false, loading: () => <SidebarSkeleton /> })`
+**New Code:** app/(chat)/layout.tsx:17 - `import { AppSidebar } from "@/features/sidebar/components/sidebar"` (static import)
+**Impact:** Potential hydration issues if the sidebar component uses browser-only APIs. The sidebar may render differently on server vs client causing hydration mismatches.
+**Remediation:** Evaluate if AppSidebar needs SSR disabled. If it uses browser APIs (localStorage, window), wrap it in a dynamic import or use client-side guards.
+
+## Chat Service Ownership Check Differs from Old App
+**File:** lib/data/services/chat.service.ts
+**Severity:** Medium
+**Issue:** The new chatService.getWithMessages throws ForbiddenError for non-owners, while the old chatData.getWithMessages returned null. The page handles this differently.
+**Old Code:** archive/oldapp/lib/data/chat.ts:275-278 - Returns null if chat not found or user doesn't own it
+**New Code:** lib/data/services/chat.service.ts:125-133 - Throws ForbiddenError if userId doesn't match
+**Impact:** The new implementation throws an exception for unauthorized access, which is caught by the try/catch and redirects with a generic "chat_not_found" notice. The old implementation returned null silently. Both end up at the same redirect, but the error logging is different. The new approach logs "chat_page_load_failed" instead of "chat_access_denied" for permission issues.
+**Remediation:** Consider having the service return null for forbidden access (like the old app) or handle ForbiddenError separately in the page to log the correct error type.
+
+## Error Handling Changed from Toast to Inline
+**File:** app/(auth)/login/page.tsx, app/(auth)/register/page.tsx
+**Severity:** Medium
+**Issue:** The old app used toast notifications (toast() from @/components/toast) for all error and success messages. The new app displays errors inline below the form using local state. This changes the UX pattern for error feedback.
+**Old Code:** archive/oldapp/app/(auth)/login/page.tsx:25-29,42-46 - Uses `toast({ type: "error", description: "..." })` for errors
+**New Code:** app/(auth)/login/page.tsx:77-81 - Uses `{error && <p className="...">{error}</p>}` for inline error display
+**Impact:** UX consistency change. Toast notifications appear at the top/bottom of the screen and auto-dismiss, while inline errors are persistent and positioned within the form. Users may miss inline errors more easily. Success messages are also missing in the new app (no toast on successful registration/login).
+**Remediation:** Consider adding toast notifications back for consistency with the old app, or document this as an intentional UX change. Add success toasts for registration completion.
+
+## Missing defaultEmail Prop Usage in Login Page
+**File:** app/(auth)/login/page.tsx
+**Severity:** Medium
+**Issue:** The old login page preserved the submitted email in state and passed it to AuthForm as `defaultEmail`, so if the form re-rendered (e.g., after failed login), the email field would retain the user's input. The new app doesn't use this feature.
+**Old Code:** archive/oldapp/app/(auth)/login/page.tsx:13,32,107 - `const [email, setEmail] = useState("")`, `setEmail(submittedEmail)`, `<AuthForm ... defaultEmail={email}>`
+**New Code:** app/(auth)/login/page.tsx - No email state preservation; AuthForm receives no defaultEmail prop
+**Impact:** Minor UX degradation - if login fails, the user has to re-type their email address. The old app preserved the email to reduce friction on failed login attempts.
+**Remediation:** Add email state preservation in the login page, or rely on browser autofill (which may work if autocomplete="email" is set correctly).
+
+## Auth Layout Redirects Authenticated Users
+**File:** app/(auth)/layout.tsx
+**Severity:** Medium
+**Issue:** The new auth layout checks if user is authenticated and redirects to /chat. The old app didn't have this protection in the layout - each auth page was self-contained with its own layout wrapper.
+**Old Code:** archive/oldapp/app/(auth)/login/page.tsx:97-98 - No authenticated user redirect; full page layout inline
+**New Code:** app/(auth)/layout.tsx:36-42 - `if (session?.user) { redirect("/chat") }`
+**Impact:** This is actually an improvement - authenticated users are properly redirected away from login/register pages. However, it's a behavioral change that should be noted. The old app would show the login form to already-authenticated users.
+**Remediation:** None required - this is a valid improvement. Document as intentional enhancement.
+
+## Layout Props Not Passed to Client Component
+**File:** app/(chat)/layout.tsx
+**Severity:** Medium
+**Issue:** The old app passed initialIsMobile and initialSidebarOpen props to a client component (ChatLayoutClient), while the new app uses them directly in a server component. However, the SidebarProvider in the new app accepts initialIsMobile but the implementation may differ.
+**Old Code:** archive/oldapp/app/(chat)/layout.tsx:16-20 - `<ChatLayoutClient initialIsMobile={isMobile} initialSidebarOpen={sidebarOpen}>`
+**New Code:** app/(chat)/layout.tsx:62 - `<SidebarProvider defaultOpen={sidebarOpen} initialIsMobile={isMobile}>`
+**Impact:** The new implementation correctly passes these props to SidebarProvider. However, the old ChatLayoutClient had additional logic (notice handling, Pyodide, providers) that's now missing. The architectural change is valid but the functionality that was in the client component needs to be migrated.
+**Remediation:** This is partially correct but the missing providers and handlers need to be added back. See related issues for OptimisticChatsProvider, SettingsProvider, and notice handling.
+
+## Artifact Panel Props Significantly Reduced
+**File:** features/artifact/components/artifact-panel.tsx
+**Severity:** Medium
+**Issue:** The old Artifact component accepted 17 props for full functionality. The new ArtifactPanel only accepts 2 props (chatId, isReadonly), both of which are unused (prefixed with underscore).
+**Old Code:** archive/oldapp/components/artifact.tsx:59-93 - Props included:
+  - chatId, input, setInput, status, stop
+  - attachments, setAttachments, sendMessage
+  - messages, setMessages, regenerate
+  - votes, isReadonly, selectedVisibilityType
+  - selectedModelId, availableModels
+**New Code:** features/artifact/components/artifact-panel.tsx:39-42
+  ```typescript
+  interface ArtifactPanelInternalProps {
+    chatId: string
+    isReadonly: boolean
+  }
+  // Props are unused:
+  function PureArtifactPanel({ chatId: _chatId, isReadonly: _isReadonly }: ...)
+  ```
+**Impact:** The artifact panel is disconnected from the chat context. It cannot send messages, handle attachments, or integrate with the chat system.
+**Remediation:** Either pass necessary props from the parent component or use context/hooks to access chat state.
+
+## Missing onStreamPart Handler
+**File:** features/artifact/types.ts
+**Severity:** Medium
+**Issue:** The old Artifact class had an onStreamPart handler for processing streaming data specific to each artifact type. The new types don't include this.
+**Old Code:** archive/oldapp/components/create-artifact.tsx:64-68, 78-82
+  ```typescript
+  onStreamPart: (args: {
+    setMetadata: Dispatch<SetStateAction<M>>;
+    setArtifact: Dispatch<SetStateAction<UIArtifact>>;
+    streamPart: DataUIPart<CustomUIDataTypes>;
+  }) => void;
+  ```
+  Used in archive/oldapp/artifacts/text/client.tsx:51-77 for handling text deltas and suggestions during streaming.
+**New Code:** features/artifact/types.ts - No onStreamPart in ArtifactDefinition interface
+**Impact:** Artifacts cannot handle streaming data specific to their type. The text artifact won't show suggestions during streaming, and content updates may not work correctly.
+**Remediation:** Add onStreamPart to the ArtifactDefinition interface and implement it in artifact handlers.
+
+## Missing Artifact Initialization
+**File:** features/artifact/components/artifact-panel.tsx
+**Severity:** Medium
+**Issue:** The old artifact panel called artifactDefinition.initialize() when a document was loaded. The new panel doesn't have this.
+**Old Code:** archive/oldapp/components/artifact.tsx:310-320
+  ```typescript
+  useEffect(() => {
+    if (artifact.documentId !== "init" && safeArtifactDefinition.initialize) {
+      safeArtifactDefinition.initialize({
+        documentId: artifact.documentId,
+        setMetadata,
+      });
+    }
+  }, [artifact.documentId, safeArtifactDefinition, setMetadata]);
+  ```
+  This was used to load suggestions for text artifacts (archive/oldapp/artifacts/text/client.tsx:44-49).
+**New Code:** features/artifact/components/artifact-panel.tsx - No initialization logic
+**Impact:** Artifact-type-specific initialization doesn't happen. Text artifacts won't load their suggestions from the database.
+**Remediation:** Add initialization logic to the artifact panel, calling the artifact definition's initialize method if provided.
+
+## Different Metadata Management Approach
+**File:** features/artifact/hooks/use-artifact.ts
+**Severity:** Medium
+**Issue:** The old app used SWR for metadata persistence with documentId-based keys. The new app uses simple useState.
+**Old Code:** archive/oldapp/hooks/use-artifact.ts:103-124
+  ```typescript
+  const { data: localArtifactMetadata, mutate: setLocalArtifactMetadata } =
+    useSWR<ArtifactMetadata>(
+      () => artifact.documentId && artifact.documentId !== "init"
+        ? `artifact-metadata-${artifact.documentId}`
+        : null,
+      null,
+      { fallbackData: null, revalidateOnMount: true }
+    );
+  ```
+**New Code:** features/artifact/hooks/use-artifact.ts:90
+  ```typescript
+  const [metadata, setMetadata] = useState<ArtifactMetadata>(null)
+  ```
+**Impact:** Metadata is not persisted or cached per document. If the user switches between artifacts, metadata is lost. The old approach cached metadata per documentId.
+**Remediation:** Consider using SWR for metadata caching, or document this as an intentional simplification.
+
+#### Low Severity
+
+## Missing Success Toast on Registration
+**File:** features/auth/actions/register.action.ts
+**Severity:** Low
+**Issue:** The old app showed a success toast "Account created successfully!" after registration. The new app doesn't show any success message - it just redirects.
+**Old Code:** archive/oldapp/app/(auth)/register/page.tsx:105-108 - `toast({ type: "success", description: "Account created successfully!" })`
+**New Code:** features/auth/actions/register.action.ts - No success message; just returns success result
+**Impact:** Users don't get feedback that their account was created successfully. They're just redirected to chat without confirmation.
+**Remediation:** Add a success toast or notification after successful registration, either in the action or in the page component after redirect.
+
+## Submit Button Implementation Changed
+**File:** app/(auth)/login/page.tsx, app/(auth)/register/page.tsx
+**Severity:** Low
+**Issue:** The old app used a custom SubmitButton component with isSuccessful state for loading/success animation. The new app uses a standard Button with isPending state only.
+**Old Code:** archive/oldapp/app/(auth)/login/page.tsx:108-110 - `<SubmitButton isSuccessful={isSuccessful}>Sign in</SubmitButton>`
+**New Code:** app/(auth)/login/page.tsx:72-74 - `<Button className="w-full" disabled={isPending} type="submit">{isPending ? "Signing in..." : "Sign in"}</Button>`
+**Impact:** The old SubmitButton likely had additional visual states (success animation) that are now missing. The new implementation only shows loading state, not success state.
+**Remediation:** Consider restoring the SubmitButton component or adding success state visual feedback.
+
+## Chat Component Missing Greeting Import
+**File:** features/chat/components/messages.tsx
+**Severity:** Low
+**Issue:** The new Messages component has an inline Greeting component instead of importing the dedicated one.
+**Old Code:** archive/oldapp/components/messages.tsx:11 - `import { Greeting } from "./greeting";`
+**New Code:** features/chat/components/messages.tsx:339-355 - Inline Greeting function
+**Impact:** The Greeting component exists separately in features/chat/components/greeting.tsx but isn't used. This leads to code duplication and potential inconsistency if the greeting needs to change.
+**Remediation:** Import and use the Greeting component from ./greeting instead of the inline implementation.
+
+## Message Component Missing MessageContent Component
+**File:** features/chat/components/message.tsx
+**Severity:** Low
+**Issue:** The new Message component doesn't use the MessageContent component from elements for consistent message styling.
+**Old Code:** archive/oldapp/components/message.tsx:140-157 - Uses MessageContent:
+  ```tsx
+  <MessageContent className={cn({ ... })} data-testid="message-content" style={...}>
+      <Response>{sanitizeText(part.text)}</Response>
+  </MessageContent>
+  ```
+**New Code:** features/chat/components/message.tsx:179-201 - Uses plain div:
+  ```tsx
+  <div className={cn("message-content", { ... })} data-testid="message-content" style={...}>
+      <div className="whitespace-pre-wrap">{sanitizeHtml(part.text)}</div>
+  </div>
+  ```
+**Impact:** Minor styling inconsistency. MessageContent may provide additional features like consistent padding, border radius, or theme support.
+**Remediation:** Import and use MessageContent component from elements/message for consistency.
+
+## Message Component Missing SparklesIcon Import
+**File:** features/chat/components/message.tsx
+**Severity:** Low
+**Issue:** The new Message component has an inline SparklesIcon instead of importing from the icons file.
+**Old Code:** archive/oldapp/components/message.tsx:19 - `import { SparklesIcon } from "./icons";`
+**New Code:** features/chat/components/message.tsx:370-387 - Inline SparklesIcon function
+**Impact:** Code duplication. The same icon is defined in multiple places. If the icon needs to change, it must be updated in multiple files.
+**Remediation:** Import SparklesIcon from @/components/icons or a shared icons location.
+
+## MessageActions Missing Icon Imports
+**File:** features/chat/components/message-actions.tsx
+**Severity:** Low
+**Issue:** The new MessageActions has inline SVG icons instead of importing from the icons file.
+**Old Code:** archive/oldapp/components/message-actions.tsx:8 - `import { CopyIcon, PencilEditIcon, ThumbDownIcon, ThumbUpIcon } from "./icons";`
+**New Code:** features/chat/components/message-actions.tsx:64-151 - Inline icon components (CopyIcon, PencilEditIcon, ThumbUpIcon, ThumbDownIcon)
+**Impact:** Code duplication and potential inconsistency. Icons are defined inline instead of using the centralized icons file.
+**Remediation:** Import icons from @/components/icons for consistency.
+
+## MessageReasoning Missing Icon Import
+**File:** features/chat/components/message-reasoning.tsx
+**Severity:** Low
+**Issue:** The new MessageReasoning has inline SVG icons instead of importing from a shared location.
+**Old Code:** archive/oldapp/components/message-reasoning.tsx:5-8 - Uses Reasoning components which have their own icons
+**New Code:** features/chat/components/message-reasoning.tsx:34-78 - Inline BrainIcon and ChevronDownIcon
+**Impact:** Code duplication. Icons should be centralized for consistency.
+**Remediation:** Use icons from a shared location or use the Reasoning component from elements.
+
+---
+
+### Improvement Only
+
+The following items represent improvements or enhancements in the new application that are not issues requiring fixes:
+
+| Feature | Location | Description |
+|---------|----------|-------------|
+| Metadata title/description capitalization corrected | app/layout.tsx | "AI Assistant" instead of "ai assistant" |
+| UUID generation uses native crypto.randomUUID() | app/(chat)/page.tsx | More secure and performant than custom implementation |
+| Model metadata transformation | app/(chat)/page.tsx | Cleaner interface for model data |
+| Service context simplified | app/(chat)/chat/[id]/page.tsx | Simplified from data context pattern |
+| Default model fallback chain improved | app/(chat)/chat/[id]/page.tsx | Better fallback logic for model selection |
+| Global error page with custom UI | app/global-error.tsx | New error page with refresh button |
+| Not-found page added | app/not-found.tsx | New feature - 404 page |
+| Card component adds CardAction | components/ui/card.tsx | New sub-component for card actions |
+| Skeleton component adds ref forwarding | components/ui/skeleton.tsx | Better ref handling |
+| DropdownMenuCheckboxItem default checked | components/ui/dropdown-menu.tsx | Default `checked = false` for better defaults |
+| SidebarItem improved memoization | features/sidebar/components/sidebar-item.tsx | Added chat.visibility and chat.id to memo comparison |
+| SidebarToggle uses lucide-react | features/sidebar/components/sidebar-toggle.tsx | Uses PanelLeft from lucide-react instead of custom icon |
+| AppSidebar uses server actions | features/sidebar/components/sidebar.tsx | Uses deleteAllChats server action instead of direct fetch |
+| Artifact close button optional onClose | features/artifact/components/artifact-close.tsx | Enhanced with optional onClose prop |
+| Artifact error boundary TypeScript | features/artifact/components/artifact-error-boundary.tsx | Uses proper override keyword |
+
+---
+
+## Priority Action Items
+
+### Must Fix (Critical)
+
+1. **Add confirmPassword field to AuthForm** - Registration is completely broken
+2. **Add userId filter to vote fetching** - Security vulnerability exposing all votes
+3. **Add OptimisticChatsProvider** - Sidebar UX broken for new chats
+4. **Add SettingsProvider** - Settings persistence broken
+5. **Add Analytics components** - Production monitoring missing
+6. **Complete Chat component implementation** - Missing visibility, artifacts, settings, optimistic updates
+7. **Add Virtuoso virtualization to Messages** - Performance issue with large chats
+8. **Add Virtuoso virtualization to SidebarHistory** - Performance issue with large chat histories
+9. **Integrate optimistic chats in SidebarHistory** - New chats don't appear in sidebar
+10. **Add chat-title-updated event listener** - Titles don't update in real-time
+11. **Create ArtifactMessages component** - No message display in artifact panel
+12. **Implement Artifact class/registration system** - Artifact plugin system broken
+13. **Add MultimodalInput to artifact panel** - Cannot send messages while viewing artifacts
+14. **Add Toolbar to artifact panel** - Missing artifact-specific actions
+
+### Should Fix (High)
+
+1. Create loading.tsx files for chat routes
+2. Create error.tsx for chat route
+3. Add Pyodide script for Python execution
+4. Add notice toast handler
+5. Add "Go Home" button to error boundary
+6. Implement email confirmation flow
+7. Create head.tsx with resource hints
+8. Add fetchWithErrorHandlers to Chat component
+9. Add data stream handlers to Chat component
+10. Add useDataStream hook to Messages component
+11. Check autoScroll setting before scrolling
+12. Implement tool UIs in Message component
+13. Add isNewSession optimization to SidebarHistory
+14. Implement infinite scroll in SidebarHistory
+15. Add chat deduplication to SidebarHistory
+16. Add ChevronUp icon to SidebarUserNav
+17. Add SWR cache clearing on logout
+18. Add Supabase client signOut call
+19. Migrate artifact type definitions (textArtifact, codeArtifact, etc.)
+20. Integrate VersionFooter component
+21. Add Framer Motion animations to artifact panel
+22. Add useWindowSize hook to artifact panel
+23. Add useSidebar integration to artifact panel
+24. Implement artifact actions
+
+### Nice to Have (Medium)
+
+1. Fix CodeMirror class names
+2. Add AnimatePresence for ThinkingMessage
+3. Integrate MessageReasoning component
+4. Integrate MessageEditor component
+5. Integrate MessageActions component
+6. Add PreviewAttachment component
+7. Add motion animations to Message
+8. Use sanitizeText instead of sanitizeHtml
+9. Add Response component for markdown
+10. Add SWR cache mutation to MessageActions
+11. Add server action to MessageEditor
+12. Use UI components in MessageEditor
+13. Use Reasoning components in MessageReasoning
+14. Fix MessageReasoning auto-close behavior
+15. Restore toast notifications for auth
+16. Add defaultEmail preservation
+17. Add error toast on logout failure
+18. Add loading state toast to SidebarUserNav
+19. Implement diff mode in artifact panel
+20. Add onStreamPart handler to artifact types
+21. Add artifact initialization logic
+22. Consider SWR for artifact metadata caching
+
+---
+
+## Missing Files/Components
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| artifact-messages.tsx | **MISSING** | Critical - No message display in artifact panel |
+| toolbar.tsx | **MISSING** | Critical - No toolbar for artifact actions |
+| Artifact class | **MISSING** | Critical - No artifact type registration system |
+| textArtifact definition | **MISSING** | High - Text editor has no actions/suggestions |
+| codeArtifact definition | **MISSING** | High - Code editor has no execution/actions |
+| imageArtifact definition | **MISSING** | High - Image editor has no actions |
+| sheetArtifact definition | **MISSING** | High - Sheet editor has no actions |
+| DiffView component | Not integrated | Medium - Diff mode doesn't work |
+| VersionFooter | Exists but not used | Medium - Should be imported |
+| use-optimistic-chats.tsx | **MISSING** | Critical - No optimistic chat updates in sidebar |
+
+---
+
+## Hooks Comparison
+
+### Summary
+
+| Hook | Status | Issues |
+|------|--------|--------|
+| use-artifact | Issues Found | Medium - Metadata caching changed |
+| use-chat-visibility | Issues Found | Critical - Missing server persistence |
+| use-messages | No issues | Functionally equivalent |
+| use-mobile | No issues | Functionally equivalent (enhanced) |
+| use-optimistic-chats | **MISSING** | Critical - Entire hook missing |
+| use-scroll-to-bottom | No issues | Functionally equivalent |
+| use-window-size | No issues | Functionally equivalent (enhanced) |
+
+---
+
+### Detailed Hook Findings
+
+## Missing Hook - use-optimistic-chats
+**File:** features/ or hooks/
+**Severity:** Critical
+**Issue:** The entire `useOptimisticChats` hook and `OptimisticChatsProvider` context are missing from the new application. This hook manages optimistic chat creation for immediate sidebar updates before server confirmation.
+**Old Code:** archive/oldapp/hooks/use-optimistic-chats.tsx:1-110
+  - `OptimisticChatsProvider` context provider
+  - `useOptimisticChats` hook with:
+    - `optimisticChats` state array
+    - `addOptimisticChat(chatId, initialTitle)` function
+    - `updateOptimisticChatTitle(chatId, title)` function  
+    - `removeOptimisticChat(chatId)` function
+    - `MAX_OPTIMISTIC_CHATS = 50` limit
+    - O(1) duplicate detection using `Set<string>`
+**New Code:** NOT FOUND - No equivalent exists
+**Impact:** 
+- New chats don't appear in sidebar immediately after creation
+- Users must wait for server response and page refresh to see new chats
+- Chat title updates from AI responses won't reflect in sidebar
+- Significantly degraded UX for chat creation flow
+**Remediation:** Create `features/sidebar/hooks/use-optimistic-chats.tsx` with full implementation from old app, including provider and hook. Add `OptimisticChatsProvider` to `app/(chat)/layout.tsx`.
+
+## Metadata Caching Changed in use-artifact
+**File:** features/artifact/hooks/use-artifact.ts
+**Severity:** Medium
+**Issue:** The metadata management changed from SWR-based caching to simple useState. The old implementation used SWR with a dynamic key (`artifact-metadata-${documentId}`) which provided automatic caching, revalidation, and cross-component synchronization. The new implementation uses local state which loses these benefits.
+**Old Code:** archive/oldapp/hooks/use-artifact.ts:103-141
+  ```tsx
+  const { data: localArtifactMetadata, mutate: setLocalArtifactMetadata } =
+      useSWR<ArtifactMetadata>(
+          () => artifact.documentId && artifact.documentId !== "init"
+              ? `artifact-metadata-${artifact.documentId}`
+              : null,
+          null,
+          {
+              fallbackData: null,
+              revalidateOnMount: true,
+          }
+      );
+  
+  // Clear metadata immediately when documentId changes
+  useEffect(() => {
+      if (previousDocumentIdRef.current !== artifact.documentId) {
+          previousDocumentIdRef.current = artifact.documentId;
+          setLocalArtifactMetadata(null, { revalidate: false });
+      }
+  }, [artifact.documentId, setLocalArtifactMetadata]);
+  
+  // Wrap to match React's SetStateAction pattern
+  const setMetadata = useCallback(
+      (updaterFn: SetStateAction<ArtifactMetadata>) => {
+          if (typeof updaterFn === "function") {
+              setLocalArtifactMetadata((currentMetadata) => {
+                  return updaterFn(currentMetadata ?? null);
+              });
+          } else {
+              setLocalArtifactMetadata(updaterFn);
+          }
+      },
+      [setLocalArtifactMetadata]
+  ) as Dispatch<SetStateAction<ArtifactMetadata>>;
+  ```
+**New Code:** features/artifact/hooks/use-artifact.ts:88-98
+  ```tsx
+  const [metadata, setMetadata] = useState<ArtifactMetadata>(null)
+  
+  // Clear metadata when document changes
+  useEffect(() => {
+      if (artifact.documentId !== previousDocumentIdRef.current) {
+          setMetadata(null)
+          previousDocumentIdRef.current = artifact.documentId
+      }
+  }, [artifact.documentId])
+  ```
+**Impact:**
+- Metadata is not cached across component remounts
+- Multiple components viewing the same artifact won't share metadata state
+- No automatic revalidation or cache invalidation
+- Metadata is lost when navigating away and back
+**Remediation:** Consider restoring SWR-based metadata caching for better state persistence, or document this as intentional simplification if metadata is always fetched fresh.
+
+## Missing Server Persistence in use-chat-visibility
+**File:** hooks/use-chat-visibility.ts
+**Severity:** Critical
+**Issue:** The new `useChatVisibility` hook does not persist visibility changes to the server. It has a TODO comment instead of actual server action integration. The old implementation called `updateChatVisibility` server action with proper error handling and rollback.
+**Old Code:** archive/oldapp/hooks/use-chat-visibility.ts:62-94
+  ```tsx
+  const setVisibilityType = async (updatedVisibilityType: VisibilityType) => {
+      // ... abort controller setup ...
+      
+      const previousVisibility = localVisibility;
+      setLocalVisibility(updatedVisibilityType);
+      mutate(...);
+
+      try {
+          await updateChatVisibility({
+              chatId,
+              visibility: updatedVisibilityType,
+          });
+      } catch (error) {
+          if (error instanceof Error && error.name === "AbortError") {
+              return;
+          }
+          setLocalVisibility(previousVisibility);  // Rollback on error
+          toast.error("Failed to update visibility");
+      } finally {
+          pendingUpdateRef.current = null;
+      }
+  };
+  ```
+**New Code:** hooks/use-chat-visibility.ts:62-82
+  ```tsx
+  const setVisibilityType = async (updatedVisibilityType: VisibilityType) => {
+      // ... abort controller setup ...
+      
+      setLocalVisibility(updatedVisibilityType)
+      mutate(...)
+
+      // TODO: Implement updateChatVisibility action when available
+      // For now, just update locally without server persistence
+      console.log(
+          `Visibility update for chat ${chatId}: ${updatedVisibilityType}`,
+      )
+  }
+  ```
+**Impact:**
+- Visibility changes are NOT persisted to database
+- Changes only exist in local SWR cache
+- On page refresh, visibility reverts to server value
+- No error handling or user feedback on failure
+- No rollback on error
+**Remediation:** 
+1. Create `updateChatVisibility` server action in `features/chat/actions/`
+2. Import and call the action in `setVisibilityType`
+3. Add error handling with rollback
+4. Add toast notifications for success/failure
+
+## Missing Error Handling in use-chat-visibility
+**File:** hooks/use-chat-visibility.ts
+**Severity:** High
+**Issue:** The new hook lacks error handling, rollback logic, and user feedback that existed in the old implementation.
+**Old Code:** archive/oldapp/hooks/use-chat-visibility.ts:78-93
+  - Try-catch block with error handling
+  - AbortError detection for request deduplication
+  - Rollback to previous visibility on failure
+  - `toast.error("Failed to update visibility")` for user feedback
+**New Code:** hooks/use-chat-visibility.ts:62-82
+  - No try-catch block
+  - No error handling
+  - No rollback logic
+  - No user feedback
+**Impact:** Users have no indication when visibility updates fail. Silent failures lead to confusion.
+**Remediation:** Add try-catch with rollback and toast notifications.
+
+## Missing History Integration in use-chat-visibility
+**File:** hooks/use-chat-visibility.ts
+**Severity:** Medium
+**Issue:** The new hook doesn't properly integrate with chat history to sync visibility from cached data. The old implementation used `getChatHistoryPaginationKey` and found the chat in history to get its visibility.
+**Old Code:** archive/oldapp/hooks/use-chat-visibility.ts:28-60
+  ```tsx
+  const { data: historyPages } = useSWRInfinite<ChatHistory>(
+      getChatHistoryPaginationKey,
+      null,
+      { ... }
+  );
+  const history = historyPages?.[0];
+
+  const visibilityType = useMemo(() => {
+      if (!history) {
+          return localVisibility;
+      }
+      const chat = history.chats.find(
+          (currentChat) => currentChat.id === chatId
+      );
+      if (!chat) {
+          return localVisibility;
+      }
+      return chat.visibility;
+  }, [history, chatId, localVisibility]);
+  ```
+**New Code:** hooks/use-chat-visibility.ts:57-60
+  ```tsx
+  const visibilityType = useMemo(() => {
+      // For now, just use local visibility since we don't have the full history type
+      return localVisibility
+  }, [localVisibility])
+  ```
+**Impact:** Visibility may not stay in sync with server state when history is revalidated. The local state could diverge from the actual chat visibility.
+**Remediation:** Implement proper history integration once ChatHistory type is available, or ensure history API returns visibility for each chat.
+
+### use-messages: No issues found - functionally equivalent
+
+The new `useMessages` hook in `features/chat/hooks/use-messages.ts` is functionally equivalent to the old implementation. Both:
+- Accept `status` from useChat
+- Use `useScrollToBottom` for scroll management
+- Track `hasSentMessage` state based on "submitted" status
+- Return same interface: `containerRef`, `endRef`, `isAtBottom`, `scrollToBottom`, `onViewportEnter`, `onViewportLeave`, `hasSentMessage`
+
+The new version has enhanced TypeScript types and documentation but preserves all functionality.
+
+### use-mobile: No issues found - functionally equivalent (enhanced)
+
+The new `useIsMobile` hook in `hooks/use-mobile.ts` is functionally equivalent to the old implementation. Both:
+- Use `MOBILE_BREAKPOINT = 768`
+- Accept `initialIsMobile` option for SSR hydration
+- Return `boolean | undefined` (undefined during SSR)
+- Use `matchMedia` with change listener
+- Only update state if different from initial value to avoid CLS
+
+The new version is **enhanced** with an additional `useDeviceType` hook that provides `isMobile`, `isTablet`, `isDesktop`, and `isReady` flags.
+
+### use-scroll-to-bottom: No issues found - functionally equivalent
+
+The new `useScrollToBottom` hook exists in two locations:
+- `hooks/use-scroll-to-bottom.tsx` (generic implementation)
+- `features/chat/hooks/use-scroll-to-bottom.ts` (chat-specific)
+
+Both are functionally equivalent to the old implementation. All versions:
+- Use `SCROLL_BOTTOM_THRESHOLD = 100`
+- Use SWR for `scrollBehavior` state with key `"messages:should-scroll"`
+- Implement `handleScroll` with hydration-safe `mounted` check
+- Use `ResizeObserver` and `MutationObserver` for content change detection
+- Provide `scrollToBottom(behavior)` function
+- Provide `onViewportEnter` and `onViewportLeave` callbacks
+- Return same interface: `containerRef`, `endRef`, `isAtBottom`, `scrollToBottom`, `onViewportEnter`, `onViewportLeave`
+
+### use-window-size: No issues found - functionally equivalent (enhanced)
+
+The new `useWindowSize` hook in `hooks/use-window-size.ts` is functionally equivalent to the old implementation. Both:
+- Use `MOBILE_BREAKPOINT = 768` and `TABLET_BREAKPOINT = 1024`
+- Return `windowSize`, `width`, `height`, `isReady`, `isMobile`, `isTablet`, `isDesktop`
+- Handle SSR with null/0 defaults
+- Use resize event listener
+
+The new version is **enhanced** with two additional hooks:
+- `useWindowWidth()` - returns only width and isReady
+- `useWindowHeight()` - returns only height and isReady
