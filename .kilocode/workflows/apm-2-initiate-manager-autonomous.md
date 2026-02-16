@@ -433,8 +433,9 @@ new_task(
 ## Pre-Execution Requirements
 **MANDATORY**: Before starting this task, you MUST:
 1. Read `.kilocode/workflows/apm-3-initiate-implementation-autonomous.md` to understand your execution protocol
-2. Complete the Knowledge Acquisition Phase defined in Section 1 of that workflow
-3. Confirm your understanding before proceeding to implementation
+2. Read `AGENTS.md` for the Mandatory Pre-Implementation Protocol (6-step) and Code Reuse & Consistency Mandate
+3. Complete the Knowledge Acquisition Phase defined in Section 1 of the workflow — especially Step 3 (Check New App First)
+4. Confirm your understanding before proceeding to implementation
 
 ## Task Reference
 Implementation Plan: **Task X.Y - [Title]** assigned to **[Agent_<Domain>]**
@@ -449,11 +450,19 @@ Implementation Plan: **Task X.Y - [Title]** assigned to **[Agent_<Domain>]**
 [Transform Implementation Plan subtasks into actionable instructions]
 - Execute autonomously without user confirmation
 - Follow autonomous execution patterns from the workflow
+- Use existing functions, variables, types, and utilities before creating new ones
+- Follow existing coding patterns in the codebase
 
 ## Expected Output
 - Deliverables: [from Implementation Plan Output field]
 - Success criteria: [clear completion definition]
 - File locations: [specific paths]
+
+## Quality Gates
+Before marking complete, you MUST pass these in order:
+1. `pnpm format` — auto-format all changed files
+2. `pnpm typecheck` — zero TypeScript errors
+3. `pnpm lint` — zero lint errors
 
 ## Memory Logging
 Upon completion, you **MUST** log work in: `.apm/Memory/Phase_XX_<slug>/Task_X_Y_<slug>.md`

@@ -57,3 +57,5 @@ tsconfig.tsbuildinfo
 config.json
 .smart-coding-cache
 html
+# next-agents-md
+.next-docs/

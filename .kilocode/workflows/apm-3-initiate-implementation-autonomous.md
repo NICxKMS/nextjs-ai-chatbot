@@ -89,15 +89,17 @@ Upon receiving a Task Assignment Prompt, execute these steps **in order** before
 
 1. **Read Task Assignment Prompt** - Parse YAML frontmatter and all sections completely
 2. **Read Implementation Plan** - Review `.apm/Implementation_Plan.md` for task context and dependencies
-3. **Read Dependency Outputs** - If `dependency_context: true`, read all referenced files from "Context from Dependencies" section
-4. **Read Source Reference Files** - For migration tasks, read corresponding files in `archive/oldapp/` as specified in task guidance
-5. **Read Architecture Specs** - Read relevant sections from `.ouroboros/specs/refactor-migration/` — this is mandatory for all tasks, not only when explicitly referenced
-6. **Read Memory Logs** - Review recent Memory Logs from dependent tasks to understand prior work
-7. **Deep Code Discovery** - Search for and read ALL related and relevant code files in the workspace — including files outside the explicitly referenced list. Discover imports, shared components, utilities, and type definitions that relate to the task
-8. **Review Specifications** - Thoroughly review the implementation plan AND all relevant specifications inside `.ouroboros/specs/refactor-migration/` for architectural constraints, patterns, and decisions
-9. **Broader Context (Optional)** - Review other APM workflow files (e.g., `.kilocode/workflows/`) for broader contextual awareness when task scope warrants it
+3. **Check New App First** - Search the NEW codebase for the functionality being implemented. It may already exist under a different name, file path, or architectural pattern. If an equivalent or improved implementation exists, document it and mark the issue as "Already Implemented" — do NOT overwrite working code with old patterns
+4. **Read Source Reference Files** - For migration tasks, read corresponding files in `archive/oldapp/` as specified in task guidance. Also search the OLD codebase for related files, imports, and callers to get full context
+5. **Compare Architectures** - Determine whether the OLD implementation should be ported as-is, adapted to v6 patterns, or skipped because the new approach is already better. Document the decision with rationale
+6. **Read Architecture Specs** - Read relevant sections from `.ouroboros/specs/refactor-migration/` — this is mandatory for all tasks, not only when explicitly referenced
+7. **Read Dependency Outputs** - If `dependency_context: true`, read all referenced files from "Context from Dependencies" section
+8. **Read Memory Logs** - Review recent Memory Logs from dependent tasks to understand prior work
+9. **Deep Code Discovery** - Search BOTH the NEW and OLD codebases for ALL related and relevant code files — including files outside the explicitly referenced list. Discover imports, shared components, utilities, and type definitions that relate to the task
+10. **Document Findings** - Note key decisions, architecture differences, and any deviations before implementing
+11. **Broader Context (Optional)** - Review other APM workflow files for broader contextual awareness when task scope warrants it
 
-**Implementation MUST NOT begin without completing steps 1-8.** Step 9 is encouraged but optional.
+**Implementation MUST NOT begin without completing steps 1-10.** Step 11 is encouraged but optional.
 
 ### 1.2 Context Validation
 After knowledge acquisition, validate understanding:
@@ -111,6 +113,8 @@ After knowledge acquisition, validate understanding:
 Before implementation, briefly confirm:
 ```
 Knowledge Acquisition Complete:
+- New app check: [existing implementation found? Yes/No — if Yes, document and skip]
+- Architecture decision: [port as-is / adapt to v6 / skip — with rationale]
 - Dependencies understood: [list key dependencies]
 - Target outputs identified: [list target files]
 - Constraints noted: [list key constraints]
@@ -301,6 +305,13 @@ When delegation is triggered (after 3 failed attempts or complex issues):
 
 **MANDATORY**: Resolve missing dependencies and code proactively during implementation.
 
+**Code Reuse & Consistency Mandate:**
+- Use existing functions, variables, types, and utilities before creating new ones. Search the codebase first.
+- Follow existing coding patterns — match naming conventions, file structure, export style, error handling, and formatting of surrounding code.
+- Extend, don't duplicate — if similar logic exists, refactor it to be reusable rather than writing a parallel implementation.
+- Import from barrel exports (`index.ts`) where they exist. Do not bypass them with direct file imports.
+- Match existing error handling patterns — use `AppError` subclasses, guard functions, and the established try/catch → typed error flow.
+
 **Package Dependencies:**
 - If a required npm package is not installed → install it immediately using `pnpm add <package>`
 - If a dev dependency is missing → install with `pnpm add -D <package>`
@@ -311,22 +322,17 @@ If required code is missing and:
 1. It is necessary at the current implementation stage, AND
 2. It is NOT included in the implementation plan as a future task
 
-Then → **Migrate the necessary files from `archive/oldapp/`**
-
-Examples of migratable code:
-- Shared UI components (e.g., buttons, form elements)
-- Utility functions and helpers
-- Type definitions and interfaces
-- Hook implementations
-- Constants and configuration
+Then → **first check if the NEW codebase already has an equivalent** (different name, path, or pattern). If found, use the existing implementation. If truly missing → migrate from `archive/oldapp/`.
 
 **Migration Protocol:**
-1. Identify the source file in `archive/oldapp/`
-2. Read and understand the original implementation
-3. Adapt to current project patterns and architecture
-4. Place in the correct location per project structure
-5. Log the migration in `global-issues.md` with Category: Migration
-6. Note in Memory Log with `important_findings: true`
+1. Search the NEW codebase first — the functionality may already exist under a different name
+2. If not found, identify the source file in `archive/oldapp/`
+3. Read and understand the original implementation
+4. Decide: port as-is, adapt to v6 patterns, or skip if NEW approach is better
+5. Adapt to current project patterns and architecture (Repository/Service, feature modules, AppError hierarchy)
+6. Place in the correct location per project structure
+7. Log the migration in `global-issues.md` with Category: Migration
+8. Note in Memory Log with `important_findings: true`
 
 **If the missing code IS planned for a future task**, do NOT migrate it. Instead:
 - Create a placeholder type or interface if needed for compilation
@@ -339,12 +345,14 @@ Examples of migratable code:
 
 **Before marking any task as complete, the Implementation Agent MUST:**
 
-1. **Fix all TypeScript errors** — Run `pnpm typecheck` and resolve all reported errors
-2. **Fix all linter errors** — Run `pnpm lint` and resolve all reported errors
-3. **Validate the fix** — Re-run both commands to confirm zero errors
+1. **Format code** — Run `pnpm format` to auto-format all files
+2. **Fix all TypeScript errors** — Run `pnpm typecheck` and resolve all reported errors
+3. **Fix all linter errors** — Run `pnpm lint` and resolve all reported errors (use `pnpm lint:fix` for auto-fixable issues)
+4. **Validate the fix** — Re-run all three commands to confirm zero errors
 
-**Validation Commands:**
+**Validation Commands (in order):**
 ```bash
+pnpm format
 pnpm typecheck
 pnpm lint
 ```
@@ -548,7 +556,7 @@ When you receive a **Handover Prompt** instead of a Task Assignment Prompt, you 
 ## 11 Operating Rules
 
 1. **Autonomous Execution**: Execute all tasks without requesting user confirmation
-2. **Knowledge First**: Complete knowledge acquisition phase (ALL steps 1-8) before any implementation
+2. **Knowledge First**: Complete knowledge acquisition phase (ALL steps 1-10) before any implementation. Step 3 (Check New App First) is especially critical — never overwrite working code with old patterns
 3. **Error Resolution**: Attempt autonomous resolution first, log to `global-issues.md`, delegate after 3 attempts
 4. **Context Drift Recovery**: Re-read guiding files when memory loss detected; confirm compliance
 5. **Knowledge Sharing**: Append generalizable insights to `AGENTS.md` Agent Contributions Log
@@ -562,7 +570,8 @@ When you receive a **Handover Prompt** instead of a Task Assignment Prompt, you 
 13. **Workflow re-read**: Re-read this workflow file after ANY context summarization; explicitly reconfirm compliance before continuing
 14. **Deep context understanding**: Read ALL related code files (not just referenced ones) before implementation; search for imports, types, and dependencies
 15. **Dependency resolution**: Install missing packages immediately; migrate missing code from `archive/oldapp/` when not planned as future task
-16. **Code quality gates**: Run `pnpm typecheck` and `pnpm lint` before marking completion; fix all errors except those depending on future planned tasks
+16. **Code quality gates**: Run `pnpm format`, then `pnpm typecheck` and `pnpm lint` before marking completion; fix all errors except those depending on future planned tasks
+17. **Code reuse mandate**: Use existing functions, variables, types, and utilities before creating new ones. Follow existing coding patterns. Refer to AGENTS.md Code Reuse & Consistency Mandate
 17. **Mandatory issue logging**: Log ALL findings, irregularities, migration inconsistencies, and architectural deviations to `global-issues.md` using the structured format
 18. **Shared protocols authority**: Reference `AGENTS.md` as the single source of truth for cross-agent standards
 

@@ -132,6 +132,10 @@ After presenting your summary, ask 1-2 assurance questions about project state a
 - Create Memory sub-directories when a phase starts and create a phase summary when a phase ends.
 - Monitor token usage and request a handover before context window overflow.
 - Maintain Implementation Plan Integrity (See §5).
+- **Enforce Pre-Implementation Protocol**: Ensure all Task Assignment Prompts include instructions for agents to follow the `AGENTS.md` Mandatory Pre-Implementation Protocol (6-step) and Code Reuse & Consistency Mandate.
+- **Enforce Quality Gates**: Ensure Task Assignment Prompts instruct agents to run `pnpm format`, `pnpm typecheck`, and `pnpm lint` before marking tasks complete.
+- **Monitor global-issues.md**: Review open issues before each new phase. Consider open issues when creating Task Assignment Prompts.
+- **Review AGENTS.md contributions**: At phase boundaries, check that agents are sharing generalizable insights.
 
 ---
 
