@@ -7,6 +7,22 @@
 
 ---
 
+## Verification Summary
+
+| Issue | Status | Timestamp |
+|-------|--------|-----------|
+| P4-BUG-001 | Verified | 2026-02-16T18:00:00Z |
+| P4-BUG-002 | Verified | 2026-02-16T18:00:00Z |
+| P4-BUG-003 | Verified | 2026-02-16T18:00:00Z |
+| P4-BRK-001 | Defect | 2026-02-16T18:00:00Z |
+| P4-FNC-001 | Verified | 2026-02-16T18:00:00Z |
+| P4-IMP-001 | Improvement | 2026-02-16T18:00:00Z |
+| P4-IMP-002 | Verified (Improvement) | 2026-02-16T12:00:00Z |
+| P4-IMP-003 | Verified (Improvement) | 2026-02-16T12:00:00Z |
+| P4-IMP-004 | Verified (Improvement) | 2026-02-16T12:00:00Z |
+
+---
+
 ## Table of Contents
 
 - [UI Inconsistencies](#ui-inconsistencies)
@@ -46,6 +62,15 @@
 3. Add error handling with rollback
 4. Add toast notifications for success/failure
 
+#### Verification
+
+| Field | Value |
+|-------|-------|
+| **Verification Status** | Verified |
+| **Verified At** | 2026-02-16T18:00:00Z |
+
+**Findings:** Issue accurately describes a real bug. Old `archive/oldapp/hooks/use-chat-visibility.ts:62-94` imports `updateChatVisibility` from `@/app/(chat)/actions` and calls `await updateChatVisibility({ chatId, visibility: updatedVisibilityType })` inside a try/catch block, with rollback on failure (`setLocalVisibility(previousVisibility)`) and `toast.error("Failed to update visibility")`. New `hooks/use-chat-visibility.ts:62-82` has only `console.log(\`Visibility update for chat ${chatId}: ${updatedVisibilityType}\`)` with a TODO comment: "Implement updateChatVisibility action when available". No server action is imported or called. Visibility changes are purely client-side SWR mutations — they will revert on page refresh since the database is never updated. The optimistic update (`setLocalVisibility(updatedVisibilityType)`) and history cache revalidation (`mutate(...)`) work correctly client-side, but without server persistence the feature is broken.
+
 ---
 
 ### P4-BUG-002: Missing Error Handling in use-chat-visibility
@@ -64,6 +89,15 @@
 
 **Suggested Fix:** Add try-catch with rollback and toast notifications.
 
+#### Verification
+
+| Field | Value |
+|-------|-------|
+| **Verification Status** | Verified |
+| **Verified At** | 2026-02-16T18:00:00Z |
+
+**Findings:** Issue accurately describes a real difference. Old `archive/oldapp/hooks/use-chat-visibility.ts:78-93` has a complete error handling flow: (1) saves `previousVisibility` before the optimistic update, (2) wraps the server action in `try/catch`, (3) checks `error.name === "AbortError"` to ignore superseded requests, (4) on non-abort errors calls `setLocalVisibility(previousVisibility)` to rollback the optimistic update, (5) calls `toast.error("Failed to update visibility")` for user feedback, (6) cleans up `pendingUpdateRef.current = null` in `finally` block. New `hooks/use-chat-visibility.ts:62-82` has none of this: no `try/catch`, no rollback, no `previousVisibility` save, no toast import, no `finally` cleanup, and no `toast.error`. If the future server action throws, the error will be unhandled and the optimistic UI will show incorrect visibility state with no way to recover. Even though the server action itself is missing (P4-BUG-001), the error handling infrastructure should be in place for when it's added.
+
 ---
 
 ### P4-BUG-003: Missing History Integration in use-chat-visibility
@@ -81,6 +115,15 @@
 **Impact:** Visibility may not stay in sync with server state when history is revalidated. The local state could diverge from the actual chat visibility.
 
 **Suggested Fix:** Implement proper history integration once ChatHistory type is available, or ensure history API returns visibility for each chat.
+
+#### Verification
+
+| Field | Value |
+|-------|-------|
+| **Verification Status** | Verified |
+| **Verified At** | 2026-02-16T18:00:00Z |
+
+**Findings:** Issue accurately describes a real difference. Old `archive/oldapp/hooks/use-chat-visibility.ts:28-60` uses `useSWRInfinite<ChatHistory>(getChatHistoryPaginationKey, null, ...)` with typed `ChatHistory` generic and the proper pagination key function from `sidebar-history`. The `visibilityType` memo reads the first history page, finds the chat by ID (`history.chats.find((currentChat) => currentChat.id === chatId)`), and returns `chat.visibility` — syncing visibility from the server-cached history data. New `hooks/use-chat-visibility.ts:40-53` uses `useSWRInfinite<unknown>(() => "/api/history", null, ...)` with `unknown` type instead of `ChatHistory`, a hardcoded key function instead of the shared `getChatHistoryPaginationKey`, and the `visibilityType` memo at line 57-60 only returns `localVisibility` with a comment "For now, just use local visibility since we don't have the full history type". The history cache subscription exists in structure but the data is never read. When history is revalidated (e.g., after a fetch or another component mutates the SWR cache), the old hook would pick up the server-confirmed visibility; the new hook ignores it entirely, potentially diverging from the actual persisted state.
 
 ---
 
@@ -106,6 +149,15 @@
 
 **Suggested Fix:** Create `features/sidebar/hooks/use-optimistic-chats.tsx` with full implementation from old app, including provider and hook. Add `OptimisticChatsProvider` to `app/(chat)/layout.tsx`.
 
+#### Verification
+
+| Field | Value |
+|-------|-------|
+| **Verification Status** | Defect |
+| **Verified At** | 2026-02-16T18:00:00Z |
+
+**Findings:** Confirmed as a defect — the hook and provider are completely absent from the new codebase. The old `archive/oldapp/hooks/use-optimistic-chats.tsx` (110 lines) provides: (1) `OptimisticChatsProvider` context with `useState<OptimisticChat[]>` and `useRef(new Set<string>())` for O(1) duplicate detection, (2) `addOptimisticChat(chatId, initialTitle?)` — adds a chat instantly with `MAX_OPTIMISTIC_CHATS = 50` limit, (3) `updateOptimisticChatTitle(chatId, title)` — updates the title during streaming, (4) `removeOptimisticChat(chatId)` — removes once server persistence confirms. The old `app/(chat)/chat-layout-client.tsx:13,62-63` wraps the entire layout in `<OptimisticChatsProvider>`. Grep search confirmed: no file matching `use-optimistic-chats` exists anywhere outside `archive/`. No `OptimisticChatsProvider` in `app/(chat)/layout.tsx`. The old `sidebar-history.tsx` uses `useOptimisticChats()` to merge optimistic chats into the displayed list. The old `chat.tsx` calls `addOptimisticChat(id)` on mount and `updateOptimisticChatTitle` in `onData`. Without this hook, new chats don't appear in the sidebar until the first server round-trip completes and the list is refetched — a significant UX degradation.
+
 ---
 
 ## Functional Discrepancies
@@ -130,6 +182,15 @@
 
 **Suggested Fix:** Consider restoring SWR-based metadata caching for better state persistence, or document this as intentional simplification if metadata is always fetched fresh.
 
+#### Verification
+
+| Field | Value |
+|-------|-------|
+| **Verification Status** | Verified |
+| **Verified At** | 2026-02-16T18:00:00Z |
+
+**Findings:** Issue accurately describes a real architectural change. Old `archive/oldapp/hooks/use-artifact.ts:103-141` uses SWR for metadata: `useSWR<ArtifactMetadata>(() => artifact.documentId !== "init" ? \`artifact-metadata-${artifact.documentId}\` : null, null, { fallbackData: null, revalidateOnMount: true })`. This provides: (a) automatic caching keyed by documentId — switching between artifacts preserves metadata, (b) cross-component synchronization — multiple components calling `useSWR` with the same key share state, (c) `setMetadata` wrapped via `useCallback` to match `Dispatch<SetStateAction<ArtifactMetadata>>` pattern expected by artifact definitions, (d) `revalidateOnMount: true` to clear stale data on key change. New `features/artifact/hooks/use-artifact.ts:88-98` uses `const [metadata, setMetadata] = useState<ArtifactMetadata>(null)` with a `useEffect` to clear metadata on documentId change. This means: metadata is NOT cached when switching between artifacts (lost on remount), multiple components cannot share metadata state, and there is no SWR coordination. Given that the artifact plugin system is currently non-functional (P3-BRK-007, P3-BRK-010), the practical impact is minimal now — but this is a documented regression that must be restored when artifact definitions are re-implemented.
+
 ---
 
 ## Improvement Only
@@ -145,6 +206,15 @@
 
 **Status:** Enhancement - No action required.
 
+#### Verification
+
+| Field | Value |
+|-------|-------|
+| **Verification Status** | Improvement |
+| **Verified At** | 2026-02-16T18:00:00Z |
+
+**Findings:** Confirmed as functionally equivalent with improvements. Line-by-line comparison of old `archive/oldapp/hooks/use-messages.tsx` (34 lines) and new `features/chat/hooks/use-messages.ts` (106 lines) shows identical logic: (1) both destructure `{ status }` from options, (2) both call `useScrollToBottom()` and destructure the same 6 properties (`containerRef`, `endRef`, `isAtBottom`, `scrollToBottom`, `onViewportEnter`, `onViewportLeave`), (3) both use `useState(false)` for `hasSentMessage`, (4) both use `useEffect` setting `setHasSentMessage(true)` when `status === "submitted"`, (5) both return the same 7-property object. The new version adds: explicit `UseMessagesOptions` and `UseMessagesReturn` TypeScript interfaces (replacing inline types), JSDoc documentation with usage example, and module-level documentation. Import paths differ (`@/lib/types` → `../types`, `./use-scroll-to-bottom` → `./use-scroll-to-bottom`) reflecting the feature-based reorganization. Zero behavioral differences.
+
 ---
 
 ### P4-IMP-002: use-mobile Enhanced
@@ -157,6 +227,15 @@
 **Description:** The new `useIsMobile` hook is functionally equivalent to the old implementation. Both use `MOBILE_BREAKPOINT = 768`, accept `initialIsMobile` option for SSR hydration, and return `boolean | undefined`. The new version is **enhanced** with an additional `useDeviceType` hook that provides `isMobile`, `isTablet`, `isDesktop`, and `isReady` flags.
 
 **Status:** Enhancement - No action required.
+
+**Verification:**
+| Field | Value |
+|-------|-------|
+| **Verified By** | ouroboros-qa |
+| **Timestamp** | 2026-02-16T12:00:00Z |
+| **Status** | Verified (Improvement) |
+
+**Findings:** Line-by-line comparison confirms the issue description is accurate. OLD (`archive/oldapp/hooks/use-mobile.ts`) exports only `useIsMobile` with `MOBILE_BREAKPOINT = 768`, `UseMobileOptions` type, `initialIsMobile` SSR option, `matchMedia` listener, and CLS-avoidance logic. NEW (`hooks/use-mobile.ts`) preserves all of this logic identically (same constants, same state init, same effect body, same CLS check) and adds: (1) enhanced TypeScript JSDoc documentation with usage examples, (2) a new `useDeviceType()` hook returning `{ isMobile, isTablet, isDesktop, isReady }` using `MOBILE_BREAKPOINT` (768) and a `1024` tablet breakpoint with resize listener. The core `useIsMobile` hook is functionally identical. The new `useDeviceType` is a pure addition. This is a genuine enhancement with no regressions.
 
 ---
 
@@ -171,6 +250,15 @@
 
 **Status:** Enhancement - No action required.
 
+**Verification:**
+| Field | Value |
+|-------|-------|
+| **Verified By** | ouroboros-qa |
+| **Timestamp** | 2026-02-16T12:00:00Z |
+| **Status** | Verified (Improvement) |
+
+**Findings:** Diff comparison of OLD (`archive/oldapp/hooks/use-scroll-to-bottom.tsx`) vs NEW (`hooks/use-scroll-to-bottom.tsx`) and NEW (`features/chat/hooks/use-scroll-to-bottom.ts`) confirms functional equivalence. All three versions share: `SCROLL_BOTTOM_THRESHOLD = 100`, SWR key `"messages:should-scroll"` with `fallbackData: false`, `mounted` state for hydration safety, identical `handleScroll` logic (`scrollTop + clientHeight >= scrollHeight - threshold`), `ResizeObserver` with single `requestAnimationFrame`, `MutationObserver` with double `requestAnimationFrame`, same `attributeFilter: ["style", "class", "data-state"]`, identical `scrollToBottom` callback, and same `onViewportEnter`/`onViewportLeave` functions. NEW `hooks/use-scroll-to-bottom.tsx` adds a typed `UseScrollToBottomReturn` export and JSDoc. NEW `features/chat/hooks/use-scroll-to-bottom.ts` adds module-level docs and section comments. Both are pure documentation enhancements with zero behavioral changes. The duplicate existence in two locations is noted but not a bug — it follows the feature-based architecture pattern.
+
 ---
 
 ### P4-IMP-004: use-window-size Enhanced
@@ -183,6 +271,15 @@
 **Description:** The new `useWindowSize` hook is functionally equivalent to the old implementation. Both use `MOBILE_BREAKPOINT = 768` and `TABLET_BREAKPOINT = 1024`, return `windowSize`, `width`, `height`, `isReady`, `isMobile`, `isTablet`, `isDesktop`, and handle SSR with null/0 defaults. The new version is **enhanced** with two additional hooks: `useWindowWidth()` and `useWindowHeight()`.
 
 **Status:** Enhancement - No action required.
+
+**Verification:**
+| Field | Value |
+|-------|-------|
+| **Verified By** | ouroboros-qa |
+| **Timestamp** | 2026-02-16T12:00:00Z |
+| **Status** | Verified (Improvement) |
+
+**Findings:** Line-by-line comparison of OLD (`archive/oldapp/hooks/use-window-size.ts`) vs NEW (`hooks/use-window-size.ts`) confirms functional equivalence of the core `useWindowSize` hook. Both have identical: `MOBILE_BREAKPOINT = 768`, `TABLET_BREAKPOINT = 1024`, `WindowSize` type `{ width, height }`, initial state `null`/`isReady: false`, `handleResize` reading `window.innerWidth`/`innerHeight`, `width`/`height` fallback to `0`, and identical breakpoint calculations (`isMobile: isReady && width > 0 && width < 768`, `isTablet: isReady && width >= 768 && width < 1024`, `isDesktop: isReady && width >= 1024`). NEW adds: (1) exported `WindowSize` and `UseWindowSizeReturn` types, (2) JSDoc with examples, (3) `useWindowWidth()` hook — a lightweight width-only variant, (4) `useWindowHeight()` hook — a lightweight height-only variant. Both new hooks follow the same SSR-safe pattern. Pure enhancement, zero regressions.
 
 ---
 

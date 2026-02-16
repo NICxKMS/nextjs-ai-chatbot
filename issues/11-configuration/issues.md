@@ -21,10 +21,17 @@
 
 ## Issues Identified
 
+### Verification Summary
+
+| Issue ID | Title | Original Status | Verified Status | Timestamp |
+|----------|-------|-----------------|-----------------|----------|
+| P11-FNC-001 | Missing instrumentation-client.ts File | Open | ✅ Verified | 2026-02-16T14:00:00Z |
+
 ### [P11-FNC-001] Missing instrumentation-client.ts File
 
 **Severity:** Low
-**Status:** Open
+**Status:** Verified
+**Verified:** 2026-02-16T14:00:00Z
 **OLD File:** `archive/oldapp/instrumentation-client.ts`
 **NEW File:** N/A
 **Line Ref:** L1-L4
@@ -46,12 +53,22 @@ Create `instrumentation-client.ts` in the project root with:
 export {};
 ```
 
+**Verification Findings:**
+- OLD `archive/oldapp/instrumentation-client.ts` confirmed (4 lines): `// Client-side instrumentation` + `// Sentry has been removed - using Vercel Analytics and Speed Insights only` + `export {};`
+- `file_search` for `**/instrumentation-client*` returns ONLY `archive/oldapp/instrumentation-client.ts` — no NEW equivalent.
+- NEW root contains `instrumentation.ts` (server-side, uses `@vercel/otel` + registers global error handlers) but NOT `instrumentation-client.ts`.
+- Next.js [docs](https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation) support `instrumentation-client.ts` for client-side hooks since v15. Without it, Next.js falls back to an empty module — no runtime error, but no client-side instrumentation hook point.
+- Since the OLD file was just `export {}` (placeholder after Sentry removal), functional impact is minimal — but having the file provides a documented hook point for future client-side observability integration.
+- **Issue is accurate**: file is absent, impact is low as described.
+
 ---
 
 ### [P11-FNC-002] Test Script Missing PLAYWRIGHT Environment Variable
 
 **Severity:** Medium
-**Status:** Open
+**Status:** Verified
+**Verified:** 2026-02-16T00:00:00Z
+**Findings:** Confirmed difference: OLD script sets `PLAYWRIGHT=True` explicitly; NEW `test:e2e` does not. However, Playwright auto-sets `PLAYWRIGHT_TEST_BASE_URL` when `webServer` config is present, so `isTestEnvironment` in `lib/constants.ts:18-22` still evaluates to `true` during E2E runs. Additionally, `isTestEnvironment` is defined/exported in the NEW codebase (`lib/constants.ts`, `lib/index.ts`) but never actually imported or consumed by any NEW app code (only by OLD `archive/oldapp/lib/ai/providers.ts` and `archive/oldapp/lib/ai/title-generation.ts`). Real-world impact is currently **nil** but becomes relevant once test-aware code is migrated.
 **OLD File:** `archive/oldapp/package.json`
 **NEW File:** `package.json`
 **Line Ref:** L18 (OLD), L23 (NEW)
@@ -93,7 +110,9 @@ Or use a cross-platform solution since `export` doesn't work on Windows.
 ### [P11-FNC-003] Playwright Test Directory Changed
 
 **Severity:** Low
-**Status:** Open
+**Status:** Improvement
+**Verified:** 2026-02-16T00:00:00Z
+**Findings:** Confirmed intentional architectural change. OLD: `testDir: "./tests"`. NEW: `testDir: "./e2e"`. The `e2e/` directory exists and contains 4 spec files (`artifacts.spec.ts`, `auth.spec.ts`, `chat.spec.ts`, `sidebar.spec.ts`) plus a `visual/` subdirectory. Naming convention changed from `.test.ts` to `.spec.ts`. No migration gap — tests are already in the new location.
 **OLD File:** `archive/oldapp/playwright.config.ts`
 **NEW File:** `playwright.config.ts`
 **Line Ref:** L26 (OLD), L27 (NEW)
@@ -124,7 +143,9 @@ Ensure all test files are migrated to the `./e2e` directory and renamed to use `
 ### [P11-FNC-004] Playwright Health Check Endpoint Changed
 
 **Severity:** Low
-**Status:** Open
+**Status:** Improvement
+**Verified:** 2026-02-16T00:00:00Z
+**Findings:** Confirmed intentional change. OLD: `/ping`. NEW: `/api/health`. The endpoint `app/api/health/route.ts` exists and implements comprehensive health checks (database connectivity via `SELECT 1`, Redis ping, environment variable validation). Returns HTTP 200 when healthy, 503 when unhealthy. This is a strict upgrade over the OLD `/ping` which was a simple liveness probe.
 **OLD File:** `archive/oldapp/playwright.config.ts`
 **NEW File:** `playwright.config.ts`
 **Line Ref:** L103 (OLD), L122 (NEW)
@@ -155,7 +176,9 @@ Verify that `/api/health` endpoint exists and returns a 200 response. The endpoi
 ### [P11-FNC-005] Playwright Test Projects Configuration Changed
 
 **Severity:** Low
-**Status:** Open
+**Status:** Improvement
+**Verified:** 2026-02-16T00:00:00Z
+**Findings:** Confirmed intentional simplification. OLD had two projects (`e2e` matching `e2e/.*.test.ts`, `routes` matching `routes/.*.test.ts`). NEW has one project (`e2e-chrome` matching `.*\.spec\.ts`). The `routes` project type was part of OLD architecture; the NEW app consolidates all E2E tests under `e2e/` with `.spec.ts` extension. Additional enhancements in NEW: visual regression config (`toHaveScreenshot`), screenshot/video on failure, action/navigation timeouts. No functional regression.
 **OLD File:** `archive/oldapp/playwright.config.ts`
 **NEW File:** `playwright.config.ts`
 **Line Ref:** L53-L98 (OLD), L82-L117 (NEW)
@@ -183,7 +206,9 @@ If routes tests are needed, add a corresponding project configuration. Ensure al
 ### [P11-FNC-006] Missing @vercel/postgres Dependency
 
 **Severity:** Medium
-**Status:** Open
+**Status:** Improvement
+**Verified:** 2026-02-16T00:00:00Z
+**Findings:** Confirmed removal from `package.json` dependencies. Zero source code imports of `@vercel/postgres` found in the NEW codebase (grep returned no matches outside lock files and issue docs). The package is officially **deprecated** — `pnpm-lock.yaml` shows the deprecation notice directing to Neon SDKs. It remains as a transitive dependency of `drizzle-orm` in the lock file, which is expected. The NEW app uses the `postgres` package directly for DB connections. Removal is correct and intentional.
 **OLD File:** `archive/oldapp/package.json`
 **NEW File:** `package.json`
 **Line Ref:** L58 (OLD)
@@ -211,7 +236,9 @@ Verify that no code requires `@vercel/postgres`. The app appears to use the `pos
 ### [P11-FNC-007] Missing @google/genai Dev Dependency
 
 **Severity:** Low
-**Status:** Open
+**Status:** Improvement
+**Verified:** 2026-02-16T00:00:00Z
+**Findings:** Confirmed removal from `devDependencies`. Zero source code imports of `@google/genai` found in either OLD or NEW codebase (grep returned no matches in any `.ts`/`.tsx` files). The package was unused even in the OLD app — it was likely added provisionally. The app uses `@ai-sdk/google` (present in both OLD and NEW) for Google AI integration via the AI SDK abstraction layer. Removal is correct.
 **OLD File:** `archive/oldapp/package.json`
 **NEW File:** `package.json`
 **Line Ref:** L103 (OLD)
@@ -239,7 +266,9 @@ Verify that no code requires `@google/genai`. If needed for development or testi
 ### [P11-FNC-008] Missing ultracite Package
 
 **Severity:** Low
-**Status:** Open
+**Status:** Improvement
+**Verified:** 2026-02-16T00:00:00Z
+**Findings:** Confirmed intentional tooling migration. OLD used `ultracite` (a Biome wrapper) with scripts `npx ultracite check` / `npx ultracite fix`. NEW uses Biome directly (`biome check .`, `biome check --write .`, `biome format --write .`) with `@biomejs/biome` upgraded from 2.2.2 to 2.3.14. Comprehensive `biome.json` config exists with linter rules, formatter settings, and test file overrides. Zero references to `ultracite` in NEW source code. This is a correct simplification — removing the wrapper layer.
 **OLD File:** `archive/oldapp/package.json`
 **NEW File:** `package.json`
 **Line Ref:** L120 (OLD)
@@ -356,30 +385,43 @@ Most dependency changes are intentional:
 | Low Issues | 6 |
 | No Issues Found | 4 |
 
+### Verification Results (P11-FNC-002 through P11-FNC-008)
+
+| Issue | Title | Status | Verified |
+|-------|-------|--------|----------|
+| P11-FNC-002 | Test Script Missing PLAYWRIGHT Env Var | **Verified** | 2026-02-16 |
+| P11-FNC-003 | Playwright Test Directory Changed | **Improvement** | 2026-02-16 |
+| P11-FNC-004 | Playwright Health Check Endpoint Changed | **Improvement** | 2026-02-16 |
+| P11-FNC-005 | Playwright Test Projects Config Changed | **Improvement** | 2026-02-16 |
+| P11-FNC-006 | Missing @vercel/postgres Dependency | **Improvement** | 2026-02-16 |
+| P11-FNC-007 | Missing @google/genai Dev Dependency | **Improvement** | 2026-02-16 |
+| P11-FNC-008 | Missing ultracite Package | **Improvement** | 2026-02-16 |
+
 ### Medium Priority Issues:
-1. **P11-FNC-002**: Test script missing PLAYWRIGHT environment variable
-2. **P11-FNC-006**: Missing @vercel/postgres dependency
+1. **P11-FNC-002**: Test script missing PLAYWRIGHT environment variable — **Verified** (mitigated by `PLAYWRIGHT_TEST_BASE_URL` auto-set; `isTestEnvironment` unused in NEW code currently)
+2. **P11-FNC-006**: Missing @vercel/postgres dependency — **Improvement** (deprecated package correctly removed; no source imports)
 
 ### Low Priority Issues:
 1. **P11-FNC-001**: Missing instrumentation-client.ts file
-2. **P11-FNC-003**: Playwright test directory changed
-3. **P11-FNC-004**: Playwright health check endpoint changed
-4. **P11-FNC-005**: Playwright test projects configuration changed
-5. **P11-FNC-007**: Missing @google/genai dev dependency
-6. **P11-FNC-008**: Missing ultracite package (intentional)
+2. **P11-FNC-003**: Playwright test directory changed — **Improvement** (tests already migrated to `e2e/`)
+3. **P11-FNC-004**: Playwright health check endpoint changed — **Improvement** (comprehensive `/api/health` exists)
+4. **P11-FNC-005**: Playwright test projects configuration changed — **Improvement** (simplified; visual regression added)
+5. **P11-FNC-007**: Missing @google/genai dev dependency — **Improvement** (was unused even in OLD)
+6. **P11-FNC-008**: Missing ultracite package — **Improvement** (intentional Biome direct usage)
 
 ---
 
 ## Recommendations
 
-1. **Immediate Action Required:**
-   - Verify test environment detection works correctly (P11-FNC-002)
-   - Confirm database connectivity without @vercel/postgres (P11-FNC-006)
+1. **Low Priority (P11-FNC-002):**
+   - Consider adding `cross-env PLAYWRIGHT=true` to `test:e2e` script for defense-in-depth once test-aware code (e.g., mock providers) is migrated from OLD
+   - Current risk: nil — `PLAYWRIGHT_TEST_BASE_URL` covers detection and `isTestEnvironment` has no consumers
 
 2. **Should Address:**
    - Create placeholder instrumentation-client.ts (P11-FNC-001)
-   - Migrate test files to new directory structure (P11-FNC-003, P11-FNC-005)
 
-3. **Nice to Have:**
-   - Document the health check endpoint change (P11-FNC-004)
-   - Verify @google/genai is not needed (P11-FNC-007)
+3. **No Action Required:**
+   - P11-FNC-003, P11-FNC-004, P11-FNC-005: Intentional improvements, fully implemented
+   - P11-FNC-006: Deprecated dependency correctly removed
+   - P11-FNC-007: Unused dependency correctly removed
+   - P11-FNC-008: Intentional tooling migration complete

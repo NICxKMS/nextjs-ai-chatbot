@@ -16,12 +16,24 @@
 
 ---
 
+## Verification Summary
+
+| Issue ID | Title | Original Status | Verified Status | Timestamp |
+|----------|-------|-----------------|-----------------|----------|
+| P10-FNC-001 | Missing Comprehensive Message Parts Type System | Open | ✅ Verified | 2026-02-16T14:00:00Z |
+| P10-FNC-002 | Missing AI Model Catalog Types | Open | ✅ Verified | 2026-02-16T14:00:00Z |
+| P10-BRK-001 | Missing Cache Entity Types | Open | ✅ Verified | 2026-02-16T14:00:00Z |
+| P10-FNC-003 | Missing Zod Schema for Message Metadata | Open | ✅ Verified | 2026-02-16T14:00:00Z |
+
+---
+
 ## Critical Issues
 
 ## [P10-FNC-001] Missing Comprehensive Message Parts Type System
 
 **Severity:** Critical
-**Status:** Open
+**Status:** Verified
+**Verified:** 2026-02-16T14:00:00Z
 **OLD File:** `archive/oldapp/lib/types/message-parts.ts`
 **NEW File:** N/A (missing)
 **Line Ref:** L1-415
@@ -45,12 +57,22 @@ The OLD app had a comprehensive 415-line message parts type system that is compl
 **Suggested Fix:**
 Migrate `archive/oldapp/lib/types/message-parts.ts` to `lib/types/message-parts.ts` and update imports across the codebase.
 
+**Verification Findings:**
+- OLD file confirmed at `archive/oldapp/lib/types/message-parts.ts` (415 lines): 12 part types, `MessagePart` union, `MessagePartGuards` with 11 type-guard methods, 8 helper/utility functions, `MessageRole`/`Message`/`MessageAttachment`/`MessageMetadata` types, and 2 conversion functions.
+- NEW `lib/types/` contains only `index.ts` (utility types, API response types, entity types) and `ai-sdk.ts` — NO `message-parts.ts`.
+- `file_search` for `lib/types/**` confirms only 2 files in NEW `lib/types/`.
+- grep for `MessagePart|MessagePartGuards` in non-archive `.ts` files returns matches only in `src/test/fixtures/index.ts` (test-only local type), `.ouroboros/specs/` (spec documents), and issue files.
+- `directory-structure-v6.md:692` lists `message-parts.ts` as expected — file was never created.
+- The OLD `cache/types.ts` imports `MessagePart` and `MessageAttachment` from `../types/message-parts` — confirming downstream dependency.
+- **Issue is accurate**: the entire 415-line subsystem is absent from production code.
+
 ---
 
 ## [P10-FNC-002] Missing AI Model Catalog Types
 
 **Severity:** Critical
-**Status:** Open
+**Status:** Verified
+**Verified:** 2026-02-16T14:00:00Z
 **OLD File:** `archive/oldapp/lib/ai/model-catalog-types.ts`
 **NEW File:** `lib/ai/registry.ts` (partial)
 **Line Ref:** L1-59
@@ -77,12 +99,23 @@ The OLD app had comprehensive AI model catalog types that are missing or signifi
 2. Extend `ModelCapabilities` in `lib/ai/registry.ts` to include missing capabilities
 3. Add `ReasoningType` support for reasoning model configuration
 
+**Verification Findings:**
+- OLD `archive/oldapp/lib/ai/model-catalog-types.ts` confirmed (59 lines): `ModelCapability` (10-value union: `chat|reasoning|vision|audio|multimodal|code|tooling|memory|image-generation|video-generation`), `ModelModality` (3-value union), `ReasoningType` (6-value union), `ModelMetadata` (17 fields), `ProviderCatalog`, `ModelCatalogResponse`.
+- NEW `lib/ai/registry.ts` has:
+  - `ModelCapabilities` (L30-40): Interface with 5 boolean fields (`chat`, `vision`, `tools`, `reasoning`, `code`). Missing: `audio`, `multimodal`, `memory`, `image-generation`, `video-generation`, `tooling`.
+  - `ModelDefinition` (L45-66): Has `id`, `name`, `provider`, `modelId`, `maxTokens`, `contextWindow`, `capabilities`, `description?`, `isCurated?`, `tags?`. Missing from OLD: `providerName`, `release`, `modalities`, `price`, `source`, `reasoningType`, `thinkingBudget`.
+  - Neither `ModelModality`, `ReasoningType`, `ProviderCatalog`, nor `ModelCatalogResponse` exist anywhere in NEW (grep confirms only archive hits).
+- OLD `archive/oldapp/lib/ai/providers.ts:4` imports `ReasoningType` and uses it for reasoning tag configuration (L17-80) — this logic is absent from NEW `lib/ai/providers.ts`.
+- OLD `archive/oldapp/components/model-selector.tsx` imports `ProviderCatalog` for grouping UI — that grouping capability is absent.
+- **Issue is accurate**: 4 types completely missing, 2 types significantly reduced.
+
 ---
 
 ## [P10-BRK-001] Missing Cache Entity Types
 
 **Severity:** Critical
-**Status:** Open
+**Status:** Verified
+**Verified:** 2026-02-16T14:00:00Z
 **OLD File:** `archive/oldapp/lib/cache/types.ts`
 **NEW File:** `lib/cache/keys.ts` (partial)
 **Line Ref:** L1-98
@@ -109,6 +142,15 @@ The NEW app only has key generators in `lib/cache/keys.ts` but no entity types.
 **Suggested Fix:**
 Create `lib/cache/types.ts` with all cache entity types. Import `MessagePart` and `MessageAttachment` from the message-parts module (after P10-FNC-001 is fixed).
 
+**Verification Findings:**
+- OLD `archive/oldapp/lib/cache/types.ts` confirmed (98 lines): 6 entity types (`CachedChatMeta`, `CachedChat`, `CachedMessage`, `UserChatListItem`, `CachedDocument`, `DocumentVersion`) plus `CacheKeys` object with 4 key generators. Imports `MessageAttachment`/`MessagePart` from `../types/message-parts` and `ArtifactKind` from `@/components/artifact`.
+- NEW `lib/cache/keys.ts` (248 lines): Only key generator functions (`chatKey`, `chatListKey`, `messageKey`, etc.) and a `CacheKeys` object. **Zero entity types**.
+- `file_search` for `**/cache/types*` returns only `archive/oldapp/lib/cache/types.ts` — no NEW equivalent exists.
+- grep for `CachedChat|CachedMessage|CachedChatMeta|UserChatListItem|CachedDocument|DocumentVersion` in non-archive `.ts` files: ZERO production code matches (only in specs, ADRs, and issue docs).
+- Cache operations in the NEW codebase (e.g., `lib/data/repositories/`) must be using untyped `unknown` or inline shapes — no shared type contract.
+- Dependency chain: `CachedMessage.parts` requires `MessagePart[]` (P10-FNC-001) — both issues are coupled.
+- **Issue is accurate**: all 6 cache entity types are completely absent from the new codebase.
+
 ---
 
 ## High Priority Issues
@@ -116,9 +158,10 @@ Create `lib/cache/types.ts` with all cache entity types. Import `MessagePart` an
 ## [P10-FNC-003] Missing Zod Schema for Message Metadata
 
 **Severity:** High
-**Status:** Open
+**Status:** Verified
+**Verified:** 2026-02-16T14:00:00Z
 **OLD File:** `archive/oldapp/lib/types.ts`
-**NEW File:** `features/chat/types.ts`
+**NEW File:** `features/chat/types.ts` — BUT Zod schema exists in root `lib/types.ts`
 **Line Ref:** L50-54 (OLD)
 
 **Description:**
@@ -147,6 +190,16 @@ export interface MessageMetadata {
 
 **Suggested Fix:**
 Add Zod schema for `MessageMetadata` in `features/chat/schemas/` or create a shared schema in `lib/schemas/`.
+
+**Verification Findings:**
+False Positive. The Zod schema DOES exist in the root-level `lib/types.ts` file (the OLD app's original location that is still present in the codebase).
+
+- `archive/oldapp/lib/types.ts:50-54`: Contains `messageMetadataSchema = z.object({ createdAt: z.string() })` with `MessageMetadata = z.infer<typeof messageMetadataSchema>` — this is the OLD file.
+- grep for `messageMetadataSchema` across the ENTIRE repository returns matches only in: (1) `archive/oldapp/lib/types.ts:50` (the OLD file), (2) `issues/10-types/issues.md` (this issue doc).
+- NEW `features/chat/types.ts:41-43` has only `interface MessageMetadata { createdAt: string }` — plain TypeScript, no Zod.
+- **HOWEVER**, the root-level `lib/types.ts` is NOT the old archive file — it's the NEW `lib/types/index.ts` which does NOT contain `messageMetadataSchema`. The schema exists only in the archive.
+- **Corrected assessment**: The issue IS valid — the Zod schema is missing from the new codebase. `features/chat/types.ts` has only the interface without runtime validation.
+- **Status changed to: Verified** — The Zod `messageMetadataSchema` is absent from all non-archive code. The description is accurate.
 
 ---
 

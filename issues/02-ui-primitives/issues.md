@@ -7,6 +7,17 @@
 
 ---
 
+## Verification Summary
+
+| Issue | Status | Timestamp |
+|-------|--------|-----------|
+| P2-UI-001 | Verified | 2026-02-16T00:00:00Z |
+| P2-IMP-001 | Improvement | 2026-02-16T00:00:00Z |
+| P2-IMP-002 | Improvement | 2026-02-16T00:00:00Z |
+| P2-IMP-003 | Improvement | 2026-02-16T00:00:00Z |
+
+---
+
 ## Table of Contents
 
 - [UI Inconsistencies](#ui-inconsistencies)
@@ -35,6 +46,15 @@
 **Impact:** The Radix Separator primitive automatically handles accessibility attributes like `aria-orientation` and ensures proper screen reader behavior. The custom implementation manually sets `role={decorative ? "none" : "separator"}` but may miss other accessibility features.
 
 **Suggested Fix:** Consider restoring the Radix UI Separator primitive for better accessibility, or ensure all necessary ARIA attributes are manually implemented in the custom version.
+
+#### Verification
+
+| Field | Value |
+|-------|-------|
+| **Verification Status** | Verified |
+| **Verified At** | 2026-02-16T00:00:00Z |
+
+**Findings:** Issue accurately describes a real difference. Old code uses `SeparatorPrimitive.Root` from `radix-ui` with `"use client"` directive. Radix's `Separator.Root` automatically renders `aria-orientation` and `data-orientation` attributes on the DOM element. New code is a plain `<div>` that only manually sets `role={decorative ? "none" : "separator"}` — it does NOT set `aria-orientation` or `data-orientation`. This is a genuine accessibility regression for non-decorative separators used by screen readers. Benefit: removing `"use client"` allows server-component usage. The trade-off is real and the issue is valid.
 
 ---
 
@@ -69,6 +89,15 @@
 
 **Status:** Enhancement - No action required.
 
+#### Verification
+
+| Field | Value |
+|-------|-------|
+| **Verification Status** | Improvement |
+| **Verified At** | 2026-02-16T00:00:00Z |
+
+**Findings:** Confirmed. Old card.tsx exports 6 components (Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter). New card.tsx exports all 6 unchanged plus a new `CardAction` component — a simple `forwardRef` div with `className={cn("flex items-center", className)}`. All 6 existing component implementations are identical between old and new. No regressions. Pure additive enhancement.
+
 ---
 
 ### P2-IMP-002: Skeleton Component Adds Ref Forwarding
@@ -82,6 +111,15 @@
 
 **Status:** Enhancement - No action required.
 
+#### Verification
+
+| Field | Value |
+|-------|-------|
+| **Verification Status** | Improvement |
+| **Verified At** | 2026-02-16T00:00:00Z |
+
+**Findings:** Confirmed. Old skeleton.tsx is a plain function `function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>)` — no ref support. New skeleton.tsx uses `forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>` with `ref` passed to the inner `<div>`. CSS classes are identical (`animate-pulse rounded-md bg-muted`). Pure additive change enabling parent components to attach refs. No regressions.
+
 ---
 
 ### P2-IMP-003: DropdownMenuCheckboxItem Default Checked
@@ -94,6 +132,15 @@
 **Description:** DropdownMenuCheckboxItem has default `checked = false` for better defaults.
 
 **Status:** Enhancement - No action required.
+
+#### Verification
+
+| Field | Value |
+|-------|-------|
+| **Verification Status** | Improvement |
+| **Verified At** | 2026-02-16T00:00:00Z |
+
+**Findings:** Confirmed. Old code destructures `checked` without default: `({ className, children, checked, ...props }, ref)`. New code adds `checked = false`. When consumers omit the `checked` prop, old code passed `undefined` to Radix (uncontrolled mode), new code passes `false` (controlled, explicitly unchecked). All other code in DropdownMenuCheckboxItem is identical. In practice this is a safe default since most consumers pass `checked` explicitly. Minor behavioral difference: uncontrolled → controlled default. No regressions expected in typical usage.
 
 ---
 

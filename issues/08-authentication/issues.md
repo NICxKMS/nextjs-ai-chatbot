@@ -20,6 +20,18 @@
 
 The authentication system has been completely refactored from Supabase-based authentication to NextAuth.js v5. This is an intentional architectural change that preserves core functionality while changing the underlying implementation. However, several security features and utility functions from the old implementation are missing in the new code.
 
+## Verification Summary
+
+| Issue | Title | Status | Verified |
+|-------|-------|--------|----------|
+| P8-FNC-001 | Missing Auth Client Module | False Positive (Re-verified ✅) | 2026-02-16T16:00:00Z |
+| P8-FNC-002 | Guest Session Uses Unsigned Cookies Instead of JWT | Verified (Defect) | 2026-02-16T14:23:00Z |
+| P8-FNC-003 | Missing Supabase Session Token Verification | False Positive (Re-verified ✅) | 2026-02-16T16:00:00Z |
+| P8-FNC-004 | Missing Rate Limiting in Auth Guards | Verified (Defect) | 2026-02-16T14:23:00Z |
+| P8-FNC-005 | Missing requireResource Guard Function | Verified (Defect) | 2026-02-16T14:23:00Z |
+| P8-FNC-006 | Missing ForRoute Guard Variants | Verified (Improvement) | 2026-02-16T14:23:00Z |
+| P8-FNC-007 | Missing CSRF Protection in Guest Route POST | Verified (Defect) | 2026-02-16T14:23:00Z |
+
 ---
 
 ## Issues Identified
@@ -27,7 +39,8 @@ The authentication system has been completely refactored from Supabase-based aut
 ### [P8-FNC-001] Missing Auth Client Module
 
 **Severity:** High
-**Status:** Open
+**Status:** False Positive
+**Verified:** 2026-02-16T14:23:00Z
 **OLD File:** `archive/oldapp/lib/auth/client.ts`
 **NEW File:** N/A
 **Line Ref:** L1-23
@@ -35,26 +48,35 @@ The authentication system has been completely refactored from Supabase-based aut
 **Description:**
 The OLD app had a dedicated auth client module (`lib/auth/client.ts`) that provided a singleton Supabase browser client for client-side authentication operations. The NEW app has no equivalent client-side auth utility module.
 
+**Verification Findings:**
+The OLD module (`archive/oldapp/lib/auth/client.ts`) was Supabase-specific infrastructure: it created a singleton `createBrowserClient` from `@supabase/ssr` using `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. The NEW app uses NextAuth v5, which provides equivalent client-side utilities out of the box: `useSession()` for session state, `signIn()` and `signOut()` from `next-auth/react`, and `SessionProvider` for context. Grep confirms no Supabase dependencies exist in the NEW codebase. The `issues/05-utilities/issues.md` also documents this explicitly: "NextAuth provides `SessionProvider` and `useSession` from `next-auth/react` for client-side access." No custom client-side module is required because NextAuth replaces all Supabase browser client functionality natively. **False Positive — architectural replacement, not a gap.**
+
+**Re-Verification (2026-02-16T16:00:00Z):**
+Re-checked for custom error handling, retry logic, session refresh, and token management in OLD `client.ts`. The module is 24 lines: a singleton factory for `createBrowserClient()` with a single `throw new Error()` on missing env vars. Zero retry logic, zero session refresh, zero token management. The `onAuthStateChange` listener and session state management existed in `auth-provider.tsx` (a separate component, not `client.ts`). The OLD consumers (`login/page.tsx`, `register/page.tsx`, `sidebar-user-nav.tsx`) used the browser client only for `signInWithPassword()`, `signUp()`, and `signOut()` — all replaced by NextAuth's `signIn()`/`signOut()`. **FP CONFIRMED — no lost capabilities in `client.ts` replacement.**
+
 **Impact:**
-- Client-side code that needs to interact with auth has no centralized utility
-- Session management on client side may be inconsistent
-- Any client-side auth operations (like signing out from client) need to use different patterns
+- ~~Client-side code that needs to interact with auth has no centralized utility~~
+- ~~Session management on client side may be inconsistent~~
+- ~~Any client-side auth operations (like signing out from client) need to use different patterns~~
+- None — NextAuth provides all required client-side auth utilities natively.
 
 **Suggested Fix:**
-Create a client-side auth utility module that provides:
-- Session access helpers for client components
-- Sign in/sign out wrappers for NextAuth
-- Session state management hooks
+~~Create a client-side auth utility module that provides:~~
+~~- Session access helpers for client components~~
+~~- Sign in/sign out wrappers for NextAuth~~
+~~- Session state management hooks~~
+No fix needed. Use `useSession()`, `signIn()`, `signOut()` from `next-auth/react` directly.
 
 ---
 
 ### [P8-FNC-002] Guest Session Uses Unsigned Cookies Instead of JWT
 
 **Severity:** High
-**Status:** Open
+**Status:** Verified (Defect)
+**Verified:** 2026-02-16T14:23:00Z
 **OLD File:** `archive/oldapp/lib/auth/session.ts`
 **NEW File:** `lib/auth/session.ts`
-**Line Ref:** L289-312
+**Line Ref:** OLD L227-260, NEW L289-312
 
 **Description:**
 The OLD app used JWT-signed guest tokens with the following security features:
@@ -71,6 +93,9 @@ async function createGuestSession(): Promise<AppSession> {
     cookieStore.set(GUEST_COOKIE_NAME, guestId, {...})
 }
 ```
+
+**Verification Findings:**
+Confirmed. OLD `archive/oldapp/lib/auth/session.ts` `createGuestSession()` (L227-260): creates JWT with `new SignJWT({sub: guestId, type: "guest"}).setProtectedHeader({alg: "HS256"}).setExpirationTime(expiresAtSeconds).sign(secret)` — cryptographically signed with `GUEST_JWT_SECRET`, 1-hour JWT TTL for security, 7-day cookie TTL for UX, with rotation. OLD `getGuestSessionFromCookies()` (L196-223) verifies the JWT via `verifyJwt(token, secret)` — invalid/expired tokens return null. NEW `lib/auth/session.ts` `createGuestSession()` (L289-312): stores raw `guest:${crypto.randomUUID()}` string directly in cookie. NEW `getGuestSession()` (L261-283) only checks `guestId.startsWith(GUEST_ID_PREFIX)` — format validation only, no cryptographic verification. Any user with browser dev tools or same-domain script can forge a guest identity by setting `guest_id=guest:any-arbitrary-string`. While `httpOnly: true` and `secure` in production mitigate JS-based tampering and MITM, the fundamental issue is that guest identity is NOT cryptographically verified on read-back.
 
 **Impact:**
 - Guest sessions can be forged by attackers who can set cookies
@@ -90,7 +115,8 @@ Implement JWT-signed guest tokens similar to the OLD implementation:
 ### [P8-FNC-003] Missing Supabase Session Token Verification
 
 **Severity:** Medium
-**Status:** Open (Architectural Decision)
+**Status:** False Positive
+**Verified:** 2026-02-16T14:23:00Z
 **OLD File:** `archive/oldapp/lib/auth/session.ts`
 **NEW File:** `lib/auth/session.ts`
 **Line Ref:** L100-179
@@ -103,6 +129,18 @@ The OLD app had dedicated functions for verifying Supabase JWT tokens:
 - Email extraction from JWT claims
 
 The NEW app uses NextAuth's `auth()` function which handles session verification internally but doesn't provide the same level of JWT claim access.
+
+**Verification Findings:**
+False Positive — intentional architectural migration. The OLD functions (`getSupabaseSessionFromToken`, `getSupabaseSessionFromCookies`) verified Supabase-issued JWTs using `SUPABASE_JWT_SECRET` with audience=`"authenticated"` and issuer=`supabaseUrl/auth/v1`. The NEW app uses NextAuth v5 with `session: { strategy: "jwt" }` (`lib/auth/config.ts:131`). NextAuth performs equivalent JWT verification internally: tokens are signed with `NEXTAUTH_SECRET`/`AUTH_SECRET` (`lib/auth/config.ts:175`), verified on every `auth()` call, and the `jwt` callback (L158-163) and `session` callback (L170-174) populate `session.user.id` and `session.user.email`. NextAuth handles audience/issuer verification implicitly through its own token format. The `auth()` function (`lib/auth/index.ts:31`) returning `session?.user?.id` in `lib/auth/session.ts:88-97` is the equivalent verification path. No security gap exists — the verification mechanism changed but verification still occurs.
+
+**Re-Verification (2026-02-16T16:00:00Z):**
+Re-checked whether NextAuth's `auth()` provides equivalent security guarantees. Traced the full chain:
+(1) **Signature verification**: ✅ NextAuth signs JWTs with `NEXTAUTH_SECRET` (config.ts:175) using HS256, verifies automatically on every `auth()` call.
+(2) **Expiration**: ✅ `session.maxAge = 30 * 24 * 60 * 60` (config.ts:132) enforced by NextAuth. `updateAge = 24 * 60 * 60` (config.ts:133) provides automatic token refresh — OLD had no equivalent auto-refresh for Supabase tokens.
+(3) **Audience/Issuer**: OLD validated `audience: "authenticated"` and `issuer: supabaseUrl/auth/v1` because tokens came from an EXTERNAL auth service (Supabase). NextAuth is a FIRST-PARTY system — it issues AND verifies its own tokens, making audience/issuer validation unnecessary (no cross-service token acceptance).
+(4) **Email extraction**: ✅ NextAuth's session callback (config.ts:170-174) populates `session.user.email` from the authenticated user record.
+(5) **Edge cases**: The OLD `getSupabaseSessionFromToken()` was used after setting cookies in the same request. NextAuth handles this internally with its own session management. No edge case where manual verification is needed.
+**FP CONFIRMED — NextAuth provides equivalent or stronger security guarantees. Audience/issuer validation loss is irrelevant for self-issued tokens.**
 
 **Impact:**
 - Cannot directly access JWT claims like email from token
@@ -120,10 +158,11 @@ This is an architectural decision (Supabase → NextAuth migration). Document th
 ### [P8-FNC-004] Missing Rate Limiting in Auth Guards
 
 **Severity:** High
-**Status:** Open
+**Status:** Verified (Defect)
+**Verified:** 2026-02-16T14:23:00Z
 **OLD File:** `archive/oldapp/lib/api/guards.ts`
 **NEW File:** `lib/auth/guards.ts`
-**Line Ref:** L118-187
+**Line Ref:** OLD L118-187, NEW middleware.ts L69-78
 
 **Description:**
 The OLD app's guards included integrated rate limiting:
@@ -133,6 +172,9 @@ The OLD app's guards included integrated rate limiting:
 - `requireCustomRateLimitForRoute()` - Custom rate limit for routes
 
 The NEW app's guards have no rate limiting integration. Rate limiting is only in middleware (`middleware.ts`).
+
+**Verification Findings:**
+Confirmed — and the defect is MORE severe than originally described. (1) **Guards gap**: OLD `archive/oldapp/lib/api/guards.ts` exports `requireRateLimit()` (L118), `requireRateLimitForRoute()` (L150), `requireCustomRateLimit()` (L173), `requireCustomRateLimitForRoute()` (L192) — enabling per-action granular rate limiting. NEW `lib/auth/guards.ts` has ZERO rate limiting functions — grep for `rateLimit|checkRateLimit` across `lib/auth/guards.ts` returns zero matches. (2) **Middleware bypass — CRITICAL**: The middleware (`middleware.ts:69-72`) skips ALL `/api/auth/` routes via `isAuthCallbackRoute()` which returns `NextResponse.next()` BEFORE reaching rate limiting at L80-88. The `getLimiterForRoute()` function (L187-210) selects `authLimiter` for `/api/auth/guest` and `/api/auth/logout`, but this code is UNREACHABLE because the early return at L72 short-circuits all `/api/auth/` routes. This means `/api/auth/guest` and `/api/auth/logout` have NO rate limiting at ANY layer — neither middleware nor guard-level. An attacker can spam guest session creation at unlimited frequency.
 
 **Impact:**
 - API routes cannot easily apply granular rate limiting
@@ -147,7 +189,8 @@ Add rate limiting guard functions to `lib/auth/guards.ts` or create a separate `
 ### [P8-FNC-005] Missing requireResource Guard Function
 
 **Severity:** Medium
-**Status:** Open
+**Status:** Verified (Defect)
+**Verified:** 2026-02-16T14:23:00Z
 **OLD File:** `archive/oldapp/lib/api/guards.ts`
 **NEW File:** `lib/auth/guards.ts`
 **Line Ref:** L277-304
@@ -159,6 +202,9 @@ The OLD app had `requireResource()` and `requireResourceForRoute()` functions th
 - Return typed non-null resource
 
 The NEW app has no equivalent function.
+
+**Verification Findings:**
+Confirmed. OLD `archive/oldapp/lib/api/guards.ts` exports `requireResource<T>(resource, surface): T` (L277-285) and `requireResourceForRoute<T>(resource, surface): T | Response` (L292-304). Grep for `requireResource` across all non-archive files returns zero matches — the function does not exist anywhere in the NEW codebase. API routes and server actions must implement their own null-check-and-throw pattern for missing resources. The NEW guards (`lib/auth/guards.ts`) provide `requireAuth`, `requireOwnership`, `requireNonGuest`, `requireChatAccess`, `requireChatModification` — all authorization guards — but no resource-existence guard. The OLD function was used pervasively (e.g., in `archive/oldapp/app/(chat)/actions.ts` for chat/document operations). Its absence in the NEW code creates inconsistent 404/null handling across routes.
 
 **Impact:**
 - Inconsistent null/undefined resource handling across routes
@@ -184,7 +230,8 @@ export function requireResource<T>(
 ### [P8-FNC-006] Missing ForRoute Guard Variants
 
 **Severity:** Medium
-**Status:** Open
+**Status:** Verified (Improvement)
+**Verified:** 2026-02-16T14:23:00Z
 **OLD File:** `archive/oldapp/lib/api/guards.ts`
 **NEW File:** `lib/auth/guards.ts`
 **Line Ref:** L87-101, L150-163, L246-260, L292-304, L338-352
@@ -196,6 +243,9 @@ The OLD app provided dual variants for all guard functions:
 - Same pattern for rate limit, ownership, resource, non-guest guards
 
 The NEW app only has throwing variants, no `ForRoute` variants.
+
+**Verification Findings:**
+Confirmed as an intentional architectural trade-off, reclassified as Improvement. OLD `archive/oldapp/lib/api/guards.ts` exports 6 `ForRoute` variants: `requireAuthForRoute` (L87), `requireRateLimitForRoute` (L150), `requireCustomRateLimitForRoute` (L192), `verifyOwnershipForRoute` (L246), `requireResourceForRoute` (L292), `requireNonGuestForRoute` (L338). NEW `lib/auth/guards.ts` has zero `ForRoute` variants — grep confirms no matches outside archive. However, the NEW v6 architecture deliberately shifted from API routes to server actions for mutations. The NEW guards provide `requireAuth()` (throws for server components), `requireAuthAction()` (throws for server actions), `withAuth()` / `withOwnership()` (higher-order wrappers) — all designed for the server-action-first pattern. The few remaining API routes (`app/api/`) call server actions internally rather than using guards directly. While adding `ForRoute` variants would reduce boilerplate in the remaining API routes, the architectural direction is clear: server actions throw, middleware handles route-level concerns. Not a defect — an intentional simplification.
 
 **Impact:**
 - API routes need try/catch blocks to convert errors to Responses
@@ -222,10 +272,11 @@ export async function requireAuthForRoute(): Promise<AuthResult | Response> {
 ### [P8-FNC-007] Missing CSRF Protection in Guest Route
 
 **Severity:** High
-**Status:** Open
+**Status:** Verified (Defect)
+**Verified:** 2026-02-16T14:23:00Z
 **OLD File:** `archive/oldapp/app/api/auth/guest/route.ts`
 **NEW File:** `app/api/auth/guest/route.ts`
-**Line Ref:** L21-28
+**Line Ref:** OLD L21-28, NEW L19-33
 
 **Description:**
 The OLD app's guest route had CSRF protection:
@@ -241,26 +292,22 @@ if (!validateOrigin(request)) {
 
 The NEW app has no CSRF protection in the guest route.
 
-**Impact:**
-- Guest session creation can be triggered from external sites
-- Potential for CSRF attacks creating unwanted guest sessions
-- Reduced security posture
-
-**Suggested Fix:**
-Add origin validation to the guest route POST handler:
-1. Import or create `validateOrigin` utility
-2. Check origin/referer headers
-3. Reject requests from unknown origins
+**Verification Findings:**
+Confirmed. OLD `archive/oldapp/app/api/auth/guest/route.ts` POST handler: L22 checks `validateOrigin(request)`, returning 403 with `"forbidden:auth:csrf"` error code on failure. NEW `app/api/auth/guest/route.ts:19` defines `export async function POST()` — note: the `request` parameter is not even accepted, making origin validation structurally impossible without signature change. The `validateOrigin` function IS available in the NEW codebase: exported from `lib/api/context.ts` and re-exported via `lib/api/index.ts`. The NEW logout route (`app/api/auth/logout/route.ts`) DOES call `validateOrigin(request)`, proving the pattern is used elsewhere. A malicious site can issue `fetch('https://target.com/api/auth/guest', { method: 'POST', credentials: 'include' })` to create guest sessions on the victim's browser, potentially overwriting or disrupting existing session state. Combined with P8-FNC-004 (no rate limiting on auth routes), this endpoint is fully unprotected against automated cross-origin abuse.
 
 ---
 
 ### [P8-FNC-008] Missing Rate Limiting in Guest Route
 
 **Severity:** High
-**Status:** Open
+**Status:** Verified
+**Verified:** 2026-02-16T12:00:00Z
 **OLD File:** `archive/oldapp/app/api/auth/guest/route.ts`
 **NEW File:** `app/api/auth/guest/route.ts`
 **Line Ref:** L30-45
+
+**Verification Findings:**
+Confirmed. OLD route (L30-45) uses `requireCustomRateLimitForRoute()` with IP-based sliding-window rate limiting via `RATE_LIMITS.AUTH_GUEST` config and `getClientIP()`. NEW route has zero rate limiting — neither in the POST nor GET handler. The middleware-level rate limiting in `middleware.ts` is too coarse-grained to substitute for endpoint-specific guest creation throttling. Attackers can spam guest session creation without restriction.
 
 **Description:**
 The OLD app's guest route had IP-based rate limiting:
@@ -294,10 +341,14 @@ Add rate limiting to the guest route:
 ### [P8-FNC-009] Missing Open Redirect Protection in Guest GET Handler
 
 **Severity:** High
-**Status:** Open
+**Status:** Verified
+**Verified:** 2026-02-16T12:00:00Z
 **OLD File:** `archive/oldapp/app/api/auth/guest/route.ts`
 **NEW File:** `app/api/auth/guest/route.ts`
 **Line Ref:** L113-162
+
+**Verification Findings:**
+Confirmed — CWE-601 open redirect vulnerability. OLD route (L113-162) has `getSafeRedirectUrl()` which blocks `javascript:`, `data:`, `vbscript:`, `file:` schemes, protocol-relative URLs (`//evil.com`), path traversal (`/\\example.com`), and validates absolute URL origins. NEW route (L42-55) does `new URL(redirectUrl, url.origin)` with NO validation. Attack vectors confirmed: `?redirectUrl=https://evil.com` resolves to `https://evil.com` (ignoring base), `?redirectUrl=//evil.com` resolves to `https://evil.com`. The `new URL()` constructor provides no inherent redirect safety.
 
 **Description:**
 The OLD app had comprehensive open redirect protection:
@@ -340,10 +391,14 @@ Implement the same redirect validation logic from the OLD app:
 ### [P8-FNC-010] Missing Logging in Guest Route
 
 **Severity:** Low
-**Status:** Open
+**Status:** Verified
+**Verified:** 2026-02-16T12:00:00Z
 **OLD File:** `archive/oldapp/app/api/auth/guest/route.ts`
 **NEW File:** `app/api/auth/guest/route.ts`
 **Line Ref:** L50-52, L66-68, L84-88, L169-175, L187-190
+
+**Verification Findings:**
+Confirmed. OLD route imports `logInfo`/`logWarn` from `@/lib/log` and has 5 log points: existing Supabase session reuse (L50-52), guest session reuse with truncated ID (L66-68), new guest creation (L84-88), GET redirect with session (L169-175), and GET redirect after creation (L187-190). NEW route has zero logging — no imports from any log module, no log calls anywhere. This eliminates audit trail for guest session lifecycle.
 
 **Description:**
 The OLD app had comprehensive logging:
@@ -371,10 +426,14 @@ logger.info("Guest session created", { guestIdPrefix: guestId.slice(0, 13) });
 ### [P8-FNC-011] Missing maxDuration Configuration
 
 **Severity:** Low
-**Status:** Open
+**Status:** Verified
+**Verified:** 2026-02-16T12:00:00Z
 **OLD File:** `archive/oldapp/app/api/auth/guest/route.ts`
 **NEW File:** `app/api/auth/guest/route.ts`
 **Line Ref:** L15
+
+**Verification Findings:**
+Confirmed. OLD route has `export const maxDuration = 10;` at L15 for Vercel Fluid Compute optimization. NEW route has no `maxDuration` export — verified by full file scan (57 lines total, only exports are `POST` and `GET` functions). Missing export means Vercel uses default function timeout.
 
 **Description:**
 The OLD app configured `maxDuration = 10` for Vercel Fluid Compute optimization. The NEW app has no such configuration.
@@ -391,10 +450,14 @@ Add `export const maxDuration = 10;` to the guest route.
 ### [P8-FNC-012] Different Error Types Used
 
 **Severity:** Low
-**Status:** Open (Architectural Decision)
+**Status:** Verified (Architectural Decision)
+**Verified:** 2026-02-16T12:00:00Z
 **OLD File:** `archive/oldapp/lib/api/guards.ts`
 **NEW File:** `lib/auth/guards.ts`
 **Line Ref:** Throughout
+
+**Verification Findings:**
+Confirmed — intentional architectural change. OLD guards (`archive/oldapp/lib/api/guards.ts`) use `ChatSDKError` with composite error codes encoding surface context (e.g., `unauthorized:chat:session_error`, `forbidden:vote:owner_mismatch`, `rate_limit:api:too_many_requests`). NEW guards (`lib/auth/guards.ts`) use `UnauthorizedError` (extends `AppError`, HTTP 401, code `UNAUTHORIZED`) and `ForbiddenError` (extends `AppError`, HTTP 403, code `FORBIDDEN`) from `lib/errors.ts:212-240`. These use flat `ErrorCodes` enum values without surface-specific context. The simplified hierarchy is cleaner but provides less diagnostic granularity. The OLD `ChatSDKError` still exists in `archive/oldapp/` and is independently used by old guards — confirmed no cross-usage between old and new error systems.
 
 **Description:**
 The OLD app used `ChatSDKError` with structured error codes:
@@ -420,10 +483,14 @@ Consider adopting the structured error code pattern from the OLD app, or documen
 ### [P8-FNC-013] Missing DataContext in AuthResult
 
 **Severity:** Medium
-**Status:** Open
+**Status:** Verified
+**Verified:** 2026-02-16T12:00:00Z
 **OLD File:** `archive/oldapp/lib/api/guards.ts`
 **NEW File:** `lib/auth/guards.ts`
 **Line Ref:** L31-71
+
+**Verification Findings:**
+Confirmed. OLD `requireAuth(surface)` (L48-71) returns `{ session: AppSession; ctx: DataContext }` — combines session retrieval, validation, and `createContext(session)` in one call. NEW `requireAuth(options?)` returns only `{ userId: string }` — the session object is fetched internally via `getSession()` but NOT returned to the caller. Callers needing the full session must make a separate `getSession()` call, duplicating work. The `DataContext` pattern from OLD code (via `createContext()` in `lib/data/base`) is not integrated with the NEW guards at all. The NEW `lib/auth/session.ts` does have `createSessionContext()` (per P8-IMP-003) but it is not wired into the guard return type.
 
 **Description:**
 The OLD app's `requireAuth()` returned both session and DataContext:
@@ -457,10 +524,14 @@ export async function requireAuth(): Promise<{ session: AppSession; userId: stri
 ### [P8-IMP-001] NEW: Higher-Order Guard Functions
 
 **Severity:** N/A (Improvement)
-**Status:** New Feature
+**Status:** Verified (Improvement)
+**Verified:** 2026-02-16T12:00:00Z
 **OLD File:** N/A
 **NEW File:** `lib/auth/guards.ts`
 **Line Ref:** L373-411
+
+**Verification Findings:**
+Confirmed — genuine new feature. `withAuth<TArgs, TResult>()` wraps server actions by prepending `userId` (via `requireAuthAction()`) as the first argument. `withOwnership<TArgs, TResult>()` wraps actions by resolving owner ID from args, calling `requireOwnership()`, then appending `userId` to the action call. Both use proper generic typing. No equivalent exists in OLD guards (`archive/oldapp/lib/api/guards.ts`). OLD guards only provide direct `requireAuth(surface)` calls without higher-order composition. This is a positive architectural improvement enabling declarative server action protection.
 
 **Description:**
 The NEW app adds higher-order guard functions not present in the OLD app:
@@ -475,7 +546,8 @@ Positive improvement - provides cleaner patterns for protecting server actions.
 ### [P8-IMP-002] NEW: Chat-Specific Authorization Functions
 
 **Severity:** N/A (Improvement)
-**Status:** New Feature
+**Status:** Verified ✅
+**Verified:** 2026-02-16T12:00:00Z
 **OLD File:** N/A
 **NEW File:** `lib/auth/guards.ts`
 **Line Ref:** L199-313
@@ -490,21 +562,40 @@ The NEW app adds chat-specific authorization functions:
 **Impact:**
 Positive improvement - provides domain-specific authorization logic.
 
+**Verification Findings:**
+All four functions confirmed present in `lib/auth/guards.ts` with correct implementations:
+- `canAccessChat(chat, userId?)` — checks ownership OR public visibility, returns `Promise<boolean>`
+- `canModifyChat(chat, userId?)` — owner-only write check, returns `Promise<boolean>`
+- `requireChatAccess(chat)` — throws `ForbiddenError` on denied access
+- `requireChatModification(chat)` — throws `ForbiddenError` on denied modification
+- Supporting `ChatResource` type defined with `userId` and `visibility` fields extending `OwnedResource`
+- Well-documented with JSDoc and usage examples
+- No equivalent exists in OLD app — confirmed genuine new feature
+
 ---
 
 ### [P8-IMP-003] NEW: Session Context Helper
 
 **Severity:** N/A (Improvement)
-**Status:** New Feature
+**Status:** Verified ✅
+**Verified:** 2026-02-16T12:00:00Z
 **OLD File:** N/A
 **NEW File:** `lib/auth/session.ts`
-**Line Ref:** L329-338
+**Line Ref:** L342-356 (actual; issue claimed L329-338)
 
 **Description:**
 The NEW app adds `createSessionContext()` helper for repository pattern integration.
 
 **Impact:**
 Positive improvement - supports the repository pattern used in v6 architecture.
+
+**Verification Findings:**
+Function confirmed present in `lib/auth/session.ts`:
+- Returns `Promise<{ userId: string | null; isGuest: boolean }>`
+- Calls `getSession()` internally + `isGuest(session)` for guest check
+- Provides clean bridge between session layer and repository pattern
+- Line numbers are slightly off in the issue (actual ~L342-356 vs claimed L329-338) — minor inaccuracy, function exists and works as described
+- No equivalent in OLD app — confirmed genuine new feature
 
 ---
 
@@ -515,6 +606,20 @@ Positive improvement - supports the repository pattern used in v6 architecture.
 ### `lib/auth/index.ts`: No issues found - Clean barrel export with proper type augmentation.
 
 ### `middleware.ts`: No issues found - Comprehensive middleware with rate limiting and auth integration.
+
+---
+
+## Verification Summary (2026-02-16)
+
+| Issue ID | Title | Verification Status | Timestamp |
+|----------|-------|--------------------|-----------|
+| P8-FNC-008 | Missing Rate Limiting in Guest Route | ✅ Verified | 2026-02-16T12:00:00Z |
+| P8-FNC-009 | Missing Open Redirect Protection in Guest GET | ✅ Verified | 2026-02-16T12:00:00Z |
+| P8-FNC-010 | Missing Logging in Guest Route | ✅ Verified | 2026-02-16T12:00:00Z |
+| P8-FNC-011 | Missing maxDuration Configuration | ✅ Verified | 2026-02-16T12:00:00Z |
+| P8-FNC-012 | Different Error Types Used | ✅ Verified (Arch. Decision) | 2026-02-16T12:00:00Z |
+| P8-FNC-013 | Missing DataContext in AuthResult | ✅ Verified | 2026-02-16T12:00:00Z |
+| P8-IMP-001 | Higher-Order Guard Functions | ✅ Verified (Improvement) | 2026-02-16T12:00:00Z |
 
 ---
 
@@ -529,6 +634,22 @@ Positive improvement - supports the repository pattern used in v6 architecture.
 | Improvement | 3 |
 | **Total Issues** | **12** |
 | **Total Improvements** | **3** |
+
+### Verification Statistics (P8-FNC-001 through P8-FNC-007)
+
+| Verdict | Count | Issues |
+|---------|-------|--------|
+| Verified (Defect) | 4 | P8-FNC-002, P8-FNC-004, P8-FNC-005, P8-FNC-007 |
+| Verified (Improvement) | 1 | P8-FNC-006 |
+| False Positive | 2 | P8-FNC-001, P8-FNC-003 |
+| **Total Verified** | **7** | |
+
+### Verification Status
+
+| Issue | Status | Verified |
+|-------|--------|----------|
+| P8-IMP-002 | Verified ✅ | 2026-02-16 |
+| P8-IMP-003 | Verified ✅ | 2026-02-16 |
 
 ---
 
