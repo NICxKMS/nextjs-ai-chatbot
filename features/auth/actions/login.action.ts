@@ -3,6 +3,7 @@
  *
  * Handles user authentication with email and password.
  * Integrates with NextAuth v5 for session management.
+ * Supports callbackUrl for post-login redirects.
  *
  * @module features/auth/actions/login.action
  */
@@ -23,6 +24,7 @@ import type { AuthResult } from "../types"
  * Authenticate a user with email and password.
  *
  * @param formData - Form data containing email and password
+ * @param callbackUrl - Optional URL to redirect to after successful login
  * @returns AuthResult indicating success or failure
  *
  * @example
@@ -33,9 +35,15 @@ import type { AuthResult } from "../types"
  *   <input name="password" type="password" />
  *   <button type="submit">Sign In</button>
  * </form>
+ *
+ * // With callback URL
+ * const result = await login(formData, "/chat/abc123");
  * ```
  */
-export async function login(formData: FormData): Promise<AuthResult> {
+export async function login(
+	formData: FormData,
+	callbackUrl?: string | null,
+): Promise<AuthResult> {
 	// Extract and validate credentials
 	const email = formData.get("email")
 	const password = formData.get("password")
@@ -58,9 +66,10 @@ export async function login(formData: FormData): Promise<AuthResult> {
 		})
 
 		// If we reach here without an error, login was successful
+		// Use callbackUrl if provided, otherwise default to /chat
 		return {
 			success: true,
-			redirectTo: "/chat",
+			redirectTo: callbackUrl || "/chat",
 		}
 	} catch (error) {
 		// Handle NextAuth errors

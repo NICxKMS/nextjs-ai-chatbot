@@ -156,21 +156,67 @@ export const chatRateLimit = withRateLimitMiddleware(chatLimiter)
 // =============================================================================
 
 /**
- * Get default rate limit key from request.
- * Uses client IP address as the key.
+ * Default number of trusted proxies for IP extraction.
+ * Vercel/Cloudflare typically adds 1 proxy.
+ */
+const DEFAULT_TRUSTED_PROXY_COUNT = 1
+
+/**
+ * Get default rate limit key from request securely.
+ * Uses client IP address as the key with protection against header spoofing.
+ *
+ * SECURITY: This function implements secure IP extraction by:
+ * 1. Prioritizing Cloudflare's CF-Connecting-IP header
+ * 2. Handling X-Forwarded-For chain with trusted proxy count
+ * 3. Supporting Vercel-specific headers
+ *
+ * This prevents header spoofing attacks where attackers attempt to
+ * bypass rate limits by manipulating X-Forwarded-For headers.
  *
  * @param req - The incoming request
  * @returns Rate limit key (IP address or 'unknown')
  */
 function getDefaultRateLimitKey(req: NextRequest): string {
-	const forwardedFor = req.headers.get("x-forwarded-for")
-	if (forwardedFor) {
-		return forwardedFor.split(",")[0]?.trim() ?? "unknown"
+	// 1. Cloudflare provides the most reliable client IP
+	const cfIP = req.headers.get("cf-connecting-ip")
+	if (cfIP) {
+		return cfIP.trim()
 	}
 
+	// 2. Vercel-specific header with chain handling
+	const vercelForwarded = req.headers.get("x-vercel-forwarded-for")
+	if (vercelForwarded) {
+		const ips = vercelForwarded.split(",").map((ip) => ip.trim())
+		// Client IP is at position: length - 1 - trustedProxyCount
+		const clientIndex = Math.max(
+			0,
+			ips.length - 1 - DEFAULT_TRUSTED_PROXY_COUNT,
+		)
+		const clientIP = ips[clientIndex]
+		if (clientIP) {
+			return clientIP
+		}
+	}
+
+	// 3. Standard X-Forwarded-For with chain handling
+	const forwardedFor = req.headers.get("x-forwarded-for")
+	if (forwardedFor) {
+		const ips = forwardedFor.split(",").map((ip) => ip.trim())
+		// Client IP is at position: length - 1 - trustedProxyCount
+		const clientIndex = Math.max(
+			0,
+			ips.length - 1 - DEFAULT_TRUSTED_PROXY_COUNT,
+		)
+		const clientIP = ips[clientIndex]
+		if (clientIP) {
+			return clientIP
+		}
+	}
+
+	// 4. Fallback to X-Real-IP (single IP, no chain)
 	const realIP = req.headers.get("x-real-ip")
 	if (realIP) {
-		return realIP
+		return realIP.trim()
 	}
 
 	return "unknown"

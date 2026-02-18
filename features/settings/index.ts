@@ -19,7 +19,22 @@ export {
 } from "./components"
 
 // =============================================================================
-// Hooks
+// Provider (Context-based settings with localStorage persistence)
+// =============================================================================
+
+export type { SettingsStore } from "./components"
+export {
+	DEFAULT_APP_SETTINGS,
+	SettingsProvider,
+	useSamplingSettings,
+	useSettings,
+	useSettingsModelSelection,
+	useSettingsSnapshot,
+	useSystemPrompt,
+} from "./components"
+
+// =============================================================================
+// Hooks (Server action-based settings)
 // =============================================================================
 
 export type {
@@ -28,11 +43,9 @@ export type {
 	UseThemeReturn,
 } from "./hooks"
 export {
-	DEFAULT_APP_SETTINGS,
 	DEFAULT_PREFERENCES,
 	useAppSettings,
-	useModelSelection,
-	useSettings,
+	useModelSelection as useModelSelectionHook,
 	useTheme,
 } from "./hooks"
 

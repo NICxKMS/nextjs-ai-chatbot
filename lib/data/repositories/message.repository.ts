@@ -11,6 +11,7 @@ import "server-only"
 
 import { and, asc, desc, eq, gte, type SQL } from "drizzle-orm"
 
+import type { AppUsage } from "@/lib/ai"
 import { CACHE_TTL } from "@/lib/constants"
 import type {
 	DBMessage,
@@ -53,7 +54,7 @@ export interface SaveWithContextParams {
 	/** Chat ID to associate messages with */
 	chatId: string
 	/** Last context for state restoration */
-	lastContext?: unknown
+	lastContext?: AppUsage | null
 	/** Whether this is a new chat */
 	isNewChat?: boolean
 	/** Title for new chat */
@@ -566,21 +567,60 @@ export class MessageRepository extends BaseRepository<
 	 * Save messages with chat context update.
 	 * This is used when saving messages from a chat interaction.
 	 *
+	 * Features:
+	 * - Atomic transaction for message insert + chat update
+	 * - Idempotent message inserts (onConflictDoNothing)
+	 * - IDOR protection via userId filter on updates
+	 * - New chat creation support
+	 *
 	 * @param params - Save parameters including messages and chat context
-	 * @param _context - Repository context for ownership verification (unused but kept for API consistency)
+	 * @param context - Repository context for ownership verification
 	 */
 	async saveWithContext(
 		params: SaveWithContextParams,
-		_context: RepositoryContext,
+		context: RepositoryContext,
 	): Promise<void> {
-		const { messages: messagesToSave, chatId, lastContext } = params
+		const {
+			messages: messagesToSave,
+			chatId,
+			lastContext,
+			isNewChat,
+			title,
+			visibility,
+			createdAt,
+		} = params
 
 		try {
 			// Use a transaction to ensure atomicity
 			await this.db.transaction(async (tx) => {
-				// Insert messages if any
+				// Handle new chat creation
+				if (isNewChat && title && visibility) {
+					await tx.insert(chat).values({
+						id: chatId,
+						userId: context.userId,
+						title,
+						visibility,
+						createdAt: createdAt ?? new Date(),
+						updatedAt: new Date(),
+						lastContext: lastContext ?? null,
+					})
+
+					logDebug(
+						"MessageRepository created new chat in transaction",
+						{
+							chatId,
+							userId: context.userId,
+						},
+					)
+				}
+
+				// Insert messages with idempotency (onConflictDoNothing)
 				if (messagesToSave.length > 0) {
-					await tx.insert(message).values(messagesToSave)
+					await tx
+						.insert(message)
+						.values(messagesToSave)
+						.onConflictDoNothing({ target: message.id })
+
 					logDebug(
 						"MessageRepository saved messages in transaction",
 						{
@@ -590,19 +630,34 @@ export class MessageRepository extends BaseRepository<
 					)
 				}
 
-				// Update chat context if provided
-				if (lastContext !== undefined) {
-					await tx
+				// Update chat context if provided (for existing chats)
+				// SECURITY: Filter by userId to prevent IDOR attacks
+				if (lastContext !== undefined && !isNewChat) {
+					const result = await tx
 						.update(chat)
 						.set({
 							lastContext,
 							updatedAt: new Date(),
 						})
-						.where(eq(chat.id, chatId))
+						.where(
+							and(
+								eq(chat.id, chatId),
+								eq(chat.userId, context.userId),
+							),
+						)
+						.returning({ id: chat.id })
 
-					logDebug("MessageRepository updated chat context", {
-						chatId,
-					})
+					if (result.length > 0) {
+						logDebug("MessageRepository updated chat context", {
+							chatId,
+							userId: context.userId,
+						})
+					} else {
+						logDebug(
+							"MessageRepository context update skipped (chat not found or not owned)",
+							{ chatId, userId: context.userId },
+						)
+					}
 				}
 			})
 
@@ -617,6 +672,7 @@ export class MessageRepository extends BaseRepository<
 				{
 					chatId,
 					messageCount: messagesToSave.length,
+					userId: context.userId,
 				},
 			)
 			throw new InternalServerError(

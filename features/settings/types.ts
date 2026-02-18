@@ -6,6 +6,12 @@
  * @module features/settings/types
  */
 
+import {
+	DEFAULT_MAX_OUTPUT_TOKENS,
+	DEFAULT_TEMPERATURE,
+	DEFAULT_TOP_P,
+} from "@/lib/ai/constants"
+
 // =============================================================================
 // Theme Types
 // =============================================================================
@@ -270,9 +276,9 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
  * Default sampling settings
  */
 export const DEFAULT_SAMPLING: SamplingSettings = {
-	temperature: 0.7,
-	topP: 1,
-	maxOutputTokens: 4096,
+	temperature: DEFAULT_TEMPERATURE,
+	topP: DEFAULT_TOP_P,
+	maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
 }
 
 /**

@@ -2,14 +2,19 @@
  * Root Layout Component
  *
  * Root layout for the Next.js App Router with provider hierarchy,
- * font loading, and metadata configuration.
+ * font loading, metadata configuration, and performance optimizations.
+ *
+ * Performance Optimizations:
+ * - Resource hints (preconnect, dns-prefetch) for external domains
+ * - Pyodide lazy loading for Python code execution in artifacts
  *
  * @module app/layout
  */
 
+import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
-
 import Script from "next/script"
 import { Suspense } from "react"
 import { Toaster } from "sonner"
@@ -27,12 +32,79 @@ import "./globals.css"
 
 export const metadata: Metadata = {
 	metadataBase: new URL("https://chat.vercel.ai"),
-	title: "AI Assistant",
-	description: "AI Assistant using the AI SDK.",
+	title: {
+		default: "AI Assistant - Chat with AI",
+		template: "%s | AI Assistant",
+	},
+	description:
+		"AI Assistant powered by the AI SDK. Chat with multiple AI models, create artifacts, and collaborate in real-time.",
+	keywords: [
+		"AI",
+		"chatbot",
+		"artificial intelligence",
+		"AI assistant",
+		"chat",
+		"AI SDK",
+		"Next.js",
+	],
+	authors: [{ name: "Vercel" }],
+	creator: "Vercel",
+	openGraph: {
+		type: "website",
+		locale: "en_US",
+		url: "https://chat.vercel.ai",
+		siteName: "AI Assistant",
+		title: "AI Assistant - Chat with AI",
+		description:
+			"AI Assistant powered by the AI SDK. Chat with multiple AI models, create artifacts, and collaborate in real-time.",
+		images: [
+			{
+				url: "/opengraph-image.png",
+				width: 1200,
+				height: 630,
+				alt: "AI Assistant",
+			},
+		],
+	},
+	twitter: {
+		card: "summary_large_image",
+		title: "AI Assistant - Chat with AI",
+		description:
+			"AI Assistant powered by the AI SDK. Chat with multiple AI models, create artifacts, and collaborate in real-time.",
+		images: ["/twitter-image.png"],
+		creator: "@vercel",
+	},
+	robots: {
+		index: true,
+		follow: true,
+		googleBot: {
+			index: true,
+			follow: true,
+			"max-video-preview": -1,
+			"max-image-preview": "large",
+			"max-snippet": -1,
+		},
+	},
+	icons: {
+		icon: "/favicon.ico",
+		shortcut: "/favicon.ico",
+		apple: "/apple-touch-icon.png",
+	},
+	manifest: "/manifest.json",
 }
 
 export const viewport: Viewport = {
+	width: "device-width",
+	initialScale: 1,
 	maximumScale: 1, // Disable auto-zoom on mobile Safari
+	userScalable: false, // Prevent zooming on iOS
+	themeColor: [
+		{ media: "(prefers-color-scheme: light)", color: "hsl(0 0% 100%)" },
+		{
+			media: "(prefers-color-scheme: dark)",
+			color: "hsl(240deg 10% 3.92%)",
+		},
+	],
 }
 
 // =============================================================================
@@ -108,10 +180,70 @@ export default function RootLayout({
 			lang="en"
 			suppressHydrationWarning
 		>
+			<head>
+				{/* =============================================================================
+				     Resource Hints for Performance Optimization
+				     ============================================================================= */}
+
+				{/* CDN for Pyodide - Python code execution in artifacts */}
+				<link
+					crossOrigin="anonymous"
+					href="https://cdn.jsdelivr.net"
+					rel="preconnect"
+				/>
+				<link href="https://cdn.jsdelivr.net" rel="dns-prefetch" />
+
+				{/* Vercel Analytics & Speed Insights */}
+				<link
+					crossOrigin="anonymous"
+					href="https://va.vercel-scripts.com"
+					rel="preconnect"
+				/>
+				<link href="https://va.vercel-scripts.com" rel="dns-prefetch" />
+				<link
+					crossOrigin="anonymous"
+					href="https://vitals.vercel-insights.com"
+					rel="preconnect"
+				/>
+				<link
+					href="https://vitals.vercel-insights.com"
+					rel="dns-prefetch"
+				/>
+
+				{/* Google Fonts - preconnect for faster font loading */}
+				<link
+					crossOrigin="anonymous"
+					href="https://fonts.gstatic.com"
+					rel="preconnect"
+				/>
+
+				{/* AI Provider APIs - dns-prefetch only (backend calls) */}
+				<link href="https://api.openai.com" rel="dns-prefetch" />
+				<link
+					href="https://generativelanguage.googleapis.com"
+					rel="dns-prefetch"
+				/>
+
+				{/* Weather API (tool usage) */}
+				<link href="https://api.open-meteo.com" rel="dns-prefetch" />
+			</head>
 			<body className="antialiased">
 				<Script id="theme-color" strategy="beforeInteractive">
 					{THEME_COLOR_SCRIPT}
 				</Script>
+
+				{/* Pyodide for Python code execution in code artifacts */}
+				<Script
+					src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"
+					strategy="lazyOnload"
+				/>
+
+				{process.env.NODE_ENV === "production" && (
+					<>
+						<SpeedInsights />
+						<Analytics />
+					</>
+				)}
 				<Suspense fallback={<AppShellFallback />}>
 					<AppShell>{children}</AppShell>
 				</Suspense>

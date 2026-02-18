@@ -311,6 +311,7 @@ export const AIArtifactPreview = memo(function AIArtifactPreview({
 				) : error ? (
 					<ErrorOverlay error={error} />
 				) : (
+					// biome-ignore lint/performance/noImgElement: preview image with dynamic src
 					<img
 						src={content}
 						alt="Preview"

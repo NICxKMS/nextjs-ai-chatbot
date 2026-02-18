@@ -48,7 +48,9 @@ export function patchDocumentNode(
 	let right = 0
 
 	for (; left < minChildLen; left++) {
+		// biome-ignore lint/style/noNonNullAssertion: loop bound guarantees index exists
 		const oldChild = oldChildren[left]!
+		// biome-ignore lint/style/noNonNullAssertion: loop bound guarantees index exists
 		const newChild = newChildren[left]!
 		if (!isNodeEqual(oldChild, newChild)) {
 			break
@@ -57,7 +59,9 @@ export function patchDocumentNode(
 	}
 
 	for (; right + left + 1 < minChildLen; right++) {
+		// biome-ignore lint/style/noNonNullAssertion: loop bound guarantees index exists
 		const oldChild = oldChildren[oldChildLen - right - 1]!
+		// biome-ignore lint/style/noNonNullAssertion: loop bound guarantees index exists
 		const newChild = newChildren[newChildLen - right - 1]!
 		if (!isNodeEqual(oldChild, newChild)) {
 			break
@@ -149,6 +153,7 @@ function matchNodes(
 		oldStartIndex < oldChildren.length;
 		oldStartIndex++
 	) {
+		// biome-ignore lint/style/noNonNullAssertion: loop bound guarantees index exists
 		const oldStartNode = oldChildren[oldStartIndex]!
 		const newStartIndex = findMatchNode(newChildren, oldStartNode)
 
@@ -161,7 +166,9 @@ function matchNodes(
 				newEndIndex < newChildren.length;
 				oldEndIndex++, newEndIndex++
 			) {
+				// biome-ignore lint/style/noNonNullAssertion: loop bound guarantees index exists
 				const oldEndNode = oldChildren[oldEndIndex]!
+				// biome-ignore lint/style/noNonNullAssertion: loop bound guarantees index exists
 				const newEndNode = newChildren[newEndIndex]!
 				if (!isNodeEqual(newEndNode, oldEndNode)) {
 					break
@@ -185,6 +192,7 @@ function findMatchNode(
 	startIndex = 0,
 ): number {
 	for (let i = startIndex; i < children.length; i++) {
+		// biome-ignore lint/style/noNonNullAssertion: loop bound guarantees index exists
 		if (isNodeEqual(children[i]!, node)) {
 			return i
 		}
@@ -204,9 +212,13 @@ function patchRemainNodes(
 	let left = 0
 	let right = 0
 	while (oldChildLen - left - right > 0 && newChildLen - left - right > 0) {
+		// biome-ignore lint/style/noNonNullAssertion: loop bound guarantees index exists
 		const leftOldNode = oldChildren[left]!
+		// biome-ignore lint/style/noNonNullAssertion: loop bound guarantees index exists
 		const leftNewNode = newChildren[left]!
+		// biome-ignore lint/style/noNonNullAssertion: loop bound guarantees index exists
 		const rightOldNode = oldChildren[oldChildLen - right - 1]!
+		// biome-ignore lint/style/noNonNullAssertion: loop bound guarantees index exists
 		const rightNewNode = newChildren[newChildLen - right - 1]!
 		let updateLeft =
 			!isTextNode(leftOldNode) && matchNodeType(leftOldNode, leftNewNode)
@@ -437,6 +449,7 @@ export function isNodeEqual(
 	if (isNode1Array && isNode2Array) {
 		return (
 			node1.length === node2.length &&
+			// biome-ignore lint/style/noNonNullAssertion: length check guarantees index exists
 			node1.every((node, index) => isNodeEqual(node, node2[index]!))
 		)
 	}

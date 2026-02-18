@@ -11,6 +11,11 @@ import "server-only"
 
 import { CACHE_TTL } from "@/lib/constants"
 import { logDebug, logError, logWarn } from "@/lib/log"
+import {
+	isCircuitOpen,
+	recordCacheFailure,
+	recordCacheSuccess,
+} from "./circuit-breaker"
 import { getRedisClient, isRedisAvailable } from "./client"
 
 // =============================================================================
@@ -95,6 +100,11 @@ export function resetCacheMetrics(): void {
  * @returns Cached value or null if not found
  */
 async function getFromCache<T>(key: string): Promise<T | null> {
+	// Fast-fail if circuit breaker is open
+	if (isCircuitOpen()) {
+		return null
+	}
+
 	const redis = getRedisClient()
 
 	if (!redis) {
@@ -121,7 +131,7 @@ async function getFromCache<T>(key: string): Promise<T | null> {
 		return cached as T
 	} catch (error) {
 		metrics.errors++
-		logError("Cache get error", error as Error, { key })
+		recordCacheFailure("get", error)
 		return null
 	}
 }
@@ -138,6 +148,11 @@ async function setInCache<T>(
 	value: T,
 	ttl?: number,
 ): Promise<boolean> {
+	// Fast-fail if circuit breaker is open
+	if (isCircuitOpen()) {
+		return false
+	}
+
 	const redis = getRedisClient()
 
 	if (!redis) {
@@ -151,11 +166,12 @@ async function setInCache<T>(
 
 		await redis.set(key, serialized, { ex: effectiveTtl })
 
+		recordCacheSuccess()
 		logDebug("Cache set", { key, ttl: effectiveTtl })
 		return true
 	} catch (error) {
 		metrics.errors++
-		logError("Cache set error", error as Error, { key })
+		recordCacheFailure("set", error)
 		return false
 	}
 }
@@ -167,6 +183,11 @@ async function setInCache<T>(
  * @returns true if deleted, false otherwise
  */
 async function deleteFromCache(key: string): Promise<boolean> {
+	// Fast-fail if circuit breaker is open
+	if (isCircuitOpen()) {
+		return false
+	}
+
 	const redis = getRedisClient()
 
 	if (!redis) {
@@ -175,11 +196,12 @@ async function deleteFromCache(key: string): Promise<boolean> {
 
 	try {
 		await redis.del(key)
+		recordCacheSuccess()
 		logDebug("Cache delete", { key })
 		return true
 	} catch (error) {
 		metrics.errors++
-		logError("Cache delete error", error as Error, { key })
+		recordCacheFailure("delete", error)
 		return false
 	}
 }
@@ -433,6 +455,11 @@ export async function invalidate(key: string): Promise<boolean> {
  * ```
  */
 export async function invalidatePattern(pattern: string): Promise<number> {
+	// Fast-fail if circuit breaker is open
+	if (isCircuitOpen()) {
+		return 0
+	}
+
 	const redis = getRedisClient()
 
 	if (!redis) {
@@ -457,11 +484,12 @@ export async function invalidatePattern(pattern: string): Promise<number> {
 			}
 		} while (cursor !== "0")
 
+		recordCacheSuccess()
 		logDebug("Pattern invalidation complete", { pattern, count })
 		return count
 	} catch (error) {
 		metrics.errors++
-		logError("Pattern invalidation error", error as Error, { pattern })
+		recordCacheFailure("invalidatePattern", error)
 		return 0
 	}
 }

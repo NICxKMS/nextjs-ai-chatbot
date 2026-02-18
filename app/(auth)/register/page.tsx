@@ -3,6 +3,7 @@
  *
  * Registration page with email/password form and link to login.
  * Uses AuthForm component from auth feature.
+ * Redirects to login page with success message after registration.
  *
  * @module app/(auth)/register/page
  */
@@ -14,9 +15,8 @@ import { useRouter } from "next/navigation"
 import type { JSX } from "react"
 import { useState, useTransition } from "react"
 
-import { Button } from "@/components/ui/button"
 import { register } from "@/features/auth/actions/register.action"
-import { AuthForm } from "@/features/auth/components/auth-form"
+import { AuthForm, SubmitButton } from "@/features/auth/components"
 
 // =============================================================================
 // Register Page Component
@@ -25,16 +25,20 @@ import { AuthForm } from "@/features/auth/components/auth-form"
 /**
  * Registration page with email/password form.
  *
+ * After successful registration, redirects to /login with a success message
+ * prompting the user to sign in with their new credentials.
+ *
  * @example
  * ```tsx
  * // Route: /register
- * // Redirects to /chat on successful registration
+ * // Redirects to /login?registered=true on successful registration
  * ```
  */
 export default function RegisterPage(): JSX.Element {
 	const router = useRouter()
 	const [isPending, startTransition] = useTransition()
 	const [error, setError] = useState<string | null>(null)
+	const [isSuccessful, setIsSuccessful] = useState(false)
 
 	/**
 	 * Handle form submission
@@ -46,8 +50,9 @@ export default function RegisterPage(): JSX.Element {
 			const result = await register(formData)
 
 			if (result.success) {
-				// Redirect to chat on successful registration
-				router.push(result.redirectTo || "/chat")
+				setIsSuccessful(true)
+				// Redirect to login page with success message
+				router.push("/login?registered=true")
 				router.refresh()
 			} else {
 				setError(
@@ -70,14 +75,17 @@ export default function RegisterPage(): JSX.Element {
 			</div>
 
 			{/* Form */}
-			<AuthForm action={handleSubmit}>
-				<Button className="w-full" disabled={isPending} type="submit">
+			<AuthForm action={handleSubmit} showConfirmPassword>
+				<SubmitButton className="w-full" isSuccessful={isSuccessful}>
 					{isPending ? "Creating account..." : "Sign Up"}
-				</Button>
+				</SubmitButton>
 
 				{/* Error message */}
 				{error && (
-					<p className="mt-2 text-center text-red-500 text-sm">
+					<p
+						className="mt-2 text-center text-red-500 text-sm"
+						role="alert"
+					>
 						{error}
 					</p>
 				)}

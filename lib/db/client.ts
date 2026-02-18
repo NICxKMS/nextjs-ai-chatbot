@@ -8,10 +8,12 @@
  * @module lib/db/client
  */
 
+import { trace } from "@opentelemetry/api"
 import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
 
-import { logDebug, logError, logInfo } from "@/lib/log"
+import { toDatabaseError } from "@/lib/errors/database"
+import { logDebug, logError, logInfo, logWarn } from "@/lib/log"
 
 import * as schema from "./schema"
 
@@ -173,24 +175,114 @@ export async function closeConnection(): Promise<void> {
 // Transaction Helper
 // =============================================================================
 
+/** Threshold for slow transaction warnings (ms) */
+const SLOW_TRANSACTION_THRESHOLD = 500
+
 /**
  * Execute a function within a database transaction
  *
+ * Provides automatic rollback on errors, OpenTelemetry integration,
+ * performance tracking, and proper error handling.
+ *
  * @param fn - Function to execute within the transaction
+ * @param operation - Optional operation name for logging/tracing
  * @returns The result of the function
+ * @throws DatabaseError on transaction failure
  *
  * @example
  * ```typescript
  * import { withTransaction, db } from '@/lib/db/client';
+ * import { chats, messages } from '@/lib/db/schema';
  *
  * const result = await withTransaction(async (tx) => {
- *   await tx.insert(chats).values({ title: 'New Chat' });
- *   return { success: true };
- * });
+ *   const [chat] = await tx.insert(chats).values({ title: 'New Chat' }).returning();
+ *   await tx.insert(messages).values({ chatId: chat.id, content: 'Hello' });
+ *   return chat;
+ * }, 'create_chat_with_message');
  * ```
  */
 export async function withTransaction<T>(
 	fn: (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => Promise<T>,
+	operation = "database_transaction",
 ): Promise<T> {
-	return db.transaction(fn)
+	const start = performance.now()
+	const span = trace.getActiveSpan()
+
+	if (span) {
+		span.setAttribute("db.transaction", true)
+		span.setAttribute("db.operation", operation)
+	}
+
+	try {
+		const result = await db.transaction(fn)
+
+		const duration = performance.now() - start
+
+		if (span) {
+			span.setAttribute("db.transaction.duration_ms", duration)
+			span.setAttribute("db.transaction.success", true)
+		}
+
+		if (duration > SLOW_TRANSACTION_THRESHOLD) {
+			logWarn(`Slow transaction: ${operation}`, { duration })
+		}
+
+		logDebug(`Transaction completed: ${operation}`, { duration })
+
+		return result
+	} catch (error) {
+		const duration = performance.now() - start
+
+		if (span) {
+			span.setAttribute("db.transaction.duration_ms", duration)
+			span.setAttribute("db.transaction.success", false)
+			span.recordException(error as Error)
+		}
+
+		// Transaction automatically rolled back by Drizzle
+		throw toDatabaseError(
+			operation,
+			error,
+			`Transaction failed: ${operation}`,
+		)
+	}
+}
+
+// =============================================================================
+// Sequential Transactions Helper
+// =============================================================================
+
+/**
+ * Execute multiple transactions in sequence
+ *
+ * Unlike Promise.all, this ensures transactions run one at a time
+ * to avoid potential conflicts.
+ *
+ * @param operations - Array of transaction operations with names
+ * @returns Array of results from each transaction
+ *
+ * @example
+ * ```typescript
+ * const results = await withSequentialTransactions([
+ *   { name: 'create_user', fn: async (tx) => { ... } },
+ *   { name: 'create_profile', fn: async (tx) => { ... } }
+ * ]);
+ * ```
+ */
+export async function withSequentialTransactions<T>(
+	operations: Array<{
+		name: string
+		fn: (
+			tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+		) => Promise<T>
+	}>,
+): Promise<T[]> {
+	const results: T[] = []
+
+	for (const { name, fn } of operations) {
+		const result = await withTransaction<T>(fn, name)
+		results.push(result)
+	}
+
+	return results
 }

@@ -9,6 +9,8 @@
 
 import { streamObject } from "ai"
 import { z } from "zod"
+import { codePrompt, getCodeUpdatePrompt } from "@/lib/ai/prompts"
+import { getModel } from "@/lib/ai/registry"
 import { type ArtifactHandler, createArtifactHandler } from "./base.handler"
 
 /**
@@ -17,34 +19,6 @@ import { type ArtifactHandler, createArtifactHandler } from "./base.handler"
 const codeSchema = z.object({
 	code: z.string(),
 })
-
-/**
- * System prompt for code artifact creation
- */
-const CODE_CREATE_SYSTEM_PROMPT = `Generate self-contained, executable Python code.
-
-Requirements:
-- Write clean, well-documented Python code
-- Include necessary imports at the top
-- Add docstrings to functions and classes
-- Handle edge cases and errors appropriately
-- Follow PEP 8 style guidelines`
-
-/**
- * Generate system prompt for code artifact updates
- * @param currentContent - The current code content
- * @returns System prompt for the update operation
- */
-function getUpdateSystemPrompt(currentContent: string | null): string {
-	return `You are a helpful assistant that helps update Python code.
-
-Current code:
-\`\`\`python
-${currentContent ?? "# Empty file"}
-\`\`\`
-
-Please update the code based on the user's request. Maintain the overall structure and style unless specifically asked to change it.`
-}
 
 /**
  * Code artifact handler
@@ -74,10 +48,9 @@ export const codeHandler: ArtifactHandler<"code"> = createArtifactHandler({
 	async onCreateDocument({ title, dataStream }) {
 		let draftContent = ""
 
-		// TODO: Replace with actual provider from lib/ai/providers when available
 		const { fullStream } = streamObject({
-			model: "artifact-model",
-			system: CODE_CREATE_SYSTEM_PROMPT,
+			model: getModel("artifact-model"),
+			system: codePrompt,
 			prompt: title,
 			schema: codeSchema,
 			experimental_telemetry: {
@@ -113,10 +86,9 @@ export const codeHandler: ArtifactHandler<"code"> = createArtifactHandler({
 	async onUpdateDocument({ document, description, dataStream }) {
 		let draftContent = ""
 
-		// TODO: Replace with actual provider from lib/ai/providers when available
 		const { fullStream } = streamObject({
-			model: "artifact-model",
-			system: getUpdateSystemPrompt(document.content),
+			model: getModel("artifact-model"),
+			system: getCodeUpdatePrompt(document.content),
 			prompt: description,
 			schema: codeSchema,
 			experimental_telemetry: {

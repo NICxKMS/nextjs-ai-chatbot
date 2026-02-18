@@ -397,36 +397,71 @@ export function getApiContext(
 // =============================================================================
 
 /**
- * Extracts client IP address from request headers.
- * Handles x-forwarded-for, x-real-ip, and fallbacks.
+ * Default number of trusted proxies for IP extraction.
+ * Vercel/Cloudflare typically adds 1 proxy.
+ */
+const DEFAULT_TRUSTED_PROXY_COUNT = 1
+
+/**
+ * Extracts client IP address from request headers securely.
+ *
+ * SECURITY: This function implements secure IP extraction by:
+ * 1. Prioritizing Cloudflare's CF-Connecting-IP header
+ * 2. Handling X-Forwarded-For chain with trusted proxy count
+ * 3. Supporting Vercel-specific headers
+ * 4. Validating IP positions in proxy chains
+ *
+ * This prevents header spoofing attacks where attackers attempt to
+ * bypass rate limits by manipulating X-Forwarded-For headers.
  *
  * @param request - Request object to extract from
+ * @param options - Optional configuration for trusted proxies
  * @returns Client IP address or "unknown"
  */
-export function getClientIp(request: Request): string {
-	// x-forwarded-for can contain multiple IPs: "client, proxy1, proxy2"
-	// The first IP is the original client
+export function getClientIp(
+	request: Request,
+	options?: {
+		/** Number of trusted proxies in front of this server (default: 1) */
+		trustedProxyCount?: number
+	},
+): string {
+	const trustedCount =
+		options?.trustedProxyCount ?? DEFAULT_TRUSTED_PROXY_COUNT
+
+	// 1. Cloudflare provides the most reliable client IP
+	const cfIP = request.headers.get("cf-connecting-ip")
+	if (cfIP) {
+		return cfIP.trim()
+	}
+
+	// 2. Vercel-specific header with chain handling
+	const vercelForwarded = request.headers.get("x-vercel-forwarded-for")
+	if (vercelForwarded) {
+		const ips = vercelForwarded.split(",").map((ip) => ip.trim())
+		// Client IP is at position: length - 1 - trustedProxyCount
+		const clientIndex = Math.max(0, ips.length - 1 - trustedCount)
+		const clientIP = ips[clientIndex]
+		if (clientIP) {
+			return clientIP
+		}
+	}
+
+	// 3. Standard X-Forwarded-For with chain handling
 	const forwardedFor = request.headers.get("x-forwarded-for")
 	if (forwardedFor) {
-		const firstIp = forwardedFor.split(",")[0]?.trim()
-		if (firstIp) {
-			return firstIp
+		const ips = forwardedFor.split(",").map((ip) => ip.trim())
+		// Client IP is at position: length - 1 - trustedProxyCount
+		const clientIndex = Math.max(0, ips.length - 1 - trustedCount)
+		const clientIP = ips[clientIndex]
+		if (clientIP) {
+			return clientIP
 		}
 	}
 
-	// Fallback to x-real-ip (set by some proxies like nginx)
+	// 4. Fallback to X-Real-IP (single IP, no chain)
 	const realIp = request.headers.get("x-real-ip")
 	if (realIp) {
-		return realIp
-	}
-
-	// Vercel-specific header
-	const vercelIp = request.headers.get("x-vercel-forwarded-for")
-	if (vercelIp) {
-		const firstIp = vercelIp.split(",")[0]?.trim()
-		if (firstIp) {
-			return firstIp
-		}
+		return realIp.trim()
 	}
 
 	return "unknown"

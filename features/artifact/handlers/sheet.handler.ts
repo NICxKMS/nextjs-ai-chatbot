@@ -9,6 +9,8 @@
 
 import { streamObject } from "ai"
 import { z } from "zod"
+import { getSheetUpdatePrompt, sheetPrompt } from "@/lib/ai/prompts"
+import { getModel } from "@/lib/ai/registry"
 import { type ArtifactHandler, createArtifactHandler } from "./base.handler"
 
 /**
@@ -17,34 +19,6 @@ import { type ArtifactHandler, createArtifactHandler } from "./base.handler"
 const sheetSchema = z.object({
 	csv: z.string().describe("CSV data"),
 })
-
-/**
- * System prompt for sheet artifact creation
- */
-const SHEET_CREATE_SYSTEM_PROMPT = `Generate a CSV spreadsheet based on the user's request.
-
-Requirements:
-- Create meaningful column headers
-- Include realistic sample data
-- Use proper CSV formatting with commas as delimiters
-- Quote fields that contain commas or special characters
-- First row should be headers`
-
-/**
- * Generate system prompt for sheet artifact updates
- * @param currentContent - The current CSV content
- * @returns System prompt for the update operation
- */
-function getUpdateSystemPrompt(currentContent: string | null): string {
-	return `You are a helpful assistant that helps update CSV spreadsheets.
-
-Current CSV content:
-\`\`\`csv
-${currentContent ?? "# Empty spreadsheet"}
-\`\`\`
-
-Please update the spreadsheet based on the user's request. Maintain the overall structure unless specifically asked to change it.`
-}
 
 /**
  * Sheet artifact handler
@@ -74,10 +48,9 @@ export const sheetHandler: ArtifactHandler<"sheet"> = createArtifactHandler({
 	async onCreateDocument({ title, dataStream }) {
 		let draftContent = ""
 
-		// TODO: Replace with actual provider from lib/ai/providers when available
 		const { fullStream } = streamObject({
-			model: "artifact-model",
-			system: SHEET_CREATE_SYSTEM_PROMPT,
+			model: getModel("artifact-model"),
+			system: sheetPrompt,
 			prompt: title,
 			schema: sheetSchema,
 			experimental_telemetry: {
@@ -120,10 +93,9 @@ export const sheetHandler: ArtifactHandler<"sheet"> = createArtifactHandler({
 	async onUpdateDocument({ document, description, dataStream }) {
 		let draftContent = ""
 
-		// TODO: Replace with actual provider from lib/ai/providers when available
 		const { fullStream } = streamObject({
-			model: "artifact-model",
-			system: getUpdateSystemPrompt(document.content),
+			model: getModel("artifact-model"),
+			system: getSheetUpdatePrompt(document.content),
 			prompt: description,
 			schema: sheetSchema,
 			experimental_telemetry: {

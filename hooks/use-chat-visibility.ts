@@ -3,17 +3,21 @@
 /**
  * useChatVisibility Hook
  *
- * Hook to manage chat visibility state with optimistic updates.
+ * Hook to manage chat visibility state with optimistic updates,
+ * server persistence, and error handling with rollback.
  *
  * @module hooks/use-chat-visibility
  */
 
 import { useMemo, useRef } from "react"
+import { toast } from "sonner"
 import useSWR, { useSWRConfig } from "swr"
 import useSWRInfinite from "swr/infinite"
 
-/** Visibility type for chats */
-export type VisibilityType = "private" | "public"
+import {
+	updateVisibilityAction,
+	type VisibilityType,
+} from "@/features/chat/actions"
 
 /**
  * Hook to manage chat visibility with optimistic updates
@@ -66,7 +70,12 @@ export function useChatVisibility({
 		}
 		pendingUpdateRef.current = new AbortController()
 
+		// Store previous value for potential rollback
+		const previousVisibility = localVisibility
+
+		// Optimistically update UI
 		setLocalVisibility(updatedVisibilityType)
+
 		// Trigger revalidation of the chat history cache
 		mutate(
 			(key) => typeof key === "string" && key.startsWith("/api/history"),
@@ -74,12 +83,34 @@ export function useChatVisibility({
 			{ revalidate: true },
 		)
 
-		// TODO: Implement updateChatVisibility action when available
-		// For now, just update locally without server persistence
-		console.log(
-			`Visibility update for chat ${chatId}: ${updatedVisibilityType}`,
-		)
+		try {
+			// Persist to server
+			const result = await updateVisibilityAction({
+				chatId,
+				visibility: updatedVisibilityType,
+			})
+
+			if (!result.success) {
+				// Rollback on failure
+				setLocalVisibility(previousVisibility)
+				toast.error(result.error || "Failed to update visibility")
+			}
+		} catch (error) {
+			// Don't rollback if this request was aborted (superseded by newer request)
+			if (error instanceof Error && error.name === "AbortError") {
+				return
+			}
+
+			// Rollback optimistic update on failure
+			setLocalVisibility(previousVisibility)
+			toast.error("Failed to update visibility")
+		} finally {
+			pendingUpdateRef.current = null
+		}
 	}
 
 	return { visibilityType, setVisibilityType }
 }
+
+// Re-export the type for consumers
+export type { VisibilityType }

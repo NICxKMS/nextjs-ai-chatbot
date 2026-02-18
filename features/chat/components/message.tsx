@@ -12,8 +12,22 @@
 import type { UseChatHelpers } from "@ai-sdk/react"
 import equal from "fast-deep-equal"
 import { memo, useState } from "react"
-import { cn, sanitizeHtml } from "@/lib/utils"
+import { Streamdown } from "streamdown"
+import { AIToolCall } from "@/components/ai/tools/call"
+import type { WeatherProps } from "@/components/ai/tools/weather"
+import { Weather } from "@/components/ai/tools/weather"
+import {
+	DocumentToolCall,
+	type DocumentToolCallProps,
+	DocumentToolResult,
+	type DocumentToolResultProps,
+} from "@/components/document/document"
+import { motion } from "@/lib/motion"
+import { cn, sanitizeText } from "@/lib/utils"
 import type { ChatMessage, UserVote } from "../types"
+import { MessageActions } from "./message-actions"
+import { MessageEditor } from "./message-editor"
+import { MessageReasoning } from "./message-reasoning"
 
 // =============================================================================
 // Types
@@ -69,6 +83,87 @@ type FilePart = {
 // =============================================================================
 
 /**
+ * Preview Attachment Component
+ *
+ * Displays file attachments with image preview support.
+ */
+function PreviewAttachment({
+	attachment,
+}: {
+	attachment: {
+		name?: string
+		filename?: string
+		contentType?: string
+		url: string
+	}
+}) {
+	const { name, url, contentType } = attachment
+	const isImage = contentType?.startsWith("image/")
+
+	return (
+		<div
+			className="group relative size-16 overflow-hidden rounded-lg border bg-muted"
+			data-testid="message-attachment-preview"
+		>
+			{isImage ? (
+				// biome-ignore lint/performance/noImgElement: attachment preview with dynamic URL
+				<img
+					alt={name ?? "An image attachment"}
+					className="size-full object-cover"
+					height={64}
+					src={url}
+					width={64}
+				/>
+			) : (
+				<div className="flex size-full items-center justify-center text-muted-foreground text-xs">
+					File
+				</div>
+			)}
+			<div className="absolute inset-x-0 bottom-0 truncate bg-linear-to-t from-black/80 to-transparent px-1 py-0.5 text-[10px] text-white">
+				{name ?? "file"}
+			</div>
+		</div>
+	)
+}
+
+/**
+ * MessageContent Component
+ *
+ * Wrapper for message content with role-based styling.
+ */
+function MessageContent({
+	children,
+	className,
+	style,
+	"data-testid": testId,
+}: {
+	children: React.ReactNode
+	className?: string
+	"data-testid"?: string | undefined
+	style?: React.CSSProperties | undefined
+}) {
+	return (
+		<div
+			className={cn("message-content", className)}
+			data-testid={testId}
+			style={style}
+		>
+			{children}
+		</div>
+	)
+}
+
+/**
+ * Response Component
+ *
+ * Renders message text content with markdown formatting.
+ * Uses Streamdown for streaming-compatible markdown rendering.
+ */
+function Response({ children }: { children: string }) {
+	return <Streamdown>{children}</Streamdown>
+}
+
+/**
  * Pure preview message component (internal implementation)
  *
  * Renders a single message with:
@@ -79,11 +174,11 @@ type FilePart = {
  * - Message actions
  */
 const PurePreviewMessage = ({
-	chatId: _chatId,
+	chatId,
 	message,
-	vote: _vote,
-	isLoading: _isLoading,
-	setMessages: _setMessages,
+	vote,
+	isLoading,
+	setMessages,
 	regenerate,
 	isReadonly,
 	requiresScrollPadding,
@@ -95,10 +190,12 @@ const PurePreviewMessage = ({
 	)
 
 	return (
-		<div
-			className="group/message w-full animate-in fade-in-0"
+		<motion.div
+			animate={{ opacity: 1 }}
+			className="group/message w-full"
 			data-role={message.role}
 			data-testid={`message-${message.role}`}
+			initial={{ opacity: 0 }}
 		>
 			<div
 				className={cn("flex w-full items-start gap-2 md:gap-3", {
@@ -137,15 +234,17 @@ const PurePreviewMessage = ({
 								data-testid="message-attachments"
 							>
 								{attachmentsFromMessage.map((attachment) => (
-									<div
+									<PreviewAttachment
+										attachment={{
+											name:
+												attachment.name ??
+												attachment.filename ??
+												"file",
+											contentType: attachment.mediaType,
+											url: attachment.url,
+										}}
 										key={attachment.url}
-										className="rounded-lg border bg-muted p-2 text-sm"
-									>
-										📄{" "}
-										{attachment.name ??
-											attachment.filename ??
-											"file"}
-									</div>
+									/>
 								))}
 							</div>
 						)}
@@ -159,17 +258,11 @@ const PurePreviewMessage = ({
 							part.text?.trim().length > 0
 						) {
 							return (
-								<div
+								<MessageReasoning
+									isLoading={isLoading ?? false}
 									key={key}
-									className="rounded-lg border bg-muted/50 p-3 text-muted-foreground text-sm"
-								>
-									<div className="mb-1 font-medium">
-										Reasoning
-									</div>
-									<div className="whitespace-pre-wrap">
-										{part.text}
-									</div>
-								</div>
+									reasoning={part.text}
+								/>
 							)
 						}
 
@@ -177,8 +270,8 @@ const PurePreviewMessage = ({
 							if (mode === "view") {
 								return (
 									<div key={key}>
-										<div
-											className={cn("message-content", {
+										<MessageContent
+											className={cn({
 												"w-fit break-words rounded-2xl px-3 py-2 text-right text-white":
 													message.role === "user",
 												"bg-transparent px-0 py-0 text-left":
@@ -195,10 +288,10 @@ const PurePreviewMessage = ({
 													: undefined
 											}
 										>
-											<div className="whitespace-pre-wrap">
-												{sanitizeHtml(part.text)}
-											</div>
-										</div>
+											<Response>
+												{sanitizeText(part.text)}
+											</Response>
+										</MessageContent>
 									</div>
 								)
 							}
@@ -211,89 +304,209 @@ const PurePreviewMessage = ({
 									>
 										<div className="size-8" />
 										<div className="min-w-0 flex-1">
-											{/* TODO: Integrate MessageEditor component from Task 3.2b */}
-											<div className="rounded-lg border p-3">
-												<textarea
-													className="w-full resize-none border-none bg-transparent outline-none"
-													defaultValue={part.text}
-													rows={3}
-												/>
-												<div className="mt-2 flex gap-2">
-													<button
-														className="rounded bg-primary px-3 py-1 text-primary-foreground text-sm"
-														onClick={() =>
-															setMode("view")
-														}
-														type="button"
-													>
-														Save
-													</button>
-													<button
-														className="rounded border px-3 py-1 text-sm"
-														onClick={() =>
-															setMode("view")
-														}
-														type="button"
-													>
-														Cancel
-													</button>
-												</div>
-											</div>
+											<MessageEditor
+												chatId={chatId}
+												key={message.id}
+												message={message}
+												regenerate={regenerate}
+												setMessages={setMessages}
+												setMode={setMode}
+											/>
 										</div>
 									</div>
 								)
 							}
 						}
 
-						// Tool invocations - placeholder for now
+						// Tool invocations - AI SDK uses tool-${toolName} format for type
 						if (type.startsWith("tool-")) {
-							return (
-								<div
-									key={key}
-									className="rounded-lg border bg-muted/50 p-3 text-sm"
-								>
-									<div className="font-medium">
-										Tool: {type}
-									</div>
-									<div className="mt-1 text-muted-foreground">
-										Tool result placeholder
-									</div>
-								</div>
-							)
+							// Extract tool name from type (e.g., "tool-getWeather" -> "getWeather")
+							const toolName = type.replace(/^tool-/, "")
+							const toolPart = part as {
+								toolCallId: string
+								state: string
+								input?: Record<string, unknown>
+								output?: unknown
+								errorText?: string
+							}
+
+							// Handle tool call (input-available state)
+							if (
+								toolPart.state === "input-available" ||
+								toolPart.state === "input-streaming"
+							) {
+								// Handle document tools
+								if (
+									toolName === "createDocument" ||
+									toolName === "updateDocument" ||
+									toolName === "requestSuggestions"
+								) {
+									return (
+										<DocumentToolCall
+											args={
+												(toolPart.input ||
+													{}) as DocumentToolCallProps["args"]
+											}
+											isReadonly={isReadonly ?? false}
+											key={key}
+											type={
+												toolName === "createDocument"
+													? "create"
+													: toolName ===
+															"updateDocument"
+														? "update"
+														: "request-suggestions"
+											}
+										/>
+									)
+								}
+
+								// Generic tool call display
+								return (
+									<AIToolCall
+										defaultOpen={false}
+										input={toolPart.input}
+										key={key}
+										toolCallId={toolPart.toolCallId}
+										toolType={type}
+										state="input-available"
+									/>
+								)
+							}
+
+							// Handle tool result (output-available or output-error state)
+							if (
+								toolPart.state === "output-available" ||
+								toolPart.state === "output-error"
+							) {
+								// Handle weather tool result
+								if (toolName === "getWeather") {
+									const weatherData = toolPart.output as
+										| {
+												weatherAtLocation?: WeatherProps["weatherAtLocation"]
+										  }
+										| undefined
+									if (weatherData?.weatherAtLocation) {
+										return (
+											<div
+												key={key}
+												className="my-2 max-w-md"
+											>
+												<Weather
+													weatherAtLocation={
+														weatherData.weatherAtLocation
+													}
+												/>
+											</div>
+										)
+									}
+								}
+
+								// Handle document tool result
+								if (
+									toolName === "createDocument" ||
+									toolName === "updateDocument" ||
+									toolName === "requestSuggestions"
+								) {
+									const docResult = toolPart.output as
+										| {
+												id: string
+												title: string
+												kind: string
+										  }
+										| undefined
+
+									// Check for error in output
+									if (
+										toolPart.output &&
+										typeof toolPart.output === "object" &&
+										"error" in toolPart.output
+									) {
+										return (
+											<div
+												className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-500 dark:bg-red-950/50"
+												key={key}
+											>
+												Error{" "}
+												{toolName === "createDocument"
+													? "creating"
+													: "updating"}{" "}
+												document:{" "}
+												{String(
+													(
+														toolPart.output as {
+															error: string
+														}
+													).error,
+												)}
+											</div>
+										)
+									}
+
+									if (docResult) {
+										return (
+											<DocumentToolResult
+												isReadonly={isReadonly ?? false}
+												key={key}
+												result={{
+													id: docResult.id,
+													title: docResult.title,
+													kind: docResult.kind as DocumentToolResultProps["result"]["kind"],
+												}}
+												type={
+													toolName ===
+													"createDocument"
+														? "create"
+														: toolName ===
+																"updateDocument"
+															? "update"
+															: "request-suggestions"
+												}
+											/>
+										)
+									}
+								}
+
+								// Generic tool result display
+								const isError =
+									toolPart.state === "output-error"
+								const errorText = isError
+									? toolPart.errorText
+									: undefined
+								return (
+									<AIToolCall
+										defaultOpen={false}
+										{...(errorText ? { errorText } : {})}
+										key={key}
+										output={toolPart.output}
+										toolCallId={toolPart.toolCallId}
+										toolType={type}
+										state={
+											isError
+												? "output-error"
+												: "output-available"
+										}
+									/>
+								)
+							}
 						}
 
 						return null
 					})}
 
 					{!isReadonly && (
-						<div className="mt-1 flex gap-1 opacity-0 transition-opacity group-hover/message:opacity-100">
-							<button
-								className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-								onClick={() => setMode("edit")}
-								type="button"
-							>
-								✏️ Edit
-							</button>
-							<button
-								className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-								type="button"
-							>
-								📋 Copy
-							</button>
-							{message.role === "assistant" && (
-								<button
-									className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-									onClick={() => regenerate()}
-									type="button"
-								>
-									🔄 Regenerate
-								</button>
-							)}
-						</div>
+						<MessageActions
+							chatId={chatId}
+							isLoading={isLoading ?? false}
+							key={`action-${message.id}`}
+							message={message}
+							setMode={setMode}
+							vote={vote}
+						/>
 					)}
 				</div>
 			</div>
-		</div>
+		</motion.div>
 	)
 }
 
@@ -335,13 +548,14 @@ export const ThinkingMessage = ({ className }: ThinkingMessageProps) => {
 	const role = "assistant"
 
 	return (
-		<div
-			className={cn(
-				"group/message w-full animate-in fade-in-0",
-				className,
-			)}
+		<motion.div
+			animate={{ opacity: 1 }}
+			className={cn("group/message w-full", className)}
 			data-role={role}
 			data-testid="message-assistant-loading"
+			exit={{ opacity: 0, transition: { duration: 0.5 } }}
+			initial={{ opacity: 0 }}
+			transition={{ duration: 0.2 }}
 		>
 			<div className="flex items-start justify-start gap-3">
 				<div className="-mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-background ring-1 ring-border">
@@ -354,7 +568,7 @@ export const ThinkingMessage = ({ className }: ThinkingMessageProps) => {
 					</div>
 				</div>
 			</div>
-		</div>
+		</motion.div>
 	)
 }
 

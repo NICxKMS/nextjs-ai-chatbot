@@ -1,8 +1,8 @@
 /**
  * Messages Component
  *
- * Message list component with virtualization support for performance.
- * Handles scroll management and message grouping.
+ * Virtualized message list component using Virtuoso for performance.
+ * Handles scroll management, auto-scroll during streaming, and message grouping.
  *
  * @module features/chat/components
  */
@@ -11,6 +11,9 @@ import type { UseChatHelpers } from "@ai-sdk/react"
 import equal from "fast-deep-equal"
 import { AlertCircle, ArrowDownIcon, RotateCcw } from "lucide-react"
 import { memo, useCallback, useEffect, useRef, useState } from "react"
+import type { VirtuosoHandle } from "react-virtuoso"
+import { Virtuoso } from "react-virtuoso"
+import { AnimatePresence } from "@/lib/motion"
 import type { ChatMessage, UserVote } from "../types"
 import { Message, ThinkingMessage } from "./message"
 
@@ -56,7 +59,7 @@ export interface MessagesProps {
  * Pure messages component (internal implementation)
  *
  * Features:
- * - Virtualized rendering for performance with large message lists
+ * - Virtualized rendering with Virtuoso for performance with large message lists
  * - Auto-scroll behavior during streaming
  * - Scroll-to-bottom button when scrolled up
  * - Error state with retry button
@@ -74,8 +77,7 @@ function PureMessages({
 	chatError,
 	clearError,
 }: MessagesProps) {
-	const scrollContainerRef = useRef<HTMLDivElement>(null)
-	const messagesEndRef = useRef<HTMLDivElement>(null)
+	const virtuosoRef = useRef<VirtuosoHandle>(null)
 	const [isAtBottom, setIsAtBottom] = useState(true)
 	const [hasSentMessage, setHasSentMessage] = useState(false)
 
@@ -89,22 +91,24 @@ function PureMessages({
 	// Auto-scroll when status changes to submitted
 	useEffect(() => {
 		if (status === "submitted") {
-			messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+			requestAnimationFrame(() => {
+				virtuosoRef.current?.scrollToIndex({
+					index: "LAST",
+					behavior: "smooth",
+				})
+			})
 		}
 	}, [status])
 
-	// Handle scroll position detection
-	const handleScroll = useCallback(() => {
-		if (!scrollContainerRef.current) return
-
-		const { scrollTop, scrollHeight, clientHeight } =
-			scrollContainerRef.current
-		const isNearBottom = scrollHeight - scrollTop - clientHeight < 100
-		setIsAtBottom(isNearBottom)
+	const handleAtBottomStateChange = useCallback((atBottom: boolean) => {
+		setIsAtBottom(atBottom)
 	}, [])
 
 	const scrollToBottom = useCallback(() => {
-		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+		virtuosoRef.current?.scrollToIndex({
+			index: "LAST",
+			behavior: "smooth",
+		})
 	}, [])
 
 	// Filter messages to get renderable ones (exclude empty assistant messages with errors)
@@ -129,10 +133,87 @@ function PureMessages({
 		return true
 	})
 
+	// Render individual message item
+	const itemContent = useCallback(
+		(index: number, message: ChatMessage) => {
+			const isLastMessage = index === renderableMessages.length - 1
+			const isStreaming = status === "streaming" && isLastMessage
+
+			return (
+				<div className="px-2 pb-4 md:px-4 md:pb-6">
+					<Message
+						chatId={chatId}
+						isLoading={isStreaming}
+						isReadonly={isReadonly}
+						message={message}
+						regenerate={regenerate}
+						requiresScrollPadding={hasSentMessage && isLastMessage}
+						setMessages={setMessages}
+						vote={
+							!isGuest && votes
+								? votes.find(
+										(vote) => vote.messageId === message.id,
+									)
+								: undefined
+						}
+					/>
+				</div>
+			)
+		},
+		[
+			chatId,
+			isReadonly,
+			regenerate,
+			setMessages,
+			votes,
+			isGuest,
+			status,
+			hasSentMessage,
+			renderableMessages.length,
+		],
+	)
+
+	// Header component (spacer at top)
+	const Header = useCallback(() => {
+		return <div className="pt-4" />
+	}, [])
+
+	// Footer component (error state, thinking message, spacer)
+	const Footer = useCallback(() => {
+		return (
+			<div className="px-2 md:px-4">
+				{/* Error state with retry button - reserve space to prevent CLS */}
+				<div className="min-h-[60px]">
+					{chatError && status === "ready" && (
+						<div className="pb-4 md:pb-6">
+							<ErrorMessage
+								clearError={clearError}
+								error={chatError}
+								regenerate={regenerate}
+							/>
+						</div>
+					)}
+				</div>
+
+				{/* Thinking message during submission */}
+				<AnimatePresence mode="wait">
+					{status === "submitted" && (
+						<div className="pb-4 md:pb-6">
+							<ThinkingMessage key="thinking" />
+						</div>
+					)}
+				</AnimatePresence>
+
+				{/* Bottom spacer */}
+				<div className="min-h-[24px] min-w-[24px] shrink-0" />
+			</div>
+		)
+	}, [chatError, status, clearError, regenerate])
+
 	// Show greeting if no messages
 	if (messages.length === 0) {
 		return (
-			<div className="flex-1 overflow-y-auto">
+			<div className="overscroll-behavior-contain touch-pan-y flex-1 overflow-y-auto">
 				<div className="mx-auto flex min-w-0 max-w-4xl flex-col gap-4 px-2 py-4 md:gap-6 md:px-4">
 					<Greeting />
 				</div>
@@ -142,79 +223,24 @@ function PureMessages({
 
 	return (
 		<div
-			className="relative flex-1 overflow-hidden"
-			ref={scrollContainerRef}
-			onScroll={handleScroll}
+			className="overscroll-behavior-contain touch-pan-y relative flex-1 overflow-hidden"
 			style={{ overflowAnchor: "none" }}
 		>
-			<div className="h-full overflow-y-auto overscroll-behavior-contain touch-pan-y">
-				{/* Header spacer */}
-				<div className="pt-4" />
-
-				{/* Messages */}
-				{renderableMessages.map((message, index) => {
-					const isLastMessage =
-						index === renderableMessages.length - 1
-					const isStreaming = status === "streaming" && isLastMessage
-
-					return (
-						<div
-							key={message.id}
-							className="px-2 pb-4 md:px-4 md:pb-6"
-						>
-							<Message
-								chatId={chatId}
-								isLoading={isStreaming}
-								isReadonly={isReadonly}
-								message={message}
-								regenerate={regenerate}
-								requiresScrollPadding={
-									hasSentMessage && isLastMessage
-								}
-								setMessages={setMessages}
-								vote={
-									!isGuest && votes
-										? votes.find(
-												(vote) =>
-													vote.messageId ===
-													message.id,
-											)
-										: undefined
-								}
-							/>
-						</div>
-					)
-				})}
-
-				{/* Footer with error state and thinking message */}
-				<div className="px-2 md:px-4">
-					{/* Error state with retry button */}
-					<div className="min-h-[60px]">
-						{chatError && status === "ready" && (
-							<div className="pb-4 md:pb-6">
-								<ErrorMessage
-									clearError={clearError}
-									error={chatError}
-									regenerate={regenerate}
-								/>
-							</div>
-						)}
-					</div>
-
-					{/* Thinking message during submission */}
-					{status === "submitted" && (
-						<div className="pb-4 md:pb-6">
-							<ThinkingMessage key="thinking" />
-						</div>
-					)}
-
-					{/* Bottom spacer */}
-					<div className="min-h-[24px] min-w-[24px] shrink-0" />
-				</div>
-
-				{/* Scroll anchor */}
-				<div ref={messagesEndRef} />
-			</div>
+			<Virtuoso
+				atBottomStateChange={handleAtBottomStateChange}
+				atBottomThreshold={100}
+				className="h-full"
+				components={{
+					Header,
+					Footer,
+				}}
+				data={renderableMessages}
+				followOutput="smooth"
+				increaseViewportBy={{ top: 200, bottom: 200 }}
+				itemContent={itemContent}
+				ref={virtuosoRef}
+				style={{ height: "100%" }}
+			/>
 
 			{/* Scroll to bottom button */}
 			{!isAtBottom && (

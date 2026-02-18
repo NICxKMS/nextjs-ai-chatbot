@@ -8,7 +8,20 @@
  */
 
 import { redirect } from "next/navigation"
-import { ForbiddenError, UnauthorizedError } from "@/lib/errors"
+import {
+	ForbiddenError,
+	NotFoundError,
+	RateLimitError,
+	UnauthorizedError,
+	ValidationError,
+} from "@/lib/errors"
+import {
+	getRateLimiter,
+	type RateLimitConfig,
+	type RateLimiterName,
+	type RateLimitResult,
+} from "@/lib/rate-limit"
+import type { AppSession } from "./session"
 import { getSession, getUserId, isAuthenticated, isGuest } from "./session"
 
 // =============================================================================
@@ -50,21 +63,21 @@ export interface ChatResource extends OwnedResource {
  * For server actions, use requireAuthAction instead.
  *
  * @param options - Guard options including redirect URL
- * @returns Object containing the user ID
+ * @returns Object containing the session and user ID
  * @throws Redirects to login page if not authenticated
  *
  * @example
  * ```typescript
  * // In a server component
  * export default async function ProtectedPage() {
- *   const { userId } = await requireAuth({ redirectTo: '/login' });
- *   // ...render protected content
+ *   const { session, userId } = await requireAuth({ redirectTo: '/login' });
+ *   // ...render protected content with full session access
  * }
  * ```
  */
 export async function requireAuth(
 	options: GuardOptions = {},
-): Promise<{ userId: string }> {
+): Promise<{ session: AppSession; userId: string }> {
 	const session = await getSession()
 
 	if (!session?.user.id) {
@@ -74,7 +87,10 @@ export async function requireAuth(
 		throw new UnauthorizedError("Authentication required")
 	}
 
-	return { userId: session.user.id }
+	return {
+		session,
+		userId: session.user.id,
+	}
 }
 
 /**
@@ -408,4 +424,255 @@ export function withOwnership<TArgs extends unknown[], TResult>(
 
 		return action(...args, userId)
 	}
+}
+
+// =============================================================================
+// Rate Limiting Guards
+// =============================================================================
+
+/**
+ * Enforce rate limiting for an identifier.
+ * Throws RateLimitError if rate limit exceeded.
+ *
+ * @param limiterName - Name of the pre-configured rate limiter
+ * @param identifier - User ID or other unique identifier
+ * @returns RateLimitResult if allowed
+ * @throws RateLimitError if rate limit exceeded
+ *
+ * @example
+ * ```typescript
+ * await requireRateLimit('chat', session.user.id);
+ * // Request allowed, proceed with operation
+ * ```
+ */
+export async function requireRateLimit(
+	limiterName: RateLimiterName,
+	identifier: string,
+): Promise<RateLimitResult> {
+	const limiter = getRateLimiter(limiterName)
+	const result = await limiter.consumeToken(identifier)
+
+	if (!result.success) {
+		const retryAfter = Math.ceil((result.reset - Date.now()) / 1000)
+		throw new RateLimitError(
+			`Rate limit exceeded. Please try again in ${retryAfter} seconds.`,
+			{
+				limit: result.limit,
+				remaining: result.remaining,
+				reset: result.reset,
+				retryAfter,
+			},
+		)
+	}
+
+	return result
+}
+
+/**
+ * Enforce rate limiting with custom configuration.
+ * Throws RateLimitError if rate limit exceeded.
+ *
+ * @param config - Custom rate limit configuration
+ * @param identifier - User ID or other unique identifier
+ * @returns RateLimitResult if allowed
+ * @throws RateLimitError if rate limit exceeded
+ *
+ * @example
+ * ```typescript
+ * await requireCustomRateLimit(
+ *   { limit: 5, window: 60, prefix: 'custom' },
+ *   session.user.id
+ * );
+ * ```
+ */
+export async function requireCustomRateLimit(
+	config: RateLimitConfig,
+	identifier: string,
+): Promise<RateLimitResult> {
+	const limiter = getRateLimiter("api") // Use api limiter as base
+	const result = await limiter.consumeToken(
+		`${config.prefix ?? "custom"}:${identifier}`,
+	)
+
+	if (!result.success) {
+		const retryAfter = Math.ceil((result.reset - Date.now()) / 1000)
+		throw new RateLimitError(
+			`Rate limit exceeded. Please try again in ${retryAfter} seconds.`,
+			{
+				limit: result.limit,
+				remaining: result.remaining,
+				reset: result.reset,
+				retryAfter,
+			},
+		)
+	}
+
+	return result
+}
+
+// =============================================================================
+// Resource Guards
+// =============================================================================
+
+/**
+ * Require that a resource exists.
+ * Throws NotFoundError if resource is null/undefined.
+ *
+ * @typeParam T - The expected resource type
+ * @param resource - Resource to check (may be null/undefined)
+ * @param resourceType - Name of the resource type for error message
+ * @returns The resource (guaranteed non-null)
+ * @throws NotFoundError if resource doesn't exist
+ *
+ * @example
+ * ```typescript
+ * const chat = requireResource(await chatRepository.findById(chatId), 'Chat');
+ * // chat is guaranteed to be non-null here
+ * ```
+ */
+export function requireResource<T>(
+	resource: T | null | undefined,
+	resourceType: string,
+): T {
+	if (resource === null || resource === undefined) {
+		throw new NotFoundError(resourceType)
+	}
+	return resource
+}
+
+/**
+ * Require that a resource exists with an identifier.
+ * Throws NotFoundError with identifier if resource is null/undefined.
+ *
+ * @typeParam T - The expected resource type
+ * @param resource - Resource to check (may be null/undefined)
+ * @param resourceType - Name of the resource type for error message
+ * @param identifier - Resource identifier for error details
+ * @returns The resource (guaranteed non-null)
+ * @throws NotFoundError if resource doesn't exist
+ *
+ * @example
+ * ```typescript
+ * const chat = requireResourceWithId(
+ *   await chatRepository.findById(chatId),
+ *   'Chat',
+ *   chatId
+ * );
+ * ```
+ */
+export function requireResourceWithId<T>(
+	resource: T | null | undefined,
+	resourceType: string,
+	identifier: string,
+): T {
+	if (resource === null || resource === undefined) {
+		throw new NotFoundError(resourceType, identifier)
+	}
+	return resource
+}
+
+// =============================================================================
+// Request Validation Guards
+// =============================================================================
+
+/**
+ * Parse and validate a timestamp string.
+ * Throws ValidationError if the timestamp is invalid.
+ *
+ * @param value - ISO timestamp string to parse
+ * @returns Parsed Date object
+ * @throws ValidationError if timestamp is invalid
+ *
+ * @example
+ * ```typescript
+ * const timestamp = parseTimestamp('2024-01-15T10:30:00Z');
+ * // timestamp is a valid Date object
+ * ```
+ */
+export function parseTimestamp(value: string): Date {
+	const date = new Date(value)
+
+	if (Number.isNaN(date.getTime())) {
+		throw new ValidationError("Invalid timestamp format", {
+			value,
+			expected: "ISO 8601 timestamp string",
+		})
+	}
+
+	return date
+}
+
+/**
+ * Extract a required query parameter from a URL.
+ * Throws ValidationError if the parameter is missing.
+ *
+ * @param url - URL object to extract from
+ * @param name - Name of the query parameter
+ * @returns The parameter value
+ * @throws ValidationError if parameter is missing
+ *
+ * @example
+ * ```typescript
+ * const url = new URL(request.url);
+ * const chatId = requireQueryParam(url, 'chatId');
+ * // chatId is guaranteed to be a non-empty string
+ * ```
+ */
+export function requireQueryParam(url: URL, name: string): string {
+	const value = url.searchParams.get(name)
+
+	if (!value || value.trim() === "") {
+		throw new ValidationError(`Missing required query parameter: ${name}`, {
+			parameter: name,
+		})
+	}
+
+	return value
+}
+
+/**
+ * Extract an optional query parameter from a URL.
+ * Returns null if the parameter is missing or empty.
+ *
+ * @param url - URL object to extract from
+ * @param name - Name of the query parameter
+ * @returns The parameter value or null
+ *
+ * @example
+ * ```typescript
+ * const url = new URL(request.url);
+ * const limit = getQueryParam(url, 'limit');
+ * // limit is string | null
+ * ```
+ */
+export function getQueryParam(url: URL, name: string): string | null {
+	const value = url.searchParams.get(name)
+	return value && value.trim() !== "" ? value : null
+}
+
+// =============================================================================
+// Full Session Auth Guard
+// =============================================================================
+
+/**
+ * Require authentication and return full session.
+ * Use when you need access to the complete session object.
+ *
+ * @returns Object containing session and userId
+ * @throws UnauthorizedError if not authenticated
+ *
+ * @example
+ * ```typescript
+ * const { session, userId } = await requireAuthWithSession();
+ * console.log(session.user.email); // Access full session data
+ * ```
+ *
+ * @deprecated Use `requireAuth()` instead - it now returns the same type.
+ * This function is kept for backward compatibility.
+ */
+export async function requireAuthWithSession(): Promise<{
+	session: AppSession
+	userId: string
+}> {
+	return requireAuth()
 }

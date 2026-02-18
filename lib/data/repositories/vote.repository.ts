@@ -14,7 +14,7 @@
 
 import "server-only"
 
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 
 import { CACHE_TTL } from "@/lib/constants"
 import type { NewVote, Vote } from "@/lib/db/schema"
@@ -614,6 +614,42 @@ export class VoteRepository extends BaseRepository<
 	}
 
 	/**
+	 * Find all votes for a chat belonging to a specific user.
+	 * This is the secure version that filters by user ID.
+	 *
+	 * @param chatId - Chat ID
+	 * @param userId - User ID to filter by
+	 * @returns Array of votes for the chat belonging to the user
+	 */
+	async findByChatIdAndUserId(
+		chatId: string,
+		userId: string,
+	): Promise<Vote[]> {
+		try {
+			const results = await this.db
+				.select()
+				.from(vote)
+				.where(and(eq(vote.chatId, chatId), eq(vote.userId, userId)))
+
+			return results
+		} catch (error) {
+			logError(
+				"VoteRepository findByChatIdAndUserId error",
+				error as Error,
+				{ chatId, userId },
+			)
+			throw new InternalServerError(
+				"Failed to find votes by chat ID and user ID",
+				{
+					chatId,
+					userId,
+					error: (error as Error).message,
+				},
+			)
+		}
+	}
+
+	/**
 	 * Delete all votes for a chat.
 	 * Used for cascade delete when a chat is deleted.
 	 *
@@ -678,6 +714,63 @@ export class VoteRepository extends BaseRepository<
 				"Failed to delete votes by message ID",
 				{
 					messageId,
+					error: (error as Error).message,
+				},
+			)
+		}
+	}
+
+	/**
+	 * Delete all votes for multiple messages.
+	 * Used for cascade delete when messages are deleted after timestamp (regeneration).
+	 *
+	 * @param chatId - Chat ID (for additional scoping)
+	 * @param messageIds - Array of message IDs
+	 * @returns Number of votes deleted
+	 */
+	async deleteByMessageIds(
+		chatId: string,
+		messageIds: string[],
+	): Promise<number> {
+		if (messageIds.length === 0) {
+			return 0
+		}
+
+		try {
+			const results = await this.db
+				.delete(vote)
+				.where(
+					and(
+						eq(vote.chatId, chatId),
+						inArray(vote.messageId, messageIds),
+					),
+				)
+				.returning({ messageId: vote.messageId })
+
+			const count = results.length
+			if (count > 0) {
+				logDebug("VoteRepository votes deleted by message IDs", {
+					chatId,
+					messageCount: messageIds.length,
+					votesDeleted: count,
+				})
+				await this.invalidateListCache()
+			}
+			return count
+		} catch (error) {
+			logError(
+				"VoteRepository deleteByMessageIds error",
+				error as Error,
+				{
+					chatId,
+					messageCount: messageIds.length,
+				},
+			)
+			throw new InternalServerError(
+				"Failed to delete votes by message IDs",
+				{
+					chatId,
+					messageCount: messageIds.length,
 					error: (error as Error).message,
 				},
 			)

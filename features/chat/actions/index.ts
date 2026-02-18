@@ -20,6 +20,12 @@ export {
 	deleteAllChatsAction,
 	deleteChatAction,
 } from "./delete-chat.action"
+// Delete Trailing Messages
+export {
+	type DeleteTrailingMessagesInput,
+	type DeleteTrailingMessagesResult,
+	deleteTrailingMessagesAction,
+} from "./delete-trailing-messages.action"
 // Get History
 export {
 	type ChatWithPreview,
@@ -54,3 +60,10 @@ export {
 	type UpdateTitleResult,
 	updateTitleAction,
 } from "./update-title.action"
+// Update Visibility
+export {
+	type UpdateVisibilityInput,
+	type UpdateVisibilityResult,
+	updateVisibilityAction,
+	type VisibilityType,
+} from "./update-visibility.action"

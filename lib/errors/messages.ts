@@ -35,6 +35,12 @@ export type LocaleMessages = Record<string, ErrorMessageSet>
  */
 export type SupportedLocale = "en" | string
 
+/**
+ * User type for context-aware error messages.
+ * Guest users receive messages that guide them to sign in.
+ */
+export type ErrorUserType = "guest" | "regular" | "unknown"
+
 // =============================================================================
 // Error Message Constants
 // =============================================================================
@@ -341,4 +347,169 @@ export function hasLocaleMessages(locale: SupportedLocale): boolean {
  */
 export function getSupportedLocales(): SupportedLocale[] {
 	return Object.keys(errorMessages)
+}
+
+// =============================================================================
+// Guest-Specific Error Messages
+// =============================================================================
+
+/**
+ * Guest-specific error messages that guide users to sign in.
+ * These override the default messages when the user is a guest.
+ */
+const guestSpecificMessages: Partial<Record<ErrorCode, ErrorMessageSet>> = {
+	[ErrorCodes.CHAT_NOT_FOUND]: {
+		title: "Chat Not Found",
+		message:
+			"Chat not found. Guest chat history is temporary and may have expired.",
+		action: "Sign in to save your chats permanently.",
+	},
+	[ErrorCodes.NOT_FOUND]: {
+		title: "Not Found",
+		message:
+			"The requested resource was not found. Guest data is temporary and may have expired.",
+		action: "Sign in to save your data permanently.",
+	},
+	[ErrorCodes.RATE_LIMIT_EXCEEDED]: {
+		title: "Rate Limit Exceeded",
+		message: "You've reached the rate limit for guest users.",
+		action: "Sign in to increase your rate limits.",
+	},
+	[ErrorCodes.DAILY_LIMIT_EXCEEDED]: {
+		title: "Daily Limit Exceeded",
+		message: "Daily message limit exceeded for guest users.",
+		action: "Sign in to increase your message allowance.",
+	},
+	[ErrorCodes.SERVICE_UNAVAILABLE]: {
+		title: "Service Unavailable",
+		message:
+			"Service temporarily unavailable. Guest sessions are stored temporarily.",
+		action: "Sign in to ensure your data is saved.",
+	},
+	[ErrorCodes.OFFLINE]: {
+		title: "You're Offline",
+		message:
+			"Connection lost. Guest sessions are stored temporarily and may be lost.",
+		action: "Sign in to ensure your chats are saved.",
+	},
+	[ErrorCodes.FORBIDDEN]: {
+		title: "Access Denied",
+		message: "Guest users have limited access to this feature.",
+		action: "Sign in to access all features.",
+	},
+}
+
+/**
+ * Gets the error message set for a guest user.
+ * Guest users receive contextual messages that guide them to sign in.
+ *
+ * @param code - The error code to look up
+ * @returns The guest-specific error message set, or the default if no guest override
+ */
+function getGuestErrorMessageSet(
+	code: ErrorCode | string,
+): ErrorMessageSet | null {
+	// Check if we have a guest-specific message for this code
+	if (code in guestSpecificMessages) {
+		return guestSpecificMessages[code as ErrorCode] ?? null
+	}
+	return null
+}
+
+/**
+ * Gets the error message set with guest context.
+ * If the user is a guest and a guest-specific message exists, returns that.
+ * Otherwise, returns the standard message.
+ *
+ * @param code - The error code to look up
+ * @param userType - The type of user (guest, regular, or unknown)
+ * @param locale - The preferred locale (defaults to 'en')
+ * @returns The appropriate error message set
+ */
+function getContextualErrorMessageSet(
+	code: ErrorCode | string,
+	userType?: ErrorUserType,
+	locale?: SupportedLocale,
+): ErrorMessageSet {
+	// If guest user, check for guest-specific message
+	if (userType === "guest") {
+		const guestMessage = getGuestErrorMessageSet(code)
+		if (guestMessage) {
+			return guestMessage
+		}
+	}
+
+	// Fall back to standard message
+	return getErrorMessageSet(code, locale)
+}
+
+/**
+ * Gets the user-friendly error message for an AppError with user context.
+ *
+ * @param error - The AppError instance
+ * @param userType - Optional user type for contextual messages
+ * @param locale - Optional locale (defaults to 'en')
+ * @returns The user-friendly error message
+ *
+ * @example
+ * ```typescript
+ * const error = new NotFoundError('Chat', '123');
+ * const message = getErrorMessageWithContext(error, 'guest');
+ * // "Chat not found. Guest chat history is temporary and may have expired."
+ * ```
+ */
+export function getErrorMessageWithContext(
+	error: AppError,
+	userType?: ErrorUserType,
+	locale?: SupportedLocale,
+): string {
+	return getContextualErrorMessageSet(error.code, userType, locale).message
+}
+
+/**
+ * Gets the user-friendly error title for an AppError with user context.
+ *
+ * @param error - The AppError instance
+ * @param userType - Optional user type for contextual messages
+ * @param locale - Optional locale (defaults to 'en')
+ * @returns The user-friendly error title
+ */
+export function getErrorTitleWithContext(
+	error: AppError,
+	userType?: ErrorUserType,
+	locale?: SupportedLocale,
+): string {
+	return getContextualErrorMessageSet(error.code, userType, locale).title
+}
+
+/**
+ * Gets the suggested action for an AppError with user context.
+ *
+ * @param error - The AppError instance
+ * @param userType - Optional user type for contextual messages
+ * @param locale - Optional locale (defaults to 'en')
+ * @returns The suggested action, or null if none available
+ */
+export function getErrorActionWithContext(
+	error: AppError,
+	userType?: ErrorUserType,
+	locale?: SupportedLocale,
+): string | null {
+	return getContextualErrorMessageSet(error.code, userType, locale).action
+}
+
+/**
+ * Gets all error information (title, message, action) for an AppError with user context.
+ *
+ * @param error - The AppError instance
+ * @param userType - Optional user type for contextual messages
+ * @param locale - Optional locale (defaults to 'en')
+ * @returns The complete error message set
+ */
+export function getErrorInfoWithContext(
+	error: AppError,
+	userType?: ErrorUserType,
+	locale?: SupportedLocale,
+): ErrorMessageSet {
+	return getContextualErrorMessageSet(error.code, userType, locale)
 }

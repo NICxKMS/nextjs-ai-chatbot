@@ -543,3 +543,75 @@ export function isApiError(value: unknown): value is ApiError {
 		typeof (value as ApiError).message === "string"
 	)
 }
+
+// =============================================================================
+// Message Parts Types and Schemas (re-exported from message-parts.ts)
+// =============================================================================
+
+// Types
+export type {
+	ArtifactPart,
+	CodePart,
+	FilePart,
+	ImagePart,
+	MessageAttachment,
+	MessagePart,
+	ModelPart,
+	ReasoningPart,
+	SourcePart,
+	StepPart,
+	TextPart,
+	ToolCallPart,
+	ToolResultPart,
+	UnknownPart,
+} from "./message-parts"
+// Schemas
+// Type Guards
+// Utility Functions
+export {
+	artifactPartSchema,
+	attachmentToFilePart,
+	codePartSchema,
+	extractFileUrlsFromParts,
+	extractTextFromParts,
+	filePartSchema,
+	filePartToAttachment,
+	getArtifactIds,
+	getFileName,
+	getMediaType,
+	getToolCallIds,
+	hasArtifacts,
+	hasCode,
+	hasImages,
+	hasReasoning,
+	hasSources,
+	hasToolCalls,
+	imagePartSchema,
+	isArtifactPart,
+	isCodePart,
+	isFilePart,
+	isImagePart,
+	isMessagePart,
+	isModelPart,
+	isReasoningPart,
+	isSourcePart,
+	isStepPart,
+	isTextPart,
+	isToolCallPart,
+	isToolResultPart,
+	messageAttachmentSchema,
+	messagePartSchema,
+	messagePartsArraySchema,
+	modelPartSchema,
+	parseMessagePart,
+	parseMessageParts,
+	reasoningPartSchema,
+	safeParseMessagePart,
+	safeParseMessageParts,
+	sourcePartSchema,
+	stepPartSchema,
+	textPartSchema,
+	toolCallPartSchema,
+	toolResultPartSchema,
+	unknownPartSchema,
+} from "./message-parts"

@@ -4,12 +4,20 @@
  * Provides session helpers for accessing and managing authentication state.
  * Supports both authenticated users (via NextAuth) and guest sessions.
  *
+ * Guest sessions use JWT-signed tokens to prevent tampering:
+ * - JWT is signed with GUEST_JWT_SECRET using HS256 algorithm
+ * - JWT expires after 1 hour (GUEST_TOKEN_TTL.jwtExpiration)
+ * - Cookie persists for 7 days for UX (sliding window)
+ * - Token rotation happens when JWT is near expiration
+ *
  * @module lib/auth/session
  */
 
 import "server-only"
 
+import { jwtVerify, SignJWT } from "jose"
 import { cookies } from "next/headers"
+import { CACHE_TTL, GUEST_TOKEN_TTL } from "@/lib/constants"
 import { UnauthorizedError } from "@/lib/errors"
 import { auth } from "./index"
 
@@ -57,6 +65,25 @@ const GUEST_COOKIE_NAME = "guest_id"
 
 /** Guest ID prefix for identification */
 const GUEST_ID_PREFIX = "guest:"
+
+/** Text encoder for JWT secret */
+const encoder = new TextEncoder()
+
+// =============================================================================
+// JWT Secret Helpers
+// =============================================================================
+
+/**
+ * Get the JWT secret for guest token signing/verification
+ * @returns Uint8Array secret or null if not configured
+ */
+function getGuestJwtSecret(): Uint8Array | null {
+	const secret = process.env.GUEST_JWT_SECRET
+	if (!secret) {
+		return null
+	}
+	return encoder.encode(secret)
+}
 
 // =============================================================================
 // Session Functions
@@ -254,21 +281,85 @@ export async function getOrCreateGuestSession(): Promise<AppSession> {
 
 /**
  * Get guest session from cookies
+ *
+ * Verifies the JWT token from the guest cookie. Returns null if:
+ * - No cookie exists
+ * - JWT secret is not configured
+ * - Token is invalid or expired
  */
 async function getGuestSession(): Promise<AppSession | null> {
 	try {
-		const cookieStore = await cookies()
-		const guestCookie = cookieStore.get(GUEST_COOKIE_NAME)
-
-		if (!guestCookie?.value) {
+		const secret = getGuestJwtSecret()
+		if (!secret) {
+			// JWT secret not configured - cannot verify tokens
 			return null
 		}
 
-		const guestId = guestCookie.value
+		const cookieStore = await cookies()
+		const token = cookieStore.get(GUEST_COOKIE_NAME)?.value
+
+		if (!token) {
+			return null
+		}
+
+		// Verify the JWT token
+		const { payload } = await jwtVerify(token, secret)
+
+		// Validate payload has required fields
+		if (!payload.sub || typeof payload.sub !== "string") {
+			return null
+		}
 
 		// Validate guest ID format
-		if (!guestId.startsWith(GUEST_ID_PREFIX)) {
+		if (!payload.sub.startsWith(GUEST_ID_PREFIX)) {
 			return null
+		}
+
+		// Validate token type
+		if (payload.type !== "guest") {
+			return null
+		}
+
+		return {
+			user: {
+				id: payload.sub,
+				type: "guest",
+			},
+		}
+	} catch {
+		// Token verification failed (expired, invalid, etc.)
+		// Return null to trigger new session creation
+		return null
+	}
+}
+
+/**
+ * Create a new guest session with JWT-signed token
+ *
+ * Security features:
+ * - JWT signed with HS256 algorithm using GUEST_JWT_SECRET
+ * - Token expires after 1 hour (GUEST_TOKEN_TTL.jwtExpiration)
+ * - Cookie persists for 7 days for UX (CACHE_TTL.guest)
+ * - Token rotation happens when JWT is near expiration
+ */
+async function createGuestSession(): Promise<AppSession> {
+	const secret = getGuestJwtSecret()
+	const guestId = `${GUEST_ID_PREFIX}${crypto.randomUUID()}`
+
+	// If JWT secret is not configured, fall back to unsigned cookie
+	// This maintains backward compatibility but logs a warning in development
+	if (!secret) {
+		try {
+			const cookieStore = await cookies()
+			cookieStore.set(GUEST_COOKIE_NAME, guestId, {
+				httpOnly: true,
+				secure: process.env.NODE_ENV === "production",
+				sameSite: "lax",
+				maxAge: CACHE_TTL.guest,
+				path: "/",
+			})
+		} catch {
+			// Cookies may not be available in all contexts
 		}
 
 		return {
@@ -277,25 +368,30 @@ async function getGuestSession(): Promise<AppSession | null> {
 				type: "guest",
 			},
 		}
-	} catch {
-		// Cookies may not be available in all contexts
-		return null
 	}
-}
 
-/**
- * Create a new guest session
- */
-async function createGuestSession(): Promise<AppSession> {
-	const guestId = `${GUEST_ID_PREFIX}${crypto.randomUUID()}`
+	// Create JWT-signed token
+	const issuedAtSeconds = Math.floor(Date.now() / 1000)
+	const expiresAtSeconds = issuedAtSeconds + GUEST_TOKEN_TTL.jwtExpiration
+
+	const token = await new SignJWT({
+		sub: guestId,
+		type: "guest",
+		iat: issuedAtSeconds,
+	})
+		.setProtectedHeader({ alg: "HS256" })
+		.setIssuedAt(issuedAtSeconds)
+		.setExpirationTime(expiresAtSeconds)
+		.sign(secret)
 
 	try {
 		const cookieStore = await cookies()
-		cookieStore.set(GUEST_COOKIE_NAME, guestId, {
+		// Cookie TTL is longer than JWT TTL - middleware will rotate the token
+		cookieStore.set(GUEST_COOKIE_NAME, token, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
 			sameSite: "lax",
-			maxAge: 60 * 60 * 24 * 7, // 7 days
+			maxAge: CACHE_TTL.guest,
 			path: "/",
 		})
 	} catch {

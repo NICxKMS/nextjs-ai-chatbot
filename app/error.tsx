@@ -32,8 +32,10 @@ interface ErrorProps {
  */
 export default function RootError({ error, reset }: ErrorProps) {
 	useEffect(() => {
-		// Log the error to an error reporting service
-		console.error("Error caught by error boundary:", error)
+		// Only log errors in development to avoid exposing sensitive info in production
+		if (process.env.NODE_ENV === "development") {
+			console.error("Error caught by error boundary:", error)
+		}
 	}, [error])
 
 	return (

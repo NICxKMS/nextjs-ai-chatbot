@@ -18,12 +18,15 @@ import { createRateLimiter, type RateLimiter } from "./rate-limiter"
  * Chat rate limiter - for AI chat completions.
  * 60 requests per minute.
  *
- * Uses sliding window for smooth rate limiting.
+ * Uses token bucket algorithm for burst handling.
+ * This allows users to send multiple messages quickly (burst),
+ * while maintaining the average rate limit over time.
  */
 export const chatLimiter: RateLimiter = createRateLimiter({
 	limit: RATE_LIMITS.chat.requests,
 	window: RATE_LIMITS.chat.window,
 	prefix: "ratelimit:chat",
+	algorithm: "token_bucket",
 })
 
 /**
@@ -40,6 +43,22 @@ export const authLimiter: RateLimiter = createRateLimiter(
 		prefix: "ratelimit:auth",
 	},
 	{ failClosed: true }, // Fail closed for auth endpoints
+)
+
+/**
+ * Guest session rate limiter - for guest session creation.
+ * 5 requests per minute.
+ *
+ * Very strict limits to prevent guest session flooding attacks.
+ * Uses fail-closed mode for security.
+ */
+export const guestLimiter: RateLimiter = createRateLimiter(
+	{
+		limit: RATE_LIMITS.guest.requests,
+		window: RATE_LIMITS.guest.window,
+		prefix: "ratelimit:guest",
+	},
+	{ failClosed: true }, // Fail closed for guest endpoints
 )
 
 /**
@@ -66,6 +85,62 @@ export const apiLimiter: RateLimiter = createRateLimiter({
 	prefix: "ratelimit:api",
 })
 
+/**
+ * Strict rate limiter - for destructive operations.
+ * 10 requests per minute.
+ *
+ * Used for delete operations and other destructive actions.
+ * Uses fail-closed mode for security.
+ */
+export const strictLimiter: RateLimiter = createRateLimiter(
+	{
+		limit: RATE_LIMITS.strict.requests,
+		window: RATE_LIMITS.strict.window,
+		prefix: "ratelimit:strict",
+	},
+	{ failClosed: true }, // Fail closed for destructive operations
+)
+
+/**
+ * Standard rate limiter - for general API endpoints.
+ * 100 requests per minute.
+ *
+ * Suitable for read operations and general API access.
+ */
+export const standardLimiter: RateLimiter = createRateLimiter({
+	limit: RATE_LIMITS.standard.requests,
+	window: RATE_LIMITS.standard.window,
+	prefix: "ratelimit:standard",
+})
+
+/**
+ * Generous rate limiter - for high-volume endpoints.
+ * 1000 requests per minute.
+ *
+ * Suitable for search, autocomplete, and other high-volume operations.
+ */
+export const generousLimiter: RateLimiter = createRateLimiter({
+	limit: RATE_LIMITS.generous.requests,
+	window: RATE_LIMITS.generous.window,
+	prefix: "ratelimit:generous",
+})
+
+/**
+ * Auth guest rate limiter - for guest session creation.
+ * 20 requests per minute.
+ *
+ * Moderately strict limits to prevent session flooding.
+ * Uses fail-closed mode for security.
+ */
+export const authGuestLimiter: RateLimiter = createRateLimiter(
+	{
+		limit: RATE_LIMITS.authGuest.requests,
+		window: RATE_LIMITS.authGuest.window,
+		prefix: "ratelimit:auth_guest",
+	},
+	{ failClosed: true }, // Fail closed for auth endpoints
+)
+
 // =============================================================================
 // Rate Limiter Registry
 // =============================================================================
@@ -77,8 +152,13 @@ export const apiLimiter: RateLimiter = createRateLimiter({
 export const rateLimiters = {
 	chat: chatLimiter,
 	auth: authLimiter,
+	guest: guestLimiter,
 	upload: uploadLimiter,
 	api: apiLimiter,
+	strict: strictLimiter,
+	standard: standardLimiter,
+	generous: generousLimiter,
+	authGuest: authGuestLimiter,
 } as const
 
 /**
@@ -128,6 +208,16 @@ export async function checkAuthLimit(identifier: string) {
 }
 
 /**
+ * Check guest session rate limit for an identifier (e.g., IP address).
+ *
+ * @param identifier - Identifier to rate limit (typically IP address)
+ * @returns Rate limit result
+ */
+export async function checkGuestLimit(identifier: string) {
+	return guestLimiter.consumeToken(identifier)
+}
+
+/**
  * Check upload rate limit for a user.
  *
  * @param userId - User identifier
@@ -145,4 +235,44 @@ export async function checkUploadLimit(userId: string) {
  */
 export async function checkApiLimit(identifier: string) {
 	return apiLimiter.consumeToken(identifier)
+}
+
+/**
+ * Check strict rate limit for destructive operations.
+ *
+ * @param identifier - Identifier to rate limit
+ * @returns Rate limit result
+ */
+export async function checkStrictLimit(identifier: string) {
+	return strictLimiter.consumeToken(identifier)
+}
+
+/**
+ * Check standard rate limit for general API endpoints.
+ *
+ * @param identifier - Identifier to rate limit
+ * @returns Rate limit result
+ */
+export async function checkStandardLimit(identifier: string) {
+	return standardLimiter.consumeToken(identifier)
+}
+
+/**
+ * Check generous rate limit for high-volume endpoints.
+ *
+ * @param identifier - Identifier to rate limit
+ * @returns Rate limit result
+ */
+export async function checkGenerousLimit(identifier: string) {
+	return generousLimiter.consumeToken(identifier)
+}
+
+/**
+ * Check auth guest rate limit for guest session creation.
+ *
+ * @param identifier - Identifier to rate limit (typically IP address)
+ * @returns Rate limit result
+ */
+export async function checkAuthGuestLimit(identifier: string) {
+	return authGuestLimiter.consumeToken(identifier)
 }

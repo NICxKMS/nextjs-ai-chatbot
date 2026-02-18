@@ -32,6 +32,8 @@ export interface AuthFormProps {
 	children: ReactNode
 	/** Default email value (for registration flow) */
 	defaultEmail?: string
+	/** Show confirm password field (for registration) */
+	showConfirmPassword?: boolean
 }
 
 /**

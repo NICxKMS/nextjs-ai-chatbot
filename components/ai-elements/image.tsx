@@ -102,6 +102,7 @@ const PureImage = ({
 
 			{/* Actual image - only render src when in view */}
 			{isInView && (
+				// biome-ignore lint/performance/noImgElement: base64 data URLs cannot be optimized by Next.js Image
 				<img
 					alt={props.alt ?? "AI generated image"}
 					className={cn(

@@ -114,6 +114,7 @@ const SidebarProvider = forwardRef<
 
 		// Persist changes to cookie
 		useEffect(() => {
+			// biome-ignore lint/suspicious/noDocumentCookie: simple cookie for UI state persistence
 			document.cookie = `${SIDEBAR_COOKIE_NAME}=${_open}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
 		}, [_open])
 

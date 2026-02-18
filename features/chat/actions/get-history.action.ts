@@ -33,6 +33,12 @@ export interface GetHistoryInput {
 	startingAfter?: string | null
 	/** Cursor for pagination (before this ID) */
 	endingBefore?: string | null
+	/** Search query for title filtering (case-insensitive) */
+	searchQuery?: string | null
+	/** Date filter - include chats from this date onwards (ISO string) */
+	fromDate?: string | null
+	/** Date filter - include chats up to this date (ISO string) */
+	toDate?: string | null
 }
 
 /**
@@ -128,11 +134,14 @@ export async function getHistoryAction(
 	}
 
 	try {
-		// 4. Build pagination params
+		// 4. Build pagination params with search and filter options
 		const pagination: PaginationParams = {
 			limit: input.limit ?? 20,
 			startingAfter: input.startingAfter ?? null,
 			endingBefore: input.endingBefore ?? null,
+			searchQuery: input.searchQuery ?? null,
+			fromDate: input.fromDate ? new Date(input.fromDate) : null,
+			toDate: input.toDate ? new Date(input.toDate) : null,
 		}
 
 		// 5. Get paginated history

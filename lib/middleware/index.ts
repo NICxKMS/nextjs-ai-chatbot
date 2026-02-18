@@ -2,7 +2,7 @@
  * Middleware Module
  *
  * Barrel export for middleware utilities providing authentication,
- * rate limiting, and composition utilities for API routes.
+ * rate limiting, deduplication, and composition utilities for API routes.
  *
  * @module lib/middleware
  */
@@ -30,6 +30,24 @@ export {
 } from "./rate-limit"
 
 // =============================================================================
+// Request Deduplication
+// =============================================================================
+
+export type {
+	DeduplicatedRequestResult,
+	DeduplicationConfig,
+	DeduplicationPreset,
+	DeduplicationResult,
+} from "./deduplication"
+export {
+	DeduplicationPresets,
+	deduplicateRequest,
+	deduplicator,
+	generateRequestFingerprint,
+	withDeduplication,
+} from "./deduplication"
+
+// =============================================================================
 // Composition Utilities
 // =============================================================================
 
@@ -43,3 +61,9 @@ export {
 	createPipeline,
 	publicMiddleware,
 } from "./compose"
+
+// =============================================================================
+// Request Utilities (re-exported for convenience)
+// =============================================================================
+
+export { getClientIP } from "@/lib/rate-limit"

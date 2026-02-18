@@ -89,6 +89,7 @@ export function AppSidebar(_props: AppSidebarProps) {
 							<Link
 								className="flex flex-row items-center gap-3"
 								href="/"
+								prefetch={true}
 								onClick={() => {
 									setOpenMobile(false)
 								}}

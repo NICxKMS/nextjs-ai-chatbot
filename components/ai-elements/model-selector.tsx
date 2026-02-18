@@ -174,6 +174,7 @@ export const ModelSelectorLogo = ({
 	const logoSrc = `/providers/${provider}.svg`
 
 	return (
+		// biome-ignore lint/performance/noImgElement: small SVG icons from local path
 		<img
 			alt={`${provider} logo`}
 			className={cn("size-5", className)}

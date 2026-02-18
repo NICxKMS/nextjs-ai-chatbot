@@ -1,7 +1,8 @@
 /**
  * Sidebar History Component
  *
- * Chat history list with date grouping and infinite scroll.
+ * Chat history list with date grouping, virtualization, and infinite scroll.
+ * Supports optimistic chat entries for immediate UI feedback.
  *
  * @module features/sidebar/components/sidebar-history
  */
@@ -11,6 +12,7 @@
 import { isToday, isYesterday, subMonths, subWeeks } from "date-fns"
 import { useParams, useRouter } from "next/navigation"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { GroupedVirtuoso, type GroupedVirtuosoHandle } from "react-virtuoso"
 import { toast } from "sonner"
 import { LoaderIcon } from "@/components/icons"
 import {
@@ -31,6 +33,7 @@ import {
 } from "@/components/ui/sidebar"
 import type { Chat } from "@/lib/db/schema"
 import { deleteChat } from "../actions"
+import { useOptimisticChats } from "../hooks"
 import type {
 	ChatGroup,
 	ChatHistory,
@@ -87,17 +90,40 @@ const groupChatsByDateWithBoundaries = (
 }
 
 /**
- * Convert grouped chats into an array of groups for rendering
+ * Convert grouped chats into an array of groups for GroupedVirtuoso
+ * Includes optimistic chats in a special group at the top.
+ *
+ * @param groupedChats - The grouped chats object
+ * @param optimisticChats - Optimistic chats to include at the top
+ * @returns Array of groups with labels and items
  */
-const convertToGroups = (groupedChats: GroupedChats | null): ChatGroup[] => {
+const convertToVirtuosoGroups = (
+	groupedChats: GroupedChats | null,
+	optimisticChats: Chat[],
+): ChatGroup[] => {
 	if (!groupedChats) {
 		return []
 	}
 
 	const groups: ChatGroup[] = []
 
-	if (groupedChats.today.length > 0) {
-		groups.push({ label: "Today", items: groupedChats.today })
+	// Today group includes optimistic chats
+	if (groupedChats.today.length > 0 || optimisticChats.length > 0) {
+		// Create today items
+		const todayItems = [...groupedChats.today]
+		groups.push({
+			label: "Today",
+			items: todayItems,
+			isOptimistic: optimisticChats.length > 0,
+		})
+		// Prepend optimistic group if we have any
+		if (optimisticChats.length > 0) {
+			groups.unshift({
+				label: "__optimistic__",
+				items: optimisticChats,
+				isOptimistic: true,
+			})
+		}
 	}
 
 	if (groupedChats.yesterday.length > 0) {
@@ -129,18 +155,23 @@ const convertToGroups = (groupedChats: GroupedChats | null): ChatGroup[] => {
 /**
  * Sidebar history component
  *
- * Displays chat history grouped by date with delete functionality.
+ * Displays chat history grouped by date with virtualization and delete functionality.
+ * Supports optimistic chat entries for immediate UI feedback.
  */
 export function SidebarHistory({ user }: SidebarHistoryProps) {
 	const { setOpenMobile, open: isSidebarOpen } = useSidebar()
 	const { id } = useParams()
 	const router = useRouter()
 
+	// Optimistic chats management
+	const { optimisticChats, removeOptimisticChat } = useOptimisticChats()
+
 	// State for chat history
 	const [chats, setChats] = useState<Chat[]>([])
 	const [isLoading, setIsLoading] = useState(true)
 	const [hasMore, setHasMore] = useState(false)
 	const [isLoadingMore, setIsLoadingMore] = useState(false)
+	const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
 
 	// Delete dialog state
 	const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -148,6 +179,14 @@ export function SidebarHistory({ user }: SidebarHistoryProps) {
 
 	// Track boundaries calculation
 	const lastBoundaryCalcRef = useRef<number>(0)
+
+	// Virtuoso ref for programmatic control
+	const virtuosoRef = useRef<GroupedVirtuosoHandle>(null)
+
+	// Track processed optimistic IDs to prevent re-processing
+	const processedOptimisticIds = useRef<Set<string>>(
+		new Set(optimisticChats.map((c) => c.id)),
+	)
 
 	// Fetch chat history
 	const fetchChats = useCallback(
@@ -188,22 +227,94 @@ export function SidebarHistory({ user }: SidebarHistoryProps) {
 		loadInitialChats()
 	}, [fetchChats])
 
-	// Load more chats
+	// Clear chats when user logs out (user becomes undefined)
+	useEffect(() => {
+		if (!user) {
+			setChats([])
+			setHasMore(false)
+			setIsLoading(false)
+		}
+	}, [user])
+
+	// Remove optimistic chats once real chats are loaded
+	useEffect(() => {
+		if (chats.length > 0) {
+			const allChatIds = new Set(chats.map((chat) => chat.id))
+			for (const optimisticChat of optimisticChats) {
+				if (
+					allChatIds.has(optimisticChat.id) &&
+					!processedOptimisticIds.current.has(optimisticChat.id)
+				) {
+					processedOptimisticIds.current.add(optimisticChat.id)
+					removeOptimisticChat(optimisticChat.id)
+				}
+			}
+
+			// Prevent unbounded memory growth
+			if (processedOptimisticIds.current.size > 100) {
+				const currentOptimisticIds = new Set(
+					optimisticChats.map((c) => c.id),
+				)
+				for (const processedId of processedOptimisticIds.current) {
+					if (
+						!currentOptimisticIds.has(processedId) &&
+						!allChatIds.has(processedId)
+					) {
+						processedOptimisticIds.current.delete(processedId)
+					}
+				}
+			}
+		}
+	}, [chats, optimisticChats, removeOptimisticChat])
+
+	// Listen for title updates (for short responses where title generates after streaming)
+	useEffect(() => {
+		const handleTitleUpdate = () => {
+			// Re-fetch chat history to pick up newly generated titles
+			fetchChats().then((data) => {
+				if (data) {
+					setChats(data.chats)
+					setHasMore(data.hasMore)
+				}
+			})
+		}
+
+		window.addEventListener("chat-title-updated", handleTitleUpdate)
+		return () => {
+			window.removeEventListener("chat-title-updated", handleTitleUpdate)
+		}
+	}, [fetchChats])
+
+	// Load more chats (for infinite scroll)
 	const loadMore = useCallback(async () => {
 		if (isLoadingMore || !hasMore || chats.length === 0) return
 
 		setIsLoadingMore(true)
+		setLoadMoreError(null) // Clear previous error
 		const lastChat = chats.at(-1)
 		if (!lastChat) {
 			setIsLoadingMore(false)
 			return
 		}
-		const data = await fetchChats(lastChat.id)
-		if (data) {
-			setChats((prev) => [...prev, ...data.chats])
-			setHasMore(data.hasMore)
+		try {
+			const data = await fetchChats(lastChat.id)
+			if (data) {
+				setChats((prev) => {
+					// Deduplicate by chat ID to prevent duplicates from pagination
+					const existingIds = new Set(prev.map((chat) => chat.id))
+					const newChats = data.chats.filter(
+						(chat) => !existingIds.has(chat.id),
+					)
+					return [...prev, ...newChats]
+				})
+				setHasMore(data.hasMore)
+			}
+		} catch (error) {
+			console.error("Failed to load more chats:", error)
+			setLoadMoreError("Failed to load more chats. Please try again.")
+		} finally {
+			setIsLoadingMore(false)
 		}
-		setIsLoadingMore(false)
 	}, [isLoadingMore, hasMore, chats, fetchChats])
 
 	// Handle delete
@@ -250,16 +361,148 @@ export function SidebarHistory({ user }: SidebarHistoryProps) {
 		}
 	}, [isSidebarOpen])
 
-	// Memoize grouped chats
+	// Memoize grouped chats with deduplication safety net
 	const groupedChats = useMemo(() => {
-		return groupChatsByDateWithBoundaries(chats, dateBoundaries)
+		// Deduplicate chats by ID to prevent duplicate keys in render
+		// This is a safety net for any race conditions in data loading
+		const uniqueChats = Array.from(
+			new Map(chats.map((chat) => [chat.id, chat])).values(),
+		)
+		return groupChatsByDateWithBoundaries(uniqueChats, dateBoundaries)
 	}, [chats, dateBoundaries])
 
-	// Convert to groups for rendering
-	const chatGroups = useMemo(
-		() => convertToGroups(groupedChats),
-		[groupedChats],
+	// Convert to groups for GroupedVirtuoso (includes optimistic chats)
+	const virtuosoGroups = useMemo(
+		() => convertToVirtuosoGroups(groupedChats, optimisticChats as Chat[]),
+		[groupedChats, optimisticChats],
 	)
+
+	// Calculate group counts for GroupedVirtuoso
+	const groupCounts = useMemo(
+		() => virtuosoGroups.map((group) => group.items.length),
+		[virtuosoGroups],
+	)
+
+	// Create a flat list of all chat items for index calculation
+	const flatItems = useMemo(() => {
+		return virtuosoGroups.flatMap((group) =>
+			group.items.map((chat) => ({
+				chat,
+				groupLabel: group.label,
+				isOptimistic: group.label === "__optimistic__",
+			})),
+		)
+	}, [virtuosoGroups])
+
+	// Render group header content
+	const renderGroupContent = useCallback(
+		(index: number) => {
+			const group = virtuosoGroups[index]
+			if (!group) {
+				return null
+			}
+			// Skip rendering header for optimistic pseudo-group (merged with Today)
+			if (group.label === "__optimistic__") {
+				return (
+					<div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
+						Today
+					</div>
+				)
+			}
+			// Skip Today header if optimistic group exists (already rendered)
+			if (
+				group.label === "Today" &&
+				virtuosoGroups[0]?.label === "__optimistic__"
+			) {
+				return null
+			}
+			return (
+				<div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
+					{group.label}
+				</div>
+			)
+		},
+		[virtuosoGroups],
+	)
+
+	// Render individual chat item
+	const renderItemContent = useCallback(
+		(index: number) => {
+			const item = flatItems[index]
+			if (!item) {
+				return null
+			}
+
+			const { chat, isOptimistic } = item
+
+			return (
+				<SidebarItem
+					chat={chat}
+					isActive={chat.id === id}
+					onDelete={(chatId) => {
+						if (isOptimistic) {
+							// Optimistic chats can't be deleted from server
+							return
+						}
+						setDeleteId(chatId)
+						setShowDeleteDialog(true)
+					}}
+					setOpenMobile={setOpenMobile}
+				/>
+			)
+		},
+		[flatItems, id, setOpenMobile],
+	)
+
+	// Handle reaching the end of the list for infinite loading
+	const handleEndReached = useCallback(() => {
+		if (!isLoadingMore && hasMore) {
+			loadMore()
+		}
+	}, [isLoadingMore, hasMore, loadMore])
+
+	// Footer component for loading/end state
+	const renderFooter = useCallback(() => {
+		// Show error state with retry button
+		if (loadMoreError) {
+			return (
+				<div className="mt-4 flex w-full flex-col items-center gap-2 px-2 pb-4">
+					<div className="text-sm text-red-500 dark:text-red-400">
+						{loadMoreError}
+					</div>
+					<button
+						className="text-sm text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 underline"
+						onClick={() => {
+							setLoadMoreError(null)
+							loadMore()
+						}}
+						type="button"
+					>
+						Try again
+					</button>
+				</div>
+			)
+		}
+
+		if (!hasMore && flatItems.length > 0) {
+			return (
+				<div className="mt-8 flex w-full flex-row items-center justify-center gap-2 px-2 pb-4 text-sm text-zinc-500">
+					You have reached the end of your chat history.
+				</div>
+			)
+		}
+		if (isLoadingMore) {
+			return (
+				<div className="mt-8 flex flex-row items-center gap-2 p-2 text-zinc-500 dark:text-zinc-400">
+					<div className="animate-spin">
+						<LoaderIcon />
+					</div>
+					<div>Loading Chats...</div>
+				</div>
+			)
+		}
+		return null
+	}, [hasMore, flatItems.length, isLoadingMore, loadMoreError, loadMore])
 
 	// Show login prompt for unauthenticated users
 	if (!user) {
@@ -304,8 +547,8 @@ export function SidebarHistory({ user }: SidebarHistoryProps) {
 		)
 	}
 
-	// Show empty state
-	if (chats.length === 0) {
+	// Show empty state (but not if we have optimistic chats)
+	if (chats.length === 0 && optimisticChats.length === 0) {
 		return (
 			<SidebarGroup>
 				<SidebarGroupContent>
@@ -320,48 +563,26 @@ export function SidebarHistory({ user }: SidebarHistoryProps) {
 	return (
 		<>
 			<SidebarGroup className="flex-1 overflow-hidden">
-				<SidebarGroupContent className="h-full overflow-auto">
-					{chatGroups.map((group) => (
-						<div key={group.label}>
-							<div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
-								{group.label}
-							</div>
-							<SidebarMenu>
-								{group.items.map((chat) => (
-									<SidebarItem
-										chat={chat}
-										isActive={chat.id === id}
-										key={chat.id}
-										onDelete={(chatId) => {
-											setDeleteId(chatId)
-											setShowDeleteDialog(true)
-										}}
-										setOpenMobile={setOpenMobile}
-									/>
-								))}
-							</SidebarMenu>
-						</div>
-					))}
-
-					{/* Load more button */}
-					{hasMore && (
-						<div className="flex justify-center p-2">
-							<button
-								className="text-sidebar-foreground/50 text-xs hover:text-sidebar-foreground"
-								onClick={loadMore}
-								type="button"
-							>
-								{isLoadingMore ? (
-									<span className="flex items-center gap-2">
-										<LoaderIcon className="animate-spin" />
-										Loading...
-									</span>
-								) : (
-									"Load more"
-								)}
-							</button>
-						</div>
-					)}
+				<SidebarGroupContent className="flex h-full flex-col">
+					<SidebarMenu className="h-full min-h-0 flex-1">
+						{virtuosoGroups.length > 0 && (
+							<GroupedVirtuoso
+								components={{
+									Footer: renderFooter,
+								}}
+								endReached={handleEndReached}
+								groupContent={renderGroupContent}
+								groupCounts={groupCounts}
+								increaseViewportBy={{
+									top: 200,
+									bottom: 200,
+								}}
+								itemContent={renderItemContent}
+								ref={virtuosoRef}
+								style={{ height: "100%" }}
+							/>
+						)}
+					</SidebarMenu>
 				</SidebarGroupContent>
 			</SidebarGroup>
 

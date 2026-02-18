@@ -170,21 +170,18 @@ export function createSuggestionsTool(context: SuggestionsContext) {
 				// Save suggestions to database for authenticated users
 				// Guest users cannot persist suggestions (cache-only constraint)
 				if (!context.isGuest && suggestions.length > 0) {
-					const firstSuggestion = suggestions[0]
-					if (firstSuggestion) {
-						await artifactService.addSuggestion(
-							documentId,
-							{
-								originalText: firstSuggestion.originalText,
-								suggestedText: firstSuggestion.suggestedText,
-								description: firstSuggestion.description ?? "",
-							},
-							{
-								userId: context.userId,
-								isGuest: context.isGuest,
-							},
-						)
-					}
+					await artifactService.addSuggestions(
+						documentId,
+						suggestions.map((s) => ({
+							originalText: s.originalText,
+							suggestedText: s.suggestedText,
+							description: s.description ?? "",
+						})),
+						{
+							userId: context.userId,
+							isGuest: context.isGuest,
+						},
+					)
 				}
 
 				return {

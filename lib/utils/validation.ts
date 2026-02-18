@@ -81,3 +81,143 @@ export function isValidUuid(uuid: string): boolean {
 	if (!uuid || typeof uuid !== "string") return false
 	return UUID_REGEX.test(uuid.trim())
 }
+
+// =============================================================================
+// Redirect URL Validation (Open Redirect Protection)
+// =============================================================================
+
+/**
+ * Regex to detect path traversal attempts with backslashes.
+ * Matches paths like /\example.com or /\\example.com that could lead to external redirects.
+ * Defined at module level for performance (avoids recompilation on each request).
+ */
+const PATH_TRAVERSAL_REGEX = /^\/[\\]+/
+
+/**
+ * Dangerous URL schemes that should be blocked.
+ * These can be used for XSS or other attacks.
+ */
+const DANGEROUS_SCHEMES = ["javascript:", "data:", "vbscript:", "file:"]
+
+/**
+ * Validates and sanitizes a redirect URL to prevent open redirect attacks.
+ *
+ * Security measures:
+ * - Only allows relative paths starting with `/` (same origin)
+ * - Blocks protocol-relative URLs (`//evil.com`)
+ * - Blocks dangerous schemes (javascript:, data:, vbscript:, file:)
+ * - For absolute URLs, verifies protocol is http/https AND origin matches
+ * - Normalizes URL to prevent encoding bypass attacks
+ * - Detects path traversal attempts (/\example.com, /\\example.com)
+ *
+ * @param redirectUrl - The redirect URL to validate
+ * @param allowedOrigin - The allowed origin for absolute URLs (defaults to current origin)
+ * @returns Safe redirect URL or "/" if validation fails
+ *
+ * @example
+ * ```ts
+ * // Relative paths - allowed
+ * getSafeRedirectUrl('/chat/123') // '/chat/123'
+ * getSafeRedirectUrl('/dashboard?tab=settings') // '/dashboard?tab=settings'
+ *
+ * // Protocol-relative URLs - blocked (open redirect vector)
+ * getSafeRedirectUrl('//evil.com') // '/'
+ *
+ * // Dangerous schemes - blocked (XSS vector)
+ * getSafeRedirectUrl('javascript:alert(1)') // '/'
+ * getSafeRedirectUrl('data:text/html,<script>alert(1)</script>') // '/'
+ *
+ * // Absolute URLs with matching origin - allowed
+ * getSafeRedirectUrl('https://mysite.com/chat', 'https://mysite.com') // '/chat'
+ *
+ * // Absolute URLs with different origin - blocked
+ * getSafeRedirectUrl('https://evil.com/phish', 'https://mysite.com') // '/'
+ *
+ * // Path traversal attempts - blocked
+ * getSafeRedirectUrl('/\\evil.com') // '/'
+ * getSafeRedirectUrl('/\evil.com') // '/'
+ *
+ * // Encoded attacks - blocked
+ * getSafeRedirectUrl('%2F%2Fevil.com') // '/'
+ * getSafeRedirectUrl('%6Aavascript:alert(1)') // '/'
+ * ```
+ */
+export function getSafeRedirectUrl(
+	redirectUrl: string,
+	allowedOrigin?: string,
+): string {
+	if (!redirectUrl || typeof redirectUrl !== "string") {
+		return "/"
+	}
+
+	try {
+		// Normalize the redirect URL to handle encoding attacks
+		const normalizedUrl = decodeURIComponent(redirectUrl).trim()
+
+		// Block URLs that start with dangerous schemes (case-insensitive)
+		const lowerUrl = normalizedUrl.toLowerCase()
+		for (const scheme of DANGEROUS_SCHEMES) {
+			if (lowerUrl.startsWith(scheme)) {
+				return "/"
+			}
+		}
+
+		// Allow relative paths starting with /
+		// But block protocol-relative URLs (//example.com)
+		if (normalizedUrl.startsWith("/") && !normalizedUrl.startsWith("//")) {
+			// Prevent path traversal attempts that could lead to external redirects
+			// e.g., /\example.com or /\\example.com
+			if (PATH_TRAVERSAL_REGEX.test(normalizedUrl)) {
+				return "/"
+			}
+			return normalizedUrl
+		}
+
+		// For absolute URLs, parse and validate
+		const parsed = new URL(normalizedUrl)
+
+		// Only allow http and https protocols
+		// This blocks javascript:, data:, vbscript:, and other dangerous schemes
+		if (!["http:", "https:"].includes(parsed.protocol)) {
+			return "/"
+		}
+
+		// Verify origin matches to prevent external redirects
+		// If allowedOrigin is provided, use it; otherwise only allow same-origin
+		if (allowedOrigin) {
+			if (parsed.origin === allowedOrigin) {
+				return normalizedUrl
+			}
+		}
+
+		// Default to root for any unhandled cases
+		return "/"
+	} catch {
+		// Malformed URL - default to root
+		return "/"
+	}
+}
+
+/**
+ * Validates if a redirect URL is safe (does not redirect to external domains).
+ *
+ * This is a simpler boolean check version of getSafeRedirectUrl for cases
+ * where you just need to validate without getting the safe URL.
+ *
+ * @param redirectUrl - The redirect URL to validate
+ * @param allowedOrigin - The allowed origin for absolute URLs
+ * @returns True if the redirect URL is safe, false otherwise
+ *
+ * @example
+ * ```ts
+ * isValidRedirectUrl('/chat/123') // true
+ * isValidRedirectUrl('//evil.com') // false
+ * isValidRedirectUrl('javascript:alert(1)') // false
+ * ```
+ */
+export function isValidRedirectUrl(
+	redirectUrl: string,
+	allowedOrigin?: string,
+): boolean {
+	return getSafeRedirectUrl(redirectUrl, allowedOrigin) !== "/"
+}

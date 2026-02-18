@@ -9,8 +9,20 @@
 
 import "server-only"
 
-import { and, asc, desc, eq, gt, lt, type SQL } from "drizzle-orm"
+import {
+	and,
+	asc,
+	desc,
+	eq,
+	gt,
+	gte,
+	ilike,
+	lt,
+	lte,
+	type SQL,
+} from "drizzle-orm"
 
+import type { AppUsage } from "@/lib/ai"
 import { CACHE_TTL } from "@/lib/constants"
 import type { Chat, Message, NewChat, UpdateChat } from "@/lib/db/schema"
 import { chat, message } from "@/lib/db/schema"
@@ -48,6 +60,12 @@ export interface PaginationParams {
 	startingAfter?: string | null
 	/** Cursor for backward pagination - return items before this ID */
 	endingBefore?: string | null
+	/** Search query for title filtering (case-insensitive ILIKE) */
+	searchQuery?: string | null
+	/** Date filter - include chats from this date onwards */
+	fromDate?: Date | null
+	/** Date filter - include chats up to this date */
+	toDate?: Date | null
 }
 
 /**
@@ -403,44 +421,67 @@ export class ChatRepository extends BaseRepository<Chat, NewChat, UpdateChat> {
 		_context?: RepositoryContext,
 	): Promise<PaginatedResult<Chat>> {
 		try {
-			const { limit, startingAfter, endingBefore } = pagination
+			const {
+				limit,
+				startingAfter,
+				endingBefore,
+				searchQuery,
+				fromDate,
+				toDate,
+			} = pagination
 			const extendedLimit = limit + 1
 
 			// Build base conditions
 			const conditions: SQL<unknown>[] = [eq(chat.userId, userId)]
 
+			// Add title search filter (ILIKE for case-insensitive matching)
+			if (searchQuery && searchQuery.trim() !== "") {
+				conditions.push(ilike(chat.title, `%${searchQuery.trim()}%`))
+			}
+
+			// Add date range filters on updatedAt
+			if (fromDate) {
+				conditions.push(gte(chat.updatedAt, fromDate))
+			}
+			if (toDate) {
+				// Include the entire end date by adding 23:59:59.999
+				const endOfDay = new Date(toDate)
+				endOfDay.setHours(23, 59, 59, 999)
+				conditions.push(lte(chat.updatedAt, endOfDay))
+			}
+
 			// Add cursor conditions for pagination
 			if (startingAfter) {
-				// Get the cursor chat to find its createdAt
+				// Get the cursor chat to find its updatedAt
 				const [cursorChat] = await this.db
-					.select({ createdAt: chat.createdAt })
+					.select({ updatedAt: chat.updatedAt })
 					.from(chat)
 					.where(eq(chat.id, startingAfter))
 
 				if (cursorChat) {
-					conditions.push(lt(chat.createdAt, cursorChat.createdAt))
+					conditions.push(lt(chat.updatedAt, cursorChat.updatedAt))
 				}
 			} else if (endingBefore) {
-				// Get the cursor chat to find its createdAt
+				// Get the cursor chat to find its updatedAt
 				const [cursorChat] = await this.db
-					.select({ createdAt: chat.createdAt })
+					.select({ updatedAt: chat.updatedAt })
 					.from(chat)
 					.where(eq(chat.id, endingBefore))
 
 				if (cursorChat) {
-					conditions.push(gt(chat.createdAt, cursorChat.createdAt))
+					conditions.push(gt(chat.updatedAt, cursorChat.updatedAt))
 				}
 			}
 
 			const whereClause = and(...conditions)
 
-			// Build query with ordering
+			// Build query with ordering by updatedAt DESC (most recent first)
 			const query = this.db
 				.select()
 				.from(chat)
 				.where(whereClause)
 				.orderBy(
-					endingBefore ? asc(chat.createdAt) : desc(chat.createdAt),
+					endingBefore ? asc(chat.updatedAt) : desc(chat.updatedAt),
 				)
 				.limit(extendedLimit)
 
@@ -550,7 +591,7 @@ export class ChatRepository extends BaseRepository<Chat, NewChat, UpdateChat> {
 	 */
 	async updateContext(
 		chatId: string,
-		lastContext: unknown,
+		lastContext: AppUsage | null,
 		context: RepositoryContext,
 	): Promise<Chat> {
 		return this.update(chatId, { lastContext }, context)

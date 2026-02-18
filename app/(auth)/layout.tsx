@@ -7,10 +7,26 @@
  * @module app/(auth)/layout
  */
 
+import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import type { JSX, ReactNode } from "react"
 
 import { getSession } from "@/lib/auth/session"
+
+// =============================================================================
+// Metadata Configuration
+// =============================================================================
+
+export const metadata: Metadata = {
+	title: "Sign In",
+	description:
+		"Sign in to your AI Assistant account to continue chatting with AI models.",
+	openGraph: {
+		title: "Sign In | AI Assistant",
+		description:
+			"Sign in to your AI Assistant account to continue chatting with AI models.",
+	},
+}
 
 // =============================================================================
 // Auth Layout Component

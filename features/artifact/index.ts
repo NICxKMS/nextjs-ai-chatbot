@@ -47,6 +47,19 @@ export {
 	useArtifact,
 	useArtifactSelector,
 } from "./hooks"
+// Lib - Artifact Class and Registration
+export {
+	Artifact,
+	type ArtifactConfig,
+	clearArtifactRegistry,
+	createArtifactDefinition,
+	getAllArtifactDefinitions,
+	getArtifactDefinition,
+	getRegisteredArtifactKinds,
+	isArtifactRegistered,
+	registerArtifact,
+	unregisterArtifact,
+} from "./lib"
 // Schema Types
 export type {
 	AddSuggestionInput,
@@ -66,7 +79,6 @@ export type {
 	VersionInfoInput,
 	VersionTimestampInput,
 } from "./schemas"
-
 // Schemas
 export {
 	AddSuggestionSchema,
@@ -97,8 +109,13 @@ export type {
 	ArtifactBoundingBox,
 	ArtifactContentProps,
 	ArtifactDefinition,
+	ArtifactInitializeParams,
 	ArtifactKind,
 	ArtifactMetadata,
 	ArtifactStatus,
+	ArtifactStreamContext,
+	ArtifactStreamPart,
+	ArtifactToolbarContext,
+	ArtifactToolbarItem,
 	UIArtifact,
 } from "./types"

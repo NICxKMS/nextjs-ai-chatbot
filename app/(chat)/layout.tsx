@@ -2,21 +2,40 @@
  * Chat Layout Component
  *
  * Layout for chat pages with sidebar integration.
- * Provides sidebar context, data stream context, and auth context.
+ * Provides sidebar context, data stream context, optimistic chats context, settings context, and auth context.
  *
  * @module app/(chat)/layout
  */
 
+import type { Metadata } from "next"
 import { cookies, headers } from "next/headers"
 import { redirect } from "next/navigation"
 import type { JSX, ReactNode } from "react"
 import { Suspense } from "react"
 import { Loader } from "@/components/ai-elements/loader"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { NoticeToastHandler } from "@/features/chat/components/notice-toast-handler"
 import { DataStreamProvider } from "@/features/chat/hooks/use-data-stream"
+import { SettingsProvider } from "@/features/settings"
 import { AppSidebar } from "@/features/sidebar/components/sidebar"
 import { SidebarSkeleton } from "@/features/sidebar/components/sidebar-skeleton"
+import { OptimisticChatsProvider } from "@/features/sidebar/hooks"
 import { getSession } from "@/lib/auth/session"
+
+// =============================================================================
+// Metadata Configuration
+// =============================================================================
+
+export const metadata: Metadata = {
+	title: "Chat",
+	description:
+		"Start a conversation with AI Assistant. Chat with multiple AI models, create artifacts, and collaborate in real-time.",
+	openGraph: {
+		title: "Chat | AI Assistant",
+		description:
+			"Start a conversation with AI Assistant. Chat with multiple AI models, create artifacts, and collaborate in real-time.",
+	},
+}
 
 // =============================================================================
 // Chat Layout Component
@@ -59,21 +78,32 @@ export default async function ChatLayout({
 	const sidebarOpen = cookieStore.get("sidebar_state")?.value !== "false"
 
 	return (
-		<SidebarProvider defaultOpen={sidebarOpen} initialIsMobile={isMobile}>
-			<Suspense fallback={<SidebarSkeleton />}>
-				<AppSidebar />
-			</Suspense>
-			<SidebarInset>
-				<Suspense
-					fallback={
-						<div className="flex h-full w-full items-center justify-center">
-							<Loader size={24} />
-						</div>
-					}
+		<OptimisticChatsProvider>
+			<SettingsProvider>
+				<SidebarProvider
+					defaultOpen={sidebarOpen}
+					initialIsMobile={isMobile}
 				>
-					<DataStreamProvider>{children}</DataStreamProvider>
-				</Suspense>
-			</SidebarInset>
-		</SidebarProvider>
+					<Suspense fallback={<SidebarSkeleton />}>
+						<AppSidebar />
+					</Suspense>
+					<SidebarInset>
+						{/* Notice toast handler for URL parameter notifications */}
+						<Suspense fallback={null}>
+							<NoticeToastHandler />
+						</Suspense>
+						<Suspense
+							fallback={
+								<div className="flex h-full w-full items-center justify-center">
+									<Loader size={24} />
+								</div>
+							}
+						>
+							<DataStreamProvider>{children}</DataStreamProvider>
+						</Suspense>
+					</SidebarInset>
+				</SidebarProvider>
+			</SettingsProvider>
+		</OptimisticChatsProvider>
 	)
 }

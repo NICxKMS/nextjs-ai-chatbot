@@ -145,6 +145,7 @@ function FullscreenOverlay({
 			>
 				<XIcon className="size-6" />
 			</Button>
+			{/* biome-ignore lint/performance/noImgElement: fullscreen image viewer with dynamic src */}
 			<img
 				src={imageSrc}
 				alt={alt}

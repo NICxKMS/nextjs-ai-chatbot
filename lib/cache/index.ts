@@ -21,6 +21,20 @@ export {
 } from "./client"
 
 // =============================================================================
+// Circuit Breaker
+// =============================================================================
+
+export {
+	CIRCUIT_BREAKER_RESET_MS,
+	CIRCUIT_BREAKER_THRESHOLD,
+	getCircuitBreakerState,
+	isCircuitOpen,
+	recordCacheFailure,
+	recordCacheSuccess,
+	resetCircuitBreaker,
+} from "./circuit-breaker"
+
+// =============================================================================
 // Cache Key Generators
 // =============================================================================
 
@@ -160,3 +174,108 @@ export {
 	warmCache,
 	warmCacheWithEntries,
 } from "./tiered-cache"
+
+// =============================================================================
+// Cache Entity Types
+// =============================================================================
+
+export {
+	// Re-exports from feature modules
+	type ArtifactKind,
+	type ArtifactPart,
+	attachmentToFilePart,
+	type CachedChat,
+	// Cache entity types
+	type CachedChatMeta,
+	type CachedDocument,
+	type CachedMessage,
+	type CodePart,
+	type DocumentVersion,
+	extractFileUrlsFromParts,
+	// Utility functions
+	extractTextFromParts,
+	type FilePart,
+	filePartToAttachment,
+	getFileName,
+	getMediaType,
+	hasReasoning,
+	hasToolCalls,
+	type ImagePart,
+	isArtifactPart,
+	// Type guards
+	isCachedChatMeta,
+	isCachedMessage,
+	isFilePart,
+	isMessagePart,
+	isReasoningPart,
+	isTextPart,
+	isToolCallPart,
+	isToolResultPart,
+	isUserChatListItem,
+	// Message attachment type
+	type MessageAttachment,
+	// Message part types
+	type MessagePart,
+	type ModelPart,
+	parseMessageParts,
+	type ReasoningPart,
+	type SourcePart,
+	type StepPart,
+	type TextPart,
+	type ToolCallPart,
+	type ToolResultPart,
+	type UnknownPart,
+	type UserChatListItem,
+	type VisibilityType,
+} from "./types"
+
+// =============================================================================
+// ZSET Operations
+// =============================================================================
+
+export {
+	// Types
+	type ZAddOptions,
+	type ZMember,
+	// Core operations
+	zadd,
+	// Convenience operations
+	zaddOne,
+	zcard,
+	zgetNewest,
+	zgetOldest,
+	zrange,
+	zrem,
+	zremrangebyscore,
+	zrevrange,
+	zrevrangeWithScores,
+	zscore,
+} from "./zset"
+
+// =============================================================================
+// Type-Safe Casting Utilities
+// =============================================================================
+
+export {
+	// Types
+	type CastError,
+	type CastResult,
+	// Date handling
+	cacheStringToDate,
+	cacheStringToTimestamp,
+	// Cast functions
+	castToAppUsage,
+	castToAppUsageOrNull,
+	castToCachedChat,
+	castToCachedChatMeta,
+	castToCachedMessage,
+	castToCachedMessages,
+	castToUserChatListItem,
+	castToUserChatListItems,
+	dateToCacheString,
+	// JSON utilities
+	parseAndCast,
+	safeDeserialize,
+	safeSerialize,
+	timestampToCacheString,
+} from "./cast"

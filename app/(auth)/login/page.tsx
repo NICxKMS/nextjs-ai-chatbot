@@ -3,6 +3,7 @@
  *
  * Login page with email/password form and link to register.
  * Uses AuthForm component from auth feature.
+ * Handles callbackUrl for post-login redirects and success messages from registration.
  *
  * @module app/(auth)/login/page
  */
@@ -10,7 +11,7 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import type { JSX } from "react"
 import { useState, useTransition } from "react"
 
@@ -25,16 +26,33 @@ import { AuthForm } from "@/features/auth/components/auth-form"
 /**
  * Login page with email/password authentication.
  *
+ * Supports callbackUrl query parameter for redirecting users to their intended
+ * destination after login (e.g., /chat/123 when accessing a specific chat).
+ *
+ * Supports registered query parameter to show success message after registration.
+ *
  * @example
  * ```tsx
  * // Route: /login
  * // Redirects to /chat on successful login
+ *
+ * // Route: /login?callbackUrl=/chat/abc123
+ * // Redirects to /chat/abc123 on successful login
+ *
+ * // Route: /login?registered=true
+ * // Shows success message from registration
  * ```
  */
 export default function LoginPage(): JSX.Element {
 	const router = useRouter()
+	const searchParams = useSearchParams()
 	const [isPending, startTransition] = useTransition()
 	const [error, setError] = useState<string | null>(null)
+
+	// Get callbackUrl from query params (set by middleware for protected routes)
+	const callbackUrl = searchParams.get("callbackUrl")
+	// Check if user just registered (show success message)
+	const justRegistered = searchParams.get("registered") === "true"
 
 	/**
 	 * Handle form submission
@@ -43,10 +61,10 @@ export default function LoginPage(): JSX.Element {
 		setError(null)
 
 		startTransition(async () => {
-			const result = await login(formData)
+			const result = await login(formData, callbackUrl)
 
 			if (result.success) {
-				// Redirect to chat on successful login
+				// Redirect to intended page or default chat page
 				router.push(result.redirectTo || "/chat")
 				router.refresh()
 			} else {
@@ -66,6 +84,16 @@ export default function LoginPage(): JSX.Element {
 					Use your email and password to sign in
 				</p>
 			</div>
+
+			{/* Registration success message */}
+			{justRegistered && (
+				<div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20">
+					<p className="text-center text-green-700 text-sm dark:text-green-400">
+						Account created successfully! Please sign in with your
+						new credentials.
+					</p>
+				</div>
+			)}
 
 			{/* Form */}
 			<AuthForm action={handleSubmit}>

@@ -18,6 +18,8 @@ export type {
 export { ArtifactActions } from "./artifact-actions"
 export { ArtifactClose } from "./artifact-close"
 export { ArtifactErrorBoundary } from "./artifact-error-boundary"
+export type { ArtifactMessagesProps } from "./artifact-messages"
+export { ArtifactMessages } from "./artifact-messages"
 export { ArtifactPanel } from "./artifact-panel"
 export type {
 	ConsoleOutput,

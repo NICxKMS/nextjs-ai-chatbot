@@ -500,6 +500,118 @@ class ArtifactService {
 			})
 		}
 	}
+
+	/**
+	 * Add multiple suggestions to an artifact in batch.
+	 *
+	 * @param artifactId - Artifact ID
+	 * @param suggestions - Array of suggestion parameters
+	 * @param ctx - Repository context with user info
+	 * @returns Array of created suggestions
+	 */
+	async addSuggestions(
+		artifactId: string,
+		suggestions: AddSuggestionParams[],
+		ctx: RepositoryContext,
+	): Promise<Suggestion[]> {
+		try {
+			// Verify artifact exists
+			const artifact = await artifactRepository.findLatestVersion(
+				artifactId,
+				ctx,
+			)
+			if (!artifact) {
+				throw new NotFoundError("Artifact", artifactId)
+			}
+
+			const results: Suggestion[] = []
+
+			// Create all suggestions
+			for (const params of suggestions) {
+				const suggestionData: NewSuggestion = {
+					id: crypto.randomUUID(),
+					artifactId,
+					artifactCreatedAt: artifact.createdAt,
+					userId: ctx.userId,
+					originalText: params.originalText,
+					suggestedText: params.suggestedText,
+					description: params.description ?? null,
+					isResolved: false,
+				}
+
+				const result = await suggestionRepository.create(
+					suggestionData,
+					ctx,
+				)
+				results.push(result)
+			}
+
+			logDebug("ArtifactService suggestions added in batch", {
+				artifactId,
+				count: results.length,
+			})
+			return results
+		} catch (error) {
+			if (error instanceof NotFoundError) {
+				throw error
+			}
+			logError("ArtifactService addSuggestions error", error as Error, {
+				artifactId,
+				count: suggestions.length,
+			})
+			throw new InternalServerError("Failed to add suggestions", {
+				artifactId,
+				error: (error as Error).message,
+			})
+		}
+	}
+
+	/**
+	 * Delete a suggestion from an artifact.
+	 * Used when a suggestion is rejected by the user.
+	 *
+	 * @param suggestionId - Suggestion ID to delete
+	 * @param ctx - Repository context with user info
+	 * @returns true if deleted successfully
+	 * @throws NotFoundError if the suggestion doesn't exist
+	 */
+	async deleteSuggestion(
+		suggestionId: string,
+		ctx: RepositoryContext,
+	): Promise<boolean> {
+		try {
+			// Verify suggestion exists and belongs to user
+			const suggestion = await suggestionRepository.findById(
+				suggestionId,
+				ctx,
+			)
+			if (!suggestion) {
+				throw new NotFoundError("Suggestion", suggestionId)
+			}
+
+			// Delete the suggestion
+			const success = await suggestionRepository.delete(suggestionId, ctx)
+
+			if (success) {
+				logDebug("ArtifactService suggestion deleted", {
+					id: suggestionId,
+					artifactId: suggestion.artifactId,
+				})
+			}
+			return success
+		} catch (error) {
+			if (error instanceof NotFoundError) {
+				throw error
+			}
+			logError("ArtifactService deleteSuggestion error", error as Error, {
+				suggestionId,
+			})
+			throw new InternalServerError("Failed to delete suggestion", {
+				suggestionId,
+				error: (error as Error).message,
+			})
+		}
+	}
 }
 
 // =============================================================================

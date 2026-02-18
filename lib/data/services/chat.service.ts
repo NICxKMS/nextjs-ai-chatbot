@@ -10,7 +10,7 @@
 
 import "server-only"
 
-import { and, eq } from "drizzle-orm"
+import { and, eq, gte, inArray } from "drizzle-orm"
 
 import { db, withTransaction } from "@/lib/db/client"
 import type { Chat, DBMessage, Message, NewChat, Vote } from "@/lib/db/schema"
@@ -160,7 +160,7 @@ class ChatService {
 	/**
 	 * Get paginated chat history for a user.
 	 *
-	 * @param pagination - Pagination parameters
+	 * @param pagination - Pagination parameters (includes search and filter options)
 	 * @param ctx - Repository context with user info
 	 * @returns Paginated result with chats
 	 */
@@ -613,6 +613,123 @@ class ChatService {
 			throw new InternalServerError("Failed to vote on message", {
 				error: (error as Error).message,
 			})
+		}
+	}
+
+	// =============================================================================
+	// Regeneration Operations
+	// =============================================================================
+
+	/**
+	 * Delete messages after a timestamp for regeneration.
+	 * Uses a transaction to ensure votes are deleted before messages.
+	 * Verifies ownership before performing the deletion.
+	 *
+	 * @param chatId - Chat ID
+	 * @param timestamp - Delete messages created at or after this timestamp
+	 * @param ctx - Repository context with user info
+	 * @returns Object with counts of deleted messages and votes
+	 */
+	async deleteMessagesAfterTimestamp(
+		chatId: string,
+		timestamp: Date,
+		ctx: RepositoryContext,
+	): Promise<{ messagesDeleted: number; votesDeleted: number }> {
+		try {
+			// Verify ownership first
+			const chatResult = await chatRepository.findById(chatId, ctx)
+			if (!chatResult) {
+				throw new NotFoundError("Chat", chatId)
+			}
+
+			if (chatResult.userId !== ctx.userId) {
+				throw new ForbiddenError(
+					"You do not have permission to modify this chat",
+					{
+						chatId,
+						userId: ctx.userId,
+					},
+				)
+			}
+
+			// Use transaction to prevent race conditions
+			const result = await withTransaction(async (tx) => {
+				// First, get the message IDs that will be deleted
+				const messagesToDelete = await tx
+					.select({ id: message.id })
+					.from(message)
+					.where(
+						and(
+							eq(message.chatId, chatId),
+							gte(message.createdAt, timestamp),
+						),
+					)
+
+				const messageIds = messagesToDelete.map((m) => m.id)
+
+				if (messageIds.length === 0) {
+					return { messagesDeleted: 0, votesDeleted: 0 }
+				}
+
+				// Delete votes for these messages first (foreign key constraint)
+				const deletedVotes = await tx
+					.delete(vote)
+					.where(
+						and(
+							eq(vote.chatId, chatId),
+							inArray(vote.messageId, messageIds),
+						),
+					)
+					.returning({ id: vote.messageId })
+
+				// Delete the messages
+				const deletedMessages = await tx
+					.delete(message)
+					.where(
+						and(
+							eq(message.chatId, chatId),
+							inArray(message.id, messageIds),
+						),
+					)
+					.returning({ id: message.id })
+
+				return {
+					messagesDeleted: deletedMessages.length,
+					votesDeleted: deletedVotes.length,
+				}
+			})
+
+			logDebug("ChatService deleteMessagesAfterTimestamp completed", {
+				chatId,
+				timestamp,
+				messagesDeleted: result.messagesDeleted,
+				votesDeleted: result.votesDeleted,
+			})
+
+			return result
+		} catch (error) {
+			if (
+				error instanceof NotFoundError ||
+				error instanceof ForbiddenError
+			) {
+				throw error
+			}
+			logError(
+				"ChatService deleteMessagesAfterTimestamp error",
+				error as Error,
+				{
+					chatId,
+					timestamp,
+				},
+			)
+			throw new InternalServerError(
+				"Failed to delete messages after timestamp",
+				{
+					chatId,
+					timestamp,
+					error: (error as Error).message,
+				},
+			)
 		}
 	}
 }

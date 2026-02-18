@@ -33,6 +33,8 @@ During the v5→v6 migration comparison, ~45 "improvement" issues were identifie
 
 ## Commands
 
+> **We are using windows powershell Terminal, so all commands should be compatible with that environment. If you need to run a command that is not compatible, use an alternative command that achieves the same result.**
+
 ### Validation — Run Before Marking Work Complete
 
 | Command | Purpose | Requirement |

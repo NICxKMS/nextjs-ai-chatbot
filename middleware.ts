@@ -12,6 +12,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import {
 	apiLimiter,
+	authGuestLimiter,
 	authLimiter,
 	chatLimiter,
 	uploadLimiter,
@@ -80,7 +81,14 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
 	// 4. Apply rate limiting for API routes
 	if (pathname.startsWith("/api/")) {
-		const rateLimitResult = await applyRateLimit(pathname, userId)
+		// SECURITY: Use IP-based rate limiting for auth routes to prevent bypass
+		// Auth routes should be rate limited by IP, not user ID, to prevent
+		// attackers from bypassing limits by creating multiple accounts
+		const rateLimitKey = isAuthRateLimitRoute(pathname)
+			? getSecureClientIP(request)
+			: userId
+
+		const rateLimitResult = await applyRateLimit(pathname, rateLimitKey)
 
 		if (!rateLimitResult.allowed) {
 			return createRateLimitResponse(rateLimitResult)
@@ -116,11 +124,36 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 // =============================================================================
 
 /**
- * Check if the path is an auth callback route.
- * These are handled by NextAuth and should bypass middleware.
+ * Check if the path is an auth callback route that should bypass middleware.
+ *
+ * SECURITY: Only NextAuth callback routes bypass middleware.
+ * Guest and logout routes must go through rate limiting.
+ *
+ * NextAuth routes that should bypass:
+ * - /api/auth/callback/* (OAuth callbacks)
+ * - /api/auth/signin/* (NextAuth signin pages)
+ * - /api/auth/signout (NextAuth signout)
+ * - /api/auth/session (NextAuth session check)
+ * - /api/auth/csrf (NextAuth CSRF token)
+ * - /api/auth/providers (NextAuth providers list)
+ *
+ * Routes that MUST go through rate limiting:
+ * - /api/auth/guest (guest session creation - brute force target)
+ * - /api/auth/logout (logout - potential DoS target)
  */
 function isAuthCallbackRoute(pathname: string): boolean {
-	return pathname.startsWith("/api/auth/")
+	// NextAuth internal routes that bypass middleware
+	const nextAuthInternalRoutes = [
+		"/api/auth/callback",
+		"/api/auth/signin",
+		"/api/auth/signout",
+		"/api/auth/session",
+		"/api/auth/csrf",
+		"/api/auth/providers",
+		"/api/auth/_log", // NextAuth internal logging
+	]
+
+	return nextAuthInternalRoutes.some((route) => pathname.startsWith(route))
 }
 
 /**
@@ -147,6 +180,81 @@ function isProtectedPageRoute(pathname: string): boolean {
 function isAuthPageRoute(pathname: string): boolean {
 	const authPaths = ["/login", "/register"]
 	return authPaths.includes(pathname)
+}
+
+/**
+ * Check if the path requires IP-based rate limiting.
+ *
+ * SECURITY: Auth routes must use IP-based rate limiting to prevent
+ * attackers from bypassing limits by creating multiple accounts
+ * or manipulating session cookies.
+ *
+ * @param pathname - The request pathname
+ * @returns true if the route requires IP-based rate limiting
+ */
+function isAuthRateLimitRoute(pathname: string): boolean {
+	const ipRateLimitedRoutes = [
+		"/api/auth/guest", // Guest session creation - brute force target
+		"/api/auth/logout", // Logout - potential DoS target
+	]
+	return ipRateLimitedRoutes.some((route) => pathname.startsWith(route))
+}
+
+/**
+ * Securely extract client IP from request headers.
+ *
+ * SECURITY: This function implements secure IP extraction by:
+ * 1. Prioritizing Cloudflare's CF-Connecting-IP header
+ * 2. Handling X-Forwarded-For chain with trusted proxy count
+ * 3. Supporting Vercel-specific headers
+ *
+ * This prevents header spoofing attacks where attackers attempt to
+ * bypass rate limits by manipulating X-Forwarded-For headers.
+ *
+ * @param request - The incoming request
+ * @returns Client IP address or 'unknown'
+ */
+function getSecureClientIP(request: NextRequest): string {
+	// Default trusted proxy count (Vercel/Cloudflare typically adds 1)
+	const trustedProxyCount = 1
+
+	// 1. Cloudflare provides the most reliable client IP
+	const cfIP = request.headers.get("cf-connecting-ip")
+	if (cfIP) {
+		return cfIP.trim()
+	}
+
+	// 2. Vercel-specific header with chain handling
+	const vercelForwarded = request.headers.get("x-vercel-forwarded-for")
+	if (vercelForwarded) {
+		const ips = vercelForwarded.split(",").map((ip) => ip.trim())
+		// Client IP is at position: length - 1 - trustedProxyCount
+		const clientIndex = Math.max(0, ips.length - 1 - trustedProxyCount)
+		const clientIP = ips[clientIndex]
+		if (clientIP) {
+			return clientIP
+		}
+	}
+
+	// 3. Standard X-Forwarded-For with chain handling
+	const forwardedFor = request.headers.get("x-forwarded-for")
+	if (forwardedFor) {
+		const ips = forwardedFor.split(",").map((ip) => ip.trim())
+		// Client IP is at position: length - 1 - trustedProxyCount
+		const clientIndex = Math.max(0, ips.length - 1 - trustedProxyCount)
+		const clientIP = ips[clientIndex]
+		if (clientIP) {
+			return clientIP
+		}
+	}
+
+	// 4. Fallback to X-Real-IP (single IP, no chain)
+	const realIP = request.headers.get("x-real-ip")
+	if (realIP) {
+		return realIP.trim()
+	}
+
+	return "unknown"
 }
 
 // =============================================================================
@@ -193,11 +301,16 @@ function getLimiterForRoute(pathname: string) {
 		return chatLimiter
 	}
 
-	// Auth endpoints - strictest limit
-	if (
-		pathname.startsWith("/api/auth/guest") ||
-		pathname.startsWith("/api/auth/logout")
-	) {
+	// Guest session creation - moderate limit (20 req/min)
+	// SECURITY: Guest session creation is a high-value target for abuse
+	// (spam, resource exhaustion) so it has dedicated rate limiting
+	// Uses authGuestLimiter with 20 req/min (moderately strict)
+	if (pathname.startsWith("/api/auth/guest")) {
+		return authGuestLimiter
+	}
+
+	// Auth endpoints (logout) - strict limit
+	if (pathname.startsWith("/api/auth/logout")) {
 		return authLimiter
 	}
 

@@ -303,7 +303,7 @@ export function createMockExecuteTools() {
 		if (!tool) {
 			throw new Error(`Unknown tool: ${toolName}`)
 		}
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// biome-ignore lint/suspicious/noExplicitAny: mock tool execute has dynamic signature
 		return (tool.execute as any)(params)
 	})
 }

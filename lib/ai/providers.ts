@@ -10,9 +10,14 @@
 import { gateway } from "@ai-sdk/gateway"
 import { createGoogleGenerativeAI } from "@ai-sdk/google"
 import { createOpenAI } from "@ai-sdk/openai"
-import type { ProviderV2 } from "@ai-sdk/provider"
+import type { LanguageModelV2, ProviderV2 } from "@ai-sdk/provider"
 import { createXai } from "@ai-sdk/xai"
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
+import { createAiGateway } from "ai-gateway-provider"
+import type { WorkersAISettings } from "workers-ai-provider"
+import { createWorkersAI } from "workers-ai-provider"
+
+import { AppError } from "@/lib/errors"
 
 // =============================================================================
 // Environment Configuration
@@ -24,6 +29,16 @@ const XAI_API_KEY = process.env.XAI_API_KEY
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
 const AI_GATEWAY_API_KEY =
 	process.env.AI_GATEWAY_API_KEY ?? process.env.VERCEL_OIDC_TOKEN
+
+// Cloudflare configuration
+const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID
+const CLOUDFLARE_API_KEY = process.env.CLOUDFLARE_API_KEY
+const CLOUDFLARE_WORKER_AI = process.env.CLOUDFLARE_WORKER_AI
+const CLOUDFLARE_AI_GATEWAY_NAME = process.env.CLOUDFLARE_AI_GATEWAY_NAME
+const CLOUDFLARE_AI_GATEWAY_API_KEY =
+	process.env.CLOUDFLARE_AI_GATEWAY_API_KEY ??
+	process.env.CLOUDFLARE_AI_GATEWAY_TOKEN ??
+	process.env.CLOUDFLARE_API_KEY
 
 // =============================================================================
 // Provider Instances
@@ -54,6 +69,7 @@ export const xai = XAI_API_KEY ? createXai({ apiKey: XAI_API_KEY }) : null
 /**
  * OpenRouter provider instance.
  * Provides access to multiple models through a single API.
+ * Note: OpenRouter has a different type signature than ProviderV2.
  */
 export const openrouter = OPENROUTER_API_KEY
 	? createOpenRouter({ apiKey: OPENROUTER_API_KEY })
@@ -65,6 +81,105 @@ export const openrouter = OPENROUTER_API_KEY
  */
 export const vercelGateway = AI_GATEWAY_API_KEY ? gateway : null
 
+/**
+ * Cloudflare Workers AI provider instance.
+ * Configured with account ID and API key from environment.
+ * Supports both API key auth and Worker bindings (when CLOUDFLARE_WORKER_AI is set).
+ */
+export const cloudflareWorkers =
+	CLOUDFLARE_ACCOUNT_ID && (CLOUDFLARE_API_KEY || CLOUDFLARE_WORKER_AI)
+		? createWorkersAI({
+				accountId: CLOUDFLARE_ACCOUNT_ID,
+				...(CLOUDFLARE_API_KEY ? { apiKey: CLOUDFLARE_API_KEY } : {}),
+			} as WorkersAISettings)
+		: null
+
+// =============================================================================
+// Cloudflare AI Gateway Provider (with fallback support)
+// =============================================================================
+
+/**
+ * Supported Gemini models via Cloudflare AI Gateway.
+ * These models can be routed through Cloudflare's AI Gateway for rate limiting,
+ * logging, and fallback support.
+ */
+const SUPPORTED_GEMINI_MODELS_via_GATEWAY = [
+	"gemini-2.5-flash",
+	"gemini-2.5-flash-lite",
+	"gemini-2.5-pro",
+] as const
+
+/**
+ * Cloudflare AI Gateway provider instance.
+ * Provides unified access with automatic fallback support.
+ *
+ * This provider wraps Google Gemini models with Cloudflare AI Gateway,
+ * enabling features like:
+ * - Rate limiting and usage tracking
+ * - Automatic fallback to smaller models
+ * - Request logging and analytics
+ *
+ * Note: Workers AI models are NOT supported via AI Gateway because they use
+ * Cloudflare bindings directly, not the config.fetch pattern.
+ */
+export const cloudflareAiGateway =
+	CLOUDFLARE_ACCOUNT_ID &&
+	CLOUDFLARE_AI_GATEWAY_NAME &&
+	CLOUDFLARE_AI_GATEWAY_API_KEY &&
+	google // Requires Google provider for Gemini models
+		? (() => {
+				const aigateway = createAiGateway({
+					accountId: CLOUDFLARE_ACCOUNT_ID,
+					gateway: CLOUDFLARE_AI_GATEWAY_NAME,
+					apiKey: CLOUDFLARE_AI_GATEWAY_API_KEY,
+				})
+
+				// Create a provider that wraps models with gateway and fallback
+				// Using unknown cast since we only implement languageModel
+				const gatewayProvider = {
+					languageModel(id: string): LanguageModelV2 {
+						// Validate that the model is supported via gateway
+						if (
+							!SUPPORTED_GEMINI_MODELS_via_GATEWAY.includes(
+								id as (typeof SUPPORTED_GEMINI_MODELS_via_GATEWAY)[number],
+							)
+						) {
+							throw new AppError(
+								"bad_request:api:cloudflare_gateway_unsupported_model",
+								`Model "${id}" is not supported via Cloudflare AI Gateway. Supported models: ${SUPPORTED_GEMINI_MODELS_via_GATEWAY.join(", ")}`,
+								400,
+							)
+						}
+
+						// Get the Google provider (we already checked it exists above)
+						// biome-ignore lint/style/noNonNullAssertion: guarded by outer conditional
+						const googleProvider = google!
+
+						// Create primary model
+						const primaryModel = googleProvider(id)
+
+						// For flash-lite, no fallback needed (it's already the smallest)
+						if (id === "gemini-2.5-flash-lite") {
+							return aigateway([
+								primaryModel,
+							]) as unknown as LanguageModelV2
+						}
+
+						// For other models, add flash-lite as fallback
+						const fallbackLite = googleProvider(
+							"gemini-2.5-flash-lite",
+						)
+						return aigateway([
+							primaryModel,
+							fallbackLite,
+						]) as unknown as LanguageModelV2
+					},
+				}
+
+				return gatewayProvider as unknown as ProviderV2
+			})()
+		: null
+
 // =============================================================================
 // Provider Registry
 // =============================================================================
@@ -72,13 +187,17 @@ export const vercelGateway = AI_GATEWAY_API_KEY ? gateway : null
 /**
  * Registry of all available providers.
  * Only includes providers that have valid API keys configured.
+ * Note: Some providers have extended interfaces beyond ProviderV2 and are cast.
  */
-export const providers: Record<string, ProviderV2 | null> = {
+// biome-ignore lint/suspicious/noExplicitAny: providers have varying interfaces
+export const providers: Record<string, any> = {
 	openai,
 	google,
 	xai,
 	openrouter,
 	"vercel-gateway": vercelGateway,
+	"cloudflare-workers": cloudflareWorkers,
+	"cloudflare-ai-gateway": cloudflareAiGateway,
 }
 
 /**
@@ -102,7 +221,8 @@ export const availableProviderIds: string[] = Object.entries(providers)
  * }
  * ```
  */
-export function getProvider(name: string): ProviderV2 | null {
+// biome-ignore lint/suspicious/noExplicitAny: provider interfaces vary
+export function getProvider(name: string): any {
 	return providers[name] ?? null
 }
 
@@ -118,17 +238,20 @@ export function isProviderAvailable(name: string): boolean {
 
 /**
  * Get the default provider based on availability.
- * Priority: vercel-gateway > openai > google > openrouter > xai
+ * Priority: vercel-gateway > openai > google > openrouter > xai > cloudflare-workers > cloudflare-ai-gateway
  *
  * @returns The default provider instance or null if none configured
  */
-export function getDefaultProvider(): ProviderV2 | null {
+// biome-ignore lint/suspicious/noExplicitAny: provider interfaces vary
+export function getDefaultProvider(): any {
 	const priorityOrder = [
 		"vercel-gateway",
 		"openai",
 		"google",
 		"openrouter",
 		"xai",
+		"cloudflare-workers",
+		"cloudflare-ai-gateway",
 	] as const
 
 	for (const providerId of priorityOrder) {

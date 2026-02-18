@@ -8,27 +8,9 @@
  */
 
 import { smoothStream, streamText } from "ai"
+import { getTextUpdatePrompt, textPrompt } from "@/lib/ai/prompts"
+import { getModel } from "@/lib/ai/registry"
 import { type ArtifactHandler, createArtifactHandler } from "./base.handler"
-
-/**
- * System prompt for text artifact creation
- */
-const TEXT_CREATE_SYSTEM_PROMPT =
-	"Write about the given topic. Markdown is supported. Use headings wherever appropriate."
-
-/**
- * Generate system prompt for text artifact updates
- * @param currentContent - The current document content
- * @returns System prompt for the update operation
- */
-function getUpdateSystemPrompt(currentContent: string | null): string {
-	return `You are a helpful assistant that helps update documents.
-
-Current document content:
-${currentContent ?? "[Empty document]"}
-
-Please update the document based on the user's request. Maintain the overall structure and style unless specifically asked to change it.`
-}
 
 /**
  * Text artifact handler
@@ -58,11 +40,9 @@ export const textHandler: ArtifactHandler<"text"> = createArtifactHandler({
 	async onCreateDocument({ title, dataStream }) {
 		let draftContent = ""
 
-		// TODO: Replace with actual provider from lib/ai/providers when available
-		// For now, using a placeholder that will be replaced during AI module migration
 		const { fullStream } = streamText({
-			model: "artifact-model",
-			system: TEXT_CREATE_SYSTEM_PROMPT,
+			model: getModel("artifact-model"),
+			system: textPrompt,
 			experimental_transform: smoothStream({ chunking: "word" }),
 			experimental_telemetry: {
 				isEnabled: true,
@@ -95,10 +75,9 @@ export const textHandler: ArtifactHandler<"text"> = createArtifactHandler({
 	async onUpdateDocument({ document, description, dataStream }) {
 		let draftContent = ""
 
-		// TODO: Replace with actual provider from lib/ai/providers when available
 		const { fullStream } = streamText({
-			model: "artifact-model",
-			system: getUpdateSystemPrompt(document.content),
+			model: getModel("artifact-model"),
+			system: getTextUpdatePrompt(document.content),
 			experimental_transform: smoothStream({ chunking: "word" }),
 			experimental_telemetry: {
 				isEnabled: true,

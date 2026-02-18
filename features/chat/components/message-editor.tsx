@@ -18,6 +18,7 @@ import {
 	useState,
 } from "react"
 import { toast } from "sonner"
+import { deleteTrailingMessagesAction } from "../actions"
 import type { ChatMessage } from "../types"
 
 // =============================================================================
@@ -133,16 +134,26 @@ export function MessageEditor({
 
 		try {
 			// Delete trailing messages after the edited message
-			// Note: This would typically call a server action
-			// For now, we'll update the messages directly
 			const createdAt =
 				message.metadata?.createdAt ?? new Date().toISOString()
 
-			// Log the action for debugging (server action would be called here)
-			console.log("deleteTrailingMessages", { chatId, createdAt })
-		} catch {
+			const result = await deleteTrailingMessagesAction({
+				chatId,
+				createdAt,
+			})
+
+			if (!result.success) {
+				throw new Error(
+					result.error ?? "Failed to delete trailing messages",
+				)
+			}
+		} catch (error) {
 			setIsSubmitting(false)
-			toast.error("Failed to edit message")
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Failed to edit message",
+			)
 			return
 		}
 

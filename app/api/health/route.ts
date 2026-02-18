@@ -2,14 +2,16 @@
  * Health Check API Route
  *
  * Returns system health status for monitoring and uptime checks.
+ * Uses publicMiddleware for rate limiting (100 req/min per IP).
  *
  * @module app/api/health/route
  */
 
 import { sql } from "drizzle-orm"
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { getRedisClient, isRedisAvailable } from "@/lib/cache"
 import { db } from "@/lib/db"
+import { publicMiddleware } from "@/lib/middleware"
 
 /** Health status type */
 type HealthStatus = "healthy" | "degraded" | "unhealthy"
@@ -114,10 +116,9 @@ function determineOverallStatus(
 }
 
 /**
- * GET /api/health
- * Health check endpoint for monitoring.
+ * Health check handler implementation.
  */
-export async function GET() {
+async function healthHandler(_req: NextRequest): Promise<NextResponse> {
 	try {
 		const [dbHealth, cacheHealth, envHealth] = await Promise.all([
 			checkDatabaseHealth(),
@@ -162,3 +163,10 @@ export async function GET() {
 		})
 	}
 }
+
+/**
+ * GET /api/health
+ * Health check endpoint for monitoring.
+ * Rate limited via publicMiddleware (100 req/min per IP).
+ */
+export const GET = publicMiddleware(healthHandler)

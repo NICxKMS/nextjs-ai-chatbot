@@ -15,8 +15,44 @@ export {
 	closeConnection,
 	db,
 	isHealthy,
+	withSequentialTransactions,
 	withTransaction,
 } from "./client"
+
+// =============================================================================
+// Batch Operations
+// =============================================================================
+
+export {
+	type BatchDeleteOptions,
+	type BatchInsertOptions,
+	type BatchResult,
+	type BatchUpdateOptions,
+	type BatchUpsertOptions,
+	batchDelete,
+	batchInsert,
+	batchUpdate,
+	batchUpsert,
+	batchWithResult,
+} from "./batch"
+
+// =============================================================================
+// Cursor-Based Pagination
+// =============================================================================
+
+export {
+	buildCursorCondition,
+	type CursorPaginatedResult,
+	type CursorPaginationOptions,
+	createPaginationResponse,
+	decodeCursor,
+	encodeCursor,
+	type PaginationDirection,
+	paginate,
+	paginateWithCount,
+	toCursorOptions,
+	toPaginatedResult,
+} from "./pagination"
 
 // =============================================================================
 // Schema Re-exports

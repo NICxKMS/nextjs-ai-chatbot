@@ -22,6 +22,7 @@ const Separator = forwardRef<HTMLDivElement, SeparatorProps>(
 		{ className, orientation = "horizontal", decorative = true, ...props },
 		ref,
 	) => (
+		// biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-orientation IS valid for role="separator"
 		<div
 			className={cn(
 				"shrink-0 bg-border",
@@ -32,6 +33,8 @@ const Separator = forwardRef<HTMLDivElement, SeparatorProps>(
 			)}
 			ref={ref}
 			role={decorative ? "none" : "separator"}
+			aria-orientation={decorative ? undefined : orientation}
+			data-orientation={orientation}
 			{...props}
 		/>
 	),

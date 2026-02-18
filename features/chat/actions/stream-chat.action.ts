@@ -2,7 +2,8 @@
  * Stream Chat Action
  *
  * Server action for AI chat streaming using AI SDK.
- * Handles message streaming with rate limiting and authentication.
+ * Handles message streaming with rate limiting, model validation,
+ * daily quota enforcement, and authentication.
  *
  * @module features/chat/actions/stream-chat.action
  */
@@ -10,7 +11,11 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { getEntitlements } from "@/lib/ai/entitlements"
+import { isValidModelId, listChatModels } from "@/lib/ai/registry"
 import { requireAuthAction } from "@/lib/auth/guards"
+import { getSession } from "@/lib/auth/session"
+import { checkMessageQuota } from "@/lib/cache/quota"
 import type { RepositoryContext } from "@/lib/data/repositories"
 import {
 	chatService,
@@ -19,6 +24,7 @@ import {
 import type { DBMessage } from "@/lib/db/schema"
 import { RateLimitError } from "@/lib/errors"
 import { checkChatLimit, getRetryAfter } from "@/lib/rate-limit"
+import type { ChatSettings } from "../schemas/chat.schema"
 
 // =============================================================================
 // Types
@@ -68,6 +74,10 @@ export interface StreamChatInput {
 	title?: string
 	/** Optional visibility setting */
 	visibility?: "public" | "private"
+	/** Selected AI model ID */
+	selectedModel?: string
+	/** Optional chat settings for customizing AI behavior */
+	settings?: ChatSettings
 }
 
 /**
@@ -82,6 +92,8 @@ export interface StreamChatResult {
 	success: boolean
 	/** Error message if failed */
 	error?: string
+	/** Chat settings for AI behavior customization */
+	settings?: ChatSettings | undefined
 }
 
 // =============================================================================
@@ -89,18 +101,22 @@ export interface StreamChatResult {
 // =============================================================================
 
 /**
- * Stream chat action - handles AI message streaming with rate limiting.
+ * Stream chat action - handles AI message streaming with rate limiting,
+ * model validation, and daily quota enforcement.
  *
  * This action:
- * 1. Authenticates the user
- * 2. Checks rate limits
- * 3. Saves messages to the database
- * 4. Returns stream result for the AI response
+ * 1. Authenticates the user and gets user type
+ * 2. Validates model ID against user entitlements
+ * 3. Checks daily message quota
+ * 4. Checks rate limits
+ * 5. Saves messages to the database
+ * 6. Returns stream result for the AI response
  *
  * @param input - Stream chat input parameters
  * @returns Stream chat result with chat ID and status
  * @throws UnauthorizedError if not authenticated
- * @throws RateLimitError if rate limit exceeded
+ * @throws ValidationError if model not available for user type
+ * @throws RateLimitError if rate limit or daily quota exceeded
  *
  * @example
  * ```typescript
@@ -114,10 +130,66 @@ export interface StreamChatResult {
 export async function streamChatAction(
 	input: StreamChatInput,
 ): Promise<StreamChatResult> {
-	// 1. Authenticate user
+	// 1. Authenticate user and get session for user type
 	const userId = await requireAuthAction()
+	const session = await getSession()
 
-	// 2. Check rate limit
+	if (!session) {
+		return {
+			chatId: input.chatId,
+			isNewChat: input.isNewChat ?? false,
+			success: false,
+			error: "Authentication required",
+		}
+	}
+
+	const userType = session.user.type
+	const entitlements = getEntitlements(userType)
+
+	// 2. Validate model ID against user entitlements
+	if (input.selectedModel) {
+		// First check if model ID is valid
+		if (!isValidModelId(input.selectedModel)) {
+			const availableModels = listChatModels()
+				.map((m) => m.id)
+				.slice(0, 5)
+				.join(", ")
+			return {
+				chatId: input.chatId,
+				isNewChat: input.isNewChat ?? false,
+				success: false,
+				error: `Invalid model ID: ${input.selectedModel}. Available models include: ${availableModels}...`,
+			}
+		}
+
+		// Then check if user has access to this model
+		if (!entitlements.availableChatModelIds.includes(input.selectedModel)) {
+			return {
+				chatId: input.chatId,
+				isNewChat: input.isNewChat ?? false,
+				success: false,
+				error: `Model not available for your account type. Please select a different model.`,
+			}
+		}
+	}
+
+	// 3. Check daily message quota
+	const quotaResult = await checkMessageQuota(
+		userId,
+		entitlements.maxMessagesPerDay,
+	)
+	if (!quotaResult.allowed) {
+		throw new RateLimitError(
+			`Daily message limit reached (${quotaResult.quota.used}/${entitlements.maxMessagesPerDay}). Try again tomorrow.`,
+			{
+				limit: entitlements.maxMessagesPerDay,
+				used: quotaResult.quota.used,
+				remaining: quotaResult.quota.remaining,
+			},
+		)
+	}
+
+	// 4. Check rate limit
 	const rateLimitResult = await checkChatLimit(userId)
 	if (!rateLimitResult.success) {
 		const retryAfter = getRetryAfter(rateLimitResult.reset)
@@ -127,14 +199,14 @@ export async function streamChatAction(
 		)
 	}
 
-	// 3. Create repository context
+	// 5. Create repository context
 	const ctx: RepositoryContext = {
 		userId,
-		isGuest: false,
+		isGuest: userType === "guest",
 	}
 
 	try {
-		// 4. Prepare messages for storage
+		// 6. Prepare messages for storage
 		// DBMessage requires parts and attachments fields
 		const messagesToSave: DBMessage[] = input.messages.map((msg) => ({
 			id: msg.id ?? crypto.randomUUID(),
@@ -145,7 +217,7 @@ export async function streamChatAction(
 			createdAt: msg.createdAt ?? new Date(),
 		}))
 
-		// 5. Save chat and messages
+		// 7. Save chat and messages
 		const saveParams: SaveChatParams = {
 			chatId: input.chatId,
 			isNewChat: input.isNewChat ?? false,
@@ -158,13 +230,14 @@ export async function streamChatAction(
 
 		await chatService.saveChat(saveParams, ctx)
 
-		// 6. Revalidate the chat page
+		// 8. Revalidate the chat page
 		revalidatePath(`/chat/${input.chatId}`)
 
 		return {
 			chatId: input.chatId,
 			isNewChat: input.isNewChat ?? false,
 			success: true,
+			...(input.settings !== undefined && { settings: input.settings }),
 		}
 	} catch (error) {
 		return {

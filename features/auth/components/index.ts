@@ -9,3 +9,4 @@
 export { AuthForm } from "./auth-form"
 export { AuthProvider, useAuth } from "./auth-provider"
 export { ProtectedRoute } from "./protected-route"
+export { SubmitButton } from "./submit-button"

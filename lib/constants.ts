@@ -73,14 +73,39 @@ export const RATE_LIMITS = {
 		requests: 10,
 		window: 60,
 	},
-	/** File upload endpoints - 20 requests per minute */
-	upload: {
-		requests: 20,
+	/** Guest session creation - 5 requests per minute (stricter to prevent abuse) */
+	guest: {
+		requests: 5,
 		window: 60,
+	},
+	/** File upload endpoints - 10 requests per hour (strict to prevent abuse) */
+	upload: {
+		requests: 10,
+		window: 3600, // 1 hour
 	},
 	/** General API endpoints - 100 requests per minute */
 	api: {
 		requests: 100,
+		window: 60,
+	},
+	/** Destructive operations (delete) - 10 requests per minute */
+	strict: {
+		requests: 10,
+		window: 60,
+	},
+	/** Standard rate limit - for general API endpoints (100 requests per minute) */
+	standard: {
+		requests: 100,
+		window: 60,
+	},
+	/** Generous rate limit - for high-volume endpoints like search, autocomplete (1000 requests per minute) */
+	generous: {
+		requests: 1000,
+		window: 60,
+	},
+	/** Guest auth rate limit - for guest session creation with moderate limits (20 requests per minute) */
+	authGuest: {
+		requests: 20,
 		window: 60,
 	},
 } as const

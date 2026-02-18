@@ -178,12 +178,13 @@ export async function applySuggestion(
 /**
  * Reject a suggestion.
  *
- * Marks the suggestion as resolved without applying it.
- * Note: In the current implementation, suggestions are deleted when rejected.
+ * Deletes the suggestion without applying its changes to the artifact.
  *
  * @param artifactId - Artifact ID
  * @param suggestionId - Suggestion ID to reject
+ * @returns true if the suggestion was successfully rejected
  * @throws UnauthorizedError if not authenticated
+ * @throws NotFoundError if the suggestion doesn't exist
  *
  * @example
  * ```typescript
@@ -194,7 +195,7 @@ export async function applySuggestion(
 export async function rejectSuggestion(
 	artifactId: string,
 	suggestionId: string,
-): Promise<void> {
+): Promise<boolean> {
 	// Require authentication
 	const userId = await requireAuthAction()
 
@@ -212,9 +213,6 @@ export async function rejectSuggestion(
 		throw new Error("Suggestion not found")
 	}
 
-	// Note: The current service doesn't have a deleteSuggestion method
-	// For now, we'll just mark it as resolved by updating the artifact
-	// This is a placeholder - the actual implementation would need
-	// a suggestionRepository.delete method
-	// TODO: Implement suggestion deletion when available
+	// Delete the suggestion via service
+	return await artifactService.deleteSuggestion(suggestionId, ctx)
 }

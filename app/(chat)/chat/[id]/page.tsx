@@ -22,6 +22,7 @@ import {
 	voteRepository,
 } from "@/lib/data"
 import type { Message } from "@/lib/db/schema"
+import { ValidationError } from "@/lib/errors"
 import { logError } from "@/lib/log"
 
 // =============================================================================
@@ -33,9 +34,15 @@ import { logError } from "@/lib/log"
  *
  * @param messages - Database messages
  * @returns UI messages for the Chat component
+ * @throws ValidationError if any message is missing an ID
  */
 function convertToUIMessages(messages: Message[]): ChatMessage[] {
 	return messages.map((message) => {
+		// Validate message ID - defensive check against database corruption
+		if (!message.id) {
+			throw new ValidationError("Message is missing id")
+		}
+
 		return {
 			id: message.id,
 			role: message.role as "user" | "assistant" | "system",

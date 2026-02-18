@@ -91,3 +91,20 @@ export function sanitizeHtml(str: string): string {
 		.replace(/`/g, "\u0026#x60;")
 		.replace(/=/g, "\u0026#x3D;")
 }
+
+/**
+ * Sanitizes text by removing function call tokens.
+ * Removes `<has_function_call>` tokens that may appear in AI-generated content.
+ *
+ * @param text - The text to sanitize
+ * @returns Sanitized text with function call tokens removed
+ *
+ * @example
+ * ```ts
+ * sanitizeText('Hello<has_function_call>World') // "HelloWorld"
+ * sanitizeText('No tokens here') // "No tokens here"
+ * ```
+ */
+export function sanitizeText(text: string): string {
+	return text.replace("<has_function_call>", "")
+}

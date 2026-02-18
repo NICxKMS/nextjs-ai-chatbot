@@ -2,13 +2,16 @@
  * Update Document Tool
  *
  * AI tool for updating existing documents/artifacts via the chat interface.
- * Integrates with the artifact service for persistence and version management.
+ * Integrates with the artifact service for persistence and version management,
+ * and delegates to artifact handlers for AI content generation.
  *
  * @module features/chat/lib/tools/update-document.tool
  */
 
 import { tool, type UIMessageStreamWriter } from "ai"
 import { z } from "zod"
+import { getArtifactHandler } from "@/features/artifact/handlers"
+import type { ArtifactKind } from "@/features/artifact/types"
 import type { ChatMessage } from "@/features/chat/types"
 import { artifactService } from "@/lib/data/services/artifact.service"
 import { ToolExecutionError } from "./errors"
@@ -96,15 +99,24 @@ export function createUpdateDocumentTool(context: UpdateDocumentContext) {
 					transient: true,
 				})
 
-				// Note: The actual document update with content streaming
-				// is handled by the AI model's response. This tool:
-				// 1. Validates the document exists
-				// 2. Sets up the streaming context
-				// 3. Returns metadata for the AI to reference
-				//
-				// The content update happens via the data-stream handler
-				// which processes the streamed content and calls the
-				// artifact service to create a new version.
+				// Get the appropriate handler for this artifact kind
+				// and delegate content generation to it
+				const documentHandler = getArtifactHandler(
+					artifact.kind as ArtifactKind,
+				)
+
+				await documentHandler.updateDocument({
+					document: {
+						id: artifact.id,
+						title: artifact.title,
+						content: artifact.content ?? "",
+						kind: artifact.kind as ArtifactKind,
+						chatId: artifact.chatId,
+					},
+					description,
+					dataStream: context.dataStream,
+					userId: context.userId,
+				})
 
 				// Signal completion
 				context.dataStream.write({

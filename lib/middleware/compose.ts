@@ -9,7 +9,10 @@
 
 import type { NextRequest, NextResponse } from "next/server"
 
+import { apiLimiter } from "@/lib/rate-limit"
 import type { AuthContext } from "./auth"
+import { withAuthMiddleware } from "./auth"
+import { withRateLimitMiddleware } from "./rate-limit"
 
 // =============================================================================
 // Types
@@ -138,7 +141,10 @@ export function createPipeline<T>(
 /**
  * Create an API middleware pipeline with auth and rate limiting.
  *
- * This is a factory that creates a standard pipeline for protected API routes.
+ * This factory creates a standard pipeline for protected API routes:
+ * 1. Rate limiting (100 req/min per IP by default)
+ * 2. Authentication (requires valid session)
+ * 3. Handler execution with AuthContext
  *
  * @param handler - The final request handler
  * @returns Request handler with auth and rate limiting
@@ -153,28 +159,34 @@ export function createPipeline<T>(
 export function apiMiddleware(
 	handler: MiddlewareHandler<AuthContext>,
 ): (req: NextRequest) => Promise<NextResponse> {
-	// Import auth middleware dynamically to avoid circular dependencies
-	return async (req: NextRequest): Promise<NextResponse> => {
-		// For now, this is a placeholder that will be properly implemented
-		// when the full middleware system is integrated
-		const { withAuthMiddleware } = await import("./auth")
-		return withAuthMiddleware(handler)(req)
-	}
+	// Compose rate limit + auth middleware
+	const rateLimitedHandler = withRateLimitMiddleware(apiLimiter)(
+		withAuthMiddleware(handler),
+	)
+
+	return rateLimitedHandler
 }
 
 /**
  * Create a public API middleware pipeline with rate limiting only.
  *
  * Use this for routes that don't require authentication but still need rate limiting.
+ * Applies 100 requests per minute per IP address.
  *
  * @param handler - The final request handler
  * @returns Request handler with rate limiting
+ *
+ * @example
+ * ```typescript
+ * // Public endpoint with rate limiting
+ * export const GET = publicMiddleware(async (req) => {
+ *   return NextResponse.json({ message: 'Hello, world!' });
+ * });
+ * ```
  */
 export function publicMiddleware(
-	handler: MiddlewareHandler<void>,
+	handler: (req: NextRequest) => Promise<NextResponse>,
 ): (req: NextRequest) => Promise<NextResponse> {
-	return async (req: NextRequest): Promise<NextResponse> => {
-		// For public routes, just call the handler with empty context
-		return handler(req, undefined as undefined)
-	}
+	// Apply rate limiting only for public routes
+	return withRateLimitMiddleware(apiLimiter)(handler)
 }

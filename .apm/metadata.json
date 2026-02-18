@@ -1,11 +1,7 @@
 {
-  "cliVersion": "0.5.4",
-  "templateVersion": "v0.5.4+templates.1",
-  "assistants": [
-    "GitHub Copilot",
-    "Kilo Code",
-    "opencode"
-  ],
-  "installedAt": "2026-01-19T16:13:12.056Z",
-  "lastUpdated": "2026-02-16T11:26:12.150Z"
+	"cliVersion": "0.5.4",
+	"templateVersion": "v0.5.4+templates.1",
+	"assistants": ["GitHub Copilot", "Kilo Code", "opencode"],
+	"installedAt": "2026-01-19T16:13:12.056Z",
+	"lastUpdated": "2026-02-16T11:26:12.150Z"
 }

@@ -54,19 +54,47 @@ export interface ArtifactStreamDefinition {
 /**
  * Default artifact stream definitions
  * These handle artifact-specific delta types (text, code, image, sheet)
+ *
+ * Each handler:
+ * 1. Updates content with explicit streaming status
+ * 2. Handles type-specific metadata (e.g., text suggestions)
+ * 3. Implements auto-show behavior for text artifacts
  */
 export const artifactStreamDefinitions: ArtifactStreamDefinition[] = [
 	{
 		kind: "text",
 		onStreamPart: ({ streamPart, setMetadata, setArtifact }) => {
+			// Handle suggestion metadata - accumulate into array
+			// Uses callback form to properly merge multiple suggestions
 			if (streamPart.type === "data-suggestion") {
-				setMetadata(streamPart.data)
+				setMetadata(
+					(prevMetadata: { suggestions: unknown[] } | null) => ({
+						suggestions: [
+							...(prevMetadata?.suggestions ?? []),
+							streamPart.data,
+						],
+					}),
+				)
 			}
+
+			// Handle text content delta with visibility toggle and status
 			if (streamPart.type === "data-textDelta") {
-				setArtifact((draft) => ({
-					...draft,
-					content: draft.content + streamPart.data,
-				}))
+				setArtifact((draft) => {
+					const newContent = draft.content + streamPart.data
+					return {
+						...draft,
+						content: newContent,
+						// Auto-show artifact panel when content reaches 400-450 chars
+						// This provides a smooth reveal experience during streaming
+						isVisible:
+							draft.status === "streaming" &&
+							newContent.length > 400 &&
+							newContent.length < 450
+								? true
+								: draft.isVisible,
+						status: "streaming",
+					}
+				})
 			}
 		},
 	},
@@ -77,6 +105,7 @@ export const artifactStreamDefinitions: ArtifactStreamDefinition[] = [
 				setArtifact((draft) => ({
 					...draft,
 					content: draft.content + streamPart.data,
+					status: "streaming",
 				}))
 			}
 		},
@@ -88,6 +117,7 @@ export const artifactStreamDefinitions: ArtifactStreamDefinition[] = [
 				setArtifact((draft) => ({
 					...draft,
 					content: draft.content + streamPart.data,
+					status: "streaming",
 				}))
 			}
 		},
@@ -99,6 +129,7 @@ export const artifactStreamDefinitions: ArtifactStreamDefinition[] = [
 				setArtifact((draft) => ({
 					...draft,
 					content: draft.content + streamPart.data,
+					status: "streaming",
 				}))
 			}
 		},

@@ -25,6 +25,7 @@ import {
 	uuid,
 	varchar,
 } from "drizzle-orm/pg-core"
+import type { AppUsage } from "@/lib/ai"
 
 // =============================================================================
 // Enums
@@ -111,7 +112,7 @@ export const chat = pgTable(
 			.references(() => user.id, { onDelete: "cascade" }),
 		visibility: visibilityEnum("visibility").notNull().default("private"),
 		/** Last context for state restoration - typed as AppUsage | null */
-		lastContext: jsonb("last_context").$type<unknown | null>(),
+		lastContext: jsonb("last_context").$type<AppUsage | null>(),
 	},
 	(t) => ({
 		/** Index for querying chats by user, sorted by creation date */

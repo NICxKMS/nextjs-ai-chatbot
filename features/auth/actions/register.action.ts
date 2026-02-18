@@ -2,7 +2,7 @@
  * Register Server Action
  *
  * Handles new user registration with email and password.
- * Creates user account via authService and signs them in.
+ * Creates user account via authService. User must sign in after registration.
  *
  * @module features/auth/actions/register.action
  */
@@ -10,7 +10,6 @@
 "use server"
 
 import { redirect } from "next/navigation"
-import { signIn } from "@/lib/auth"
 import { authService } from "@/lib/data/services/auth.service"
 import { registerSchema } from "../schemas"
 import type { AuthResult } from "../types"
@@ -21,6 +20,9 @@ import type { AuthResult } from "../types"
 
 /**
  * Register a new user with email and password.
+ *
+ * After successful registration, the user is NOT automatically signed in.
+ * They must proceed to the login page to authenticate with their new credentials.
  *
  * @param formData - Form data containing email, password, and confirmPassword
  * @returns AuthResult indicating success or failure
@@ -64,16 +66,11 @@ export async function register(formData: FormData): Promise<AuthResult> {
 			password: parsed.data.password,
 		})
 
-		// Sign in the newly registered user
-		await signIn("credentials", {
-			email: parsed.data.email,
-			password: parsed.data.password,
-			redirect: false,
-		})
-
+		// Return success - user must sign in separately
+		// This provides better security and clearer UX flow
 		return {
 			success: true,
-			redirectTo: "/chat",
+			redirectTo: "/login?registered=true",
 		}
 	} catch (error) {
 		// Handle known errors

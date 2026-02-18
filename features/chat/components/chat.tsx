@@ -2,7 +2,7 @@
  * Chat Component
  *
  * Main chat container component. Orchestrates the chat experience including
- * messages display, input handling, and streaming state management.
+ * messages display, input handling, streaming state management, and settings integration.
  *
  * @module features/chat/components
  */
@@ -11,8 +11,21 @@
 
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport } from "ai"
+import { useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import useSWR from "swr"
+import {
+	initialArtifactData,
+	useArtifact,
+	useArtifactSelector,
+} from "@/features/artifact/hooks"
+import { useAuth } from "@/features/auth"
+import { useModelSelection } from "@/features/settings/hooks"
+import { useOptimisticChats } from "@/features/sidebar/hooks"
+import { useChatVisibility } from "@/hooks/use-chat-visibility"
+import { useDataStream } from "../hooks/use-data-stream"
 import type { AppUsage, Attachment, ChatMessage, UserVote } from "../types"
+import { isDataAppendMessagePart, isDataChatTitlePart } from "../types"
 import { Messages } from "./messages"
 
 // =============================================================================
@@ -55,6 +68,22 @@ export interface ModelMetadata {
 	providerName: string
 }
 
+/**
+ * Visibility type for chats
+ */
+export type VisibilityType = "public" | "private"
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Generate a UUID v4.
+ */
+function generateUUID(): string {
+	return crypto.randomUUID()
+}
+
 // =============================================================================
 // Component
 // =============================================================================
@@ -65,9 +94,11 @@ export interface ModelMetadata {
  * Features:
  * - Message display with virtualization
  * - AI streaming with useChat hook
- * - Model selection
+ * - Model selection with persistence
  * - Visibility controls
  * - Error handling with retry
+ * - Artifact integration
+ * - Data stream handling
  */
 export function Chat({
 	id,
@@ -79,22 +110,132 @@ export function Chat({
 	availableModels = [],
 	initialVotes,
 }: ChatProps) {
-	// Model selection state
+	// =========================================================================
+	// Hooks
+	// =========================================================================
+
+	// Visibility state management
+	const { visibilityType } = useChatVisibility({
+		chatId: id,
+		initialVisibilityType,
+	})
+
+	// Data stream for artifact streaming
+	const { setDataStream } = useDataStream()
+
+	// Model selection with persistence
+	const { selectedModel, selectModel } = useModelSelection()
+
+	// Auth for session/guest detection
+	const { session } = useAuth()
+
+	// Artifact state
+	const { setArtifact } = useArtifact()
+	const isArtifactVisible = useArtifactSelector((state) => state.isVisible)
+
+	// Optimistic chats for immediate sidebar feedback
+	const {
+		addOptimisticChat,
+		updateOptimisticChatTitle,
+		removeOptimisticChat,
+	} = useOptimisticChats()
+
+	// =========================================================================
+	// State
+	// =========================================================================
+
+	// Model selection state - prefer persisted model for new chats
 	const [currentModelId, setCurrentModelId] = useState(initialChatModel)
 	const currentModelIdRef = useRef(currentModelId)
+
+	// Track if we've applied the persisted model (for new chats only)
+	const hasAppliedPersistedModel = useRef(false)
 
 	// Usage tracking (for future use with usage display)
 	const [_usage, setUsage] = useState<AppUsage | undefined>(
 		initialLastContext,
 	)
 
-	// Attachments for multimodal input (for Task 3.2c)
-	const [_attachments, _setAttachments] = useState<Attachment[]>([])
+	// Attachments for multimodal input (placeholder for Task 3.2c)
+	const [_attachments] = useState<Attachment[]>([])
+
+	// Input state
+	const [input, setInput] = useState("")
+
+	// Query parameter handling
+	const searchParams = useSearchParams()
+	const query = searchParams.get("query")
+	const [hasAppendedQuery, setHasAppendedQuery] = useState(false)
+
+	// Ref to track message count for onFinish callback
+	const messagesLengthRef = useRef(0)
+
+	// Ref to store timer IDs for cleanup
+	const titlePollTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+
+	// =========================================================================
+	// Effects
+	// =========================================================================
+
+	// Sync persisted model selection from localStorage after hydration (new chats only)
+	useEffect(() => {
+		if (
+			!hasAppliedPersistedModel.current &&
+			initialMessages.length === 0 &&
+			selectedModel &&
+			selectedModel !== currentModelId
+		) {
+			hasAppliedPersistedModel.current = true
+			setCurrentModelId(selectedModel)
+		}
+	}, [selectedModel, initialMessages.length, currentModelId])
 
 	// Sync ref with state
 	useEffect(() => {
 		currentModelIdRef.current = currentModelId
 	}, [currentModelId])
+
+	// Cleanup title poll timers on unmount
+	useEffect(() => {
+		return () => {
+			for (const timerId of titlePollTimersRef.current) {
+				clearTimeout(timerId)
+			}
+			titlePollTimersRef.current = []
+		}
+	}, [])
+
+	// Reset artifact visibility when navigating to a different chat
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Effect intentionally runs on id change only
+	useEffect(() => {
+		setArtifact({
+			...initialArtifactData,
+			boundingBox: {
+				...initialArtifactData.boundingBox,
+			},
+		})
+		// Cleanup data stream on unmount or chat change
+		return () => {
+			setDataStream([])
+		}
+	}, [id])
+
+	// =========================================================================
+	// Callbacks
+	// =========================================================================
+
+	// Handle model change with persistence
+	const handleModelChange = useCallback(
+		(modelId: string) => {
+			setCurrentModelId(modelId)
+			selectModel(modelId)
+		},
+		[selectModel],
+	)
+
+	// =========================================================================
+	// Adaptive Throttle
+	// =========================================================================
 
 	// Adaptive throttle based on connection speed
 	const optimalThrottle = useMemo(() => {
@@ -114,7 +255,10 @@ export function Chat({
 		return 100 // Default
 	}, [])
 
-	// useChat hook for AI streaming
+	// =========================================================================
+	// useChat Hook
+	// =========================================================================
+
 	const {
 		messages,
 		setMessages,
@@ -128,7 +272,7 @@ export function Chat({
 		id,
 		messages: initialMessages,
 		experimental_throttle: optimalThrottle,
-		generateId: () => crypto.randomUUID(),
+		generateId: generateUUID,
 		transport: new DefaultChatTransport({
 			api: "/api/chat",
 			prepareSendMessagesRequest(request) {
@@ -137,30 +281,147 @@ export function Chat({
 						id: request.id,
 						message: request.messages.at(-1),
 						selectedChatModel: currentModelIdRef.current,
-						selectedVisibilityType: initialVisibilityType,
+						selectedVisibilityType: visibilityType,
 						...request.body,
 					},
 				}
 			},
 		}),
 		onData: (dataPart) => {
+			// Handle artifact streaming
+			setDataStream((ds) => (ds ? [...ds, dataPart] : [dataPart]))
+
 			// Handle usage data
 			if (dataPart.type === "data-usage") {
 				setUsage(dataPart.data as AppUsage)
 			}
+
+			// Handle chat title updates
+			if (isDataChatTitlePart(dataPart)) {
+				// Update the optimistic chat title in-place from the stream
+				updateOptimisticChatTitle(id, dataPart.data)
+				// Also dispatch event for sidebar to refresh
+				window.dispatchEvent(new Event("chat-title-updated"))
+			}
+
+			// Handle appended messages
+			if (isDataAppendMessagePart(dataPart)) {
+				const data = dataPart.data
+				if (typeof data === "string") {
+					try {
+						const message = JSON.parse(data)
+						if (message?.id && message?.role) {
+							setMessages((prev) => [...prev, message])
+						}
+					} catch {
+						// Silently ignore parse errors
+					}
+				} else if (typeof data === "object" && data !== null) {
+					const obj = data as Record<string, unknown>
+					if (obj.id && obj.role) {
+						setMessages((prev) => [
+							...prev,
+							data as unknown as ChatMessage,
+						])
+					}
+				}
+			}
+		},
+		onFinish: () => {
+			// Poll for title updates for new chats
+			if (
+				initialMessages.length === 0 &&
+				messagesLengthRef.current >= 1
+			) {
+				// Clear any existing timers before setting new ones
+				for (const timerId of titlePollTimersRef.current) {
+					clearTimeout(timerId)
+				}
+				titlePollTimersRef.current = []
+
+				// New chat - poll for title updates with increasing delays
+				const pollDelays = [500, 1500, 3000]
+				for (const delay of pollDelays) {
+					const timerId = setTimeout(() => {
+						window.dispatchEvent(new Event("chat-title-updated"))
+					}, delay)
+					titlePollTimersRef.current.push(timerId)
+				}
+			}
+		},
+		onError: (error) => {
+			// Remove optimistic chat on error
+			removeOptimisticChat(id)
+			// Log error for debugging
+			console.error("Chat error:", error)
 		},
 	})
 
-	// Handle model change
-	const handleModelChange = useCallback((modelId: string) => {
-		setCurrentModelId(modelId)
-	}, [])
+	// Keep messagesLengthRef in sync
+	useEffect(() => {
+		messagesLengthRef.current = messages.length
+	}, [messages.length])
 
-	// Input state (placeholder - actual input component will be in Task 3.2c)
-	const [input, setInput] = useState("")
+	// Add optimistic chat when user sends first message
+	useEffect(() => {
+		if (
+			status === "submitted" &&
+			initialMessages.length === 0 &&
+			messages.length === 1
+		) {
+			// Extract initial title from first message for better UX
+			const firstMessage = messages[0]
+			const textPart = firstMessage?.parts?.find(
+				(p): p is { type: "text"; text: string } => p.type === "text",
+			)
+			const initialTitle =
+				textPart?.text?.slice(0, 80).trim() || "New Chat"
+
+			addOptimisticChat(id, initialTitle)
+		}
+	}, [status, messages, initialMessages.length, id, addOptimisticChat])
+
+	// Handle query parameter for initial message
+	// biome-ignore lint/correctness/useExhaustiveDependencies: sendMessage is stable from useChat
+	useEffect(() => {
+		if (query && !hasAppendedQuery) {
+			sendMessage({
+				role: "user" as const,
+				parts: [{ type: "text", text: query }],
+			})
+			setHasAppendedQuery(true)
+			window.history.replaceState({}, "", `/chat/${id}`)
+		}
+	}, [query, hasAppendedQuery, id])
+
+	// =========================================================================
+	// SWR for Votes
+	// =========================================================================
+
+	// Use server-provided votes (no client-side fetching for new messages)
+	const { data: votes } = useSWR<UserVote[]>(
+		`/api/vote?chatId=${id}`,
+		null, // No fetcher - we never fetch votes client-side
+		{
+			fallbackData: initialVotes || [],
+			revalidateOnFocus: false,
+			revalidateOnReconnect: false,
+			revalidateIfStale: false,
+		},
+	)
+
+	// =========================================================================
+	// Derived State
+	// =========================================================================
+
+	const isGuest = session?.user?.type === "guest"
+
+	// =========================================================================
+	// Render
+	// =========================================================================
 
 	return (
-		<div className="flex h-dvh min-w-0 flex-col bg-background">
+		<div className="overscroll-behavior-contain flex h-dvh min-w-0 touch-pan-y flex-col bg-background">
 			{/* Chat Header - placeholder for Task 3.2c */}
 			<div className="flex items-center justify-between border-b px-4 py-3">
 				<div className="flex items-center gap-2">
@@ -195,15 +456,15 @@ export function Chat({
 				chatError={chatError}
 				chatId={id}
 				clearError={clearError}
-				isArtifactVisible={false}
-				isGuest={false}
+				isArtifactVisible={isArtifactVisible}
+				isGuest={isGuest}
 				isReadonly={isReadonly}
 				messages={messages}
 				regenerate={regenerate}
 				selectedModelId={currentModelId}
 				setMessages={setMessages}
 				status={status}
-				votes={initialVotes}
+				votes={votes}
 			/>
 
 			{/* Input Area - placeholder for Task 3.2c */}

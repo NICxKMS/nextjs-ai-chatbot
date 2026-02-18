@@ -140,3 +140,19 @@ export type {
 	User,
 	Vote,
 } from "./types"
+
+// =============================================================================
+// Guest-Aware Data Strategy
+// =============================================================================
+
+export {
+	createGuestAwareStrategy,
+	type DbFetcher,
+	type GuestCacheOptions,
+	type GuestDataResult,
+	guestAwareDelete,
+	guestAwareGet,
+	guestAwareWrite,
+	guestCacheKey,
+	isGuestContext,
+} from "./guest-strategy"

@@ -2,13 +2,16 @@
  * Create Document Tool
  *
  * AI tool for creating new documents/artifacts via the chat interface.
- * Integrates with the artifact service for persistence.
+ * Integrates with the artifact service for persistence and delegates
+ * to artifact handlers for AI content generation.
  *
  * @module features/chat/lib/tools/create-document.tool
  */
 
 import { tool, type UIMessageStreamWriter } from "ai"
 import { z } from "zod"
+import { getArtifactHandler } from "@/features/artifact/handlers"
+import type { ArtifactKind } from "@/features/artifact/types"
 import type { ChatMessage } from "@/features/chat/types"
 import { ToolExecutionError } from "./errors"
 
@@ -41,6 +44,7 @@ export interface CreateDocumentContext {
 
 /**
  * Supported artifact kinds for document creation
+ * Must be a tuple for zod enum
  */
 const ARTIFACT_KINDS = ["text", "code", "image", "sheet"] as const
 
@@ -109,13 +113,17 @@ export function createCreateDocumentTool(context: CreateDocumentContext) {
 					transient: true,
 				})
 
-				// Note: The actual document creation with content streaming
-				// is handled by the AI model's response. This tool sets up
-				// the document metadata and returns the ID for reference.
-				//
-				// The document handler pattern from v5 (documentHandlersByArtifactKind)
-				// has been simplified in v6. The artifact is created when
-				// content is streamed via the data-stream handler.
+				// Get the appropriate handler for this artifact kind
+				// and delegate content generation to it
+				const documentHandler = getArtifactHandler(kind as ArtifactKind)
+
+				await documentHandler.createDocument({
+					id: documentId,
+					title,
+					dataStream: context.dataStream,
+					userId: context.userId,
+					chatId: context.chatId,
+				})
 
 				// Signal completion
 				context.dataStream.write({

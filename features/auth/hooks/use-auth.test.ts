@@ -269,7 +269,9 @@ describe("useAuthState", () => {
 
 			const consoleSpy = vi
 				.spyOn(console, "error")
-				.mockImplementation(() => {})
+				.mockImplementation(() => {
+					/* suppress console.error in test */
+				})
 
 			const { result } = renderHook(() => useAuthState())
 

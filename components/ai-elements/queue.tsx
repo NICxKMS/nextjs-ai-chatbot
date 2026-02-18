@@ -184,6 +184,7 @@ export const QueueItemImage = ({
 	className,
 	...props
 }: QueueItemImageProps) => (
+	// biome-ignore lint/performance/noImgElement: small thumbnail with dynamic src via props
 	<img
 		alt=""
 		aria-hidden="true"

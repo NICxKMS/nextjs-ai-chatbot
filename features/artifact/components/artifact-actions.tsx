@@ -4,6 +4,9 @@
  * Toolbar component for artifact actions like version switching,
  * saving, and type-specific actions.
  *
+ * Uses the artifact registry for type-specific actions and provides
+ * default actions (copy, version navigation) for all artifact types.
+ *
  * @module features/artifact/components/artifact-actions
  */
 "use client"
@@ -11,6 +14,7 @@
 import { memo, useState } from "react"
 import { toast } from "sonner"
 
+import { CopyIcon, EyeIcon, RedoIcon, UndoIcon } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import {
 	Tooltip,
@@ -19,55 +23,74 @@ import {
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
+import { getArtifactDefinition } from "../lib"
 import type {
+	ArtifactAction,
 	ArtifactActionContext,
 	ArtifactActionsProps,
-	ArtifactDefinition,
 	ArtifactKind,
 } from "../types"
 
 /**
- * Default artifact definitions for built-in artifact types.
- * These provide basic actions for each artifact kind.
+ * Default actions available for all artifact types
+ * These provide version navigation and copy functionality
  */
-const defaultArtifactDefinitions: ArtifactDefinition[] = [
-	{
-		kind: "text",
-		name: "Text",
-		description: "Text document",
-		actions: [],
-		content: () => null,
-	},
-	{
-		kind: "code",
-		name: "Code",
-		description: "Code artifact",
-		actions: [],
-		content: () => null,
-	},
-	{
-		kind: "image",
-		name: "Image",
-		description: "Image artifact",
-		actions: [],
-		content: () => null,
-	},
-	{
-		kind: "sheet",
-		name: "Sheet",
-		description: "Spreadsheet artifact",
-		actions: [],
-		content: () => null,
-	},
-]
+function createDefaultActions(): ArtifactAction[] {
+	return [
+		{
+			description: "View changes",
+			icon: <EyeIcon size={18} />,
+			onClick: ({ handleVersionChange }: ArtifactActionContext) => {
+				handleVersionChange("toggle")
+			},
+			isDisabled: ({ currentVersionIndex }: ArtifactActionContext) => {
+				return currentVersionIndex === 0
+			},
+		},
+		{
+			description: "View Previous version",
+			icon: <UndoIcon size={18} />,
+			onClick: ({ handleVersionChange }: ArtifactActionContext) => {
+				handleVersionChange("prev")
+			},
+			isDisabled: ({ currentVersionIndex }: ArtifactActionContext) => {
+				return currentVersionIndex === 0
+			},
+		},
+		{
+			description: "View Next version",
+			icon: <RedoIcon size={18} />,
+			onClick: ({ handleVersionChange }: ArtifactActionContext) => {
+				handleVersionChange("next")
+			},
+			isDisabled: ({ isCurrentVersion }: ArtifactActionContext) => {
+				return isCurrentVersion
+			},
+		},
+		{
+			description: "Copy to clipboard",
+			icon: <CopyIcon size={18} />,
+			onClick: ({ content }: ArtifactActionContext) => {
+				navigator.clipboard.writeText(content)
+				toast.success("Copied to clipboard!")
+			},
+		},
+	]
+}
 
 /**
- * Get artifact definition by kind
+ * Get all actions for an artifact kind, combining:
+ * 1. Type-specific actions from the registry
+ * 2. Default actions (version navigation, copy)
  */
-function getArtifactDefinition(
-	kind: ArtifactKind,
-): ArtifactDefinition | undefined {
-	return defaultArtifactDefinitions.find((def) => def.kind === kind)
+function getActionsForKind(kind: ArtifactKind): ArtifactAction[] {
+	const definition = getArtifactDefinition(kind)
+	const registeredActions = definition?.actions ?? []
+
+	// If registered actions exist, use them; otherwise use defaults
+	return registeredActions.length > 0
+		? registeredActions
+		: createDefaultActions()
 }
 
 function PureArtifactActions({
@@ -81,10 +104,10 @@ function PureArtifactActions({
 }: ArtifactActionsProps) {
 	const [isLoading, setIsLoading] = useState(false)
 
-	const artifactDefinition = getArtifactDefinition(artifact.kind)
+	const actions = getActionsForKind(artifact.kind)
 
-	// Gracefully handle missing artifact definition instead of crashing the React tree.
-	if (!artifactDefinition) {
+	// If no actions available, render nothing
+	if (actions.length === 0) {
 		return null
 	}
 
@@ -98,17 +121,9 @@ function PureArtifactActions({
 		setMetadata,
 	}
 
-	// If no actions defined, render nothing
-	if (
-		!artifactDefinition.actions ||
-		artifactDefinition.actions.length === 0
-	) {
-		return null
-	}
-
 	return (
 		<div className="flex flex-row gap-1">
-			{artifactDefinition.actions.map((action) => (
+			{actions.map((action) => (
 				<Tooltip key={action.description}>
 					<TooltipTrigger asChild>
 						<Button

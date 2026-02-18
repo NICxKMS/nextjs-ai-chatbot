@@ -9,10 +9,12 @@
 
 "use client"
 
+import { ChevronUp } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
 import { useEffect, useState } from "react"
+import { toast } from "sonner"
 import { LoaderIcon } from "@/components/icons"
 import {
 	DropdownMenu,
@@ -38,7 +40,7 @@ import type { SidebarUserNavProps } from "../types"
  */
 export function SidebarUserNav({ user }: SidebarUserNavProps) {
 	const router = useRouter()
-	const { session, status } = useAuth()
+	const { session, status, setSession } = useAuth()
 	const { setTheme, resolvedTheme } = useTheme()
 	const [mounted, setMounted] = useState(false)
 
@@ -96,6 +98,7 @@ export function SidebarUserNav({ user }: SidebarUserNavProps) {
 								>
 									{displayLabel}
 								</span>
+								<ChevronUp className="ml-auto" />
 							</SidebarMenuButton>
 						)}
 					</DropdownMenuTrigger>
@@ -126,21 +129,37 @@ export function SidebarUserNav({ user }: SidebarUserNavProps) {
 								className="w-full cursor-pointer"
 								onClick={() => {
 									if (status === "loading") {
-										// Still loading, wait
+										toast.error(
+											"Checking authentication status, please try again",
+										)
 										return
 									}
 
 									if (!session || isGuest) {
 										router.push("/login")
 									} else {
-										// Call server-side logout
+										// Call server-side logout to properly invalidate cookies
 										fetch("/api/auth/logout", {
 											method: "POST",
 											credentials: "include",
-										}).then(() => {
-											router.push("/")
-											router.refresh()
 										})
+											.then((response) => {
+												if (response.ok) {
+													// Clear session state on client
+													setSession(null)
+													router.push("/")
+													router.refresh()
+												} else {
+													toast.error(
+														"Failed to sign out, please try again",
+													)
+												}
+											})
+											.catch(() => {
+												toast.error(
+													"Failed to sign out, please try again",
+												)
+											})
 									}
 								}}
 								type="button"

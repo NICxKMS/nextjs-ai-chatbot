@@ -2,53 +2,46 @@
  * File Upload API Route
  *
  * Handles file uploads via multipart form data. Uses Vercel Blob storage.
+ * Rate limited to 10 uploads per hour per user to prevent abuse.
+ *
+ * Uses centralized file validation from lib/utils/file-validation.ts for:
+ * - MIME type validation (16 explicit types + image/audio/video prefixes)
+ * - File size limits (5MB for attachments)
+ * - Filename sanitization (path traversal prevention)
  *
  * @module app/api/files/upload/route
  */
 
 import { randomUUID } from "node:crypto"
 import { put } from "@vercel/blob"
-import { error, success } from "@/lib/api"
+import { error, rateLimit, success } from "@/lib/api"
 import { requireAuthAction } from "@/lib/auth/guards"
 import { ValidationError } from "@/lib/errors"
-
-/** Maximum file size: 10MB */
-const MAX_FILE_SIZE = 10 * 1024 * 1024
-
-/** Allowed file types */
-const ALLOWED_TYPES = [
-	"image/jpeg",
-	"image/png",
-	"image/gif",
-	"image/webp",
-	"application/pdf",
-	"text/plain",
-	"text/markdown",
-]
-
-/**
- * Sanitize filename to prevent path traversal
- */
-function sanitizeFilename(name: string): string {
-	// biome-ignore lint/suspicious/noControlCharactersInRegex: null byte removal for security
-	const sanitized = name.replace(/[/\\:\x00]/g, "")
-	const lastDot = sanitized.lastIndexOf(".")
-	const hasExtension = lastDot > 0 && lastDot < sanitized.length - 1
-	const extension = hasExtension ? sanitized.slice(lastDot) : ""
-	const baseName = hasExtension ? sanitized.slice(0, lastDot) : sanitized
-	const cleanBaseName = baseName.replace(/[^a-zA-Z0-9._-]/g, "_")
-	const maxBaseLength = 100 - extension.length
-	const truncatedBase = cleanBaseName.slice(0, maxBaseLength)
-	return truncatedBase + extension
-}
+import {
+	checkUploadLimit,
+	createRateLimitHeaders,
+	getRetryAfter,
+} from "@/lib/rate-limit"
+import {
+	ATTACHMENT_MAX_FILE_SIZE,
+	validateFile,
+} from "@/lib/utils/file-validation"
 
 /**
  * POST /api/files/upload
  * Upload a file to Vercel Blob storage.
+ * Rate limited to 10 uploads per hour per user.
  */
 export async function POST(request: Request) {
 	try {
-		await requireAuthAction()
+		const userId = await requireAuthAction()
+
+		// Check rate limit before processing upload
+		const rateLimitResult = await checkUploadLimit(userId)
+		if (!rateLimitResult.success) {
+			const retryAfterSeconds = getRetryAfter(rateLimitResult.reset)
+			return rateLimit(retryAfterSeconds)
+		}
 
 		if (!process.env.BLOB_READ_WRITE_TOKEN) {
 			throw new ValidationError("File storage not configured")
@@ -61,23 +54,41 @@ export async function POST(request: Request) {
 			throw new ValidationError("No file uploaded")
 		}
 
-		// Validate file size
-		if (file.size > MAX_FILE_SIZE) {
-			throw new ValidationError("File size exceeds 10MB limit")
+		// Convert Blob to File if needed for validation
+		const blobFile = file as Blob
+		const fileToValidate: File =
+			file instanceof File
+				? file
+				: new File([blobFile], `upload-${randomUUID()}`, {
+						type: blobFile.type || "application/octet-stream",
+					})
+
+		// Validate file using centralized validation utilities
+		const validationResult = await validateFile(fileToValidate, {
+			maxSizeBytes: ATTACHMENT_MAX_FILE_SIZE,
+		})
+
+		if (!validationResult.valid) {
+			const errorMessage = validationResult.errors.join("; ")
+
+			// Return appropriate HTTP status codes based on error type
+			// 413 Payload Too Large for file size errors
+			if (!validationResult.size.valid) {
+				return error(new ValidationError(errorMessage), { status: 413 })
+			}
+
+			// 415 Unsupported Media Type for MIME type errors
+			if (!validationResult.type.valid) {
+				return error(new ValidationError(errorMessage), { status: 415 })
+			}
+
+			// 400 Bad Request for other validation failures
+			throw new ValidationError(errorMessage)
 		}
 
-		// Validate file type
+		// Use sanitized filename from validation
+		const filename = validationResult.sanitizedFilename
 		const contentType = file.type || "application/octet-stream"
-		if (!ALLOWED_TYPES.includes(contentType)) {
-			throw new ValidationError(`Unsupported file type: ${contentType}`)
-		}
-
-		// Sanitize filename
-		const rawFilename =
-			file instanceof File && file.name
-				? file.name
-				: `upload-${randomUUID()}`
-		const filename = sanitizeFilename(rawFilename)
 
 		// Upload to Vercel Blob
 		const blob = await put(filename, file, {
@@ -86,12 +97,21 @@ export async function POST(request: Request) {
 			token: process.env.BLOB_READ_WRITE_TOKEN,
 		})
 
-		return success({
+		// Return success with rate limit headers
+		const response = success({
 			url: blob.url,
 			pathname: blob.pathname,
 			contentType,
 			filename,
 		})
+
+		// Add rate limit headers to response
+		const rateLimitHeaders = createRateLimitHeaders(rateLimitResult)
+		rateLimitHeaders.forEach((value, key) => {
+			response.headers.set(key, value)
+		})
+
+		return response
 	} catch (err) {
 		return error(err)
 	}
