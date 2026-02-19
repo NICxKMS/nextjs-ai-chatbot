@@ -24,6 +24,7 @@ export {
 export {
 	type DeleteTrailingMessagesInput,
 	type DeleteTrailingMessagesResult,
+	deleteTrailingMessages,
 	deleteTrailingMessagesAction,
 } from "./delete-trailing-messages.action"
 // Get History
@@ -64,6 +65,7 @@ export {
 export {
 	type UpdateVisibilityInput,
 	type UpdateVisibilityResult,
+	updateChatVisibility,
 	updateVisibilityAction,
 	type VisibilityType,
 } from "./update-visibility.action"

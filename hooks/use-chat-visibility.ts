@@ -18,6 +18,24 @@ import {
 	updateVisibilityAction,
 	type VisibilityType,
 } from "@/features/chat/actions"
+import type { ChatHistory } from "@/features/sidebar"
+
+const HISTORY_PAGE_SIZE = 20
+
+function getChatHistoryPaginationKey(
+	pageIndex: number,
+	previousPageData: ChatHistory | null,
+): string | null {
+	if (pageIndex === 0) {
+		return `/api/history?limit=${HISTORY_PAGE_SIZE}`
+	}
+
+	if (!previousPageData?.hasMore || !previousPageData.nextCursor) {
+		return null
+	}
+
+	return `/api/history?limit=${HISTORY_PAGE_SIZE}&cursor=${previousPageData.nextCursor}&direction=forward`
+}
 
 /**
  * Hook to manage chat visibility with optimistic updates
@@ -37,10 +55,8 @@ export function useChatVisibility({
 	// Track pending visibility update for request deduplication
 	const pendingUpdateRef = useRef<AbortController | null>(null)
 
-	// Use useSWRInfinite to properly subscribe to history changes
-	// This ensures reactive updates when history data changes, unlike direct cache access
-	useSWRInfinite<unknown>(
-		() => "/api/history",
+	const { data: historyPages } = useSWRInfinite<ChatHistory>(
+		getChatHistoryPaginationKey,
 		null, // No fetcher - we just want to read from cache
 		{
 			revalidateOnFocus: false,
@@ -59,11 +75,28 @@ export function useChatVisibility({
 	)
 
 	const visibilityType = useMemo(() => {
-		// For now, just use local visibility since we don't have the full history type
+		if (!historyPages || historyPages.length === 0) {
+			return localVisibility
+		}
+
+		for (const historyPage of historyPages) {
+			const chat = historyPage.chats.find(
+				(currentChat) => currentChat.id === chatId,
+			)
+
+			if (chat) {
+				return chat.visibility
+			}
+		}
+
 		return localVisibility
-	}, [localVisibility])
+	}, [chatId, historyPages, localVisibility])
 
 	const setVisibilityType = async (updatedVisibilityType: VisibilityType) => {
+		if (updatedVisibilityType === visibilityType) {
+			return
+		}
+
 		// Cancel any pending visibility update to prevent race conditions
 		if (pendingUpdateRef.current) {
 			pendingUpdateRef.current.abort()
@@ -94,7 +127,14 @@ export function useChatVisibility({
 				// Rollback on failure
 				setLocalVisibility(previousVisibility)
 				toast.error(result.error || "Failed to update visibility")
+				return
 			}
+
+			toast.success(
+				updatedVisibilityType === "public"
+					? "Chat is now public"
+					: "Chat is now private",
+			)
 		} catch (error) {
 			// Don't rollback if this request was aborted (superseded by newer request)
 			if (error instanceof Error && error.name === "AbortError") {

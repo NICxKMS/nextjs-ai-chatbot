@@ -367,6 +367,14 @@ export abstract class BaseRepository<
 				return cached.value
 			}
 
+			if (context?.isGuest) {
+				logDebug("Repository guest cache miss - skipping DB fallback", {
+					key,
+					id,
+				})
+				return null
+			}
+
 			// Cache miss - fetch from database
 			logDebug("Repository cache miss", { key, id })
 			const result = await this.doFindById(id, context)
@@ -416,6 +424,20 @@ export abstract class BaseRepository<
 					}
 					return cached.value
 				}
+
+				if (context?.isGuest) {
+					logDebug(
+						"Repository guest list cache miss - skipping DB fallback",
+						{ listKey },
+					)
+					return []
+				}
+			} else if (context?.isGuest) {
+				logDebug(
+					"Repository guest filtered query - skipping DB fallback",
+					{ listKey, options },
+				)
+				return []
 			}
 
 			// Fetch from database

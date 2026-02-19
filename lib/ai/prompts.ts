@@ -67,6 +67,8 @@ You have access to "Artifacts", a side-panel UI for creating and editing content
  * Derived from Vercel's Geo information.
  */
 export interface RequestHints {
+	/** Client IP address (best-effort, from forwarded headers) */
+	ip?: string | undefined
 	/** Latitude coordinate */
 	latitude: number | undefined
 	/** Longitude coordinate */
@@ -86,6 +88,7 @@ export interface RequestHints {
 export function getRequestPromptFromHints(requestHints: RequestHints): string {
 	return `\
 About the origin of user's request:
+- ip: ${requestHints.ip}
 - lat: ${requestHints.latitude}
 - lon: ${requestHints.longitude}
 - city: ${requestHints.city}

@@ -8,20 +8,23 @@
  */
 
 import { geolocation } from "@vercel/functions"
-import {
-	createUIMessageStream,
-	JsonToSseTransformStream,
-	type UIMessage,
-} from "ai"
+import { JsonToSseTransformStream, type UIMessage } from "ai"
 import type { ModelCatalog } from "tokenlens/core"
 import {
-	type ChatMessage,
+	createStreamChatMessageStream,
+	validateStreamChatPreflight,
+} from "@/features/chat/actions/stream-chat.action"
+import {
+	type ChatRouteRequestInput,
+	ChatRouteRequestSchema,
+} from "@/features/chat/schemas"
+import {
+	type AppUsage,
 	type ChatSettings,
-	executeChatCompletion,
 	generatePlaceholderTitle,
 	generateTitleFromUserMessage,
-	isValidModelId,
 } from "@/lib/ai"
+import { error as apiErrorResponse, isValidUUID } from "@/lib/api"
 import { getSession } from "@/lib/auth/session"
 import type { RepositoryContext } from "@/lib/data/repositories"
 import { chatService } from "@/lib/data/services/chat.service"
@@ -35,26 +38,6 @@ import {
 } from "@/lib/errors"
 import { logError, logInfo, logWarn } from "@/lib/log"
 import { checkChatLimit, getRetryAfter } from "@/lib/rate-limit"
-
-// =============================================================================
-// Types
-// =============================================================================
-
-/**
- * Request body for chat POST
- */
-interface ChatPostBody {
-	/** Chat ID (UUID) */
-	id: string
-	/** User message */
-	message: UIMessage
-	/** Selected AI model ID */
-	selectedChatModel: string
-	/** Visibility type */
-	selectedVisibilityType: "public" | "private"
-	/** Optional settings */
-	settings?: ChatSettings
-}
 
 // =============================================================================
 // Constants
@@ -88,13 +71,17 @@ async function getTokenlensCatalog(): Promise<ModelCatalog | undefined> {
  */
 function convertToUIMessages(
 	messages: Array<{
-		id: string
+		id?: string | null
 		role: string
 		parts: unknown
 		createdAt: Date
 	}>,
 ): UIMessage[] {
 	return messages.map((m) => {
+		if (!m.id) {
+			throw new ValidationError("Message is missing id")
+		}
+
 		// Cast parts to the expected format
 		const parts = m.parts as UIMessage["parts"]
 		return {
@@ -113,6 +100,49 @@ function generateUUID(): string {
 	return crypto.randomUUID()
 }
 
+function normalizeRetryAfter(value: unknown): number | undefined {
+	if (typeof value !== "number" || !Number.isFinite(value)) {
+		return undefined
+	}
+
+	const retryAfter = Math.floor(value)
+	return retryAfter > 0 ? retryAfter : undefined
+}
+
+function createChatErrorResponse(
+	error: unknown,
+	selectedModelId?: string,
+): Response {
+	let normalizedError = error
+
+	if (
+		error instanceof Error &&
+		error.message.includes(
+			"AI Gateway requires a valid credit card on file to service requests",
+		)
+	) {
+		const message = selectedModelId?.startsWith("vercel-gateway:")
+			? "The selected Vercel AI Gateway model requires an active gateway billing setup."
+			: error.message
+
+		normalizedError = new ValidationError(message)
+	}
+
+	const response = apiErrorResponse(normalizedError)
+
+	if (normalizedError instanceof RateLimitError) {
+		const retryAfter = normalizeRetryAfter(
+			normalizedError.details?.retryAfter,
+		)
+
+		if (retryAfter !== undefined) {
+			response.headers.set("Retry-After", String(retryAfter))
+		}
+	}
+
+	return response
+}
+
 // =============================================================================
 // POST Handler
 // =============================================================================
@@ -125,43 +155,50 @@ export async function POST(request: Request) {
 	let selectedModelId = ""
 
 	try {
-		// Parse request body
-		const body: ChatPostBody = await request.json()
-		const {
-			id: chatId,
-			message,
-			selectedChatModel,
-			selectedVisibilityType,
-		} = body
+		// Parse and validate request body
+		let rawBody: unknown
+		try {
+			rawBody = await request.json()
+		} catch {
+			throw new ValidationError("Request body must be valid JSON")
+		}
+
+		const parsedBody = ChatRouteRequestSchema.safeParse(rawBody)
+		if (!parsedBody.success) {
+			throw new ValidationError("Invalid chat request body", {
+				errors: parsedBody.error.flatten().fieldErrors,
+			})
+		}
+
+		const body: ChatRouteRequestInput = parsedBody.data
+		const chatId = body.id
+		const selectedChatModel = body.selectedChatModel ?? body.selectedModel
+
+		if (!selectedChatModel) {
+			throw new ValidationError("Selected model is required")
+		}
+
+		const selectedVisibilityType = body.selectedVisibilityType ?? "private"
+
+		const message: UIMessage = {
+			id: body.message.id ?? generateUUID(),
+			role: body.message.role,
+			parts: (body.message.parts ?? [
+				{
+					type: "text",
+					text: body.message.content ?? "",
+				},
+			]) as UIMessage["parts"],
+			...(body.message.createdAt && {
+				createdAt: body.message.createdAt,
+			}),
+		}
 
 		selectedModelId = selectedChatModel
 
-		// Validate model ID
-		if (!isValidModelId(selectedChatModel)) {
-			throw new ValidationError("Invalid model ID")
-		}
-
-		// Get session
-		const session = await getSession()
-		if (!session?.user?.id) {
-			throw new UnauthorizedError("Authentication required")
-		}
-
-		// Check rate limit
-		const rateLimitResult = await checkChatLimit(session.user.id)
-		if (!rateLimitResult.success) {
-			const retryAfter = getRetryAfter(rateLimitResult.reset)
-			throw new RateLimitError(
-				"Too many requests. Please wait before sending another message.",
-				{ retryAfter },
-			)
-		}
-
-		// Create repository context
-		const ctx: RepositoryContext = {
-			userId: session.user.id,
-			isGuest: session.user.type === "guest",
-		}
+		const { session, ctx } = await validateStreamChatPreflight({
+			selectedModelId: selectedChatModel,
+		})
 
 		// Check if this is a new chat
 		let existingChat = null
@@ -212,7 +249,10 @@ export async function POST(request: Request) {
 
 		// Extract geo hints from request headers for location-aware responses
 		const geoData = geolocation(request)
+		const forwardedFor = request.headers.get("x-forwarded-for")
+		const clientIp = forwardedFor?.split(",")[0]?.trim()
 		const requestHints = {
+			ip: clientIp,
 			latitude: geoData.latitude
 				? Number.parseFloat(geoData.latitude)
 				: undefined,
@@ -230,11 +270,63 @@ export async function POST(request: Request) {
 
 		// Track title generation
 		let generatedTitlePromise: Promise<string> | null = null
+		let finalUsageContext: AppUsage | undefined
 		const tokenlensCatalogPromise = getTokenlensCatalog()
 
+		const normalizedSampling = body.settings?.sampling
+			? {
+					...(body.settings.sampling.temperature !== undefined && {
+						temperature: body.settings.sampling.temperature,
+					}),
+					...(body.settings.sampling.topP !== undefined && {
+						topP: body.settings.sampling.topP,
+					}),
+					...(body.settings.sampling.maxOutputTokens !==
+						undefined && {
+						maxOutputTokens: body.settings.sampling.maxOutputTokens,
+					}),
+				}
+			: undefined
+
+		const chatSettings: ChatSettings | undefined = body.settings
+			? {
+					...(body.settings.systemPrompt !== undefined && {
+						systemPrompt: body.settings.systemPrompt,
+					}),
+					...(normalizedSampling &&
+						Object.keys(normalizedSampling).length > 0 && {
+							sampling: normalizedSampling,
+						}),
+				}
+			: undefined
+
+		const requestBody: { settings?: ChatSettings } = {}
+		if (chatSettings) {
+			requestBody.settings = chatSettings
+		}
+
 		// Create the UI message stream
-		const stream = createUIMessageStream<ChatMessage>({
-			execute: ({ writer: dataStream }) => {
+		const stream = createStreamChatMessageStream({
+			completion: {
+				selectedChatModel,
+				requestHints,
+				requestBody,
+				uiMessages,
+				chatId,
+				session,
+				tokenlensCatalogPromise,
+				onUsageCalculated: (usage) => {
+					finalUsageContext = usage
+					logInfo("AI usage calculated", {
+						chatId,
+						modelId: selectedChatModel,
+						inputTokens: usage.inputTokens,
+						outputTokens: usage.outputTokens,
+						totalTokens: usage.totalTokens,
+					})
+				},
+			},
+			onBeforeExecute: (dataStream) => {
 				logInfo("Starting chat completion", {
 					chatId,
 					modelId: selectedChatModel,
@@ -242,13 +334,11 @@ export async function POST(request: Request) {
 					userId: session.user.id,
 				})
 
-				// Start title generation early (non-blocking)
 				if (isNewChat) {
 					generatedTitlePromise = generateTitleFromUserMessage({
 						message,
 					})
 						.then((title) => {
-							// Send title to client when ready
 							try {
 								dataStream.write({
 									type: "data-chatTitle",
@@ -277,66 +367,23 @@ export async function POST(request: Request) {
 							return placeholderTitle ?? "New Chat"
 						})
 				}
-
-				// Build settings conditionally for exactOptionalPropertyTypes
-				// Only include properties that are defined
-				const chatSettings: ChatSettings | undefined = body.settings
-					? {
-							...(body.settings.systemPrompt && {
-								systemPrompt: body.settings.systemPrompt,
-							}),
-							...(body.settings.sampling && {
-								sampling: body.settings.sampling,
-							}),
-						}
-					: undefined
-
-				// Build request body conditionally
-				const requestBody: { settings?: ChatSettings } = {}
-				if (chatSettings) {
-					requestBody.settings = chatSettings
-				}
-
-				// Execute AI completion
-				try {
-					executeChatCompletion({
-						selectedChatModel,
-						requestHints,
-						requestBody,
-						uiMessages,
+			},
+			onExecutionError: (completionError, dataStream) => {
+				logError(
+					"AI completion initialization failed",
+					completionError as Error,
+					{
 						chatId,
-						session,
-						dataStream,
-						tokenlensCatalogPromise,
-						onUsageCalculated: (usage) => {
-							// Usage is logged and can be stored for analytics
-							logInfo("AI usage calculated", {
-								chatId,
-								modelId: selectedChatModel,
-								inputTokens: usage.inputTokens,
-								outputTokens: usage.outputTokens,
-								totalTokens: usage.totalTokens,
-							})
-						},
-					})
-				} catch (completionError) {
-					logError(
-						"AI completion initialization failed",
-						completionError as Error,
-						{
-							chatId,
-							modelId: selectedChatModel,
-							userId: session.user.id,
-						},
-					)
+						modelId: selectedChatModel,
+						userId: session.user.id,
+					},
+				)
 
-					// Write error to stream
-					dataStream.write({
-						type: "error",
-						errorText:
-							"Failed to start AI completion. Please try again.",
-					})
-				}
+				dataStream.write({
+					type: "error",
+					errorText:
+						"Failed to start AI completion. Please try again.",
+				})
 			},
 			generateId: generateUUID,
 			onFinish: async ({ messages }) => {
@@ -392,6 +439,9 @@ export async function POST(request: Request) {
 							messages: messagesToSave,
 							title: initialTitle,
 							visibility: selectedVisibilityType,
+							...(finalUsageContext !== undefined && {
+								lastContext: finalUsageContext,
+							}),
 						},
 						ctx,
 					)
@@ -471,7 +521,7 @@ export async function POST(request: Request) {
 					})
 				}
 			},
-			onError: (error) => {
+			onError: (error: unknown) => {
 				logError("Stream error in chat completion", error as Error, {
 					chatId,
 					modelId: selectedChatModel,
@@ -488,45 +538,7 @@ export async function POST(request: Request) {
 			modelId: selectedModelId,
 		})
 
-		if (error instanceof ValidationError) {
-			return new Response(JSON.stringify({ error: error.message }), {
-				status: 400,
-				headers: { "Content-Type": "application/json" },
-			})
-		}
-
-		if (error instanceof UnauthorizedError) {
-			return new Response(JSON.stringify({ error: error.message }), {
-				status: 401,
-				headers: { "Content-Type": "application/json" },
-			})
-		}
-
-		if (error instanceof ForbiddenError) {
-			return new Response(JSON.stringify({ error: error.message }), {
-				status: 403,
-				headers: { "Content-Type": "application/json" },
-			})
-		}
-
-		if (error instanceof RateLimitError) {
-			const retryAfter = error.details?.retryAfter ?? 60
-			return new Response(JSON.stringify({ error: error.message }), {
-				status: 429,
-				headers: {
-					"Content-Type": "application/json",
-					"Retry-After": String(retryAfter),
-				},
-			})
-		}
-
-		return new Response(
-			JSON.stringify({ error: "An unexpected error occurred" }),
-			{
-				status: 500,
-				headers: { "Content-Type": "application/json" },
-			},
-		)
+		return createChatErrorResponse(error, selectedModelId)
 	}
 }
 
@@ -561,9 +573,7 @@ export async function DELETE(request: Request) {
 		}
 
 		// Validate UUID format
-		const uuidRegex =
-			/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-		if (!uuidRegex.test(chatId)) {
+		if (!isValidUUID(chatId)) {
 			throw new ValidationError("Invalid chat ID format")
 		}
 
@@ -597,6 +607,7 @@ export async function DELETE(request: Request) {
 			userId: session.user.id,
 			messagesDeleted: result.messagesDeleted,
 			votesDeleted: result.votesDeleted,
+			suggestionsDeleted: result.suggestionsDeleted,
 		})
 
 		return new Response(JSON.stringify({ id: chatId }), {
@@ -606,51 +617,6 @@ export async function DELETE(request: Request) {
 	} catch (error) {
 		logError("Chat deletion failed", error as Error)
 
-		if (error instanceof ValidationError) {
-			return new Response(JSON.stringify({ error: error.message }), {
-				status: 400,
-				headers: { "Content-Type": "application/json" },
-			})
-		}
-
-		if (error instanceof UnauthorizedError) {
-			return new Response(JSON.stringify({ error: error.message }), {
-				status: 401,
-				headers: { "Content-Type": "application/json" },
-			})
-		}
-
-		if (error instanceof ForbiddenError) {
-			return new Response(JSON.stringify({ error: error.message }), {
-				status: 403,
-				headers: { "Content-Type": "application/json" },
-			})
-		}
-
-		if (error instanceof NotFoundError) {
-			return new Response(JSON.stringify({ error: error.message }), {
-				status: 404,
-				headers: { "Content-Type": "application/json" },
-			})
-		}
-
-		if (error instanceof RateLimitError) {
-			const retryAfter = error.details?.retryAfter ?? 60
-			return new Response(JSON.stringify({ error: error.message }), {
-				status: 429,
-				headers: {
-					"Content-Type": "application/json",
-					"Retry-After": String(retryAfter),
-				},
-			})
-		}
-
-		return new Response(
-			JSON.stringify({ error: "An unexpected error occurred" }),
-			{
-				status: 500,
-				headers: { "Content-Type": "application/json" },
-			},
-		)
+		return createChatErrorResponse(error)
 	}
 }

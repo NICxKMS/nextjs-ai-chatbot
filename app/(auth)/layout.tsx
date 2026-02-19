@@ -41,7 +41,7 @@ export const metadata: Metadata = {
  * @example
  * ```tsx
  * // Wraps login, register, forgot-password pages
- * // Authenticated users are redirected to /chat
+ * // Authenticated users are redirected to /
  * ```
  */
 export default async function AuthLayout({
@@ -52,9 +52,9 @@ export default async function AuthLayout({
 	// Check if user is already authenticated
 	const session = await getSession()
 
-	// Redirect authenticated users to chat
+	// Redirect authenticated users to home
 	if (session?.user) {
-		redirect("/chat")
+		redirect("/")
 	}
 
 	return (

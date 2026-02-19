@@ -31,6 +31,7 @@ import {
 	SidebarMenu,
 	useSidebar,
 } from "@/components/ui/sidebar"
+import { useAuth } from "@/features/auth"
 import type { Chat } from "@/lib/db/schema"
 import { deleteChat } from "../actions"
 import { useOptimisticChats } from "../hooks"
@@ -148,6 +149,66 @@ const convertToVirtuosoGroups = (
 	return groups
 }
 
+/**
+ * API response envelope for /api/history
+ */
+interface HistoryApiEnvelope {
+	success: boolean
+	data?: {
+		data?: Chat[]
+		pagination?: {
+			nextCursor?: string | null
+			hasMore?: boolean
+		}
+	}
+}
+
+/**
+ * Parse /api/history response into sidebar history shape.
+ */
+function parseHistoryResponse(payload: unknown): ChatHistory {
+	if (
+		typeof payload === "object" &&
+		payload !== null &&
+		"success" in payload
+	) {
+		const envelope = payload as HistoryApiEnvelope
+		if (envelope.success) {
+			const chats = envelope.data?.data
+			const hasMore = envelope.data?.pagination?.hasMore
+			const nextCursor = envelope.data?.pagination?.nextCursor
+
+			if (Array.isArray(chats)) {
+				return {
+					chats,
+					hasMore: Boolean(hasMore),
+					nextCursor: nextCursor ?? null,
+				}
+			}
+		}
+	}
+
+	if (
+		typeof payload === "object" &&
+		payload !== null &&
+		"chats" in payload &&
+		Array.isArray((payload as ChatHistory).chats)
+	) {
+		const legacyPayload = payload as ChatHistory
+		return {
+			chats: legacyPayload.chats,
+			hasMore: legacyPayload.hasMore,
+			nextCursor: legacyPayload.nextCursor ?? null,
+		}
+	}
+
+	return {
+		chats: [],
+		hasMore: false,
+		nextCursor: null,
+	}
+}
+
 // =============================================================================
 // Component
 // =============================================================================
@@ -162,6 +223,7 @@ export function SidebarHistory({ user }: SidebarHistoryProps) {
 	const { setOpenMobile, open: isSidebarOpen } = useSidebar()
 	const { id } = useParams()
 	const router = useRouter()
+	const { isNewSession } = useAuth()
 
 	// Optimistic chats management
 	const { optimisticChats, removeOptimisticChat } = useOptimisticChats()
@@ -170,6 +232,7 @@ export function SidebarHistory({ user }: SidebarHistoryProps) {
 	const [chats, setChats] = useState<Chat[]>([])
 	const [isLoading, setIsLoading] = useState(true)
 	const [hasMore, setHasMore] = useState(false)
+	const [nextCursor, setNextCursor] = useState<string | null>(null)
 	const [isLoadingMore, setIsLoadingMore] = useState(false)
 	const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
 
@@ -190,23 +253,30 @@ export function SidebarHistory({ user }: SidebarHistoryProps) {
 
 	// Fetch chat history
 	const fetchChats = useCallback(
-		async (endingBefore?: string) => {
+		async (cursor?: string) => {
 			if (!user) return
 
 			try {
-				const response = await fetch(
-					`/api/history?limit=${PAGE_SIZE}${endingBefore ? `&ending_before=${endingBefore}` : ""}`,
-				)
+				const query = new URLSearchParams({
+					limit: String(PAGE_SIZE),
+				})
+
+				if (cursor) {
+					query.set("cursor", cursor)
+					query.set("direction", "forward")
+				}
+
+				const response = await fetch(`/api/history?${query.toString()}`)
 
 				if (!response.ok) {
 					throw new Error("Failed to fetch chats")
 				}
 
-				const data: ChatHistory = await response.json()
-				return data
+				const payload = (await response.json()) as unknown
+				return parseHistoryResponse(payload)
 			} catch (error) {
 				console.error("Failed to fetch chats:", error)
-				return { chats: [], hasMore: false }
+				return { chats: [], hasMore: false, nextCursor: null }
 			}
 		},
 		[user],
@@ -215,23 +285,33 @@ export function SidebarHistory({ user }: SidebarHistoryProps) {
 	// Initial fetch
 	useEffect(() => {
 		const loadInitialChats = async () => {
+			if (isNewSession) {
+				setChats([])
+				setHasMore(false)
+				setNextCursor(null)
+				setIsLoading(false)
+				return
+			}
+
 			setIsLoading(true)
 			const data = await fetchChats()
 			if (data) {
 				setChats(data.chats)
 				setHasMore(data.hasMore)
+				setNextCursor(data.nextCursor ?? null)
 			}
 			setIsLoading(false)
 		}
 
 		loadInitialChats()
-	}, [fetchChats])
+	}, [fetchChats, isNewSession])
 
 	// Clear chats when user logs out (user becomes undefined)
 	useEffect(() => {
 		if (!user) {
 			setChats([])
 			setHasMore(false)
+			setNextCursor(null)
 			setIsLoading(false)
 		}
 	}, [user])
@@ -275,6 +355,7 @@ export function SidebarHistory({ user }: SidebarHistoryProps) {
 				if (data) {
 					setChats(data.chats)
 					setHasMore(data.hasMore)
+					setNextCursor(data.nextCursor ?? null)
 				}
 			})
 		}
@@ -287,17 +368,12 @@ export function SidebarHistory({ user }: SidebarHistoryProps) {
 
 	// Load more chats (for infinite scroll)
 	const loadMore = useCallback(async () => {
-		if (isLoadingMore || !hasMore || chats.length === 0) return
+		if (isLoadingMore || !hasMore || !nextCursor) return
 
 		setIsLoadingMore(true)
 		setLoadMoreError(null) // Clear previous error
-		const lastChat = chats.at(-1)
-		if (!lastChat) {
-			setIsLoadingMore(false)
-			return
-		}
 		try {
-			const data = await fetchChats(lastChat.id)
+			const data = await fetchChats(nextCursor)
 			if (data) {
 				setChats((prev) => {
 					// Deduplicate by chat ID to prevent duplicates from pagination
@@ -308,6 +384,7 @@ export function SidebarHistory({ user }: SidebarHistoryProps) {
 					return [...prev, ...newChats]
 				})
 				setHasMore(data.hasMore)
+				setNextCursor(data.nextCursor ?? null)
 			}
 		} catch (error) {
 			console.error("Failed to load more chats:", error)
@@ -315,29 +392,32 @@ export function SidebarHistory({ user }: SidebarHistoryProps) {
 		} finally {
 			setIsLoadingMore(false)
 		}
-	}, [isLoadingMore, hasMore, chats, fetchChats])
+	}, [isLoadingMore, hasMore, nextCursor, fetchChats])
 
 	// Handle delete
 	const handleDelete = useCallback(async () => {
 		if (!deleteId) return
-
-		const result = await deleteChat(deleteId)
-
-		if (result.success) {
-			setChats((prev) => prev.filter((chat) => chat.id !== deleteId))
-			toast.success("Chat deleted successfully")
-
-			// If deleted chat was active, redirect to home
-			if (deleteId === id) {
-				router.push("/")
-			}
-		} else {
-			toast.error("Failed to delete chat")
-		}
+		const targetChatId = deleteId
+		const previousChats = chats
 
 		setShowDeleteDialog(false)
 		setDeleteId(null)
-	}, [deleteId, id, router])
+		setChats((prev) => prev.filter((chat) => chat.id !== targetChatId))
+
+		const result = await deleteChat(targetChatId)
+
+		if (result.success) {
+			toast.success("Chat deleted successfully")
+
+			// If deleted chat was active, redirect to home
+			if (targetChatId === id) {
+				router.push("/")
+			}
+		} else {
+			setChats(previousChats)
+			toast.error("Failed to delete chat")
+		}
+	}, [deleteId, chats, id, router])
 
 	// Memoize date boundaries
 	const dateBoundaries = useMemo(() => {

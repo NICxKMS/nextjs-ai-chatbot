@@ -18,15 +18,58 @@ import {
 	artifactRepository,
 	suggestionRepository,
 } from "@/lib/data/repositories"
-import { ForbiddenError } from "@/lib/errors"
+import { ForbiddenError, ValidationError } from "@/lib/errors"
 import { logError } from "@/lib/log"
 
-const suggestionQuerySchema = z.object({
-	artifactId: z.string().uuid(),
-})
+const suggestionQuerySchema = z
+	.object({
+		artifactId: z.string().uuid().optional(),
+		documentId: z.string().uuid().optional(),
+		documentVersion: z.string().optional(),
+		legacy: z
+			.preprocess(
+				(value) => value === "1" || value === "true" || value === true,
+				z.boolean(),
+			)
+			.optional()
+			.default(false),
+	})
+	.superRefine((query, ctx) => {
+		if (!query.artifactId && !query.documentId) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "artifactId (or documentId alias) is required",
+				path: ["artifactId"],
+			})
+		}
+
+		if (
+			query.artifactId &&
+			query.documentId &&
+			query.artifactId !== query.documentId
+		) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message:
+					"artifactId and documentId must match when both are provided",
+				path: ["documentId"],
+			})
+		}
+
+		if (
+			query.documentVersion &&
+			Number.isNaN(new Date(query.documentVersion).getTime())
+		) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "documentVersion must be a valid timestamp",
+				path: ["documentVersion"],
+			})
+		}
+	})
 
 /**
- * GET /api/suggestions?artifactId=uuid
+ * GET /api/suggestions?artifactId=uuid[&documentVersion=iso][&legacy=1]
  * Get suggestions for an artifact.
  *
  * Security:
@@ -38,7 +81,8 @@ const suggestionQuerySchema = z.object({
  * - Returns suggestions filtered by user ID
  *
  * Response:
- * - Returns array of suggestions directly (not wrapped)
+ * - Default: { suggestions: [...], metadata: { artifactId, total, documentVersion } }
+ * - Legacy mode: array of suggestions when `legacy=1`
  * - Includes Cache-Control header for 5-minute caching
  */
 export async function GET(request: Request) {
@@ -60,17 +104,33 @@ export async function GET(request: Request) {
 		await requireRateLimit("api", userId)
 
 		const { searchParams } = new URL(request.url)
-		const artifactId = searchParams.get("artifactId")
-
-		if (!artifactId) {
-			return error("Missing artifactId parameter")
-		}
-
-		// Validate UUID format
-		const parsed = suggestionQuerySchema.safeParse({ artifactId })
+		const parsed = suggestionQuerySchema.safeParse({
+			artifactId: searchParams.get("artifactId") ?? undefined,
+			documentId: searchParams.get("documentId") ?? undefined,
+			documentVersion: searchParams.get("documentVersion") ?? undefined,
+			legacy: searchParams.get("legacy") ?? undefined,
+		})
 		if (!parsed.success) {
-			return error("Invalid artifactId format")
+			return error(
+				new ValidationError("Invalid suggestion query parameters", {
+					errors: parsed.error.flatten().fieldErrors,
+				}),
+			)
 		}
+
+		const artifactId = parsed.data.artifactId ?? parsed.data.documentId
+		if (!artifactId) {
+			return error(
+				new ValidationError("artifactId is required", {
+					field: "artifactId",
+				}),
+			)
+		}
+
+		const versionTimestamp = parsed.data.documentVersion
+			? new Date(parsed.data.documentVersion)
+			: undefined
+		const legacyResponse = parsed.data.legacy
 
 		// Create context for repository operations
 		const ctx = { userId, isGuest: false }
@@ -103,14 +163,39 @@ export async function GET(request: Request) {
 			ctx,
 		)
 
-		// Return suggestions array directly (not wrapped) for backward compatibility
-		// Include Cache-Control header for 5-minute private caching
-		return Response.json(suggestions, {
-			status: 200,
-			headers: {
-				"Cache-Control": "private, max-age=300",
+		const filteredSuggestions = versionTimestamp
+			? suggestions.filter(
+					(suggestion) =>
+						suggestion.artifactCreatedAt.getTime() ===
+						versionTimestamp.getTime(),
+				)
+			: suggestions
+
+		if (legacyResponse) {
+			return Response.json(filteredSuggestions, {
+				status: 200,
+				headers: {
+					"Cache-Control": "private, max-age=300",
+				},
+			})
+		}
+
+		return Response.json(
+			{
+				suggestions: filteredSuggestions,
+				metadata: {
+					artifactId,
+					total: filteredSuggestions.length,
+					documentVersion: versionTimestamp?.toISOString() ?? null,
+				},
 			},
-		})
+			{
+				status: 200,
+				headers: {
+					"Cache-Control": "private, max-age=300",
+				},
+			},
+		)
 	} catch (err) {
 		logError("Suggestions GET failed", err as Error)
 		return error(err)

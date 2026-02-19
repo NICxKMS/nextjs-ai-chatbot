@@ -4,6 +4,10 @@
  * Handles new user registration with email and password.
  * Creates user account via authService. User must sign in after registration.
  *
+ * Note: The legacy Supabase email-confirmation branch is intentionally not
+ * applicable in the current credentials-based auth model. Registration
+ * redirects users to login after account creation.
+ *
  * @module features/auth/actions/register.action
  */
 

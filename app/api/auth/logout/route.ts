@@ -10,6 +10,7 @@
 import { cookies } from "next/headers"
 import { error, success, validateOrigin } from "@/lib/api"
 import { signOut } from "@/lib/auth"
+import { ForbiddenError, InternalServerError } from "@/lib/errors"
 
 /** Guest cookie name (must match session.ts) */
 const GUEST_COOKIE_NAME = "guest_id"
@@ -21,7 +22,7 @@ const GUEST_COOKIE_NAME = "guest_id"
 export async function POST(request: Request) {
 	// CSRF Protection
 	if (!validateOrigin(request)) {
-		return error("Invalid request origin", { status: 403 })
+		return error(new ForbiddenError("Invalid request origin"))
 	}
 
 	try {
@@ -37,6 +38,6 @@ export async function POST(request: Request) {
 			message: "Logged out successfully",
 		})
 	} catch {
-		return error("Failed to sign out", { status: 500 })
+		return error(new InternalServerError("Failed to sign out"))
 	}
 }

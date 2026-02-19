@@ -10,11 +10,14 @@
 import {
 	createArtifact,
 	deleteArtifact,
+	getArtifactVersion,
+	rollbackToVersion,
 	type UpdateArtifactParams,
 	updateArtifact,
 } from "@/features/artifact/actions"
 import { getVersionHistory } from "@/features/artifact/actions/versions"
 import {
+	type ArtifactKind,
 	ArtifactUUIDSchema,
 	CreateArtifactSchema,
 	UpdateArtifactSchema,
@@ -36,6 +39,83 @@ import {
 	getRetryAfter,
 } from "@/lib/rate-limit"
 
+const ARTIFACT_CONTENT_TYPES: Record<ArtifactKind, string[]> = {
+	text: ["text/plain", "text/markdown"],
+	code: [
+		"text/plain",
+		"text/markdown",
+		"application/javascript",
+		"application/typescript",
+	],
+	image: ["image/*"],
+	sheet: ["text/csv", "application/csv", "application/vnd.ms-excel"],
+}
+
+function normalizeMimeType(contentType: string | null): string | undefined {
+	if (!contentType) {
+		return undefined
+	}
+
+	return contentType.split(";")[0]?.trim().toLowerCase()
+}
+
+function resolveArtifactContentType(request: Request): string | undefined {
+	const explicitArtifactType = normalizeMimeType(
+		request.headers.get("x-artifact-content-type"),
+	)
+
+	if (explicitArtifactType) {
+		return explicitArtifactType
+	}
+
+	const requestContentType = normalizeMimeType(
+		request.headers.get("content-type"),
+	)
+
+	if (requestContentType && requestContentType !== "application/json") {
+		return requestContentType
+	}
+
+	return undefined
+}
+
+function validateArtifactContentType(
+	kind: ArtifactKind,
+	artifactContentType: string | undefined,
+): ValidationError | null {
+	if (!artifactContentType) {
+		return null
+	}
+
+	const allowedTypes = ARTIFACT_CONTENT_TYPES[kind]
+	if (!allowedTypes) {
+		return null
+	}
+
+	const isAllowed = allowedTypes.some((allowedType) => {
+		if (allowedType.endsWith("/*")) {
+			const prefix = allowedType.slice(0, -1)
+			return artifactContentType.startsWith(prefix)
+		}
+
+		return artifactContentType === allowedType
+	})
+
+	if (isAllowed) {
+		return null
+	}
+
+	return new ValidationError(
+		`Content type '${artifactContentType}' is not compatible with artifact kind '${kind}'`,
+		{
+			field: "contentType",
+			code: "artifact:content_type_mismatch",
+			expected: allowedTypes,
+			received: artifactContentType,
+		},
+	)
+}
+
 /**
  * GET /api/artifacts?id=uuid
  * Fetch all versions of an artifact by ID.
@@ -55,17 +135,55 @@ export async function GET(request: Request) {
 
 		const { searchParams } = new URL(request.url)
 		const id = searchParams.get("id")
-		if (!id) return error("Missing id parameter")
+		if (!id) {
+			return error(
+				new ValidationError("Missing id parameter", {
+					field: "id",
+				}),
+			)
+		}
 
 		// Validate UUID format
 		if (!isValidUUID(id)) {
-			return error("Invalid id format: must be a valid UUID")
+			return error(
+				new ValidationError("Invalid id format: must be a valid UUID", {
+					field: "id",
+				}),
+			)
 		}
 
-		// Get all versions of the artifact
-		const versions = await getVersionHistory(id)
+		const versionParam = searchParams.get("version")
+		const versionTimestamp = versionParam
+			? new Date(versionParam)
+			: undefined
+
+		if (
+			versionParam &&
+			versionTimestamp &&
+			Number.isNaN(versionTimestamp.getTime())
+		) {
+			return error(
+				new ValidationError("Invalid version timestamp format", {
+					field: "version",
+				}),
+			)
+		}
+
+		const versions = versionTimestamp
+			? await (async () => {
+					const artifactVersion = await getArtifactVersion(
+						id,
+						versionTimestamp,
+					)
+					return artifactVersion ? [artifactVersion] : []
+				})()
+			: await getVersionHistory(id)
 		if (!versions || versions.length === 0) {
-			return notFound("Artifact not found")
+			return notFound(
+				versionTimestamp
+					? "Artifact version not found"
+					: "Artifact not found",
+			)
 		}
 
 		// Return array of versions with cache headers (matching OLD behavior)
@@ -103,8 +221,108 @@ export async function POST(request: Request) {
 			return rateLimit(retryAfterSeconds)
 		}
 
+		const { searchParams } = new URL(request.url)
+		const idParam = searchParams.get("id")
+		const versionParam = searchParams.get("version")
+		if (idParam || versionParam) {
+			if (!idParam || !versionParam) {
+				return error(
+					new ValidationError(
+						"Both id and version are required for version-targeted POST requests",
+						{
+							field: !idParam ? "id" : "version",
+						},
+					),
+				)
+			}
+
+			const uuidValidation = ArtifactUUIDSchema.safeParse(idParam)
+			if (!uuidValidation.success) {
+				return error(
+					new ValidationError(
+						"Invalid id format: must be a valid UUID",
+						{
+							field: "id",
+						},
+					),
+				)
+			}
+
+			const parsedVersion = new Date(versionParam)
+			if (Number.isNaN(parsedVersion.getTime())) {
+				return error(
+					new ValidationError("Invalid version timestamp format", {
+						field: "version",
+					}),
+				)
+			}
+
+			const artifactContentType = normalizeMimeType(
+				request.headers.get("x-artifact-content-type"),
+			)
+
+			const body = await validateBody(request, UpdateArtifactSchema)
+			const baseVersion = await getArtifactVersion(idParam, parsedVersion)
+
+			if (!baseVersion) {
+				return notFound("Artifact version not found")
+			}
+
+			if (body.kind && body.kind !== baseVersion.kind) {
+				return error(
+					new ValidationError(
+						`Cannot change artifact kind from '${baseVersion.kind}' to '${body.kind}'`,
+						{
+							field: "kind",
+							code: "document:kind_mismatch",
+							expected: baseVersion.kind,
+							received: body.kind,
+						},
+					),
+				)
+			}
+
+			const effectiveKind = (body.kind ??
+				baseVersion.kind) as ArtifactKind
+			const contentTypeValidation = validateArtifactContentType(
+				effectiveKind,
+				artifactContentType,
+			)
+			if (contentTypeValidation) {
+				return error(contentTypeValidation)
+			}
+
+			const artifact = await updateArtifact(idParam, {
+				title: body.title ?? baseVersion.title,
+				content: body.content ?? baseVersion.content ?? "",
+				kind: effectiveKind,
+			})
+
+			const response = success(artifact)
+			response.headers.set(
+				"X-Artifact-Version-Base",
+				baseVersion.createdAt.toISOString(),
+			)
+			const headers = createRateLimitHeaders(rateLimitResult)
+			headers.forEach((value, key) => {
+				response.headers.set(key, value)
+			})
+			return response
+		}
+
+		const artifactContentType = resolveArtifactContentType(request)
+
 		// Validate request body (P6-FNC-021)
 		const body = await validateBody(request, CreateArtifactSchema)
+
+		const contentTypeValidation = validateArtifactContentType(
+			body.kind,
+			artifactContentType,
+		)
+		if (contentTypeValidation) {
+			return error(contentTypeValidation)
+		}
+
 		// Ensure content has a default value for the action
 		const artifact = await createArtifact({
 			chatId: body.chatId,
@@ -151,7 +369,13 @@ export async function PATCH(request: Request) {
 
 		const { searchParams } = new URL(request.url)
 		const id = searchParams.get("id")
-		if (!id) return error("Missing id parameter")
+		if (!id) {
+			return error(
+				new ValidationError("Missing id parameter", {
+					field: "id",
+				}),
+			)
+		}
 
 		// Validate UUID format (P6-FNC-018)
 		const uuidValidation = ArtifactUUIDSchema.safeParse(id)
@@ -184,42 +408,80 @@ export async function PATCH(request: Request) {
 
 		// Validate request body (P6-FNC-021)
 		const body = await validateBody(request, UpdateArtifactSchema)
+		const artifactContentType = resolveArtifactContentType(request)
+
+		const existingVersions = await getVersionHistory(id)
+		if (!existingVersions || existingVersions.length === 0) {
+			return notFound("Artifact not found")
+		}
+
+		const latestVersion = existingVersions[existingVersions.length - 1]
+
+		const targetVersion = versionTimestamp
+			? await getArtifactVersion(id, versionTimestamp)
+			: null
+
+		if (versionTimestamp && !targetVersion) {
+			return notFound("Artifact version not found")
+		}
+
+		const updateBaseVersion = targetVersion ?? latestVersion
+		if (!updateBaseVersion) {
+			return notFound("Artifact not found")
+		}
 
 		// If kind is provided, validate it matches the existing artifact (P6-FNC-016)
-		if (body.kind) {
-			// Get existing artifact to check kind mismatch
-			const existingVersions = await getVersionHistory(id)
-			if (existingVersions && existingVersions.length > 0) {
-				const latestVersion =
-					existingVersions[existingVersions.length - 1]
-				if (latestVersion && latestVersion.kind !== body.kind) {
-					return error(
-						new ValidationError(
-							`Cannot change artifact kind from '${latestVersion.kind}' to '${body.kind}'`,
-							{
-								field: "kind",
-								code: "document:kind_mismatch",
-								expected: latestVersion.kind,
-								received: body.kind,
-							},
-						),
-					)
-				}
+		if (body.kind && updateBaseVersion.kind !== body.kind) {
+			return error(
+				new ValidationError(
+					`Cannot change artifact kind from '${updateBaseVersion.kind}' to '${body.kind}'`,
+					{
+						field: "kind",
+						code: "document:kind_mismatch",
+						expected: updateBaseVersion.kind,
+						received: body.kind,
+					},
+				),
+			)
+		}
+
+		const effectiveKind = (body.kind ?? updateBaseVersion.kind) as
+			| ArtifactKind
+			| undefined
+		if (effectiveKind) {
+			const contentTypeValidation = validateArtifactContentType(
+				effectiveKind,
+				artifactContentType,
+			)
+			if (contentTypeValidation) {
+				return error(contentTypeValidation)
 			}
 		}
 
-		// If version timestamp is provided, we need to update from that specific version
-		// Currently the updateArtifact action always uses the latest version
-		// For now, we pass the id and params - version support can be enhanced in the action
-		// Build params object with only defined values (P6-FNC-021)
-		const updateParams: UpdateArtifactParams = {}
-		if (body.title !== undefined) updateParams.title = body.title
-		if (body.content !== undefined) updateParams.content = body.content
-		if (body.kind !== undefined) updateParams.kind = body.kind
+		const updateParams: UpdateArtifactParams = versionTimestamp
+			? {
+					title: body.title ?? updateBaseVersion.title,
+					content: body.content ?? updateBaseVersion.content ?? "",
+					kind: body.kind ?? updateBaseVersion.kind,
+				}
+			: (() => {
+					const params: UpdateArtifactParams = {}
+					if (body.title !== undefined) params.title = body.title
+					if (body.content !== undefined)
+						params.content = body.content
+					if (body.kind !== undefined) params.kind = body.kind
+					return params
+				})()
 
 		const artifact = await updateArtifact(id, updateParams)
 
 		const response = success(artifact)
+		if (updateBaseVersion) {
+			response.headers.set(
+				"X-Artifact-Version-Base",
+				updateBaseVersion.createdAt.toISOString(),
+			)
+		}
 		const headers = createRateLimitHeaders(rateLimitResult)
 		headers.forEach((value, key) => {
 			response.headers.set(key, value)
@@ -231,8 +493,16 @@ export async function PATCH(request: Request) {
 }
 
 /**
- * DELETE /api/artifacts?id=uuid
- * Delete an artifact.
+ * PUT /api/artifacts?id=uuid[&version=timestamp]
+ * Compatibility alias for PATCH semantics.
+ */
+export async function PUT(request: Request) {
+	return PATCH(request)
+}
+
+/**
+ * DELETE /api/artifacts?id=uuid[&timestamp=iso]
+ * Delete an artifact or rollback to a timestamp.
  * Rate limited: 10 requests per minute per user (strict for destructive operations).
  */
 export async function DELETE(request: Request) {
@@ -248,7 +518,14 @@ export async function DELETE(request: Request) {
 
 		const { searchParams } = new URL(request.url)
 		const id = searchParams.get("id")
-		if (!id) return error("Missing id parameter")
+		if (!id) {
+			return error(
+				new ValidationError("Missing id parameter", {
+					field: "id",
+				}),
+			)
+		}
+		const timestampParam = searchParams.get("timestamp")
 
 		// Validate UUID format (P6-FNC-018)
 		const uuidValidation = ArtifactUUIDSchema.safeParse(id)
@@ -258,6 +535,26 @@ export async function DELETE(request: Request) {
 					field: "id",
 				}),
 			)
+		}
+
+		if (timestampParam) {
+			const timestamp = new Date(timestampParam)
+			if (Number.isNaN(timestamp.getTime())) {
+				return error(
+					new ValidationError("Invalid timestamp format", {
+						field: "timestamp",
+					}),
+				)
+			}
+
+			const deletedVersions = await rollbackToVersion(id, timestamp)
+
+			const response = success(deletedVersions)
+			const headers = createRateLimitHeaders(rateLimitResult)
+			headers.forEach((value, key) => {
+				response.headers.set(key, value)
+			})
+			return response
 		}
 
 		const deleted = await deleteArtifact(id)

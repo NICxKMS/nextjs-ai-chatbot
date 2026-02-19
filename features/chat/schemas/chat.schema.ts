@@ -64,17 +64,45 @@ export const TextPartSchema = z.object({
  * - File name must be 1-100 characters
  * - URL must be valid URL format
  */
-export const FilePartSchema = z.object({
-	type: z.literal("file"),
-	mediaType: z.string().refine(isValidMimeType, {
-		message: `Unsupported file type. Allowed: images, audio, video, PDF, text, and common document formats`,
-	}),
-	name: z
-		.string()
-		.min(1, "File name required")
-		.max(100, "File name too long"),
-	url: z.string().url("Invalid file URL"),
-})
+export const FilePartSchema = z
+	.object({
+		type: z.literal("file"),
+		mediaType: z.string().optional(),
+		mimeType: z.string().optional(),
+		name: z
+			.string()
+			.min(1, "File name required")
+			.max(100, "File name too long"),
+		filename: z.string().min(1).max(100).optional(),
+		url: z.string().url("Invalid file URL"),
+		size: z
+			.number()
+			.int()
+			.nonnegative()
+			.max(ATTACHMENT_MAX_FILE_SIZE)
+			.optional(),
+	})
+	.superRefine((file, ctx) => {
+		const resolvedMimeType = file.mediaType ?? file.mimeType
+
+		if (!resolvedMimeType) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "File media type is required",
+				path: ["mediaType"],
+			})
+			return
+		}
+
+		if (!isValidMimeType(resolvedMimeType)) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message:
+					"Unsupported file type. Allowed: images, audio, video, PDF, text, and common document formats",
+				path: ["mediaType"],
+			})
+		}
+	})
 
 /**
  * Message part schema - union of text and file parts
@@ -255,6 +283,61 @@ export const StreamChatSchema = z.object({
 	settings: ChatSettingsSchema.optional(),
 })
 
+/**
+ * Message schema for chat route requests.
+ * Supports both legacy `content` and modern `parts` payload shapes.
+ */
+export const ChatRouteMessageSchema = z
+	.object({
+		id: UUIDSchema.optional(),
+		role: MessageRoleSchema,
+		content: MessageContentSchema.optional(),
+		parts: z
+			.array(MessagePartSchema)
+			.max(100, "Too many message parts")
+			.optional(),
+		createdAt: z.coerce.date().optional(),
+	})
+	.superRefine((message, ctx) => {
+		const hasNonEmptyContent =
+			typeof message.content === "string" &&
+			message.content.trim().length > 0
+		const hasParts =
+			Array.isArray(message.parts) && message.parts.length > 0
+
+		if (!hasNonEmptyContent && !hasParts) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "Message must include content or at least one part",
+				path: ["content"],
+			})
+		}
+	})
+
+/**
+ * Request schema for POST /api/chat.
+ * Supports `selectedModel` as a compatibility alias for `selectedChatModel`.
+ */
+export const ChatRouteRequestSchema = z
+	.object({
+		id: UUIDSchema,
+		message: ChatRouteMessageSchema,
+		selectedChatModel: NonEmptyStringSchema.optional(),
+		selectedModel: NonEmptyStringSchema.optional(),
+		selectedVisibilityType: VisibilitySchema.optional().default("private"),
+		settings: ChatSettingsSchema.optional(),
+	})
+	.superRefine((input, ctx) => {
+		if (!input.selectedChatModel && !input.selectedModel) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message:
+					"selectedChatModel (or selectedModel alias) is required",
+				path: ["selectedChatModel"],
+			})
+		}
+	})
+
 // =============================================================================
 // Type Exports
 // =============================================================================
@@ -272,6 +355,7 @@ export type UpdateChatInput = z.infer<typeof UpdateChatSchema>
 export type PaginationInput = z.infer<typeof PaginationSchema>
 export type VoteMessageInput = z.infer<typeof VoteMessageSchema>
 export type StreamChatInput = z.infer<typeof StreamChatSchema>
+export type ChatRouteRequestInput = z.infer<typeof ChatRouteRequestSchema>
 export type SamplingSettings = z.infer<typeof SamplingSettingsSchema>
 export type ChatSettings = z.infer<typeof ChatSettingsSchema>
 export type Visibility = z.infer<typeof VisibilitySchema>

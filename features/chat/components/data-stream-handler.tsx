@@ -272,6 +272,26 @@ export function DataStreamHandler({
 						onArtifactComplete?.()
 						break
 
+					case "data-error":
+						updatedArtifact = {
+							...currentArtifact,
+							status: "idle",
+						}
+						onArtifactUpdate?.({
+							isComplete: false,
+						})
+						break
+
+					case "data-tool-call":
+						updatedArtifact = currentArtifact
+						onArtifactUpdate?.({})
+						break
+
+					case "data-tool-result":
+						updatedArtifact = currentArtifact
+						onArtifactUpdate?.({})
+						break
+
 					default:
 						updatedArtifact = currentArtifact
 				}

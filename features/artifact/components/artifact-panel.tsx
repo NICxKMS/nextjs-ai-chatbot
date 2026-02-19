@@ -18,34 +18,35 @@ import type { UseChatHelpers } from "@ai-sdk/react"
 import { formatDistance } from "date-fns"
 import type { Dispatch, SetStateAction } from "react"
 import { memo, useCallback, useEffect, useRef, useState } from "react"
+import { toast } from "sonner"
 import useSWR, { useSWRConfig } from "swr"
 import { useDebounceCallback } from "usehooks-ts"
+import { VersionFooter } from "@/components"
 import { DiffView } from "@/components/document/diffview"
+import { Button } from "@/components/ui/button"
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog"
 import { useSidebar } from "@/components/ui/sidebar"
-import { Toolbar } from "@/features/chat/components/toolbar"
 import type { Attachment, ChatMessage, UserVote } from "@/features/chat/types"
 import { MultimodalInput } from "@/features/input/components/multimodal-input"
 import { useWindowSize } from "@/hooks/use-window-size"
+import type { Artifact } from "@/lib/db/schema"
 import { AnimatePresence, motion } from "@/lib/motion"
 
-import { getArtifact, updateArtifact } from "../actions"
+import { getVersionHistory, updateArtifact } from "../actions"
 import { useArtifact } from "../hooks"
 import type { ArtifactKind } from "../types"
 import { ArtifactActions } from "./artifact-actions"
 import { ArtifactClose } from "./artifact-close"
 import { ArtifactErrorBoundary } from "./artifact-error-boundary"
 import { ArtifactMessages } from "./artifact-messages"
-
-/**
- * Artifact version data structure
- */
-interface ArtifactVersion {
-	id: string
-	content: string | null
-	createdAt: Date
-	kind: ArtifactKind
-	title: string
-}
+import { Toolbar as ArtifactToolbar } from "./toolbar"
 
 /**
  * Props for internal panel state
@@ -280,32 +281,21 @@ function PureArtifactPanel({
 
 	// Fetch artifact versions
 	const { data: documents, isLoading: isDocumentsFetching } = useSWR<
-		ArtifactVersion[]
+		Artifact[]
 	>(
 		artifact.documentId !== "init" && artifact.status !== "streaming"
 			? `artifact-versions-${artifact.documentId}`
 			: null,
-		async () => {
-			const result = await getArtifact(artifact.documentId)
-			if (result) {
-				return [
-					{
-						id: result.id,
-						content: result.content,
-						createdAt: result.createdAt,
-						kind: result.kind as ArtifactKind,
-						title: result.title,
-					},
-				]
-			}
-			return []
-		},
+		async () => await getVersionHistory(artifact.documentId),
 	)
 
 	const [mode, setMode] = useState<"edit" | "diff">("edit")
-	const [document, setDocument] = useState<ArtifactVersion | null>(null)
+	const [currentDocument, setCurrentDocument] = useState<Artifact | null>(
+		null,
+	)
 	const [currentVersionIndex, setCurrentVersionIndex] = useState(-1)
-	const [isToolbarVisible, setIsToolbarVisible] = useState(false)
+	const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false)
+	const [historyVersionIndex, setHistoryVersionIndex] = useState(-1)
 
 	// Automatically switch to edit mode when streaming starts
 	useEffect(() => {
@@ -319,7 +309,7 @@ function PureArtifactPanel({
 			const mostRecentDocument = documents.at(-1)
 
 			if (mostRecentDocument) {
-				setDocument(mostRecentDocument)
+				setCurrentDocument(mostRecentDocument)
 				setCurrentVersionIndex(documents.length - 1)
 				setArtifact((currentArtifact) => ({
 					...currentArtifact,
@@ -346,7 +336,7 @@ function PureArtifactPanel({
 			const abortController = new AbortController()
 			pendingSaveRef.current = abortController
 
-			mutate<ArtifactVersion[]>(
+			mutate<Artifact[]>(
 				`artifact-versions-${artifact.documentId}`,
 				async (currentDocuments) => {
 					if (!currentDocuments) {
@@ -354,21 +344,26 @@ function PureArtifactPanel({
 					}
 
 					const currentDocument = currentDocuments.at(-1)
+					const currentContent = currentDocument?.content ?? ""
 
-					if (!currentDocument || !currentDocument.content) {
+					if (!currentDocument) {
 						setIsContentDirty(false)
 						return currentDocuments
 					}
 
-					if (currentDocument.content !== updatedContent) {
+					if (currentContent !== updatedContent) {
 						try {
-							await updateArtifact(artifact.documentId, {
-								content: updatedContent,
-								title: artifact.title,
-							})
+							const updatedVersion = await updateArtifact(
+								artifact.documentId,
+								{
+									content: updatedContent,
+									title: artifact.title,
+								},
+							)
 
 							setIsContentDirty(false)
 							pendingSaveRef.current = null
+							return [...currentDocuments, updatedVersion]
 						} catch (error) {
 							if (
 								error instanceof Error &&
@@ -380,14 +375,6 @@ function PureArtifactPanel({
 							pendingSaveRef.current = null
 							return currentDocuments
 						}
-
-						const newDocument = {
-							...currentDocument,
-							content: updatedContent,
-							createdAt: new Date(),
-						}
-
-						return [...currentDocuments, newDocument]
 					}
 					return currentDocuments
 				},
@@ -404,11 +391,11 @@ function PureArtifactPanel({
 
 	const saveContent = useCallback(
 		(updatedContent: string, debounce: boolean) => {
-			if (!document) {
+			if (!currentDocument) {
 				return
 			}
 
-			if (updatedContent !== document.content) {
+			if (updatedContent !== currentDocument.content) {
 				setIsContentDirty(true)
 
 				if (debounce) {
@@ -418,7 +405,7 @@ function PureArtifactPanel({
 				}
 			}
 		},
-		[document, debouncedHandleContentChange, handleContentChange],
+		[currentDocument, debouncedHandleContentChange, handleContentChange],
 	)
 
 	function getDocumentContentById(index: number) {
@@ -464,6 +451,104 @@ function PureArtifactPanel({
 			? currentVersionIndex === documents.length - 1
 			: true
 
+	const activeContent = isCurrentVersion
+		? artifact.content
+		: getDocumentContentById(currentVersionIndex)
+
+	const copyContent = useCallback(async () => {
+		if (!activeContent) {
+			return
+		}
+
+		await navigator.clipboard.writeText(activeContent)
+		toast.success("Copied to clipboard!")
+	}, [activeContent])
+
+	const downloadContent = () => {
+		if (!activeContent) {
+			return
+		}
+
+		const safeTitle =
+			artifact.title
+				.trim()
+				.toLowerCase()
+				.replace(/[^a-z0-9]+/g, "-")
+				.replace(/^-+|-+$/g, "") || `artifact-${artifact.documentId}`
+
+		let extension = "txt"
+		let mimeType = "text/plain;charset=utf-8"
+		let href: string
+		let objectUrl: string | null = null
+
+		if (artifact.kind === "text") {
+			extension = "md"
+			mimeType = "text/markdown;charset=utf-8"
+			href = URL.createObjectURL(
+				new Blob([activeContent], { type: mimeType }),
+			)
+			objectUrl = href
+		} else if (artifact.kind === "code") {
+			extension = "py"
+			href = URL.createObjectURL(
+				new Blob([activeContent], { type: mimeType }),
+			)
+			objectUrl = href
+		} else if (artifact.kind === "sheet") {
+			extension = "csv"
+			mimeType = "text/csv;charset=utf-8"
+			href = URL.createObjectURL(
+				new Blob([activeContent], { type: mimeType }),
+			)
+			objectUrl = href
+		} else if (activeContent.startsWith("data:image/")) {
+			extension = "png"
+			href = activeContent
+		} else {
+			href = URL.createObjectURL(
+				new Blob([activeContent], { type: mimeType }),
+			)
+			objectUrl = href
+		}
+
+		const anchor = document.createElement("a")
+		anchor.href = href
+		anchor.download = `${safeTitle}.${extension}`
+		anchor.rel = "noopener noreferrer"
+		document.body.append(anchor)
+		anchor.click()
+		anchor.remove()
+
+		if (objectUrl) {
+			URL.revokeObjectURL(objectUrl)
+		}
+
+		toast.success("Download started")
+	}
+
+	const openVersionHistory = useCallback(() => {
+		if (!documents || documents.length === 0) {
+			return
+		}
+
+		const initialIndex =
+			currentVersionIndex >= 0
+				? currentVersionIndex
+				: documents.length - 1
+		setHistoryVersionIndex(initialIndex)
+		setIsVersionHistoryOpen(true)
+	}, [currentVersionIndex, documents])
+
+	const selectedHistoryVersion =
+		historyVersionIndex >= 0 && documents
+			? documents[historyVersionIndex]
+			: undefined
+
+	const previousHistoryVersion =
+		historyVersionIndex > 0 && documents
+			? documents[historyVersionIndex - 1]
+			: undefined
+
 	const artifactRenderer =
 		defaultArtifactRenderers[artifact.kind] ?? defaultArtifactRenderers.text
 	const RendererComponent = artifactRenderer.component
@@ -503,7 +588,10 @@ function PureArtifactPanel({
 
 						<div className="flex h-full flex-col items-center justify-between">
 							<ArtifactMessages
+								artifactDocumentId={artifact.documentId}
+								artifactKind={artifact.kind}
 								artifactStatus={artifact.status}
+								artifactTitle={artifact.title}
 								chatId={chatId}
 								isReadonly={isReadonly}
 								messages={messages}
@@ -544,7 +632,7 @@ function PureArtifactPanel({
 								damping: 30,
 							},
 						}}
-						className={`fixed right-0 flex h-dvh flex-col overflow-y-scroll border-zinc-200 bg-background md:border-l dark:border-zinc-700 dark:bg-muted ${
+						className={`fixed right-0 relative flex h-dvh flex-col overflow-y-scroll border-zinc-200 bg-background md:border-l dark:border-zinc-700 dark:bg-muted ${
 							isMobile
 								? "w-full"
 								: artifactPanelWidth
@@ -577,10 +665,12 @@ function PureArtifactPanel({
 										<div className="text-muted-foreground text-sm">
 											Saving changes...
 										</div>
-									) : document ? (
+									) : currentDocument ? (
 										<div className="text-muted-foreground text-sm">
 											{`Updated ${formatDistance(
-												new Date(document.createdAt),
+												new Date(
+													currentDocument.createdAt,
+												),
 												new Date(),
 												{
 													addSuffix: true,
@@ -600,9 +690,28 @@ function PureArtifactPanel({
 								isCurrentVersion={isCurrentVersion}
 								metadata={metadata}
 								mode={mode}
+								contentOverride={activeContent}
+								onDownload={downloadContent}
+								onOpenVersionHistory={openVersionHistory}
 								setMetadata={setMetadata}
 							/>
 						</div>
+
+						<ArtifactToolbar
+							canRedo={!isCurrentVersion}
+							canUndo={currentVersionIndex > 0}
+							isCurrentVersion={isCurrentVersion}
+							onCopy={() => {
+								void copyContent()
+							}}
+							onDownload={downloadContent}
+							onOpenVersionHistory={openVersionHistory}
+							onRedo={() => handleVersionChange("next")}
+							onUndo={() => handleVersionChange("prev")}
+							status={
+								status === "streaming" ? "streaming" : "idle"
+							}
+						/>
 
 						{/* Content */}
 						<div className="h-full max-w-full items-center overflow-y-scroll bg-background dark:bg-muted">
@@ -634,49 +743,128 @@ function PureArtifactPanel({
 									title={artifact.title}
 								/>
 							</ArtifactErrorBoundary>
-
-							{/* Toolbar for artifact-specific actions */}
-							<AnimatePresence>
-								{isCurrentVersion && (
-									<Toolbar
-										artifactKind={artifact.kind}
-										isToolbarVisible={isToolbarVisible}
-										sendMessage={sendMessage}
-										setIsToolbarVisible={
-											setIsToolbarVisible
-										}
-										status={
-											status === "streaming"
-												? "streaming"
-												: status === "error"
-													? "error"
-													: "idle"
-										}
-									/>
-								)}
-							</AnimatePresence>
 						</div>
 
-						{/* Version footer */}
-						{!isCurrentVersion && documents && (
-							<div className="border-t border-zinc-200 p-4 dark:border-zinc-700">
-								<div className="flex items-center justify-between">
-									<span className="text-muted-foreground text-sm">
-										Version {currentVersionIndex + 1} of{" "}
-										{documents.length}
-									</span>
-									<button
-										className="text-primary text-sm hover:underline"
+						<AnimatePresence>
+							{!isCurrentVersion && documents && (
+								<VersionFooter
+									currentVersionIndex={currentVersionIndex}
+									documents={documents}
+									handleVersionChange={handleVersionChange}
+								/>
+							)}
+						</AnimatePresence>
+
+						<Dialog
+							onOpenChange={setIsVersionHistoryOpen}
+							open={isVersionHistoryOpen}
+						>
+							<DialogContent className="max-w-4xl">
+								<DialogHeader>
+									<DialogTitle>Version history</DialogTitle>
+									<DialogDescription>
+										Compare saved versions and jump to a
+										selected version.
+									</DialogDescription>
+								</DialogHeader>
+
+								{documents && documents.length > 1 ? (
+									<div className="grid gap-4 md:grid-cols-[220px_1fr]">
+										<div className="max-h-[360px] overflow-y-auto rounded-md border">
+											{documents.map((version, index) => (
+												<button
+													className={`flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted ${
+														historyVersionIndex ===
+														index
+															? "bg-muted"
+															: ""
+													}`}
+													key={`${version.id}-${new Date(
+														version.createdAt,
+													).toISOString()}`}
+													onClick={() =>
+														setHistoryVersionIndex(
+															index,
+														)
+													}
+													type="button"
+												>
+													<span className="font-medium">
+														Version {index + 1}
+													</span>
+													<span className="text-muted-foreground text-xs">
+														{formatDistance(
+															new Date(
+																version.createdAt,
+															),
+															new Date(),
+															{
+																addSuffix: true,
+															},
+														)}
+													</span>
+												</button>
+											))}
+										</div>
+
+										<div className="max-h-[360px] overflow-y-auto rounded-md border p-2">
+											{selectedHistoryVersion &&
+											previousHistoryVersion ? (
+												<DiffView
+													newContent={
+														selectedHistoryVersion.content ??
+														""
+													}
+													oldContent={
+														previousHistoryVersion.content ??
+														""
+													}
+												/>
+											) : (
+												<div className="flex h-full min-h-[280px] items-center justify-center text-muted-foreground text-sm">
+													Select a version after the
+													first one to compare against
+													its previous revision.
+												</div>
+											)}
+										</div>
+									</div>
+								) : (
+									<div className="text-muted-foreground text-sm">
+										Version history becomes available after
+										at least two saved versions.
+									</div>
+								)}
+
+								<DialogFooter>
+									<Button
 										onClick={() =>
-											handleVersionChange("latest")
+											setIsVersionHistoryOpen(false)
 										}
-										type="button"
+										variant="outline"
 									>
-										Return to latest version
-									</button>
-								</div>
-							</div>
-						)}
+										Close
+									</Button>
+									<Button
+										disabled={
+											historyVersionIndex < 0 ||
+											!documents?.[historyVersionIndex]
+										}
+										onClick={() => {
+											if (historyVersionIndex >= 0) {
+												setCurrentVersionIndex(
+													historyVersionIndex,
+												)
+												setMode("edit")
+											}
+											setIsVersionHistoryOpen(false)
+										}}
+									>
+										View selected version
+									</Button>
+								</DialogFooter>
+							</DialogContent>
+						</Dialog>
 					</motion.div>
 				</motion.div>
 			)}

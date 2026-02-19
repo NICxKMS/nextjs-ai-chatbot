@@ -12,9 +12,10 @@ import "server-only"
 
 import { and, eq, gte, inArray } from "drizzle-orm"
 
+import type { AppUsage } from "@/lib/ai"
 import { db, withTransaction } from "@/lib/db/client"
 import type { Chat, DBMessage, Message, NewChat, Vote } from "@/lib/db/schema"
-import { chat, message, vote } from "@/lib/db/schema"
+import { artifact, chat, message, suggestion, vote } from "@/lib/db/schema"
 import {
 	ForbiddenError,
 	InternalServerError,
@@ -24,9 +25,11 @@ import { logDebug, logError } from "@/lib/log"
 
 import {
 	chatRepository,
+	messageRepository,
 	type PaginatedResult,
 	type PaginationParams,
 	type RepositoryContext,
+	type SaveWithContextParams,
 } from "../repositories"
 
 // =============================================================================
@@ -57,6 +60,8 @@ export interface SaveChatParams {
 	title?: string
 	/** Visibility setting */
 	visibility?: "public" | "private"
+	/** Last usage context for state restoration and cost tracking */
+	lastContext?: AppUsage | null
 	/** Created at timestamp override */
 	createdAt?: Date
 }
@@ -71,6 +76,8 @@ export interface DeleteChatResult {
 	messagesDeleted: number
 	/** Number of votes deleted */
 	votesDeleted: number
+	/** Number of suggestions deleted */
+	suggestionsDeleted?: number
 }
 
 // =============================================================================
@@ -276,32 +283,33 @@ class ChatService {
 			messages: messagesToSave,
 			title,
 			visibility,
+			lastContext,
 			createdAt,
 		} = params
 
 		try {
-			await withTransaction(async (tx) => {
-				// Create chat if new
-				if (isNewChat) {
-					await tx.insert(chat).values({
-						id: chatId,
-						userId: ctx.userId,
-						title: title ?? "New Chat",
-						visibility: visibility ?? "private",
-						createdAt: createdAt ?? new Date(),
-					})
-				}
+			const saveParams: SaveWithContextParams = {
+				messages: messagesToSave,
+				chatId,
+				isNewChat,
+				title: title ?? "New Chat",
+				visibility: visibility ?? "private",
+			}
 
-				// Insert messages
-				if (messagesToSave.length > 0) {
-					await tx.insert(message).values(messagesToSave)
-				}
+			if (lastContext !== undefined) {
+				saveParams.lastContext = lastContext
+			}
 
-				logDebug("ChatService saveChat completed", {
-					chatId,
-					isNewChat,
-					messageCount: messagesToSave.length,
-				})
+			if (createdAt !== undefined) {
+				saveParams.createdAt = createdAt
+			}
+
+			await messageRepository.saveWithContext(saveParams, ctx)
+
+			logDebug("ChatService saveChat completed", {
+				chatId,
+				isNewChat,
+				messageCount: messagesToSave.length,
 			})
 		} catch (error) {
 			logError("ChatService saveChat error", error as Error, {
@@ -381,6 +389,27 @@ class ChatService {
 
 			// Perform cascade delete in transaction
 			const result = await withTransaction(async (tx) => {
+				// Delete suggestions linked to artifacts in this chat.
+				// suggestion -> artifact relation is not DB-cascaded.
+				const artifactRows = await tx
+					.select({ id: artifact.id })
+					.from(artifact)
+					.where(eq(artifact.chatId, chatId))
+
+				const artifactIds = [
+					...new Set(artifactRows.map((row) => row.id)),
+				]
+
+				const deletedSuggestions =
+					artifactIds.length > 0
+						? await tx
+								.delete(suggestion)
+								.where(
+									inArray(suggestion.artifactId, artifactIds),
+								)
+								.returning({ id: suggestion.id })
+						: []
+
 				// Delete votes for this chat
 				const deletedVotes = await tx
 					.delete(vote)
@@ -403,6 +432,7 @@ class ChatService {
 					chat: deletedChat,
 					messagesDeleted: deletedMessages.length,
 					votesDeleted: deletedVotes.length,
+					suggestionsDeleted: deletedSuggestions.length,
 				}
 			})
 
@@ -410,6 +440,7 @@ class ChatService {
 				chatId,
 				messagesDeleted: result.messagesDeleted,
 				votesDeleted: result.votesDeleted,
+				suggestionsDeleted: result.suggestionsDeleted,
 			})
 
 			return result as DeleteChatResult
@@ -452,6 +483,21 @@ class ChatService {
 
 			// Perform cascade delete in transaction
 			await withTransaction(async (tx) => {
+				const artifactRows = await tx
+					.select({ id: artifact.id })
+					.from(artifact)
+					.where(inArray(artifact.chatId, chatIds))
+
+				const artifactIds = [
+					...new Set(artifactRows.map((row) => row.id)),
+				]
+
+				if (artifactIds.length > 0) {
+					await tx
+						.delete(suggestion)
+						.where(inArray(suggestion.artifactId, artifactIds))
+				}
+
 				// Delete all votes for user's chats
 				await tx.delete(vote).where(eq(vote.userId, ctx.userId))
 
@@ -652,52 +698,43 @@ class ChatService {
 				)
 			}
 
-			// Use transaction to prevent race conditions
-			const result = await withTransaction(async (tx) => {
-				// First, get the message IDs that will be deleted
-				const messagesToDelete = await tx
-					.select({ id: message.id })
-					.from(message)
-					.where(
-						and(
-							eq(message.chatId, chatId),
-							gte(message.createdAt, timestamp),
-						),
-					)
+			const messagesToDelete = await db
+				.select({ id: message.id })
+				.from(message)
+				.where(
+					and(
+						eq(message.chatId, chatId),
+						gte(message.createdAt, timestamp),
+					),
+				)
 
-				const messageIds = messagesToDelete.map((m) => m.id)
+			const messageIds = messagesToDelete.map((m) => m.id)
 
-				if (messageIds.length === 0) {
-					return { messagesDeleted: 0, votesDeleted: 0 }
-				}
+			if (messageIds.length === 0) {
+				return { messagesDeleted: 0, votesDeleted: 0 }
+			}
 
-				// Delete votes for these messages first (foreign key constraint)
-				const deletedVotes = await tx
-					.delete(vote)
-					.where(
-						and(
-							eq(vote.chatId, chatId),
-							inArray(vote.messageId, messageIds),
-						),
-					)
-					.returning({ id: vote.messageId })
+			const votesToDelete = await db
+				.select({ id: vote.messageId })
+				.from(vote)
+				.where(
+					and(
+						eq(vote.chatId, chatId),
+						inArray(vote.messageId, messageIds),
+					),
+				)
 
-				// Delete the messages
-				const deletedMessages = await tx
-					.delete(message)
-					.where(
-						and(
-							eq(message.chatId, chatId),
-							inArray(message.id, messageIds),
-						),
-					)
-					.returning({ id: message.id })
+			const messagesDeleted =
+				await messageRepository.deleteAfterTimestamp(
+					chatId,
+					timestamp,
+					ctx,
+				)
 
-				return {
-					messagesDeleted: deletedMessages.length,
-					votesDeleted: deletedVotes.length,
-				}
-			})
+			const result = {
+				messagesDeleted,
+				votesDeleted: votesToDelete.length,
+			}
 
 			logDebug("ChatService deleteMessagesAfterTimestamp completed", {
 				chatId,

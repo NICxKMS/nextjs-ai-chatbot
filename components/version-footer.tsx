@@ -61,38 +61,47 @@ export const VersionFooter = ({
 					onClick={async () => {
 						setIsMutating(true)
 
-						mutate(
-							`/api/document?id=${artifact.documentId}`,
-							await fetch(
-								`/api/document?id=${artifact.documentId}&timestamp=${getDocumentTimestampByIndex(
+						try {
+							const rollbackTimestamp =
+								getDocumentTimestampByIndex(
 									documents,
 									currentVersionIndex,
-								)}`,
-								{
-									method: "DELETE",
-								},
-							),
-							{
-								optimisticData: documents
-									? [
-											...documents.filter(
-												(document) =>
-													!isAfter(
-														new Date(
-															document.createdAt,
-														),
-														new Date(
-															getDocumentTimestampByIndex(
-																documents,
-																currentVersionIndex,
-															),
-														),
-													),
+								)
+
+							await mutate(
+								`artifact-versions-${artifact.documentId}`,
+								async () => {
+									await fetch(
+										`/api/artifacts?id=${artifact.documentId}&timestamp=${rollbackTimestamp.toISOString()}`,
+										{
+											method: "DELETE",
+										},
+									)
+
+									return documents.filter(
+										(document) =>
+											!isAfter(
+												new Date(document.createdAt),
+												rollbackTimestamp,
 											),
-										]
-									: [],
-							},
-						)
+									)
+								},
+								{
+									revalidate: false,
+									optimisticData: documents.filter(
+										(document) =>
+											!isAfter(
+												new Date(document.createdAt),
+												rollbackTimestamp,
+											),
+									),
+								},
+							)
+
+							handleVersionChange("latest")
+						} finally {
+							setIsMutating(false)
+						}
 					}}
 				>
 					<div>Restore this version</div>

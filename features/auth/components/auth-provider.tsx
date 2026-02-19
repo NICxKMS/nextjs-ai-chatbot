@@ -24,6 +24,7 @@ import {
 	useRef,
 	useState,
 } from "react"
+import { useSWRConfig } from "swr"
 import type { AppSession } from "@/lib/auth/session"
 import type { AuthContextValue, AuthStatus } from "../types"
 
@@ -83,6 +84,7 @@ export function AuthProvider({
 	children: ReactNode
 }): JSX.Element {
 	const [session, setSession] = useState<AppSession | null>(initialSession)
+	const { mutate } = useSWRConfig()
 	// Track if this is a brand new session (no history to fetch)
 	const [isNewSession, setIsNewSession] = useState(false)
 	// Track bootstrap attempts to prevent duplicate requests
@@ -95,6 +97,25 @@ export function AuthProvider({
 
 	// Ref to store BroadcastChannel
 	const channelRef = useRef<BroadcastChannel | null>(null)
+
+	const clearAuthCaches = useCallback(async () => {
+		await mutate(
+			(key) =>
+				typeof key === "string" &&
+				(key.startsWith("/api/history") ||
+					key.startsWith("/api/votes") ||
+					key.startsWith("/api/vote") ||
+					key.startsWith("/api/suggestions")),
+			undefined,
+			{ revalidate: false },
+		)
+
+		await mutate(() => true, undefined, { revalidate: false })
+	}, [mutate])
+
+	const dispatchLogoutEvent = useCallback(() => {
+		window.dispatchEvent(new Event("auth:logout"))
+	}, [])
 
 	const status: AuthStatus = useMemo(() => {
 		if (!session) {
@@ -131,7 +152,12 @@ export function AuthProvider({
 						.then((data: { session: AppSession | null }) => {
 							if (data.session) {
 								setSession(data.session)
+								return
 							}
+
+							void clearAuthCaches()
+							setSession(null)
+							setIsNewSession(false)
 						})
 						.catch(() => {
 							// Ignore errors
@@ -142,6 +168,8 @@ export function AuthProvider({
 				case "logout": {
 					// Another tab logged out - clear our session
 					// This handles the edge case of logout during streaming
+					dispatchLogoutEvent()
+					void clearAuthCaches()
 					setSession(null)
 					setIsNewSession(false)
 					break
@@ -157,7 +185,12 @@ export function AuthProvider({
 						.then((data: { session: AppSession | null }) => {
 							if (data.session) {
 								setSession(data.session)
+								return
 							}
+
+							void clearAuthCaches()
+							setSession(null)
+							setIsNewSession(false)
 						})
 						.catch(() => {
 							// Ignore errors
@@ -171,7 +204,7 @@ export function AuthProvider({
 			channel.close()
 			channelRef.current = null
 		}
-	}, [])
+	}, [clearAuthCaches, dispatchLogoutEvent])
 
 	// =============================================================================
 	// Storage Event Fallback for Cross-Tab Sync
@@ -193,6 +226,8 @@ export function AuthProvider({
 
 				switch (data.type) {
 					case "logout": {
+						dispatchLogoutEvent()
+						void clearAuthCaches()
 						setSession(null)
 						setIsNewSession(false)
 						break
@@ -211,7 +246,12 @@ export function AuthProvider({
 								}) => {
 									if (sessionData.session) {
 										setSession(sessionData.session)
+										return
 									}
+
+									void clearAuthCaches()
+									setSession(null)
+									setIsNewSession(false)
 								},
 							)
 							.catch(() => {
@@ -230,7 +270,7 @@ export function AuthProvider({
 		return () => {
 			window.removeEventListener("storage", handleStorageChange)
 		}
-	}, [])
+	}, [clearAuthCaches, dispatchLogoutEvent])
 
 	// =============================================================================
 	// Broadcast Auth Changes to Other Tabs
@@ -245,6 +285,9 @@ export function AuthProvider({
 
 		// Detect logout (had session, now null)
 		if (prevSessionRef.current && !session) {
+			dispatchLogoutEvent()
+			void clearAuthCaches()
+
 			const message: AuthEventMessage = {
 				type: "logout",
 				timestamp: Date.now(),
@@ -287,7 +330,7 @@ export function AuthProvider({
 
 		// Update ref for next comparison
 		prevSessionRef.current = session
-	}, [session])
+	}, [clearAuthCaches, dispatchLogoutEvent, session])
 
 	// =============================================================================
 	// Guest Session Bootstrap
@@ -353,7 +396,12 @@ export function AuthProvider({
 				.then((data: { session: AppSession | null }) => {
 					if (data.session) {
 						setSession(data.session)
+						return
 					}
+
+					void clearAuthCaches()
+					setSession(null)
+					setIsNewSession(false)
 				})
 				.catch(() => {
 					// Ignore errors
@@ -362,7 +410,7 @@ export function AuthProvider({
 
 		window.addEventListener("focus", handleFocus)
 		return () => window.removeEventListener("focus", handleFocus)
-	}, [])
+	}, [clearAuthCaches])
 
 	// =============================================================================
 	// Callbacks

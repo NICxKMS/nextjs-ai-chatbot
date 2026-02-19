@@ -167,9 +167,9 @@ export function getEnabledTools(model: ModelDefinition | undefined): ToolId[] {
 
 	// Disable tools only for pure reasoning models without other capabilities
 	if (
-		model.capabilities.reasoning &&
-		!model.capabilities.tools &&
-		!model.capabilities.vision
+		model.capabilities.includes("reasoning") &&
+		!model.capabilities.includes("tooling") &&
+		!model.capabilities.includes("vision")
 	) {
 		return []
 	}
@@ -180,7 +180,7 @@ export function getEnabledTools(model: ModelDefinition | undefined): ToolId[] {
 	}
 
 	// Enable tools if model supports them
-	if (model.capabilities.tools) {
+	if (model.capabilities.includes("tooling")) {
 		return [...CHAT_TOOL_NAMES]
 	}
 
@@ -272,7 +272,7 @@ function toModelMetadata(model: ModelDefinition): ModelMetadata {
 		name: model.name,
 		description: model.description ?? "",
 		modalities: model.modalities ?? [],
-		capabilities: model.capabilityList ?? [],
+		capabilities: model.capabilities,
 		tags: model.tags ?? [],
 		source: model.source ?? "curated",
 		isCurated: model.isCurated ?? false,
@@ -366,6 +366,7 @@ export function executeChatCompletion(params: ChatCompletionParams) {
 					isGuest: !session.user?.id,
 					chatId,
 					dataStream,
+					model: getModel("artifact-model"),
 				})
 			: undefined
 

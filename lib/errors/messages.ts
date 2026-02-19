@@ -8,6 +8,7 @@
  */
 
 import { type AppError, type ErrorCode, ErrorCodes } from "@/lib/errors"
+import { mapLegacyToNewCode } from "@/lib/errors/chat-sdk-compat"
 
 // =============================================================================
 // Types
@@ -328,6 +329,25 @@ export function getErrorInfo(
 	locale?: SupportedLocale,
 ): ErrorMessageSet {
 	return getErrorMessageSet(error.code, locale)
+}
+
+/**
+ * Compatibility helper that resolves a user-facing message from an error code.
+ * Supports both v6 `ErrorCodes` values and legacy ChatSDK error codes.
+ */
+export function getMessageByErrorCode(
+	errorCode: ErrorCode | string,
+	userType?: ErrorUserType,
+	locale?: SupportedLocale,
+): string {
+	const normalizedCode = Object.values(ErrorCodes).includes(
+		errorCode as ErrorCode,
+	)
+		? (errorCode as ErrorCode)
+		: (mapLegacyToNewCode(errorCode) ?? ErrorCodes.INTERNAL_ERROR)
+
+	return getContextualErrorMessageSet(normalizedCode, userType, locale)
+		.message
 }
 
 /**

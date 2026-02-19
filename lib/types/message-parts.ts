@@ -153,6 +153,57 @@ export const imagePartSchema = z.object({
 })
 
 /**
+ * Schema for error part - structured error content returned by tools/systems.
+ */
+export const errorPartSchema = z.object({
+	type: z.literal("error"),
+	message: z.string(),
+	code: z.string().optional(),
+	details: z.unknown().optional(),
+})
+
+/**
+ * Schema for system part - system-level instructional or status content.
+ */
+export const systemPartSchema = z.object({
+	type: z.literal("system"),
+	text: z.string(),
+	kind: z.string().optional(),
+})
+
+/**
+ * Schema for audio part.
+ */
+export const audioPartSchema = z.object({
+	type: z.literal("audio"),
+	url: z.string().url(),
+	durationMs: z.number().int().positive().optional(),
+	transcript: z.string().optional(),
+	mediaType: z.string().optional(),
+})
+
+/**
+ * Schema for video part.
+ */
+export const videoPartSchema = z.object({
+	type: z.literal("video"),
+	url: z.string().url(),
+	durationMs: z.number().int().positive().optional(),
+	thumbnailUrl: z.string().url().optional(),
+	mediaType: z.string().optional(),
+})
+
+/**
+ * Schema for embeddable content part.
+ */
+export const embedPartSchema = z.object({
+	type: z.literal("embed"),
+	url: z.string().url(),
+	title: z.string().optional(),
+	provider: z.string().optional(),
+})
+
+/**
  * Schema for step indicator part - for multi-step reasoning.
  */
 export const stepPartSchema = z.object({
@@ -186,6 +237,11 @@ export const messagePartSchema = z.discriminatedUnion("type", [
 	codePartSchema,
 	artifactPartSchema,
 	imagePartSchema,
+	errorPartSchema,
+	systemPartSchema,
+	audioPartSchema,
+	videoPartSchema,
+	embedPartSchema,
 	stepPartSchema,
 ])
 
@@ -247,6 +303,31 @@ export type ArtifactPart = z.infer<typeof artifactPartSchema>
  * Image generation part type inferred from schema.
  */
 export type ImagePart = z.infer<typeof imagePartSchema>
+
+/**
+ * Error part type inferred from schema.
+ */
+export type ErrorPart = z.infer<typeof errorPartSchema>
+
+/**
+ * System part type inferred from schema.
+ */
+export type SystemPart = z.infer<typeof systemPartSchema>
+
+/**
+ * Audio part type inferred from schema.
+ */
+export type AudioPart = z.infer<typeof audioPartSchema>
+
+/**
+ * Video part type inferred from schema.
+ */
+export type VideoPart = z.infer<typeof videoPartSchema>
+
+/**
+ * Embed part type inferred from schema.
+ */
+export type EmbedPart = z.infer<typeof embedPartSchema>
 
 /**
  * Step indicator part type inferred from schema.
@@ -379,6 +460,41 @@ export function isImagePart(part: MessagePart): part is ImagePart {
 }
 
 /**
+ * Type guard to check if a MessagePart is an ErrorPart.
+ */
+export function isErrorPart(part: MessagePart): part is ErrorPart {
+	return part.type === "error"
+}
+
+/**
+ * Type guard to check if a MessagePart is a SystemPart.
+ */
+export function isSystemPart(part: MessagePart): part is SystemPart {
+	return part.type === "system"
+}
+
+/**
+ * Type guard to check if a MessagePart is an AudioPart.
+ */
+export function isAudioPart(part: MessagePart): part is AudioPart {
+	return part.type === "audio"
+}
+
+/**
+ * Type guard to check if a MessagePart is a VideoPart.
+ */
+export function isVideoPart(part: MessagePart): part is VideoPart {
+	return part.type === "video"
+}
+
+/**
+ * Type guard to check if a MessagePart is an EmbedPart.
+ */
+export function isEmbedPart(part: MessagePart): part is EmbedPart {
+	return part.type === "embed"
+}
+
+/**
  * Type guard to check if a MessagePart is a StepPart.
  *
  * @param part - The message part to check
@@ -452,6 +568,13 @@ export function extractTextFromParts(parts: MessagePart[]): string {
 }
 
 /**
+ * Compatibility alias for extracting text content from message parts.
+ */
+export function getTextContent(parts: MessagePart[]): string {
+	return extractTextFromParts(parts)
+}
+
+/**
  * Extract all file URLs from message parts.
  *
  * @param parts - Array of message parts
@@ -459,6 +582,13 @@ export function extractTextFromParts(parts: MessagePart[]): string {
  */
 export function extractFileUrlsFromParts(parts: MessagePart[]): string[] {
 	return parts.filter(isFilePart).map((part) => part.url)
+}
+
+/**
+ * Compatibility helper that returns image parts from a message payload.
+ */
+export function getImageParts(parts: MessagePart[]): ImagePart[] {
+	return parts.filter(isImagePart)
 }
 
 /**

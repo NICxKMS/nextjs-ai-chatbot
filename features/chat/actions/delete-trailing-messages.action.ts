@@ -9,11 +9,21 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { z } from "zod"
 import { requireAuthAction } from "@/lib/auth/guards"
 import type { RepositoryContext } from "@/lib/data/repositories"
-import { messageRepository } from "@/lib/data/repositories"
-import { RateLimitError } from "@/lib/errors"
+import { chatService } from "@/lib/data/services/chat.service"
+import { RateLimitError, ValidationError } from "@/lib/errors"
 import { checkApiLimit, getRetryAfter } from "@/lib/rate-limit"
+
+const deleteTrailingMessagesSchema = z.object({
+	chatId: z.string().uuid(),
+	createdAt: z
+		.string()
+		.refine((value) => !Number.isNaN(new Date(value).getTime()), {
+			message: "createdAt must be a valid ISO timestamp",
+		}),
+})
 
 // =============================================================================
 // Types
@@ -92,19 +102,32 @@ export async function deleteTrailingMessagesAction(
 	}
 
 	try {
-		// 4. Parse timestamp
-		const timestamp = new Date(input.createdAt)
+		const parsed = deleteTrailingMessagesSchema.safeParse(input)
+		if (!parsed.success) {
+			throw new ValidationError(
+				"Invalid delete trailing messages input",
+				{
+					errors: parsed.error.flatten().fieldErrors,
+				},
+			)
+		}
 
-		// 5. Delete messages after timestamp
-		const messagesDeleted = await messageRepository.deleteAfterTimestamp(
-			input.chatId,
-			timestamp,
-			ctx,
-		)
+		const { chatId, createdAt } = parsed.data
+
+		// 4. Parse timestamp
+		const timestamp = new Date(createdAt)
+
+		// 5. Delete messages after timestamp with ownership verification
+		const { messagesDeleted } =
+			await chatService.deleteMessagesAfterTimestamp(
+				chatId,
+				timestamp,
+				ctx,
+			)
 
 		// 6. Revalidate paths
 		revalidatePath("/chat")
-		revalidatePath(`/chat/${input.chatId}`)
+		revalidatePath(`/chat/${chatId}`)
 
 		return {
 			success: true,
@@ -119,4 +142,13 @@ export async function deleteTrailingMessagesAction(
 					: "Failed to delete trailing messages",
 		}
 	}
+}
+
+/**
+ * Backward-compatible alias for legacy callers.
+ */
+export async function deleteTrailingMessages(
+	input: DeleteTrailingMessagesInput,
+): Promise<DeleteTrailingMessagesResult> {
+	return deleteTrailingMessagesAction(input)
 }

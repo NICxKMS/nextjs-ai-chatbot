@@ -11,6 +11,7 @@
 import equal from "fast-deep-equal"
 import { memo, useMemo } from "react"
 import { toast } from "sonner"
+import { useSWRConfig } from "swr"
 import { useCopyToClipboard } from "usehooks-ts"
 import type { ChatMessage, UserVote } from "../types"
 
@@ -215,6 +216,7 @@ export function PureMessageActions({
 	isLoading,
 	setMode,
 }: PureMessageActionsProps) {
+	const { mutate } = useSWRConfig()
 	const [, copyToClipboard] = useCopyToClipboard()
 
 	// Extract text from message parts
@@ -252,41 +254,69 @@ export function PureMessageActions({
 	/**
 	 * Handle upvote action
 	 */
-	const handleUpvote = () => {
-		const upvote = fetch("/api/vote", {
-			method: "PATCH",
-			body: JSON.stringify({
-				chatId,
-				messageId: message.id,
-				type: "up",
-			}),
-		})
+	const submitVote = (type: "up" | "down") => {
+		const nextIsUpvoted = type === "up"
 
-		toast.promise(upvote, {
-			loading: "Upvoting Response...",
-			success: () => "Upvoted Response!",
-			error: "Failed to upvote response.",
+		const voteRequest = (async () => {
+			const response = await fetch("/api/votes", {
+				method: "PATCH",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					chatId,
+					messageId: message.id,
+					type,
+				}),
+			})
+
+			if (!response.ok) {
+				throw new Error("Vote request failed")
+			}
+
+			await mutate<UserVote[]>(
+				`/api/votes?chatId=${chatId}`,
+				(currentVotes: UserVote[] | undefined) => {
+					const votesWithoutCurrent = (currentVotes ?? []).filter(
+						(currentVote) => currentVote.messageId !== message.id,
+					)
+
+					return [
+						...votesWithoutCurrent,
+						{
+							chatId,
+							messageId: message.id,
+							isUpvoted: nextIsUpvoted,
+						},
+					]
+				},
+				{ revalidate: false },
+			)
+		})()
+
+		toast.promise(voteRequest, {
+			loading:
+				type === "up"
+					? "Upvoting Response..."
+					: "Downvoting Response...",
+			success:
+				type === "up" ? "Upvoted Response!" : "Downvoted Response!",
+			error:
+				type === "up"
+					? "Failed to upvote response."
+					: "Failed to downvote response.",
 		})
+	}
+
+	const handleUpvote = () => {
+		submitVote("up")
 	}
 
 	/**
 	 * Handle downvote action
 	 */
 	const handleDownvote = () => {
-		const downvote = fetch("/api/vote", {
-			method: "PATCH",
-			body: JSON.stringify({
-				chatId,
-				messageId: message.id,
-				type: "down",
-			}),
-		})
-
-		toast.promise(downvote, {
-			loading: "Downvoting Response...",
-			success: () => "Downvoted Response!",
-			error: "Failed to downvote response.",
-		})
+		submitVote("down")
 	}
 
 	// User messages: Edit (on hover) and Copy actions

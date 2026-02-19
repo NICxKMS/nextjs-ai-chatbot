@@ -65,7 +65,7 @@ interface AuthEventMessage {
  * ```
  */
 export function useLogoutHandler(options?: {
-	onBeforeLogout?: () => void
+	onBeforeLogout?: () => void | Promise<void>
 	redirectTo?: string
 }): () => Promise<void> {
 	const { onBeforeLogout, redirectTo = "/login" } = options ?? {}
@@ -74,7 +74,10 @@ export function useLogoutHandler(options?: {
 
 	return useCallback(async () => {
 		// Call onBeforeLogout callback (e.g., abort active streams)
-		onBeforeLogout?.()
+		await onBeforeLogout?.()
+
+		// Notify same-tab listeners (e.g., active chat stream) before session teardown
+		window.dispatchEvent(new Event("auth:logout"))
 
 		// Broadcast logout to other tabs BEFORE clearing session
 		// This ensures other tabs receive the event even if this tab navigates away

@@ -43,6 +43,8 @@ export interface DeleteChatActionResult {
 	messagesDeleted?: number
 	/** Number of votes deleted */
 	votesDeleted?: number
+	/** Number of suggestions deleted */
+	suggestionsDeleted?: number
 	/** Error message if failed */
 	error?: string
 }
@@ -115,6 +117,9 @@ export async function deleteChatAction(
 			chat: result.chat,
 			messagesDeleted: result.messagesDeleted,
 			votesDeleted: result.votesDeleted,
+			...(result.suggestionsDeleted !== undefined && {
+				suggestionsDeleted: result.suggestionsDeleted,
+			}),
 		}
 	} catch (error) {
 		return {

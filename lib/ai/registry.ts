@@ -15,13 +15,17 @@ import {
 	wrapLanguageModel,
 } from "ai"
 import { isTestEnvironment } from "@/lib/constants"
+import { getModelCatalog } from "./model-discovery"
 import { availableProviderIds, getProvider, providers } from "./providers"
 import type {
 	ModelCapabilities,
 	ModelCapability,
+	ModelMetadata,
 	ModelModality,
+	ProviderId,
 	ReasoningType,
 } from "./types"
+import { fromLegacyCapabilities } from "./types"
 
 // =============================================================================
 // Re-export Types from types.ts
@@ -56,15 +60,15 @@ export interface ModelDefinition {
 	/** Display name for UI */
 	name: string
 	/** Provider identifier */
-	provider: string
+	provider: ProviderId
 	/** Model ID within provider (may differ from id suffix) */
 	modelId: string
 	/** Maximum output tokens */
 	maxTokens: number
 	/** Maximum context window */
 	contextWindow: number
-	/** Model capabilities (legacy boolean format) */
-	capabilities: ModelCapabilities
+	/** Model capabilities (canonical rich array format) */
+	capabilities: ModelCapability[]
 	/** Optional description */
 	description?: string
 	/** Whether this is a curated/recommended model */
@@ -73,14 +77,17 @@ export interface ModelDefinition {
 	tags?: string[]
 	/** Supported modalities (optional, for enhanced metadata) */
 	modalities?: ModelModality[]
-	/** Capability array (optional, for enhanced metadata) */
-	capabilityList?: ModelCapability[]
 	/** Reasoning type for chain-of-thought models */
 	reasoningType?: ReasoningType
 	/** Thinking budget for reasoning models */
 	thinkingBudget?: number
 	/** Source of model information */
 	source?: "curated" | "discovered"
+}
+
+interface LegacyModelDefinition extends Omit<ModelDefinition, "capabilities"> {
+	capabilities: ModelCapabilities
+	capabilityList?: ModelCapability[]
 }
 
 // =============================================================================
@@ -92,7 +99,7 @@ export interface ModelDefinition {
  * Only includes models from available providers.
  * Last updated: February 2026
  */
-const curatedModels: ModelDefinition[] = [
+const curatedModelSeed: LegacyModelDefinition[] = [
 	// ============================================================================
 	// TITLE MODEL (no thinking for fast title generation)
 	// ============================================================================
@@ -934,6 +941,24 @@ const curatedModels: ModelDefinition[] = [
 	},
 ]
 
+function toCanonicalModelDefinition(
+	model: LegacyModelDefinition,
+): ModelDefinition {
+	const capabilities =
+		model.capabilityList && model.capabilityList.length > 0
+			? model.capabilityList
+			: fromLegacyCapabilities(model.capabilities)
+
+	return {
+		...model,
+		capabilities,
+	}
+}
+
+const curatedModels: ModelDefinition[] = curatedModelSeed.map(
+	toCanonicalModelDefinition,
+)
+
 // =============================================================================
 // Provider Registry
 // =============================================================================
@@ -956,6 +981,87 @@ function getAvailableProvidersRecord(): Record<string, ProviderV2> {
  * Create provider registry from available providers.
  */
 const providerRegistry = createProviderRegistry(getAvailableProvidersRecord())
+
+// =============================================================================
+// Dynamic Discovery Snapshot (sync registry + async discovery)
+// =============================================================================
+
+let discoveredModelsSnapshot: ModelDefinition[] = []
+let discoveryInFlight: Promise<void> | null = null
+let hasDiscoveryAttempted = false
+
+function mapDiscoveredModelToDefinition(model: ModelMetadata): ModelDefinition {
+	const definition: ModelDefinition = {
+		id: model.id,
+		name: model.name,
+		provider: model.providerId,
+		modelId: model.modelId,
+		maxTokens: model.maxOutputTokens ?? 8192,
+		contextWindow:
+			model.contextWindow ??
+			Math.max(model.maxOutputTokens ?? 8192, 8192),
+		capabilities: model.capabilities,
+		description: model.description,
+		isCurated: model.isCurated,
+		tags: model.tags,
+		modalities: model.modalities,
+		source: model.source,
+	}
+
+	if (model.reasoningType !== undefined) {
+		definition.reasoningType = model.reasoningType
+	}
+
+	if (model.thinkingBudget !== undefined) {
+		definition.thinkingBudget = model.thinkingBudget
+	}
+
+	return definition
+}
+
+function dedupeModelsById(models: ModelDefinition[]): ModelDefinition[] {
+	const seen = new Set<string>()
+	const deduped: ModelDefinition[] = []
+
+	for (const model of models) {
+		if (seen.has(model.id)) {
+			continue
+		}
+		seen.add(model.id)
+		deduped.push(model)
+	}
+
+	return deduped
+}
+
+function triggerDiscoveryRefresh(): void {
+	if (discoveryInFlight) {
+		return
+	}
+
+	hasDiscoveryAttempted = true
+	discoveryInFlight = getModelCatalog()
+		.then(({ catalogs }) => {
+			const discovered = catalogs.flatMap((catalog) => catalog.models)
+			discoveredModelsSnapshot = discovered.map(
+				mapDiscoveredModelToDefinition,
+			)
+		})
+		.catch(() => {
+			discoveredModelsSnapshot = []
+		})
+		.finally(() => {
+			discoveryInFlight = null
+		})
+}
+
+function getDiscoveredModelsSnapshot(): ModelDefinition[] {
+	if (!hasDiscoveryAttempted) {
+		triggerDiscoveryRefresh()
+	}
+
+	return discoveredModelsSnapshot
+}
 
 // =============================================================================
 // Reasoning Model Middleware
@@ -1015,7 +1121,12 @@ function filterByAvailableProviders(
  * @returns Array of available model definitions
  */
 export function listModels(): ModelDefinition[] {
-	return filterByAvailableProviders(curatedModels)
+	const merged = dedupeModelsById([
+		...curatedModels,
+		...getDiscoveredModelsSnapshot(),
+	])
+
+	return filterByAvailableProviders(merged)
 }
 
 /**
@@ -1025,9 +1136,11 @@ export function listModels(): ModelDefinition[] {
  * @returns Array of models with the specified capability
  */
 export function listModelsByCapability(
-	capability: keyof ModelCapabilities,
+	capability: ModelCapability,
 ): ModelDefinition[] {
-	return listModels().filter((model) => model.capabilities[capability])
+	return listModels().filter((model) =>
+		model.capabilities.includes(capability),
+	)
 }
 
 /**
@@ -1074,6 +1187,8 @@ export function isValidModelId(id: string): boolean {
  * ```
  */
 export function getModel(id: string): LanguageModelV2 {
+	const resolvedId = isTestEnvironment ? id : resolveModelAlias(id)
+
 	// In test environment, return mock models
 	if (isTestEnvironment) {
 		// Dynamic import to avoid bundling mock models in production
@@ -1084,7 +1199,7 @@ export function getModel(id: string): LanguageModelV2 {
 			mockTitleModel,
 		} = require("./models.mock")
 
-		switch (id) {
+		switch (resolvedId) {
 			case "chat-model":
 			case "openai:gpt-4o":
 			case "openai:gpt-4o-mini":
@@ -1104,7 +1219,7 @@ export function getModel(id: string): LanguageModelV2 {
 		}
 	}
 
-	const definition = getModelById(id)
+	const definition = getModelById(resolvedId)
 
 	if (definition) {
 		// Use the provider and modelId from definition
@@ -1116,7 +1231,7 @@ export function getModel(id: string): LanguageModelV2 {
 
 			// Check if this model is a reasoning model that needs middleware wrapping
 			const isReasoningModel =
-				definition.capabilities.reasoning &&
+				definition.capabilities.includes("reasoning") &&
 				definition.reasoningType !== undefined &&
 				definition.reasoningType !== "none"
 
@@ -1134,7 +1249,34 @@ export function getModel(id: string): LanguageModelV2 {
 	}
 
 	// Fallback: try direct resolution through provider registry
-	return providerRegistry.languageModel(id as `${string}:${string}`)
+	return providerRegistry.languageModel(resolvedId as `${string}:${string}`)
+}
+
+function resolveModelAlias(id: string): string {
+	switch (id) {
+		case "chat-model":
+			return getDefaultChatModel()?.id ?? "openai:gpt-4o-mini"
+		case "chat-model-reasoning":
+			return (
+				getReasoningModel()?.id ??
+				getDefaultChatModel()?.id ??
+				"openai:gpt-4o-mini"
+			)
+		case "title-model":
+			return (
+				getModelById("google:gemini-flash-lite-latest-title")?.id ??
+				getDefaultChatModel()?.id ??
+				"openai:gpt-4o-mini"
+			)
+		case "artifact-model":
+			return (
+				getDefaultArtifactModel()?.id ??
+				getDefaultChatModel()?.id ??
+				"openai:gpt-4o-mini"
+			)
+		default:
+			return id
+	}
 }
 
 // =============================================================================
@@ -1202,7 +1344,9 @@ export function getReasoningModel(): ModelDefinition | undefined {
 export function getDefaultArtifactModel(): ModelDefinition | undefined {
 	// Prefer models with code and vision capabilities
 	const artifactModels = listModels().filter(
-		(model) => model.capabilities.code && model.capabilities.vision,
+		(model) =>
+			model.capabilities.includes("code") &&
+			model.capabilities.includes("vision"),
 	)
 
 	return artifactModels[0] ?? getDefaultChatModel()

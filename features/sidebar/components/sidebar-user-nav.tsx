@@ -13,8 +13,9 @@ import { ChevronUp } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
+import { useSWRConfig } from "swr"
 import { LoaderIcon } from "@/components/icons"
 import {
 	DropdownMenu,
@@ -29,6 +30,7 @@ import {
 	SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { useAuth } from "@/features/auth"
+import { useLogoutHandler } from "@/features/auth/hooks"
 
 import type { SidebarUserNavProps } from "../types"
 
@@ -40,9 +42,34 @@ import type { SidebarUserNavProps } from "../types"
  */
 export function SidebarUserNav({ user }: SidebarUserNavProps) {
 	const router = useRouter()
-	const { session, status, setSession } = useAuth()
+	const { session, status } = useAuth()
 	const { setTheme, resolvedTheme } = useTheme()
+	const { mutate } = useSWRConfig()
 	const [mounted, setMounted] = useState(false)
+	const [isSigningOut, setIsSigningOut] = useState(false)
+
+	const clearAuthCaches = useCallback(async () => {
+		await mutate(
+			(key) =>
+				typeof key === "string" &&
+				(key.startsWith("/api/history") ||
+					key.startsWith("/api/votes") ||
+					key.startsWith("/api/vote") ||
+					key.startsWith("/api/suggestions")),
+			undefined,
+			{ revalidate: false },
+		)
+
+		await mutate(() => true, undefined, { revalidate: false })
+	}, [mutate])
+
+	const handleLogout = useLogoutHandler({
+		onBeforeLogout: async () => {
+			setIsSigningOut(true)
+			await clearAuthCaches()
+		},
+		redirectTo: "/",
+	})
 
 	useEffect(() => {
 		setMounted(true)
@@ -53,7 +80,11 @@ export function SidebarUserNav({ user }: SidebarUserNavProps) {
 	const isAnonymous = !isAuthenticated || isGuest
 	const avatarSeed = user?.email ?? "guest"
 	const displayLabel = isAnonymous ? "Guest" : (user?.email ?? "User")
-	const authActionLabel = isAnonymous ? "Login to your account" : "Sign out"
+	const authActionLabel = isAnonymous
+		? "Login to your account"
+		: isSigningOut
+			? "Signing out..."
+			: "Sign out"
 
 	return (
 		<SidebarMenu>
@@ -127,6 +158,7 @@ export function SidebarUserNav({ user }: SidebarUserNavProps) {
 						>
 							<button
 								className="w-full cursor-pointer"
+								disabled={status === "loading" || isSigningOut}
 								onClick={() => {
 									if (status === "loading") {
 										toast.error(
@@ -138,27 +170,14 @@ export function SidebarUserNav({ user }: SidebarUserNavProps) {
 									if (!session || isGuest) {
 										router.push("/login")
 									} else {
-										// Call server-side logout to properly invalidate cookies
-										fetch("/api/auth/logout", {
-											method: "POST",
-											credentials: "include",
-										})
-											.then((response) => {
-												if (response.ok) {
-													// Clear session state on client
-													setSession(null)
-													router.push("/")
-													router.refresh()
-												} else {
-													toast.error(
-														"Failed to sign out, please try again",
-													)
-												}
-											})
+										handleLogout()
 											.catch(() => {
 												toast.error(
 													"Failed to sign out, please try again",
 												)
+											})
+											.finally(() => {
+												setIsSigningOut(false)
 											})
 									}
 								}}

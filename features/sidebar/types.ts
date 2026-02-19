@@ -142,6 +142,8 @@ export interface ChatHistory {
 	chats: Chat[]
 	/** Whether there are more chats to load */
 	hasMore: boolean
+	/** Cursor for next page */
+	nextCursor?: string | null
 }
 
 /**
@@ -150,8 +152,8 @@ export interface ChatHistory {
 export interface ChatHistoryPagination {
 	/** Number of items per page */
 	limit: number
-	/** Cursor for pagination (ending_before) */
-	endingBefore?: string | null
+	/** Cursor for pagination */
+	cursor?: string | null
 }
 
 // =============================================================================

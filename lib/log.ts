@@ -7,6 +7,8 @@
  * @module lib/log
  */
 
+import { type Attributes, SpanStatusCode, trace } from "@opentelemetry/api"
+
 // =============================================================================
 // Log Types
 // =============================================================================
@@ -124,6 +126,101 @@ function formatJsonLog(entry: LogEntry): string {
 }
 
 // =============================================================================
+// OpenTelemetry Integration
+// =============================================================================
+
+/**
+ * Convert arbitrary values to OpenTelemetry-compatible attribute values.
+ */
+function toOtelAttributeValue(
+	value: unknown,
+): string | number | boolean | undefined {
+	if (value === null || value === undefined) {
+		return undefined
+	}
+
+	if (
+		typeof value === "string" ||
+		typeof value === "number" ||
+		typeof value === "boolean"
+	) {
+		return value
+	}
+
+	try {
+		return JSON.stringify(value)
+	} catch {
+		return String(value)
+	}
+}
+
+/**
+ * Emit a structured log event to the active OpenTelemetry span.
+ *
+ * This runs server-side only and complements (does not replace) console logging.
+ */
+function emitSpanLogEvent(entry: LogEntry): void {
+	if (typeof window !== "undefined") {
+		return
+	}
+
+	const span = trace.getActiveSpan()
+	if (!span) {
+		return
+	}
+
+	const attributes: Attributes = {
+		"log.level": entry.level,
+		"log.message": entry.message,
+		"log.timestamp": entry.timestamp,
+	}
+
+	const requestContext = getCurrentRequestContext()
+	const mergedContext = {
+		...(requestContext ?? {}),
+		...(entry.context ?? {}),
+	}
+
+	for (const [key, value] of Object.entries(mergedContext)) {
+		const attrValue = toOtelAttributeValue(value)
+		if (attrValue !== undefined) {
+			attributes[`log.${key}`] = attrValue
+		}
+	}
+
+	if (entry.error) {
+		attributes["log.error.name"] = entry.error.name
+		attributes["log.error.message"] = entry.error.message
+		if (entry.error.stack) {
+			attributes["log.error.stack"] = entry.error.stack
+		}
+	}
+
+	span.addEvent("log", attributes)
+
+	if (entry.level === "error") {
+		if (entry.error) {
+			const spanError = new Error(entry.error.message)
+			spanError.name = entry.error.name
+			if (entry.error.stack) {
+				spanError.stack = entry.error.stack
+			}
+
+			span.recordException(spanError)
+			span.setStatus({
+				code: SpanStatusCode.ERROR,
+				message: entry.error.message,
+			})
+		} else {
+			span.setStatus({
+				code: SpanStatusCode.ERROR,
+				message: entry.message,
+			})
+		}
+	}
+}
+
+// =============================================================================
 // Core Logger
 // =============================================================================
 
@@ -185,6 +282,8 @@ function outputLog(entry: LogEntry): void {
 			console.error(formatted)
 			break
 	}
+
+	emitSpanLogEvent(entry)
 }
 
 // =============================================================================

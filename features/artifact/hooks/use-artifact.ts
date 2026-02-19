@@ -7,6 +7,7 @@
  */
 "use client"
 
+import type { Dispatch, SetStateAction } from "react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import useSWR from "swr"
 import type { ArtifactMetadata, UIArtifact } from "../types"
@@ -87,22 +88,52 @@ export function useArtifact() {
 	// Track previous documentId to detect changes and clear stale metadata
 	const previousDocumentIdRef = useRef(artifact.documentId)
 
-	const [metadata, setMetadata] = useState<ArtifactMetadata>(null)
+	const { data: localArtifactMetadata, mutate: setLocalArtifactMetadata } =
+		useSWR<ArtifactMetadata>(
+			() =>
+				artifact.documentId && artifact.documentId !== "init"
+					? `artifact-metadata-${artifact.documentId}`
+					: null,
+			null,
+			{
+				fallbackData: null,
+				revalidateOnMount: true,
+			},
+		)
 
 	// Clear metadata when document changes
 	useEffect(() => {
 		if (artifact.documentId !== previousDocumentIdRef.current) {
-			setMetadata(null)
 			previousDocumentIdRef.current = artifact.documentId
+			setLocalArtifactMetadata(null, { revalidate: false })
 		}
-	}, [artifact.documentId])
+	}, [artifact.documentId, setLocalArtifactMetadata])
 
-	return {
-		artifact,
-		setArtifact,
-		metadata,
-		setMetadata,
-	}
+	const setMetadata = useCallback(
+		(updaterFn: SetStateAction<ArtifactMetadata>) => {
+			if (typeof updaterFn === "function") {
+				setLocalArtifactMetadata(
+					(currentMetadata: ArtifactMetadata) => {
+						return updaterFn(currentMetadata ?? null)
+					},
+				)
+				return
+			}
+
+			setLocalArtifactMetadata(updaterFn)
+		},
+		[setLocalArtifactMetadata],
+	) as Dispatch<SetStateAction<ArtifactMetadata>>
+
+	return useMemo(
+		() => ({
+			artifact,
+			setArtifact,
+			metadata: localArtifactMetadata as ArtifactMetadata,
+			setMetadata,
+		}),
+		[artifact, setArtifact, localArtifactMetadata, setMetadata],
+	)
 }
 
 export { initialArtifactData }

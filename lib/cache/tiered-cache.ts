@@ -20,6 +20,11 @@ import "server-only"
 
 import { CACHE_TTL } from "@/lib/constants"
 import { logDebug, logError, logWarn } from "@/lib/log"
+import {
+	isCircuitOpen,
+	recordCacheFailure,
+	recordCacheSuccess,
+} from "./circuit-breaker"
 import { getRedisClient, isRedisAvailable } from "./client"
 import {
 	LRUCache,
@@ -166,6 +171,12 @@ export class TieredCache<T = unknown> {
 		}
 
 		// Check L2 (Redis)
+		if (isCircuitOpen()) {
+			this.l2Misses++
+			logWarn("Tiered cache L2 skipped - circuit breaker open", { key })
+			return { value: undefined, source: "miss", found: false }
+		}
+
 		const redis = getRedisClient()
 		if (!redis) {
 			this.l2Misses++
@@ -177,6 +188,7 @@ export class TieredCache<T = unknown> {
 
 			if (cached === null) {
 				this.l2Misses++
+				recordCacheSuccess()
 				return { value: undefined, source: "miss", found: false }
 			}
 
@@ -193,6 +205,7 @@ export class TieredCache<T = unknown> {
 			}
 
 			this.l2Hits++
+			recordCacheSuccess()
 
 			// Promote to L1 with L1 TTL
 			this.l1.set(key, value, { ttl: this.l1Ttl })
@@ -202,6 +215,7 @@ export class TieredCache<T = unknown> {
 			return { value, source: "l2", found: true }
 		} catch (error) {
 			this.l2Errors++
+			recordCacheFailure("get", error)
 			logError("Tiered cache L2 get error", error as Error, { key })
 			return { value: undefined, source: "miss", found: false }
 		}
@@ -231,6 +245,13 @@ export class TieredCache<T = unknown> {
 
 		// Write to L2 (unless skipped or Redis unavailable)
 		if (!options?.skipL2) {
+			if (isCircuitOpen()) {
+				logWarn("Tiered cache L2 set skipped - circuit breaker open", {
+					key,
+				})
+				return
+			}
+
 			const redis = getRedisClient()
 			if (redis) {
 				try {
@@ -239,9 +260,11 @@ export class TieredCache<T = unknown> {
 							? value
 							: JSON.stringify(value)
 					await redis.set(key, serialized, { ex: ttl })
+					recordCacheSuccess()
 					logDebug("Tiered cache set", { key, ttl })
 				} catch (error) {
 					this.l2Errors++
+					recordCacheFailure("set", error)
 					logError("Tiered cache L2 set error", error as Error, {
 						key,
 					})
@@ -264,14 +287,23 @@ export class TieredCache<T = unknown> {
 
 		// Delete from L2
 		let l2Deleted = false
+		if (isCircuitOpen()) {
+			logWarn("Tiered cache L2 delete skipped - circuit breaker open", {
+				key,
+			})
+			return l1Deleted
+		}
+
 		const redis = getRedisClient()
 		if (redis) {
 			try {
 				await redis.del(key)
 				l2Deleted = true
+				recordCacheSuccess()
 				logDebug("Tiered cache delete", { key })
 			} catch (error) {
 				this.l2Errors++
+				recordCacheFailure("delete", error)
 				logError("Tiered cache L2 delete error", error as Error, {
 					key,
 				})
@@ -296,6 +328,13 @@ export class TieredCache<T = unknown> {
 		}
 
 		// Check L2
+		if (isCircuitOpen()) {
+			logWarn("Tiered cache L2 has skipped - circuit breaker open", {
+				key,
+			})
+			return false
+		}
+
 		const redis = getRedisClient()
 		if (!redis) {
 			return false
@@ -303,9 +342,11 @@ export class TieredCache<T = unknown> {
 
 		try {
 			const exists = await redis.exists(key)
+			recordCacheSuccess()
 			return exists === 1
 		} catch (error) {
 			this.l2Errors++
+			recordCacheFailure("exists", error)
 			logError("Tiered cache L2 has error", error as Error, { key })
 			return false
 		}

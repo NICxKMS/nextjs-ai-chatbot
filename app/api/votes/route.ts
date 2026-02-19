@@ -10,13 +10,14 @@
 import { z } from "zod"
 import { error, success } from "@/lib/api"
 import {
+	optionalAuth,
 	requireAuthAction,
 	requireNonGuest,
 	requireRateLimit,
 } from "@/lib/auth/guards"
 import { chatRepository, voteRepository } from "@/lib/data/repositories"
 import { chatService } from "@/lib/data/services/chat.service"
-import { ForbiddenError, NotFoundError } from "@/lib/errors"
+import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors"
 import { logError, logInfo } from "@/lib/log"
 
 // =============================================================================
@@ -27,11 +28,33 @@ const voteQuerySchema = z.object({
 	chatId: z.string().uuid(),
 })
 
-const voteBodySchema = z.object({
-	chatId: z.string().uuid(),
-	messageId: z.string().uuid(),
-	type: z.enum(["up", "down"]),
-})
+const voteBodySchema = z
+	.object({
+		chatId: z.string().uuid(),
+		messageId: z.string().uuid(),
+		type: z.enum(["up", "down"]).optional(),
+		isUpvoted: z.boolean().optional(),
+	})
+	.superRefine((body, ctx) => {
+		if (body.type === undefined && body.isUpvoted === undefined) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "Either 'type' or 'isUpvoted' is required",
+				path: ["type"],
+			})
+		}
+
+		if (body.type !== undefined && body.isUpvoted !== undefined) {
+			const derivedType = body.isUpvoted ? "up" : "down"
+			if (body.type !== derivedType) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: "'type' and 'isUpvoted' do not match",
+					path: ["isUpvoted"],
+				})
+			}
+		}
+	})
 
 // =============================================================================
 // GET Handler - Retrieve votes for a chat
@@ -48,7 +71,11 @@ const voteBodySchema = z.object({
  */
 export async function GET(request: Request) {
 	try {
-		const userId = await requireAuthAction()
+		const { userId, isAuthenticated } = await optionalAuth()
+
+		if (!isAuthenticated || !userId) {
+			return success([])
+		}
 
 		// Apply rate limiting for vote retrieval
 		await requireRateLimit("api", userId)
@@ -57,13 +84,21 @@ export async function GET(request: Request) {
 		const chatId = searchParams.get("chatId")
 
 		if (!chatId) {
-			return error("Missing chatId parameter")
+			return error(
+				new ValidationError("Missing chatId parameter", {
+					field: "chatId",
+				}),
+			)
 		}
 
 		// Validate UUID format
 		const parsed = voteQuerySchema.safeParse({ chatId })
 		if (!parsed.success) {
-			return error("Invalid chatId format")
+			return error(
+				new ValidationError("Invalid chatId format", {
+					errors: parsed.error.flatten().fieldErrors,
+				}),
+			)
 		}
 
 		// Verify chat ownership before returning votes
@@ -124,10 +159,15 @@ export async function PATCH(request: Request) {
 		const parsed = voteBodySchema.safeParse(body)
 
 		if (!parsed.success) {
-			return error("Invalid request body")
+			return error(
+				new ValidationError("Invalid request body", {
+					errors: parsed.error.flatten().fieldErrors,
+				}),
+			)
 		}
 
-		const { chatId, messageId, type } = parsed.data
+		const { chatId, messageId, isUpvoted: isUpvotedInput } = parsed.data
+		const type = parsed.data.type ?? (isUpvotedInput ? "up" : "down")
 		const isUpvoted = type === "up"
 
 		// Verify chat exists and user owns it

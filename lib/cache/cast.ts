@@ -8,6 +8,13 @@
  * @module lib/cache/cast
  */
 
+/**
+ * v6 auth note:
+ * Cache entities are keyed by application `userId` from NextAuth session state.
+ * Unlike legacy Supabase-auth flows, cache casting does not decode provider JWT
+ * payloads; it validates data against strongly typed app-level cache contracts.
+ */
+
 import type { AppUsage } from "@/lib/ai"
 import type {
 	CachedChat,

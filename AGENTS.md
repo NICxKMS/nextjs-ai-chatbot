@@ -87,6 +87,9 @@ During the v5→v6 migration comparison, ~45 "improvement" issues were identifie
 - **Zod schemas** for validation (co-located in feature `schemas/` directories)
 - **Server Actions** for mutations (co-located in feature `actions/` directories)
 
+### Architecture or Functioal Mapping
+Prefer mermaid diagrams.
+
 ### Architecture Specs
 
 Canonical architecture documentation lives in `.ouroboros/specs/refactor-migration/`:

@@ -156,3 +156,29 @@ export {
 	guestCacheKey,
 	isGuestContext,
 } from "./guest-strategy"
+
+// =============================================================================
+// Data-layer compatibility adapters
+// =============================================================================
+
+export {
+	type BatchProgress,
+	batchDelete,
+	batchInsert,
+	batchUpdate,
+	type DataBatchOptions,
+} from "./batch"
+
+export {
+	applyCursorPagination,
+	buildCursorResponse,
+	type CursorPaginatedResult,
+	type CursorPaginationParams,
+	decodeCursor,
+	encodeCursor,
+} from "./pagination"
+
+export {
+	withSequentialTransactions,
+	withTransaction,
+} from "./transaction"

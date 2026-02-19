@@ -18,6 +18,7 @@ import { useState, useTransition } from "react"
 import { Button } from "@/components/ui/button"
 import { login } from "@/features/auth/actions/login.action"
 import { AuthForm } from "@/features/auth/components/auth-form"
+import { getSafeRedirectUrl } from "@/lib/utils/validation"
 
 // =============================================================================
 // Login Page Component
@@ -51,6 +52,7 @@ export default function LoginPage(): JSX.Element {
 
 	// Get callbackUrl from query params (set by middleware for protected routes)
 	const callbackUrl = searchParams.get("callbackUrl")
+	const safeCallbackUrl = callbackUrl ? getSafeRedirectUrl(callbackUrl) : null
 	// Check if user just registered (show success message)
 	const justRegistered = searchParams.get("registered") === "true"
 
@@ -61,11 +63,10 @@ export default function LoginPage(): JSX.Element {
 		setError(null)
 
 		startTransition(async () => {
-			const result = await login(formData, callbackUrl)
+			const result = await login(formData, safeCallbackUrl)
 
 			if (result.success) {
-				// Redirect to intended page or default chat page
-				router.push(result.redirectTo || "/chat")
+				router.push(result.redirectTo || "/")
 				router.refresh()
 			} else {
 				setError(result.error || "Login failed. Please try again.")

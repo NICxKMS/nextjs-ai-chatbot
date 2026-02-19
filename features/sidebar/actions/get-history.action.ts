@@ -36,7 +36,7 @@ export async function getChatHistory(
 		const result = await chatService.getHistory(
 			{
 				limit: pagination.limit,
-				endingBefore: pagination.endingBefore ?? null,
+				endingBefore: pagination.cursor ?? null,
 			},
 			ctx,
 		)

@@ -7,6 +7,7 @@
  * @module app/(chat)/chat/[id]/page
  */
 
+import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import type { JSX } from "react"
 
@@ -57,6 +58,12 @@ function convertToUIMessages(messages: Message[]): ChatMessage[] {
 // =============================================================================
 // Chat Page Component
 // =============================================================================
+
+export const metadata: Metadata = {
+	title: "Conversation",
+	description:
+		"View and continue an existing AI conversation with persisted history and votes.",
+}
 
 /**
  * Chat by ID page component.

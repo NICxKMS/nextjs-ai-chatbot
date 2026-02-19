@@ -234,10 +234,13 @@ export {
 // =============================================================================
 
 export {
+	addToChatList,
+	getChatList,
+	// Core operations
+	removeFromChatList,
 	// Types
 	type ZAddOptions,
 	type ZMember,
-	// Core operations
 	zadd,
 	// Convenience operations
 	zaddOne,

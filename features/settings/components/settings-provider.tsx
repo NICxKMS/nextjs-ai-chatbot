@@ -17,10 +17,12 @@ import {
 	useContext,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from "react"
 import { useLocalStorage } from "usehooks-ts"
-import { AppError } from "@/lib/errors"
+import { ValidationError } from "@/lib/errors"
+import { getAppSettings, updateAppSettings } from "../actions"
 import type { AppSettings, SamplingSettings } from "../types"
 import { DEFAULT_APP_SETTINGS } from "../types"
 
@@ -29,6 +31,20 @@ import { DEFAULT_APP_SETTINGS } from "../types"
 // =============================================================================
 
 const SETTINGS_STORAGE_KEY = "chat-sdk.settings"
+
+function mergeSettings(
+	serverSettings: AppSettings,
+	localSettings: AppSettings,
+): AppSettings {
+	return {
+		...serverSettings,
+		...localSettings,
+		sampling: {
+			...serverSettings.sampling,
+			...localSettings.sampling,
+		},
+	}
+}
 
 // =============================================================================
 // Types
@@ -77,6 +93,8 @@ const SettingsContext = createContext<SettingsStore | undefined>(undefined)
  */
 export function SettingsProvider({ children }: { children: ReactNode }) {
 	const [isHydrated, setIsHydrated] = useState(false)
+	const [isServerInitialized, setIsServerInitialized] = useState(false)
+	const skipNextServerSyncRef = useRef(false)
 
 	// Use localStorage for persistence
 	const [settings, setSettings] = useLocalStorage<AppSettings>(
@@ -89,6 +107,54 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 	useEffect(() => {
 		setIsHydrated(true)
 	}, [])
+
+	useEffect(() => {
+		if (!isHydrated) {
+			return
+		}
+
+		let cancelled = false
+
+		const initializeFromServer = async () => {
+			const serverSettings = await getAppSettings().catch(() => null)
+
+			if (cancelled) {
+				return
+			}
+
+			if (serverSettings) {
+				skipNextServerSyncRef.current = true
+				setSettings((previous) =>
+					mergeSettings(
+						serverSettings,
+						previous ?? DEFAULT_APP_SETTINGS,
+					),
+				)
+			}
+
+			setIsServerInitialized(true)
+		}
+
+		void initializeFromServer()
+
+		return () => {
+			cancelled = true
+		}
+	}, [isHydrated, setSettings])
+
+	useEffect(() => {
+		if (!isHydrated || !isServerInitialized) {
+			return
+		}
+
+		if (skipNextServerSyncRef.current) {
+			skipNextServerSyncRef.current = false
+			return
+		}
+
+		const currentSettings = settings ?? DEFAULT_APP_SETTINGS
+		void updateAppSettings(currentSettings).catch(() => undefined)
+	}, [isHydrated, isServerInitialized, settings])
 
 	// Update settings with an updater function
 	const updateSettings = useCallback(
@@ -187,10 +253,8 @@ export function useSettings(): SettingsStore {
 	const context = useContext(SettingsContext)
 
 	if (!context) {
-		throw new AppError(
-			"bad_request:ui:useSettings_outside_provider",
+		throw new ValidationError(
 			"useSettings must be used within a SettingsProvider",
-			400,
 		)
 	}
 

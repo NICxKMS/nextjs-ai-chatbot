@@ -24,7 +24,7 @@ import {
 	useState,
 } from "react"
 
-import { AppError } from "@/lib/errors"
+import { ValidationError } from "@/lib/errors"
 import { cn } from "@/lib/utils"
 
 import { Button } from "./button"
@@ -60,10 +60,8 @@ function useCarousel() {
 	const context = useContext(CarouselContext)
 
 	if (!context) {
-		throw new AppError(
-			"bad_request:ui",
+		throw new ValidationError(
 			"useCarousel must be used within a Carousel provider",
-			400,
 		)
 	}
 

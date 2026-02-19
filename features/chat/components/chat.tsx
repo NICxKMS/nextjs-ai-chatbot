@@ -13,6 +13,7 @@ import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport } from "ai"
 import { useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { toast } from "sonner"
 import useSWR from "swr"
 import {
 	initialArtifactData,
@@ -20,9 +21,11 @@ import {
 	useArtifactSelector,
 } from "@/features/artifact/hooks"
 import { useAuth } from "@/features/auth"
-import { useModelSelection } from "@/features/settings/hooks"
+import { useSettings } from "@/features/settings"
 import { useOptimisticChats } from "@/features/sidebar/hooks"
 import { useChatVisibility } from "@/hooks/use-chat-visibility"
+import { motion } from "@/lib/motion"
+import { fetchWithErrorHandlers } from "@/lib/utils"
 import { useDataStream } from "../hooks/use-data-stream"
 import type { AppUsage, Attachment, ChatMessage, UserVote } from "../types"
 import { isDataAppendMessagePart, isDataChatTitlePart } from "../types"
@@ -123,11 +126,11 @@ export function Chat({
 	// Data stream for artifact streaming
 	const { setDataStream } = useDataStream()
 
-	// Model selection with persistence
-	const { selectedModel, selectModel } = useModelSelection()
+	// Settings state (model, sampling, stream behavior)
+	const { settings, setSelectedModelId } = useSettings()
 
 	// Auth for session/guest detection
-	const { session } = useAuth()
+	const { clearNewSessionFlag, session } = useAuth()
 
 	// Artifact state
 	const { setArtifact } = useArtifact()
@@ -182,13 +185,13 @@ export function Chat({
 		if (
 			!hasAppliedPersistedModel.current &&
 			initialMessages.length === 0 &&
-			selectedModel &&
-			selectedModel !== currentModelId
+			settings.selectedModelId &&
+			settings.selectedModelId !== currentModelId
 		) {
 			hasAppliedPersistedModel.current = true
-			setCurrentModelId(selectedModel)
+			setCurrentModelId(settings.selectedModelId)
 		}
-	}, [selectedModel, initialMessages.length, currentModelId])
+	}, [settings.selectedModelId, initialMessages.length, currentModelId])
 
 	// Sync ref with state
 	useEffect(() => {
@@ -228,9 +231,9 @@ export function Chat({
 	const handleModelChange = useCallback(
 		(modelId: string) => {
 			setCurrentModelId(modelId)
-			selectModel(modelId)
+			setSelectedModelId(modelId)
 		},
-		[selectModel],
+		[setSelectedModelId],
 	)
 
 	// =========================================================================
@@ -275,6 +278,7 @@ export function Chat({
 		generateId: generateUUID,
 		transport: new DefaultChatTransport({
 			api: "/api/chat",
+			fetch: fetchWithErrorHandlers,
 			prepareSendMessagesRequest(request) {
 				return {
 					body: {
@@ -282,6 +286,7 @@ export function Chat({
 						message: request.messages.at(-1),
 						selectedChatModel: currentModelIdRef.current,
 						selectedVisibilityType: visibilityType,
+						settings,
 						...request.body,
 					},
 				}
@@ -289,11 +294,17 @@ export function Chat({
 		}),
 		onData: (dataPart) => {
 			// Handle artifact streaming
-			setDataStream((ds) => (ds ? [...ds, dataPart] : [dataPart]))
+			if (settings.streamArtifacts) {
+				setDataStream((ds) => (ds ? [...ds, dataPart] : []))
+			}
 
 			// Handle usage data
 			if (dataPart.type === "data-usage") {
 				setUsage(dataPart.data as AppUsage)
+			}
+
+			if (dataPart.type === "data-error") {
+				toast.error(String(dataPart.data ?? "Chat request failed"))
 			}
 
 			// Handle chat title updates
@@ -352,10 +363,27 @@ export function Chat({
 		onError: (error) => {
 			// Remove optimistic chat on error
 			removeOptimisticChat(id)
-			// Log error for debugging
-			console.error("Chat error:", error)
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Unexpected chat error. Please try again.",
+			)
 		},
 	})
+
+	useEffect(() => {
+		const handleAuthLogout = () => {
+			if (status === "submitted" || status === "streaming") {
+				stop()
+			}
+		}
+
+		window.addEventListener("auth:logout", handleAuthLogout)
+
+		return () => {
+			window.removeEventListener("auth:logout", handleAuthLogout)
+		}
+	}, [status, stop])
 
 	// Keep messagesLengthRef in sync
 	useEffect(() => {
@@ -378,8 +406,16 @@ export function Chat({
 				textPart?.text?.slice(0, 80).trim() || "New Chat"
 
 			addOptimisticChat(id, initialTitle)
+			clearNewSessionFlag()
 		}
-	}, [status, messages, initialMessages.length, id, addOptimisticChat])
+	}, [
+		status,
+		messages,
+		initialMessages.length,
+		id,
+		addOptimisticChat,
+		clearNewSessionFlag,
+	])
 
 	// Handle query parameter for initial message
 	// biome-ignore lint/correctness/useExhaustiveDependencies: sendMessage is stable from useChat
@@ -400,7 +436,7 @@ export function Chat({
 
 	// Use server-provided votes (no client-side fetching for new messages)
 	const { data: votes } = useSWR<UserVote[]>(
-		`/api/vote?chatId=${id}`,
+		`/api/votes?chatId=${id}`,
 		null, // No fetcher - we never fetch votes client-side
 		{
 			fallbackData: initialVotes || [],
@@ -421,65 +457,106 @@ export function Chat({
 	// =========================================================================
 
 	return (
-		<div className="overscroll-behavior-contain flex h-dvh min-w-0 touch-pan-y flex-col bg-background">
-			{/* Chat Header - placeholder for Task 3.2c */}
-			<div className="flex items-center justify-between border-b px-4 py-3">
-				<div className="flex items-center gap-2">
-					<span className="font-medium">Chat</span>
-					<span className="text-muted-foreground text-sm">
-						({messages.length} messages)
-					</span>
-				</div>
-				<div className="flex items-center gap-2">
-					<select
-						className="rounded border bg-background px-2 py-1 text-sm"
-						onChange={(e) => handleModelChange(e.target.value)}
-						value={currentModelId}
-					>
-						{availableModels.length > 0 ? (
-							availableModels.map((model) => (
-								<option key={model.id} value={model.id}>
-									{model.name}
-								</option>
-							))
-						) : (
-							<option value={currentModelId}>
-								{currentModelId}
-							</option>
-						)}
-					</select>
-				</div>
-			</div>
-
-			{/* Messages */}
-			<Messages
-				chatError={chatError}
-				chatId={id}
-				clearError={clearError}
-				isArtifactVisible={isArtifactVisible}
-				isGuest={isGuest}
-				isReadonly={isReadonly}
-				messages={messages}
-				regenerate={regenerate}
-				selectedModelId={currentModelId}
-				setMessages={setMessages}
-				status={status}
-				votes={votes}
+		<div className="overscroll-behavior-contain relative flex h-dvh min-w-0 touch-pan-y flex-col overflow-hidden bg-background">
+			<motion.div
+				animate={{
+					opacity: [0.2, 0.4, 0.2],
+					scale: [1, 1.015, 1],
+				}}
+				aria-hidden
+				className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/10 via-background/0 to-background"
+				transition={{
+					duration: 14,
+					ease: "easeInOut",
+					repeat: Number.POSITIVE_INFINITY,
+				}}
 			/>
 
-			{/* Input Area - placeholder for Task 3.2c */}
-			{!isReadonly && (
-				<div className="sticky bottom-0 z-1 mx-auto w-full max-w-4xl border-t bg-background px-2 pb-3 pt-2 md:px-4 md:pb-4">
-					<div className="flex gap-2">
-						<textarea
-							className="min-h-[60px] flex-1 resize-none rounded-lg border bg-background px-3 py-2 outline-none focus:ring-2 focus:ring-primary"
-							disabled={
-								status === "submitted" || status === "streaming"
-							}
-							onChange={(e) => setInput(e.target.value)}
-							onKeyDown={(e) => {
-								if (e.key === "Enter" && !e.shiftKey) {
-									e.preventDefault()
+			<div className="relative z-10 flex h-full min-w-0 flex-col">
+				{/* Chat Header - placeholder for Task 3.2c */}
+				<div className="flex items-center justify-between border-b px-4 py-3">
+					<div className="flex items-center gap-2">
+						<span className="font-medium">Chat</span>
+						<span className="text-muted-foreground text-sm">
+							({messages.length} messages)
+						</span>
+					</div>
+					<div className="flex items-center gap-2">
+						<select
+							className="rounded border bg-background px-2 py-1 text-sm"
+							onChange={(e) => handleModelChange(e.target.value)}
+							value={currentModelId}
+						>
+							{availableModels.length > 0 ? (
+								availableModels.map((model) => (
+									<option key={model.id} value={model.id}>
+										{model.name}
+									</option>
+								))
+							) : (
+								<option value={currentModelId}>
+									{currentModelId}
+								</option>
+							)}
+						</select>
+					</div>
+				</div>
+
+				{/* Messages */}
+				<Messages
+					chatError={chatError}
+					chatId={id}
+					clearError={clearError}
+					isArtifactVisible={isArtifactVisible}
+					isGuest={isGuest}
+					isReadonly={isReadonly}
+					messages={messages}
+					regenerate={regenerate}
+					selectedModelId={currentModelId}
+					setMessages={setMessages}
+					status={status}
+					votes={votes}
+				/>
+
+				{/* Input Area - placeholder for Task 3.2c */}
+				{!isReadonly && (
+					<div className="sticky bottom-0 z-1 mx-auto w-full max-w-4xl border-t bg-background px-2 pb-3 pt-2 md:px-4 md:pb-4">
+						<div className="flex gap-2">
+							<textarea
+								className="min-h-[60px] flex-1 resize-none rounded-lg border bg-background px-3 py-2 outline-none focus:ring-2 focus:ring-primary"
+								disabled={
+									status === "submitted" ||
+									status === "streaming"
+								}
+								onChange={(e) => setInput(e.target.value)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter" && !e.shiftKey) {
+										e.preventDefault()
+										if (input.trim()) {
+											sendMessage({
+												role: "user" as const,
+												parts: [
+													{
+														type: "text",
+														text: input,
+													},
+												],
+											})
+											setInput("")
+										}
+									}
+								}}
+								placeholder="Type a message..."
+								value={input}
+							/>
+							<button
+								className="rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
+								disabled={
+									status === "submitted" ||
+									status === "streaming" ||
+									!input.trim()
+								}
+								onClick={() => {
 									if (input.trim()) {
 										sendMessage({
 											role: "user" as const,
@@ -489,48 +566,30 @@ export function Chat({
 										})
 										setInput("")
 									}
-								}
-							}}
-							placeholder="Type a message..."
-							value={input}
-						/>
-						<button
-							className="rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
-							disabled={
-								status === "submitted" ||
-								status === "streaming" ||
-								!input.trim()
-							}
-							onClick={() => {
-								if (input.trim()) {
-									sendMessage({
-										role: "user" as const,
-										parts: [{ type: "text", text: input }],
-									})
-									setInput("")
-								}
-							}}
-							type="button"
-						>
-							{status === "submitted" ||
-							status === "streaming" ? (
-								<span>Sending...</span>
-							) : (
-								<span>Send</span>
-							)}
-						</button>
-						{(status === "submitted" || status === "streaming") && (
-							<button
-								className="rounded-lg border px-4 py-2"
-								onClick={() => stop()}
+								}}
 								type="button"
 							>
-								Stop
+								{status === "submitted" ||
+								status === "streaming" ? (
+									<span>Sending...</span>
+								) : (
+									<span>Send</span>
+								)}
 							</button>
-						)}
+							{(status === "submitted" ||
+								status === "streaming") && (
+								<button
+									className="rounded-lg border px-4 py-2"
+									onClick={() => stop()}
+									type="button"
+								>
+									Stop
+								</button>
+							)}
+						</div>
 					</div>
-				</div>
-			)}
+				)}
+			</div>
 		</div>
 	)
 }

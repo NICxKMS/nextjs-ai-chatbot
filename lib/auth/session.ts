@@ -85,6 +85,34 @@ function getGuestJwtSecret(): Uint8Array | null {
 	return encoder.encode(secret)
 }
 
+async function signGuestToken(
+	guestId: string,
+	secret: Uint8Array,
+): Promise<string> {
+	const issuedAtSeconds = Math.floor(Date.now() / 1000)
+	const expiresAtSeconds = issuedAtSeconds + GUEST_TOKEN_TTL.jwtExpiration
+
+	return new SignJWT({
+		sub: guestId,
+		type: "guest",
+		iat: issuedAtSeconds,
+	})
+		.setProtectedHeader({ alg: "HS256" })
+		.setIssuedAt(issuedAtSeconds)
+		.setExpirationTime(expiresAtSeconds)
+		.sign(secret)
+}
+
+function shouldRotateGuestToken(exp: unknown): boolean {
+	if (typeof exp !== "number") {
+		return true
+	}
+
+	const nowSeconds = Math.floor(Date.now() / 1000)
+	const timeRemaining = exp - nowSeconds
+	return timeRemaining < GUEST_TOKEN_TTL.rotationThreshold
+}
+
 // =============================================================================
 // Session Functions
 // =============================================================================
@@ -320,6 +348,21 @@ async function getGuestSession(): Promise<AppSession | null> {
 			return null
 		}
 
+		if (shouldRotateGuestToken(payload.exp)) {
+			try {
+				const rotatedToken = await signGuestToken(payload.sub, secret)
+				cookieStore.set(GUEST_COOKIE_NAME, rotatedToken, {
+					httpOnly: true,
+					secure: process.env.NODE_ENV === "production",
+					sameSite: "lax",
+					maxAge: CACHE_TTL.guest,
+					path: "/",
+				})
+			} catch {
+				// Cookies may not be writable in all contexts
+			}
+		}
+
 		return {
 			user: {
 				id: payload.sub,
@@ -346,43 +389,11 @@ async function createGuestSession(): Promise<AppSession> {
 	const secret = getGuestJwtSecret()
 	const guestId = `${GUEST_ID_PREFIX}${crypto.randomUUID()}`
 
-	// If JWT secret is not configured, fall back to unsigned cookie
-	// This maintains backward compatibility but logs a warning in development
 	if (!secret) {
-		try {
-			const cookieStore = await cookies()
-			cookieStore.set(GUEST_COOKIE_NAME, guestId, {
-				httpOnly: true,
-				secure: process.env.NODE_ENV === "production",
-				sameSite: "lax",
-				maxAge: CACHE_TTL.guest,
-				path: "/",
-			})
-		} catch {
-			// Cookies may not be available in all contexts
-		}
-
-		return {
-			user: {
-				id: guestId,
-				type: "guest",
-			},
-		}
+		throw new Error("GUEST_JWT_SECRET is required for guest sessions")
 	}
 
-	// Create JWT-signed token
-	const issuedAtSeconds = Math.floor(Date.now() / 1000)
-	const expiresAtSeconds = issuedAtSeconds + GUEST_TOKEN_TTL.jwtExpiration
-
-	const token = await new SignJWT({
-		sub: guestId,
-		type: "guest",
-		iat: issuedAtSeconds,
-	})
-		.setProtectedHeader({ alg: "HS256" })
-		.setIssuedAt(issuedAtSeconds)
-		.setExpirationTime(expiresAtSeconds)
-		.sign(secret)
+	const token = await signGuestToken(guestId, secret)
 
 	try {
 		const cookieStore = await cookies()

@@ -10,12 +10,12 @@
 
 import type { UseChatHelpers } from "@ai-sdk/react"
 import equal from "fast-deep-equal"
-import { memo, useEffect, useState } from "react"
+import { memo, useEffect, useMemo, useState } from "react"
 import { Message, ThinkingMessage } from "@/features/chat/components/message"
 import type { ChatMessage, UserVote } from "@/features/chat/types"
 import { useScrollToBottom } from "@/hooks"
 import { AnimatePresence, motion } from "@/lib/motion"
-import type { ArtifactStatus } from "../types"
+import type { ArtifactKind, ArtifactStatus } from "../types"
 
 // =============================================================================
 // Types
@@ -27,6 +27,12 @@ import type { ArtifactStatus } from "../types"
 export interface ArtifactMessagesProps {
 	/** Chat ID for context */
 	chatId: string
+	/** Active artifact/document ID */
+	artifactDocumentId: string
+	/** Active artifact title */
+	artifactTitle: string
+	/** Active artifact kind */
+	artifactKind: ArtifactKind
 	/** Chat status from useChat */
 	status: UseChatHelpers<ChatMessage>["status"]
 	/** User votes on messages */
@@ -43,6 +49,129 @@ export interface ArtifactMessagesProps {
 	artifactStatus: ArtifactStatus
 }
 
+interface ArtifactFilterContext {
+	documentId: string
+	title: string
+	kind: ArtifactKind
+}
+
+function normalize(value: string): string {
+	return value.trim().toLowerCase()
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null
+}
+
+function messageReferencesArtifact(
+	message: ChatMessage,
+	context: ArtifactFilterContext,
+): boolean {
+	if (context.documentId === "init") {
+		return true
+	}
+
+	const normalizedDocumentId = normalize(context.documentId)
+	const normalizedTitle = normalize(context.title)
+	const normalizedKind = normalize(context.kind)
+
+	let hasMatchingTitle = false
+	let hasMatchingKind = false
+
+	const stack: unknown[] = [...(message.parts ?? [])]
+	const visited = new Set<object>()
+
+	while (stack.length > 0) {
+		const current = stack.pop()
+
+		if (!current) {
+			continue
+		}
+
+		if (typeof current === "string") {
+			if (normalize(current) === normalizedDocumentId) {
+				return true
+			}
+			continue
+		}
+
+		if (Array.isArray(current)) {
+			for (const item of current) {
+				stack.push(item)
+			}
+			continue
+		}
+
+		if (!isRecord(current)) {
+			continue
+		}
+
+		if (visited.has(current)) {
+			continue
+		}
+		visited.add(current)
+
+		const idValue =
+			typeof current.documentId === "string"
+				? current.documentId
+				: typeof current.artifactId === "string"
+					? current.artifactId
+					: typeof current.id === "string"
+						? current.id
+						: null
+
+		if (idValue && normalize(idValue) === normalizedDocumentId) {
+			return true
+		}
+
+		if (
+			typeof current.title === "string" &&
+			normalizedTitle.length > 0 &&
+			normalize(current.title) === normalizedTitle
+		) {
+			hasMatchingTitle = true
+		}
+
+		if (
+			typeof current.kind === "string" &&
+			normalize(current.kind) === normalizedKind
+		) {
+			hasMatchingKind = true
+		}
+
+		if (
+			typeof current.type === "string" &&
+			typeof current.data === "string"
+		) {
+			if (
+				current.type === "data-id" &&
+				normalize(current.data) === normalizedDocumentId
+			) {
+				return true
+			}
+			if (
+				current.type === "data-title" &&
+				normalizedTitle.length > 0 &&
+				normalize(current.data) === normalizedTitle
+			) {
+				hasMatchingTitle = true
+			}
+			if (
+				current.type === "data-kind" &&
+				normalize(current.data) === normalizedKind
+			) {
+				hasMatchingKind = true
+			}
+		}
+
+		for (const value of Object.values(current)) {
+			stack.push(value)
+		}
+	}
+
+	return hasMatchingTitle && hasMatchingKind
+}
+
 // =============================================================================
 // Component
 // =============================================================================
@@ -57,6 +186,9 @@ export interface ArtifactMessagesProps {
  */
 function PureArtifactMessages({
 	chatId,
+	artifactDocumentId,
+	artifactTitle,
+	artifactKind,
 	status,
 	votes,
 	messages,
@@ -80,23 +212,50 @@ function PureArtifactMessages({
 		}
 	}, [status])
 
+	const filteredMessages = useMemo(() => {
+		const filterContext: ArtifactFilterContext = {
+			documentId: artifactDocumentId,
+			title: artifactTitle,
+			kind: artifactKind,
+		}
+
+		const relatedIndexes = new Set<number>()
+
+		for (const [index, message] of messages.entries()) {
+			if (messageReferencesArtifact(message, filterContext)) {
+				relatedIndexes.add(index)
+				const previousMessage = messages[index - 1]
+				if (index > 0 && previousMessage?.role === "user") {
+					relatedIndexes.add(index - 1)
+				}
+			}
+		}
+
+		if (relatedIndexes.size === 0) {
+			return messages
+		}
+
+		return messages.filter((_message, index) => relatedIndexes.has(index))
+	}, [artifactDocumentId, artifactKind, artifactTitle, messages])
+
 	return (
 		<div
 			className="flex h-full flex-col items-center gap-4 overflow-y-scroll px-4 pt-20"
 			ref={messagesContainerRef}
 		>
-			{messages.map((message, index) => (
+			{filteredMessages.map((message, index) => (
 				<Message
 					chatId={chatId}
 					isLoading={
-						status === "streaming" && index === messages.length - 1
+						status === "streaming" &&
+						index === filteredMessages.length - 1
 					}
 					isReadonly={isReadonly}
 					key={message.id}
 					message={message}
 					regenerate={regenerate}
 					requiresScrollPadding={
-						hasSentMessage && index === messages.length - 1
+						hasSentMessage && index === filteredMessages.length - 1
 					}
 					setMessages={setMessages}
 					vote={
@@ -144,6 +303,18 @@ function areEqual(
 
 	// Status changed
 	if (prevProps.status !== nextProps.status) {
+		return false
+	}
+
+	if (prevProps.artifactDocumentId !== nextProps.artifactDocumentId) {
+		return false
+	}
+
+	if (prevProps.artifactTitle !== nextProps.artifactTitle) {
+		return false
+	}
+
+	if (prevProps.artifactKind !== nextProps.artifactKind) {
 		return false
 	}
 

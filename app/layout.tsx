@@ -107,6 +107,13 @@ export const viewport: Viewport = {
 	],
 }
 
+/**
+ * Compliance note:
+ * Cookie-consent UI is intentionally not rendered in-app. Deployments that
+ * require regional consent should provide a consent layer at the hosting or
+ * edge platform level.
+ */
+
 // =============================================================================
 // Font Configuration
 // =============================================================================

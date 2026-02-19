@@ -17,7 +17,7 @@ import { createAiGateway } from "ai-gateway-provider"
 import type { WorkersAISettings } from "workers-ai-provider"
 import { createWorkersAI } from "workers-ai-provider"
 
-import { AppError } from "@/lib/errors"
+import { ValidationError } from "@/lib/errors"
 
 // =============================================================================
 // Environment Configuration
@@ -144,10 +144,13 @@ export const cloudflareAiGateway =
 								id as (typeof SUPPORTED_GEMINI_MODELS_via_GATEWAY)[number],
 							)
 						) {
-							throw new AppError(
-								"bad_request:api:cloudflare_gateway_unsupported_model",
+							throw new ValidationError(
 								`Model "${id}" is not supported via Cloudflare AI Gateway. Supported models: ${SUPPORTED_GEMINI_MODELS_via_GATEWAY.join(", ")}`,
-								400,
+								{
+									modelId: id,
+									supportedModels:
+										SUPPORTED_GEMINI_MODELS_via_GATEWAY,
+								},
 							)
 						}
 

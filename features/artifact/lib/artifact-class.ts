@@ -8,6 +8,8 @@
  * @module features/artifact/lib/artifact-class
  */
 
+import { CodeIcon, FileIcon, ImageIcon, MessageIcon } from "@/components/icons"
+
 import type {
 	ArtifactAction,
 	ArtifactContentProps,
@@ -18,6 +20,40 @@ import type {
 	ArtifactStreamContext,
 	ArtifactToolbarItem,
 } from "../types"
+import { artifactKinds as artifactKindList } from "../types"
+
+/**
+ * Built-in artifact kind registration map.
+ */
+export const artifactKinds: Record<ArtifactKind, ArtifactKind> = {
+	text: "text",
+	code: "code",
+	image: "image",
+	sheet: "sheet",
+}
+
+/**
+ * Checks if a kind is one of the built-in artifact kinds.
+ */
+export function isBuiltInArtifactKind(kind: string): kind is ArtifactKind {
+	return artifactKindList.includes(kind as ArtifactKind)
+}
+
+type ArtifactIconComponent = typeof FileIcon
+
+const artifactIcons: Record<ArtifactKind, ArtifactIconComponent> = {
+	text: FileIcon,
+	code: CodeIcon,
+	image: ImageIcon,
+	sheet: MessageIcon,
+}
+
+/**
+ * Get icon component for an artifact kind.
+ */
+export function getArtifactIcon(kind: ArtifactKind): ArtifactIconComponent {
+	return artifactIcons[kind] ?? FileIcon
+}
 
 // =============================================================================
 // Artifact Registry
@@ -221,10 +257,12 @@ export class Artifact<T extends ArtifactKind, M = ArtifactMetadata> {
 		return {
 			kind: this.kind,
 			name: this.name,
+			title: this.name,
 			description: this.description,
 			actions: this.actions,
 			toolbar: this.toolbar,
 			content: this.content,
+			component: this.content,
 			initialize: this.initialize,
 			onStreamPart: this.onStreamPart,
 		}

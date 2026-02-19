@@ -513,34 +513,60 @@ export const discoverProviders = async (
 	options?: DiscoveryOptions,
 ): Promise<DiscoveryResult> => {
 	// Check global cache first
-	if (!options?.forceRefresh && globalCatalogCache && isCacheValid(null)) {
-		if (Date.now() < globalCatalogCache.expiresAt) {
-			return globalCatalogCache.catalog
-		}
+	if (
+		!options?.forceRefresh &&
+		globalCatalogCache &&
+		Date.now() < globalCatalogCache.expiresAt
+	) {
+		return globalCatalogCache.catalog
 	}
 
 	const results: ProviderCatalog[] = []
 	const errors: Record<ProviderId, Error> = {} as Record<ProviderId, Error>
 
-	const discoverers: Array<{
-		providerId: ProviderId
-		run: () => Promise<ProviderCatalog>
-	}> = [
-		{ providerId: "openai", run: () => discoverOpenAI(options) },
-		{ providerId: "google", run: () => discoverGoogleGemini(options) },
-		{ providerId: "openrouter", run: () => discoverOpenRouter(options) },
-		{
-			providerId: "cloudflare-workers",
-			run: () => discoverCloudflareWorkers(options),
-		},
-	]
-
 	// Create abort controller for timeout
 	const controller = new AbortController()
+	const upstreamSignal = options?.signal
+	const relayAbort = () => controller.abort()
+
+	if (upstreamSignal) {
+		if (upstreamSignal.aborted) {
+			controller.abort()
+		} else {
+			upstreamSignal.addEventListener("abort", relayAbort, {
+				once: true,
+			})
+		}
+	}
+
 	const timeoutId = setTimeout(
 		() => controller.abort(),
 		MODEL_DISCOVERY_TIMEOUT_MS,
 	)
+
+	const discoveryOptions: DiscoveryOptions = {
+		...options,
+		signal: controller.signal,
+	}
+
+	const discoverers: Array<{
+		providerId: ProviderId
+		run: () => Promise<ProviderCatalog>
+	}> = [
+		{ providerId: "openai", run: () => discoverOpenAI(discoveryOptions) },
+		{
+			providerId: "google",
+			run: () => discoverGoogleGemini(discoveryOptions),
+		},
+		{
+			providerId: "openrouter",
+			run: () => discoverOpenRouter(discoveryOptions),
+		},
+		{
+			providerId: "cloudflare-workers",
+			run: () => discoverCloudflareWorkers(discoveryOptions),
+		},
+	]
 
 	try {
 		// Discover all providers in parallel
@@ -576,6 +602,9 @@ export const discoverProviders = async (
 		})
 	} finally {
 		clearTimeout(timeoutId)
+		if (upstreamSignal) {
+			upstreamSignal.removeEventListener("abort", relayAbort)
+		}
 	}
 
 	const discoveryResult: DiscoveryResult = { catalogs: results, errors }

@@ -42,7 +42,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { AppError } from "@/lib/errors"
+import { ValidationError } from "@/lib/errors"
 import { cn } from "@/lib/utils"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
@@ -70,10 +70,8 @@ const SidebarContext = createContext<SidebarContextProps | null>(null)
 function useSidebar() {
 	const context = useContext(SidebarContext)
 	if (!context) {
-		throw new AppError(
-			"bad_request:ui:useSidebar_outside_provider",
+		throw new ValidationError(
 			"useSidebar must be used within a SidebarProvider",
-			400,
 		)
 	}
 

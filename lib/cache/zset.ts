@@ -23,6 +23,8 @@ import {
 	recordCacheSuccess,
 } from "./circuit-breaker"
 import { getRedisClient } from "./client"
+import { userChatsKey } from "./keys"
+import type { UserChatListItem } from "./types"
 
 // =============================================================================
 // Types
@@ -487,4 +489,111 @@ export async function zgetNewest(key: string): Promise<string | null> {
 export async function zgetOldest(key: string): Promise<string | null> {
 	const results = await zrange(key, 0, 0)
 	return results.length > 0 ? (results[0] ?? null) : null
+}
+
+// =============================================================================
+// Chat List Convenience APIs
+// =============================================================================
+
+function parseChatListMember(
+	rawMember: string,
+	fallbackUpdatedAt: number,
+): UserChatListItem | null {
+	try {
+		const parsed = JSON.parse(rawMember) as Partial<UserChatListItem>
+		if (typeof parsed.chatId !== "string") {
+			return null
+		}
+
+		return {
+			chatId: parsed.chatId,
+			title: typeof parsed.title === "string" ? parsed.title : "New Chat",
+			updatedAt:
+				typeof parsed.updatedAt === "number"
+					? parsed.updatedAt
+					: fallbackUpdatedAt,
+		}
+	} catch {
+		if (!rawMember) {
+			return null
+		}
+
+		return {
+			chatId: rawMember,
+			title: "New Chat",
+			updatedAt: fallbackUpdatedAt,
+		}
+	}
+}
+
+/**
+ * Add or update a chat in a user's sorted chat list.
+ */
+export async function addToChatList(
+	userId: string,
+	chatMeta: UserChatListItem,
+	options?: ZAddOptions,
+): Promise<boolean> {
+	const key = userChatsKey(userId)
+	const member = JSON.stringify(chatMeta)
+
+	const added = await zadd(
+		key,
+		[
+			{
+				score: chatMeta.updatedAt,
+				member,
+			},
+		],
+		options,
+	)
+
+	return added >= 0
+}
+
+/**
+ * Remove a chat from a user's sorted chat list.
+ */
+export async function removeFromChatList(
+	userId: string,
+	chatId: string,
+): Promise<number> {
+	const key = userChatsKey(userId)
+	const members = await zrange(key, 0, -1)
+
+	if (members.length === 0) {
+		return 0
+	}
+
+	const membersToRemove = members.filter((member) => {
+		const parsed = parseChatListMember(member, 0)
+		return parsed?.chatId === chatId
+	})
+
+	if (membersToRemove.length === 0) {
+		return 0
+	}
+
+	return zrem(key, membersToRemove)
+}
+
+/**
+ * Get a user's chat list ordered by most recently updated first.
+ */
+export async function getChatList(
+	userId: string,
+	offset = 0,
+	limit = 10,
+): Promise<UserChatListItem[]> {
+	if (limit <= 0) {
+		return []
+	}
+
+	const key = userChatsKey(userId)
+	const stop = offset + limit - 1
+	const entries = await zrevrangeWithScores(key, offset, stop)
+
+	return entries
+		.map((entry) => parseChatListMember(entry.member, entry.score))
+		.filter((entry): entry is UserChatListItem => entry !== null)
 }

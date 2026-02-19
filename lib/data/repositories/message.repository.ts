@@ -22,14 +22,14 @@ import type {
 import { chat, message } from "@/lib/db/schema"
 import { InternalServerError, NotFoundError } from "@/lib/errors"
 import { logDebug, logError } from "@/lib/log"
-
+import type { PaginatedResult, PaginationParams } from "../types"
 import {
 	BaseRepository,
 	type CountOptions,
 	type FindManyOptions,
 	type RepositoryContext,
 } from "./base.repository"
-import type { PaginatedResult, PaginationParams } from "./chat.repository"
+import { chatRepository } from "./chat.repository"
 
 // =============================================================================
 // Types
@@ -403,9 +403,25 @@ export class MessageRepository extends BaseRepository<
 	async findByChatId(
 		chatId: string,
 		options?: { limit?: number; offset?: number },
-		_context?: RepositoryContext,
+		context?: RepositoryContext,
 	): Promise<Message[]> {
+		const chatKey = this.cacheChatKey(chatId)
+
 		try {
+			if (!options?.offset) {
+				const cached = await this.listCache.get(chatKey)
+				if (cached.found && cached.value) {
+					if (options?.limit && cached.value.length > options.limit) {
+						return cached.value.slice(0, options.limit)
+					}
+					return cached.value
+				}
+
+				if (context?.isGuest) {
+					return []
+				}
+			}
+
 			let query = this.db
 				.select()
 				.from(message)
@@ -419,7 +435,15 @@ export class MessageRepository extends BaseRepository<
 				query = query.offset(options.offset) as typeof query
 			}
 
-			return await query
+			const results = await query
+
+			if (!options?.offset) {
+				await this.listCache.set(chatKey, results, {
+					ttl: this.listTtl,
+				})
+			}
+
+			return results
 		} catch (error) {
 			logError("MessageRepository findByChatId error", error as Error, {
 				chatId,
@@ -445,8 +469,21 @@ export class MessageRepository extends BaseRepository<
 	async findByChatIdPaginated(
 		chatId: string,
 		pagination: PaginationParams,
-		_context?: RepositoryContext,
+		context?: RepositoryContext,
 	): Promise<PaginatedResult<Message>> {
+		if (context?.isGuest) {
+			const cached = await this.listCache.get(this.cacheChatKey(chatId))
+			if (!cached.found || !cached.value) {
+				return { items: [], hasMore: false }
+			}
+
+			const items = cached.value.slice(0, pagination.limit)
+			return {
+				items,
+				hasMore: cached.value.length > pagination.limit,
+			}
+		}
+
 		try {
 			const { limit, startingAfter, endingBefore } = pagination
 			const extendedLimit = limit + 1
@@ -665,6 +702,8 @@ export class MessageRepository extends BaseRepository<
 			const chatCacheKey = this.cacheChatKey(chatId)
 			await this.listCache.delete(chatCacheKey)
 			await this.invalidateListCache()
+			await chatRepository.invalidateCache(chatId)
+			await chatRepository.invalidateChatListCache()
 		} catch (error) {
 			logError(
 				"MessageRepository saveWithContext error",
@@ -715,6 +754,8 @@ export class MessageRepository extends BaseRepository<
 			// Invalidate chat messages cache
 			const chatCacheKey = this.cacheChatKey(chatId)
 			await this.listCache.delete(chatCacheKey)
+			await chatRepository.invalidateCache(chatId)
+			await chatRepository.invalidateChatListCache()
 
 			logDebug("MessageRepository deleted messages after timestamp", {
 				chatId,
@@ -793,6 +834,8 @@ export class MessageRepository extends BaseRepository<
 			// Invalidate chat messages cache
 			const chatCacheKey = this.cacheChatKey(chatId)
 			await this.listCache.delete(chatCacheKey)
+			await chatRepository.invalidateCache(chatId)
+			await chatRepository.invalidateChatListCache()
 
 			logDebug("MessageRepository deleted all messages for chat", {
 				chatId,

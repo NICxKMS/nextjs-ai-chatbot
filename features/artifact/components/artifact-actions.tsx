@@ -14,7 +14,14 @@
 import { memo, useState } from "react"
 import { toast } from "sonner"
 
-import { CopyIcon, EyeIcon, RedoIcon, UndoIcon } from "@/components/icons"
+import {
+	CopyIcon,
+	DownloadIcon,
+	EyeIcon,
+	FileIcon,
+	RedoIcon,
+	UndoIcon,
+} from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import {
 	Tooltip,
@@ -75,6 +82,20 @@ function createDefaultActions(): ArtifactAction[] {
 				toast.success("Copied to clipboard!")
 			},
 		},
+		{
+			description: "Download",
+			icon: <DownloadIcon size={18} />,
+			onClick: ({ downloadContent }: ArtifactActionContext) => {
+				downloadContent?.()
+			},
+		},
+		{
+			description: "Version history",
+			icon: <FileIcon size={18} />,
+			onClick: ({ openVersionHistory }: ArtifactActionContext) => {
+				openVersionHistory?.()
+			},
+		},
 	]
 }
 
@@ -86,11 +107,12 @@ function createDefaultActions(): ArtifactAction[] {
 function getActionsForKind(kind: ArtifactKind): ArtifactAction[] {
 	const definition = getArtifactDefinition(kind)
 	const registeredActions = definition?.actions ?? []
+	const defaultActions = createDefaultActions()
 
-	// If registered actions exist, use them; otherwise use defaults
+	// Include defaults for baseline controls and append any kind-specific actions.
 	return registeredActions.length > 0
-		? registeredActions
-		: createDefaultActions()
+		? [...registeredActions, ...defaultActions]
+		: defaultActions
 }
 
 function PureArtifactActions({
@@ -101,6 +123,9 @@ function PureArtifactActions({
 	mode,
 	metadata,
 	setMetadata,
+	contentOverride,
+	onDownload,
+	onOpenVersionHistory,
 }: ArtifactActionsProps) {
 	const [isLoading, setIsLoading] = useState(false)
 
@@ -112,13 +137,17 @@ function PureArtifactActions({
 	}
 
 	const actionContext: ArtifactActionContext = {
-		content: artifact.content,
+		content: contentOverride ?? artifact.content,
 		handleVersionChange,
 		currentVersionIndex,
 		isCurrentVersion,
 		mode,
 		metadata,
 		setMetadata,
+		...(onDownload ? { downloadContent: onDownload } : {}),
+		...(onOpenVersionHistory
+			? { openVersionHistory: onOpenVersionHistory }
+			: {}),
 	}
 
 	return (

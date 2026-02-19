@@ -5,7 +5,9 @@
  * Rate limited to prevent abuse.
  *
  * Query Parameters:
- * - cursor: (optional) Pagination cursor (encoded timestamp)
+ * - cursor: (optional) Pagination cursor (chat ID)
+ * - starting_after: (optional) Legacy alias for forward cursor (chat ID)
+ * - ending_before: (optional) Legacy alias for backward cursor (chat ID)
  * - limit: (optional) Number of chats to return (1-100, default 20)
  * - direction: (optional) 'forward' | 'backward' (default: 'forward')
  * - q: (optional) Search query for title filtering (case-insensitive)
@@ -29,14 +31,23 @@
  * @module app/api/history/route
  */
 
+import { and, desc, eq, gte, ilike, lte, type SQL } from "drizzle-orm"
 import { z } from "zod"
-import { deleteAllChatsAction, getHistoryAction } from "@/features/chat/actions"
-import { error, rateLimit, success } from "@/lib/api"
+import { deleteAllChatsAction } from "@/features/chat/actions"
+import { error, isValidUUID, rateLimit, success } from "@/lib/api"
 import { requireAuthAction } from "@/lib/auth/guards"
+import {
+	applyCursorPagination,
+	type CursorPaginationParams,
+	decodeCursor,
+	encodeCursor,
+} from "@/lib/data"
+import { chat, db } from "@/lib/db"
 import {
 	type CursorPaginatedResult,
 	createPaginationResponse,
 } from "@/lib/db/pagination"
+import type { Chat } from "@/lib/db/schema"
 import { ValidationError } from "@/lib/errors"
 import {
 	checkApiLimit,
@@ -53,7 +64,10 @@ import {
  * Zod schema for history query parameters
  */
 const historyQuerySchema = z.object({
-	cursor: z.string().optional(),
+	cursor: z.string().min(1).optional(),
+	starting_after: z.string().uuid().optional(),
+	ending_before: z.string().uuid().optional(),
+	offset: z.coerce.number().int().min(0).max(10_000).optional(),
 	limit: z.coerce.number().int().min(1).max(100).default(20),
 	direction: z.enum(["forward", "backward"]).default("forward"),
 	q: z.string().optional(),
@@ -61,42 +75,159 @@ const historyQuerySchema = z.object({
 	to: z.string().optional(),
 })
 
-// =============================================================================
-// Cursor Codec (for encoding/decoding timestamps)
-// =============================================================================
+type HistoryDirection = "forward" | "backward"
 
-/**
- * Cursor encoding/decoding utilities for pagination.
- * Uses base64url encoding for URL-safe cursors.
- */
-const CursorCodec = {
-	/**
-	 * Encode a timestamp into a cursor string.
-	 * @param timestamp - Date to encode
-	 * @returns Base64url encoded cursor string
-	 */
-	encode(timestamp: Date): string {
-		return Buffer.from(timestamp.toISOString()).toString("base64url")
-	},
+interface HistoryCursorAdapterInput
+	extends Pick<CursorPaginationParams, "cursor" | "direction" | "limit"> {
+	startingAfter?: string
+	endingBefore?: string
+	offset?: number
+}
 
-	/**
-	 * Decode a cursor string into a timestamp.
-	 * @param cursor - Base64url encoded cursor string
-	 * @returns Decoded Date
-	 * @throws ValidationError if cursor format is invalid
-	 */
-	decode(cursor: string): Date {
-		try {
-			const iso = Buffer.from(cursor, "base64url").toString("utf-8")
-			const date = new Date(iso)
-			if (Number.isNaN(date.getTime())) {
-				throw new Error("Invalid date")
-			}
-			return date
-		} catch {
-			throw new ValidationError("Invalid cursor format", { cursor })
+interface HistoryCursorAdapterResult {
+	direction: HistoryDirection
+	startingAfter: string | null
+	endingBefore: string | null
+	offset: number | null
+}
+
+function resolveCursorId(cursor: string): string {
+	if (isValidUUID(cursor)) {
+		return cursor
+	}
+
+	const decodedCursor = decodeCursor(cursor, "id")
+	if (typeof decodedCursor === "string" && isValidUUID(decodedCursor)) {
+		return decodedCursor
+	}
+
+	throw new ValidationError(
+		"Invalid cursor format. Expected a chat ID cursor.",
+		{
+			field: "cursor",
+		},
+	)
+}
+
+async function resolveCursorToUpdatedAtCursor(
+	userId: string,
+	cursorId: string,
+): Promise<string> {
+	const [cursorRow] = await db
+		.select({ updatedAt: chat.updatedAt })
+		.from(chat)
+		.where(and(eq(chat.id, cursorId), eq(chat.userId, userId)))
+		.limit(1)
+
+	if (!cursorRow) {
+		throw new ValidationError("Cursor chat not found", {
+			field: "cursor",
+		})
+	}
+
+	return encodeCursor("updatedAt", cursorRow.updatedAt.toISOString())
+}
+
+function applyHistoryCursorAdapter(
+	input: HistoryCursorAdapterInput,
+): HistoryCursorAdapterResult {
+	const {
+		cursor,
+		direction = "forward",
+		startingAfter,
+		endingBefore,
+		offset,
+	} = input
+
+	if (startingAfter && endingBefore) {
+		throw new ValidationError(
+			"Only one of starting_after or ending_before can be provided.",
+			{
+				field: "starting_after",
+			},
+		)
+	}
+
+	if (cursor && (startingAfter || endingBefore)) {
+		throw new ValidationError(
+			"Use either cursor-based pagination or starting_after/ending_before aliases, not both.",
+			{
+				field: "cursor",
+			},
+		)
+	}
+
+	if (offset !== undefined) {
+		if (cursor || startingAfter || endingBefore) {
+			throw new ValidationError(
+				"Use either offset pagination or cursor pagination, not both.",
+				{
+					field: "offset",
+				},
+			)
 		}
-	},
+
+		if (direction === "backward") {
+			throw new ValidationError(
+				"Offset pagination only supports forward direction.",
+				{
+					field: "direction",
+				},
+			)
+		}
+
+		return {
+			direction: "forward",
+			startingAfter: null,
+			endingBefore: null,
+			offset,
+		}
+	}
+
+	if (endingBefore) {
+		return {
+			direction: "backward",
+			startingAfter: null,
+			endingBefore,
+			offset: null,
+		}
+	}
+
+	if (startingAfter) {
+		return {
+			direction: "forward",
+			startingAfter,
+			endingBefore: null,
+			offset: null,
+		}
+	}
+
+	if (!cursor) {
+		return {
+			direction,
+			startingAfter: null,
+			endingBefore: null,
+			offset: null,
+		}
+	}
+
+	const resolvedId = resolveCursorId(cursor)
+
+	if (direction === "backward") {
+		return {
+			direction,
+			startingAfter: null,
+			endingBefore: resolvedId,
+			offset: null,
+		}
+	}
+
+	return {
+		direction,
+		startingAfter: resolvedId,
+		endingBefore: null,
+		offset: null,
+	}
 }
 
 // =============================================================================
@@ -123,6 +254,9 @@ export async function GET(request: Request) {
 		const { searchParams } = new URL(request.url)
 		const queryParams = historyQuerySchema.safeParse({
 			cursor: searchParams.get("cursor") ?? undefined,
+			starting_after: searchParams.get("starting_after") ?? undefined,
+			ending_before: searchParams.get("ending_before") ?? undefined,
+			offset: searchParams.get("offset") ?? undefined,
 			limit: searchParams.get("limit") ?? undefined,
 			direction: searchParams.get("direction") ?? undefined,
 			q: searchParams.get("q") ?? undefined,
@@ -138,31 +272,127 @@ export async function GET(request: Request) {
 			)
 		}
 
-		const { cursor, limit, direction, q, from, to } = queryParams.data
-
-		// Build pagination options for the action
-		// The action uses startingAfter/endingBefore which are chat IDs
-		// For cursor-based pagination, we need to convert the cursor to the appropriate format
-		const result = await getHistoryAction({
+		const {
+			cursor,
+			starting_after,
+			ending_before,
+			offset,
 			limit,
-			// For now, we pass null for cursor params - the repository handles cursor logic
-			// The cursor is used to generate nextCursor in the response
-			startingAfter: direction === "forward" && cursor ? cursor : null,
-			endingBefore: direction === "backward" && cursor ? cursor : null,
-			searchQuery: q && q.trim() !== "" ? q.trim() : null,
-			fromDate: from ?? null,
-			toDate: to ?? null,
-		})
+			direction,
+			q,
+			from,
+			to,
+		} = queryParams.data
 
-		if (!result.success) {
-			return error(result.error ?? "Failed to get history")
+		const adapterInput: HistoryCursorAdapterInput = {
+			limit,
+			direction,
 		}
 
-		const chats = result.chats ?? []
-		const hasMore = result.hasMore ?? false
+		if (cursor !== undefined) {
+			adapterInput.cursor = cursor
+		}
+		if (starting_after !== undefined) {
+			adapterInput.startingAfter = starting_after
+		}
+		if (ending_before !== undefined) {
+			adapterInput.endingBefore = ending_before
+		}
+		if (offset !== undefined) {
+			adapterInput.offset = offset
+		}
 
-		// Generate cursors from the results
-		// Use updatedAt timestamps for cursors (consistent with sorting)
+		const normalized = applyHistoryCursorAdapter(adapterInput)
+
+		const conditions: SQL<unknown>[] = [eq(chat.userId, userId)]
+
+		if (q && q.trim() !== "") {
+			conditions.push(ilike(chat.title, `%${q.trim()}%`))
+		}
+
+		if (from) {
+			const fromDate = new Date(from)
+			if (Number.isNaN(fromDate.getTime())) {
+				return error(
+					new ValidationError("Invalid from date", {
+						field: "from",
+					}),
+				)
+			}
+			conditions.push(gte(chat.updatedAt, fromDate))
+		}
+
+		if (to) {
+			const toDate = new Date(to)
+			if (Number.isNaN(toDate.getTime())) {
+				return error(
+					new ValidationError("Invalid to date", {
+						field: "to",
+					}),
+				)
+			}
+			const endOfDay = new Date(toDate)
+			endOfDay.setHours(23, 59, 59, 999)
+			conditions.push(lte(chat.updatedAt, endOfDay))
+		}
+
+		const whereClause =
+			conditions.length > 1 ? and(...conditions) : conditions[0]
+
+		const isOffsetPagination = normalized.offset !== null
+		const offsetValue = normalized.offset ?? 0
+
+		let chats: Chat[] = []
+		let hasMore = false
+
+		if (isOffsetPagination) {
+			const rows = await db
+				.select()
+				.from(chat)
+				.where(whereClause)
+				.orderBy(desc(chat.updatedAt))
+				.limit(Math.min(offsetValue + limit + 1, 10_101))
+
+			chats = rows.slice(offsetValue, offsetValue + limit)
+			hasMore = rows.length > offsetValue + limit
+		} else {
+			const routeCursorId =
+				normalized.startingAfter ?? normalized.endingBefore
+
+			let cursor: string | undefined
+			if (routeCursorId) {
+				cursor = await resolveCursorToUpdatedAtCursor(
+					userId,
+					routeCursorId,
+				)
+			}
+
+			const paginationParams: CursorPaginationParams = {
+				limit,
+				direction: normalized.direction,
+			}
+
+			if (cursor !== undefined) {
+				paginationParams.cursor = cursor
+			}
+
+			const query = db.select().from(chat).where(whereClause).$dynamic()
+
+			const paginated = await applyCursorPagination<Chat>(
+				query,
+				chat as unknown as Record<string, unknown>,
+				paginationParams,
+				{
+					sortField: "updatedAt",
+					sortOrder: "desc",
+				},
+			)
+
+			chats = paginated.items
+			hasMore = paginated.hasMore
+		}
+
+		// Generate cursors from the results (ID-based contract)
 		let nextCursor: string | null = null
 		let prevCursor: string | null = null
 
@@ -170,15 +400,20 @@ export async function GET(request: Request) {
 			const firstChat = chats[0]
 			const lastChat = chats.at(-1)
 
-			// Next cursor: last record's updatedAt (for forward pagination)
+			// Next cursor: last record's ID (for forward pagination)
 			if (lastChat && hasMore) {
-				nextCursor = CursorCodec.encode(lastChat.updatedAt)
+				nextCursor = lastChat.id
 			}
 
-			// Previous cursor: first record's updatedAt (for backward pagination)
-			// Only set if we have a cursor (not at the start)
-			if (firstChat && cursor) {
-				prevCursor = CursorCodec.encode(firstChat.updatedAt)
+			// Previous cursor: first record's ID (for backward pagination)
+			if (
+				firstChat &&
+				(isOffsetPagination
+					? offsetValue > 0
+					: normalized.startingAfter !== null ||
+						normalized.endingBefore !== null)
+			) {
+				prevCursor = firstChat.id
 			}
 		}
 

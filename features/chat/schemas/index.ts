@@ -8,6 +8,7 @@
 
 // Type Exports
 export type {
+	ChatRouteRequestInput,
 	CreateChatInput,
 	CreateMessageInput,
 	MessageRole,
@@ -27,6 +28,7 @@ export type {
 // Stream Schemas
 export {
 	ChatIdSchema,
+	ChatRouteRequestSchema,
 	CreateChatSchema,
 	CreateMessageSchema,
 	MessageContentSchema,

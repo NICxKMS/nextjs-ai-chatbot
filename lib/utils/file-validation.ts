@@ -14,6 +14,9 @@
 /** Default maximum file size: 10MB */
 export const DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024
 
+/** Maximum file size for generic attachments: 10MB */
+export const MAX_ATTACHMENT_SIZE = DEFAULT_MAX_FILE_SIZE
+
 /** Maximum file size for attachments: 5MB (matching old app) */
 export const ATTACHMENT_MAX_FILE_SIZE = 5 * 1024 * 1024
 
@@ -51,8 +54,53 @@ export const ALLOWED_MIME_TYPES = [
 	"application/vnd.openxmlformats-officedocument.presentationml.presentation",
 ] as const
 
+/**
+ * Allowed attachment MIME types compatibility export.
+ */
+export const ALLOWED_ATTACHMENT_TYPES = [...ALLOWED_MIME_TYPES] as const
+
 /** Type for allowed MIME type strings */
 export type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number]
+
+const MIME_EXTENSION_MAP: Record<string, string> = {
+	"image/jpeg": "jpg",
+	"image/png": "png",
+	"image/gif": "gif",
+	"image/webp": "webp",
+	"image/svg+xml": "svg",
+	"application/pdf": "pdf",
+	"text/plain": "txt",
+	"text/markdown": "md",
+	"text/csv": "csv",
+	"application/json": "json",
+	"application/zip": "zip",
+	"application/msword": "doc",
+	"application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+		"docx",
+	"application/vnd.ms-excel": "xls",
+	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+	"application/vnd.ms-powerpoint": "ppt",
+	"application/vnd.openxmlformats-officedocument.presentationml.presentation":
+		"pptx",
+}
+
+export function getFileExtension(mimeType: string | undefined | null): string {
+	if (!mimeType || typeof mimeType !== "string") {
+		return ""
+	}
+
+	const normalizedType = mimeType.toLowerCase().trim()
+	if (MIME_EXTENSION_MAP[normalizedType]) {
+		return MIME_EXTENSION_MAP[normalizedType]
+	}
+
+	const [type, subtype] = normalizedType.split("/")
+	if (!type || !subtype) {
+		return ""
+	}
+
+	return subtype.replace(/[^a-z0-9]/gi, "")
+}
 
 /**
  * MIME type prefixes that are always allowed.
@@ -420,6 +468,142 @@ export interface FileValidationResult {
 	sanitizedFilename: string
 	/** Combined error messages */
 	errors: string[]
+}
+
+export interface MagicByteValidationResult {
+	/** Whether content signature matches expected MIME type */
+	valid: boolean
+	/** MIME type being validated */
+	mimeType: string
+	/** Whether signature validation was applicable */
+	checked: boolean
+	/** Error message if signature validation failed */
+	error?: string
+}
+
+type MagicByteValidator = (bytes: Uint8Array) => boolean
+
+function hasMagicPrefix(
+	bytes: Uint8Array,
+	prefix: readonly number[],
+	offset = 0,
+): boolean {
+	if (bytes.length < offset + prefix.length) {
+		return false
+	}
+
+	for (let index = 0; index < prefix.length; index += 1) {
+		if (bytes[offset + index] !== prefix[index]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+const MAGIC_BYTE_VALIDATORS: Record<string, MagicByteValidator> = {
+	"image/jpeg": (bytes) => hasMagicPrefix(bytes, [0xff, 0xd8, 0xff]),
+	"image/png": (bytes) =>
+		hasMagicPrefix(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+	"image/gif": (bytes) =>
+		hasMagicPrefix(bytes, [0x47, 0x49, 0x46, 0x38, 0x37, 0x61]) ||
+		hasMagicPrefix(bytes, [0x47, 0x49, 0x46, 0x38, 0x39, 0x61]),
+	"image/webp": (bytes) =>
+		hasMagicPrefix(bytes, [0x52, 0x49, 0x46, 0x46]) &&
+		hasMagicPrefix(bytes, [0x57, 0x45, 0x42, 0x50], 8),
+	"application/pdf": (bytes) =>
+		hasMagicPrefix(bytes, [0x25, 0x50, 0x44, 0x46, 0x2d]),
+	"application/zip": (bytes) =>
+		hasMagicPrefix(bytes, [0x50, 0x4b, 0x03, 0x04]) ||
+		hasMagicPrefix(bytes, [0x50, 0x4b, 0x05, 0x06]) ||
+		hasMagicPrefix(bytes, [0x50, 0x4b, 0x07, 0x08]),
+	"application/vnd.openxmlformats-officedocument.wordprocessingml.document": (
+		bytes,
+	) =>
+		hasMagicPrefix(bytes, [0x50, 0x4b, 0x03, 0x04]) ||
+		hasMagicPrefix(bytes, [0x50, 0x4b, 0x05, 0x06]) ||
+		hasMagicPrefix(bytes, [0x50, 0x4b, 0x07, 0x08]),
+	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": (
+		bytes,
+	) =>
+		hasMagicPrefix(bytes, [0x50, 0x4b, 0x03, 0x04]) ||
+		hasMagicPrefix(bytes, [0x50, 0x4b, 0x05, 0x06]) ||
+		hasMagicPrefix(bytes, [0x50, 0x4b, 0x07, 0x08]),
+	"application/vnd.openxmlformats-officedocument.presentationml.presentation":
+		(bytes) =>
+			hasMagicPrefix(bytes, [0x50, 0x4b, 0x03, 0x04]) ||
+			hasMagicPrefix(bytes, [0x50, 0x4b, 0x05, 0x06]) ||
+			hasMagicPrefix(bytes, [0x50, 0x4b, 0x07, 0x08]),
+}
+
+export async function validateMagicBytes(
+	file: File,
+): Promise<MagicByteValidationResult> {
+	const mimeType = file.type || "application/octet-stream"
+	const validator = MAGIC_BYTE_VALIDATORS[mimeType]
+
+	if (!validator) {
+		return {
+			valid: true,
+			mimeType,
+			checked: false,
+		}
+	}
+
+	const headerBuffer = await file.slice(0, 16).arrayBuffer()
+	const headerBytes = new Uint8Array(headerBuffer)
+
+	if (validator(headerBytes)) {
+		return {
+			valid: true,
+			mimeType,
+			checked: true,
+		}
+	}
+
+	return {
+		valid: false,
+		mimeType,
+		checked: true,
+		error: `File content signature does not match MIME type: ${mimeType}`,
+	}
+}
+
+export interface AttachmentValidationParams {
+	file: File
+	maxSize?: number
+	allowedTypes?: readonly string[]
+}
+
+export interface AttachmentValidationResult extends FileValidationResult {
+	magicBytes: MagicByteValidationResult
+	extension: string
+}
+
+export async function validateAttachment({
+	file,
+	maxSize = MAX_ATTACHMENT_SIZE,
+	allowedTypes = ALLOWED_ATTACHMENT_TYPES,
+}: AttachmentValidationParams): Promise<AttachmentValidationResult> {
+	const validationResult = await validateFile(file, {
+		maxSizeBytes: maxSize,
+		allowedTypes,
+	})
+
+	const magicBytesResult = await validateMagicBytes(file)
+	const errors = [...validationResult.errors]
+
+	if (!magicBytesResult.valid && magicBytesResult.error) {
+		errors.push(magicBytesResult.error)
+	}
+
+	return {
+		...validationResult,
+		valid: validationResult.valid && magicBytesResult.valid,
+		errors,
+		magicBytes: magicBytesResult,
+		extension: getFileExtension(file.type),
+	}
 }
 
 /**

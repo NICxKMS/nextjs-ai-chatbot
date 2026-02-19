@@ -1,0 +1,721 @@
+{
+	"generatedAt": "2026-02-18T16:43:34.046Z",
+	"totalFiles": 371,
+	"directories": {
+		"app/(auth)/login": {
+			"fileCount": 1,
+			"files": ["app/(auth)/login/page.tsx"]
+		},
+		"app/(auth)/register": {
+			"fileCount": 1,
+			"files": ["app/(auth)/register/page.tsx"]
+		},
+		"app/(chat)/chat/[id]": {
+			"fileCount": 3,
+			"files": [
+				"app/(chat)/chat/[id]/error.tsx",
+				"app/(chat)/chat/[id]/loading.tsx",
+				"app/(chat)/chat/[id]/page.tsx"
+			]
+		},
+		"app/(chat)": {
+			"fileCount": 2,
+			"files": ["app/(chat)/loading.tsx", "app/(chat)/page.tsx"]
+		},
+		"app": {
+			"fileCount": 3,
+			"files": [
+				"app/error.tsx",
+				"app/global-error.tsx",
+				"app/not-found.tsx"
+			]
+		},
+		"components/ai/chat": {
+			"fileCount": 4,
+			"files": [
+				"components/ai/chat/conversation.tsx",
+				"components/ai/chat/index.ts",
+				"components/ai/chat/input.tsx",
+				"components/ai/chat/message.tsx"
+			]
+		},
+		"components/ai/content": {
+			"fileCount": 4,
+			"files": [
+				"components/ai/content/code-block.tsx",
+				"components/ai/content/image.tsx",
+				"components/ai/content/index.ts",
+				"components/ai/content/web-preview.tsx"
+			]
+		},
+		"components/ai/reasoning": {
+			"fileCount": 3,
+			"files": [
+				"components/ai/reasoning/index.ts",
+				"components/ai/reasoning/steps.tsx",
+				"components/ai/reasoning/thinking.tsx"
+			]
+		},
+		"components/ai/tools": {
+			"fileCount": 5,
+			"files": [
+				"components/ai/tools/call.tsx",
+				"components/ai/tools/confirmation.tsx",
+				"components/ai/tools/index.ts",
+				"components/ai/tools/registry.tsx",
+				"components/ai/tools/weather.tsx"
+			]
+		},
+		"components/ai/utilities": {
+			"fileCount": 4,
+			"files": [
+				"components/ai/utilities/index.ts",
+				"components/ai/utilities/loader.tsx",
+				"components/ai/utilities/shimmer.tsx",
+				"components/ai/utilities/suggestion.tsx"
+			]
+		},
+		"components/ai/workflow": {
+			"fileCount": 5,
+			"files": [
+				"components/ai/workflow/checkpoint.tsx",
+				"components/ai/workflow/index.ts",
+				"components/ai/workflow/plan.tsx",
+				"components/ai/workflow/queue.tsx",
+				"components/ai/workflow/task.tsx"
+			]
+		},
+		"components/ai": {
+			"fileCount": 1,
+			"files": ["components/ai/index.ts"]
+		},
+		"components/ai-elements": {
+			"fileCount": 29,
+			"files": [
+				"components/ai-elements/artifact.tsx",
+				"components/ai-elements/canvas.tsx",
+				"components/ai-elements/chain-of-thought.tsx",
+				"components/ai-elements/checkpoint.tsx",
+				"components/ai-elements/code-block.tsx",
+				"components/ai-elements/confirmation.tsx",
+				"components/ai-elements/connection.tsx",
+				"components/ai-elements/context.tsx",
+				"components/ai-elements/controls.tsx",
+				"components/ai-elements/conversation.tsx",
+				"components/ai-elements/edge.tsx",
+				"components/ai-elements/image.tsx",
+				"components/ai-elements/index.ts",
+				"components/ai-elements/inline-citation.tsx",
+				"components/ai-elements/lazy.tsx",
+				"components/ai-elements/loader.tsx",
+				"components/ai-elements/message.tsx",
+				"components/ai-elements/model-selector.tsx",
+				"components/ai-elements/node.tsx",
+				"components/ai-elements/open-in-chat.tsx",
+				"components/ai-elements/panel.tsx",
+				"components/ai-elements/plan.tsx",
+				"components/ai-elements/prompt-input.tsx",
+				"components/ai-elements/queue.tsx",
+				"components/ai-elements/reasoning.tsx",
+				"components/ai-elements/shimmer.tsx",
+				"components/ai-elements/sources.tsx",
+				"components/ai-elements/suggestion.tsx",
+				"components/ai-elements/task.tsx",
+				"components/ai-elements/tool.tsx",
+				"components/ai-elements/toolbar.tsx",
+				"components/ai-elements/web-preview.tsx"
+			]
+		},
+		"components/document": {
+			"fileCount": 5,
+			"files": [
+				"components/document/diffview.tsx",
+				"components/document/document-preview.tsx",
+				"components/document/document-skeleton.tsx",
+				"components/document/document.tsx",
+				"components/document/index.ts"
+			]
+		},
+		"components/settings": {
+			"fileCount": 2,
+			"files": [
+				"components/settings/index.ts",
+				"components/settings/settings-sheet.tsx"
+			]
+		},
+		"components/ui": {
+			"fileCount": 26,
+			"files": [
+				"components/ui/alert-dialog.tsx",
+				"components/ui/alert.tsx",
+				"components/ui/avatar.tsx",
+				"components/ui/badge.tsx",
+				"components/ui/button.tsx",
+				"components/ui/card.tsx",
+				"components/ui/carousel.tsx",
+				"components/ui/collapsible.tsx",
+				"components/ui/command.tsx",
+				"components/ui/dialog.tsx",
+				"components/ui/dropdown-menu.tsx",
+				"components/ui/hover-card.tsx",
+				"components/ui/index.ts",
+				"components/ui/input-group.tsx",
+				"components/ui/input.tsx",
+				"components/ui/label.tsx",
+				"components/ui/progress.tsx",
+				"components/ui/scroll-area.tsx",
+				"components/ui/select.tsx",
+				"components/ui/separator.tsx",
+				"components/ui/sheet.tsx",
+				"components/ui/sidebar.tsx",
+				"components/ui/skeleton.tsx",
+				"components/ui/slider.tsx",
+				"components/ui/switch.tsx",
+				"components/ui/textarea.tsx",
+				"components/ui/tooltip.tsx"
+			]
+		},
+		"components": {
+			"fileCount": 8,
+			"files": [
+				"components/app-sidebar.tsx",
+				"components/auth-form.tsx",
+				"components/icons.tsx",
+				"components/index.ts",
+				"components/sidebar-toggle.tsx",
+				"components/sidebar-user-nav.tsx",
+				"components/theme-provider.tsx",
+				"components/toast.tsx",
+				"components/version-footer.tsx"
+			]
+		},
+		"e2e/visual": {
+			"fileCount": 1,
+			"files": ["e2e/visual/components.spec.ts"]
+		},
+		"e2e": {
+			"fileCount": 4,
+			"files": [
+				"e2e/artifacts.spec.ts",
+				"e2e/auth.spec.ts",
+				"e2e/chat.spec.ts",
+				"e2e/sidebar.spec.ts"
+			]
+		},
+		"features/artifact/actions": {
+			"fileCount": 7,
+			"files": [
+				"features/artifact/actions/create-artifact.action.ts",
+				"features/artifact/actions/delete-artifact.action.ts",
+				"features/artifact/actions/get-artifact.action.ts",
+				"features/artifact/actions/index.ts",
+				"features/artifact/actions/suggestions.ts",
+				"features/artifact/actions/update-artifact.action.ts",
+				"features/artifact/actions/versions.ts"
+			]
+		},
+		"features/artifact/components/editors": {
+			"fileCount": 4,
+			"files": [
+				"features/artifact/components/editors/code-editor.tsx",
+				"features/artifact/components/editors/image-editor.tsx",
+				"features/artifact/components/editors/sheet-editor.tsx",
+				"features/artifact/components/editors/text-editor.tsx"
+			]
+		},
+		"features/artifact/components": {
+			"fileCount": 7,
+			"files": [
+				"features/artifact/components/artifact-actions.tsx",
+				"features/artifact/components/artifact-close.tsx",
+				"features/artifact/components/artifact-error-boundary.tsx",
+				"features/artifact/components/artifact-messages.tsx",
+				"features/artifact/components/artifact-panel.tsx",
+				"features/artifact/components/console.tsx",
+				"features/artifact/components/index.ts"
+			]
+		},
+		"features/artifact/handlers": {
+			"fileCount": 6,
+			"files": [
+				"features/artifact/handlers/base.handler.ts",
+				"features/artifact/handlers/code.handler.ts",
+				"features/artifact/handlers/image.handler.ts",
+				"features/artifact/handlers/index.ts",
+				"features/artifact/handlers/sheet.handler.ts",
+				"features/artifact/handlers/text.handler.ts"
+			]
+		},
+		"features/artifact/hooks": {
+			"fileCount": 3,
+			"files": [
+				"features/artifact/hooks/index.ts",
+				"features/artifact/hooks/use-artifact.test.ts",
+				"features/artifact/hooks/use-artifact.ts"
+			]
+		},
+		"features/artifact/lib": {
+			"fileCount": 2,
+			"files": [
+				"features/artifact/lib/artifact-class.ts",
+				"features/artifact/lib/index.ts"
+			]
+		},
+		"features/artifact/schemas": {
+			"fileCount": 2,
+			"files": [
+				"features/artifact/schemas/artifact.schema.ts",
+				"features/artifact/schemas/index.ts"
+			]
+		},
+		"features/artifact": {
+			"fileCount": 2,
+			"files": [
+				"features/artifact/index.ts",
+				"features/artifact/types.ts"
+			]
+		},
+		"features/auth/actions": {
+			"fileCount": 3,
+			"files": [
+				"features/auth/actions/index.ts",
+				"features/auth/actions/login.action.ts",
+				"features/auth/actions/register.action.ts"
+			]
+		},
+		"features/auth/components": {
+			"fileCount": 4,
+			"files": [
+				"features/auth/components/auth-form.tsx",
+				"features/auth/components/auth-provider.tsx",
+				"features/auth/components/index.ts",
+				"features/auth/components/submit-button.tsx"
+			]
+		},
+		"features/auth/hooks": {
+			"fileCount": 3,
+			"files": [
+				"features/auth/hooks/index.ts",
+				"features/auth/hooks/use-auth.test.ts",
+				"features/auth/hooks/use-auth.ts"
+			]
+		},
+		"features/auth/schemas": {
+			"fileCount": 2,
+			"files": [
+				"features/auth/schemas/auth.schema.ts",
+				"features/auth/schemas/index.ts"
+			]
+		},
+		"features/auth": {
+			"fileCount": 2,
+			"files": ["features/auth/index.ts", "features/auth/types.ts"]
+		},
+		"features/chat/actions": {
+			"fileCount": 9,
+			"files": [
+				"features/chat/actions/create-chat.action.ts",
+				"features/chat/actions/delete-chat.action.ts",
+				"features/chat/actions/delete-trailing-messages.action.ts",
+				"features/chat/actions/get-history.action.ts",
+				"features/chat/actions/index.ts",
+				"features/chat/actions/save-message.action.ts",
+				"features/chat/actions/stream-chat.action.ts",
+				"features/chat/actions/update-title.action.ts",
+				"features/chat/actions/update-visibility.action.ts"
+			]
+		},
+		"features/chat/components": {
+			"fileCount": 12,
+			"files": [
+				"features/chat/components/chat-header.tsx",
+				"features/chat/components/chat.tsx",
+				"features/chat/components/data-stream-handler.tsx",
+				"features/chat/components/greeting.tsx",
+				"features/chat/components/index.ts",
+				"features/chat/components/message-actions.tsx",
+				"features/chat/components/message-editor.tsx",
+				"features/chat/components/message-reasoning.tsx",
+				"features/chat/components/message.tsx",
+				"features/chat/components/messages.tsx",
+				"features/chat/components/notice-toast-handler.tsx",
+				"features/chat/components/toolbar.tsx",
+				"features/chat/components/visibility-selector.tsx"
+			]
+		},
+		"features/chat/hooks": {
+			"fileCount": 7,
+			"files": [
+				"features/chat/hooks/index.ts",
+				"features/chat/hooks/use-chat.test.ts",
+				"features/chat/hooks/use-chat.ts",
+				"features/chat/hooks/use-data-stream.tsx",
+				"features/chat/hooks/use-messages.ts",
+				"features/chat/hooks/use-notice-toast.ts",
+				"features/chat/hooks/use-scroll-to-bottom.ts",
+				"features/chat/hooks/use-stream-status.ts"
+			]
+		},
+		"features/chat/lib/tools": {
+			"fileCount": 6,
+			"files": [
+				"features/chat/lib/tools/create-document.tool.ts",
+				"features/chat/lib/tools/errors.ts",
+				"features/chat/lib/tools/index.ts",
+				"features/chat/lib/tools/suggestions.tool.ts",
+				"features/chat/lib/tools/update-document.tool.ts",
+				"features/chat/lib/tools/weather.tool.ts"
+			]
+		},
+		"features/chat/schemas": {
+			"fileCount": 2,
+			"files": [
+				"features/chat/schemas/chat.schema.ts",
+				"features/chat/schemas/index.ts"
+			]
+		},
+		"features/chat": {
+			"fileCount": 2,
+			"files": ["features/chat/index.ts", "features/chat/types.ts"]
+		},
+		"features/input/components": {
+			"fileCount": 5,
+			"files": [
+				"features/input/components/attachment-preview.tsx",
+				"features/input/components/index.ts",
+				"features/input/components/multimodal-input.tsx",
+				"features/input/components/submit-button.tsx",
+				"features/input/components/suggested-actions.tsx"
+			]
+		},
+		"features/input/hooks": {
+			"fileCount": 3,
+			"files": [
+				"features/input/hooks/index.ts",
+				"features/input/hooks/use-file-upload.ts",
+				"features/input/hooks/use-input.ts"
+			]
+		},
+		"features/input/schemas": {
+			"fileCount": 2,
+			"files": [
+				"features/input/schemas/index.ts",
+				"features/input/schemas/input.schema.ts"
+			]
+		},
+		"features/input": {
+			"fileCount": 2,
+			"files": ["features/input/index.ts", "features/input/types.ts"]
+		},
+		"features/settings/actions": {
+			"fileCount": 3,
+			"files": [
+				"features/settings/actions/clear-data.action.ts",
+				"features/settings/actions/index.ts",
+				"features/settings/actions/update-settings.action.ts"
+			]
+		},
+		"features/settings/components": {
+			"fileCount": 5,
+			"files": [
+				"features/settings/components/index.ts",
+				"features/settings/components/model-selector.tsx",
+				"features/settings/components/settings-provider.tsx",
+				"features/settings/components/settings-sheet.tsx",
+				"features/settings/components/theme-toggle.tsx"
+			]
+		},
+		"features/settings/hooks": {
+			"fileCount": 2,
+			"files": [
+				"features/settings/hooks/index.ts",
+				"features/settings/hooks/use-settings.ts"
+			]
+		},
+		"features/settings/schemas": {
+			"fileCount": 2,
+			"files": [
+				"features/settings/schemas/index.ts",
+				"features/settings/schemas/settings.schema.ts"
+			]
+		},
+		"features/settings": {
+			"fileCount": 2,
+			"files": [
+				"features/settings/index.ts",
+				"features/settings/types.ts"
+			]
+		},
+		"features/sidebar/actions": {
+			"fileCount": 3,
+			"files": [
+				"features/sidebar/actions/delete-chat.action.ts",
+				"features/sidebar/actions/get-history.action.ts",
+				"features/sidebar/actions/index.ts"
+			]
+		},
+		"features/sidebar/components": {
+			"fileCount": 7,
+			"files": [
+				"features/sidebar/components/index.ts",
+				"features/sidebar/components/sidebar-history.tsx",
+				"features/sidebar/components/sidebar-item.tsx",
+				"features/sidebar/components/sidebar-skeleton.tsx",
+				"features/sidebar/components/sidebar-toggle.tsx",
+				"features/sidebar/components/sidebar-user-nav.tsx",
+				"features/sidebar/components/sidebar.tsx"
+			]
+		},
+		"features/sidebar/hooks": {
+			"fileCount": 3,
+			"files": [
+				"features/sidebar/hooks/index.ts",
+				"features/sidebar/hooks/use-optimistic-chats.tsx",
+				"features/sidebar/hooks/use-sidebar.ts"
+			]
+		},
+		"features/sidebar": {
+			"fileCount": 2,
+			"files": ["features/sidebar/index.ts", "features/sidebar/types.ts"]
+		},
+		"hooks": {
+			"fileCount": 8,
+			"files": [
+				"hooks/index.ts",
+				"hooks/use-chat-visibility.ts",
+				"hooks/use-debounce.ts",
+				"hooks/use-local-storage.ts",
+				"hooks/use-media-query.ts",
+				"hooks/use-mobile.ts",
+				"hooks/use-scroll-to-bottom.tsx",
+				"hooks/use-window-size.ts"
+			]
+		},
+		"lib/a11y": {
+			"fileCount": 4,
+			"files": [
+				"lib/a11y/announcer.tsx",
+				"lib/a11y/focus-management.ts",
+				"lib/a11y/index.ts",
+				"lib/a11y/keyboard-navigation.ts"
+			]
+		},
+		"lib/ai": {
+			"fileCount": 13,
+			"files": [
+				"lib/ai/chat-completion.ts",
+				"lib/ai/constants.ts",
+				"lib/ai/context-window.ts",
+				"lib/ai/entitlements.ts",
+				"lib/ai/index.ts",
+				"lib/ai/model-discovery.ts",
+				"lib/ai/models.mock.ts",
+				"lib/ai/prompts.ts",
+				"lib/ai/providers.ts",
+				"lib/ai/registry.ts",
+				"lib/ai/title-generation.ts",
+				"lib/ai/token-counter.ts",
+				"lib/ai/types.ts"
+			]
+		},
+		"lib/api": {
+			"fileCount": 4,
+			"files": [
+				"lib/api/context.ts",
+				"lib/api/index.ts",
+				"lib/api/response.ts",
+				"lib/api/validation.ts"
+			]
+		},
+		"lib/auth": {
+			"fileCount": 4,
+			"files": [
+				"lib/auth/config.ts",
+				"lib/auth/guards.ts",
+				"lib/auth/index.ts",
+				"lib/auth/session.ts"
+			]
+		},
+		"lib/cache": {
+			"fileCount": 13,
+			"files": [
+				"lib/cache/cast.ts",
+				"lib/cache/circuit-breaker.ts",
+				"lib/cache/client.ts",
+				"lib/cache/index.test.ts",
+				"lib/cache/index.ts",
+				"lib/cache/invalidation.ts",
+				"lib/cache/keys.ts",
+				"lib/cache/memory-cache.ts",
+				"lib/cache/quota.ts",
+				"lib/cache/strategies.ts",
+				"lib/cache/tiered-cache.ts",
+				"lib/cache/types.ts",
+				"lib/cache/zset.ts"
+			]
+		},
+		"lib/data/queries": {
+			"fileCount": 3,
+			"files": [
+				"lib/data/queries/chat.queries.ts",
+				"lib/data/queries/index.ts",
+				"lib/data/queries/user.queries.ts"
+			]
+		},
+		"lib/data/repositories": {
+			"fileCount": 8,
+			"files": [
+				"lib/data/repositories/artifact.repository.ts",
+				"lib/data/repositories/base.repository.ts",
+				"lib/data/repositories/chat.repository.ts",
+				"lib/data/repositories/index.ts",
+				"lib/data/repositories/message.repository.ts",
+				"lib/data/repositories/suggestion.repository.ts",
+				"lib/data/repositories/user.repository.ts",
+				"lib/data/repositories/vote.repository.ts"
+			]
+		},
+		"lib/data/services": {
+			"fileCount": 5,
+			"files": [
+				"lib/data/services/artifact.service.ts",
+				"lib/data/services/auth.service.ts",
+				"lib/data/services/chat.service.ts",
+				"lib/data/services/index.ts"
+			]
+		},
+		"lib/data": {
+			"fileCount": 3,
+			"files": [
+				"lib/data/guest-strategy.ts",
+				"lib/data/index.ts",
+				"lib/data/types.ts"
+			]
+		},
+		"lib/db": {
+			"fileCount": 6,
+			"files": [
+				"lib/db/batch.ts",
+				"lib/db/client.ts",
+				"lib/db/index.ts",
+				"lib/db/migrate.ts",
+				"lib/db/pagination.ts",
+				"lib/db/schema.ts"
+			]
+		},
+		"lib/editor": {
+			"fileCount": 2,
+			"files": [
+				"lib/editor/diff.ts",
+				"lib/editor/suggestions-extension.tsx"
+			]
+		},
+		"lib/errors": {
+			"fileCount": 4,
+			"files": [
+				"lib/errors/chat-sdk-compat.ts",
+				"lib/errors/database.ts",
+				"lib/errors/index.ts",
+				"lib/errors/messages.ts"
+			]
+		},
+		"lib/middleware": {
+			"fileCount": 5,
+			"files": [
+				"lib/middleware/auth.ts",
+				"lib/middleware/compose.ts",
+				"lib/middleware/deduplication.ts",
+				"lib/middleware/index.ts",
+				"lib/middleware/rate-limit.ts"
+			]
+		},
+		"lib/rate-limit": {
+			"fileCount": 3,
+			"files": [
+				"lib/rate-limit/index.ts",
+				"lib/rate-limit/limits.ts",
+				"lib/rate-limit/rate-limiter.ts"
+			]
+		},
+		"lib/types": {
+			"fileCount": 3,
+			"files": [
+				"lib/types/ai-sdk.ts",
+				"lib/types/index.ts",
+				"lib/types/message-parts.ts"
+			]
+		},
+		"lib/utils": {
+			"fileCount": 14,
+			"files": [
+				"lib/utils/cn.test.ts",
+				"lib/utils/cn.ts",
+				"lib/utils/date.ts",
+				"lib/utils/document.ts",
+				"lib/utils/fetcher.ts",
+				"lib/utils/file-validation.ts",
+				"lib/utils/format.test.ts",
+				"lib/utils/format.ts",
+				"lib/utils/index.ts",
+				"lib/utils/lazy.tsx",
+				"lib/utils/logger.ts",
+				"lib/utils/message.ts",
+				"lib/utils/network.ts",
+				"lib/utils/string.ts",
+				"lib/utils/uuid.ts",
+				"lib/utils/validation.ts"
+			]
+		},
+		"lib": {
+			"fileCount": 6,
+			"files": [
+				"lib/constants.ts",
+				"lib/errors.test.ts",
+				"lib/errors.ts",
+				"lib/index.ts",
+				"lib/log.ts",
+				"lib/motion.ts"
+			]
+		},
+		"src/test/fixtures": {
+			"fileCount": 1,
+			"files": ["src/test/fixtures/index.ts"]
+		},
+		"src/test/mocks": {
+			"fileCount": 4,
+			"files": [
+				"src/test/mocks/ai.ts",
+				"src/test/mocks/cache.ts",
+				"src/test/mocks/db.ts",
+				"src/test/mocks/server-only.ts"
+			]
+		},
+		"src/test": {
+			"fileCount": 1,
+			"files": ["src/test/setup.ts"]
+		},
+		"tests/integration": {
+			"fileCount": 4,
+			"files": [
+				"tests/integration/artifact-workflow.test.ts",
+				"tests/integration/auth-flow.test.ts",
+				"tests/integration/cache-through.test.ts",
+				"tests/integration/chat-flow.test.ts"
+			]
+		},
+		"root": {
+			"fileCount": 8,
+			"files": [
+				".commitlintrc.js",
+				"drizzle.config.ts",
+				"instrumentation-client.ts",
+				"instrumentation.ts",
+				"middleware.ts",
+				"next-env.d.ts",
+				"next.config.ts",
+				"tailwind.config.ts",
+				"vitest.config.ts"
+			]
+		}
+	}
+}

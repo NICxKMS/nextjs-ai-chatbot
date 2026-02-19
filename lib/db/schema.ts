@@ -6,6 +6,9 @@
  * - Renamed 'Document' table to 'Artifact' (document → artifact)
  * - Renamed 'document_kind' enum to 'artifact_kind'
  * - Updated foreign key references accordingly
+ * - Auth architecture uses NextAuth identity (`User.id`) rather than legacy
+ *   Supabase-auth user/session records; ownership and cache typing therefore
+ *   rely on application-level UUID user IDs and typed session context.
  *
  * @see archive/oldapp/lib/db/schema.ts for v5 source
  */

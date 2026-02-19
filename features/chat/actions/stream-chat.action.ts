@@ -10,11 +10,13 @@
 
 "use server"
 
+import { createUIMessageStream } from "ai"
 import { revalidatePath } from "next/cache"
+import { executeChatCompletion } from "@/lib/ai"
 import { getEntitlements } from "@/lib/ai/entitlements"
 import { isValidModelId, listChatModels } from "@/lib/ai/registry"
 import { requireAuthAction } from "@/lib/auth/guards"
-import { getSession } from "@/lib/auth/session"
+import { type AppSession, getSession } from "@/lib/auth/session"
 import { checkMessageQuota } from "@/lib/cache/quota"
 import type { RepositoryContext } from "@/lib/data/repositories"
 import {
@@ -22,9 +24,14 @@ import {
 	type SaveChatParams,
 } from "@/lib/data/services/chat.service"
 import type { DBMessage } from "@/lib/db/schema"
-import { RateLimitError } from "@/lib/errors"
+import {
+	RateLimitError,
+	UnauthorizedError,
+	ValidationError,
+} from "@/lib/errors"
 import { checkChatLimit, getRetryAfter } from "@/lib/rate-limit"
 import type { ChatSettings } from "../schemas/chat.schema"
+import type { ChatMessage } from "../types"
 
 // =============================================================================
 // Types
@@ -96,6 +103,87 @@ export interface StreamChatResult {
 	settings?: ChatSettings | undefined
 }
 
+/**
+ * Canonical preflight result for stream chat authorization and limits.
+ */
+export interface StreamChatPreflightResult {
+	/** Authenticated user ID */
+	userId: string
+	/** Authenticated app session */
+	session: AppSession
+	/** Repository context */
+	ctx: RepositoryContext
+}
+
+type ChatCompletionParams = Parameters<typeof executeChatCompletion>[0]
+type ChatDataStream = ChatCompletionParams["dataStream"]
+type ChatCompletionWithoutStream = Omit<ChatCompletionParams, "dataStream">
+
+export interface CreateStreamChatMessageStreamParams {
+	completion: ChatCompletionWithoutStream
+	generateId: () => string
+	onFinish?: Parameters<
+		typeof createUIMessageStream<ChatMessage>
+	>[0]["onFinish"]
+	onBeforeExecute?: (dataStream: ChatDataStream) => void
+	onExecutionError?: (error: unknown, dataStream: ChatDataStream) => void
+	onError?: Parameters<
+		typeof createUIMessageStream<ChatMessage>
+	>[0]["onError"]
+}
+
+/**
+ * Canonical streaming execution path for chat completions.
+ *
+ * Keeps `/api/chat` and server actions aligned on a single execution primitive.
+ */
+export function executeStreamChatCompletion(
+	params: Parameters<typeof executeChatCompletion>[0],
+): void {
+	executeChatCompletion(params)
+}
+
+/**
+ * Canonical stream factory for chat route execution.
+ *
+ * This centralizes createUIMessageStream + execute callback behavior so
+ * API route orchestration stays aligned with the action layer contract.
+ */
+export function createStreamChatMessageStream(
+	params: CreateStreamChatMessageStreamParams,
+) {
+	const streamParams: Parameters<
+		typeof createUIMessageStream<ChatMessage>
+	>[0] = {
+		execute: ({ writer: dataStream }) => {
+			try {
+				params.onBeforeExecute?.(dataStream)
+				executeStreamChatCompletion({
+					...params.completion,
+					dataStream,
+				})
+			} catch (error) {
+				if (params.onExecutionError) {
+					params.onExecutionError(error, dataStream)
+					return
+				}
+				throw error
+			}
+		},
+		generateId: params.generateId,
+	}
+
+	if (params.onFinish !== undefined) {
+		streamParams.onFinish = params.onFinish
+	}
+
+	if (params.onError !== undefined) {
+		streamParams.onError = params.onError
+	}
+
+	return createUIMessageStream<ChatMessage>(streamParams)
+}
+
 // =============================================================================
 // Stream Chat Action
 // =============================================================================
@@ -130,82 +218,11 @@ export interface StreamChatResult {
 export async function streamChatAction(
 	input: StreamChatInput,
 ): Promise<StreamChatResult> {
-	// 1. Authenticate user and get session for user type
-	const userId = await requireAuthAction()
-	const session = await getSession()
-
-	if (!session) {
-		return {
-			chatId: input.chatId,
-			isNewChat: input.isNewChat ?? false,
-			success: false,
-			error: "Authentication required",
-		}
-	}
-
-	const userType = session.user.type
-	const entitlements = getEntitlements(userType)
-
-	// 2. Validate model ID against user entitlements
-	if (input.selectedModel) {
-		// First check if model ID is valid
-		if (!isValidModelId(input.selectedModel)) {
-			const availableModels = listChatModels()
-				.map((m) => m.id)
-				.slice(0, 5)
-				.join(", ")
-			return {
-				chatId: input.chatId,
-				isNewChat: input.isNewChat ?? false,
-				success: false,
-				error: `Invalid model ID: ${input.selectedModel}. Available models include: ${availableModels}...`,
-			}
-		}
-
-		// Then check if user has access to this model
-		if (!entitlements.availableChatModelIds.includes(input.selectedModel)) {
-			return {
-				chatId: input.chatId,
-				isNewChat: input.isNewChat ?? false,
-				success: false,
-				error: `Model not available for your account type. Please select a different model.`,
-			}
-		}
-	}
-
-	// 3. Check daily message quota
-	const quotaResult = await checkMessageQuota(
-		userId,
-		entitlements.maxMessagesPerDay,
-	)
-	if (!quotaResult.allowed) {
-		throw new RateLimitError(
-			`Daily message limit reached (${quotaResult.quota.used}/${entitlements.maxMessagesPerDay}). Try again tomorrow.`,
-			{
-				limit: entitlements.maxMessagesPerDay,
-				used: quotaResult.quota.used,
-				remaining: quotaResult.quota.remaining,
-			},
-		)
-	}
-
-	// 4. Check rate limit
-	const rateLimitResult = await checkChatLimit(userId)
-	if (!rateLimitResult.success) {
-		const retryAfter = getRetryAfter(rateLimitResult.reset)
-		throw new RateLimitError(
-			"Too many requests. Please wait before sending another message.",
-			{ retryAfter },
-		)
-	}
-
-	// 5. Create repository context
-	const ctx: RepositoryContext = {
-		userId,
-		isGuest: userType === "guest",
-	}
-
 	try {
+		const { ctx } = await validateStreamChatPreflight({
+			selectedModelId: input.selectedModel,
+		})
+
 		// 6. Prepare messages for storage
 		// DBMessage requires parts and attachments fields
 		const messagesToSave: DBMessage[] = input.messages.map((msg) => ({
@@ -249,6 +266,83 @@ export async function streamChatAction(
 					? error.message
 					: "Failed to process chat",
 		}
+	}
+}
+
+/**
+ * Canonical preflight validation for streaming chat execution paths.
+ *
+ * This is the single source of truth for:
+ * - authentication/session resolution
+ * - model entitlement checks
+ * - daily quota enforcement
+ * - chat route rate limiting
+ */
+export async function validateStreamChatPreflight(input: {
+	selectedModelId?: string | undefined
+}): Promise<StreamChatPreflightResult> {
+	const userId = await requireAuthAction()
+	const session = await getSession()
+
+	if (!session?.user?.id) {
+		throw new UnauthorizedError("Authentication required")
+	}
+
+	const entitlements = getEntitlements(session.user.type)
+
+	if (input.selectedModelId) {
+		if (!isValidModelId(input.selectedModelId)) {
+			const availableModels = listChatModels()
+				.map((model) => model.id)
+				.slice(0, 5)
+				.join(", ")
+
+			throw new ValidationError(
+				`Invalid model ID: ${input.selectedModelId}. Available models include: ${availableModels}...`,
+			)
+		}
+
+		if (
+			!entitlements.availableChatModelIds.includes(input.selectedModelId)
+		) {
+			throw new ValidationError(
+				"Model not available for your account type. Please select a different model.",
+			)
+		}
+	}
+
+	const quotaResult = await checkMessageQuota(
+		userId,
+		entitlements.maxMessagesPerDay,
+	)
+
+	if (!quotaResult.allowed) {
+		throw new RateLimitError(
+			`Daily message limit reached (${quotaResult.quota.used}/${entitlements.maxMessagesPerDay}). Try again tomorrow.`,
+			{
+				limit: entitlements.maxMessagesPerDay,
+				used: quotaResult.quota.used,
+				remaining: quotaResult.quota.remaining,
+			},
+		)
+	}
+
+	const rateLimitResult = await checkChatLimit(userId)
+	if (!rateLimitResult.success) {
+		const retryAfter = getRetryAfter(rateLimitResult.reset)
+		throw new RateLimitError(
+			"Too many requests. Please wait before sending another message.",
+			{ retryAfter },
+		)
+	}
+
+	return {
+		userId,
+		session,
+		ctx: {
+			userId,
+			isGuest: session.user.type === "guest",
+		},
 	}
 }
 

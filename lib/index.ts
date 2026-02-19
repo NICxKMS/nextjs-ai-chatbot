@@ -69,7 +69,33 @@ export * from "./data"
 // Database Utilities
 // =============================================================================
 
-export * from "./db"
+export {
+	type BatchDeleteOptions,
+	type BatchInsertOptions,
+	type BatchResult,
+	type BatchUpdateOptions,
+	type BatchUpsertOptions,
+	batchDelete as dbBatchDelete,
+	batchInsert as dbBatchInsert,
+	batchUpdate as dbBatchUpdate,
+	batchUpsert,
+	batchWithResult,
+	buildCursorCondition,
+	type CursorPaginatedResult as DBCursorPaginatedResult,
+	closeConnection,
+	createPaginationResponse,
+	db,
+	decodeCursor,
+	encodeCursor,
+	isHealthy,
+	type PaginationDirection,
+	paginate,
+	paginateWithCount,
+	toCursorOptions,
+	toPaginatedResult,
+	withSequentialTransactions as dbWithSequentialTransactions,
+	withTransaction as dbWithTransaction,
+} from "./db"
 
 // =============================================================================
 // Editor Utilities

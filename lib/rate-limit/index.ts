@@ -55,6 +55,7 @@ export {
 	checkGenerousLimit,
 	checkGuestLimit,
 	checkStandardLimit,
+	checkStreamLimit,
 	checkStrictLimit,
 	checkUploadLimit,
 	generousLimiter,
@@ -63,6 +64,7 @@ export {
 	type RateLimiterName,
 	rateLimiters,
 	standardLimiter,
+	streamLimiter,
 	strictLimiter,
 	uploadLimiter,
 } from "./limits"

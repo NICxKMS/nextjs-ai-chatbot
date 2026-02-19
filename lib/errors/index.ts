@@ -72,6 +72,7 @@ export {
 	getErrorMessageWithContext,
 	getErrorTitle,
 	getErrorTitleWithContext,
+	getMessageByErrorCode,
 	getSupportedLocales,
 	hasLocaleMessages,
 	type LocaleMessages,

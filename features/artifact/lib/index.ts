@@ -9,12 +9,15 @@
 export {
 	Artifact,
 	type ArtifactConfig,
+	artifactKinds,
 	clearArtifactRegistry,
 	createArtifactDefinition,
 	getAllArtifactDefinitions,
 	getArtifactDefinition,
+	getArtifactIcon,
 	getRegisteredArtifactKinds,
 	isArtifactRegistered,
+	isBuiltInArtifactKind,
 	registerArtifact,
 	unregisterArtifact,
 } from "./artifact-class"

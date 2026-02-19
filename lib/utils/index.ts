@@ -23,23 +23,30 @@ export { getDocumentTimestampByIndex } from "./document"
 export { fetcher, fetchWithErrorHandlers } from "./fetcher"
 // File validation utilities
 export {
+	ALLOWED_ATTACHMENT_TYPES,
 	ALLOWED_MIME_TYPE_PREFIXES,
 	ALLOWED_MIME_TYPES,
 	ALLOWED_MIME_TYPES_SET,
 	ATTACHMENT_MAX_FILE_SIZE,
+	type AttachmentValidationParams,
+	type AttachmentValidationResult,
 	DEFAULT_MAX_FILE_SIZE,
 	type FileSizeValidationResult,
 	type FileTypeValidationResult,
 	type FileValidationOptions,
 	type FileValidationResult,
+	getFileExtension,
 	type ImageDimensionValidationResult,
 	isValidMimeType,
+	MAX_ATTACHMENT_SIZE,
 	MAX_IMAGE_DIMENSION,
 	sanitizeFilename,
+	validateAttachment,
 	validateFile,
 	validateFileSize,
 	validateFileType,
 	validateImageDimensions,
+	validateMagicBytes,
 } from "./file-validation"
 // Formatting utilities
 export {

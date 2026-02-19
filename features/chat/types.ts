@@ -26,6 +26,17 @@ export interface CustomUIDataTypes {
 	id: string
 	title: string
 	chatTitle: string
+	error: string
+	"tool-call": {
+		toolName?: string
+		toolCallId?: string
+		input?: Record<string, unknown>
+	}
+	"tool-result": {
+		toolName?: string
+		toolCallId?: string
+		output?: unknown
+	}
 	kind: ArtifactKind
 	clear: null
 	finish: null

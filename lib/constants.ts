@@ -88,6 +88,11 @@ export const RATE_LIMITS = {
 		requests: 100,
 		window: 60,
 	},
+	/** Stream reconnection endpoints - 60 requests per minute */
+	stream: {
+		requests: 60,
+		window: 60,
+	},
 	/** Destructive operations (delete) - 10 requests per minute */
 	strict: {
 		requests: 10,

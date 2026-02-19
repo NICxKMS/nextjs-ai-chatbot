@@ -13,6 +13,7 @@
 import { redirect } from "next/navigation"
 import { AuthError } from "next-auth"
 import { signIn } from "@/lib/auth"
+import { getSafeRedirectUrl } from "@/lib/utils/validation"
 import { loginSchema } from "../schemas"
 import type { AuthResult } from "../types"
 
@@ -66,10 +67,14 @@ export async function login(
 		})
 
 		// If we reach here without an error, login was successful
-		// Use callbackUrl if provided, otherwise default to /chat
+		// Use safe callbackUrl if provided, otherwise default to /
+		const safeRedirectTo = callbackUrl
+			? getSafeRedirectUrl(callbackUrl)
+			: "/"
+
 		return {
 			success: true,
-			redirectTo: callbackUrl || "/chat",
+			redirectTo: safeRedirectTo,
 		}
 	} catch (error) {
 		// Handle NextAuth errors

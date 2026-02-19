@@ -17,12 +17,14 @@ import {
 	gt,
 	gte,
 	ilike,
+	inArray,
 	lt,
 	lte,
 	type SQL,
 } from "drizzle-orm"
-
 import type { AppUsage } from "@/lib/ai"
+import { addToChatList, getChatList, removeFromChatList } from "@/lib/cache"
+import { TieredCache } from "@/lib/cache/tiered-cache"
 import { CACHE_TTL } from "@/lib/constants"
 import type { Chat, Message, NewChat, UpdateChat } from "@/lib/db/schema"
 import { chat, message } from "@/lib/db/schema"
@@ -107,6 +109,10 @@ export interface ChatWithMessages {
  * ```
  */
 export class ChatRepository extends BaseRepository<Chat, NewChat, UpdateChat> {
+	private readonly messageListCache = new TieredCache<Message[]>({
+		l2Ttl: CACHE_TTL.list,
+	})
+
 	// =============================================================================
 	// Cache Configuration
 	// =============================================================================
@@ -126,6 +132,10 @@ export class ChatRepository extends BaseRepository<Chat, NewChat, UpdateChat> {
 	 */
 	protected cacheListKey(): string {
 		return "chats:list"
+	}
+
+	private chatMessagesCacheKey(chatId: string): string {
+		return `messages:chat:${chatId}`
 	}
 
 	/**
@@ -310,6 +320,12 @@ export class ChatRepository extends BaseRepository<Chat, NewChat, UpdateChat> {
 				throw new Error("Failed to create chat - no result returned")
 			}
 
+			await addToChatList(result.userId, {
+				chatId: result.id,
+				title: result.title,
+				updatedAt: result.updatedAt.getTime(),
+			})
+
 			logDebug("ChatRepository chat created", { id: result.id })
 			return result
 		} catch (error) {
@@ -351,6 +367,12 @@ export class ChatRepository extends BaseRepository<Chat, NewChat, UpdateChat> {
 				throw new NotFoundError(`Chat not found: ${id}`)
 			}
 
+			await addToChatList(result.userId, {
+				chatId: result.id,
+				title: result.title,
+				updatedAt: result.updatedAt.getTime(),
+			})
+
 			logDebug("ChatRepository chat updated", { id })
 			return result
 		} catch (error) {
@@ -387,10 +409,11 @@ export class ChatRepository extends BaseRepository<Chat, NewChat, UpdateChat> {
 			const [result] = await this.db
 				.delete(chat)
 				.where(conditions)
-				.returning({ id: chat.id })
+				.returning({ id: chat.id, userId: chat.userId })
 
 			const success = !!result
 			if (success) {
+				await removeFromChatList(result.userId, id)
 				logDebug("ChatRepository chat deleted", { id })
 			}
 			return success
@@ -418,7 +441,7 @@ export class ChatRepository extends BaseRepository<Chat, NewChat, UpdateChat> {
 	async findByUserId(
 		userId: string,
 		pagination: PaginationParams,
-		_context?: RepositoryContext,
+		context?: RepositoryContext,
 	): Promise<PaginatedResult<Chat>> {
 		try {
 			const {
@@ -430,6 +453,63 @@ export class ChatRepository extends BaseRepository<Chat, NewChat, UpdateChat> {
 				toDate,
 			} = pagination
 			const extendedLimit = limit + 1
+
+			const canUseChatListCache =
+				!startingAfter &&
+				!endingBefore &&
+				!searchQuery &&
+				!fromDate &&
+				!toDate
+
+			if (canUseChatListCache) {
+				const cachedList = await getChatList(userId, 0, extendedLimit)
+
+				if (cachedList.length > 0) {
+					const hasMore = cachedList.length > limit
+					const pageItems = hasMore
+						? cachedList.slice(0, limit)
+						: cachedList
+
+					if (context?.isGuest) {
+						return {
+							items: pageItems.map((item) => ({
+								id: item.chatId,
+								userId,
+								title: item.title,
+								visibility: "private",
+								createdAt: new Date(item.updatedAt),
+								updatedAt: new Date(item.updatedAt),
+								lastContext: null,
+							})),
+							hasMore,
+						}
+					}
+
+					const chatIds = pageItems.map((item) => item.chatId)
+					const chatRows = await this.db
+						.select()
+						.from(chat)
+						.where(
+							and(
+								eq(chat.userId, userId),
+								inArray(chat.id, chatIds),
+							),
+						)
+
+					const byId = new Map(chatRows.map((row) => [row.id, row]))
+					const ordered = chatIds
+						.map((id) => byId.get(id))
+						.filter((row): row is Chat => row !== undefined)
+
+					if (ordered.length > 0) {
+						return { items: ordered, hasMore }
+					}
+				}
+
+				if (context?.isGuest) {
+					return { items: [], hasMore: false }
+				}
+			}
 
 			// Build base conditions
 			const conditions: SQL<unknown>[] = [eq(chat.userId, userId)]
@@ -522,9 +602,24 @@ export class ChatRepository extends BaseRepository<Chat, NewChat, UpdateChat> {
 	): Promise<ChatWithMessages | null> {
 		try {
 			// First verify chat exists and user has access
-			const chatResult = await this.doFindById(chatId, context)
+			const chatResult = await this.findById(chatId, context)
 			if (!chatResult) {
 				return null
+			}
+
+			if (context.isGuest) {
+				const cachedMessages = await this.messageListCache.get(
+					this.chatMessagesCacheKey(chatId),
+				)
+
+				if (!cachedMessages.found || !cachedMessages.value) {
+					return null
+				}
+
+				return {
+					chat: chatResult,
+					messages: cachedMessages.value,
+				}
 			}
 
 			// Fetch messages for the chat
@@ -533,6 +628,12 @@ export class ChatRepository extends BaseRepository<Chat, NewChat, UpdateChat> {
 				.from(message)
 				.where(eq(message.chatId, chatId))
 				.orderBy(asc(message.createdAt))
+
+			await this.messageListCache.set(
+				this.chatMessagesCacheKey(chatId),
+				messages as Message[],
+				{ ttl: this.listTtl },
+			)
 
 			return {
 				chat: chatResult,
@@ -694,6 +795,14 @@ export class ChatRepository extends BaseRepository<Chat, NewChat, UpdateChat> {
 			})
 			return false
 		}
+	}
+
+	/**
+	 * Invalidate chat list cache.
+	 * Exposed for cross-repository invalidation after message mutations.
+	 */
+	async invalidateChatListCache(): Promise<void> {
+		await this.invalidateListCache()
 	}
 }
 

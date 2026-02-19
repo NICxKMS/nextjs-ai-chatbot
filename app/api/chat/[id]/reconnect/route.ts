@@ -55,6 +55,16 @@ const DEFAULT_RETRY_AFTER_SECONDS = 1
  */
 const MAX_RETRY_AFTER_SECONDS = 30
 
+/**
+ * Maximum number of assistant messages to replay during reconnect.
+ */
+const MAX_REPLAY_MESSAGES = 10
+
+/**
+ * Header value describing the current reconnect limitation.
+ */
+const RESUME_LIMITATION = "message-level-replay-only"
+
 // =============================================================================
 // Helper Functions
 // =============================================================================
@@ -83,6 +93,77 @@ function messageToUIMessage(message: Message): UIMessage {
 		role: message.role as "user" | "assistant",
 		parts: (message.parts as UIMessage["parts"]) ?? [],
 	}
+}
+
+function getMessageAgeSeconds(message: Message, now: Date): number {
+	return differenceInSeconds(now, new Date(message.createdAt))
+}
+
+function withinReconnectWindow(message: Message, now: Date): boolean {
+	return getMessageAgeSeconds(message, now) <= RECONNECT_WINDOW_SECONDS
+}
+
+function collectReplayMessages(params: {
+	messages: Message[]
+	lastEventId?: string | undefined
+	now: Date
+}): {
+	replayMessages: Message[]
+	resumeMode:
+		| "latest-assistant"
+		| "after-last-event-id"
+		| "fallback-latest-assistant"
+		| "empty"
+} {
+	const { messages, lastEventId, now } = params
+
+	const assistantMessages = messages.filter((message) => {
+		return message.role === "assistant"
+	})
+
+	if (assistantMessages.length === 0) {
+		return { replayMessages: [], resumeMode: "empty" }
+	}
+
+	let resumeMode:
+		| "latest-assistant"
+		| "after-last-event-id"
+		| "fallback-latest-assistant" = "latest-assistant"
+	let replayMessages: Message[] = []
+
+	if (lastEventId) {
+		const markerIndex = messages.findIndex((message) => {
+			return message.id === lastEventId
+		})
+
+		if (markerIndex >= 0) {
+			resumeMode = "after-last-event-id"
+			replayMessages = messages
+				.slice(markerIndex + 1)
+				.filter((message) => {
+					return message.role === "assistant"
+				})
+		} else {
+			resumeMode = "fallback-latest-assistant"
+			replayMessages = assistantMessages.slice(-1)
+		}
+	} else {
+		replayMessages = assistantMessages.slice(-1)
+	}
+
+	replayMessages = replayMessages.filter((message) => {
+		return withinReconnectWindow(message, now)
+	})
+
+	if (replayMessages.length === 0) {
+		return { replayMessages: [], resumeMode: "empty" }
+	}
+
+	if (replayMessages.length > MAX_REPLAY_MESSAGES) {
+		replayMessages = replayMessages.slice(-MAX_REPLAY_MESSAGES)
+	}
+
+	return { replayMessages, resumeMode }
 }
 
 // =============================================================================
@@ -121,10 +202,9 @@ export async function GET(
 		// 2. Authenticate user
 		const userId = await requireAuthAction()
 
-		// 3. Apply rate limiting for stream reconnection
-		// Use 'api' limiter for reconnect to prevent abuse
+		// 3. Apply stream-scoped rate limiting for stream reconnection
 		try {
-			await requireRateLimit("api", userId)
+			await requireRateLimit("stream", `${userId}:${chatId}`)
 		} catch (err) {
 			if (err instanceof RateLimitError) {
 				// Return rate limit response with backoff headers
@@ -206,7 +286,14 @@ export async function GET(
 		const backoffDelay = calculateBackoffDelay(retryCount)
 
 		// 9. Create empty stream for cases where we can't reconnect
-		const createEmptyResponse = (): Response => {
+		const createEmptyResponse = (
+			resumeMode:
+				| "latest-assistant"
+				| "after-last-event-id"
+				| "fallback-latest-assistant"
+				| "empty",
+			messageAgeSeconds?: number,
+		): Response => {
 			const emptyStream = createUIMessageStream<UIMessage>({
 				execute: () => {
 					// Intentionally empty - returns empty SSE stream
@@ -219,6 +306,16 @@ export async function GET(
 			headers.set("Connection", "keep-alive")
 			headers.set("Retry-After", String(backoffDelay))
 			headers.set("X-Reconnect-Window", String(RECONNECT_WINDOW_SECONDS))
+			headers.set("X-Resume-Mode", resumeMode)
+			headers.set("X-Resume-Limitation", RESUME_LIMITATION)
+
+			if (lastEventId) {
+				headers.set("X-Last-Event-Id-Applied", lastEventId)
+			}
+
+			if (messageAgeSeconds !== undefined) {
+				headers.set("X-Message-Age", String(messageAgeSeconds))
+			}
 
 			return new Response(
 				emptyStream.pipeThrough(new JsonToSseTransformStream()),
@@ -230,79 +327,45 @@ export async function GET(
 		}
 
 		// 10. Find the most recent message
-		const mostRecentMessage = messages.at(-1)
+		const now = new Date()
 
-		// 11. Determine if we can reconnect
-		// No messages - return empty stream
-		if (!mostRecentMessage) {
+		const { replayMessages, resumeMode } = collectReplayMessages({
+			messages,
+			lastEventId,
+			now,
+		})
+
+		if (replayMessages.length === 0) {
 			logDebug("Reconnect: No messages in chat", { chatId })
-			return createEmptyResponse()
-		}
-
-		// Only reconnect to assistant messages
-		if (mostRecentMessage.role !== "assistant") {
-			logDebug("Reconnect: Most recent message is not from assistant", {
-				chatId,
-				messageRole: mostRecentMessage.role,
-			})
-			return createEmptyResponse()
-		}
-
-		// Check if message is within reconnect window
-		const messageCreatedAt = new Date(mostRecentMessage.createdAt)
-		const reconnectRequestedAt = new Date()
-		const secondsSinceMessage = differenceInSeconds(
-			reconnectRequestedAt,
-			messageCreatedAt,
-		)
-
-		if (secondsSinceMessage > RECONNECT_WINDOW_SECONDS) {
-			logDebug("Reconnect: Message too old for reconnection", {
-				chatId,
-				secondsSinceMessage,
-				reconnectWindow: RECONNECT_WINDOW_SECONDS,
-			})
-
-			const emptyStream = createUIMessageStream<UIMessage>({
-				execute: () => {
-					// Intentionally empty - returns empty SSE stream
-				},
-			})
-
-			const headers = new Headers()
-			headers.set("Content-Type", "text/event-stream; charset=utf-8")
-			headers.set("Cache-Control", "no-cache")
-			headers.set("Connection", "keep-alive")
-			headers.set("Retry-After", String(backoffDelay))
-			headers.set("X-Reconnect-Window", String(RECONNECT_WINDOW_SECONDS))
-			headers.set("X-Message-Age", String(secondsSinceMessage))
-
-			return new Response(
-				emptyStream.pipeThrough(new JsonToSseTransformStream()),
-				{
-					status: 200,
-					headers,
-				},
-			)
+			return createEmptyResponse(resumeMode)
 		}
 
 		// 12. Log successful reconnect
-		logDebug("Reconnect: Replaying recent assistant message", {
+		const latestReplay = replayMessages[replayMessages.length - 1]
+		const latestReplayAge = latestReplay
+			? getMessageAgeSeconds(latestReplay, now)
+			: undefined
+
+		logDebug("Reconnect: Replaying assistant messages", {
 			chatId,
-			messageId: mostRecentMessage.id,
-			messageAge: secondsSinceMessage,
+			replayedCount: replayMessages.length,
+			lastReplayedMessageId: latestReplay?.id,
+			messageAge: latestReplayAge,
 			retryCount,
+			resumeMode,
 			lastEventId,
 		})
 
 		// 13. Create stream with replayed message
 		const restoredStream = createUIMessageStream<UIMessage>({
 			execute: ({ writer }) => {
-				writer.write({
-					type: "data-appendMessage",
-					data: messageToUIMessage(mostRecentMessage),
-					transient: true,
-				} as Parameters<typeof writer.write>[0])
+				for (const replayMessage of replayMessages) {
+					writer.write({
+						type: "data-appendMessage",
+						data: messageToUIMessage(replayMessage),
+						transient: true,
+					} as Parameters<typeof writer.write>[0])
+				}
 			},
 		})
 
@@ -313,8 +376,21 @@ export async function GET(
 		headers.set("Connection", "keep-alive")
 		headers.set("Retry-After", String(backoffDelay))
 		headers.set("X-Reconnect-Window", String(RECONNECT_WINDOW_SECONDS))
-		headers.set("X-Message-Age", String(secondsSinceMessage))
-		headers.set("X-Message-Id", mostRecentMessage.id)
+		headers.set("X-Resume-Mode", resumeMode)
+		headers.set("X-Resume-Limitation", RESUME_LIMITATION)
+		headers.set("X-Replayed-Count", String(replayMessages.length))
+
+		if (latestReplayAge !== undefined) {
+			headers.set("X-Message-Age", String(latestReplayAge))
+		}
+
+		if (latestReplay) {
+			headers.set("X-Message-Id", latestReplay.id)
+		}
+
+		if (lastEventId) {
+			headers.set("X-Last-Event-Id-Applied", lastEventId)
+		}
 
 		return new Response(
 			restoredStream.pipeThrough(new JsonToSseTransformStream()),

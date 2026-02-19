@@ -464,6 +464,10 @@ export class ArtifactRepository extends BaseRepository<
 		artifactId: string,
 		context: RepositoryContext,
 	): Promise<Artifact[]> {
+		if (context.isGuest) {
+			return []
+		}
+
 		try {
 			const results = await this.db
 				.select()
@@ -504,6 +508,10 @@ export class ArtifactRepository extends BaseRepository<
 		artifactId: string,
 		context: RepositoryContext,
 	): Promise<Artifact | null> {
+		if (context.isGuest) {
+			return null
+		}
+
 		try {
 			const results = await this.db
 				.select()
@@ -546,6 +554,10 @@ export class ArtifactRepository extends BaseRepository<
 		chatId: string,
 		context: RepositoryContext,
 	): Promise<Artifact[]> {
+		if (context.isGuest) {
+			return []
+		}
+
 		try {
 			// Get all artifacts for the chat
 			const results = await this.db
@@ -711,6 +723,10 @@ export class ArtifactRepository extends BaseRepository<
 		artifactId: string,
 		context: RepositoryContext,
 	): Promise<Suggestion[]> {
+		if (context.isGuest) {
+			return []
+		}
+
 		try {
 			// First verify the user owns the artifact
 			const artifactExists = await this.db

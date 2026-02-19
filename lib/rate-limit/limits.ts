@@ -86,6 +86,19 @@ export const apiLimiter: RateLimiter = createRateLimiter({
 })
 
 /**
+ * Stream limiter - for SSE reconnect endpoints.
+ * 60 requests per minute.
+ *
+ * Uses a dedicated namespace to avoid reconnect bursts consuming
+ * general API budget and to support stream-scoped abuse controls.
+ */
+export const streamLimiter: RateLimiter = createRateLimiter({
+	limit: RATE_LIMITS.stream.requests,
+	window: RATE_LIMITS.stream.window,
+	prefix: "ratelimit:stream",
+})
+
+/**
  * Strict rate limiter - for destructive operations.
  * 10 requests per minute.
  *
@@ -155,6 +168,7 @@ export const rateLimiters = {
 	guest: guestLimiter,
 	upload: uploadLimiter,
 	api: apiLimiter,
+	stream: streamLimiter,
 	strict: strictLimiter,
 	standard: standardLimiter,
 	generous: generousLimiter,
@@ -235,6 +249,16 @@ export async function checkUploadLimit(userId: string) {
  */
 export async function checkApiLimit(identifier: string) {
 	return apiLimiter.consumeToken(identifier)
+}
+
+/**
+ * Check stream reconnect rate limit for an identifier.
+ *
+ * @param identifier - Identifier to rate limit
+ * @returns Rate limit result
+ */
+export async function checkStreamLimit(identifier: string) {
+	return streamLimiter.consumeToken(identifier)
 }
 
 /**

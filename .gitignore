@@ -59,3 +59,7 @@ config.json
 html
 # next-agents-md
 .next-docs/
+
+
+# archive memory
+.apm/Memory/archive

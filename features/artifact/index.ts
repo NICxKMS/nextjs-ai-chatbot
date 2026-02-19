@@ -39,6 +39,8 @@ export {
 	type ArtifactErrorBoundaryProps,
 	ArtifactPanel,
 	type ArtifactPanelProps,
+	type ArtifactToolbarProps,
+	Toolbar,
 } from "./components"
 
 // Hooks
@@ -51,12 +53,15 @@ export {
 export {
 	Artifact,
 	type ArtifactConfig,
+	artifactKinds,
 	clearArtifactRegistry,
 	createArtifactDefinition,
 	getAllArtifactDefinitions,
 	getArtifactDefinition,
+	getArtifactIcon,
 	getRegisteredArtifactKinds,
 	isArtifactRegistered,
+	isBuiltInArtifactKind,
 	registerArtifact,
 	unregisterArtifact,
 } from "./lib"
@@ -119,3 +124,4 @@ export type {
 	ArtifactToolbarItem,
 	UIArtifact,
 } from "./types"
+export { artifactKinds as artifactKindValues } from "./types"

@@ -7,6 +7,7 @@
  * @module app/(chat)/page
  */
 
+import type { Metadata } from "next"
 import { cookies } from "next/headers"
 import type { JSX } from "react"
 
@@ -17,6 +18,12 @@ import { getDefaultChatModel, listChatModels } from "@/lib/ai"
 // =============================================================================
 // New Chat Page Component
 // =============================================================================
+
+export const metadata: Metadata = {
+	title: "New Chat",
+	description:
+		"Start a new AI conversation with model selection and real-time streaming.",
+}
 
 /**
  * New chat page component.

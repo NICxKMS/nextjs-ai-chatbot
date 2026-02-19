@@ -24,7 +24,7 @@ import {
 } from "@/lib/rate-limit"
 import {
 	ATTACHMENT_MAX_FILE_SIZE,
-	validateFile,
+	validateAttachment,
 } from "@/lib/utils/file-validation"
 
 /**
@@ -64,8 +64,9 @@ export async function POST(request: Request) {
 					})
 
 		// Validate file using centralized validation utilities
-		const validationResult = await validateFile(fileToValidate, {
-			maxSizeBytes: ATTACHMENT_MAX_FILE_SIZE,
+		const validationResult = await validateAttachment({
+			file: fileToValidate,
+			maxSize: ATTACHMENT_MAX_FILE_SIZE,
 		})
 
 		if (!validationResult.valid) {

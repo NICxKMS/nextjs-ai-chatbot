@@ -37,3 +37,5 @@ export { SheetEditor } from "./editors/sheet-editor"
 export type { TextEditorProps } from "./editors/text-editor"
 // Editors
 export { TextEditor } from "./editors/text-editor"
+export type { ArtifactToolbarProps } from "./toolbar"
+export { Toolbar } from "./toolbar"

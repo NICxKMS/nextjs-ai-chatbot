@@ -161,7 +161,7 @@ export const authConfig: NextAuthConfig = {
 			// Redirect logged-in users away from auth pages
 			if (isOnAuthPage) {
 				if (isLoggedIn) {
-					return Response.redirect(new URL("/chat", nextUrl))
+					return Response.redirect(new URL("/", nextUrl))
 				}
 				return true
 			}

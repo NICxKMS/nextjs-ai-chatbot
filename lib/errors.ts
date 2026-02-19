@@ -292,6 +292,11 @@ export class ServiceUnavailableError extends AppError {
 	}
 }
 
+/**
+ * User type for context-aware error messaging.
+ */
+export type ErrorUserType = "guest" | "regular" | "unknown"
+
 // =============================================================================
 // Type Guards
 // =============================================================================
@@ -418,4 +423,93 @@ export function getErrorMessage(error: unknown): string {
 		return error.message
 	}
 	return String(error)
+}
+
+/**
+ * Resolve user-facing message by error code with guest-aware overrides.
+ * Supports both v6 `ErrorCodes` values and legacy `type:surface[:reason]` codes.
+ */
+export function getMessageByErrorCode(
+	errorCode: ErrorCode | string,
+	userType?: ErrorUserType,
+): string {
+	const normalizedCode = (() => {
+		if (Object.values(ErrorCodes).includes(errorCode as ErrorCode)) {
+			return errorCode as ErrorCode
+		}
+
+		if (errorCode.startsWith("not_found:chat")) {
+			return ErrorCodes.CHAT_NOT_FOUND
+		}
+		if (errorCode.startsWith("not_found:")) {
+			return ErrorCodes.NOT_FOUND
+		}
+		if (errorCode.includes("daily_limit")) {
+			return ErrorCodes.DAILY_LIMIT_EXCEEDED
+		}
+		if (errorCode.startsWith("rate_limit:")) {
+			return ErrorCodes.RATE_LIMIT_EXCEEDED
+		}
+		if (errorCode.startsWith("offline:")) {
+			return ErrorCodes.OFFLINE
+		}
+		if (errorCode.startsWith("forbidden:")) {
+			return ErrorCodes.FORBIDDEN
+		}
+		if (errorCode.startsWith("unauthorized:")) {
+			return ErrorCodes.UNAUTHORIZED
+		}
+		if (errorCode.startsWith("bad_request:")) {
+			return ErrorCodes.VALIDATION_ERROR
+		}
+
+		return ErrorCodes.INTERNAL_ERROR
+	})()
+
+	if (userType === "guest") {
+		switch (normalizedCode) {
+			case ErrorCodes.CHAT_NOT_FOUND:
+				return "Chat not found. Guest chat history is temporary and may have expired. Sign in to save your chats permanently."
+			case ErrorCodes.NOT_FOUND:
+				return "The requested resource was not found. Guest data is temporary and may have expired. Sign in to save your data permanently."
+			case ErrorCodes.RATE_LIMIT_EXCEEDED:
+				return "You've reached the rate limit for guest users. Sign in to increase your rate limits."
+			case ErrorCodes.DAILY_LIMIT_EXCEEDED:
+				return "Daily message limit exceeded for guest users. Sign in to increase your message allowance."
+			case ErrorCodes.SERVICE_UNAVAILABLE:
+				return "Service temporarily unavailable. Guest sessions are stored temporarily. Sign in to ensure your data is saved."
+			case ErrorCodes.OFFLINE:
+				return "Connection lost. Guest sessions are temporary and may be lost. Sign in to ensure your chats are saved."
+			case ErrorCodes.FORBIDDEN:
+				return "Guest users have limited access to this feature. Sign in to access all features."
+		}
+	}
+
+	switch (normalizedCode) {
+		case ErrorCodes.VALIDATION_ERROR:
+		case ErrorCodes.INVALID_INPUT:
+		case ErrorCodes.MISSING_PARAMETER:
+		case ErrorCodes.INVALID_FORMAT:
+			return "Please check your input and try again."
+		case ErrorCodes.UNAUTHORIZED:
+		case ErrorCodes.SESSION_EXPIRED:
+			return "Please sign in to continue."
+		case ErrorCodes.FORBIDDEN:
+			return "You don't have permission to access this resource."
+		case ErrorCodes.CHAT_NOT_FOUND:
+		case ErrorCodes.NOT_FOUND:
+			return "The requested resource was not found."
+		case ErrorCodes.RATE_LIMIT_EXCEEDED:
+			return "Too many requests. Please wait and try again."
+		case ErrorCodes.DAILY_LIMIT_EXCEEDED:
+			return "Daily limit exceeded. Please try again later."
+		case ErrorCodes.DATABASE_ERROR:
+			return "A database error occurred. Please try again."
+		case ErrorCodes.SERVICE_UNAVAILABLE:
+			return "Service temporarily unavailable. Please try again later."
+		case ErrorCodes.OFFLINE:
+			return "You appear to be offline. Please check your connection."
+		default:
+			return "An unexpected error occurred. Please try again."
+	}
 }

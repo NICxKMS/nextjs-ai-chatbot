@@ -9,10 +9,11 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { z } from "zod"
 import { requireAuthAction } from "@/lib/auth/guards"
 import type { RepositoryContext } from "@/lib/data/repositories"
 import { chatRepository } from "@/lib/data/repositories"
-import { NotFoundError, RateLimitError } from "@/lib/errors"
+import { NotFoundError, RateLimitError, ValidationError } from "@/lib/errors"
 import { checkApiLimit, getRetryAfter } from "@/lib/rate-limit"
 
 // =============================================================================
@@ -43,6 +44,11 @@ export interface UpdateVisibilityResult {
 	/** Error message if failed */
 	error?: string
 }
+
+const updateVisibilityInputSchema = z.object({
+	chatId: z.string().uuid(),
+	visibility: z.enum(["private", "public"]),
+})
 
 // =============================================================================
 // Update Visibility Action
@@ -78,6 +84,16 @@ export interface UpdateVisibilityResult {
 export async function updateVisibilityAction(
 	input: UpdateVisibilityInput,
 ): Promise<UpdateVisibilityResult> {
+	const parsedInput = updateVisibilityInputSchema.safeParse(input)
+	if (!parsedInput.success) {
+		return {
+			success: false,
+			error: "Invalid visibility update input",
+		}
+	}
+
+	const validatedInput = parsedInput.data
+
 	// 1. Authenticate user
 	const userId = await requireAuthAction()
 
@@ -100,8 +116,8 @@ export async function updateVisibilityAction(
 	try {
 		// 4. Update the visibility (repository handles ownership verification)
 		const result = await chatRepository.updateVisibility(
-			input.chatId,
-			input.visibility,
+			validatedInput.chatId,
+			validatedInput.visibility,
 			ctx,
 		)
 
@@ -113,7 +129,7 @@ export async function updateVisibilityAction(
 		}
 
 		// 5. Revalidate the chat page and history
-		revalidatePath(`/chat/${input.chatId}`)
+		revalidatePath(`/chat/${validatedInput.chatId}`)
 		revalidatePath("/chat")
 		revalidatePath("/api/history")
 
@@ -129,6 +145,13 @@ export async function updateVisibilityAction(
 			}
 		}
 
+		if (error instanceof ValidationError) {
+			return {
+				success: false,
+				error: error.message,
+			}
+		}
+
 		return {
 			success: false,
 			error:
@@ -137,4 +160,13 @@ export async function updateVisibilityAction(
 					: "Failed to update visibility",
 		}
 	}
+}
+
+/**
+ * Backward-compatible alias for legacy callers.
+ */
+export async function updateChatVisibility(
+	input: UpdateVisibilityInput,
+): Promise<UpdateVisibilityResult> {
+	return updateVisibilityAction(input)
 }

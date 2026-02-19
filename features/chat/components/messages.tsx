@@ -13,7 +13,8 @@ import { AlertCircle, ArrowDownIcon, RotateCcw } from "lucide-react"
 import { memo, useCallback, useEffect, useRef, useState } from "react"
 import type { VirtuosoHandle } from "react-virtuoso"
 import { Virtuoso } from "react-virtuoso"
-import { AnimatePresence } from "@/lib/motion"
+import { useSettingsSnapshot } from "@/features/settings"
+import { AnimatePresence, motion } from "@/lib/motion"
 import type { ChatMessage, UserVote } from "../types"
 import { Message, ThinkingMessage } from "./message"
 
@@ -78,8 +79,39 @@ function PureMessages({
 	clearError,
 }: MessagesProps) {
 	const virtuosoRef = useRef<VirtuosoHandle>(null)
+	const scrollContainerRef = useRef<HTMLDivElement | null>(null)
 	const [isAtBottom, setIsAtBottom] = useState(true)
 	const [hasSentMessage, setHasSentMessage] = useState(false)
+	const [initialTopMostItemIndex, setInitialTopMostItemIndex] = useState<
+		number | undefined
+	>(undefined)
+	const [listAnimationState, setListAnimationState] = useState<
+		"idle" | "enter" | "exit"
+	>("idle")
+	const previousRenderableCountRef = useRef(messages.length)
+	const animationResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+		null,
+	)
+	const { autoScroll } = useSettingsSnapshot()
+
+	const scrollStateKey = `chat-scroll-index:${chatId}`
+
+	useEffect(() => {
+		if (typeof window === "undefined") {
+			return
+		}
+
+		const savedIndexRaw = window.sessionStorage.getItem(scrollStateKey)
+		if (!savedIndexRaw) {
+			setInitialTopMostItemIndex(undefined)
+			return
+		}
+
+		const savedIndex = Number.parseInt(savedIndexRaw, 10)
+		if (!Number.isNaN(savedIndex) && savedIndex >= 0) {
+			setInitialTopMostItemIndex(savedIndex)
+		}
+	}, [scrollStateKey])
 
 	// Track when user sends a message
 	useEffect(() => {
@@ -88,9 +120,17 @@ function PureMessages({
 		}
 	}, [status])
 
+	useEffect(() => {
+		return () => {
+			if (animationResetTimerRef.current) {
+				clearTimeout(animationResetTimerRef.current)
+			}
+		}
+	}, [])
+
 	// Auto-scroll when status changes to submitted
 	useEffect(() => {
-		if (status === "submitted") {
+		if (status === "submitted" && autoScroll) {
 			requestAnimationFrame(() => {
 				virtuosoRef.current?.scrollToIndex({
 					index: "LAST",
@@ -98,17 +138,38 @@ function PureMessages({
 				})
 			})
 		}
-	}, [status])
+	}, [status, autoScroll])
 
 	const handleAtBottomStateChange = useCallback((atBottom: boolean) => {
 		setIsAtBottom(atBottom)
 	}, [])
 
 	const scrollToBottom = useCallback(() => {
-		virtuosoRef.current?.scrollToIndex({
-			index: "LAST",
-			behavior: "smooth",
-		})
+		if (virtuosoRef.current) {
+			virtuosoRef.current.scrollToIndex({
+				index: "LAST",
+				behavior: "smooth",
+			})
+			return
+		}
+
+		if (scrollContainerRef.current) {
+			scrollContainerRef.current.scrollTo({
+				top: scrollContainerRef.current.scrollHeight,
+				behavior: "smooth",
+			})
+		}
+	}, [])
+
+	const handleAnimatedListScroll = useCallback(() => {
+		const node = scrollContainerRef.current
+		if (!node) {
+			return
+		}
+
+		const distanceToBottom =
+			node.scrollHeight - node.scrollTop - node.clientHeight
+		setIsAtBottom(distanceToBottom <= 48)
 	}, [])
 
 	// Filter messages to get renderable ones (exclude empty assistant messages with errors)
@@ -132,6 +193,27 @@ function PureMessages({
 		}
 		return true
 	})
+
+	useEffect(() => {
+		const previousCount = previousRenderableCountRef.current
+		const nextCount = renderableMessages.length
+
+		if (nextCount === previousCount) {
+			return
+		}
+
+		setListAnimationState(nextCount > previousCount ? "enter" : "exit")
+
+		if (animationResetTimerRef.current) {
+			clearTimeout(animationResetTimerRef.current)
+		}
+
+		animationResetTimerRef.current = setTimeout(() => {
+			setListAnimationState("idle")
+		}, 220)
+
+		previousRenderableCountRef.current = nextCount
+	}, [renderableMessages.length])
 
 	// Render individual message item
 	const itemContent = useCallback(
@@ -221,26 +303,99 @@ function PureMessages({
 		)
 	}
 
+	const shouldUseAnimatedList = renderableMessages.length <= 40
+
+	if (shouldUseAnimatedList) {
+		return (
+			<div
+				className="overscroll-behavior-contain touch-pan-y relative flex-1 overflow-hidden"
+				style={{ overflowAnchor: "none" }}
+			>
+				<div
+					className="h-full overflow-y-auto"
+					onScroll={handleAnimatedListScroll}
+					ref={scrollContainerRef}
+				>
+					<div className="pt-4">
+						<AnimatePresence initial={false}>
+							{renderableMessages.map((message, index) => (
+								<motion.div
+									animate={{ opacity: 1, y: 0 }}
+									exit={{ opacity: 0, y: -10 }}
+									initial={{ opacity: 0, y: 10 }}
+									key={
+										message.id ?? `${message.role}-${index}`
+									}
+									transition={{
+										duration: 0.2,
+										ease: "easeOut",
+									}}
+								>
+									{itemContent(index, message)}
+								</motion.div>
+							))}
+						</AnimatePresence>
+						<Footer />
+					</div>
+				</div>
+
+				{/* Scroll to bottom button */}
+				{!isAtBottom && (
+					<button
+						className="absolute bottom-20 left-1/2 z-10 -translate-x-1/2 rounded-full border bg-background p-2 shadow-lg transition-colors hover:bg-muted"
+						onClick={scrollToBottom}
+						type="button"
+					>
+						<ArrowDownIcon className="size-4" />
+					</button>
+				)}
+			</div>
+		)
+	}
+
 	return (
 		<div
 			className="overscroll-behavior-contain touch-pan-y relative flex-1 overflow-hidden"
 			style={{ overflowAnchor: "none" }}
 		>
-			<Virtuoso
-				atBottomStateChange={handleAtBottomStateChange}
-				atBottomThreshold={100}
+			<motion.div
+				animate={
+					listAnimationState === "enter"
+						? { opacity: [0.985, 1], y: [6, 0] }
+						: listAnimationState === "exit"
+							? { opacity: [1, 0.985, 1], y: [0, -4, 0] }
+							: { opacity: 1, y: 0 }
+				}
 				className="h-full"
-				components={{
-					Header,
-					Footer,
-				}}
-				data={renderableMessages}
-				followOutput="smooth"
-				increaseViewportBy={{ top: 200, bottom: 200 }}
-				itemContent={itemContent}
-				ref={virtuosoRef}
-				style={{ height: "100%" }}
-			/>
+				transition={{ duration: 0.22, ease: "easeOut" }}
+			>
+				<Virtuoso
+					atBottomStateChange={handleAtBottomStateChange}
+					atBottomThreshold={100}
+					className="h-full"
+					components={{
+						Header,
+						Footer,
+					}}
+					data={renderableMessages}
+					followOutput="smooth"
+					{...(initialTopMostItemIndex !== undefined
+						? { initialTopMostItemIndex }
+						: {})}
+					increaseViewportBy={{ top: 200, bottom: 200 }}
+					itemContent={itemContent}
+					rangeChanged={({ startIndex }) => {
+						if (typeof window !== "undefined") {
+							window.sessionStorage.setItem(
+								scrollStateKey,
+								String(startIndex),
+							)
+						}
+					}}
+					ref={virtuosoRef}
+					style={{ height: "100%" }}
+				/>
+			</motion.div>
 
 			{/* Scroll to bottom button */}
 			{!isAtBottom && (

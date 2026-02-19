@@ -14,8 +14,17 @@
  */
 
 import { NextResponse } from "next/server"
-import { forbidden, getClientIp, validateOrigin } from "@/lib/api"
+import {
+	error as apiErrorResponse,
+	getClientIp,
+	validateOrigin,
+} from "@/lib/api"
 import { getOrCreateGuestSession, getSession } from "@/lib/auth"
+import {
+	ForbiddenError,
+	RateLimitError,
+	ServiceUnavailableError,
+} from "@/lib/errors"
 import { logInfo, logWarn } from "@/lib/log"
 import { checkGuestLimit } from "@/lib/rate-limit"
 import { getSafeRedirectUrl } from "@/lib/utils"
@@ -48,17 +57,11 @@ function createRateLimitResponse(
 	retryAfter: number,
 	limit: number,
 	remaining: number,
-): NextResponse {
-	const response = NextResponse.json(
-		{
-			success: false,
-			error: {
-				code: "RATE_LIMIT_EXCEEDED",
-				message: "Too many requests. Please try again later.",
-				details: { retryAfter },
-			},
-		},
-		{ status: 429 },
+): Response {
+	const response = apiErrorResponse(
+		new RateLimitError("Too many requests. Please try again later.", {
+			retryAfter,
+		}),
 	)
 	response.headers.set("Retry-After", String(retryAfter))
 	response.headers.set("X-RateLimit-Limit", String(limit))
@@ -68,6 +71,16 @@ function createRateLimitResponse(
 		String(Math.floor(Date.now() / 1000) + retryAfter),
 	)
 	return response
+}
+
+function createCsrfForbiddenResponse(): Response {
+	return apiErrorResponse(new ForbiddenError("Invalid request origin"))
+}
+
+function createGuestUnavailableResponse(): Response {
+	return apiErrorResponse(
+		new ServiceUnavailableError("Guest authentication is not configured"),
+	)
 }
 
 /**
@@ -83,7 +96,12 @@ export async function POST(request: Request) {
 	// CSRF Protection: Validate Origin/Referer headers
 	// This prevents malicious sites from creating guest sessions on behalf of users
 	if (!validateOrigin(request)) {
-		return forbidden("Invalid request origin")
+		return createCsrfForbiddenResponse()
+	}
+
+	if (!process.env.GUEST_JWT_SECRET) {
+		logWarn("Guest POST: JWT secret not configured")
+		return createGuestUnavailableResponse()
 	}
 
 	// Route-level rate limiting (defense-in-depth)
@@ -164,6 +182,13 @@ export async function GET(request: Request) {
 			.slice(0, 8)
 		logInfo("Guest GET: session exists, redirecting", {
 			userIdPrefix,
+			redirectUrl: safeRedirectUrl,
+		})
+		return NextResponse.redirect(new URL(safeRedirectUrl, url.origin))
+	}
+
+	if (!process.env.GUEST_JWT_SECRET) {
+		logWarn("Guest GET: JWT secret not configured, redirecting", {
 			redirectUrl: safeRedirectUrl,
 		})
 		return NextResponse.redirect(new URL(safeRedirectUrl, url.origin))

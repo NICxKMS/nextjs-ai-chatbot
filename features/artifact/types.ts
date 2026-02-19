@@ -14,6 +14,11 @@ import type { Dispatch, SetStateAction } from "react"
 export type ArtifactKind = "text" | "code" | "image" | "sheet"
 
 /**
+ * Ordered artifact kind constants for registration and validation flows.
+ */
+export const artifactKinds = ["text", "code", "image", "sheet"] as const
+
+/**
  * Artifact status during streaming
  */
 export type ArtifactStatus = "streaming" | "idle"
@@ -78,6 +83,8 @@ export interface ArtifactActionContext<M = ArtifactMetadata> {
 	mode: "edit" | "diff"
 	metadata: M
 	setMetadata: Dispatch<SetStateAction<M>>
+	downloadContent?: () => void
+	openVersionHistory?: () => void
 }
 
 /**
@@ -163,10 +170,14 @@ export interface ArtifactContentProps<M = ArtifactMetadata> {
 export interface ArtifactDefinition<M = ArtifactMetadata> {
 	kind: ArtifactKind
 	name: string
+	title?: string
 	description: string
 	actions: ArtifactAction<M>[]
 	toolbar: ArtifactToolbarItem[]
 	content: React.ComponentType<ArtifactContentProps<M>>
+	component?: React.ComponentType<ArtifactContentProps<M>>
+	handler?: unknown
+	model?: string
 	initialize:
 		| ((params: ArtifactInitializeParams<M>) => void | Promise<void>)
 		| undefined
@@ -223,6 +234,9 @@ export interface ArtifactActionsProps {
 	mode: "edit" | "diff"
 	metadata: ArtifactMetadata
 	setMetadata: (metadata: ArtifactMetadata) => void
+	contentOverride?: string
+	onDownload?: () => void
+	onOpenVersionHistory?: () => void
 }
 
 /**
