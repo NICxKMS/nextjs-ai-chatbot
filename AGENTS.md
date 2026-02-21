@@ -1,315 +1,355 @@
-# ai-assistant (v6.0)
+# AGENTS.md — Execution Protocol & Architecture Rules
+
+**Project:** ai-assistant (v6.0)
 
 Next.js AI chatbot with multi-model support, artifact management, real-time streaming, and feature-based architecture.
 
-**Tech stack**: Next.js 16, React 19, TypeScript, Drizzle ORM, Supabase (auth + DB), Tailwind CSS, AI SDK, Biome (lint + format).
+**Stack:** Next.js 16 · React 19 · TypeScript · Drizzle ORM · Supabase · Tailwind · AI SDK · Biome
 
 ---
 
-## Commands
+# 📚 CRITICAL: Next.js Documentation Access
 
-### Setup & Dev
+> **⚠️ Your training knowledge about Next.js is likely OUTDATED.**
+>
+> This project uses **Next.js 16** with the **App Router**. APIs, patterns, and best practices have changed significantly.
 
-| Command | Purpose |
-|---------|---------|
-| `pnpm install` | Install all dependencies |
-| `pnpm dev` | Start Next.js dev server with HMR |
-| `pnpm build` | Run migrations + production build (**not during agent sessions**) |
+## Before Any Next.js Task
 
-### Validation — Run Before Marking Work Complete
+1. **READ** the local documentation at `./.next-docs/`
+2. **SEARCH** relevant docs before relying on memory
+3. **VERIFY** API signatures and patterns against current docs
 
-| Command | Purpose | Requirement |
-|---------|---------|-------------|
-| `pnpm typecheck` | TypeScript type checking (`tsc --noEmit`) | **Zero errors** |
-| `pnpm lint` | Biome lint check (`biome check .`) | **Zero errors** |
-| `pnpm lint:fix` | Auto-fix lint issues (`biome check --write .`) | Use when lint fails |
-| `pnpm format` | Auto-format (`biome format --write .`) | Run after code changes |
+## Migration Gotchas
 
-### Testing
+| Deprecated Pattern | Modern Equivalent |
+|--------------------|-------------------|
+| `getServerSideProps` | Server Components + `fetch()` |
+| `getStaticProps` | `generateStaticParams` + caching |
+| `pages/api/` | `app/api/route.ts` (Route Handlers) |
+| `_app.tsx` | `app/layout.tsx` |
+| Client components everywhere | Server Components by default |
 
-| Command | Purpose |
-|---------|---------|
-| `pnpm test:unit` | Vitest unit tests |
-| `pnpm test:e2e` | Playwright end-to-end tests |
+## Full Documentation Index
 
-### Database
-
-| Command | Purpose |
-|---------|---------|
-| `pnpm db:generate` | Generate Drizzle migrations from schema |
-| `pnpm db:migrate` | Apply migrations |
-| `pnpm db:studio` | Open Drizzle Studio |
-
-**IMPORTANT**: Do NOT create manual migration SQL files. Drizzle ORM auto-generates them. Update the schema in `lib/db/schema.ts` and run `pnpm db:generate`.
-
----
-
-## Project Structure
+Regenerate with: `npx @next/codemod agents-md --output AGENTS.md`
 
 ```
-features/          → Feature modules (auth, chat, artifact, input, settings, sidebar)
-  └── <feature>/
-      ├── actions/   → Server actions
-      ├── components/ → Feature-specific UI
-      ├── hooks/      → Feature-specific hooks
-      ├── schemas/    → Zod validation schemas
-      └── types/      → TypeScript types
-components/        → Shared components (ui/, ai/, artifact/)
-lib/               → Core libraries
-  ├── api/           → API context, response, validation
-  ├── auth/          → Auth config, guards, session
-  ├── cache/         → Tiered caching (memory + Redis)
-  ├── data/          → Repositories, services, queries
-  ├── db/            → Drizzle client + schema
-  ├── errors/        → Error messages
-  ├── files/         → File upload, validation
-  ├── middleware/     → Request middleware
-  ├── rate-limit/    → Rate limiting
-  └── utils/         → General utilities
-archive/oldapp/    → Legacy v5 code (migration source)
-drizzle/           → Migration SQL files + seed script
+<!-- NEXT-AGENTS-MD-START -->[Next.js Docs Index]|root: ./.next-docs|STOP. What you remember about Next.js is WRONG for this project. Always search docs and read before any task.|If docs missing, run this command first: npx @next/codemod agents-md --output AGENTS.md|01-app/01-getting-started:{01-installation.mdx,02-project-structure.mdx,03-layouts-and-pages.mdx,04-linking-and-navigating.mdx,05-server-and-client-components.mdx,06-cache-components.mdx,07-fetching-data.mdx,08-updating-data.mdx,09-caching-and-revalidating.mdx,10-error-handling.mdx,11-css.mdx,12-images.mdx,13-fonts.mdx,14-metadata-and-og-images.mdx,15-route-handlers.mdx,16-proxy.mdx,17-deploying.mdx,18-upgrading.mdx}|01-app/02-guides:{analytics.mdx,authentication.mdx,backend-for-frontend.mdx,caching.mdx,ci-build-caching.mdx,content-security-policy.mdx,css-in-js.mdx,custom-server.mdx,data-security.mdx,debugging.mdx,draft-mode.mdx,environment-variables.mdx,forms.mdx,incremental-static-regeneration.mdx,instrumentation.mdx,internationalization.mdx,json-ld.mdx,lazy-loading.mdx,local-development.mdx,mcp.mdx,mdx.mdx,memory-usage.mdx,multi-tenant.mdx,multi-zones.mdx,open-telemetry.mdx,package-bundling.mdx,prefetching.mdx,production-checklist.mdx,progressive-web-apps.mdx,redirecting.mdx,sass.mdx,scripts.mdx,self-hosting.mdx,single-page-applications.mdx,static-exports.mdx,tailwind-v3-css.mdx,third-party-libraries.mdx,videos.mdx}|01-app/02-guides/migrating:{app-router-migration.mdx,from-create-react-app.mdx,from-vite.mdx}|01-app/02-guides/testing:{cypress.mdx,jest.mdx,playwright.mdx,vitest.mdx}|01-app/02-guides/upgrading:{codemods.mdx,version-14.mdx,version-15.mdx,version-16.mdx}|01-app/03-api-reference:{07-edge.mdx,08-turbopack.mdx}|01-app/03-api-reference/01-directives:{use-cache-private.mdx,use-cache-remote.mdx,use-cache.mdx,use-client.mdx,use-server.mdx}|01-app/03-api-reference/02-components:{font.mdx,form.mdx,image.mdx,link.mdx,script.mdx}|01-app/03-api-reference/03-file-conventions/01-metadata:{app-icons.mdx,manifest.mdx,opengraph-image.mdx,robots.mdx,sitemap.mdx}|01-app/03-api-reference/03-file-conventions:{default.mdx,dynamic-routes.mdx,error.mdx,forbidden.mdx,instrumentation-client.mdx,instrumentation.mdx,intercepting-routes.mdx,layout.mdx,loading.mdx,mdx-components.mdx,not-found.mdx,page.mdx,parallel-routes.mdx,proxy.mdx,public-folder.mdx,route-groups.mdx,route-segment-config.mdx,route.mdx,src-folder.mdx,template.mdx,unauthorized.mdx}|01-app/03-api-reference/04-functions:{after.mdx,cacheLife.mdx,cacheTag.mdx,connection.mdx,cookies.mdx,draft-mode.mdx,fetch.mdx,forbidden.mdx,generate-image-metadata.mdx,generate-metadata.mdx,generate-sitemaps.mdx,generate-static-params.mdx,generate-viewport.mdx,headers.mdx,image-response.mdx,next-request.mdx,next-response.mdx,not-found.mdx,permanentRedirect.mdx,redirect.mdx,refresh.mdx,revalidatePath.mdx,revalidateTag.mdx,unauthorized.mdx,unstable_cache.mdx,unstable_noStore.mdx,unstable_rethrow.mdx,updateTag.mdx,use-link-status.mdx,use-params.mdx,use-pathname.mdx,use-report-web-vitals.mdx,use-router.mdx,use-search-params.mdx,use-selected-layout-segment.mdx,use-selected-layout-segments.mdx,userAgent.mdx}|01-app/03-api-reference/05-config/01-next-config-js:{adapterPath.mdx,allowedDevOrigins.mdx,appDir.mdx,assetPrefix.mdx,authInterrupts.mdx,basePath.mdx,browserDebugInfoInTerminal.mdx,cacheComponents.mdx,cacheHandlers.mdx,cacheLife.mdx,compress.mdx,crossOrigin.mdx,cssChunking.mdx,devIndicators.mdx,distDir.mdx,env.mdx,expireTime.mdx,exportPathMap.mdx,generateBuildId.mdx,generateEtags.mdx,headers.mdx,htmlLimitedBots.mdx,httpAgentOptions.mdx,images.mdx,incrementalCacheHandlerPath.mdx,inlineCss.mdx,isolatedDevBuild.mdx,logging.mdx,mdxRs.mdx,onDemandEntries.mdx,optimizePackageImports.mdx,output.mdx,pageExtensions.mdx,poweredByHeader.mdx,productionBrowserSourceMaps.mdx,proxyClientMaxBodySize.mdx,reactCompiler.mdx,reactMaxHeadersLength.mdx,reactStrictMode.mdx,redirects.mdx,rewrites.mdx,sassOptions.mdx,serverActions.mdx,serverComponentsHmrCache.mdx,serverExternalPackages.mdx,staleTimes.mdx,staticGeneration.mdx,taint.mdx,trailingSlash.mdx,transpilePackages.mdx,turbopack.mdx,turbopackFileSystemCache.mdx,typedRoutes.mdx,typescript.mdx,urlImports.mdx,useLightningcss.mdx,viewTransition.mdx,webVitalsAttribution.mdx,webpack.mdx}|01-app/03-api-reference/05-config:{02-typescript.mdx,03-eslint.mdx}|01-app/03-api-reference/06-cli:{create-next-app.mdx,next.mdx}|02-pages/01-getting-started:{01-installation.mdx,02-project-structure.mdx,04-images.mdx,05-fonts.mdx,06-css.mdx,11-deploying.mdx}|02-pages/02-guides:{analytics.mdx,authentication.mdx,babel.mdx,ci-build-caching.mdx,content-security-policy.mdx,css-in-js.mdx,custom-server.mdx,debugging.mdx,draft-mode.mdx,environment-variables.mdx,forms.mdx,incremental-static-regeneration.mdx,instrumentation.mdx,internationalization.mdx,lazy-loading.mdx,mdx.mdx,multi-zones.mdx,open-telemetry.mdx,package-bundling.mdx,post-css.mdx,preview-mode.mdx,production-checklist.mdx,redirecting.mdx,sass.mdx,scripts.mdx,self-hosting.mdx,static-exports.mdx,tailwind-v3-css.mdx,third-party-libraries.mdx}|02-pages/02-guides/migrating:{app-router-migration.mdx,from-create-react-app.mdx,from-vite.mdx}|02-pages/02-guides/testing:{cypress.mdx,jest.mdx,playwright.mdx,vitest.mdx}|02-pages/02-guides/upgrading:{codemods.mdx,version-10.mdx,version-11.mdx,version-12.mdx,version-13.mdx,version-14.mdx,version-9.mdx}|02-pages/03-building-your-application/01-routing:{01-pages-and-layouts.mdx,02-dynamic-routes.mdx,03-linking-and-navigating.mdx,05-custom-app.mdx,06-custom-document.mdx,07-api-routes.mdx,08-custom-error.mdx}|02-pages/03-building-your-application/02-rendering:{01-server-side-rendering.mdx,02-static-site-generation.mdx,04-automatic-static-optimization.mdx,05-client-side-rendering.mdx}|02-pages/03-building-your-application/03-data-fetching:{01-get-static-props.mdx,02-get-static-paths.mdx,03-forms-and-mutations.mdx,03-get-server-side-props.mdx,05-client-side.mdx}|02-pages/03-building-your-application/06-configuring:{12-error-handling.mdx}|02-pages/04-api-reference:{06-edge.mdx,08-turbopack.mdx}|02-pages/04-api-reference/01-components:{font.mdx,form.mdx,head.mdx,image-legacy.mdx,image.mdx,link.mdx,script.mdx}|02-pages/04-api-reference/02-file-conventions:{instrumentation.mdx,proxy.mdx,public-folder.mdx,src-folder.mdx}|02-pages/04-api-reference/03-functions:{get-initial-props.mdx,get-server-side-props.mdx,get-static-paths.mdx,get-static-props.mdx,next-request.mdx,next-response.mdx,use-report-web-vitals.mdx,use-router.mdx,userAgent.mdx}|02-pages/04-api-reference/04-config/01-next-config-js:{adapterPath.mdx,allowedDevOrigins.mdx,assetPrefix.mdx,basePath.mdx,bundlePagesRouterDependencies.mdx,compress.mdx,crossOrigin.mdx,devIndicators.mdx,distDir.mdx,env.mdx,exportPathMap.mdx,generateBuildId.mdx,generateEtags.mdx,headers.mdx,httpAgentOptions.mdx,images.mdx,isolatedDevBuild.mdx,onDemandEntries.mdx,optimizePackageImports.mdx,output.mdx,pageExtensions.mdx,poweredByHeader.mdx,productionBrowserSourceMaps.mdx,proxyClientMaxBodySize.mdx,reactStrictMode.mdx,redirects.mdx,rewrites.mdx,serverExternalPackages.mdx,trailingSlash.mdx,transpilePackages.mdx,turbopack.mdx,typescript.mdx,urlImports.mdx,useLightningcss.mdx,webVitalsAttribution.mdx,webpack.mdx}|02-pages/04-api-reference/04-config:{01-typescript.mdx,03-eslint.mdx}|02-pages/04-api-reference/05-cli:{create-next-app.mdx,next.mdx}|03-architecture:{accessibility.mdx,fast-refresh.mdx,nextjs-compiler.mdx,supported-browsers.mdx}|04-community:{01-contribution-guide.mdx,02-rspack.mdx}<!-- NEXT-AGENTS-MD-END -->
 ```
 
 ---
+Components
+# 🚨 Global Rule
 
-## Code Style & Conventions
-
-- **TypeScript strict mode** — no `any` unless explicitly justified
-- **Biome** for linting and formatting (not ESLint/Prettier)
-- **Feature-based architecture** — each feature is self-contained under `features/`
-- **Repository pattern** for data access (`lib/data/repositories/`)
-- **Service layer** for business logic (`lib/data/services/`)
-- **Zod schemas** for validation (co-located in feature `schemas/` directories)
-- **Server Actions** for mutations (co-located in feature `actions/` directories)
+**Follow this document exactly. Deviation = invalid output.**
 
 ---
 
-## Architecture Specs
+# 🔒 Pre-Execution Protocol
 
-Canonical architecture documentation lives in `.ouroboros/specs/refactor-migration/`:
+> Execute immediately after receiving a task. Complete before any implementation.
 
-| File | Content |
-|------|---------|
-| `architecture-v6-final.md` | Canonical architecture (29 sections) |
-| `functional-structure-v6.md` | File-by-file specs (~274 files) |
-| `directory-structure-v6.md` | Target directory structure |
-| `architecture-v6-decisions.md` | ADRs for design rationale |
+## Execution Timeline
 
----
+| Stage | Action |
+|-------|--------|
+| Task received | Step 1 — Search existing logic |
+| Before analysis | Step 2 — Read context |
+| Before planning | Step 3–4 — Map integration, verify architecture |
+| Before coding | Step 5–6 — Write plan, output gate |
+| Before completion | Validation Gate |
 
-## Migration Reference (archive/oldapp)
+## Step 1 — Search Existing Logic
 
-When migrating from the legacy v5 app:
-1. Source files are in `archive/oldapp/`
-2. Read source completely before migrating
-3. Adapt to v6 patterns (Repository/Service/feature-based)
-4. Log migrations in Memory Log and `global-issues.md` (Category: Migration)
+Scan the entire codebase before implementing anything new.
 
-### Common Missing Files
-
-| Target | Source |
-|--------|--------|
-| `components/ui/button.tsx` | `archive/oldapp/components/ui/button.tsx` |
-| `components/ui/input.tsx` | `archive/oldapp/components/ui/input.tsx` |
-| Other UI primitives | `archive/oldapp/components/ui/` |
-
-### Common Packages
-
-Verify before implementation — install missing with `pnpm add <package>`:
-
-| Package | Purpose |
-|---------|---------|
-| `@radix-ui/*` | UI primitives |
-| `clsx`, `tailwind-merge` | Class utilities |
-| `zod` | Validation |
-| `drizzle-orm` | Database ORM |
-| `@upstash/redis` | Caching |
-
----
-
-## APM Agent Roles
-
-| Agent | Role | Workflow |
-|-------|------|----------|
-| **Manager** | Orchestrator — delegates all work, never reads/writes directly | `.kilocode/workflows/apm-2-initiate-manager-autonomous.md` |
-| **Implementation** | Executor — coding, research, analysis, issue logging | `.kilocode/workflows/apm-3-initiate-implementation-autonomous.md` |
-| **Ad-Hoc** | Specialist — debugging, research delegation | `.kilocode/workflows/apm-7-delegate-research.md`, `.kilocode/workflows/apm-8-delegate-debug.md` |
-
-### Responsibility Matrix
-
-| Responsibility | Manager | Implementation |
-|---|---|---|
-| Task delegation & planning | **Primary** | — |
-| Code implementation | — | **Primary** |
-| `global-issues.md` | Reviews & considers in planning | **Writes entries** |
-| `AGENTS.md` contributions | Reviews at phase boundaries | **Writes insights** |
-| Code quality validation | — | **Runs typecheck + lint** |
-| Memory Log creation | Delegates | **Writes** |
-| Error resolution | Delegates | Up to 3 attempts, then delegates |
-
----
-
-## Shared Protocols
-
-### Behavioral Expectations (ALL AGENTS)
-
-- **Knowledge-First**: No agent begins implementation without completing its knowledge acquisition phase — read all referenced files, search for related code, review specs, understand dependencies
-- **Autonomous Execution**: All agents execute without user confirmation between steps. Only pause for critical ambiguity that cannot be resolved from context
-- **Logging Obligation**: All significant work, findings, and decisions must be logged:
-  - Task execution details → Memory Logs (`.apm/Memory/`)
-  - Issues and irregularities → `global-issues.md`
-  - Generalizable insights → `AGENTS.md` (Contributions Log)
-- **Scope Discipline**: Stay within assigned task scope. Scope expansion requires justification, Memory Log entry, and a flag in the Final Task Report
-
-### Workflow Re-Read (MANDATORY — ALL AGENTS)
-
-**ALWAYS** re-read your workflow file when:
-- Context has been summarized
-- Context drift is detected
-- Session is resumed after handover
-
-After re-reading, confirm compliance before proceeding.
-
-### Error Resolution — 3-Strike Rule
-
-| Attempt | Action |
-|---------|--------|
-| 1st | Analyze and fix |
-| 2nd | Alternative approach |
-| 3rd | Broader rethink |
-| 4th+ | **PROHIBITED** — delegate via `.kilocode/workflows/apm-8-delegate-debug.md` or `.kilocode/workflows/apm-7-delegate-research.md` |
-
-### Context Drift Recovery
-
-Watch for these drift indicators:
-
-| Indicator | Severity |
-|---|---|
-| Cannot recall task objective or progress | Critical |
-| Cannot recall dependencies or prior decisions | Critical |
-| Uncertain of registered role or agent name | Critical |
-| Cannot recall what steps were completed | High |
-| Cannot recall target output locations | High |
-| Unsure about workflow rules or procedures | Medium |
-
-**Recovery**: STOP → Re-read workflow → Re-read context files (Implementation Plan, Task Assignment, Memory Logs) → Confirm recovery → Resume
-
-### Error Escalation Chain
+**Search for:** functions, hooks, services, types, utils, components, routes
 
 ```
-1. Self-resolve (max 3 attempts)
-       ↓ (if unresolved)
-2. Log to global-issues.md
-       ↓
-3. Delegate to Ad-Hoc Agent (debug or research)
-       ↓ (if still unresolved)
-4. Report to Manager Agent for decision
+If equivalent logic exists:
+  STOP → REPORT → DO NOT IMPLEMENT
 ```
+
+## Step 2 — Read Context
+
+Gather full context by reading:
+- Target file and its imports
+- Consumers and dependents
+- Related/adjacent files
+
+**Purpose:** Understand actual behavior, not assumed behavior.
+
+## Step 3 — Map Integration Surface
+
+Identify how changes will ripple:
+- Who calls this code?
+- What depends on it?
+- What side effects exist?
+- How does state/data flow?
+
+**If unclear:** Continue analysis. Do not proceed.
+
+## Step 4 — Verify Architecture Alignment
+
+Confirm placement is correct:
+- [ ] Right layer (repository/service/route)
+- [ ] Right module (feature isolation)
+- [ ] Right abstraction level
+- [ ] Correct dependency direction
+
+**If misaligned:** Redesign before coding.
+
+## Step 5 — Write Implementation Plan
+
+Document before coding:
+- Files to change (and why)
+- Alternative approaches considered
+- Risks and mitigations
+- Affected systems
+
+**No code without a plan.**
+
+## Step 6 — Output Execution Gate
+
+```
+PRE-EXECUTION CHECK COMPLETE
+✔ Logic searched
+✔ Context read
+✔ Integration mapped
+✔ Architecture validated
+✔ Plan written
+```
+
+Missing output = invalid work.
 
 ---
 
-## Issue Tracking (`global-issues.md`)
+# ✅ Post-Execution Validation
 
-**ALL** findings, irregularities, migration inconsistencies, architectural deviations, and missing dependencies MUST be logged.
+Before marking complete, verify:
 
-### What Must Be Logged
+- [ ] `pnpm format` passes
+- [ ] `pnpm typecheck` passes
+- [ ] `pnpm lint` passes
+- [ ] Architecture constraints respected
+- [ ] No duplicate logic introduced
+- [ ] All imports valid
+- [ ] No unintended side effects
 
-- All findings that deviate from expectations
-- Migration inconsistencies between `archive/oldapp/` and new code
-- Missing dependencies or packages
-- Architectural deviations from specifications in `.ouroboros/specs/`
-- Refactor-related issues or technical debt
-- Any irregularities discovered during implementation
-- Context drift events or protocol deviations
+---
 
-### Issue Categories
+# ⚙️ Commands
 
-| Category | When to Use |
-|---|---|
-| **Bug** | Functional errors, runtime failures, incorrect behavior |
-| **Migration** | Inconsistencies between old app and new implementation |
-| **Dependency** | Missing packages, version conflicts, import issues |
-| **Refactor** | Technical debt, code quality issues, structural problems |
-| **Architecture** | Deviations from architectural specifications |
-| **Drift** | Context drift events, protocol violations, alignment issues |
+## Required (Before Completion)
 
-### Entry Format
+```bash
+pnpm format      # Biome formatting
+pnpm typecheck   # TypeScript check
+pnpm lint        # Biome linting
+```
+
+## Development
+
+```bash
+pnpm install     # Install dependencies
+pnpm dev         # Start dev server
+pnpm test:unit   # Unit tests
+pnpm test:e2e    # E2E tests
+```
+
+> ⚠️ `pnpm build` is **forbidden** during agent sessions.
+
+---
+
+# 🧠 Decision Hierarchy
+
+```
+Correctness → Architecture → Consistency → Performance → Speed
+```
+
+Never reverse this order. A fast wrong solution is still wrong.
+
+---
+
+# ♻️ Reuse Hierarchy
+
+```
+Reuse → Extend → Refactor → Create
+```
+
+Always prefer existing solutions. Never duplicate.
+
+---
+
+# 🏗 Architecture Constraints
+
+| Pattern | Constraint |
+|---------|------------|
+| Repository | All data access through repositories |
+| Service | Business logic lives in services only |
+| Features | Isolated by feature, no cross-dependencies |
+| Routes | Thin handlers, delegate to services |
+| Errors | Use `AppError` hierarchy |
+| Guards | Throw-based, not return-based |
+| AI Models | Access via registry pattern |
+| AI Elements | `components/ai--elements` is **READ-ONLY** — can only be imported by wrappers in `components/ai` |
+
+---
+
+# 🧾 Code Standards
+
+| Standard | Requirement |
+|----------|-------------|
+| TypeScript | Strict mode enabled |
+| `any` type | Requires written justification |
+| Input validation | Zod schemas required |
+| Formatting | Biome (auto-format on save) |
+| Mutations | Server Actions only |
+
+---
+
+# 📂 Directory Structure
+
+| Directory | Purpose |
+|-----------|---------|
+| `features/` | Feature-specific logic (isolated) |
+| `components/` | Shared UI components |
+| `components/ai/` | AI component wrappers (use these) |
+| `components/ai--elements/` | Base AI elements (**READ-ONLY** — only importable by `components/ai` wrappers) |
+| `hooks/` | Shared custom hooks |
+| `lib/` | Infrastructure and utilities |
+
+**Rule:** Misplaced files must be relocated.
+
+---
+
+# 📊 Issue Logging (Mandatory)
+
+Log all anomalies to `global-issues.md`:
+
+- Bugs and errors
+- Structural problems
+- Architecture violations
+- Dependency issues
+- Unexpected behaviors
+
+**Never silently fix structural problems.**
+
+## Entry Template
 
 ```markdown
-## [Timestamp] - [Issue Title]
-
-- **Category**: [Bug | Migration | Dependency | Refactor | Architecture | Drift]
-- **Agent**: [Agent name]
-- **Task**: [Task reference]
-- **Context**: [What was happening when the issue was found]
-- **Root Cause**: [If known, otherwise "Under investigation"]
-- **Action Taken**: [What was done to address it]
-- **Status**: [Open | Resolved | Deferred]
-- **Related Files**: [Affected file paths]
+### [YYYY-MM-DD HH:MM]
+- **Category:** bug | structural | architecture | dependency | behavior
+- **Agent:** [name]
+- **Task:** [description]
+- **Context:** [what was found]
+- **Root Cause:** [why it happened]
+- **Action:** [what was done]
+- **Status:** resolved | escalated | needs-review
+- **Files:** [affected files]
 ```
 
 ---
 
-## Knowledge Sharing
+# 🤖 Behavioral Rules
 
-Append insights to the Contributions Log below when you discover something generalizable, non-obvious, and actionable for other agents.
+## Knowledge-First
+Never write code without understanding. Read before implementing.
 
-### Entry Format
+## Autonomous Execution
+Proceed independently. Only ask the user when genuinely blocked by missing information.
 
-```markdown
-## [Date] - [Insight Title] - [Agent Name]
-**Category**: [Architecture | Pitfall | Efficiency | Integration | Configuration | Debug]
-
-[What you learned and how to apply it. 1-3 sentences is fine.]
+## Scope Discipline
+Never expand scope without justification and a log entry.
 
 ---
+
+# 🔁 Error Resolution
+
+| Attempt | Approach |
+|---------|----------|
+| 1 | Fix directly |
+| 2 | Try alternative |
+| 3 | Rethink approach |
+| 4 | Escalate to user |
+
+**Never repeat the same failed approach.**
+
+---
+
+# 🧭 Context Drift Recovery
+
+If you lose context or become uncertain:
+
+```
+STOP
+Re-read the task
+Re-read relevant specs
+Re-read recent logs
+Resume with clarity
 ```
 
 ---
 
-## Memory System
+# ⛔ Forbidden Actions
 
-```
-.apm/Memory/
-├── Memory_Root.md              ← Project overview & phase summaries
-├── Phase_XX_slug/              ← Phase-level directory
-│   ├── Task_X_Y_slug.md        ← Individual task execution records
-│   └── ...
-└── Handover/                    ← Session transition context
-    └── Handover_YYYY-MM-DD_HH-MM.md
-```
-
-**Mandatory logging triggers** — create/update Memory Logs when:
-- A task is completed (success or failure)
-- A significant finding is discovered (`important_findings: true`)
-- A delegation occurs (`ad_hoc_delegation: true`)
-- A compatibility issue is detected (`compatibility_issues: true`)
-- Context drift recovery is performed
+| Action | Why |
+|--------|-----|
+| Overwrite working logic | Breaks existing functionality |
+| Introduce new architecture | Violates intentional design |
+| Bypass layers | Breaks separation of concerns |
+| Modify unrelated files | Scope creep, unintended effects |
+| Skip protocol steps | Guarantees mistakes |
+| Guess behavior | Creates bugs from assumptions |
+| Skip validation | Ships broken code |
+| Modify `components/ai--elements` | Read-only folder — use wrappers from `components/ai` |
+| Import from `ai--elements` directly | Only `components/ai` wrappers may import from `ai--elements` |
 
 ---
 
-## APM File Paths
+# ✔ Completion Criteria
 
-| File/Directory | Purpose |
-|----------------|---------|
-| `AGENTS.md` | This file — shared knowledge base |
-| `global-issues.md` | Global issue tracking |
-| `.apm/Implementation_Plan.md` | Task definitions and dependencies |
-| `.apm/guides/` | Memory Log, Memory System, Task Assignment guides |
-| `.apm/Memory/` | Task logs and phase summaries |
-| `.kilocode/workflows/` | Agent workflow files |
+Task is complete **only when**:
+
+- [ ] All validation checks pass
+- [ ] Architecture constraints respected
+- [ ] Logic verified working
+- [ ] No code duplication
+- [ ] Issues logged if any found
+- [ ] Existing patterns followed
 
 ---
 
-## Agent Contributions Log
+# 🧠 Self-Monitoring Triggers
+
+**Halt and reassess when:**
+
+- Unsure how code behaves
+- Architecture boundaries unclear
+- Dependencies unknown
+- Multiple conflicting implementations exist
+- Several valid approaches with no clear winner
+
+| Response | Quality |
+|----------|---------|
+| Halting to investigate | ✅ Correct |
+| Guessing and proceeding | ❌ Failure |
+
+---
+
+# 🎯 Guiding Principle
+
+> This system is **intentionally designed**.
+>
+> Do not redesign it.
+>
+> **Extend it safely, consistently, and correctly.**
+
+---
+
+# 📝 Contributions Log
 
 > Append new entries below. Do not modify or remove existing entries.
-
----
-
-## 2026-02-13 - Drizzle ORM Handles Migration SQL Automatically - System
-**Category**: Pitfall
-
-Do NOT create manual migration SQL files. Drizzle ORM automatically generates migration SQL from the schema file. Update your schema in `lib/db/schema.ts` and run `pnpm db:generate`. Hand-written SQL files will conflict with Drizzle's generated output.
 
 ---
