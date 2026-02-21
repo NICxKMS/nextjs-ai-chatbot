@@ -56,3 +56,5 @@ tsconfig.tsbuildinfo
 .cursor
 config.json
 .smart-coding-cache
+
+.vscode

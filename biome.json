@@ -21,7 +21,7 @@
 			"!!**/drizzle",
 			"!!**/*.min.js",
 			"!!**/pnpm-lock.yaml",
-			"!!**/archive"
+			"!!**/oldapp"
 		]
 	},
 	"formatter": {
