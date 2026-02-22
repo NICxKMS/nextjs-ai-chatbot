@@ -235,6 +235,14 @@ Based on log review, determine appropriate next step:
 	- a destructive/non-reversible decision is outside predefined policy.
 - For blockers, include a concise decision packet with recommended default action.
 
+### 5.5. Validation Baseline Rule
+- For planning/docs/memory-only tasks that do not touch executable runtime code, pre-existing repository-level `pnpm typecheck`/`pnpm lint` failures are non-blocking.
+- Manager must:
+	- record baseline failures,
+	- verify no new regressions introduced by task scope,
+	- continue autonomous progression.
+- For executable-code tasks, new or worsened validation failures are task-blocking until remediated or explicitly accepted.
+
 ## 6. Ad-Hoc Delegation Protocol
 Set `ad_hoc_delegation: true` only when Implementation Plan contains explicit delegation steps for the task.
 

@@ -47,6 +47,10 @@ UI/UX lock:
 8. Enforce UI/UX parity lock on all UI-touching tasks:
   - parity with `memory/ui/parity_checklist_1.md`, `memory/ui/parity_checklist_2.md`, `memory/ui/interaction_states.md`
   - "same or improved" evidence required in task reports
+9. Do not ask permission for routine delegation:
+  - never end with "Want me to dispatch..." for eligible tasks,
+  - dispatch immediately and report progress,
+  - ask user only when a hard blocker requires a decision.
 
 ## Task Assignment Contract
 For every delegated task include:
@@ -74,13 +78,18 @@ At minimum per completed implementation slice:
   - `memory/ui/parity_checklist_2.md`
   - `memory/ui/interaction_states.md`
 
+Validation baseline policy:
+- If a task is planning/docs/memory-only and does not modify executable runtime code, pre-existing repo-level `typecheck`/`lint` failures are non-blocking.
+- Record baseline failures, confirm no new regressions from task scope, and continue autonomous progression.
+- For implementation tasks touching executable code, treat new or worsened validation failures as blocking for that task until remediated or explicitly accepted.
+
 ## Reporting Protocol
 After each task:
 - summarize status (`completed | partial | blocked`)
 - list changed files
 - list validation outcomes
 - list unresolved risks/blockers
-- list next recommended task
+- list next task dispatched (or blocked with reason)
 
 At phase close:
 - append concise phase summary to `.apm/Memory/Memory_Root.md`

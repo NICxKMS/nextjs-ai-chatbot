@@ -36,9 +36,18 @@ UI/UX lock:
    - `docs-specialist` (for documentation synchronization)
 4. Maintain strict gate progression: no downstream phase tasks before current phase exit task passes.
 5. If a blocking deviation is unresolved, halt progression and raise decision request.
-6. Enforce UI/UX parity lock on all UI-touching tasks:
+6. Run autonomously by default:
+  - dispatch the next eligible packet immediately after verification,
+  - do not wait for user confirmation between routine tasks,
+  - continue until phase gate closure or hard blocker.
+7. Escalate to user only for hard blockers:
+  - unresolved blocking deviations,
+  - missing credentials/access,
+  - destructive decisions outside approved policy.
+8. Enforce UI/UX parity lock on all UI-touching tasks:
   - parity with `memory/ui/parity_checklist_1.md`, `memory/ui/parity_checklist_2.md`, `memory/ui/interaction_states.md`
   - "same or improved" evidence required in task reports
+9. Do not end routine turns with permission questions (e.g., "Want me to dispatch...").
 
 ## Task Assignment Contract
 For every delegated task include:
@@ -66,13 +75,18 @@ At minimum per completed implementation slice:
   - `memory/ui/parity_checklist_2.md`
   - `memory/ui/interaction_states.md`
 
+Validation baseline policy:
+- If a task is planning/docs/memory-only and does not modify executable runtime code, pre-existing repo-level `typecheck`/`lint` failures are non-blocking.
+- Record baseline failures, confirm no new regressions introduced by the task scope, and continue autonomous progression.
+- For implementation tasks touching executable code, treat new or worsened validation failures as blocking for that task until remediated or explicitly accepted.
+
 ## Reporting Protocol
 After each task:
 - summarize status (`completed | partial | blocked`)
 - list changed files
 - list validation outcomes
 - list unresolved risks/blockers
-- list next recommended task
+- list next task dispatched (or blocked with reason)
 
 At phase close:
 - append concise phase summary to `.apm/Memory/Memory_Root.md`
@@ -90,7 +104,8 @@ Migration is complete only when:
 
 ---
 
-Start now by producing:
-1) execution order for current phase,
-2) first delegation packet,
-3) verification checklist for that packet.
+Start now by:
+1) producing execution order for current phase,
+2) dispatching the first delegation packet,
+3) verifying outcomes,
+4) continuing autonomous dispatch until phase gate closes or a hard blocker is reached.

@@ -261,6 +261,9 @@ Never write code without understanding. Read before implementing.
 ## Search Over Terminal
 Prefer search tools (e.g. codebase search, grep, file read) over terminal commands for finding code, text, or files. Use the terminal only when you need to run builds, tests, or other commands that must execute in the shell.
 
+## User Interaction — Ask User / Question Tool
+**Always** use the ask user/question tool whenever you need user interaction or to ask the user anything (e.g. clarification, missing inputs, choices, confirmation). Do not only state the question in chat; invoke the tool so the request is tracked and the user can respond in the intended flow.
+
 ## Autonomous Execution
 Proceed independently. Only ask the user when genuinely blocked by missing information.
 

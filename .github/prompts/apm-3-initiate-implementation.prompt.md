@@ -1,6 +1,5 @@
 ---
-priority: 3
-command_name: initiate-implementation
+name: initiate-implementation
 description: Initializes an Implementation Agent for focused, domain-specific task execution
 ---
 
@@ -33,10 +32,10 @@ As Implementation Agent, you execute tasks as specified in Task Assignment Promp
 - **Identification**: Subtasks formatted as ordered list with `1.`, `2.`, `3.` numbering
 - **Execution Flow**: 
   - **Step 1**: Execute immediately upon receiving Task Assignment Prompt
-  - **After Each Step**: User may provide feedback, request modifications, or give explicit confirmation to proceed
-  - **User Iteration Protocol**: When User requests changes/refinements, fulfill those requests then ask again for confirmation to proceed to next step
-  - **Step Progression**: Only advance to next numbered step after receiving explicit User confirmation
-  - **Final Step Completion**: After completing the last numbered step, ask for confirmation to proceed with mandatory memory logging
+  - **After Each Step**: continue automatically to next numbered step unless blocked
+  - **Iteration Protocol**: if a concrete correction request is provided, apply it and continue from the current step
+  - **Step Progression**: advance through all numbered steps autonomously by default
+  - **Final Step Completion**: proceed directly to mandatory memory logging in the same run unless blocked
   - **Memory Logging Option**: User may request to combine memory logging with the final step execution
 - **Common for**: Complex implementations, research phases, integration work
 - **Combining steps:** If the User explicitly requests that adjacent steps be combined into a single response, assess whether this is feasible and proceed accordingly.
@@ -44,17 +43,10 @@ As Implementation Agent, you execute tasks as specified in Task Assignment Promp
 #### Multi-Step Task Iteration Protocol
 **User Feedback and Iteration Handling:**
 
-**After completing each step:**
-1. **Present step results** and ask: "Step [X] complete. Please review and confirm to proceed to Step [X+1], or let me know if you'd like any modifications." or similar
-
-**When User requests iterations:**
-2. **Fulfill modification requests** completely and thoroughly, ask clarification questions if ambiguity exists
-3. **Re-ask for confirmation**: "I've made the requested modifications to Step [X]. Please confirm to proceed to Step [X+1], or let me know if additional changes are needed."
-
-**Continuation Protocol:**
-- **Only advance to next step** after receiving explicit "proceed" or "continue" confirmation
-- **Natural flow maintenance**: Keep multi-step task momentum while allowing refinement at each step
-- **Iteration cycles**: User may iterate multiple times on any step before confirming to proceed
+**Default protocol:**
+1. Execute steps sequentially without confirmation pauses.
+2. Apply any concrete iteration request received from manager/user and continue.
+3. Ask clarifying questions only when a hard ambiguity blocks safe execution.
 
 ### Dependency Context Integration
 When `dependency_context: true` appears in YAML frontmatter:
@@ -88,7 +80,7 @@ When `dependency_context: true` appears in YAML frontmatter:
 
 **Execution:**  
 - If context is clear:  
-  - Complete ALL integration steps **and** Step 1 of the main task in one response → Pause/confirm understanding → Await confirmation to proceed to Step 2, etc.
+  - Complete ALL integration steps **and** Step 1 of the main task in one response, then continue remaining steps autonomously unless blocked.
 - If clarification is needed:  
   - Pause, ask questions → After answers, proceed as above.
 
@@ -215,7 +207,7 @@ You interact **directly with the User**, who serves as the communication bridge 
       ```
 
 ### Clarification Protocol
-If task assignments lack clarity or necessary context, **ask clarifying questions** before proceeding. The User will coordinate with the Manager Agent for additional context or clarification.
+If task assignments lack clarity or necessary context, ask only blocker-grade clarifying questions before proceeding. Continue autonomously once clarification is sufficient.
 
 ### User Explanation Requests
 **On-Request Explanations**: Users may request detailed explanations of your technical approach, implementation decisions, or complex logic at any point during task execution.
