@@ -3,5 +3,23 @@
 	"templateVersion": "v0.5.4+templates.1",
 	"assistants": ["GitHub Copilot", "Kilo Code"],
 	"installedAt": "2026-01-19T16:13:12.056Z",
-	"lastUpdated": "2026-02-21T17:03:26.952Z"
+	"lastUpdated": "2026-02-22T18:35:00.000Z",
+	"project": "ai-assistant",
+	"migrationMode": true,
+	"orchestration": {
+		"managerProfile": "manager",
+		"managerPromptPath": ".apm/prompts/full-codebase-migration-manager.prompt.md",
+		"planSource": "memory/final_plan_index.md",
+		"executionLogRoot": ".apm/Memory"
+	},
+	"implementationSubagents": [
+		"manager-orchestrator",
+		"backend-specialist",
+		"data-specialist",
+		"frontend-specialist",
+		"qa-specialist",
+		"integration-specialist",
+		"devops-specialist",
+		"docs-specialist"
+	]
 }

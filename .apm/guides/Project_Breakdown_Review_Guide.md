@@ -1,6 +1,13 @@
 # APM 0.5.4 - Project Breakdown Review Guide
 This guide defines how Setup Agents conduct targeted, user-selected review of Implementation Plans to detect and fix critical task quality issues before enhancement. Using fresh context from Implementation Plan creation, agents propose specific areas for systematic review and let users choose which sections receive detailed analysis.
 
+## Migration Review Mode (Existing Plan)
+
+If the repository already has a validated migration plan in `memory/`:
+- prioritize consistency review over re-decomposition,
+- verify `Implementation_Plan.md` and delegation packets match canonical `memory/phases/**/tasks.md` task IDs and acceptance criteria,
+- review only changed/uncertain areas unless user asks for full re-review.
+
 ---
 
 ## 1. Review Protocol Overview

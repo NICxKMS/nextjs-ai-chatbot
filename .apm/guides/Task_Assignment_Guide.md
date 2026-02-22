@@ -243,6 +243,57 @@ When Implementation Plan contains explicit delegation steps, Manager Agents must
 - Ad-Hoc agents work in a separate branch managed by the assigning Implementation Agent; they do not log into Memory
 - Original agent incorporates findings and logs delegation while User deletes delegation chat session (optional)
 
+## 7. Manager Orchestrator + Subagent Compatibility (Migration Profile)
+
+For this repository migration workflow, Manager prompts must be compatible with:
+- manager profile from `opencode.json` (`default_agent: manager`)
+- implementation subagents defined in `.github/agents/`
+- canonical migration memory in `memory/`
+
+### 7.1 Mandatory Assignment Fields
+Every migration task assignment must include these explicit fields in `## Task Reference` or `## Detailed Instructions`:
+- `Phase:` `P00` ... `P06`
+- `Task ID:` `PXX-TYY`
+- `Acceptance Source:` `memory/phases/<phase>/tasks.md` entry for the task id
+- `Verification Source:` relevant `memory/verification/phase_X.md` gate(s)
+
+### 7.2 Subagent Routing Rules
+- Manager performs orchestration only (no implementation edits).
+- Route assignments by workstream:
+	- Backend/API/auth/guards -> `backend-specialist`
+	- Data/repository/cache/schema contracts -> `data-specialist`
+	- UI/components/accessibility/responsive -> `frontend-specialist`
+	- Integration/regression/performance hardening -> `integration-specialist` + `qa-specialist`
+	- Infra/pipeline/env/ops -> `devops-specialist`
+	- Documentation/plan sync -> `docs-specialist`
+
+### 7.3 Memory Coupling
+For every assigned task, include:
+- planning references in `memory/` (behavior, phases, dependencies, deviations)
+- runtime log path in `.apm/Memory/Phase_XX_*/Task_*.md`
+
+### 7.4 Gate Progression Rule
+- Do not assign tasks from next gated phase until current phase exit task passes.
+- If blocking deviation unresolved, Manager must halt progression and request explicit decision.
+
+### 7.5 UI/UX Parity Lock (Migration)
+For any UI-touching task assignment, Manager must include explicit parity constraints:
+- Final UI/UX must be exactly same as `oldapp/` or improved.
+- Improvement is valid only when there is no regression in:
+	- interaction states,
+	- accessibility behavior,
+	- responsive behavior,
+	- route/shell loading and error behavior.
+- Required parity references:
+	- `memory/ui/parity_checklist_1.md`
+	- `memory/ui/parity_checklist_2.md`
+	- `memory/ui/interaction_states.md`
+	- `memory/ui/parity_validation.md`
+- Required verification outputs from assignees:
+	- checklist item coverage result (`same | improved | regressed`)
+	- evidence for each touched parity area
+	- explicit statement: `no UI/UX regression`
+
 ---
 
 **End of Guide**

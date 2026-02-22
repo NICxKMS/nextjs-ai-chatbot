@@ -1,6 +1,13 @@
 # APM 0.5.4 - Context Synthesis Guide
 This guide defines how the Setup Agent collects all information needed to build an accurate and detailed Implementation Plan. The goal is gathering enough context to break work into focused, manageable tasks that can be assigned to specialized agents. At this stage, the Setup Agent passes control flow to this guide.
 
+## Migration Fast-Path (When `memory/` Already Exists)
+
+If a repository already contains a verified planning memory set (for example `memory/final_plan_*.md`, `memory/phases/**`, `memory/verification/**`), use this fast-path:
+- Do not re-run full discovery unless user explicitly requests re-planning.
+- Treat `memory/` as canonical planning context and proceed to manager-orchestrated implementation assignment.
+- Restrict follow-up questions to unresolved blockers, pending deviation decisions, or missing execution constraints.
+
 ## Principles for Discovery & Objectives
 
 ### Discovery Methodology

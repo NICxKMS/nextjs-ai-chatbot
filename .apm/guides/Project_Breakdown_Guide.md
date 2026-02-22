@@ -1,6 +1,14 @@
 # APM 0.5.4 - Project Breakdown Guide
 This guide defines how Setup Agents transform Context Synthesis findings into structured, agent-assigned task breakdowns. Following systematic high-level-to-detail methodology, it prevents template matching through strategic workflow sequencing and chat-to-file output switching. The guide ensures task breakdown precision required for Implementation Agent success while minimizing Manager Agent coordination overhead.
 
+## Migration Fast-Path (Pre-Verified Plan Present)
+
+When `memory/verification/phase_8.md` indicates a passed full-plan validation and `memory/final_plan_index.md` exists:
+- Skip fresh task decomposition.
+- Reuse phase/task definitions from `memory/final_plan_phase_00.md` ... `memory/final_plan_phase_06.md`.
+- Generate manager delegation packets directly from existing task IDs and success criteria.
+- Keep this guide's decomposition flow for re-planning only.
+
 ## 1. Context Integration & Breakdown Overview
 
 ### 1.1. Retained Context Synthesis Insights

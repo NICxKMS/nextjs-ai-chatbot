@@ -137,6 +137,8 @@ Before marking complete, verify:
 - [ ] All imports valid
 - [ ] No unintended side effects
 
+**Pass rate:** For any validation, verification, or check or review, the minimum acceptable pass rate is **93.7%**. Do not mark complete if the rate is below this threshold.
+
 ---
 
 # ⚙️ Commands
@@ -158,7 +160,7 @@ pnpm test:unit   # Unit tests
 pnpm test:e2e    # E2E tests
 ```
 
-> ⚠️ `pnpm build` is **forbidden** during agent sessions.
+> ⚠️ `pnpm build` is **forbidden** during agent sessions. Only use before completion to check no more errors remain.
 
 ---
 
@@ -193,7 +195,7 @@ Always prefer existing solutions. Never duplicate.
 | Errors | Use `AppError` hierarchy |
 | Guards | Throw-based, not return-based |
 | AI Models | Access via registry pattern |
-| AI Elements | `components/ai--elements` is **READ-ONLY** — can only be imported by wrappers in `components/ai` |
+| AI Elements | `components/ai-elements` is **READ-ONLY** — can only be imported by wrappers in `components/ai` |
 
 ---
 
@@ -216,7 +218,7 @@ Always prefer existing solutions. Never duplicate.
 | `features/` | Feature-specific logic (isolated) |
 | `components/` | Shared UI components |
 | `components/ai/` | AI component wrappers (use these) |
-| `components/ai--elements/` | Base AI elements (**READ-ONLY** — only importable by `components/ai` wrappers) |
+| `components/ai-elements/` | Base AI elements (**READ-ONLY** — only importable by `components/ai` wrappers) |
 | `hooks/` | Shared custom hooks |
 | `lib/` | Infrastructure and utilities |
 
@@ -256,6 +258,9 @@ Log all anomalies to `global-issues.md`:
 
 ## Knowledge-First
 Never write code without understanding. Read before implementing.
+
+## Search Over Terminal
+Prefer search tools (e.g. codebase search, grep, file read) over terminal commands for finding code, text, or files. Use the terminal only when you need to run builds, tests, or other commands that must execute in the shell.
 
 ## Autonomous Execution
 Proceed independently. Only ask the user when genuinely blocked by missing information.
@@ -303,8 +308,8 @@ Resume with clarity
 | Skip protocol steps | Guarantees mistakes |
 | Guess behavior | Creates bugs from assumptions |
 | Skip validation | Ships broken code |
-| Modify `components/ai--elements` | Read-only folder — use wrappers from `components/ai` |
-| Import from `ai--elements` directly | Only `components/ai` wrappers may import from `ai--elements` |
+| Modify `components/ai-elements` | Read-only folder — use wrappers from `components/ai` |
+| Import from `ai-elements` directly | Only `components/ai` wrappers may import from `ai-elements` |
 
 ---
 

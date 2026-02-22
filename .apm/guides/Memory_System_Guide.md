@@ -44,6 +44,28 @@ Main responsibilities of the Manager Agent when maintaining the Memory System du
     ```
     Keep summaries ≤30 lines.
 
+## 3  Repository Memory Compatibility Layer (Migration Mode)
+
+This repository uses a dual-memory model:
+- **Planning baseline memory (immutable unless re-planning):** `memory/`
+- **Execution runtime memory (per-task evidence):** `.apm/Memory/`
+
+Manager responsibilities in migration mode:
+1. Treat `memory/final_plan_*.md` and `memory/phases/**/tasks.md` as canonical source-of-truth for phase/task sequencing.
+2. Ensure each Task Assignment Prompt links both:
+   - planning source path(s) in `memory/`
+   - execution log path in `.apm/Memory/`
+3. During log review, validate outcomes against phase acceptance criteria from `memory/phases/**/tasks.md`.
+
+## 4  Phase Summary Requirements (Migration Mode)
+
+At phase close, `Memory_Root.md` summary must include:
+- Phase id + status
+- List of completed `PXX-TYY` tasks
+- Links to task logs in `.apm/Memory/Phase_XX_*/`
+- Validation gate results (`pnpm format`, `pnpm typecheck`, `pnpm lint`)
+- Any unresolved deviations and decision status
+
 ---
 
 **End of Guide**
