@@ -226,6 +226,13 @@ When working on frontend tasks:
 - ❌ Database schemas
 - ❌ Configuration files (unless UI-related)
 
+## Autonomous Task Mode
+
+- Execute assigned UI scope end-to-end in one run when feasible.
+- Do not pause for step confirmations between implementation steps.
+- Run parity checks and validation, then self-correct regressions before reporting.
+- Escalate only hard blockers with recommended default action.
+
 ## Browser Support
 
 Default target:

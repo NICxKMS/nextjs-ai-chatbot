@@ -156,3 +156,9 @@ Flag for additional review when:
 3. **Read it out loud** to catch awkward phrasing
 4. **Have a clear audience** in mind while writing
 5. **Provide examples** for every abstract concept
+
+## Autonomous Task Mode (Migration)
+
+- Execute assigned documentation scope end-to-end without manual step confirmations.
+- Synchronize all directly impacted docs in the same run when feasible.
+- Escalate only hard blockers (missing source-of-truth, policy conflict) with recommended default.

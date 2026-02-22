@@ -2,7 +2,7 @@
 This guide defines how Manager Agents issue task assignments to Implementation Agents and evaluate their completion. Task assignments coordinate agent work during the Task Loop of an APM session, following the Implementation Plan.
 
 ## 1. Task Loop Overview
-Manager Agent issues Task Assignment Prompt → User passes to Implementation Agent → Implementation Agent executes task and logs work → User returns log to Manager → Manager reviews and determines next action (continue, follow-up, delegate, or plan update).
+Manager Agent issues Task Assignment Prompt (or delegates directly) → Implementation Agent executes task and logs work → Manager reviews and determines next action (continue, follow-up, delegate, or plan update). User input is requested only for true blocking decisions.
 
 ## 2. Task Assignment Prompt Format
 Task Assignment Prompts must correlate 1-1 with Implementation Plan tasks and include all necessary context for successful execution. Manager Agent must issue these prompts following this format:
@@ -64,7 +64,7 @@ Implementation Plan: **Task X.Y - [Title]** assigned to **[Agent_<Domain>]**
 ## Detailed Instructions
 [Based on Implementation Plan subtasks:]
 - For single-step tasks: "Complete all items in one response"
-- For multi-step tasks: "Complete in X exchanges, one step per response. **AWAIT USER CONFIRMATION** before proceeding to each subsequent step."
+- For multi-step tasks: "Complete all required steps autonomously in one execution run unless a hard blocker is encountered. Do not pause for step-by-step user confirmation."
 - Transform subtask bullets into actionable instructions specifying: what to do, how to approach it, where to implement, and what constraints/libraries to use
 - Include context from task Objective, Output, and Guidance fields
 
@@ -140,7 +140,7 @@ When **different Implementation Agents** worked on producer and consumer tasks (
 **Comprehensive Context Approach:**
 - Always provide detailed integration steps with explicit file reading instructions
 - Include comprehensive output summaries and usage guidance regardless of dependency complexity
-- Provide User clarification protocols for ambiguous integration points
+- Provide manager escalation protocols for ambiguous integration points
 - Complexity only affects the amount of integration work, not the level of detail provided
 
 **Cross-Agent Context Template:**
@@ -169,8 +169,12 @@ This task [depends on/builds upon/integrates with] [Task X.Y description] implem
 - [Usage patterns]: [How to properly use the producer outputs]
 - [Constraints/limitations]: [Important limitations or constraints to consider]
 
-**User Clarification Protocol:**
-If [specific integration aspect] is ambiguous after completing integration steps, ask User about [specific clarification areas].
+**Escalation Protocol:**
+If [specific integration aspect] remains ambiguous after completing integration steps and cannot be resolved from repository/source-of-truth artifacts, escalate to Manager with:
+- blocker description,
+- options considered,
+- recommended default.
+Manager requests User input only when the blocker is decision-critical.
 ```
 
 **Cross-Agent Context Creation Guidelines:**
@@ -178,7 +182,7 @@ If [specific integration aspect] is ambiguous after completing integration steps
 - **File-Specific Instructions**: Always include explicit file paths and what to look for in each file
 - **Complete Output Coverage**: Document all relevant outputs, interfaces, and usage patterns from producer task
 - **Integration Requirements**: Specify exactly how consumer task should integrate with producer outputs
-- **Clarification Protocols**: Always include User clarification pathway for ambiguous integration points
+- **Escalation Protocols**: Always include Manager escalation pathway for ambiguous integration points, with a recommended default
 - **Assumption**: Consumer Agent has zero familiarity with producer work - explain everything needed for successful integration
 
 ### 3.3. Context Integration Execution
@@ -201,7 +205,7 @@ If [specific integration aspect] is ambiguous after completing integration steps
 - Review producer task Memory Log thoroughly for outputs, file locations, approaches
 - Create detailed file reading and review instructions
 - Provide comprehensive output summary and usage guidance
-- Include User clarification protocol for complex integrations
+- Include manager escalation protocol for complex integrations
 
 ## 4. Memory Log Review
 When Implementation Agent returns, **review Memory Log per .apm/guides/Memory_Log_Guide.md section §5**. Assess task completion status, identify blockers, and verify outputs match Implementation Plan expectations. Scan the log's YAML frontmatter:
@@ -223,6 +227,14 @@ Based on log review, determine appropriate next step:
 - **Partial**: Some progress made, specific issues identified
 - **Blocked**: Cannot proceed without external input or resolution
 
+### 5.4. Autonomous Continuation Rule
+- Manager should continue issuing next eligible tasks without waiting for user confirmation between routine steps.
+- User input is required only when:
+	- a blocking deviation requires explicit acceptance,
+	- required credentials/access are unavailable,
+	- a destructive/non-reversible decision is outside predefined policy.
+- For blockers, include a concise decision packet with recommended default action.
+
 ## 6. Ad-Hoc Delegation Protocol
 Set `ad_hoc_delegation: true` only when Implementation Plan contains explicit delegation steps for the task.
 
@@ -241,7 +253,7 @@ When Implementation Plan contains explicit delegation steps, Manager Agents must
 ### 6.2. Integration Requirements
 - Implementation Agent creates delegation prompt and manages workflow
 - Ad-Hoc agents work in a separate branch managed by the assigning Implementation Agent; they do not log into Memory
-- Original agent incorporates findings and logs delegation while User deletes delegation chat session (optional)
+- Original agent incorporates findings and logs delegation; manager handles any required delegation-session cleanup
 
 ## 7. Manager Orchestrator + Subagent Compatibility (Migration Profile)
 

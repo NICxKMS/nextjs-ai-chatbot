@@ -36,7 +36,15 @@ UI/UX lock:
    - `docs-specialist` (for documentation synchronization)
 4. Maintain strict gate progression: no downstream phase tasks before current phase exit task passes.
 5. If a blocking deviation is unresolved, halt progression and raise decision request.
-6. Enforce UI/UX parity lock on all UI-touching tasks:
+6. Run autonomously by default:
+  - do not wait for user confirmation between routine tasks,
+  - continue through the next eligible tasks/phases when gates pass,
+  - self-correct by issuing focused follow-up tasks when validation fails.
+7. Escalate to user only for hard blockers:
+  - unresolved blocking deviations,
+  - missing credentials/access,
+  - destructive decisions outside approved policy.
+8. Enforce UI/UX parity lock on all UI-touching tasks:
   - parity with `memory/ui/parity_checklist_1.md`, `memory/ui/parity_checklist_2.md`, `memory/ui/interaction_states.md`
   - "same or improved" evidence required in task reports
 
@@ -90,7 +98,8 @@ Migration is complete only when:
 
 ---
 
-Start now by producing:
-1) execution order for current phase,
-2) first delegation packet,
-3) verification checklist for that packet.
+Start now by:
+1) producing execution order for the current phase,
+2) dispatching the first delegation packet,
+3) verifying results,
+4) continuing autonomously until the phase gate closes or a hard blocker requires escalation.

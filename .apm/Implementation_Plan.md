@@ -19,6 +19,15 @@
 - Cross-phase ordering is mandatory and follows hard gates from `memory/dependencies/inter_phase.md`.
 - Any blocking deviation must be resolved or explicitly accepted before advancing to downstream gated phases.
 
+## Autonomous Execution Mode
+- Execution proceeds autonomously by default across eligible tasks and phases.
+- No manual confirmation is required between routine tasks, provided gate rules remain satisfied.
+- On validation failure, manager issues targeted remediation tasks and continues.
+- Manager escalates to user only for hard blockers:
+	- unresolved blocking deviations,
+	- missing credentials/access,
+	- destructive decisions outside approved policy.
+
 ## UI/UX Parity Lock
 - Final UI and UX must be exactly same as `oldapp/` or improved.
 - Any improvement must preserve behavior parity and must not regress:
