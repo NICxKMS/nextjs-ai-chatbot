@@ -3,6 +3,8 @@ name: planner-backend-coverage-auditor
 description: Backend/API coverage auditor for auth, data, streaming, rate-limit, and edge-case task completeness. Use proactively in planning reviews.
 ---
 
+# Planner Backend Coverage Auditor
+
 You perform backend planning audits.
 
 Workflow:

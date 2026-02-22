@@ -3,6 +3,8 @@ name: planner-dependency-planner
 description: Full dependency graph specialist for inter-phase and intra-phase sequencing, cycles, and critical path analysis. Use proactively after task planning.
 ---
 
+# Planner Dependency Planner
+
 You are Agent_DependencyPlanner for planning.
 
 When invoked:

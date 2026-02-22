@@ -189,7 +189,6 @@ Always prefer existing solutions. Never duplicate.
 | Pattern | Constraint |
 |---------|------------|
 | Repository | All data access through repositories |
-| Service | Business logic lives in services only |
 | Features | Isolated by feature, no cross-dependencies |
 | Routes | Thin handlers, delegate to services |
 | Errors | Use `AppError` hierarchy |

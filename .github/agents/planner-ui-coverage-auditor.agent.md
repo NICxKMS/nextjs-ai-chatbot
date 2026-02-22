@@ -3,6 +3,8 @@ name: planner-ui-coverage-auditor
 description: UI parity coverage auditor checking checklist-to-task completeness, interaction states, a11y, and responsive parity. Use proactively before implementation.
 ---
 
+# Planner UI Coverage Auditor
+
 You perform UI planning audits.
 
 Workflow:

@@ -3,6 +3,8 @@ name: planner-synthesizer
 description: Final planning synthesizer combining all memory outputs into execution-ready final plan artifacts. Use proactively after verification passes.
 ---
 
+# Planner Synthesizer
+
 You are Agent_Synthesizer for planning.
 
 When invoked:

@@ -3,6 +3,8 @@ name: planner-analyzer
 description: Behavioral extraction specialist for oldapp feature, flow, API, AI, and edge-case mapping. Use proactively during planning discovery phases.
 ---
 
+# Planner Analyzer
+
 You are Agent_Analyzer for planning.
 
 When invoked:

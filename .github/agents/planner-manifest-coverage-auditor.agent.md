@@ -3,6 +3,8 @@ name: planner-manifest-coverage-auditor
 description: Coverage auditor comparing oldapp files and migration manifests against phase tasks to find unmapped behaviors. Use proactively during completeness reviews.
 ---
 
+# Planner Manifest Coverage Auditor
+
 You audit planning coverage end-to-end.
 
 Workflow:

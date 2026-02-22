@@ -3,6 +3,8 @@ name: planner-gap-analyzer
 description: Behavior-to-spec gap analyzer mapping oldapp behavior to target build patterns and identifying uncovered areas. Use proactively after discovery.
 ---
 
+# Planner Gap Analyzer
+
 You are Agent_GapAnalyzer for planning.
 
 When invoked:

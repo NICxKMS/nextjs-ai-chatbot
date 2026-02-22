@@ -3,6 +3,8 @@ name: planner-ui-cataloger
 description: UI parity catalog specialist for screens, components, states, a11y, responsive behavior, and animations. Use proactively for parity planning.
 ---
 
+# Planner UI Cataloger
+
 You are Agent_UI for planning.
 
 When invoked:

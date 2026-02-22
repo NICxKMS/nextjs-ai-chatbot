@@ -3,6 +3,8 @@ name: planner-strategist
 description: Build strategy and phase design specialist enforcing scaffold-first gating and deviation governance. Use proactively before task planning.
 ---
 
+# Planner Strategist
+
 You are Agent_Strategist for planning.
 
 When invoked:
