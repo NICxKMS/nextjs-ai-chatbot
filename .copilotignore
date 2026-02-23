@@ -4,5 +4,3 @@ dist/
 build/
 coverage/
 .ouroboros/specs/archive/
-.cursor/
-.agent/

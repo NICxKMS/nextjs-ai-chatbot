@@ -49,8 +49,7 @@ yarn-error.log*
 
 # Sentry Config File
 .ouroboros/scripts/
-.agent/*
-
+.cursor/plans
 tsconfig.tsbuildinfo
 .ouroboros/specs/archives/
 config.json

@@ -22,13 +22,13 @@ Next.js AI chatbot with multi-model support, artifact management, real-time stre
 
 ## Migration Gotchas
 
-| Deprecated Pattern | Modern Equivalent |
-|--------------------|-------------------|
-| `getServerSideProps` | Server Components + `fetch()` |
-| `getStaticProps` | `generateStaticParams` + caching |
-| `pages/api/` | `app/api/route.ts` (Route Handlers) |
-| `_app.tsx` | `app/layout.tsx` |
-| Client components everywhere | Server Components by default |
+| Deprecated Pattern           | Modern Equivalent                   |
+| ---------------------------- | ----------------------------------- |
+| `getServerSideProps`         | Server Components + `fetch()`       |
+| `getStaticProps`             | `generateStaticParams` + caching    |
+| `pages/api/`                 | `app/api/route.ts` (Route Handlers) |
+| `_app.tsx`                   | `app/layout.tsx`                    |
+| Client components everywhere | Server Components by default        |
 
 ## Full Documentation Index
 
@@ -39,8 +39,12 @@ Regenerate with: `npx @next/codemod agents-md --output AGENTS.md`
 ```
 
 ---
+
 Components
+
 # 🚨 Global Rule
+
+**Use Todo's** use todo's for task tracking.
 
 **Follow this document exactly. Deviation = invalid output.**
 
@@ -52,13 +56,13 @@ Components
 
 ## Execution Timeline
 
-| Stage | Action |
-|-------|--------|
-| Task received | Step 1 — Search existing logic |
-| Before analysis | Step 2 — Read context |
-| Before planning | Step 3–4 — Map integration, verify architecture |
-| Before coding | Step 5–6 — Write plan, output gate |
-| Before completion | Validation Gate |
+| Stage             | Action                                          |
+| ----------------- | ----------------------------------------------- |
+| Task received     | Step 1 — Search existing logic                  |
+| Before analysis   | Step 2 — Read context                           |
+| Before planning   | Step 3–4 — Map integration, verify architecture |
+| Before coding     | Step 5–6 — Write plan, output gate              |
+| Before completion | Validation Gate                                 |
 
 ## Step 1 — Search Existing Logic
 
@@ -74,6 +78,7 @@ If equivalent logic exists:
 ## Step 2 — Read Context
 
 Gather full context by reading:
+
 - Target file and its imports
 - Consumers and dependents
 - Related/adjacent files
@@ -83,6 +88,7 @@ Gather full context by reading:
 ## Step 3 — Map Integration Surface
 
 Identify how changes will ripple:
+
 - Who calls this code?
 - What depends on it?
 - What side effects exist?
@@ -93,6 +99,7 @@ Identify how changes will ripple:
 ## Step 4 — Verify Architecture Alignment
 
 Confirm placement is correct:
+
 - [ ] Right layer (repository/service/route)
 - [ ] Right module (feature isolation)
 - [ ] Right abstraction level
@@ -103,6 +110,7 @@ Confirm placement is correct:
 ## Step 5 — Write Implementation Plan
 
 Document before coding:
+
 - Files to change (and why)
 - Alternative approaches considered
 - Risks and mitigations
@@ -186,40 +194,40 @@ Always prefer existing solutions. Never duplicate.
 
 # 🏗 Architecture Constraints
 
-| Pattern | Constraint |
-|---------|------------|
-| Repository | All data access through repositories |
-| Features | Isolated by feature, no cross-dependencies |
-| Routes | Thin handlers, delegate to services |
-| Errors | Use `AppError` hierarchy |
-| Guards | Throw-based, not return-based |
-| AI Models | Access via registry pattern |
-| AI Elements | `components/ai-elements` is **READ-ONLY** — can only be imported by wrappers in `components/ai` |
+| Pattern     | Constraint                                                                                               |
+| ----------- | -------------------------------------------------------------------------------------------------------- |
+| Repository  | All data access through repositories                                                                     |
+| Features    | Isolated by feature, no cross-dependencies                                                               |
+| Routes      | Thin handlers, delegate to services                                                                      |
+| Errors      | Use `AppError` hierarchy                                                                                 |
+| Guards      | Throw-based, not return-based                                                                            |
+| AI Models   | Access via registry pattern                                                                              |
+| AI Elements | `components/ai-elements` is **READ-ONLY** — can only be imported by wrappers in `components/ai-wrappers` |
 
 ---
 
 # 🧾 Code Standards
 
-| Standard | Requirement |
-|----------|-------------|
-| TypeScript | Strict mode enabled |
-| `any` type | Requires written justification |
-| Input validation | Zod schemas required |
-| Formatting | Biome (auto-format on save) |
-| Mutations | Server Actions only |
+| Standard         | Requirement                    |
+| ---------------- | ------------------------------ |
+| TypeScript       | Strict mode enabled            |
+| `any` type       | Requires written justification |
+| Input validation | Zod schemas required           |
+| Formatting       | Biome (auto-format on save)    |
+| Mutations        | Server Actions only            |
 
 ---
 
 # 📂 Directory Structure
 
-| Directory | Purpose |
-|-----------|---------|
-| `features/` | Feature-specific logic (isolated) |
-| `components/` | Shared UI components |
-| `components/ai/` | AI component wrappers (use these) |
-| `components/ai-elements/` | Base AI elements (**READ-ONLY** — only importable by `components/ai` wrappers) |
-| `hooks/` | Shared custom hooks |
-| `lib/` | Infrastructure and utilities |
+| Directory                 | Purpose                                                                                 |
+| ------------------------- | --------------------------------------------------------------------------------------- |
+| `features/`               | Feature-specific logic (isolated)                                                       |
+| `components/`             | Shared UI components                                                                    |
+| `components/ai-wrappers/` | AI component wrappers (use these)                                                       |
+| `components/ai-elements/` | Base AI elements (**READ-ONLY** — only importable by `components/ai-wrappers` wrappers) |
+| `hooks/`                  | Shared custom hooks                                                                     |
+| `lib/`                    | Infrastructure and utilities                                                            |
 
 **Rule:** Misplaced files must be relocated.
 
@@ -241,6 +249,7 @@ Log all anomalies to `global-issues.md`:
 
 ```markdown
 ### [YYYY-MM-DD HH:MM]
+
 - **Category:** bug | structural | architecture | dependency | behavior
 - **Agent:** [name]
 - **Task:** [description]
@@ -256,30 +265,35 @@ Log all anomalies to `global-issues.md`:
 # 🤖 Behavioral Rules
 
 ## Knowledge-First
+
 Never write code without understanding. Read before implementing.
 
 ## Search Over Terminal
+
 Prefer search tools (e.g. codebase search, grep, file read) over terminal commands for finding code, text, or files. Use the terminal only when you need to run builds, tests, or other commands that must execute in the shell.
 
 ## User Interaction — Ask User / Question Tool
+
 **Always** use the ask user/question tool whenever you need user interaction or to ask the user anything (e.g. clarification, missing inputs, choices, confirmation). Do not only state the question in chat; invoke the tool so the request is tracked and the user can respond in the intended flow.
 
 ## Autonomous Execution
+
 Proceed independently. Only ask the user when genuinely blocked by missing information.
 
 ## Scope Discipline
+
 Never expand scope without justification and a log entry.
 
 ---
 
 # 🔁 Error Resolution
 
-| Attempt | Approach |
-|---------|----------|
-| 1 | Fix directly |
-| 2 | Try alternative |
-| 3 | Rethink approach |
-| 4 | Escalate to user |
+| Attempt | Approach         |
+| ------- | ---------------- |
+| 1       | Fix directly     |
+| 2       | Try alternative  |
+| 3       | Rethink approach |
+| 4       | Escalate to user |
 
 **Never repeat the same failed approach.**
 
@@ -301,17 +315,17 @@ Resume with clarity
 
 # ⛔ Forbidden Actions
 
-| Action | Why |
-|--------|-----|
-| Overwrite working logic | Breaks existing functionality |
-| Introduce new architecture | Violates intentional design |
-| Bypass layers | Breaks separation of concerns |
-| Modify unrelated files | Scope creep, unintended effects |
-| Skip protocol steps | Guarantees mistakes |
-| Guess behavior | Creates bugs from assumptions |
-| Skip validation | Ships broken code |
-| Modify `components/ai-elements` | Read-only folder — use wrappers from `components/ai` |
-| Import from `ai-elements` directly | Only `components/ai` wrappers may import from `ai-elements` |
+| Action                             | Why                                                                  |
+| ---------------------------------- | -------------------------------------------------------------------- |
+| Overwrite working logic            | Breaks existing functionality                                        |
+| Introduce new architecture         | Violates intentional design                                          |
+| Bypass layers                      | Breaks separation of concerns                                        |
+| Modify unrelated files             | Scope creep, unintended effects                                      |
+| Skip protocol steps                | Guarantees mistakes                                                  |
+| Guess behavior                     | Creates bugs from assumptions                                        |
+| Skip validation                    | Ships broken code                                                    |
+| Modify `components/ai-elements`    | Read-only folder — use wrappers from `components/ai-wrappers`        |
+| Import from `ai-elements` directly | Only `components/ai-wrappers` wrappers may import from `ai-elements` |
 
 ---
 
@@ -338,9 +352,9 @@ Task is complete **only when**:
 - Multiple conflicting implementations exist
 - Several valid approaches with no clear winner
 
-| Response | Quality |
-|----------|---------|
-| Halting to investigate | ✅ Correct |
+| Response                | Quality    |
+| ----------------------- | ---------- |
+| Halting to investigate  | ✅ Correct |
 | Guessing and proceeding | ❌ Failure |
 
 ---
