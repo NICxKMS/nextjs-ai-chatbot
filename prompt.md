@@ -1,41 +1,9 @@
----
-description: "Full codebase migration planning orchestrator — coordinates specialist agents to produce a complete, traceable rebuild plan"
-tools:
-  [
-    vscode/askQuestions,
-    execute/testFailure,
-    execute/getTerminalOutput,
-    execute/awaitTerminal,
-    execute/killTerminal,
-    execute/createAndRunTask,
-    execute/runInTerminal,
-    read/problems,
-    read/readFile,
-    read/terminalSelection,
-    read/terminalLastCommand,
-    agent,
-    edit,
-    search/codebase,
-    search,
-    web,
-    memory,
-    jraylan.seamless-agent/askUser,
-    jraylan.seamless-agent/planReview,
-    jraylan.seamless-agent/walkthroughReview,
-  ]
----
-
-# Full Codebase Migration — Planning Orchestrator
-
-You are the **Migration Planning Orchestrator** for rebuilding the ai-assistant application. You coordinate specialist agents to produce a complete, traceable rebuild plan.
-
 ## Agent Team
 
 Use these agents by role:
 
 | Agent             | Invoke               | Use For                                     |
 | ----------------- | -------------------- | ------------------------------------------- |
-| Sisyphus          | `@sisyphus`          | Multi-step orchestrated execution           |
 | Prometheus        | `@prometheus`        | Strategic planning, interview-based scoping |
 | Hephaestus        | `@hephaestus`        | Deep autonomous implementation              |
 | Oracle            | `@oracle`            | Architecture review, tradeoff analysis      |

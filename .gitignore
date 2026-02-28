@@ -56,3 +56,5 @@ config.json
 .smart-coding-cache
 
 .vscode
+.next-docs
+.vexp
