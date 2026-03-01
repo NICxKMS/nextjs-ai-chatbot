@@ -63,25 +63,24 @@ Root layout (SERVER):
 
 Chat layout (SERVER):
   ┌─────────────────────────────────────────────┐
-  │ SidebarProvider(defaultOpen)                 │ Level 3 — chat layout
-  │   ├── Sidebar content                        │
-  │   └── SidebarInset                           │
-  │         └── PendingChatsProvider          │ Level 4 — chat layout
+  │ PendingChatsProvider                         │ Level 3 — chat layout
+  │   └── SidebarProvider(defaultOpen)           │ Level 4 — chat layout
+  │         ├── Sidebar content                  │
+  │         └── SidebarInset                     │
   │               └── {children}                 │
   └─────────────────────────────────────────────┘
 
 Chat page (inside {children}):
   ┌─────────────────────────────────────────────┐
-  │ SettingsProvider                              │ Level 5 — page only
-  │   └── ChatStreamProvider                     │ Level 6 — page only
-  │         ├── ChatShell                         │
-  │         │   └── ChatSessionContext (inline, level 7) │
-  │         │         ├── ChatHeader              │
-  │         │         ├── Messages                │
-  │         │         ├── MultimodalInput          │
-  │         │         └── ArtifactPanel           │
-  │         ├── StreamBridge                 │
-  │         └── VoteResolver                      │
+  │ ChatStreamProvider                             │ Level 5 — page only
+  │       ├── ChatShell                         │
+  │       │   └── ChatSessionContext (inline, level 6) │
+  │       │         ├── ChatHeader              │
+  │       │         ├── Messages                │
+  │       │         ├── MultimodalInput          │
+  │       │         └── ArtifactPanel           │
+  │       ├── StreamBridge                 │
+  │       └── VoteResolver                      │
   └─────────────────────────────────────────────┘
 ```
 
@@ -284,16 +283,7 @@ export function useSettingsSetter() {
 }
 ```
 
-**Why no `SettingsProvider` needed?** The store is module-level. Any component can import `useSettings()` directly. A provider wrapper is optional (for organizational clarity in the component tree) but technically unnecessary.
-
-**If `SettingsProvider` IS used:** It's a thin wrapper that renders `{children}` and exists purely for the visual hierarchy in the component tree. It adds zero React context overhead:
-
-```tsx
-// Optional wrapper — for tree clarity only
-export function SettingsProvider({ children }: { children: React.ReactNode }) {
-  return <>{children}</>
-}
-```
+**Why no provider needed?** The store is module-level. Any component can import `useSettings()` directly — no Context provider necessary. This is the simplest pattern with zero React re-render overhead.
 
 ---
 

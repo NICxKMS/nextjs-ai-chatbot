@@ -522,7 +522,7 @@ Phase 1: Initial Server Render
             getCachedChat(id),     // cacheTag('chat:{id}')
             getVotes(id)           // returns Promise (deferred)
           ])
-          Renders: SettingsProvider → ChatStreamProvider → ChatShell
+          Renders: ChatStreamProvider → ChatShell
           Passes: initialMessages, initialChatModel as props
 
 Phase 2: Client Hydration

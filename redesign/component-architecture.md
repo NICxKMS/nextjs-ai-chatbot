@@ -73,16 +73,16 @@ app/layout.tsx                                                    SERVER
     │     <>
     │       <NoticeHandler />
     │       <Script src="/pyodide/pyodide.js" strategy="lazyOnload" />
-    │       <SidebarProvider defaultOpen={sidebarOpen}>
-    │         <Suspense fallback={<SidebarSkeleton />}>
-    │           <SidebarShell session={session} />
-    │         </Suspense>
-    │         <SidebarInset>
-    │           <PendingChatsProvider>
+    │       <PendingChatsProvider>
+    │         <SidebarProvider defaultOpen={sidebarOpen}>
+    │           <Suspense fallback={<SidebarSkeleton />}>
+    │             <SidebarShell session={session} />
+    │           </Suspense>
+    │           <SidebarInset>
     │             {children}
-    │           </PendingChatsProvider>
-    │         </SidebarInset>
-    │       </SidebarProvider>
+    │           </SidebarInset>
+    │         </SidebarProvider>
+    │       </PendingChatsProvider>
     │     </>
     │   )
     │ }
@@ -99,73 +99,73 @@ app/layout.tsx                                                    SERVER
     │   │ Next.js <Script> component — no 'use client' needed
     │   │ strategy="lazyOnload" — non-blocking
     │
-    ├── SidebarProvider                                            'use client'
-    │   │ Purpose: Sidebar open/close state + cookie persistence
-    │   │ Scope: Chat layout (sidebar + main content)
-    │   │ Why client: useState, keyboard shortcut listener
-    │   │ Source: shadcn/ui sidebar primitive
+    ├── PendingChatsProvider                                       'use client'
+    │   │ Purpose: Optimistic UI for chat CRUD
+    │   │ Scope: Entire chat layout (sidebar + pages)
+    │   │ Why here: Both sidebar (reads) and chat pages (writes) need access
+    │   │ Survives: Chat-to-chat navigation (layout-level)
+    │   │ API: add(chat), remove(id), updateTitle(id, title)
+    │   │ Fixes: IV-2 (single communication channel)
     │   │
-    │   ├── Suspense boundary
-    │   │   │ Fallback: <SidebarSkeleton />
-    │   │   │ Purpose: PPR — sidebar shell streams when ready
-    │   │   │
-    │   │   └── SidebarShell                                      SERVER (async)
-    │   │       │ Purpose: Fetch initial sidebar data, render structure
-    │   │       │ Fetches: Chat history (first 20), session
-    │   │       │ Uses: 'use cache' + cacheTag('chats:{userId}')
-    │   │       │ Renders: Brand header, new-chat button, history list, user nav
-    │   │       │ Fixes: I-2, II-1 (server-fetched, no waterfall)
-    │   │       │
-    │   │       │ CODE SKETCH:
-    │   │       │ ```tsx
-    │   │       │ async function SidebarShell({ session }) {
-    │   │       │   'use cache'
-    │   │       │   cacheTag(`chats:${session.user.id}`)
-    │   │       │   cacheLife('seconds')
-    │   │       │   const chats = await getChatsByUserId(session.user.id, { limit: 21 })
-    │   │       │   const hasMore = chats.length > 20
-    │   │       │   return (
-    │   │       │     <Sidebar>
-    │   │       │       <SidebarHeader>...</SidebarHeader>
-    │   │       │       <SidebarContent>
-    │   │       │         <SidebarHistoryClient
-    │   │       │           initialChats={chats.slice(0, 20)}
-    │   │       │           initialHasMore={hasMore}
-    │   │       │         />
-    │   │       │       </SidebarContent>
-    │   │       │       <SidebarFooter>
-    │   │       │         <SidebarUserNav session={session} />
-    │   │       │       </SidebarFooter>
-    │   │       │     </Sidebar>
-    │   │       │   )
-    │   │       │ }
-    │   │       │ ```
-    │   │       │
-    │   │       ├── SidebarHistoryClient                          'use client'
-    │   │       │   │ Purpose: Render chat list, handle pagination
-    │   │       │   │ Props: initialChats, initialHasMore
-    │   │       │   │ Why client: useSWRInfinite (pagination), click handlers
-    │   │       │   │ Pattern: Initial data from server, SWR for subsequent pages
-    │   │       │   │ Reads: PendingChatsProvider (merges optimistic entries)
-    │   │       │   │
-    │   │       │   └── SidebarHistoryItem (× N)                  'use client'
-    │   │       │       Purpose: Single chat item with rename, delete actions
-    │   │       │       Why client: onClick, dropdown menu state
-    │   │       │
-    │   │       └── SidebarUserNav                                'use client'
-    │   │           Purpose: User avatar, theme toggle, logout
-    │   │           Why client: onClick, theme toggle, dropdown state
-    │   │
-    │   └── SidebarInset                                          SERVER (passthrough)
-    │       │ Pure layout wrapper from shadcn/ui sidebar
+    │   └── SidebarProvider                                            'use client'
+    │       │ Purpose: Sidebar open/close state + cookie persistence
+    │       │ Scope: Chat layout (sidebar + main content)
+    │       │ Why client: useState, keyboard shortcut listener
+    │       │ Source: shadcn/ui sidebar primitive
     │       │
-    │       └── PendingChatsProvider                           'use client'
-    │           │ Purpose: Optimistic UI for chat CRUD
-    │           │ Scope: All chat pages within SidebarInset
-    │           │ Why here: Sidebar reads it, chat pages write to it
-    │           │ Survives: Chat-to-chat navigation (layout-level)
-    │           │ API: add(chat), remove(id), updateTitle(id, title)
-    │           │ Fixes: IV-2 (single communication channel)
+    │       ├── Suspense boundary
+    │       │   │ Fallback: <SidebarSkeleton />
+    │       │   │ Purpose: PPR — sidebar shell streams when ready
+    │       │   │
+    │       │   └── SidebarShell                                      SERVER (async)
+    │       │       │ Purpose: Fetch initial sidebar data, render structure
+    │       │       │ Fetches: Chat history (first 20), session
+    │       │       │ Uses: 'use cache' + cacheTag('chats:{userId}')
+    │       │       │ Renders: Brand header, new-chat button, history list, user nav
+    │       │       │ Fixes: I-2, II-1 (server-fetched, no waterfall)
+    │       │       │
+    │       │       │ CODE SKETCH:
+    │       │       │ ```tsx
+    │       │       │ async function SidebarShell({ session }) {
+    │       │       │   'use cache'
+    │       │       │   cacheTag(`chats:${session.user.id}`)
+    │       │       │   cacheLife('seconds')
+    │       │       │   const chats = await getChatsByUserId(session.user.id, { limit: 21 })
+    │       │       │   const hasMore = chats.length > 20
+    │       │       │   return (
+    │       │       │     <Sidebar>
+    │       │       │       <SidebarHeader>...</SidebarHeader>
+    │       │       │       <SidebarContent>
+    │       │       │         <SidebarHistoryClient
+    │       │       │           initialChats={chats.slice(0, 20)}
+    │       │       │           initialHasMore={hasMore}
+    │       │       │         />
+    │       │       │       </SidebarContent>
+    │       │       │       <SidebarFooter>
+    │       │       │         <SidebarUserNav session={session} />
+    │       │       │       </SidebarFooter>
+    │       │       │     </Sidebar>
+    │       │       │   )
+    │       │       │ }
+    │       │       │ ```
+    │       │       │
+    │       │       ├── SidebarHistoryClient                          'use client'
+    │       │       │   │ Purpose: Render chat list, handle pagination
+    │       │       │   │ Props: initialChats, initialHasMore
+    │       │       │   │ Why client: useSWRInfinite (pagination), click handlers
+    │       │       │   │ Pattern: Initial data from server, SWR for subsequent pages
+    │       │       │   │ Reads: PendingChatsProvider (merges optimistic entries)
+    │       │       │   │
+    │       │       │   └── SidebarHistoryItem (× N)                  'use client'
+    │       │       │       Purpose: Single chat item with rename, delete actions
+    │       │       │       Why client: onClick, dropdown menu state
+    │       │       │
+    │       │       └── SidebarUserNav                                'use client'
+    │       │           Purpose: User avatar, theme toggle, logout
+    │       │           Why client: onClick, theme toggle, dropdown state
+    │       │
+    │       └── SidebarInset                                          SERVER (passthrough)
+    │           │ Pure layout wrapper from shadcn/ui sidebar
     │           │
     │           └── {children}    ← Chat pages
 
@@ -179,18 +179,16 @@ app/layout.tsx                                                    SERVER
     │     const session = await getAppSession()
     │     const models = await getAvailableModels()
     │     return (
-    │       <SettingsProvider>
-    │         <ChatStreamProvider>
-    │           <ChatShell
-    │             id={id}
-    │             initialMessages={[]}
-    │             initialChatModel={getDefaultModel(session)}
-    │             isReadonly={false}
-    │             availableModels={models}
-    │           />
-    │           <StreamBridge id={id} />
-    │         </ChatStreamProvider>
-    │       </SettingsProvider>
+    │       <ChatStreamProvider>
+    │         <ChatShell
+    │           id={id}
+    │           initialMessages={[]}
+    │           initialChatModel={getDefaultModel(session)}
+    │           isReadonly={false}
+    │           availableModels={models}
+    │         />
+    │         <StreamBridge id={id} />
+    │       </ChatStreamProvider>
     │     )
     │   }
     │   ```
@@ -217,21 +215,19 @@ app/layout.tsx                                                    SERVER
     │
     │   RENDERING:
     │   ```tsx
-    │   <SettingsProvider>
-    │     <ChatStreamProvider>
-    │       <ChatShell
-    │         id={params.id}
-    │         initialMessages={chat.messages}
-    │         initialChatModel={chat.model}
-    │         isReadonly={isReadonly}
-    │         availableModels={models}
-    │       />
-    │       <StreamBridge id={params.id} />
-    │       <Suspense>
-    │         <VoteResolver chatId={params.id} votesPromise={votesPromise} />
-    │       </Suspense>
-    │     </ChatStreamProvider>
-    │   </SettingsProvider>
+    │   <ChatStreamProvider>
+    │     <ChatShell
+    │       id={params.id}
+    │       initialMessages={chat.messages}
+    │       initialChatModel={chat.model}
+    │       isReadonly={isReadonly}
+    │       availableModels={models}
+    │     />
+    │     <StreamBridge id={params.id} />
+    │     <Suspense>
+    │       <VoteResolver chatId={params.id} votesPromise={votesPromise} />
+    │     </Suspense>
+    │   </ChatStreamProvider>
     │   ```
     │
     │   Fixes: II-2 (parallel fetches), V-2 (promise-passing for votes)
@@ -395,7 +391,7 @@ Every `'use client'` boundary and why it exists:
 | **SessionProvider** | Session state, guest bootstrap effect | No — client needs auth context |
 | **SidebarProvider** | Open/close state, keyboard shortcuts | No — interactive toggle |
 | **PendingChatsProvider** | Optimistic state management | No — React state management |
-| **SettingsProvider** | localStorage reads, state | No — browser API |
+
 | **ChatStreamProvider** | SSE subscription, state | No — streaming requires client |
 | **NoticeHandler** | useSearchParams, useEffect | No — but extracted to prevent contamination |
 | **SidebarHistoryClient** | SWR pagination, click handlers | No — interactive list |
@@ -442,18 +438,19 @@ Root Layout (SERVER)                          app/layout.tsx
 └── Chat Layout (SERVER, async)               app/(chat)/layout.tsx
     - NoticeHandler (client island)
     - Script (pyodide, lazy)
+    - PendingChatsProvider (wraps everything)
     - SidebarProvider(defaultOpen)
     - Suspense → SidebarShell (server, async)
-    - SidebarInset → PendingChatsProvider → {children}
+    - SidebarInset → {children}
     - Error boundary: app/(chat)/error.tsx
 
     ├── New Chat Page (SERVER)                app/(chat)/page.tsx
-    │   - SettingsProvider → ChatStreamProvider
+    │   - ChatStreamProvider
     │   - ChatShell (empty state)
     │   - StreamBridge
     │
     └── Existing Chat Page (SERVER)           app/(chat)/chat/[id]/page.tsx
-        - SettingsProvider → ChatStreamProvider
+        - ChatStreamProvider
         - ChatShell (with initialMessages)
         - StreamBridge
         - Suspense → VoteResolver (deferred)
@@ -487,7 +484,6 @@ export default async function RootLayout({ children }) {
 **What's NOT here:**
 - ~~SWRConfig~~ — SWR only used in specific features, configure at point of use
 - ~~TooltipProvider~~ — moved to point of consumption (sidebar, chat header)
-- ~~SettingsProvider~~ — page-scoped, not app-wide
 - ~~ChatStreamProvider~~ — page-scoped, not app-wide
 
 **Fixes:** I-5 (TooltipProvider at root), V-3 (providers too high)
@@ -505,16 +501,16 @@ export default async function ChatLayout({ children }) {
     <>
       <NoticeHandler />
       <Script src="/pyodide/pyodide.js" strategy="lazyOnload" />
-      <SidebarProvider defaultOpen={sidebarOpen}>
-        <Suspense fallback={<SidebarSkeleton />}>
-          <SidebarShell session={session} />
-        </Suspense>
-        <SidebarInset>
-          <PendingChatsProvider>
+      <PendingChatsProvider>
+        <SidebarProvider defaultOpen={sidebarOpen}>
+          <Suspense fallback={<SidebarSkeleton />}>
+            <SidebarShell session={session} />
+          </Suspense>
+          <SidebarInset>
             {children}
-          </PendingChatsProvider>
-        </SidebarInset>
-      </SidebarProvider>
+          </SidebarInset>
+        </SidebarProvider>
+      </PendingChatsProvider>
     </>
   )
 }
@@ -536,23 +532,16 @@ export default async function ChatLayout({ children }) {
 export default async function ChatPage({ params }) {
   // ... data fetching ...
   return (
-    <SettingsProvider>
-      <ChatStreamProvider>
-        <ChatShell id={id} initialMessages={messages} ... />
-        <StreamBridge id={id} />
-        <Suspense>
-          <VoteResolver chatId={id} votesPromise={votesPromise} />
-        </Suspense>
-      </ChatStreamProvider>
-    </SettingsProvider>
+    <ChatStreamProvider>
+      <ChatShell id={id} initialMessages={messages} ... />
+      <StreamBridge id={id} />
+      <Suspense>
+        <VoteResolver chatId={id} votesPromise={votesPromise} />
+      </Suspense>
+    </ChatStreamProvider>
   )
 }
 ```
-
-**Why SettingsProvider is here (page-level):**
-- Only chat pages need settings context
-- Settings don't need to survive navigation (localStorage persists independently)
-- Keeps sidebar free from settings re-renders
 
 **Why ChatStreamProvider is here (page-level):**
 - Highest-frequency updates in the app (~10-20 deltas/sec during streaming)
@@ -598,7 +587,7 @@ export interface ChatSessionValue {
 ### What ChatSessionContext Does NOT Hold
 
 - **Artifact state** — lives in `artifactStore` (useSyncExternalStore, separate)
-- **Settings** — lives in `SettingsProvider` (separate context)  
+- **Settings** — lives in `useSettings()` (module-level store, no provider needed)  
 - **ChatStream raw data** — lives in `ChatStreamProvider` (separate context)
 - **Sidebar state** — lives in `SidebarProvider` (layout-level)
 - **Votes** — lives in `useVotes` hook (per-message, local)

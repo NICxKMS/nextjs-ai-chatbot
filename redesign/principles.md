@@ -107,8 +107,8 @@ features/artifacts/ → lib/ai/artifact-handlers.ts (registerArtifactHandler)
 **Correct scoping:**
 ```
 Root layout:     ThemeProvider → SessionProvider            # App-wide concerns
-Chat layout:     SidebarProvider → PendingChatsProvider  # Layout-level, survive nav
-Chat page:       SettingsProvider → ChatStreamProvider   # Page-level, reset on nav
+Chat layout:     PendingChatsProvider → SidebarProvider  # Layout-level, survive nav
+Chat page:       ChatStreamProvider                      # Page-level, reset on nav
 Chat component:  ChatSessionContext.Provider (inline)           # Component-level
 ```
 

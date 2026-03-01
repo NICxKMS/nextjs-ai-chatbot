@@ -178,10 +178,10 @@ export { renameChat } from './actions/rename-chat'
 | Aspect | Details |
 |--------|---------|
 | **Owns** | Settings panel, settings state (useSyncExternalStore + localStorage) |
-| **Components** | SettingsPanel, SettingsProvider (optional thin wrapper) |
+| **Components** | SettingsPanel |
 | **Hooks** | `useSettings`, `useSettingsSetter` |
 
-**Exports:** `SettingsPanel`, `SettingsProvider`, `useSettings`, `useSettingsSetter`, `settingsStore`  
+**Exports:** `SettingsPanel`, `useSettings`, `useSettingsSetter`, `settingsStore`  
 **Imports from lib/:** None (leaf feature)
 
 ---
@@ -530,7 +530,6 @@ app/ pages
   ├── imports features/sidebar/ (SidebarShell, PendingChatsProvider)
   ├── imports features/auth/ (SessionProvider)
   ├── imports features/models/ (getAvailableModels)
-  ├── imports features/settings/ (SettingsProvider)
   └── imports features/voting/ (VoteButtons — via page)
 
 features/chat/
