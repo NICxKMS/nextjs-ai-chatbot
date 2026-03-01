@@ -1,7 +1,13 @@
+> **Updated per redesign audit (2026-03-01)**
+
 # API Integration
 
 > Every client→server communication point: fetch calls, SWR configurations,
 > SSE/streaming connections, file uploads, and auth cookie handling.
+> Updated to reflect: Server Actions replacing some Route Handlers,
+> artifact naming, ChatStreamProvider, useOptimistic for votes/visibility,
+> proxy.ts replacing middleware.ts, removal of credit/quota/gateway APIs,
+> title polling removed (server-awaited single channel).
 
 ---
 
@@ -11,80 +17,76 @@
 
 | Endpoint | Method | Client Caller | Transport | Auth |
 |----------|--------|---------------|-----------|------|
-| `/api/chat` | POST | `useChat` (AI SDK) | SSE via `DefaultChatTransport` | Cookie (sb_token or guest_token) |
+| `/api/chat` | POST | `useChat` (AI SDK) via `useChatSession` | SSE via `DefaultChatTransport` | Cookie (sb_token or guest_token) |
 
-### REST
+### REST (Route Handlers)
 
-| Endpoint | Method | Client Caller | SWR Key | Auth |
+| Endpoint | Method | Client Caller | Purpose | Auth |
 |----------|--------|---------------|---------|------|
-| `/api/history` | GET | `SidebarHistory` | `useSWRInfinite` pagination keys | Cookie |
-| `/api/history` | DELETE | `AppSidebar` delete all | Manual fetch + SWR mutate | Cookie |
-| `/api/history/{id}` | DELETE | `SidebarHistoryItem` | Manual fetch + SWR mutate | Cookie |
-| `/api/chat/[id]` | DELETE | `SidebarHistoryItem` / route handler | Manual fetch | Cookie |
-| `/api/document` | GET | `DocumentPreview`, `Artifact` | `"/api/document?id={id}"` | Cookie |
-| `/api/document` | POST | `Artifact` (debounced save) | Manual fetch | Cookie |
-| `/api/document` | DELETE | `VersionFooter` (restore) | Manual fetch + SWR mutate | Cookie |
-| `/api/vote` | PATCH | `MessageActions` | `"/api/vote?chatId={chatId}"` + optimistic | Cookie |
-| `/api/suggestions` | GET | `Artifact` (text) | Fetched by suggestion tool handler | Cookie |
-| `/api/files/upload` | POST | `MultimodalInput` | Manual fetch (FormData) | Cookie |
-| `/api/health` | GET | (external monitors) | — | None |
-| `/api/auth/exchange` | POST | `AuthForm` (login/register) | Manual fetch | None (creates session) |
-| `/api/auth/guest` | POST | `AuthProvider` (auto) | Manual fetch | None (creates session) |
-| `/api/auth/logout` | POST | `SidebarUserNav` | Manual fetch | Cookie |
+| `/api/history` | GET | `SidebarHistoryClient` (useSWRInfinite) | Paginated chat list | Cookie |
+| `/api/artifact` | GET | `ArtifactPreview`, `ArtifactPanel` | Fetch artifact versions | Cookie |
+| `/api/artifact` | POST | `ArtifactPanel` (debounced save) | Save user-edited artifact version | Cookie |
+| `/api/artifact` | DELETE | `VersionFooter` (restore) | Delete later versions | Cookie |
+| `/api/suggestions` | GET | `ArtifactPanel` (text) | Fetch saved suggestions | Cookie |
+| `/api/files/upload` | POST | `MultimodalInput` | Upload file to Vercel Blob | Cookie |
+| `/api/health` | GET | External monitors | Health check | None |
+| `/api/auth/exchange` | POST | `AuthForm` (login/register) | Exchange Supabase token for cookie | None |
+| `/api/auth/guest` | POST | `SessionProvider` (auto) | Create guest session | None |
+| `/api/auth/logout` | POST | `SidebarUserNav` | Clear session cookie | Cookie |
+
+### Server Actions (Mutations)
+
+| Action | Client Caller | Purpose | Revalidation |
+|--------|---------------|---------|--------------|
+| `deleteChat` | `SidebarHistoryItem` dropdown | Delete single chat | `updateTag('chats:{userId}')` |
+| `deleteAllChats` | `AppSidebar` dropdown | Delete all chats | `updateTag('chats:{userId}')` |
+| `deleteTrailingMessages` | `MessageEditor` | Delete messages after edit point | `updateTag('chat:{id}')` |
+| `voteOnMessage` | `VoteButtons` | Upvote/downvote message | `updateTag('votes:{chatId}')` |
+| `updateChatVisibility` | `VisibilitySelector` | Toggle public/private | `updateTag('chat:{id}')` + `updateTag('chats:{userId}')` |
+| `renameChat` | `SidebarHistoryItem` dropdown | Rename chat | `updateTag('chats:{userId}')` |
+
+> **Removed:** `PATCH /api/vote` (→ Server Action), `DELETE /api/history` (→ Server Action),
+> `DELETE /api/chat/[id]` (→ Server Action). Mutations use Server Actions with `updateTag`.
 
 ---
 
 ## 2. SWR Configurations
 
-### Global SWR Config (Root Layout)
-
-```typescript
-{
-  dedupingInterval: 10_000,          // 10s dedup
-  revalidateOnFocus: false,
-  revalidateOnReconnect: false,
-  refreshWhenHidden: false,
-  refreshWhenOffline: false,
-  revalidateIfStale: true,
-}
-```
-
 ### SWR Keys & Fetchers
 
 | Key Pattern | Data Type | Fetcher | Component |
 |-------------|-----------|---------|-----------|
-| `"artifact"` | `UIArtifact` | `null` (no fetcher — client-only state) | `useArtifact`, `DataStreamHandler`, `Artifact`, `DocumentPreview` |
-| `"artifact-metadata-{docId}"` | Document metadata | `null` (no fetcher) | Artifact components |
-| `"{chatId}-visibility"` | `"public" \| "private"` | `null` (no fetcher — optimistic) | `useChatVisibility`, `VisibilitySelector` |
-| `"messages:should-scroll"` | `boolean` | `null` (no fetcher) | `useScrollToBottom` |
-| `"/api/document?id={id}"` | `Document[]` | `fetch(url).json()` | `DocumentPreview`, `Artifact` |
-| History pagination | `{ chats, hasMore }` | `fetch(url).json()` | `SidebarHistory` |
+| History pagination | `{ chats, hasMore }` | `fetch(url).json()` | `SidebarHistoryClient` |
+| `"/api/artifact?id={id}"` | `Artifact[]` | `fetch(url).json()` | `ArtifactPreview`, `ArtifactPanel` |
+
+> **Removed SWR keys:**
+> - ~~`"artifact"`~~ — replaced by `artifactStore` (useSyncExternalStore)
+> - ~~`"artifact-metadata-{id}"`~~ — no longer needed
+> - ~~`"{chatId}-visibility"`~~ — replaced by `useOptimistic`
+> - ~~`"/api/vote?chatId={chatId}"`~~ — replaced by Server Action + `useOptimistic`
+> - ~~`"messages:should-scroll"`~~ — useRef-based scroll (no SWR)
 
 ### SWR Infinite (Sidebar History)
 
 ```typescript
 // Key generator
 function getChatHistoryPaginationKey(index, previousData) {
-  if (previousData && !previousData.hasMore) return null;  // End of pagination
+  if (previousData && !previousData.hasMore) return null;
   return `/api/history?limit=20&offset=${index * 20}`;
 }
 
-// Usage
+// Usage in SidebarHistoryClient
 const { data, size, setSize, mutate } = useSWRInfinite(
   getChatHistoryPaginationKey,
   fetcher,
-  { revalidateFirstPage: true }
+  {
+    fallbackData: [{ chats: initialChats, hasMore: initialHasMore }],
+    revalidateFirstPage: true,
+  }
 );
 ```
 
-### SWR Optimistic Mutations
-
-| Operation | Key | Optimistic Update | Rollback |
-|-----------|-----|-------------------|----------|
-| Visibility toggle | `"{chatId}-visibility"` | `mutate(type, false)` | `mutate(initialVisibility)` + toast |
-| Vote | `"/api/vote?chatId={chatId}"` | Update vote in cached array | Revert on error |
-| Delete chat | History pages | Filter out chat from cached pages | N/A (redirect on success) |
-| Document restore | `"/api/document?id={id}"` | Truncate versions array | N/A |
+> **Key change:** `fallbackData` populated from server-rendered `SidebarShell` — no waterfall on initial load.
 
 ---
 
@@ -101,11 +103,10 @@ Flow:
   Client → POST JSON body → Server
   Server → SSE stream → Client
 
-Custom data parts (via dataStream.write()):
-  data-id, data-title, data-kind, data-clear,
-  data-textDelta, data-codeDelta, data-sheetDelta, data-imageDelta,
-  data-finish, data-suggestion, data-chatTitle, data-usage,
-  data-appendMessage
+Custom data parts (via ChatStream.writeData()):
+  artifact-id, artifact-title, artifact-kind, artifact-clear,
+  artifact-textDelta, artifact-codeDelta, artifact-sheetDelta, artifact-imageDelta,
+  artifact-finish, artifact-suggestion, chat-title
 
 AI SDK standard parts:
   text-delta, reasoning, tool-call, tool-result,
@@ -115,37 +116,36 @@ Timeout: 55s (AbortSignal.timeout on server), 60s maxDuration on route
 
 Client processing:
   - useChat hook processes standard AI SDK parts automatically
-  - useChat.onData callback processes custom data parts
-  - DataStreamProvider accumulates custom parts in state
-  - DataStreamHandler processes accumulated deltas → updates useArtifact SWR
+  - useChat.onData callback routes custom data parts:
+    → chat-title → PendingChats.updateTitle()
+    → artifact-* → ChatStreamProvider dispatch
+  - ChatStreamProvider (StateCtx) accumulates artifact parts (RAF batched)
+  - StreamBridge processes accumulated parts → artifactStore.setState()
 ```
 
 ### Adaptive Throttle
 
 ```typescript
-// Client-side throttle based on connection speed
 const adaptiveThrottle = (() => {
   if (typeof navigator === 'undefined') return 100;
   const conn = (navigator as any).connection;
   if (!conn) return 100;
-  const dl = conn.downlink;           // Mbps
-  if (dl >= 10) return 50;            // Fast
-  if (dl >= 1) return 100;            // Medium
-  return 150;                         // Slow
+  const dl = conn.downlink;
+  if (dl >= 10) return 50;     // Fast
+  if (dl >= 1) return 100;     // Medium
+  return 150;                   // Slow
 })();
-
-// Applied to useChat hook
-experimental_throttle: adaptiveThrottle
 ```
 
 ### AbortController Usage
 
 ```typescript
-// Per-request AbortController in useChat custom fetch
-const controller = new AbortController();
-// Stop button: controller.abort()
-// Component unmount: controller.abort()
-// Server-side: AbortSignal.timeout(55_000) for AI completion
+// Per-request in useChatSession
+const abortControllerRef = useRef<AbortController | null>(null)
+
+// On send: abortControllerRef.current = new AbortController()
+// On stop/navigation: abortControllerRef.current?.abort()
+// Cleanup effect: artifactStore.reset() — synchronous, prevents stale state
 ```
 
 ---
@@ -155,13 +155,7 @@ const controller = new AbortController();
 ### Upload Flow
 
 ```typescript
-// MultimodalInput component
-const fileInputRef = useRef<HTMLInputElement>(null);
-
-// Hidden input trigger
-<input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} />
-
-// Upload handler (max 3 concurrent)
+// MultimodalInput → file input → handleFileChange
 async function handleFileChange(files: FileList) {
   const uploads = Array.from(files).map(async (file) => {
     const formData = new FormData();
@@ -182,7 +176,7 @@ async function handleFileChange(files: FileList) {
 
 ```typescript
 // Route: POST /api/files/upload
-// Auth: required
+// Auth: required (cookie)
 // Rate limit: upload (10/hour)
 // Storage: Vercel Blob (put())
 // Response: { url: string, pathname: string, contentType: string }
@@ -192,12 +186,7 @@ async function handleFileChange(files: FileList) {
 
 ```typescript
 // On submit, attachments become message parts:
-{
-  type: "file",
-  data: attachment.url,      // Vercel Blob URL
-  mimeType: attachment.contentType,
-  name: attachment.pathname,
-}
+{ type: "file", data: attachment.url, mimeType: attachment.contentType, name: attachment.pathname }
 ```
 
 ---
@@ -209,7 +198,7 @@ async function handleFileChange(files: FileList) {
 | Cookie | Set By | Validated By | TTL | Attributes |
 |--------|--------|-------------|-----|------------|
 | `sb_token` | `POST /api/auth/exchange` | `getAppSession()` | 7 days | httpOnly, secure, sameSite=lax, path=/ |
-| `guest_token` | `POST /api/auth/guest` (or proxy) | `getAppSession()` | 7 days (cookie), 1h (JWT) | httpOnly, secure, sameSite=lax, path=/ |
+| `guest_token` | `POST /api/auth/guest` (or proxy.ts) | `getAppSession()` | 7 days (cookie), 1h (JWT) | httpOnly, secure, sameSite=lax, path=/ |
 | `chat-model` | Client JS (`document.cookie`) | Server page components | Session | path=/ |
 | `sidebar_state` | Client (SidebarProvider) | Chat layout server component | Session | path=/ |
 
@@ -221,10 +210,10 @@ async function handleFileChange(files: FileList) {
 3. No valid token → null (redirect to login or auto-create guest)
 ```
 
-### Guest Token Rotation
+### Guest Token Rotation (proxy.ts)
 
 ```
-Every request (proxy.ts or middleware):
+Every request (proxy.ts):
   1. Read guest_token cookie
   2. Decode JWT, check exp claim
   3. If exp - now < 30 minutes:
@@ -233,50 +222,53 @@ Every request (proxy.ts or middleware):
   4. Pass through to Next.js
 ```
 
+> **Changed:** `middleware.ts` → `proxy.ts` (Next.js 16 convention).
+
 ### Auth Flow (Client-Side)
 
 ```
 Login:
   1. supabase.auth.signInWithPassword({ email, password })
-  2. POST /api/auth/exchange { accessToken: session.access_token }
+  2. POST /api/auth/exchange { accessToken }
   3. Server: jwtVerify → Set-Cookie sb_token → Return user
-  4. router.push('/') + router.refresh()
+  4. SessionProvider detects auth change (Supabase listener)
+  5. router.push('/') + router.refresh()
 
 Register:
   1. supabase.auth.signUp({ email, password })
-  2. If session returned: same exchange flow as login
+  2. If session returned: same exchange flow
   3. If no session (email confirm): redirect to /login
 
 Logout:
-  1. POST /api/auth/logout
-  2. Server: delete sb_token cookie
-  3. Client: supabase.auth.signOut()
-  4. Clear SWR cache (useSWRConfig().cache.clear())
-  5. router.push('/')
+  1. POST /api/auth/logout → delete sb_token cookie
+  2. Client: supabase.auth.signOut()
+  3. router.push('/')
 
 Guest Bootstrap:
-  1. AuthProvider detects no initialSession
-  2. POST /api/auth/guest
-  3. Server: sign guest JWT → Set-Cookie guest_token → Return session
-  4. AuthProvider.setSession(guestSession)
-  5. isNewSession = true (skips initial SWR history fetch)
+  1. SessionProvider detects no initialSession on mount
+  2. POST /api/auth/guest → sign JWT → Set-Cookie guest_token → Return session
+  3. setSession(guestSession)
 ```
 
 ---
 
 ## 6. Request/Response Patterns
 
-### Standard JSON Request
+### Standard JSON Request (Route Handler)
 
 ```typescript
-// Client
-const response = await fetch('/api/vote', {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ chatId, messageId, type }),
-});
-
+const response = await fetch('/api/artifact?id=' + artifactId);
+const versions = await response.json();
 // Auth: automatic via httpOnly cookie (no manual headers needed)
+```
+
+### Server Action Call
+
+```typescript
+// Client component
+const result = await voteOnMessage({ chatId, messageId, type: 'up' });
+if (!result.success) toast.error(result.error.message);
+// Returns ActionResult<T>, never throws
 ```
 
 ### Streaming Request (useChat)
@@ -285,17 +277,12 @@ const response = await fetch('/api/vote', {
 // AI SDK handles transport. Custom prepareSendMessagesRequest:
 {
   id: chatId,
-  message: messages.at(-1),  // Only latest message
+  message: messages.at(-1),          // Only latest message
   selectedChatModel: modelId,
   selectedVisibilityType: visibility,
   settings: {
-    sampling: { temperature, topP, maxOutputTokens },
-    systemPrompt,
-    enableReasoning,
-    reasoningBudget,
-    streamArtifacts,
-    autoScroll,
-    selectedModelId,
+    temperature, topP, maxOutputTokens,
+    systemPrompt, enableReasoning,
   },
 }
 ```
@@ -303,54 +290,28 @@ const response = await fetch('/api/vote', {
 ### Error Response Shape
 
 ```typescript
-// All API errors use ChatSDKError/AppError format:
-{
-  error: {
-    code: "rate_limit:chat:daily_limit_exceeded",
-    message: "Daily message limit exceeded",
-    status: 429,
-  }
-}
+// Route Handler errors:
+{ error: { code: "rate_limit:chat:daily_limit_exceeded", message: "...", status: 429 } }
 
-// Client parses in useChat.onError:
-// 1. Parse response JSON
-// 2. Extract error code
-// 3. Show toast with user-friendly message
-// 4. Special handling for rate_limit, offline codes
-```
+// Server Action errors (ActionResult):
+{ success: false, error: { code: "UNAUTHORIZED", message: "Login required" } }
 
-### Cache Headers
-
-```typescript
-// GET /api/history response:
-'Cache-Control': 'private, max-age=0, s-maxage=10, stale-while-revalidate=30'
-// Private (user-specific), CDN caches 10s, stale-while-revalidate 30s
+// Client: toast.error(parsed.message) for both patterns
 ```
 
 ---
 
-## 7. Title Polling Pattern
+## 7. What's NOT in This API Surface
 
-After chat completion, the client polls for the confirmed title:
-
-```typescript
-// In useChat.onFinish:
-async function pollForTitle(chatId: string, maxAttempts = 5) {
-  for (let i = 0; i < maxAttempts; i++) {
-    await new Promise(r => setTimeout(r, 500));
-    const res = await fetch(`/api/chat?id=${chatId}`);
-    if (res.ok) {
-      const chat = await res.json();
-      if (chat.title) {
-        window.dispatchEvent(new Event('chat-title-updated'));
-        return;
-      }
-    }
-  }
-}
-```
-
-This pattern exists because:
-1. Title generation runs in parallel with streaming (non-blocking)
-2. The data-chatTitle stream part may arrive before DB persistence
-3. Polling confirms the title is persisted and triggers SWR revalidation
+| Removed | Reason |
+|---------|--------|
+| `PATCH /api/vote` | Replaced by `voteOnMessage()` Server Action + `useOptimistic` |
+| `DELETE /api/history` | Replaced by `deleteAllChats()` Server Action |
+| `DELETE /api/chat/[id]` | Replaced by `deleteChat()` Server Action |
+| Title polling (`GET /api/chat?id=` 5×500ms) | Title AWAITED server-side, delivered via `chat-title` stream part |
+| `window.dispatchEvent('chat-title-updated')` | Replaced by `PendingChats.updateTitle()` single channel |
+| Credit/quota/gateway APIs | No credit system in redesign |
+| `data-usage` stream part | No usage tracking |
+| `data-appendMessage` stream part | useChat manages messages natively |
+| SWR synthetic key `"artifact"` | Replaced by `artifactStore` (useSyncExternalStore) |
+| SWR key `"{chatId}-visibility"` | Replaced by `useOptimistic` in VisibilitySelector |

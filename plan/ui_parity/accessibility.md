@@ -1,5 +1,7 @@
 # Accessibility Patterns — UI Parity Reference
 
+> **Updated per redesign audit (2026-03-01)**
+
 > Every ARIA attribute, keyboard pattern, focus management, and screen reader consideration found in oldapp.
 
 ---
@@ -155,7 +157,7 @@ Source: `useIsMobile()` hook (768px breakpoint, debounced 100ms)
 
 ### Server-Side Detection
 
-- `x-device-type` header from middleware → `initialIsMobile` in chat layout
+- `x-device-type` header from `proxy.ts` *(redesign: renamed from middleware.ts)* → `initialIsMobile` in chat layout
 - Client-side `useIsMobile()` hydrates to actual viewport
 
 ### Component Guards

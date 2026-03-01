@@ -2,6 +2,9 @@
 
 > Final conventions for the new codebase. Feature collocation as the organizing principle.
 > Supersedes the v6 spec conventions where they conflict.
+>
+> **Updated per redesign audit (2026-03-01)**: Provider names, component names,
+> "artifact" terminology, proxy.ts convention, and state management patterns finalized.
 
 ---
 
@@ -18,33 +21,23 @@ nextjs-ai-chatbot/
 │   │   ├── page.tsx                  # New chat
 │   │   ├── chat/[id]/page.tsx        # Existing chat
 │   │   ├── layout.tsx
-│   │   ├── loading.tsx
 │   │   └── error.tsx
 │   ├── api/
-│   │   ├── chat/
-│   │   │   ├── route.ts             # POST: streaming chat
-│   │   │   └── [id]/
-│   │   │       ├── messages/route.ts # GET: paginated messages
-│   │   │       └── reconnect/route.ts# GET: SSE reconnect
-│   │   ├── artifact/route.ts        # GET/POST/DELETE
-│   │   ├── files/upload/route.ts    # POST: file upload
-│   │   ├── health/route.ts          # GET: health check
-│   │   ├── history/route.ts         # GET/DELETE: chat history
-│   │   ├── suggestions/route.ts     # GET: AI suggestions
-│   │   ├── vote/route.ts            # PATCH: message voting
-│   │   └── auth/
-│   │       ├── callback/route.ts    # GET: OAuth callback
-│   │       ├── guest/route.ts       # POST: guest JWT
-│   │       └── logout/route.ts      # POST: session termination
-│   ├── layout.tsx                    # Root layout
+│   │   ├── chat/route.ts             # POST: streaming chat
+│   │   ├── artifact/route.ts         # POST: save artifact version
+│   │   ├── files/upload/route.ts     # POST: file upload
+│   │   ├── health/route.ts           # GET: health check
+│   │   ├── history/route.ts          # GET: paginated chat history
+│   │   └── suggestions/route.ts      # GET: AI suggestions
+│   ├── layout.tsx                    # Root layout (SERVER)
 │   ├── global-error.tsx
 │   └── globals.css
 │
 ├── features/                         # Feature modules — THE organizing principle
 │   ├── chat/
 │   │   ├── actions/                  # Server actions
-│   │   │   ├── stream-chat.ts
-│   │   │   └── save-message.ts
+│   │   │   ├── delete-chat.ts
+│   │   │   └── delete-all-chats.ts
 │   │   ├── components/               # Chat UI components
 │   │   │   ├── chat.tsx
 │   │   │   ├── messages.tsx
@@ -57,152 +50,165 @@ nextjs-ai-chatbot/
 │   │   │   ├── data-stream-provider.tsx
 │   │   │   └── suggested-actions.tsx
 │   │   ├── hooks/
-│   │   │   ├── use-messages.ts
+│   │   │   ├── use-chat-session.ts
+│   │   │   ├── use-chat-side-effects.ts
+│   │   │   ├── use-chat-session-context.ts
 │   │   │   └── use-scroll-to-bottom.ts
 │   │   ├── schemas/
 │   │   │   ├── chat.schema.ts
 │   │   │   └── message.schema.ts
 │   │   └── lib/
-│   │       ├── tools/                # AI tool definitions
-│   │       │   ├── weather.ts
-│   │       │   ├── create-document.ts
-│   │       │   ├── update-document.ts
-│   │       │   └── suggestions.ts
-│   │       └── prompts.ts
+│   │       ├── chat-callbacks.ts
+│   │       ├── process-stream-deltas.ts
+│   │       └── tools/                # AI tool definitions
+│   │           ├── weather.ts
+│   │           ├── create-artifact.ts
+│   │           ├── update-artifact.ts
+│   │           └── request-suggestions.ts
 │   │
 │   ├── artifacts/
-│   │   ├── actions/
-│   │   │   ├── create-artifact.ts
-│   │   │   └── update-artifact.ts
 │   │   ├── components/
 │   │   │   ├── artifact-panel.tsx
 │   │   │   ├── artifact-actions.tsx
-│   │   │   ├── artifact-close.tsx
+│   │   │   ├── artifact-close-button.tsx
 │   │   │   ├── artifact-error-boundary.tsx
-│   │   │   ├── create-artifact.tsx
-│   │   │   ├── document-preview.tsx
+│   │   │   ├── artifact-preview.tsx
 │   │   │   ├── version-footer.tsx
 │   │   │   └── editors/
 │   │   │       ├── text-editor.tsx
 │   │   │       ├── code-editor.tsx
 │   │   │       ├── image-editor.tsx
 │   │   │       └── sheet-editor.tsx
-│   │   ├── handlers/                 # Document handler factory + per-type
-│   │   │   ├── base.ts
-│   │   │   ├── text.ts
-│   │   │   ├── code.ts
-│   │   │   ├── image.ts
-│   │   │   └── sheet.ts
+│   │   ├── handlers/                 # Artifact handler registration + per-kind
+│   │   │   ├── index.ts              # Registers all handlers
+│   │   │   ├── text-handler.ts
+│   │   │   ├── code-handler.ts
+│   │   │   ├── image-handler.ts
+│   │   │   └── sheet-handler.ts
 │   │   ├── hooks/
-│   │   │   ├── use-artifact.ts
+│   │   │   ├── use-artifact.ts       # useSyncExternalStore-based
 │   │   │   └── use-artifact-selector.ts
+│   │   ├── lib/
+│   │   │   └── artifact-store.ts     # useSyncExternalStore store
 │   │   ├── schemas/
 │   │   │   └── artifact.schema.ts
 │   │   └── types/
-│   │       └── artifact.types.ts
+│   │       └── artifact.types.ts     # UIArtifact, ArtifactKind
 │   │
 │   ├── auth/
 │   │   ├── actions/
 │   │   │   ├── login.ts
 │   │   │   ├── register.ts
-│   │   │   ├── exchange.ts
 │   │   │   └── logout.ts
 │   │   ├── components/
-│   │   │   └── auth-form.tsx
+│   │   │   ├── auth-form.tsx
+│   │   │   └── session-provider.tsx    # SessionProvider (was AuthProvider)
+│   │   ├── lib/
+│   │   │   ├── session.ts             # getAppSession()
+│   │   │   └── guest.ts               # Guest bootstrap, token rotation
 │   │   ├── schemas/
 │   │   │   └── auth.schema.ts
-│   │   └── lib/
-│   │       └── session.ts            # getAppSession()
+│   │   └── types/
+│   │       └── auth.types.ts          # AppSession, User
 │   │
 │   ├── sidebar/
 │   │   ├── components/
-│   │   │   ├── app-sidebar.tsx
-│   │   │   ├── sidebar-history.tsx
+│   │   │   ├── sidebar-shell.tsx      # SERVER — async, fetches history
+│   │   │   ├── sidebar-history-client.tsx  # 'use client' — SWR pagination
 │   │   │   ├── sidebar-history-item.tsx
-│   │   │   └── sidebar-user-nav.tsx
-│   │   └── hooks/
-│   │       └── use-optimistic-chats.ts
+│   │   │   ├── sidebar-user-nav.tsx
+│   │   │   └── sidebar-skeleton.tsx
+│   │   ├── hooks/
+│   │   │   ├── use-pending-chats.ts
+│   │   │   └── use-sidebar-history.ts
+│   │   ├── actions/
+│   │   │   └── rename-chat.ts
+│   │   └── types/
+│   │       └── sidebar.types.ts
 │   │
 │   ├── settings/
 │   │   ├── components/
 │   │   │   └── settings-panel.tsx
 │   │   ├── hooks/
-│   │   │   └── use-settings.ts
-│   │   └── lib/
-│   │       ├── defaults.ts
-│   │       └── types.ts
+│   │   │   └── use-settings.ts        # useSyncExternalStore + localStorage
+│   │   └── types/
+│   │       └── settings.types.ts
 │   │
 │   ├── voting/
+│   │   ├── components/
+│   │   │   └── vote-buttons.tsx
+│   │   ├── hooks/
+│   │   │   └── use-votes.ts
 │   │   ├── actions/
 │   │   │   └── vote.ts
-│   │   └── schemas/
-│   │       └── vote.schema.ts
+│   │   └── types/
+│   │       └── vote.types.ts
+│   │
+│   ├── visibility/
+│   │   ├── components/
+│   │   │   └── visibility-selector.tsx
+│   │   ├── actions/
+│   │   │   └── update-visibility.ts
+│   │   └── types/
+│   │       └── visibility.types.ts
 │   │
 │   └── models/
 │       ├── components/
 │       │   └── model-selector.tsx
-│       └── lib/
-│           ├── catalog.ts
-│           └── discovery.ts
+│       ├── lib/
+│       │   └── models.ts              # Model catalog, `use cache` tagged
+│       └── types/
+│           └── model.types.ts
 │
 ├── components/                       # Truly shared UI ONLY
-│   ├── ai-elements/                  # Read-only AI primitives — NEVER MODIFY
-│   │   └── ... (30 files from external source)
-│   ├── ui/                           # shadcn/ui base components
-│   │   ├── button.tsx
-│   │   ├── input.tsx
-│   │   ├── dialog.tsx
-│   │   └── ...
-│   ├── theme-provider.tsx
-│   ├── sidebar-toggle.tsx
-│   └── icons.tsx
+│   └── ui/                           # shadcn/ui base components
+│       ├── button.tsx
+│       ├── input.tsx
+│       ├── dialog.tsx
+│       ├── sidebar.tsx
+│       ├── skeleton.tsx
+│       └── ...
 │
 ├── lib/                              # Cross-cutting infrastructure
 │   ├── data/                         # Shared data access (function-based)
 │   │   ├── chat.ts
+│   │   ├── artifact.ts               # Was document.ts — "artifact" everywhere
 │   │   ├── message.ts
-│   │   ├── document.ts
 │   │   ├── user.ts
 │   │   ├── vote.ts
-│   │   └── context.ts               # DataContext type
+│   │   └── suggestion.ts
 │   ├── db/
-│   │   ├── index.ts
 │   │   ├── client.ts
-│   │   ├── schema.ts
+│   │   ├── schema.ts                  # Artifact table (NOT Document)
 │   │   └── migrations/
 │   ├── cache/
-│   │   ├── index.ts
 │   │   ├── client.ts
 │   │   ├── keys.ts
+│   │   ├── revalidate.ts              # updateTag/revalidateTag utilities
 │   │   └── with-cache.ts
 │   ├── ai/
-│   │   ├── index.ts
-│   │   ├── providers.ts
-│   │   └── registry.ts
+│   │   ├── registry.ts               # AI provider registry (NO vercel-gateway)
+│   │   ├── artifact-handlers.ts       # Handler registry: register/get pattern
+│   │   ├── models.ts                  # Model definitions
+│   │   └── prompts.ts                # System prompts
 │   ├── auth/
-│   │   ├── index.ts
-│   │   └── config.ts
+│   │   └── session.ts                # getAppSession() infrastructure
 │   ├── errors/
-│   │   ├── index.ts
-│   │   ├── app-error.ts
-│   │   └── codes.ts
-│   ├── api/
-│   │   ├── guards.ts
-│   │   ├── validation.ts
-│   │   └── response.ts
-│   ├── rate-limit/
-│   │   └── config.ts
+│   │   ├── app-error.ts              # AppError class + codes
+│   │   └── codes.ts                   # Error code registry (NO activate_gateway)
 │   ├── types/
-│   │   ├── index.ts
-│   │   ├── models.types.ts          # Drizzle inferred types
-│   │   └── api.types.ts
+│   │   ├── artifact-handler.types.ts  # ArtifactHandler, ArtifactStreamWriter
+│   │   ├── pending-chats.types.ts     # PendingChatOperations
+│   │   ├── data-context.types.ts      # DataContext (userId, isGuest)
+│   │   └── result.types.ts            # ActionResult<T> for Server Actions
 │   ├── utils/
-│   │   └── index.ts
+│   │   ├── cn.ts                      # clsx + twMerge
+│   │   └── format.ts                  # Date/string formatting
 │   └── hooks/                        # ONLY truly generic hooks (2-3 max)
 │       ├── use-mobile.ts
 │       └── use-debounce.ts
 │
-├── middleware.ts                      # Edge: rate limiting + auth check
+├── proxy.ts                          # Next.js 16 proxy (was middleware.ts): auth guard + rate limiting
 ├── tests/
 │   ├── setup.ts
 │   ├── mocks/
@@ -218,16 +224,19 @@ nextjs-ai-chatbot/
 
 | Element | Convention | Example |
 |---------|-----------|---------|
-| Files & directories | `kebab-case` | `chat-header.tsx`, `data-stream/` |
-| Components | `PascalCase` | `ChatHeader`, `ModelSelector` |
-| Hooks | `camelCase` with `use` prefix | `useChat`, `useScrollToBottom` |
-| Functions | `camelCase` | `getChatById`, `formatDate` |
-| Server Actions | `camelCase` verb-first | `saveChat`, `deleteMessage` |
-| Constants | `SCREAMING_SNAKE_CASE` | `MAX_RETRIES`, `DEFAULT_MODEL` |
-| Types/Interfaces | `PascalCase` | `ChatMessage`, `ModelConfig` |
-| Zod schemas | `camelCase` with `Schema` suffix | `loginSchema`, `messageSchema` |
+| Files & directories | `kebab-case` | `chat-header.tsx`, `artifact-panel.tsx` |
+| Components | `PascalCase` | `ChatShell`, `ArtifactPanel`, `ModelSelector` |
+| Hooks | `camelCase` with `use` prefix | `useChatSession`, `useArtifact`, `useScrollToBottom` |
+| Functions | `camelCase` | `getChatById`, `getArtifactById`, `formatDate` |
+| Server Actions | `camelCase` verb-first | `deleteChat`, `voteOnMessage`, `updateVisibility` |
+| Constants | `SCREAMING_SNAKE_CASE` | `MAX_RETRIES`, `DEFAULT_CHAT_MODEL` |
+| Types/Interfaces | `PascalCase` | `ChatSessionValue`, `UIArtifact`, `ArtifactKind` |
+| Zod schemas | `camelCase` with `Schema` suffix | `chatSchema`, `loginSchema`, `artifactSchema` |
 | Route handlers | HTTP method exports | `GET`, `POST`, `DELETE` |
-| Data access fns | `camelCase` verb-noun | `getChatById`, `createChat` |
+| Data access fns | `camelCase` verb-noun | `getChatById`, `getArtifactById`, `saveArtifactVersion` |
+| Cache tags | `entity:{id}` template | `'chat:{id}'`, `'artifact:{id}'`, `'votes:{chatId}'` |
+| Data stream parts | `artifact-` or `chat-` prefix | `'artifact-textDelta'`, `'chat-title'` |
+| Revalidation fns | verb-entity | `invalidateChat()` (SA), `refreshChat()` (RH) |
 | Cache keys | `camelCase` factory | `cacheKeys.chat(id)` |
 
 ### File Suffixes

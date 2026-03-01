@@ -1,67 +1,65 @@
+> **Updated per redesign audit (2026-03-01)**
+
 # AI Integration
 
-> Complete documentation of AI SDK usage, DataStreamHandler event processing,
+> Complete documentation of AI SDK usage, StreamBridge event processing,
 > tool execution flow, artifact creation from AI, system prompt composition,
-> provider/model resolution, streaming protocol, and usage tracking.
+> provider/model resolution, and streaming protocol.
+> Updated to reflect: createArtifact/updateArtifact tools, handler registry,
+> ChatStreamProvider/StreamBridge, artifact-* stream part naming,
+> composeSystemPrompt(), processStreamDelta() pure function, no credit/usage tracking.
 
 ---
 
 ## 1. useChat Configuration
 
-The `useChat` hook from `@ai-sdk/react` is the core client-side integration point
-for chat functionality. Configured in the `Chat` component.
+The `useChat` hook from `@ai-sdk/react` is configured in the `useChatSession` hook,
+called within the `ChatShell` component.
 
 ### Hook Setup
 
 ```typescript
-const { messages, setMessages, handleSubmit, sendMessage, status, stop, reload } = useChat({
+// features/chat/hooks/use-chat-session.ts (inside ChatShell)
+const chatReturn = useChat({
   id: chatId,
   api: "/api/chat",
 
-  // Transport: DefaultChatTransport with custom request preparation
   transport: new DefaultChatTransport({
     api: "/api/chat",
     prepareSendMessagesRequest: ({ id, messages }) => ({
       id: chatId,
       message: messages.at(-1),              // Only the latest message
       selectedChatModel: currentModelId,
-      selectedVisibilityType: visibilityType,
-      settings: settingsSnapshot,           // From useSettingsSnapshot()
+      selectedVisibilityType: visibility,
+      settings: settingsSnapshot,           // From useSettings() module store
     }),
   }),
 
-  initialMessages,                          // Server-fetched for existing chats
+  initialMessages,
   experimental_throttle: adaptiveThrottle,  // 50/100/150ms by connection speed
   generateId: () => generateUUID(),
-  maxSteps: 5,                              // Max tool call round-trips
+  maxSteps: 5,
   sendExtraMessageFields: true,
 
-  // Custom data part handling
   onData: (data) => {
     for (const part of data) {
-      if (part.type === "data-chatTitle") {
-        updateOptimisticChat(chatId, { title: part.data });
+      if (part.type === "chat-title") {
+        pendingChats.updateTitle(chatId, part.content);
       }
-      if (part.type === "data-usage") {
-        setUsage(part.data);
+      // Artifact parts routed to ChatStreamProvider
+      if (part.type.startsWith("artifact-")) {
+        chatStreamDispatch.setChatStream([part]);
       }
     }
   },
 
-  // Post-completion handling
-  onFinish: (message) => {
-    // Poll for confirmed title (5 attempts, 500ms interval)
-    pollForTitle(chatId);
-    // Dispatch event for sidebar revalidation
-    window.dispatchEvent(new Event('chat-title-updated'));
+  onFinish: () => {
+    chatStreamDispatch.setChatStream(prev => []);  // Clear between messages
   },
 
-  // Error handling
   onError: (error) => {
-    // Parse ChatSDKError from response
-    // Show toast with user-friendly message
-    // Special handling: rate_limit → specific rate limit message
-    //                   offline → "connection lost" message
+    const parsed = parseStreamError(error);
+    toast.error(parsed.message);
   },
 });
 ```
@@ -84,65 +82,93 @@ const adaptiveThrottle = (() => {
 
 - **Only latest message sent**: `prepareSendMessagesRequest` sends only the last message,
   not full history. Server loads history from DB/cache.
-- **Custom fetch**: Wraps `AbortController` for stop/cancel functionality.
 - **URL update**: On first message, `history.replaceState` updates URL to `/chat/{chatId}`.
-- **Optimistic sidebar**: On first message, `addOptimisticChat()` creates sidebar entry.
+- **Optimistic sidebar**: On first message, `PendingChats.add()` creates sidebar entry.
+- **onData routing**: `chat-title` → PendingChats, `artifact-*` → ChatStreamProvider.
+- **onFinish cleanup**: ChatStream cleared to prevent memory growth.
 
 ---
 
-## 2. DataStreamHandler Event Processing
+## 2. StreamBridge — Thin Bridge Pattern
 
-`DataStreamHandler` is a client component that renders `null`. It bridges the SSE
-data stream to client-side SWR state.
+`StreamBridge` is a client component (~20 lines) that renders `null`. It connects
+`ChatStreamProvider` state to `artifactStore` via a **pure function**.
 
 ### Architecture
 
 ```
-SSE Stream → useChat → DataStreamProvider (context)
-                            ↓
-                    DataStreamHandler (effect)
-                            ↓ reads dataStream state
-                    Processes deltas sequentially
-                            ↓
-                    setArtifact() (SWR mutate)
-                            ↓
-                    Artifact panel re-renders
+SSE Stream → useChat.onData → ChatStreamProvider (DispatchCtx)
+                                    ↓ (RAF batched)
+                              ChatStreamProvider (StateCtx)
+                                    ↓
+                              StreamBridge (useEffect)
+                                    ↓
+                              processStreamDelta() (PURE FUNCTION)
+                                    ↓
+                              artifactStore.setState() (useSyncExternalStore)
+                                    ↓
+                              Subscriber components re-render (selector-based)
 ```
 
-### Delta Processing Logic
+### StreamBridge Component (~20 lines)
 
 ```typescript
-// DataStreamHandler processes accumulated deltas from DataStreamProvider
-for (const delta of newDeltas) {
-  // 1. Base artifact state updates
-  switch (delta.type) {
-    case "data-id":     setArtifact({ documentId: delta.data, status: "streaming" });
-    case "data-title":  setArtifact({ title: delta.data, status: "streaming" });
-    case "data-kind":   setArtifact({ kind: delta.data, status: "streaming" });
-    case "data-clear":  setArtifact({ content: "", status: "streaming" });
-    case "data-finish": setArtifact({ status: "idle" });
-  }
+'use client'
+import { useChatStream } from '@/features/chat/hooks/use-data-stream'
+import { processStreamDelta } from '@/features/chat/lib/process-stream-deltas'
+import { artifactStore } from '@/features/artifacts/lib/artifact-store'
 
-  // 2. Per-kind content delta processing (via artifactDefinition.onStreamPart)
-  // Each artifact kind defines how it processes its specific delta type
+export function StreamBridge({ id }: { id: string }) {
+  const { ChatStream } = useChatStream()
+
+  useEffect(() => {
+    if (!ChatStream.length) return
+    const latest = ChatStream[ChatStream.length - 1]
+    const current = artifactStore.getSnapshot()
+    const { artifact } = processStreamDelta(latest, current)
+    artifactStore.setState(artifact)
+  }, [ChatStream])
+
+  return null
 }
 ```
 
-### Per-Kind Stream Part Handlers
+### processStreamDelta — Pure Function (Testable)
 
-| Kind | Delta Type | Behavior | Accumulation |
-|------|-----------|----------|-------------|
-| text | `data-textDelta` | Append to content | `content += delta.data` |
-| code | `data-codeDelta` | Replace content | `content = delta.data` |
-| sheet | `data-sheetDelta` | Replace content | `content = delta.data` |
-| image | `data-imageDelta` | Replace content | `content = delta.data` (base64) |
+```typescript
+export function processStreamDelta(
+  delta: DataPart,
+  current: UIArtifact
+): { artifact: UIArtifact } {
+  switch (delta.type) {
+    case 'artifact-id':
+      return { artifact: { ...current, artifactId: delta.content, status: 'streaming', isVisible: true } }
+    case 'artifact-title':
+      return { artifact: { ...current, title: delta.content } }
+    case 'artifact-kind':
+      return { artifact: { ...current, kind: delta.content as ArtifactKind } }
+    case 'artifact-clear':
+      return { artifact: { ...current, content: '', status: 'streaming' } }
+    case 'artifact-finish':
+      return { artifact: { ...current, status: 'idle' } }
+    case 'artifact-textDelta':
+      return { artifact: { ...current, content: current.content + delta.content } }
+    case 'artifact-codeDelta':
+    case 'artifact-sheetDelta':
+    case 'artifact-imageDelta':
+      return { artifact: { ...current, content: delta.content } }
+    default:
+      return { artifact: current }
+  }
+}
+```
 
-### Processing Safeguards
+### Cross-Feature Import
 
-- `lastProcessedIndex` ref prevents reprocessing deltas
-- `lastArtifactKind` ref detects kind changes → resets processing index
-- Empty dataStream → resets processing index
-- Single `setArtifact` call per delta (prevents double state updates)
+`StreamBridge` (in `features/chat/`) imports `artifactStore` from `features/artifacts/lib/artifact-store.ts`.
+This is the **one intentional exception** to "no cross-feature implementation imports."
+The store is a module-level object with a stable API — it's the declared public API of
+the artifacts feature for state updates. Import is ONE-directional: chat → artifacts store.
 
 ---
 
@@ -151,23 +177,24 @@ for (const delta of newDeltas) {
 ### Tool Registration (Server-Side)
 
 ```
-POST /api/chat → executeChatCompletion()
+POST /api/chat → route handler
+  │
+  ├── import '@/features/artifacts/handlers'   // Side-effect: registers all handlers
   │
   ├── Tools registered with streamText():
-  │     tools: {
-  │       getWeather,                           // Static tool definition
-  │       createDocument({ session, dataStream, chatId }),  // Factory with closures
-  │       updateDocument({ session, dataStream }),          // Factory with closures
-  │       requestSuggestions({ session, dataStream }),      // Factory with closures
-  │     }
+  │     tools: getEnabledTools(modelId, { session, ChatStream, chatId })
+  │       → {
+  │           getWeather,                          // Static tool definition
+  │           createArtifact({ session, ChatStream, chatId }),  // Factory
+  │           updateArtifact({ session, ChatStream }),          // Factory
+  │           requestSuggestions({ session, ChatStream }),      // Factory
+  │         }
   │
-  ├── Tool enablement based on model:
-  │     → reasoning-only (single "reasoning" capability) → NO tools
-  │     → google:gemma-* models → NO tools
-  │     → has "tooling" capability → ALL 4 tools
-  │     → otherwise → NO tools
+  ├── Tool enablement based on model capabilities:
+  │     → supportsToolCalling: false → NO tools (reasoning-only, gemma)
+  │     → supportsToolCalling: true → ALL 4 tools
   │
-  └── experimental_activeTools filters to enabled tools only
+  └── maxSteps: 5 (max tool call round-trips)
 ```
 
 ### Tool Execution Lifecycle
@@ -175,133 +202,123 @@ POST /api/chat → executeChatCompletion()
 ```
 1. AI model returns tool_call in stream
 2. AI SDK invokes tool.execute()
-3. Tool writes data parts to dataStream
-4. Tool may invoke AI generation (streamText/streamObject)
-5. Tool returns structured result
-6. AI SDK includes tool_result in next step
-7. AI model continues with tool result context
-8. Max 5 steps (stepCountIs(5))
+3. Tool writes artifact-* data parts to ChatStream
+4. Tool may invoke AI generation (streamText/streamObject) for content
+5. Tool persists result (saveArtifactVersion)
+6. Tool returns structured result string
+7. AI SDK includes tool_result in next step
+8. AI model continues with tool result context
 ```
 
 ### getWeather Tool
 
 ```
 Input: { latitude, longitude } OR { city }
-  │
-  ├── If city provided:
-  │     GET https://geocoding-api.open-meteo.com/v1/search?name={city}
-  │     Extract latitude, longitude from first result
-  │
-  ├── GET https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}
-  │     &hourly=temperature_2m,relative_humidity_2m&daily=sunrise,sunset
-  │
-  └── Return: { temperature, hourlyForecast[], sunrise, sunset }
+  → Geocoding API → forecast API
+  → Return: { temperature, hourlyForecast[], sunrise, sunset }
 ```
 
-### createDocument Tool
+### createArtifact Tool
 
 ```
 Input: { title: string, kind: "text"|"code"|"sheet" }
   │
   ├── id = generateUUID()
-  ├── Stream metadata: data-kind → data-id → data-title → data-clear
+  ├── Stream metadata: artifact-kind → artifact-id → artifact-title → artifact-clear
   │
-  ├── Find handler: documentHandlersByArtifactKind[kind]
-  │     ├── TEXT: streamText({ model: artifact-model, system: textPrompt })
-  │     │         → stream data-textDelta parts (character-by-character)
-  │     ├── CODE: streamObject({ model: artifact-model, schema: { code: string } })
-  │     │         → stream data-codeDelta parts (full replacement)
-  │     └── SHEET: streamObject({ model: artifact-model, schema: { csv: string } })
-  │               → stream data-sheetDelta parts (full replacement)
+  ├── Handler via registry: getArtifactHandler(kind)
+  │     ├── TEXT: streamText({ model: ARTIFACT_MODEL }) → artifact-textDelta (append)
+  │     ├── CODE: streamObject({ schema: { code: string } }) → artifact-codeDelta (replace)
+  │     └── SHEET: streamObject({ schema: { csv: string } }) → artifact-sheetDelta (replace)
   │
-  ├── documentData.save({ id, title, kind, content, userId, chatId })
-  │     ├── Guest: cache only (Redis)
-  │     └── Auth: DB INSERT + cache update
-  │
-  ├── Stream: data-finish
-  └── Return: { id, title, kind, content: "A document was created..." }
+  ├── saveArtifactVersion({ id, title, kind, content, userId, chatId })
+  ├── Stream: artifact-finish
+  └── Return: { id, title, kind, content: "An artifact was created..." }
 ```
 
-### updateDocument Tool
+### updateArtifact Tool
 
 ```
 Input: { id: string, description: string }
   │
-  ├── documentData.get(id, ctx) → existing document with versions
-  ├── latestVersion = document.versions.at(-1)
+  ├── getArtifactById(id) → existing artifact (latest version)
+  ├── Stream: artifact-clear
   │
-  ├── Stream: data-clear
-  │
-  ├── handler.onUpdateDocument({ document: latestVersion, description })
+  ├── handler.update({ id, description, currentContent, kind, title, ChatStream, session })
   │     ├── Same per-kind streaming as create
   │     └── Uses existing content + description as AI context
   │
-  ├── documentData.save() → new version row (same id, new createdAt)
-  ├── Stream: data-finish
-  └── Return: { id, title, kind, content: "The document has been updated..." }
+  ├── saveArtifactVersion() → new version row (same id, new createdAt)
+  ├── Stream: artifact-finish
+  └── Return: { id, title, kind, content: "The artifact has been updated..." }
 ```
 
 ### requestSuggestions Tool
 
 ```
-Input: { documentId: string }
+Input: { artifactId: string }
   │
-  ├── documentData.get(documentId, ctx) → document
-  ├── latestVersion = document.versions.at(-1)
-  │
-  ├── streamObject({
-  │     model: artifact-model,
-  │     schema: z.object({
-  │       suggestions: z.array(z.object({
-  │         originalText: z.string(),
-  │         suggestedText: z.string(),
-  │         description: z.string()
-  │       })).max(5)
-  │     }),
-  │     prompt: latestVersion.content
-  │   })
-  │
-  ├── For each suggestion:
-  │     dataStream.write({ type: "data-suggestion", data: suggestion })
-  │
+  ├── getArtifactById(artifactId) → latest version content
+  ├── streamObject({ schema: suggestions[5], prompt: content })
+  ├── For each: ChatStream.writeData({ type: 'artifact-suggestion', content: suggestion })
   ├── Auth users: saveSuggestions() → DB
-  ├── Guest users: in-session only (not persisted)
-  │
-  └── Return: { id, title, kind, message: "Suggestions have been added..." }
+  └── Return: { id, message: "Suggestions have been added..." }
 ```
 
 ---
 
 ## 4. System Prompt Composition
 
-### Assembly Order
+### composeSystemPrompt() (lib/ai/prompts.ts)
 
 ```typescript
-systemPrompt = [
-  regularPrompt,              // Always included — base assistant instructions
-  userSystemPrompt?,          // From settings (max 8192 chars), if non-empty
-  requestPrompt,              // Geo hints: latitude, longitude, city, country
-  artifactsPrompt?,           // Only if model is NOT reasoning-only
-].filter(Boolean).join("\n\n")
+export function composeSystemPrompt({
+  settings,
+  hasTools,
+}: {
+  settings: UserSettings
+  hasTools: boolean
+}): string {
+  const parts: string[] = [BASE_PROMPT]
+
+  // User custom system prompt (if set)
+  if (settings.systemPrompt?.trim()) {
+    parts.push(settings.systemPrompt.trim())
+  }
+
+  // Artifact instructions (only when tools available)
+  if (hasTools) {
+    parts.push(ARTIFACTS_PROMPT)
+  }
+
+  // Reasoning hint (when enabled + model supports it)
+  if (settings.enableReasoning) {
+    parts.push(REASONING_PROMPT)
+  }
+
+  return parts.join('\n\n')
+}
 ```
 
 ### Prompt Components
 
 | Prompt | Source | Content |
 |--------|--------|---------|
-| `regularPrompt` | `lib/ai/prompts.ts` | "You are a helpful assistant. Be concise and direct. Use tools only when necessary. Match the user's tone." |
-| `userSystemPrompt` | `settings.systemPrompt` (localStorage → request body) | User-defined custom instructions (max 8192 chars) |
-| `requestPrompt` | `geolocation(request)` (Vercel Functions) | Geo hints: "The user is located near {city}, {country} ({lat}, {lon})" |
-| `artifactsPrompt` | `lib/ai/prompts.ts` | Instructions for createDocument/updateDocument usage: when to create artifacts, Python-only code, >10 lines threshold |
+| `BASE_PROMPT` | `lib/ai/prompts.ts` | "You are a helpful assistant. Today's date is {date}." |
+| `settings.systemPrompt` | User settings (localStorage → request body) | User-defined custom instructions |
+| `ARTIFACTS_PROMPT` | `lib/ai/prompts.ts` | Instructions for createArtifact/updateArtifact usage (>10 lines threshold, kinds, etc.) |
+| `REASONING_PROMPT` | `lib/ai/prompts.ts` | "Think step-by-step before responding." |
 
-### Artifact Sub-Prompts (Per-Kind)
+### Artifact Prompt Details
 
-| Kind | Prompt | Key Instructions |
-|------|--------|-----------------|
-| text | `textPrompt` | Write Markdown, no code blocks in artifacts |
-| code | `codePrompt` | Self-contained Python, print() for output, max 15 lines, no network/file access |
-| sheet | `sheetPrompt` | CSV with headers |
-| update | `updateDocumentPrompt(content, type)` | Update existing content based on user description |
+The artifacts prompt instructs the AI when to use `createArtifact`:
+- Content > 10 lines (text, code, data)
+- Self-contained and referenceable
+- Iteratively editable
+- Artifact kinds: "text" (markdown), "code" (Python), "sheet" (CSV)
+- Uses `updateArtifact` for modifications with description
+
+> **Removed:** Credit/token usage warnings, gateway routing instructions, "document" references.
 
 ---
 
@@ -310,36 +327,29 @@ systemPrompt = [
 ### Provider Registry
 
 ```
-createProviderRegistry(baseProviders)
+lib/ai/registry.ts → createProviderRegistry(baseProviders)
   │
   ├── Conditionally initialized based on env vars:
-  │     ├── vercel-gateway: AI_GATEWAY_API_KEY or VERCEL_OIDC_TOKEN
   │     ├── openai: OPENAI_API_KEY
   │     ├── google: GEMINI_API_KEY
   │     ├── openrouter: OPENROUTER_API_KEY
-  │     ├── cloudflare-workers: CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_KEY
-  │     └── cloudflare-ai-gateway: CLOUDFLARE_ACCOUNT_ID + name + API key
+  │     └── (others based on available keys)
   │
   └── Models resolved as: "provider:model-name" → registry.languageModel("provider:model-name")
 ```
 
-### myProvider Wrapper
+### myProvider Wrapper (lib/ai/provider.ts)
 
 ```typescript
-// lib/ai/providers.ts
 export const myProvider = {
   languageModel(modelId: string) {
-    // Test mode: return mock models
-    if (isTest) return mockModel(modelId);
-
-    // Production: resolve through registry
     const model = registry.languageModel(modelId);
 
     // Wrap reasoning models with middleware
     const metadata = getModelById(modelId);
-    if (metadata?.reasoningType) {
+    if (metadata?.supportsReasoning) {
       return wrapLanguageModel(model,
-        extractReasoningMiddleware({ tagName: getTagName(metadata.reasoningType) })
+        extractReasoningMiddleware({ tagName: getReasoningTagName(modelId) })
       );
     }
 
@@ -348,33 +358,30 @@ export const myProvider = {
 };
 ```
 
-### Reasoning Middleware Configuration
+### Per-Provider Options (lib/ai/provider-options.ts)
 
-| Reasoning Type | Tag Name | Provider Options |
-|----------------|----------|-----------------|
-| `openai-thinking` | `<think>` | `openai: { reasoningEffort: "high" }` |
-| `anthropic-thinking` | `<thinking>` | `anthropic: { thinkingBudget: N }` |
-| `gemini-thinking` | `<think>` | `google: { thinkingConfig: { type: "enabled", includeThoughts: true } }` |
-| `deepseek-thinking` | `<think>` | `deepseek: { reasoningLevel: "high" }` |
-| `internal-thinking` | `<think>` | `reasoning: { enabled: true, budget: N }` |
+```typescript
+export function getProviderOptions(modelId: string, settings: UserSettings) {
+  const opts: Record<string, unknown> = {}
+  if (settings.enableReasoning) {
+    if (modelId.startsWith('google:'))
+      opts.providerOptions = { google: { thinkingConfig: { thinkingBudget: 1024 } } }
+    if (modelId.startsWith('openai:'))
+      opts.providerOptions = { openai: { reasoningEffort: 'medium' } }
+  }
+  return opts
+}
+```
 
 ### Model Catalog
 
 ```
-Curated models (lib/ai/curated-models.ts)
-  + Discovered models (lib/ai/model-discovery.ts → provider.listModels())
-  = Merged catalog (curated takes priority on ID collision)
-
-Model discovery:
-  - Iterates configured providers
-  - Calls provider-specific list API
-  - Maps to ModelMetadata format
-  - Marks as source: "discovered"
-
-Default models:
-  - Chat: google:gemma-3-4b-it
-  - Title generation: google:gemma-3-4b-it
-  - Artifact generation: google:gemini-2.5-flash-lite (fallback: DEFAULT_CHAT_MODEL)
+getAvailableModels() — 'use cache' + cacheTag('models') + cacheLife('hours')
+  → STATIC_MODELS (hardcoded curated list)
+  + discoverModels() (OpenRouter API, if configured)
+  → Merged, deduplicated, sorted by name
+  → Default chat model: google:gemma-3-4b-it
+  → Artifact model: google:gemini-2.5-flash-lite
 ```
 
 ---
@@ -384,49 +391,54 @@ Default models:
 ### Server-Side Stream Construction
 
 ```typescript
-const stream = createUIMessageStream({
-  execute: ({ writer: dataStream }) => {
-    // 1. Title generation (parallel, non-blocking for new chats)
-    generateTitleFromUserMessage({ message }).then(title => {
-      dataStream.write({ type: "data-chatTitle", data: title, transient: true });
-    });
+// POST /api/chat route handler
+import '@/features/artifacts/handlers'  // Side-effect: register handlers
 
-    // 2. Chat completion
+const stream = createUIMessageStream({
+  execute: async ({ writer: ChatStream }) => {
+    // Title generation (parallel)
+    const titlePromise = generateTitle(userMessage.content)
+
+    // Chat completion
     const result = streamText({
       model: myProvider.languageModel(modelId),
-      system: systemPrompt,
+      system: composeSystemPrompt({ settings, hasTools }),
       messages: convertToModelMessages(uiMessages),
-      tools: enabledTools,
+      tools: getEnabledTools(modelId, { session, ChatStream, chatId }),
       stopWhen: stepCountIs(5),
       abortSignal: AbortSignal.timeout(55_000),
       experimental_transform: smoothStream({ delayInMs: 2, chunking: "word" }),
       temperature, topP, maxOutputTokens,
-      providerOptions,
-      onFinish: async ({ usage }) => {
-        // TokenLens usage enrichment
-        const catalog = await tokenlensCatalogPromise;
-        const appUsage = getUsage(usage, catalog);
-        dataStream.write({ type: "data-usage", data: appUsage });
-      },
-    });
+      providerOptions: getProviderOptions(modelId, settings),
+    })
 
-    result.consumeStream();
-    dataStream.merge(result.toUIMessageStream({ sendReasoning: true }));
+    result.consumeStream()
+    ChatStream.merge(result.toUIMessageStream({ sendReasoning: true }))
+
+    // AWAIT title before stream close — guaranteed delivery
+    const title = await titlePromise
+    ChatStream.writeData({
+      type: 'chat-title',
+      content: title ?? userMessage.content.slice(0, 80),
+    })
   },
+
   onFinish: async ({ messages }) => {
-    // Persist: save messages, increment quota, update title
-    await saveChat({ chatId, messages, ctx, ... });
+    await saveMessages(chatId, messages)
+    await updateChatTitle(chatId, title)
+    refreshChat(chatId)       // revalidateTag('chat:{chatId}', 'max')
+    refreshChatList(userId)   // revalidateTag('chats:{userId}', 'max')
   },
-});
+})
 
-return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
+return new Response(stream.pipeThrough(new JsonToSseTransformStream()))
 ```
 
-### smoothStream Configuration
+### smoothStream Transform
 
 ```typescript
 experimental_transform: smoothStream({
-  delayInMs: 2,         // 2ms between chunks
+  delayInMs: 2,         // 2ms between chunks — typewriter effect
   chunking: "word",     // Word-level chunking (not character)
 })
 ```
@@ -439,55 +451,125 @@ experimental_transform: smoothStream({
 3. Title generation starts (async, parallel)
 4. streamText() begins → tokens flow
 5. Tool calls may interrupt → execute tool → resume
-6. data-chatTitle arrives (from title generation)
-7. AI response completes → data-usage written
-8. onFinish → messages saved to DB/cache
-9. Stream closes
-10. Client: status → "ready", onFinish callback fires
+6. Title AWAITED before stream close → chat-title written
+7. Stream closes
+8. onFinish → messages saved, cache tags revalidated
+9. Client: status → idle, onFinish cleanup fires
+```
+
+### Abort Handling
+
+```
+Client navigates away during stream:
+  1. useChatSession cleanup: stop() if streaming
+  2. abortControllerRef.current?.abort() → cancels fetch
+  3. artifactStore.reset() → synchronous, prevents stale state flash
+  4. ChatStream cleared
+
+Server-side:
+  1. request.signal fires 'abort' event
+  2. Abort handler saves partial response if content accumulated
+  3. revalidateTag still fires if onFinish reached
 ```
 
 ---
 
-## 7. Usage Tracking
+## 7. Handler Registry Pattern
 
-### TokenLens Integration
+### Registry (lib/ai/artifact-handlers.ts)
 
 ```typescript
-// Catalog fetched with "use cache" directive (24h TTL)
-async function getTokenlensCatalog(): Promise<ModelCatalog | undefined> {
-  "use cache";
-  cacheTag("tokenlens-catalog");
-  cacheLife("days");
-  const { fetchModels } = await import("tokenlens/fetch");
-  return await fetchModels();
+const handlers = new Map<ArtifactKind, ArtifactHandler>()
+
+export function registerArtifactHandler(kind: ArtifactKind, handler: ArtifactHandler) {
+  handlers.set(kind, handler)
 }
 
-// On completion:
-onFinish: async ({ usage }) => {
-  const catalog = await tokenlensCatalogPromise;
-  const appUsage = getUsage(usage, catalog, modelId);
-  // appUsage includes: promptTokens, completionTokens, totalTokens, cost data
-  dataStream.write({ type: "data-usage", data: appUsage });
-  // Also saved to chat.lastContext
+export function getArtifactHandler(kind: ArtifactKind): ArtifactHandler {
+  const handler = handlers.get(kind)
+  if (!handler) throw new Error(`No handler for kind: ${kind}`)
+  return handler
 }
 ```
 
-### AppUsage Type
+### Registration (features/artifacts/handlers/index.ts)
 
 ```typescript
-type AppUsage = LanguageModelUsage & {
-  modelId: string;
-  // Cost info from TokenLens catalog
-};
-// Extends AI SDK LanguageModelUsage: { promptTokens, completionTokens, totalTokens }
+// Side-effect: registers all handlers when imported
+import { registerArtifactHandler } from '@/lib/ai/artifact-handlers'
+import { textHandler } from './text-handler'
+import { codeHandler } from './code-handler'
+import { sheetHandler } from './sheet-handler'
+
+registerArtifactHandler('text', textHandler)
+registerArtifactHandler('code', codeHandler)
+registerArtifactHandler('sheet', sheetHandler)
 ```
 
-### Entitlements / Quotas
+### Registration Timing
 
-| User Type | Max Messages/Day | Tracked Via |
-|-----------|-----------------|-------------|
-| Guest | 20 | Redis counter: `quota:{userId}:messages` |
-| Authenticated | 100 | Redis counter: `quota:{userId}:messages` |
+Route handler imports `'@/features/artifacts/handlers'` (side-effect) before processing.
+ES module imports execute before module body — no race condition.
 
-Quota checked before processing, incremented after successful save (async).
-Daily TTL on Redis counter auto-resets at midnight.
+### Dependency Inversion
+
+```
+features/chat/lib/tools/create-artifact.ts
+  → imports getArtifactHandler from lib/ai/artifact-handlers.ts (registry)
+  → does NOT import features/artifacts/handlers/ directly
+  → handler implementation injected via registration
+```
+
+This breaks the direct chat→artifacts dependency. The registry sits in `lib/ai/` (shared infrastructure), both features can interact through it without importing each other's implementations.
+
+---
+
+## 8. File Map
+
+```
+lib/ai/
+  ├── registry.ts              # createProviderRegistry (conditional providers)
+  ├── provider.ts              # myProvider (reasoning middleware wrapper)
+  ├── models.ts                # getAvailableModels() with 'use cache'
+  ├── prompts.ts               # composeSystemPrompt()
+  ├── provider-options.ts      # getProviderOptions() per-provider config
+  ├── artifact-handlers.ts     # Handler registry (register/get)
+  ├── tools.ts                 # getEnabledTools() model-based tool gating
+  └── title.ts                 # generateTitle()
+
+lib/types/
+  ├── model.types.ts           # ModelMetadata, DEFAULT_CHAT_MODEL
+  ├── artifact.types.ts        # UIArtifact, ArtifactKind
+  ├── artifact-handler.types.ts # ArtifactHandler, ArtifactStreamWriter
+  └── settings.types.ts        # SettingsState
+
+features/chat/lib/tools/
+  ├── weather.ts               # getWeather (self-contained)
+  ├── create-artifact.ts       # createArtifact (uses handler registry)
+  ├── update-artifact.ts       # updateArtifact (uses handler registry)
+  └── request-suggestions.ts   # requestSuggestions
+
+features/artifacts/handlers/
+  ├── index.ts                 # Side-effect: registers all handlers
+  ├── text-handler.ts          # streamText → artifact-textDelta (append)
+  ├── code-handler.ts          # streamObject → artifact-codeDelta (replace)
+  └── sheet-handler.ts         # streamObject → artifact-sheetDelta (replace)
+```
+
+---
+
+## 9. Summary: What Changed from Old Architecture
+
+| Old Pattern | New Pattern | Reason |
+|-------------|-------------|--------|
+| `createDocument` / `updateDocument` tools | `createArtifact` / `updateArtifact` | Artifact naming consistency |
+| `data-id`, `data-title`, etc. stream parts | `artifact-id`, `artifact-title`, etc. | Domain-prefixed naming |
+| `data-usage` stream part | Removed | No credit/quota system |
+| Tools directly import handler implementations | Handler registry (`lib/ai/artifact-handlers.ts`) with dependency inversion | Breaks cross-feature coupling |
+| `DataStreamHandler` processes deltas (complex) | `StreamBridge` (~20 lines) + pure `processStreamDelta()` | Testable, minimal |
+| SWR `mutate("artifact")` for state | `artifactStore.setState()` via useSyncExternalStore | ~80% fewer re-renders |
+| `DataStreamProvider` at layout level | `ChatStreamProvider` at page level | Prevents sidebar cascade |
+| Monolithic system prompt | `composeSystemPrompt()` with conditional composition | Modular, settings-driven |
+| `middleware.ts` for proxy | `proxy.ts` at project root | Next.js 16 convention |
+| `pollForTitle()` 5×500ms + window events | Title AWAITED server-side, single `chat-title` stream part | Reliable, no polling |
+| Hardcoded model list | `getAvailableModels()` with `use cache` + dynamic discovery | Auto-refresh |

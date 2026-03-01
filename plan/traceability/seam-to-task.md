@@ -1,7 +1,13 @@
+> **Updated per redesign audit (2026-03-01)**
+
 # Seam-to-Task Traceability Matrix
 
 > Maps every seam from the seam inventory to its implementing task(s).
 > All 40 seams covered.
+> Task IDs: P0-T01 through P7-T13. "artifact" naming throughout.
+> SessionProvider (not AuthProvider), ChatStreamProvider (not DataStreamProvider),
+> StreamBridge (not DataStreamHandler), PendingChatsProvider (not OptimisticChatsProvider),
+> ArtifactHandler (not DocumentHandler), proxy.ts (not middleware.ts).
 
 ---
 
@@ -9,121 +15,121 @@
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-001 | Auth Provider Injection | P02-T07, P02-T11 | P02 |
-| SEAM-002 | Auth Exchange (Login/Register) | P02-T03, P02-T04 | P02 |
-| SEAM-003 | Guest Bootstrap | P02-T08 | P02 |
-| SEAM-004 | Guest Token Rotation | P02-T10 | P02 |
-| SEAM-005 | Session Resolution | P02-T01 | P02 |
+| SEAM-001 | SessionProvider Injection (NOT AuthProvider) | P2-T06, P2-T08 | P2 |
+| SEAM-002 | Auth Actions (Login/Register Server Actions) | P2-T03, P2-T04 | P2 |
+| SEAM-003 | Guest Bootstrap (via proxy.ts) | P2-T03 | P2 |
+| SEAM-004 | Guest Token Rotation (proxy.ts at edge) | P0-T14 | P0 |
+| SEAM-005 | Session Resolution (`getAppSession()`) | P2-T01 | P2 |
 
 ## Chat Streaming Seams
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-006 | Chat Request Pipeline | P03-T09, P03-T19, P03-T20 | P03 |
-| SEAM-007 | DataStream Pipeline | P03-T12 | P03 |
-| SEAM-008 | Chat Completion Execution | P03-T07, P03-T09 | P03 |
+| SEAM-006 | Chat Request Pipeline (ChatShell → useChatSession → API) | P3-T11, P3-T21, P3-T23 | P3 |
+| SEAM-007 | ChatStreamProvider Pipeline (NOT DataStream) | P3-T10 | P3 |
+| SEAM-008 | Chat Completion Execution (`streamText` + tools) | P3-T02, P3-T23 | P3 |
 
 ## Chat ↔ Artifacts Seams
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-009 | createDocument Tool → Handlers | P04-T09 | P04 |
-| SEAM-010 | updateDocument Tool → Handlers | P04-T10 | P04 |
-| SEAM-011 | requestSuggestions Tool → Editor | P04-T11 | P04 |
-| SEAM-012 | Artifact Stream → Panel | P04-T17, P04-T21 | P04 |
+| SEAM-009 | createArtifact Tool → ArtifactHandler (NOT createDocument) | P3-T13, P4-T04, P4-T06 | P3, P4 |
+| SEAM-010 | updateArtifact Tool → ArtifactHandler (NOT updateDocument) | P3-T13, P4-T04, P4-T06 | P3, P4 |
+| SEAM-011 | requestSuggestions Tool → Editor | P4-T16 | P4 |
+| SEAM-012 | Artifact Stream → Panel (StreamBridge → artifactStore) | P3-T20, P4-T11, P4-T17 | P3, P4 |
 
 ## Chat ↔ Sidebar Seams
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-013 | Optimistic Chat Creation | P05-T01, P05-T08 | P05 |
-| SEAM-014 | Title Sync (Stream + Poll + Event) | P05-T09 | P05 |
+| SEAM-013 | Pending Chat Creation (PendingChatsProvider, NOT OptimisticChats) | P5-T02, P5-T05 | P5 |
+| SEAM-014 | Title Sync (single channel: `chat-title` stream → PendingChats.updateTitle, NO polling) | P5-T02 | P5 |
 
 ## Settings ↔ Chat Seams
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-015 | Settings Pipeline | P03-T04, P03-T19, P06-T07 | P03, P06 |
+| SEAM-015 | Settings Pipeline (useSyncExternalStore + localStorage, NO SettingsProvider) | P3-T06, P3-T21 | P3 |
 
 ## Model Selection Seams
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-016 | Model Catalog → Selector → Chat | P06-T04, P06-T05, P06-T06 | P06 |
-| SEAM-017 | AI Provider Registry | P03-T01, P03-T02, P06-T04 | P03, P06 |
+| SEAM-016 | Model Catalog → Selector → Chat | P6-T04, P6-T05 | P6 |
+| SEAM-017 | AI Provider Registry (NO vercel-gateway) | P1-T11, P1-T12, P6-T04 | P1, P6 |
 
 ## Voting Seam
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-018 | Vote Mutation | P06-T01, P06-T02, P06-T03 | P06 |
+| SEAM-018 | Vote Mutation (Server Action + useOptimistic, NOT PATCH route, VoteResolver) | P6-T01, P6-T02, P6-T03 | P6 |
 
 ## File Upload Seam
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-019 | File Upload → Message Attachment | P06-T09, P06-T10, P06-T11 | P06 |
+| SEAM-019 | File Upload → Message Attachment | P6-T09, P6-T10, P6-T11 | P6 |
 
 ## Sidebar History Seam
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-020 | Sidebar History Pagination | P05-T05, P05-T07 | P05 |
+| SEAM-020 | Sidebar History Pagination (SWRInfinite, server-fetched initial) | P5-T05, P5-T10 | P5 |
 
-## Document Fetch Seam
+## Artifact Fetch Seam
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-021 | Document Version Fetch | P04-T20 | P04 |
+| SEAM-021 | Artifact Version Fetch (NOT Document) | P4-T15 | P4 |
 
 ## Visibility Seam
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-022 | Visibility Toggle | P06-T12, P06-T13, P06-T14 | P06 |
+| SEAM-022 | Visibility Toggle (Server Action + updateTag) | P6-T06, P6-T07, P6-T08 | P6 |
 
 ## Data Layer Seams
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-023 | Data Context (Session → Branching) | P01-T05 | P01 |
-| SEAM-024 | Chat Data Operations | P01-T07 | P01 |
-| SEAM-025 | Document Data Operations | P01-T09, P04-T20 | P01, P04 |
-| SEAM-026 | Message Persistence | P01-T08, P03-T09, P03-T10 | P01, P03 |
+| SEAM-023 | Data Context (Session → Branching) | P0-T05 | P0 |
+| SEAM-024 | Chat Data Operations | P1-T06 | P1 |
+| SEAM-025 | Artifact Data Operations (NOT Document) | P1-T08, P4-T15 | P1, P4 |
+| SEAM-026 | Message Persistence | P1-T07, P3-T23, P3-T22 | P1, P3 |
 
 ## Error Handling Seams
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-027 | Error Boundaries (3 levels) | P07-T01, P07-T02, P07-T03 | P07 |
-| SEAM-028 | Client Error Handling (onError) | P03-T19, P03-T23 | P03 |
+| SEAM-027 | Error Boundaries (3 levels) | P7-T01, P7-T02 | P7 |
+| SEAM-028 | Client Error Handling (onError → ChatShell, NO gateway credit detection) | P3-T21, P3-T26 | P3 |
 
 ## UI Infrastructure Seams
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-029 | Provider Tree Assembly | P00-T05, P02-T11, P03-T21, P05-T10 | P00, P02, P03, P05 |
-| SEAM-030 | Theme System | P00-T05, P05-T03 | P00, P05 |
-| SEAM-031 | URL State Management | P03-T19, P03-T22 | P03 |
+| SEAM-029 | Provider Tree Assembly (max 7 levels, scoped, NOT 9+ nested) | P0-T13, P2-T08, P3-T24, P5-T11 | P0, P2, P3, P5 |
+| SEAM-030 | Theme System | P0-T12, P5-T06 | P0, P5 |
+| SEAM-031 | URL State Management (ChatShell + chat pages) | P3-T21, P3-T25 | P3 |
 
 ## Artifact Editor Seams
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-032 | Text Editor (TipTap) | P04-T12 | P04 |
-| SEAM-033 | Code Editor (CodeMirror + Pyodide) | P04-T13, P04-T14 | P04 |
-| SEAM-034 | Sheet Editor (react-data-grid) | P04-T15 | P04 |
-| SEAM-035 | Image Editor | P04-T16 | P04 |
+| SEAM-032 | Text Editor (TipTap + suggestions) | P4-T07 | P4 |
+| SEAM-033 | Code Editor (CodeMirror + Pyodide) | P4-T08 | P4 |
+| SEAM-034 | Sheet Editor (react-data-grid) | P4-T09 | P4 |
+| SEAM-035 | Image Editor | P4-T10 | P4 |
 
 ## Miscellaneous Seams
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-036 | Rate Limiting Pipeline | P01-T13, P06-T02, P06-T09, P06-T17 | P01, P06 |
-| SEAM-037 | Pyodide Script Loading | P04-T21 | P04 |
-| SEAM-038 | Message Edit + Regenerate | P03-T10, P03-T15 | P03 |
-| SEAM-039 | Version Navigation + Restore | P04-T18, P04-T20 | P04 |
-| SEAM-040 | Inline Document Preview → Panel | P04-T19 | P04 |
+| SEAM-036 | Rate Limiting Pipeline (proxy.ts + route handlers, NO credit/quota) | P0-T14, P6-T13 | P0, P6 |
+| SEAM-037 | Pyodide Script Loading | P4-T08 | P4 |
+| SEAM-038 | Message Edit + Regenerate | P3-T16, P3-T15 | P3 |
+| SEAM-039 | Version Navigation + Restore | P4-T12 | P4 |
+| SEAM-040 | Inline Artifact Preview → Panel (NOT Document Preview) | P4-T14 | P4 |
 
 ---
 
@@ -131,20 +137,20 @@
 
 | Category | Seam Count | Tasks Covering | Status |
 |----------|-----------|----------------|--------|
-| Authentication & Session | 5 | 7 tasks | ✅ Full |
+| Authentication & Session | 5 | 6 tasks | ✅ Full |
 | Chat Streaming | 3 | 5 tasks | ✅ Full |
-| Chat ↔ Artifacts | 4 | 4 tasks | ✅ Full |
+| Chat ↔ Artifacts | 4 | 7 tasks | ✅ Full |
 | Chat ↔ Sidebar | 2 | 3 tasks | ✅ Full |
-| Settings ↔ Chat | 1 | 3 tasks | ✅ Full |
-| Model Selection | 2 | 5 tasks | ✅ Full |
+| Settings ↔ Chat | 1 | 2 tasks | ✅ Full |
+| Model Selection | 2 | 4 tasks | ✅ Full |
 | Voting | 1 | 3 tasks | ✅ Full |
 | File Upload | 1 | 3 tasks | ✅ Full |
 | Sidebar History | 1 | 2 tasks | ✅ Full |
-| Document Fetch | 1 | 1 task | ✅ Full |
+| Artifact Fetch | 1 | 1 task | ✅ Full |
 | Visibility | 1 | 3 tasks | ✅ Full |
 | Data Layer | 4 | 6 tasks | ✅ Full |
-| Error Handling | 2 | 5 tasks | ✅ Full |
+| Error Handling | 2 | 4 tasks | ✅ Full |
 | UI Infrastructure | 3 | 7 tasks | ✅ Full |
-| Artifact Editors | 4 | 5 tasks | ✅ Full |
-| Miscellaneous | 5 | 7 tasks | ✅ Full |
-| **Total** | **40** | **74 task refs** | **✅ 100%** |
+| Artifact Editors | 4 | 4 tasks | ✅ Full |
+| Miscellaneous | 5 | 5 tasks | ✅ Full |
+| **Total** | **40** | **65 task refs** | **✅ 100%** |

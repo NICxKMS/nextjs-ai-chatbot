@@ -1,7 +1,10 @@
+> **Updated per redesign audit (2026-03-01)**
+
 # Base Configuration
 
 > Every configuration file needed for the rebuilt project.
 > Each section includes the full file content or its key structure.
+> Uses `proxy.ts` (NOT middleware.ts) per Next.js 16. No credit/gateway logic.
 
 ---
 
@@ -47,7 +50,7 @@ Carried over from `oldapp/package.json` with version pins verified:
     "ai": "5.0.26",
     "@ai-sdk/react": "2.0.26",
     "@ai-sdk/provider": "2.0.0",
-    "@ai-sdk/gateway": "^1.0.15",
+    // "@ai-sdk/gateway" REMOVED — no credit/gateway system
     "@ai-sdk/google": "^2.0.24",
     "@ai-sdk/openai": "^2.0.54",
     "@ai-sdk/xai": "2.0.13",
@@ -307,7 +310,7 @@ export default nextConfig
   },
   "overrides": [
     {
-      "include": ["app/**/page.tsx", "app/**/layout.tsx", "app/**/route.ts", "app/**/error.tsx", "app/**/loading.tsx", "app/**/global-error.tsx", "next.config.ts", "middleware.ts", "instrumentation.ts", "instrumentation-client.ts"],
+      "include": ["app/**/page.tsx", "app/**/layout.tsx", "app/**/route.ts", "app/**/error.tsx", "app/**/loading.tsx", "app/**/global-error.tsx", "next.config.ts", "proxy.ts", "instrumentation.ts", "instrumentation-client.ts"],
       "linter": {
         "rules": {
           "style": {
@@ -404,12 +407,15 @@ Tailwind v4 uses `@tailwindcss/postcss` plugin directly. No `tailwind.config.ts`
 
 ---
 
-## 7. `middleware.ts` (Base Structure)
+## 7. `proxy.ts` (Base Structure, Next.js 16)
+
+> Next.js 16 renamed `middleware.js` to `proxy.js`. The file exports a `proxy()` function
+> and a `config` with `matcher`. Identical API, new name.
 
 ```typescript
 import { type NextRequest, NextResponse } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // 1. Skip static assets and health check
@@ -421,12 +427,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // 2. Edge rate limiting (Phase 01)
-  // const rateLimitResult = await edgeRateLimit(request)
-  // if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+  // 2. Auth guard (Phase 02)
+  // Redirect unauthenticated users to /login for protected routes
+  // const session = await resolveSessionFromCookies(request)
+  // if (!session && isProtectedRoute(pathname)) return redirectToLogin(request)
 
   // 3. Guest token rotation (Phase 02)
-  // const response = await rotateGuestToken(request)
+  // if (isGuestToken(request) && tokenExpiresWithin(30 * 60)) await rotateGuestToken(request)
 
   // 4. Device detection header
   const response = NextResponse.next()
@@ -444,10 +451,11 @@ export const config = {
 }
 ```
 
-**Note**: The middleware starts minimal and gains functionality as phases complete:
-- Phase 00: Device detection only
-- Phase 01: + Rate limiting
-- Phase 02: + Guest token rotation + auth guards
+**Note**: The proxy starts minimal and gains functionality as phases complete:
+- Phase 0: Device detection only
+- Phase 2: + Auth guard + guest token rotation
+
+**Key difference from old plan:** Function exported as `proxy()` not `middleware()`. File is `proxy.ts` not `middleware.ts`.
 
 ---
 
@@ -470,7 +478,7 @@ SUPABASE_JWT_SECRET=...
 GUEST_JWT_SECRET=...
 
 # ── AI Providers (at least one required) ──
-AI_GATEWAY_API_KEY=           # Vercel AI Gateway (primary)
+# AI_GATEWAY_API_KEY — REMOVED (no credit/gateway system)
 OPENAI_API_KEY=               # OpenAI direct
 GEMINI_API_KEY=               # Google Gemini direct
 OPENROUTER_API_KEY=           # OpenRouter proxy
@@ -493,10 +501,10 @@ VERCEL_OIDC_TOKEN=            # Vercel OIDC (auto-injected on Vercel)
 | `DATABASE_URL` | Yes | `lib/db/client.ts` |
 | `CACHE_KV_REST_API_URL` | Yes | `lib/cache/client.ts` |
 | `CACHE_KV_REST_API_TOKEN` | Yes | `lib/cache/client.ts` |
-| `SUPABASE_URL` | Yes | `lib/auth/config.ts`, JWT validation |
-| `SUPABASE_ANON_KEY` | Yes | `lib/auth/config.ts`, client-side Supabase |
+| `SUPABASE_URL` | Yes | `lib/auth/session.ts`, JWT validation |
+| `SUPABASE_ANON_KEY` | Yes | `lib/auth/session.ts`, client-side Supabase |
 | `SUPABASE_JWT_SECRET` | Yes | `features/auth/lib/session.ts` |
-| `GUEST_JWT_SECRET` | Yes | `features/auth/lib/session.ts`, `middleware.ts` |
+| `GUEST_JWT_SECRET` | Yes | `features/auth/lib/guest.ts`, `proxy.ts` |
 | At least one AI provider key | Yes | `lib/ai/registry.ts` |
 | `BLOB_READ_WRITE_TOKEN` | For uploads | `app/api/files/upload/route.ts` |
 
@@ -539,14 +547,16 @@ export {}
 
 ## Configuration Validation Checklist
 
-Before moving past Phase 00 (Scaffold):
+Before moving past Phase 0 (Scaffold):
 
 - [ ] `pnpm install` completes without errors
 - [ ] `pnpm typecheck` passes (empty project, no source errors)
 - [ ] `pnpm format` passes (Biome formats correctly)
 - [ ] `pnpm lint` passes (Biome lints correctly)
 - [ ] `pnpm dev` starts the dev server
-- [ ] Root layout renders (blank page with providers)
+- [ ] Root layout renders (blank page with ThemeProvider)
 - [ ] Path alias `@/` resolves correctly in imports
+- [ ] `proxy.ts` exports `proxy()` function (NOT middleware.ts)
 - [ ] `oldapp/` and `plan/` excluded from compilation
 - [ ] `components/ai-elements/` excluded from linting
+- [ ] DB schema uses `Artifact` table (NOT Document)

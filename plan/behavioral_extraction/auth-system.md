@@ -1,21 +1,21 @@
 # Auth System
 
+> **Updated per redesign audit (2026-03-01)**
+
 ## Architecture Overview
 
 Dual authentication: **Supabase** (registered users) and **Guest JWT** (anonymous users). Both produce an `AppSession` with consistent shape, allowing the rest of the app to be auth-agnostic.
+
+> *SessionProvider wraps the app. `proxy.ts` handles guest JWT, token rotation, rate limiting, and mobile detection in a single edge layer. Auth routes consolidated to Server Actions (`loginAction`, `registerAction`, `logoutAction`, `exchangeTokenAction`).*
 
 ```
                    ┌─────────────────┐
                    │   proxy.ts      │ (Edge: request interception)
                    │   - Guest JWT   │
                    │   - Token rotation│
+                   │   - Rate limiting │
+                   │   - Path guards  │
                    │   - Mobile detect│
-                   └────────┬────────┘
-                            │
-                   ┌────────▼────────┐
-                   │  Edge Middleware │ (Next.js middleware.ts)
-                   │  - Rate limiting │
-                   │  - Path guards  │
                    └────────┬────────┘
                             │
               ┌─────────────┼─────────────┐
@@ -62,7 +62,7 @@ type AppSession = {
 ### Token Exchange Flow
 1. Client calls `supabase.auth.signInWithPassword({ email, password })`
 2. Supabase returns `session.access_token`
-3. Client POSTs to `/api/auth/exchange` with `{ accessToken }`
+3. Client calls Server Action `exchangeTokenAction({ accessToken })`
 4. Server validates JWT:
    ```typescript
    const { payload } = await jwtVerify(accessToken, secret, {
@@ -121,7 +121,7 @@ In `proxy.ts`, on every request:
 | Chat history | Yes (limited, cache-only) | Yes (full, DB-backed) |
 | View others' public chats | No | Yes |
 | Vote on messages | No | Yes |
-| Document suggestions persistence | No | Yes |
+| Artifact suggestions persistence | No | Yes |
 | Delete chats | Yes (cache delete) | Yes (DB + cache) |
 | Daily message limit | 20 | 100 |
 | File upload | Yes | Yes |
@@ -135,9 +135,11 @@ In `proxy.ts`, on every request:
 
 ---
 
-## Middleware (`lib/middleware/`)
+## Edge Layer (`proxy.ts`)
 
-### Edge Rate Limiting (`edge-rate-limit.ts`)
+> *`proxy.ts` is the single edge layer for all request interception. Handles guest JWT creation, token rotation, rate limiting, and path guards.*
+
+### Edge Rate Limiting (`proxy.ts`)
 Uses `@upstash/ratelimit` with Redis backend.
 
 ```typescript
@@ -175,10 +177,20 @@ All backed by Redis. Key format: `rl:{type}:{userId}`.
 
 ---
 
-## Auth in API Routes
+## Auth in API Routes / Server Actions
+
+> *Server Actions return `ActionResult<T>` instead of throwing HTTP errors. Same auth guard pattern applies.*
 
 ### Common Pattern
 ```typescript
+// Server Action pattern
+async function deleteChat(chatId: string): Promise<ActionResult<void>> {
+  const session = await getAppSession();
+  if (!session) return { error: 'unauthorized' };
+  // ... proceed with session.user
+}
+
+// Route Handler pattern (retained for POST /api/chat)
 export async function POST(request: Request) {
   const session = await getAppSession();
   if (!session) {
@@ -203,7 +215,7 @@ requireMessageInChat(messageId, chatId) // Throws if message not in chat
 ### IDOR Protection
 - Chat operations verify `userId` matches session
 - Vote operations verify message belongs to chat AND chat belongs to user
-- Document operations verify ownership through chatId chain
+- Artifact operations verify ownership through chatId chain
 
 ### JWT Security
 - Supabase: RS256 (asymmetric), validated with public key via `SUPABASE_JWT_SECRET`

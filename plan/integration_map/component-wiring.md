@@ -1,7 +1,11 @@
+> **Updated per redesign audit (2026-03-01)**
+
 # Component Wiring
 
 > Provider tree hierarchy, context dependencies per component, data flow parent→child,
 > event flow child→parent, and render trees for every screen.
+> Updated to reflect: server layout + client islands, ChatShell + ChatSessionContext,
+> useSyncExternalStore for artifacts/settings, PendingChatsProvider, StreamBridge thin bridge.
 
 ---
 
@@ -10,72 +14,122 @@
 ```
 <html lang="en" className={fontVars} suppressHydrationWarning>
   <body className="antialiased">
-    <Script id="theme-color" />            // Inline: sync theme-color meta
-    <SpeedInsights />                      // Vercel analytics
-    <Analytics />                          // Vercel analytics
-    <Suspense fallback={<AppShellFallback />}>
-      <AppShell>                           // async server component → getAppSession()
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <TooltipProvider delayDuration={0}>
-            <Toaster position="top-center" />   // sonner toast target
-            <SWRConfig value={globalSWRConfig}>
-              <AuthProvider initialSession={session}>
-                {children}                 // ← route group content
-              </AuthProvider>
-            </SWRConfig>
-          </TooltipProvider>
-        </ThemeProvider>
-      </AppShell>
-    </Suspense>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <SessionProvider session={session}>         // server-fetched via getAppSession()
+        {children}                                // ← route group content
+      </SessionProvider>
+    </ThemeProvider>
+    <Toaster position="top-center" />             // sonner toast target
   </body>
 </html>
 ```
 
+> **What's NOT here (removed per redesign):**
+> - ~~SWRConfig~~ — SWR only used in specific features, configure at point of use
+> - ~~TooltipProvider~~ — moved to point of consumption (sidebar, chat header)
+> - ~~AppShell wrapper~~ — root layout is a SERVER component, not a Suspense wrapper
+> - ~~SettingsProvider~~ — replaced by `useSyncExternalStore` module store (no provider needed)
+
 ### Chat Route Group (`(chat)/`)
 
 ```
-<ChatLayoutClient>                        // "use client" — reads ?notice params
-  <Script src="pyodide.js" strategy="lazyOnload" />
-  <SettingsProvider>                       // localStorage pub/sub for settings
-    <DataStreamProvider>                   // Split state/dispatch contexts
-      <OptimisticChatsProvider>            // Sidebar optimistic chat entries
-        <SidebarProvider defaultOpen={true}>
-          <Suspense fallback={<SidebarSkeleton />}>
-            <AppSidebar />                 // dynamic import, ssr=false
-          </Suspense>
-          <SidebarInset>
-            <Suspense fallback={<Loader />}>
-              {children}                   // ← page content (Chat + DataStreamHandler)
-            </Suspense>
-          </SidebarInset>
-        </SidebarProvider>
-      </OptimisticChatsProvider>
-    </DataStreamProvider>
-  </SettingsProvider>
-</ChatLayoutClient>
+app/(chat)/layout.tsx                              SERVER (async)
+│ Fetches: session, sidebar cookie preference
+│ Renders: sidebar structure + SidebarInset + children
+│
+├── NoticeHandler                                  'use client' (client island)
+│     Purpose: Read ?notice=chat_not_found → show toast (renders null, ~15 lines)
+│     Why extracted: Prevents layout from becoming 'use client'
+│
+├── Script src="pyodide.js" strategy="lazyOnload"  SERVER (Next.js <Script>)
+│
+└── PendingChatsProvider                           'use client'
+      │ Purpose: Optimistic UI for chat CRUD
+      │ Scope: Entire chat layout (sidebar + pages)
+      │ Why here: Both sidebar (reads) and chat pages (writes) need access
+      │ Survives: Chat-to-chat navigation (layout-level)
+      │ API: add(chat), remove(id), updateTitle(id, title), markConfirmed(id)
+      │
+      └── SidebarProvider(defaultOpen)             'use client'
+            │ Purpose: Sidebar open/close state + cookie persistence
+            │ Source: shadcn/ui sidebar primitive
+            │
+            ├── Suspense fallback={<SidebarSkeleton />}
+            │     └── SidebarShell(session)        SERVER (async)
+            │           Uses: 'use cache' + cacheTag('chats:{userId}')
+            │           Fetches: Chat history (first 20)
+            │           ├── SidebarHistoryClient   'use client'
+            │           │     Props: initialChats, initialHasMore
+            │           │     Pattern: Server data + SWR for pagination
+            │           │     Reads: PendingChatsProvider (merges optimistic entries)
+            │           │     └── SidebarHistoryItem × N  'use client'
+            │           └── SidebarUserNav          'use client'
+            │
+            └── SidebarInset                        SERVER (passthrough)
+                  └── {children}                    ← Chat pages
+```
+
+### Chat Page (inside {children})
+
+```
+app/(chat)/page.tsx OR app/(chat)/chat/[id]/page.tsx   SERVER (async)
+│ Fetches: session, chat+messages, votes, models (parallel)
+│
+└── ChatStreamProvider                             'use client' (PAGE-scoped)
+      │ Purpose: SSE data part accumulation with RAF batching
+      │ Split contexts: StateCtx (readers) + DispatchCtx (writers)
+      │ Why page-scoped: MUST NOT cascade to sidebar
+      │
+      ├── ChatShell                                'use client' (~60 lines)
+      │     Props: id, initialMessages, initialChatModel, isReadonly, availableModels
+      │     Creates: ChatSessionContext via useChatSession()
+      │     Calls: useChatSideEffects()
+      │     │
+      │     └── ChatSessionContext.Provider
+      │           ├── ChatHeader                   'use client' (reads context)
+      │           ├── Messages                     'use client' (reads context)
+      │           ├── MultimodalInput              'use client' (reads context)
+      │           └── ArtifactPanel (conditional)  'use client' (reads artifactStore)
+      │
+      ├── StreamBridge(id)                         'use client' (~20 lines, renders null)
+      │     Reads: ChatStreamProvider (useChatStream)
+      │     Writes: artifactStore.setState() via processStreamDelta()
+      │
+      └── Suspense (existing chat only)
+            └── VoteResolver(chatId, votesPromise) 'use client'
+                  Uses: React 19 use() for deferred vote hydration
 ```
 
 ### Auth Route Group (`(auth)/`)
 
 ```
-{children}                                // Direct child of AuthProvider
-// No additional providers — auth pages are minimal
+app/(auth)/layout.tsx                              SERVER
+│ Minimal centered container
+│
+├── app/(auth)/login/page.tsx                      SERVER
+│     └── AuthForm(mode="login")                   'use client'
+│
+└── app/(auth)/register/page.tsx                   SERVER
+      └── AuthForm(mode="register")                'use client'
 ```
 
 ---
 
-## 2. Global SWR Configuration
+## 2. Provider Isolation Analysis
 
-```typescript
-{
-  dedupingInterval: 10_000,          // 10s dedup for identical keys
-  revalidateOnFocus: false,          // No refetch on window focus
-  revalidateOnReconnect: false,      // No refetch on reconnect
-  refreshWhenHidden: false,          // No refresh in background tabs
-  refreshWhenOffline: false,         // No refresh when offline
-  revalidateIfStale: true,           // Revalidate stale data on mount
-}
-```
+> **SettingsProvider removed** — settings use `useSyncExternalStore` module store.
+> Any component imports `useSettings()` directly — no Context provider necessary.
+
+| Context Change | Cascade Reaches | Does NOT Reach |
+|---------------|-----------------|---------------|
+| Theme toggle | All components | — (expected, rare) |
+| Auth change | All components | — (expected, rare) |
+| Sidebar toggle | Sidebar + layout | Chat page content |
+| PendingChats update | Sidebar + chat pages | Root providers |
+| **Settings change** | **Only components calling useSettings()** | **No cascade — module store** |
+| **ChatStream delta** | **Chat page only** | **Sidebar, root** |
+| ChatSessionContext update | Chat children only | Sidebar, root |
+| **Artifact store delta** | **Only subscribed components (selector-based)** | **Most components** |
 
 ---
 
@@ -85,18 +139,18 @@
 
 | Component | Contexts Required | Hooks Used |
 |-----------|-------------------|------------|
-| `AppSidebar` | Auth, OptimisticChats, Sidebar, SWRConfig | `useAuth`, `useSidebar`, `useRouter`, `useSWRConfig` |
-| `Chat` | Auth, DataStream, Settings, OptimisticChats, SWRConfig | `useChat`, `useChatVisibility`, `useDataStream`, `useSettings`, `useAuth`, `useOptimisticChats`, `useArtifact`, `useSearchParams` |
-| `DataStreamHandler` | DataStream, Artifact (SWR) | `useDataStream`, `useArtifact` |
-| `ChatHeader` | Sidebar | `useSidebar` (via SidebarToggle) |
-| `Messages` | DataStream, Settings | `useDataStream`, `useSettingsSnapshot` |
-| `MultimodalInput` | Settings | `useSettings` (for localStorage input) |
-| `Artifact` | DataStream, SWR (artifact + document) | `useArtifact`, `useArtifactSelector`, `useMessages`, SWR for document |
-| `SidebarHistory` | Auth, OptimisticChats, SWRConfig | `useAuth`, `useOptimisticChats`, `useSWRInfinite` |
-| `SidebarUserNav` | Auth, Theme, SWRConfig | `useAuth`, `useTheme`, `useSWRConfig` |
-| `SettingsSheet` | Settings | `useSettings`, `useSettingsSnapshot` |
+| `ChatShell` | ChatStreamProvider (dispatch) | `useChatSession`, `useChatSideEffects`, `usePendingChats` |
+| `ChatHeader` | ChatSessionContext, Sidebar | `useChatSessionContext`, `useSidebar` |
+| `Messages` | ChatSessionContext | `useChatSessionContext`, `useScrollToBottom` |
+| `MultimodalInput` | ChatSessionContext | `useChatSessionContext`, `useSettings` (module store) |
+| `ArtifactPanel` | ChatSessionContext | `useArtifact` (useSyncExternalStore), `useChatSessionContext` |
+| `StreamBridge` | ChatStreamProvider (state) | `useChatStream`, `artifactStore` (module store) |
+| `SidebarShell` | (none — server component) | — |
+| `SidebarHistoryClient` | PendingChats | `usePendingChats`, `useSWRInfinite` |
+| `SidebarUserNav` | Session, Theme | `useSession`, `useTheme` |
 | `ModelSelector` | (none — props-driven) | — |
-| `VisibilitySelector` | SWR (visibility) | `useChatVisibility` |
+| `VisibilitySelector` | (none — props + useOptimistic) | `useOptimistic` |
+| `VoteResolver` | (none — promise resolution) | React 19 `use()` |
 
 ### Artifact Sub-Components
 
@@ -106,23 +160,23 @@
 | `CodeEditor` | (none — props-driven) | CodeMirror state hooks |
 | `SheetEditor` | (none — props-driven) | react-data-grid |
 | `ImageEditor` | (none — props-driven) | — |
-| `Toolbar` | (none — props-driven) | framer-motion drag |
-| `VersionFooter` | (none — props-driven) | SWR for document mutation |
-| `ArtifactMessages` | Messages context | `useMessages` |
-| `ArtifactActions` | (none — props-driven) | — |
-| `ArtifactCloseButton` | Artifact (SWR) | `useArtifact` |
+| `ArtifactActions` | — | `useArtifactSelector` |
+| `ArtifactCloseButton` | — | `useArtifactSelector(s => s.isVisible)` — minimal re-renders |
+| `VersionFooter` | — | `useArtifactSelector(s => s.artifactId)`, `useSWR` (on-demand versions) |
+| `ArtifactErrorBoundary` | (none — error boundary) | — |
 
 ### Message Sub-Components
 
 | Component | Contexts Required | Hooks Used |
 |-----------|-------------------|------------|
-| `PreviewMessage` | (none — props-driven) | — |
-| `MessageActions` | SWR (votes) | SWR optimistic mutate for votes |
-| `MessageEditor` | (none — props-driven) | `useFormStatus`-like pattern |
-| `MessageReasoning` | (none — props-driven) | local state (expanded, streaming) |
-| `Weather` | (none — props-driven) | `useIsMobile` |
-| `DocumentPreview` | Artifact (SWR) | `useArtifact`, SWR for document fetch |
-| `SuggestedActions` | (none — props-driven) | — |
+| `Message` | — | Props: message, isLoading |
+| `MessageActions` | — | Props-driven |
+| `MessageEditor` | — | Props-driven |
+| `MessageReasoning` | — | Local state (expanded, streaming) |
+| `VoteButtons` | — | `useOptimistic`, `voteOnMessage` Server Action |
+| `ArtifactPreview` | — | `useArtifactSelector(s => s.isVisible)` |
+| `Weather` | — | `useIsMobile` |
+| `SuggestedActions` | ChatSessionContext | `useChatSessionContext` (sendMessage) |
 
 ---
 
@@ -131,68 +185,63 @@
 ### Home Page (`/`)
 
 ```
-Page (server)
-  ├── props: id (UUID), initialMessages (empty), initialChatModel (from cookie),
-  │         initialVisibilityType ("private"), initialVotes ([]), isReadonly (false),
-  │         availableModels (from listChatModels())
+Page (SERVER)
+  ├── generates: id (UUID)
+  ├── fetches: session, models (server-side)
   │
-  ├── Chat (client)
-  │     ├── → ChatHeader: chatId, selectedVisibilityType, isReadonly
-  │     ├── → Messages: chatId, status, votes, messages, setMessages, regenerate,
-  │     │               isReadonly, isGuest, isArtifactVisible, selectedModelId
-  │     ├── → MultimodalInput: chatId, input, setInput, status, stop, attachments,
-  │     │                      setAttachments, messages, setMessages, sendMessage,
-  │     │                      selectedVisibilityType, selectedModelId, usage, availableModels
-  │     └── → Artifact (dynamic): chatId, input, setInput, status, stop, attachments,
-  │                               setAttachments, sendMessage, messages, setMessages,
-  │                               regenerate, votes, isReadonly, selectedVisibilityType,
-  │                               selectedModelId, availableModels
-  │
-  └── DataStreamHandler (client, renders null)
-        ← reads: dataStream (from DataStreamProvider context)
-        → writes: useArtifact SWR state
+  └── ChatStreamProvider
+        ├── ChatShell (client)
+        │     Creates ChatSessionContext from useChatSession()
+        │     Props: id, initialMessages=[], initialChatModel=getDefaultModel(session),
+        │            isReadonly=false, availableModels
+        │     │
+        │     └── ChatSessionContext.Provider
+        │           ├── → ChatHeader: (reads context — chatModel, status)
+        │           ├── → Messages: (reads context — messages, status, sendMessage)
+        │           ├── → MultimodalInput: (reads context — input, setInput, sendMessage, stop,
+        │           │                       status, attachments, setAttachments) + availableModels
+        │           └── → ArtifactPanel (conditional on artifact.isVisible):
+        │                 reads from artifactStore via useArtifact()
+        │
+        └── StreamBridge(id) (client, renders null)
+              Reads: ChatStreamProvider state → processStreamDelta() → artifactStore
 ```
 
 ### Existing Chat Page (`/chat/[id]`)
 
 ```
-Page (server)
-  ├── Fetches: session, chat+messages (cache-first), votes, models
-  ├── Access control: redirect if missing/unauthorized
+Page (SERVER, async)
+  ├── Fetches: session, chat+messages, votes, models (parallel via Promise.all)
+  ├── Access control: notFound() if missing/unauthorized
   │
-  ├── Chat (client) — same as Home but with:
-  │     initialMessages = convertToUIMessages(messagesFromDb)
-  │     initialChatModel = chat.lastContext?.modelId || DEFAULT
-  │     initialVisibilityType = chat.visibility
-  │     initialVotes = votes (from DB, non-guest only)
-  │     isReadonly = session.user.id !== chat.userId
-  │     initialLastContext = chat.lastContext
-  │
-  └── DataStreamHandler (client, renders null)
+  └── ChatStreamProvider
+        ├── ChatShell (client) — same as Home but with:
+        │     initialMessages = chat.messages
+        │     initialChatModel = chat.model
+        │     isReadonly = (chat.userId !== session.user.id)
+        │
+        ├── StreamBridge(id) (client, renders null)
+        │
+        └── Suspense
+              └── VoteResolver(chatId, votesPromise) — deferred vote hydration
 ```
 
-### Sidebar
+### Sidebar (Server-Rendered Initial + Client Pagination)
 
 ```
-AppSidebar (client, dynamic import)
-  ├── SidebarHeader
-  │     ├── Brand text: "Assistant"
-  │     └── New Chat button → router.push('/') + router.refresh()
+SidebarShell (SERVER, async)
+  ├── Fetches: chats via 'use cache' + cacheTag('chats:{userId}')
+  ├── Passes: initialChats (slice 0-20), initialHasMore
   │
-  ├── SidebarContent → SidebarHistory
-  │     ├── user (from useAuth): { email }
-  │     ├── GroupedVirtuoso renders ChatItem per chat
-  │     │     ├── chat: Chat object (from SWR/optimistic)
-  │     │     ├── isActive: pathname === `/chat/${chat.id}`
-  │     │     └── onDelete, setOpenMobile callbacks
-  │     └── SidebarHistoryItem
-  │           ├── SidebarMenuButton (Link to /chat/{id})
-  │           └── DropdownMenu (Share, Delete)
+  ├── SidebarHistoryClient (client)
+  │     ├── Merges: initialChats + PendingChatsProvider optimistic entries
+  │     ├── Pagination: useSWRInfinite → GET /api/history
+  │     └── SidebarHistoryItem × N (link + dropdown)
   │
-  └── SidebarFooter → SidebarUserNav
-        ├── user: { email }
-        ├── DropdownMenu: Theme toggle, Login/Logout
-        └── Avatar from avatar.vercel.sh
+  └── SidebarUserNav (client)
+        ├── session (from props)
+        ├── Theme toggle, logout
+        └── Avatar
 ```
 
 ---
@@ -202,84 +251,85 @@ AppSidebar (client, dynamic import)
 ### Chat → Sidebar (Optimistic Chat Creation)
 
 ```
-Chat.handleSubmit()
-  → addOptimisticChat({ id, title: input.slice(0,50), createdAt, visibility })
-  → OptimisticChatsProvider context update
-  → SidebarHistory re-renders with new entry in __optimistic__ group
+ChatShell.useChatSession.sendMessage()
+  → PendingChats.add({ id, title: input.slice(0,50), createdAt, visibility })
+  → PendingChatsProvider context update
+  → SidebarHistoryClient re-renders with new optimistic entry
 ```
 
-### Stream → Sidebar (Title Update)
+### Stream → Sidebar (Title Update — Single Channel)
 
 ```
-useChat.onData receives data-chatTitle
-  → updateOptimisticChat(chatId, { title })
-  → OptimisticChatsProvider context update
-  → SidebarHistoryItem re-renders with new title
+useChat.onData receives { type: 'chat-title', content: title }
+  → PendingChats.updateTitle(chatId, title)
+  → PendingChatsProvider context update
+  → SidebarHistoryItem re-renders with real title
 ```
 
-### Chat onFinish → Sidebar (Title Confirmation)
+> **Removed:** `pollForTitle()` 3×500ms polling, `window.dispatchEvent('chat-title-updated')`.
+> Title is AWAITED server-side before stream close — single delivery mechanism.
+
+### Chat onFinish → Cache Revalidation
 
 ```
-Chat.onFinish
-  → Poll /api/chat?id= for title (5 attempts, 500ms)
-  → window.dispatchEvent(new Event('chat-title-updated'))
-  → SidebarHistory listens: revalidate SWR
+Server onFinish callback:
+  → saveMessages(chatId, messages)
+  → updateChatTitle(chatId, title)
+  → revalidateTag('chat:{chatId}', 'max')         ← stale-while-revalidate
+  → revalidateTag('chats:{userId}', 'max')         ← sidebar refresh on next nav
 ```
 
 ### Sidebar Delete → Chat (Navigation)
 
 ```
 SidebarHistoryItem.delete()
-  → DELETE /api/history/{id}
-  → removeOptimisticChat(id) → context update
-  → SWR mutate (remove from cache pages)
+  → PendingChats.remove(id) → context update (optimistic removal)
+  → Server Action deleteChat() → DB delete → updateTag('chats:{userId}')
   → If deleting active chat: router.push('/')
 ```
 
 ### Artifact Tool Result → Artifact Panel
 
 ```
-PreviewMessage renders DocumentToolResult/DocumentToolCall
-  → User clicks inline document preview
-  → setArtifact({ ...state, isVisible: true, boundingBox, documentId })
-  → Artifact panel opens with AnimatePresence animation
+Message renders ArtifactPreview (inline thumbnail)
+  → User clicks inline preview
+  → artifactStore.setState({ ...state, isVisible: true, artifactId })
+  → ArtifactPanel renders (conditional on artifact.isVisible)
 ```
 
 ### ArtifactCloseButton → Artifact State
 
 ```
 ArtifactCloseButton.onClick()
-  → If streaming: setArtifact({ isVisible: false }) (keep content)
-  → If idle: setArtifact(initialArtifactData) (full reset)
+  → artifactStore.setState({ isVisible: false })
 ```
 
 ### MessageEditor → Messages State
 
 ```
 MessageEditor.send()
-  → deleteTrailingMessages(messageId, chatId) — server action
-  → setMessages(prev => [...prev.slice(0, editIndex), editedMessage])
-  → regenerate() — re-sends from edited message
+  → deleteTrailingMessages(messageId, chatId) — Server Action → updateTag('chat:{id}')
+  → useChatSessionContext().editMessage(messageId, newContent)
+    → Encapsulates: truncate messages + regenerate
 ```
 
 ### Settings → Chat Request
 
 ```
-SettingsSheet changes setting
-  → SettingsProvider localStorage update + notify subscribers
-  → Chat.useSettings() reads updated settings
+Settings change via useSettingsSetter() (module-level store, no provider)
+  → useSyncExternalStore subscribers notified
   → Next sendMessage(): prepareSendMessagesRequest includes new settings
   → Server reads: temperature, topP, maxOutputTokens, systemPrompt, enableReasoning
 ```
 
-### Vote → SWR Cache
+### Vote → Server Action
 
 ```
-MessageActions.vote()
-  → SWR mutate(`/api/vote?chatId=${chatId}`, optimisticVotes) — immediate
-  → PATCH /api/vote { chatId, messageId, type }
-  → On success: SWR mutation confirmed
-  → On failure: SWR rollback
+VoteButtons.handleVote(type)
+  → useOptimistic(type) — immediate UI update
+  → voteOnMessage({ chatId, messageId, type }) — Server Action
+  → Server: upsert vote → updateTag('votes:{chatId}')
+  → On failure: toast.error(), optimistic rolls back
 ```
 
 ---
@@ -289,19 +339,20 @@ MessageActions.vote()
 ### Login/Register Screen
 
 ```
-RootLayout → AppShell(ThemeProvider → SWRConfig → AuthProvider)
-  └── AuthForm (server component)
-        ├── Form (next/form)
-        │     ├── Input (email, autofocus)
-        │     ├── Input (password)
-        │     └── SubmitButton (useFormStatus)
-        └── Link (to /register or /login)
+RootLayout → ThemeProvider → SessionProvider
+  └── AuthLayout (SERVER, centered container)
+        └── AuthForm(mode) ('use client')
+              ├── Form (useActionState)
+              │     ├── Input (email, autofocus)
+              │     ├── Input (password)
+              │     └── SubmitButton
+              └── Link (to /register or /login)
 ```
 
 ### Chat Error Screen
 
 ```
-RootLayout → ChatLayout → ChatLayoutClient(providers)
+RootLayout → ChatLayout → PendingChatsProvider → SidebarProvider
   └── error.tsx (error boundary)
         ├── Heading: "Something went wrong"
         ├── Error digest display
@@ -320,30 +371,45 @@ global-error.tsx (standalone html/body)
 
 ## 7. Key Wiring Patterns
 
-### Split Context (DataStreamProvider)
+### Split Context (ChatStreamProvider)
 
-DataStreamProvider creates TWO React contexts to prevent re-render cascades:
-- `DataStreamStateContext` — components reading stream data subscribe here
-- `DataStreamDispatchContext` — components dispatching updates subscribe here
+ChatStreamProvider creates TWO React contexts to prevent re-render cascades:
+- `StateContext` — components reading stream data subscribe here (StreamBridge)
+- `DispatchContext` — components dispatching updates subscribe here (useChatSession.onData)
 
-Components that only dispatch (e.g., Chat setting stream data) don't re-render when stream state changes. Components that only read (DataStreamHandler) don't trigger re-renders in dispatch consumers.
+Components that only dispatch (useChatSession setting stream data) don't re-render when stream state changes. RAF batching coalesces ~200 SSE deltas/sec to ~60 React updates/sec.
 
-### SWR as State (useArtifact)
+### useSyncExternalStore for Artifact State
 
-Artifact state is managed via SWR with a synthetic key `"artifact"` and no fetcher:
-- Acts as a global reactive store
-- `mutate("artifact", updater)` triggers re-renders in all `useSWR("artifact")` consumers
-- `useArtifactSelector(selector)` subscribes to derived slices for performance
-- No API fetching — purely client-side state management using SWR as infrastructure
+Artifact state is managed via `artifactStore` — a module-level store using `useSyncExternalStore`:
+- `useArtifact()` — full artifact state, re-renders on ANY change
+- `useArtifactSelector(selector)` — re-renders ONLY when selected slice changes
+- `artifactStore.setState()` — called by StreamBridge's `processStreamDelta()`
+- ~80% fewer re-renders during streaming vs SWR synthetic key approach
 
-### Optimistic Pattern (useOptimisticChats)
+> **Replaced:** SWR with synthetic key `"artifact"` and no fetcher.
+
+### useSyncExternalStore for Settings
+
+Settings state managed via `settingsStore` module-level store + `localStorage`:
+- `useSettings()` — full settings state
+- `useSettingsSetter()` — write-only, no subscription
+- Cross-tab sync via `StorageEvent` listener
+- No provider needed — any component imports directly
+
+> **Replaced:** SettingsProvider React Context.
+
+### Optimistic Pattern (PendingChatsProvider)
 
 Chat list uses optimistic updates with dedup:
 - Internal `Set<string>` for O(1) ID lookup
-- `addOptimisticChat()` prepends entry (skips if ID exists)
-- `markChatConfirmed()` replaces optimistic flag
-- Auto-cleanup: optimistic entries > 2 min are removed
-- Window event `chat-title-updated` triggers SWR revalidation
+- `add(chat)` prepends entry (skips if ID exists)
+- `updateTitle(id, title)` updates optimistic entry title
+- `remove(id)` removes on delete
+- `markConfirmed(id)` marks server-confirmed
+
+> **Removed:** `window.dispatchEvent('chat-title-updated')`, auto-cleanup > 2min.
+> Title sync uses single-channel `PendingChats.updateTitle()` via `chat-title` stream part.
 
 ### Transport Customization (useChat)
 
@@ -351,3 +417,4 @@ The AI SDK `useChat` hook uses `DefaultChatTransport` with custom request prepar
 - `prepareSendMessagesRequest` injects model ID, visibility, and settings into every request
 - Only the latest message is sent (not full history — server loads from DB/cache)
 - Adaptive throttle: 50ms (fast), 100ms (medium), 150ms (slow connection)
+- `onData` routes `chat-title` to `PendingChats.updateTitle()`, `artifact-*` to `ChatStreamProvider`

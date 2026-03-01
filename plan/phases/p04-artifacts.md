@@ -1,13 +1,15 @@
 # Phase P04 — Artifacts Vertical
 
-> Artifact system phase. Implements the complete artifact experience: document handlers,
-> editors, panel UI, versioning, diff view, and wires AI tools from P03 stubs to real creation.
+> **Updated per redesign audit (2026-03-01)**
+
+> Artifact system phase. Implements the complete artifact experience: artifact handlers,
+> editors, panel UI, versioning, and wires AI tools from P03 stubs to real creation.
 >
-> **Entry state**: P03 complete — chat works end-to-end, messages stream, DataStreamHandler processes data parts.
+> **Entry state**: P03 complete — chat works end-to-end, messages stream, StreamBridge processes artifact parts.
 > **Exit state**: AI can create/update text, code, sheet artifacts; users can edit them; versions tracked; suggestion flow works.
 > **Est. duration**: ~4 days
-> **Tasks**: 22
-> **Files created**: ~30
+> **Tasks**: 18
+> **Files created**: ~28
 
 ---
 
@@ -15,28 +17,24 @@
 
 | ID | Title | Type | Complexity | Files |
 |----|-------|------|------------|-------|
-| P04-T01 | Define artifact types | IMPLEMENTATION | M | 1 |
-| P04-T02 | Create artifact Zod schemas | IMPLEMENTATION | S | 1 |
-| P04-T03 | Create artifact hooks | IMPLEMENTATION | L | 2 |
-| P04-T04 | Create document handler factory | IMPLEMENTATION | L | 1 |
-| P04-T05 | Create text document handler | IMPLEMENTATION | M | 1 |
-| P04-T06 | Create code document handler | IMPLEMENTATION | M | 1 |
-| P04-T07 | Create sheet document handler | IMPLEMENTATION | M | 1 |
-| P04-T08 | Create image document handler | IMPLEMENTATION | S | 1 |
-| P04-T09 | Wire createDocument tool | INTEGRATION | L | 1 |
-| P04-T10 | Wire updateDocument tool | INTEGRATION | M | 1 |
-| P04-T11 | Wire requestSuggestions tool | INTEGRATION | M | 1 |
-| P04-T12 | Create text editor | IMPLEMENTATION | L | 1 |
-| P04-T13 | Create code editor | IMPLEMENTATION | L | 1 |
-| P04-T14 | Create console component | IMPLEMENTATION | M | 1 |
-| P04-T15 | Create sheet editor | IMPLEMENTATION | L | 1 |
-| P04-T16 | Create image editor | IMPLEMENTATION | S | 1 |
-| P04-T17 | Create artifact panel | IMPLEMENTATION | L | 1 |
-| P04-T18 | Create artifact supporting components | IMPLEMENTATION | L | 4 |
-| P04-T19 | Create document preview + diffview | IMPLEMENTATION | M | 2 |
-| P04-T20 | Create artifact API routes | IMPLEMENTATION | M | 2 |
-| P04-T21 | Wire artifact panel into chat | INTEGRATION | L | 2 |
-| P04-T22 | Verification gate G04 | VERIFICATION | S | 0 |
+| P04-T01 | Create artifact types + schemas | IMPLEMENTATION | M | 2 |
+| P04-T02 | Create artifact store | IMPLEMENTATION | L | 1 |
+| P04-T03 | Create artifact hook aliases | IMPLEMENTATION | S | 2 |
+| P04-T04 | Create text + code handlers | IMPLEMENTATION | M | 2 |
+| P04-T05 | Create sheet + image handlers | IMPLEMENTATION | M | 2 |
+| P04-T06 | Create handler registration | IMPLEMENTATION | S | 1 |
+| P04-T07 | Create text editor | IMPLEMENTATION | L | 1 |
+| P04-T08 | Create code editor | IMPLEMENTATION | L | 1 |
+| P04-T09 | Create sheet editor | IMPLEMENTATION | L | 1 |
+| P04-T10 | Create image editor | IMPLEMENTATION | S | 1 |
+| P04-T11 | Create artifact panel | IMPLEMENTATION | L | 1 |
+| P04-T12 | Create artifact support components | IMPLEMENTATION | M | 3 |
+| P04-T13 | Create artifact error boundary | IMPLEMENTATION | S | 1 |
+| P04-T14 | Create artifact preview | IMPLEMENTATION | M | 1 |
+| P04-T15 | Create artifact API route | IMPLEMENTATION | M | 1 |
+| P04-T16 | Create suggestions API route | IMPLEMENTATION | M | 1 |
+| P04-T17 | Wire artifact panel into ChatShell | INTEGRATION | M | 2 |
+| P04-T18 | Verification gate G04 | VERIFICATION | S | 0 |
 
 ---
 
@@ -44,19 +42,19 @@
 
 | Seam | Description | Task |
 |------|-------------|------|
-| SEAM-009 | createDocument tool → artifact handlers | P04-T09 |
-| SEAM-010 | updateDocument tool → artifact handlers | P04-T10 |
-| SEAM-011 | requestSuggestions tool → text editor | P04-T11 |
-| SEAM-012 | Artifact stream → artifact panel | P04-T17, P04-T21 |
-| SEAM-021 | Document version fetch | P04-T20 |
-| SEAM-025 | Document data operations (full) | P04-T20 |
-| SEAM-032 | Text editor (TipTap + suggestions) | P04-T12 |
-| SEAM-033 | Code editor (CodeMirror + Pyodide) | P04-T13, P04-T14 |
-| SEAM-034 | Sheet editor (react-data-grid + PapaParse) | P04-T15 |
-| SEAM-035 | Image editor | P04-T16 |
-| SEAM-037 | Pyodide script loading | P04-T21 |
-| SEAM-039 | Version navigation + restore | P04-T18 |
-| SEAM-040 | Inline document preview → artifact panel | P04-T19 |
+| SEAM-009 | createArtifact tool → artifact handlers | P04-T04, P04-T05 |
+| SEAM-010 | updateArtifact tool → artifact handlers | P04-T04, P04-T05 |
+| SEAM-011 | requestSuggestions tool → text editor | P04-T07 |
+| SEAM-012 | Artifact stream → artifact panel | P04-T11, P04-T17 |
+| SEAM-021 | Artifact version fetch | P04-T15 |
+| SEAM-025 | Artifact data operations (full) | P04-T15 |
+| SEAM-032 | Text editor (TipTap + suggestions) | P04-T07 |
+| SEAM-033 | Code editor (CodeMirror + Pyodide) | P04-T08 |
+| SEAM-034 | Sheet editor (react-data-grid + PapaParse) | P04-T09 |
+| SEAM-035 | Image editor | P04-T10 |
+| SEAM-037 | Pyodide script loading | P04-T17 |
+| SEAM-039 | Version navigation + restore | P04-T12 |
+| SEAM-040 | Inline artifact preview → artifact panel | P04-T14 |
 
 ---
 
@@ -65,31 +63,37 @@
 ---
 
 ### TASK: [ID: P04-T01]
-Title: Define artifact type definitions
+Title: Create artifact types and schemas
 Phase: 4 — Artifacts Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: artifacts-system.md (ArtifactKind, UIArtifact, ArtifactDefinition, ArtifactActionContext, ArtifactToolbarItem)
-Architecture ref: conventions.md (feature types collocation); scaffold/directory-structure.md (features/artifacts/types/)
+Behavior ref: artifacts-system.md (ArtifactKind, UIArtifact, ArtifactHandler)
+Architecture ref: conventions.md (feature types collocation, Zod schemas with Schema suffix); scaffold/directory-structure.md (features/artifacts/types/, features/artifacts/schemas/)
 
-Action: Create features/artifacts/types/artifact.types.ts — Define all artifact-related types: ArtifactKind literal union ("text" | "code" | "image" | "sheet"), UIArtifact (documentId, title, kind, content, isVisible, status: "idle" | "streaming", boundingBox?), ArtifactDefinition (kind, description, content renderer component, actions array, toolbar items), ArtifactActionContext (artifact, handleVersionChange, currentVersionIndex, isCurrentVersion, mode, metadata, setMetadata), ArtifactToolbarContext, ArtifactToolbarItem (description, icon, onClick). Export initialArtifactData constant (empty UIArtifact with all defaults). Export artifactDefinitions array stub (populated as editors are built). This is the type foundation for all artifact components.
+Action: Create 2 files. (1) features/artifacts/types/artifact.types.ts — Define all artifact-related types: ArtifactKind literal union ("text" | "code" | "image" | "sheet"), UIArtifact (artifactId, title, kind, content, isVisible, status: "idle" | "streaming", boundingBox?), ArtifactHandler interface (kind, onCreateArtifact, onUpdateArtifact), ArtifactActionContext, ArtifactToolbarItem. Export initialArtifactData constant (empty UIArtifact with all defaults). (2) features/artifacts/schemas/artifact.schema.ts — Define Zod schemas: createArtifactSchema (title: string, kind: ArtifactKind enum), updateArtifactSchema (id: string uuid, description: string), getArtifactSchema (id: string uuid), deleteArtifactVersionSchema (id: string uuid, timestamp: string datetime), suggestionResponseSchema (suggestions: array of {originalText, suggestedText, description} max 5). Export inferred TypeScript types for each schema.
 
 Output files:
 - features/artifacts/types/artifact.types.ts
+- features/artifacts/schemas/artifact.schema.ts
 
-Inputs: lib/types/ai.types.ts (P00-T08 — CustomUIDataTypes), artifacts-system.md
-Outputs: Artifact types consumed by all P04 tasks; UIArtifact consumed by useArtifact (P04-T03), artifact panel (P04-T17), DataStreamHandler (P03-T12)
+Inputs: lib/types/artifact.types.ts (P00-T06), zod package
+Outputs: Artifact types and schemas consumed by all P04 tasks
 
 AI layer handling: NEW
 
-Dependencies: P00-T08
-Dependents: P04-T02, P04-T03, P04-T04, P04-T12, P04-T13, P04-T15, P04-T16, P04-T17, P04-T18, P04-T19, P04-T21
+Dependencies: P00-T06
+Dependents: P04-T02, P04-T03, P04-T04, P04-T05, P04-T07..T16
 
 Success criteria:
 - ArtifactKind includes all 4 types
-- UIArtifact includes documentId, title, kind, content, isVisible, status
+- UIArtifact includes artifactId (NOT documentId), title, kind, content, isVisible, status
 - initialArtifactData exported with sensible defaults
-- ArtifactDefinition includes kind, component, actions, toolbar
+- ArtifactHandler interface defines kind, onCreateArtifact, onUpdateArtifact
+- createArtifactSchema validates title + kind
+- deleteArtifactVersionSchema validates id + timestamp
+- suggestionResponseSchema validates array of max 5 suggestions
+- All schemas export inferred types
+- Zero "document" identifiers in any file
 - pnpm typecheck passes
 
 Complexity: M
@@ -97,131 +101,140 @@ Complexity: M
 ---
 
 ### TASK: [ID: P04-T02]
-Title: Create artifact validation schemas
+Title: Create artifact store with useSyncExternalStore
 Phase: 4 — Artifacts Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: api-contracts.md (document CRUD endpoints)
-Architecture ref: conventions.md (Zod schemas with Schema suffix)
+Behavior ref: state-management.md (artifact state via useSyncExternalStore)
+Architecture ref: redesign (useSyncExternalStore, NOT SWR synthetic key)
 
-Action: Create features/artifacts/schemas/artifact.schema.ts — Define Zod schemas: createDocumentSchema (title: string, kind: ArtifactKind enum), updateDocumentSchema (id: string uuid, description: string), getDocumentSchema (id: string uuid), deleteDocumentVersionSchema (id: string uuid, timestamp: string datetime — for version restore DELETE), suggestionResponseSchema (suggestions: array of {originalText, suggestedText, description} max 5). Export inferred TypeScript types for each schema.
+Action: Create features/artifacts/lib/artifact-store.ts — Artifact state store using `useSyncExternalStore`. Implements a module-level store with: getSnapshot() returns current UIArtifact state, subscribe(callback) registers listeners notified on state change, setState(updater: (prev) => UIArtifact) updates state and notifies all subscribers, reset() returns to initialArtifactData. This pattern enables fine-grained subscriptions via selectors without SWR overhead. The store is a singleton module — all consumers share the same state instance. Content accumulation logic: text deltas append, code/sheet deltas replace.
 
 Output files:
-- features/artifacts/schemas/artifact.schema.ts
+- features/artifacts/lib/artifact-store.ts
 
-Inputs: features/artifacts/types/artifact.types.ts (P04-T01), zod package
-Outputs: Schemas consumed by artifact API routes (P04-T20), artifact tools (P04-T09, P04-T10, P04-T11)
+Inputs: features/artifacts/types/artifact.types.ts (P04-T01)
+Outputs: Artifact store consumed by hook aliases (P04-T03), StreamBridge (P03-T20), artifact panel (P04-T11)
 
 AI layer handling: NEW
 
 Dependencies: P04-T01
-Dependents: P04-T09, P04-T10, P04-T11, P04-T20
+Dependents: P04-T03, P04-T11, P04-T17
 
 Success criteria:
-- createDocumentSchema validates title + kind
-- deleteDocumentVersionSchema validates id + timestamp
-- suggestionResponseSchema validates array of max 5 suggestions
-- All schemas export inferred types
+- Store uses `useSyncExternalStore` pattern (NOT SWR synthetic key)
+- getSnapshot() returns current UIArtifact
+- subscribe() registers listener, returns unsubscribe
+- setState() accepts updater function, notifies subscribers
+- reset() returns to initialArtifactData
+- Content accumulation: text APPEND, code/sheet REPLACE
+- Module-level singleton (no React context needed for store itself)
+- pnpm typecheck passes
+
+Complexity: L
+
+---
+
+### TASK: [ID: P04-T03]
+Title: Create artifact hook aliases
+Phase: 4 — Artifacts Vertical
+Type: IMPLEMENTATION
+
+Behavior ref: state-management.md (useArtifact, useArtifactSelector)
+Architecture ref: redesign (re-exports from useSyncExternalStore store)
+
+Action: Create 2 files. (1) features/artifacts/hooks/use-artifact.ts — "use client" hook useArtifact() that wraps `useSyncExternalStore(store.subscribe, store.getSnapshot)`. Exposes: artifact (UIArtifact), setArtifact(updater), resetArtifact(). Thin re-export from artifact-store.ts. (2) features/artifacts/hooks/use-artifact-selector.ts — "use client" hook useArtifactSelector<T>(selector: (artifact: UIArtifact) => T) that subscribes to a derived slice of artifact state. Uses `useSyncExternalStore` with a selector-based getSnapshot that only triggers re-render when the selected value changes. Prevents unnecessary re-renders.
+
+Output files:
+- features/artifacts/hooks/use-artifact.ts
+- features/artifacts/hooks/use-artifact-selector.ts
+
+Inputs: features/artifacts/lib/artifact-store.ts (P04-T02)
+Outputs: Artifact hooks consumed by artifact panel (P04-T11), artifact components (P04-T12, P04-T14), StreamBridge (P04-T17)
+
+AI layer handling: NEW
+
+Dependencies: P04-T02
+Dependents: P04-T11, P04-T12, P04-T14, P04-T17
+
+Success criteria:
+- useArtifact returns UIArtifact state from useSyncExternalStore
+- setArtifact accepts updater function
+- useArtifactSelector(s => s.isVisible) re-renders ONLY on visibility change
+- resetArtifact sets state back to initialArtifactData
+- Both hooks have "use client" directive
+- No SWR dependency
 - pnpm typecheck passes
 
 Complexity: S
 
 ---
 
-### TASK: [ID: P04-T03]
-Title: Create artifact hooks
-Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
-
-Behavior ref: state-management.md (useArtifact SWR-based state, useArtifactSelector derived slice)
-Architecture ref: DEV-007 (SWR for artifact state, no Jotai); ADR-001 (feature hooks collocation)
-
-Action: Create 2 files. (1) features/artifacts/hooks/use-artifact.ts — "use client" hook useArtifact() that manages artifact panel state via SWR. Uses useSWR("artifact", null, { fallbackData: initialArtifactData }). Exposes: artifact (UIArtifact), setArtifact(updater: (prev) => UIArtifact) via SWR optimistic mutate, resetArtifact() to reset to initial state. Handles content accumulation: text deltas append, code/sheet deltas replace. (2) features/artifacts/hooks/use-artifact-selector.ts — "use client" hook useArtifactSelector<T>(selector: (artifact: UIArtifact) => T) that subscribes to a derived slice of artifact state. Prevents re-renders when selected value hasn't changed (uses useSyncExternalStore or React.useMemo with shallow compare). Returns the selected slice.
-
-Output files:
-- features/artifacts/hooks/use-artifact.ts
-- features/artifacts/hooks/use-artifact-selector.ts
-
-Inputs: features/artifacts/types/artifact.types.ts (P04-T01), swr package
-Outputs: Artifact hooks consumed by DataStreamHandler (P03-T12 update), artifact panel (P04-T17), artifact components (P04-T18, P04-T19)
-
-AI layer handling: NEW
-
-Dependencies: P04-T01
-Dependents: P04-T17, P04-T18, P04-T19, P04-T21
-
-Success criteria:
-- useArtifact returns UIArtifact state from SWR
-- setArtifact accepts updater function for optimistic mutation
-- useArtifactSelector only re-renders when selected slice changes
-- resetArtifact sets state back to initialArtifactData
-- Both hooks have "use client" directive
-- pnpm typecheck passes
-
-Complexity: L
-
----
-
 ### TASK: [ID: P04-T04]
-Title: Create document handler factory
+Title: Create text and code artifact handlers
 Phase: 4 — Artifacts Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: artifacts-system.md (createDocumentHandler factory, handler registration)
-Architecture ref: architecture/patterns.md (factory pattern for artifact types); SEAM-009 (tool → handler)
+Behavior ref: artifacts-system.md (text handler: streamText → artifact-textDelta; code handler: streamObject → artifact-codeDelta)
+Architecture ref: SEAM-009, SEAM-010 (createArtifact/updateArtifact → handlers); redesign (ArtifactHandler type, handler registration)
 
-Action: Create features/artifacts/handlers/base.ts — DocumentHandler interface with kind, onCreateDocument({id, title, dataStream, session, chatId}), onUpdateDocument({id, description, dataStream, session}). Export createDocumentHandler<T>({kind, onCreateDocument, onUpdateDocument}) factory function. The factory wraps each handler with standard data stream preamble/postamble: writes data-kind, data-id, data-title, data-clear before handler, writes data-finish after. Persists document to DB/cache via lib/data/document.ts saveDocumentVersion(). Export documentHandlersByArtifactKind map: Record<ArtifactKind, DocumentHandler> (populated as handlers register). Export getDocumentHandler(kind: ArtifactKind) lookup function.
+Action: Create 2 files. (1) features/artifacts/handlers/text-handler.ts — Implements ArtifactHandler for kind "text". onCreateArtifact: calls AI SDK streamText() with artifact model, text-specific system prompt ("write Markdown, no code blocks"), title as user message, streams `artifact-textDelta` parts (APPEND delta). Returns full text content for persistence. onUpdateArtifact: receives existing content + update description, calls streamText() with context, streams `artifact-textDelta` parts. (2) features/artifacts/handlers/code-handler.ts — Implements ArtifactHandler for kind "code". onCreateArtifact: calls AI SDK streamObject() with Zod schema z.object({ code: z.string() }), code-specific system prompt ("self-contained Python, use print(), max 15 lines"), streams `artifact-codeDelta` parts (REPLACE delta). onUpdateArtifact: receives existing code + description, calls streamObject(). Both handlers write standard artifact stream preamble/postamble: artifact-kind, artifact-id, artifact-title, artifact-clear before content, artifact-finish after. Both persist via lib/data/artifact.ts saveArtifactVersion().
 
 Output files:
-- features/artifacts/handlers/base.ts
+- features/artifacts/handlers/text-handler.ts
+- features/artifacts/handlers/code-handler.ts
 
-Inputs: features/artifacts/types/artifact.types.ts (P04-T01), lib/data/document.ts (P01-T09), lib/utils/index.ts (generateUUID)
-Outputs: Handler factory consumed by per-kind handlers (P04-T05 through P04-T08); handler map consumed by tools (P04-T09, P04-T10)
+Inputs: lib/types/artifact-handler.types.ts (P00-T06), lib/ai/artifact-handlers.ts (P03-T04 — registry), lib/ai/provider.ts (P01-T12), lib/data/artifact.ts (P01-T08)
+Outputs: Text and code handlers registered in handler registry; consumed via getArtifactHandler("text"|"code")
 
 AI layer handling: NEW
 
-Dependencies: P04-T01, P01-T09
-Dependents: P04-T05, P04-T06, P04-T07, P04-T08, P04-T09, P04-T10
+Dependencies: P03-T04, P01-T12, P01-T08
+Dependents: P04-T06
 
 Success criteria:
-- createDocumentHandler returns handler with kind + onCreateDocument + onUpdateDocument
-- Factory wraps handler with data stream preamble (data-kind, data-id, data-title, data-clear) and postamble (data-finish)
-- Factory calls saveDocumentVersion() for persistence after handler completes
-- documentHandlersByArtifactKind map is exported and mutable for registration
-- getDocumentHandler throws AppError.notFound for unknown kinds
+- Text handler streams `artifact-textDelta` parts (APPEND, not replacement)
+- Code handler streams `artifact-codeDelta` parts (REPLACE, not appending)
+- Both write artifact stream preamble (artifact-kind, artifact-id, artifact-title, artifact-clear)
+- Both write artifact-finish postamble
+- Both persist via saveArtifactVersion()
+- Code handler uses streamObject with z.object({ code: z.string() })
+- Zero "document" identifiers
 - pnpm typecheck passes
 
-Complexity: L
+Complexity: M
 
 ---
 
 ### TASK: [ID: P04-T05]
-Title: Create text document handler
+Title: Create sheet and image artifact handlers
 Phase: 4 — Artifacts Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: artifacts-system.md (text handler: streamText → data-textDelta)
-Architecture ref: SEAM-032 (text editor integration)
+Behavior ref: artifacts-system.md (sheet handler: streamObject → artifact-sheetDelta; image: no AI generation)
+Architecture ref: SEAM-034, SEAM-035; redesign (ArtifactHandler type)
 
-Action: Create features/artifacts/handlers/text.ts — Build text handler using createDocumentHandler. onCreateDocument: calls AI SDK streamText() with artifact model (DEFAULT_ARTIFACT_MODEL), text-specific system prompt (textPrompt — "write Markdown, no code blocks"), title as user message, streams data-textDelta parts for each text chunk. Returns full text content for persistence. onUpdateDocument: receives existing document content + update description, calls streamText() with existing content in context and description as instruction, streams data-textDelta parts. Register handler in documentHandlersByArtifactKind["text"]. Export textPrompt for testing.
+Action: Create 2 files. (1) features/artifacts/handlers/sheet-handler.ts — Implements ArtifactHandler for kind "sheet". onCreateArtifact: calls AI SDK streamObject() with Zod schema z.object({ csv: z.string() }), sheet-specific system prompt ("generate CSV with headers"), streams `artifact-sheetDelta` parts (REPLACE delta). onUpdateArtifact: receives existing CSV + description, calls streamObject(). Writes standard artifact stream preamble/postamble. Persists via saveArtifactVersion(). (2) features/artifacts/handlers/image-handler.ts — Minimal handler for kind "image". Image artifacts are NOT created via AI generation — they are created by code execution (Pyodide matplotlib output). onCreateArtifact saves provided content (base64 data URL). onUpdateArtifact is a no-op returning existing content. Exists for type completeness and version persistence only.
 
 Output files:
-- features/artifacts/handlers/text.ts
+- features/artifacts/handlers/sheet-handler.ts
+- features/artifacts/handlers/image-handler.ts
 
-Inputs: features/artifacts/handlers/base.ts (P04-T04), lib/ai/providers.ts (P03-T02 — getModel), ai SDK (streamText)
-Outputs: Text handler registered in handler map; consumed via getDocumentHandler("text")
+Inputs: lib/types/artifact-handler.types.ts (P00-T06), lib/ai/artifact-handlers.ts (P03-T04), lib/data/artifact.ts (P01-T08)
+Outputs: Sheet and image handlers registered in handler registry; consumed via getArtifactHandler("sheet"|"image")
 
 AI layer handling: NEW
 
-Dependencies: P04-T04, P03-T02
-Dependents: P04-T09, P04-T10
+Dependencies: P03-T04, P01-T08
+Dependents: P04-T06
 
 Success criteria:
-- Handler registered for kind "text"
-- onCreateDocument streams data-textDelta parts
-- onUpdateDocument receives existing content and description
-- Uses DEFAULT_ARTIFACT_MODEL for model resolution
-- Content deltas are appendable (not full replacement)
+- Sheet handler streams `artifact-sheetDelta` parts (REPLACE)
+- Sheet handler uses streamObject with z.object({ csv: z.string() })
+- Image handler saves content without AI generation
+- Image handler onUpdateArtifact returns existing content (no-op)
+- Both write standard artifact stream preamble/postamble
+- Zero "document" identifiers
 - pnpm typecheck passes
 
 Complexity: M
@@ -229,225 +242,64 @@ Complexity: M
 ---
 
 ### TASK: [ID: P04-T06]
-Title: Create code document handler
+Title: Create handler registration via side-effect import
 Phase: 4 — Artifacts Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: artifacts-system.md (code handler: streamObject({code}) → data-codeDelta)
-Architecture ref: SEAM-033 (code editor integration)
+Behavior ref: artifacts-system.md (handler registration pattern)
+Architecture ref: redesign (side-effect: registers all handlers into lib/ai/artifact-handlers.ts on import)
 
-Action: Create features/artifacts/handlers/code.ts — Build code handler using createDocumentHandler. onCreateDocument: calls AI SDK streamObject() with artifact model, Zod schema z.object({ code: z.string() }), code-specific system prompt (codePrompt — "self-contained Python, use print(), max 15 lines"). Streams data-codeDelta parts (full code replacement on each partial). Returns final code string for persistence. onUpdateDocument: receives existing code + description, calls streamObject() with existing code in context. Register handler in documentHandlersByArtifactKind["code"]. Export codePrompt.
+Action: Create features/artifacts/handlers/index.ts — Side-effect module that imports all 4 handlers (text, code, sheet, image) and registers them into the handler registry at `lib/ai/artifact-handlers.ts` via `registerArtifactHandler()`. This file is imported by the chat API route to ensure all handlers are available before tool execution. The registration happens at module evaluation time (side-effect import pattern). This enables dependency inversion: tools depend on the registry interface, handlers register themselves. The registry uses `getArtifactHandler(kind)` for lookup.
 
 Output files:
-- features/artifacts/handlers/code.ts
+- features/artifacts/handlers/index.ts
 
-Inputs: features/artifacts/handlers/base.ts (P04-T04), lib/ai/providers.ts (P03-T02), ai SDK (streamObject), zod
-Outputs: Code handler registered in handler map; consumed via getDocumentHandler("code")
+Inputs: features/artifacts/handlers/text-handler.ts (P04-T04), features/artifacts/handlers/code-handler.ts (P04-T04), features/artifacts/handlers/sheet-handler.ts (P04-T05), features/artifacts/handlers/image-handler.ts (P04-T05), lib/ai/artifact-handlers.ts (P03-T04)
+Outputs: All handlers registered in registry; consumed by chat API route (P03-T23) via side-effect import
 
 AI layer handling: NEW
 
-Dependencies: P04-T04, P03-T02
-Dependents: P04-T09, P04-T10
+Dependencies: P04-T04, P04-T05, P03-T04
+Dependents: P04-T17, P04-T18
 
 Success criteria:
-- Handler registered for kind "code"
-- Uses streamObject with z.object({ code: z.string() }) schema
-- Streams data-codeDelta parts (full replacement, not appending)
-- System prompt enforces Python and max 15 lines
-- pnpm typecheck passes
-
-Complexity: M
-
----
-
-### TASK: [ID: P04-T07]
-Title: Create sheet document handler
-Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
-
-Behavior ref: artifacts-system.md (sheet handler: streamObject({csv}) → data-sheetDelta)
-Architecture ref: SEAM-034 (sheet editor integration)
-
-Action: Create features/artifacts/handlers/sheet.ts — Build sheet handler using createDocumentHandler. onCreateDocument: calls AI SDK streamObject() with artifact model, Zod schema z.object({ csv: z.string() }), sheet-specific system prompt (sheetPrompt — "generate CSV with headers"). Streams data-sheetDelta parts (full CSV replacement). Returns final CSV string for persistence. onUpdateDocument: receives existing CSV + description, calls streamObject(). Register handler in documentHandlersByArtifactKind["sheet"]. Export sheetPrompt.
-
-Output files:
-- features/artifacts/handlers/sheet.ts
-
-Inputs: features/artifacts/handlers/base.ts (P04-T04), lib/ai/providers.ts (P03-T02), ai SDK (streamObject), zod
-Outputs: Sheet handler registered in handler map; consumed via getDocumentHandler("sheet")
-
-AI layer handling: NEW
-
-Dependencies: P04-T04, P03-T02
-Dependents: P04-T09, P04-T10
-
-Success criteria:
-- Handler registered for kind "sheet"
-- Uses streamObject with z.object({ csv: z.string() }) schema
-- Streams data-sheetDelta parts (full replacement)
-- System prompt enforces CSV with headers
-- pnpm typecheck passes
-
-Complexity: M
-
----
-
-### TASK: [ID: P04-T08]
-Title: Create image document handler
-Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
-
-Behavior ref: artifacts-system.md (image: no server AI handler, Pyodide-only creation)
-Architecture ref: SEAM-035 (image editor)
-
-Action: Create features/artifacts/handlers/image.ts — Minimal handler. Image artifacts are NOT created via AI generation — they are created by code execution (Pyodide matplotlib output). The handler registers in documentHandlersByArtifactKind["image"] but onCreateDocument simply saves the provided content (base64 data URL) as a document version. onUpdateDocument is a no-op that returns existing content. This handler exists for type completeness and version persistence only.
-
-Output files:
-- features/artifacts/handlers/image.ts
-
-Inputs: features/artifacts/handlers/base.ts (P04-T04)
-Outputs: Image handler registered in handler map
-
-AI layer handling: NEW
-
-Dependencies: P04-T04
-Dependents: P04-T09
-
-Success criteria:
-- Handler registered for kind "image"
-- onCreateDocument saves content without AI generation
-- onUpdateDocument returns existing content
-- No AI SDK calls (image generation is client-side via Pyodide)
+- All 4 handlers register via side-effect import
+- Registry uses registerArtifactHandler() / getArtifactHandler(kind) pattern
+- Dependency inversion: tools call registry, handlers register into registry
+- Importing this file makes all handlers available
+- getArtifactHandler throws AppError.notFound for unknown kinds
 - pnpm typecheck passes
 
 Complexity: S
 
 ---
 
-### TASK: [ID: P04-T09]
-Title: Wire createDocument tool to artifact handlers
-Phase: 4 — Artifacts Vertical
-Type: INTEGRATION
-
-Behavior ref: artifacts-system.md (createDocument tool flow); ai-sdk-usage.md (tool definition)
-Architecture ref: SEAM-009 (createDocument → artifact handlers)
-
-Action: Replace the stub in features/chat/lib/tools/create-document.ts (created in P03-T08) with full implementation. The createDocument tool: Zod schema params {title: string, kind: ArtifactKind enum}. Execute function: (1) Look up handler via getDocumentHandler(kind), (2) Call handler.onCreateDocument({id: generateUUID(), title, dataStream, session, chatId}), (3) Return tool result message ("A document was created and is now visible to the user"). The tool uses dataStream from the enclosing stream context to write artifact data parts. Import and wire documentHandlersByArtifactKind from P04-T04.
-
-Output files:
-- features/chat/lib/tools/create-document.ts
-
-Inputs: features/artifacts/handlers/base.ts (P04-T04), features/artifacts/handlers/*.ts (P04-T05 through P04-T08), features/artifacts/schemas/artifact.schema.ts (P04-T02)
-Outputs: Functional createDocument tool consumed by chat completion (P03-T07)
-
-AI layer handling: NEW
-
-Dependencies: P04-T04, P04-T05, P04-T06, P04-T07, P04-T08, P04-T02
-Dependents: P04-T21, P04-T22
-
-Success criteria:
-- Tool no longer returns "not yet available" stub
-- Tool params validated with Zod (title + kind)
-- Handler looked up by kind and called with correct params
-- Data stream parts written: data-kind, data-id, data-title, data-clear, content deltas, data-finish
-- Tool returns user-facing message about document creation
-- pnpm typecheck passes
-
-Complexity: L
-
----
-
-### TASK: [ID: P04-T10]
-Title: Wire updateDocument tool to artifact handlers
-Phase: 4 — Artifacts Vertical
-Type: INTEGRATION
-
-Behavior ref: artifacts-system.md (updateDocument tool flow)
-Architecture ref: SEAM-010 (updateDocument → artifact handlers)
-
-Action: Replace the stub in features/chat/lib/tools/update-document.ts (created in P03-T08) with full implementation. The updateDocument tool: Zod schema params {id: string uuid, description: string}. Execute function: (1) Fetch existing document via lib/data/document.ts, (2) Determine kind from document, (3) Look up handler via getDocumentHandler(kind), (4) Call handler.onUpdateDocument({id, description, dataStream, session}), (5) Return tool result message ("The document has been updated"). Handler receives existing content and description to generate updated version.
-
-Output files:
-- features/chat/lib/tools/update-document.ts
-
-Inputs: features/artifacts/handlers/base.ts (P04-T04), lib/data/document.ts (P01-T09), features/artifacts/schemas/artifact.schema.ts (P04-T02)
-Outputs: Functional updateDocument tool consumed by chat completion (P03-T07)
-
-AI layer handling: NEW
-
-Dependencies: P04-T04, P04-T02, P01-T09
-Dependents: P04-T21, P04-T22
-
-Success criteria:
-- Tool no longer returns "not yet available" stub
-- Fetches existing document to get kind and latest content
-- Handler called with existing content + update description
-- New version created (data-clear, content deltas, data-finish)
-- pnpm typecheck passes
-
-Complexity: M
-
----
-
-### TASK: [ID: P04-T11]
-Title: Wire requestSuggestions tool
-Phase: 4 — Artifacts Vertical
-Type: INTEGRATION
-
-Behavior ref: artifacts-system.md (suggestions flow: streamObject → data-suggestion parts)
-Architecture ref: SEAM-011 (requestSuggestions → text editor suggestions)
-
-Action: Replace the stub in features/chat/lib/tools/suggestions.ts (created in P03-T08) with full implementation. The requestSuggestions tool: Zod schema params {documentId: string uuid}. Execute function: (1) Fetch latest document version via lib/data/document.ts, (2) Call AI SDK streamObject() with artifact model and Zod schema z.object({ suggestions: z.array(z.object({ originalText: z.string(), suggestedText: z.string(), description: z.string() })).max(5) }), (3) Stream each suggestion as data-suggestion part to dataStream, (4) For authenticated users: save suggestions to Suggestion table via lib/data (if suggestion data access exists), (5) Return tool result message. The suggestions appear in the text editor via DataStreamHandler → useArtifact.
-
-Output files:
-- features/chat/lib/tools/suggestions.ts
-
-Inputs: lib/data/document.ts (P01-T09), features/artifacts/schemas/artifact.schema.ts (P04-T02), lib/ai/providers.ts (P03-T02)
-Outputs: Functional requestSuggestions tool; data-suggestion parts consumed by DataStreamHandler and text editor (P04-T12)
-
-AI layer handling: NEW
-
-Dependencies: P04-T02, P03-T02, P01-T09
-Dependents: P04-T12, P04-T22
-
-Success criteria:
-- Tool no longer returns "not yet available" stub
-- Fetches latest document version for context
-- Streams up to 5 suggestions as data-suggestion parts
-- Each suggestion has originalText, suggestedText, description
-- Suggestions persisted for authenticated users
-- pnpm typecheck passes
-
-Complexity: M
-
----
-
-### TASK: [ID: P04-T12]
+### TASK: [ID: P04-T07]
 Title: Create text editor component
 Phase: 4 — Artifacts Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: artifacts-system.md (TipTap editor with suggestions extension); components-02.md (text-editor.tsx details)
+Behavior ref: artifacts-system.md (TipTap editor with suggestions extension)
 Architecture ref: SEAM-032 (TipTap + suggestions extension)
 
-Action: Create features/artifacts/components/editors/text-editor.tsx — "use client" memo component. Props: content (markdown), onSaveContent, status, isCurrentVersion, currentVersionIndex, suggestions[]. Uses TipTap editor with extensions: StarterKit, Markdown, Mathematics (KaTeX), Table extensions, custom SuggestionsExtension. During streaming (status === "streaming"): sets content without emitting save. During idle: content changes emit onSaveContent with debounced markdown output. SuggestionsExtension: inline decorations highlighting originalText spans from suggestions, popup showing suggestedText + description with accept/dismiss actions. Handle streaming vs idle mode switching. Editor should be read-only when viewing non-current version (!isCurrentVersion).
+Action: Create features/artifacts/components/editors/text-editor.tsx — "use client" memo component. Props: content (markdown), onSaveContent, status, isCurrentVersion, currentVersionIndex, suggestions[]. Uses TipTap editor with extensions: StarterKit, Markdown, Mathematics (KaTeX), Table extensions, custom SuggestionsExtension. During streaming (status === "streaming"): sets content without emitting save. During idle: content changes emit onSaveContent with debounced markdown output. SuggestionsExtension: inline decorations highlighting originalText spans from suggestions, popup showing suggestedText + description with accept/dismiss actions. Editor should be read-only when viewing non-current version (!isCurrentVersion).
 
 Output files:
 - features/artifacts/components/editors/text-editor.tsx
 
 Inputs: features/artifacts/types/artifact.types.ts (P04-T01), tiptap packages, oldapp/components/text-editor.tsx (reference)
-Outputs: TextEditor consumed by artifact panel (P04-T17) and document preview (P04-T19)
+Outputs: TextEditor consumed by artifact panel (P04-T11) and artifact preview (P04-T14)
 
 AI layer handling: AI_WRAPPER
 
-Dependencies: P04-T01, P04-T03
-Dependents: P04-T17, P04-T19
+Dependencies: P04-T01, P04-T02
+Dependents: P04-T11, P04-T14
 
 Success criteria:
 - TipTap renders markdown content
 - Streaming mode: content updates without save emission
 - Idle mode: content changes trigger debounced onSaveContent
-- Suggestions extension highlights originalText in document
+- Suggestions extension highlights originalText in artifact
 - Read-only when viewing non-current version
 - File under 200 lines
 - pnpm typecheck passes
@@ -456,26 +308,26 @@ Complexity: L
 
 ---
 
-### TASK: [ID: P04-T13]
+### TASK: [ID: P04-T08]
 Title: Create code editor component
 Phase: 4 — Artifacts Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: artifacts-system.md (CodeMirror + Pyodide execution); components-01.md (code-editor.tsx details)
+Behavior ref: artifacts-system.md (CodeMirror + Pyodide execution)
 Architecture ref: SEAM-033 (CodeMirror + Pyodide)
 
-Action: Create features/artifacts/components/editors/code-editor.tsx — "use client" memo component. Props: content (Python code), onSaveContent, status, isCurrentVersion, currentVersionIndex, suggestions[]. Uses CodeMirror with lazy-loaded modules (@codemirror/state, @codemirror/view, @codemirror/lang-python, @codemirror/theme-one-dark). Module cache singleton pattern to prevent re-initialization. Streaming content updates via EditorView.dispatch. Run button triggers Pyodide execution: captures stdout/stderr and matplotlib images, outputs to Console component (P04-T14). Read-only when viewing non-current version. Pyodide accessed from global window object (loaded via Script tag in ChatLayoutClient).
+Action: Create features/artifacts/components/editors/code-editor.tsx — "use client" memo component. Props: content (Python code), onSaveContent, status, isCurrentVersion, currentVersionIndex, suggestions[]. Uses CodeMirror with lazy-loaded modules (@codemirror/state, @codemirror/view, @codemirror/lang-python, @codemirror/theme-one-dark). Module cache singleton pattern to prevent re-initialization. Streaming content updates via EditorView.dispatch. Run button triggers Pyodide execution: captures stdout/stderr and matplotlib images, outputs to Console component. Read-only when viewing non-current version. Pyodide accessed from global window object (loaded via Script tag in chat layout). Includes integrated console component with resizable panel (role="slider", aria-label="Resize console", keyboard arrows ±10px).
 
 Output files:
 - features/artifacts/components/editors/code-editor.tsx
 
 Inputs: features/artifacts/types/artifact.types.ts (P04-T01), CodeMirror packages, oldapp/components/code-editor.tsx (reference)
-Outputs: CodeEditor consumed by artifact panel (P04-T17); works with Console (P04-T14)
+Outputs: CodeEditor consumed by artifact panel (P04-T11)
 
 AI layer handling: AI_WRAPPER
 
-Dependencies: P04-T01, P04-T03
-Dependents: P04-T14, P04-T17, P04-T19
+Dependencies: P04-T01, P04-T02
+Dependents: P04-T11
 
 Success criteria:
 - CodeMirror renders with Python syntax highlighting
@@ -483,6 +335,7 @@ Success criteria:
 - Streaming content updates via EditorView.dispatch
 - Run button executes code via Pyodide
 - Captures stdout/stderr and matplotlib images
+- Console resize handle has correct ARIA attributes
 - Read-only when not current version
 - pnpm typecheck passes
 
@@ -490,59 +343,26 @@ Complexity: L
 
 ---
 
-### TASK: [ID: P04-T14]
-Title: Create console component
-Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
-
-Behavior ref: components-01.md (console.tsx: resizable output with stdout/stderr/images)
-Architecture ref: accessibility.md (role="slider" on resize handle, aria-label, keyboard arrows)
-
-Action: Create features/artifacts/components/editors/console.tsx — "use client" component for code execution output. Props: consoleOutputs (array of {type: "stdout" | "stderr" | "image", content: string}), setConsoleOutputs. Resizable panel with drag handle (role="slider", aria-label="Resize console", aria-orientation="vertical", aria-valuemin/max/now). Height state (100-500px) controlled via mouse drag and keyboard arrows (ArrowUp +10px, ArrowDown -10px). Renders output entries: stdout as monospace text, stderr as red text, images as inline img elements. Auto-scrolls on new output. Clears outputs when artifact becomes not visible.
-
-Output files:
-- features/artifacts/components/editors/console.tsx
-
-Inputs: components/ui/ (P00-T11), accessibility.md (ARIA patterns)
-Outputs: Console consumed by code editor (P04-T13) within artifact panel
-
-AI layer handling: NEW
-
-Dependencies: P00-T11
-Dependents: P04-T17
-
-Success criteria:
-- Resize handle has correct ARIA attributes (role, label, orientation, valuemin/max/now)
-- Keyboard arrows adjust height by 10px
-- Mouse drag adjusts height smoothly
-- stdout/stderr/images render correctly
-- Auto-scroll on new output
-- pnpm typecheck passes
-
-Complexity: M
-
----
-
-### TASK: [ID: P04-T15]
+### TASK: [ID: P04-T09]
 Title: Create sheet editor component
 Phase: 4 — Artifacts Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: artifacts-system.md (react-data-grid + PapaParse CSV); components-02.md (sheet-editor.tsx details)
+Behavior ref: artifacts-system.md (react-data-grid + PapaParse CSV)
 Architecture ref: SEAM-034 (sheet editor)
 
-Action: Create features/artifacts/components/editors/sheet-editor.tsx — "use client" memo component. Props: content (CSV string), saveContent, status, isCurrentVersion, currentVersionIndex. Uses PapaParse for CSV parsing/unparsing, react-data-grid for grid rendering. Grid configuration: MIN_ROWS=50, MIN_COLS=26 (A-Z columns), frozen row-number column (width 50px), data columns width 120px. Parsing: CSV string → rows/columns on content change or streaming update. Cell editing: on edit → re-serialize to CSV via PapaParse.unparse → saveContent. Empty cell padding to MIN_ROWS/MIN_COLS. Dark mode support (dark:bg-zinc-950, dark:bg-zinc-900). Read-only when not current version.
+Action: Create features/artifacts/components/editors/sheet-editor.tsx — "use client" memo component. Props: content (CSV string), saveContent, status, isCurrentVersion, currentVersionIndex. Uses PapaParse for CSV parsing/unparsing, react-data-grid for grid rendering. Grid configuration: MIN_ROWS=50, MIN_COLS=26 (A-Z columns), frozen row-number column (width 50px), data columns width 120px. Parsing: CSV string → rows/columns on content change or streaming update. Cell editing: on edit → re-serialize to CSV via PapaParse.unparse → saveContent. Empty cell padding to MIN_ROWS/MIN_COLS. Dark mode support. Read-only when not current version.
 
 Output files:
 - features/artifacts/components/editors/sheet-editor.tsx
 
 Inputs: features/artifacts/types/artifact.types.ts (P04-T01), papaparse, react-data-grid, oldapp/components/sheet-editor.tsx (reference)
-Outputs: SheetEditor consumed by artifact panel (P04-T17) and document preview (P04-T19)
+Outputs: SheetEditor consumed by artifact panel (P04-T11) and artifact preview (P04-T14)
 
 AI layer handling: AI_WRAPPER
 
-Dependencies: P04-T01, P04-T03
-Dependents: P04-T17, P04-T19
+Dependencies: P04-T01, P04-T02
+Dependents: P04-T11, P04-T14
 
 Success criteria:
 - CSV parsed into grid rows/columns via PapaParse
@@ -557,26 +377,26 @@ Complexity: L
 
 ---
 
-### TASK: [ID: P04-T16]
+### TASK: [ID: P04-T10]
 Title: Create image editor component
 Phase: 4 — Artifacts Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: artifacts-system.md (image display from base64/URL); components-01.md
+Behavior ref: artifacts-system.md (image display from base64/URL)
 Architecture ref: SEAM-035 (image editor)
 
-Action: Create features/artifacts/components/editors/image-editor.tsx — "use client" component. Props: content (base64 data URL or URL string), title, status, isCurrentVersion, isInline? (for document preview). Renders image via next/image or native img element. Handles streaming state (show loader/placeholder). Handles inline vs full display modes (isInline: constrained size; full: fills available space). No AI server handler — images come from Pyodide execution (matplotlib output).
+Action: Create features/artifacts/components/editors/image-editor.tsx — "use client" component. Props: content (base64 data URL or URL string), title, status, isCurrentVersion, isInline? (for artifact preview). Renders image via next/image or native img element. Handles streaming state (show loader/placeholder). Handles inline vs full display modes (isInline: constrained size; full: fills available space). No AI server handler — images come from Pyodide execution (matplotlib output).
 
 Output files:
 - features/artifacts/components/editors/image-editor.tsx
 
 Inputs: features/artifacts/types/artifact.types.ts (P04-T01)
-Outputs: ImageEditor consumed by artifact panel (P04-T17) and document preview (P04-T19)
+Outputs: ImageEditor consumed by artifact panel (P04-T11) and artifact preview (P04-T14)
 
 AI layer handling: NEW
 
 Dependencies: P04-T01
-Dependents: P04-T17, P04-T19
+Dependents: P04-T11, P04-T14
 
 Success criteria:
 - Renders base64 data URL images and regular URLs
@@ -590,26 +410,26 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P04-T17]
+### TASK: [ID: P04-T11]
 Title: Create artifact panel component
 Phase: 4 — Artifacts Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: artifacts-system.md (panel layout, visibility logic, AnimatePresence); components-01.md (artifact.tsx details)
-Architecture ref: SEAM-012 (artifact stream → panel); scaffold/directory-structure.md
+Behavior ref: artifacts-system.md (panel layout, visibility logic, AnimatePresence)
+Architecture ref: SEAM-012 (artifact stream → panel); redesign (ArtifactPanel naming)
 
-Action: Create features/artifacts/components/artifact-panel.tsx — "use client" memo component. The main artifact panel overlay. Props match Chat component's artifact props (chatId, input, setInput, status, stop, attachments, setAttachments, sendMessage, messages, setMessages, regenerate, votes, isReadonly, selectedVisibilityType, selectedModelId, availableModels). Layout: fixed overlay z-50 h-dvh w-dvw. Desktop: 400px ArtifactMessages sidebar + remaining for editor content. Mobile: full-screen (no message sidebar). AnimatePresence for open/close with spring animation. Internal state: mode ("edit" | "diff"), document (fetched via SWR /api/document?id=), currentVersionIndex, isContentDirty, isToolbarVisible. Routes to correct editor by artifact.kind: text → TextEditor, code → CodeEditor + Console, sheet → SheetEditor, image → ImageEditor. Includes: ArtifactCloseButton, ArtifactActions, VersionFooter, Toolbar, ArtifactErrorBoundary wrapping editor content.
+Action: Create features/artifacts/components/artifact-panel.tsx — "use client" memo component. The main artifact panel overlay. Layout: fixed overlay z-50 h-dvh w-dvw. Desktop: 400px ArtifactMessages sidebar + remaining for editor content. Mobile: full-screen (no message sidebar). AnimatePresence for open/close with spring animation. Internal state: mode ("edit" | "diff"), artifact (fetched versions), currentVersionIndex, isContentDirty, isToolbarVisible. Routes to correct editor by artifact.kind: text → TextEditor, code → CodeEditor, sheet → SheetEditor, image → ImageEditor. Includes: ArtifactCloseButton, ArtifactActions, VersionFooter, Toolbar, ArtifactErrorBoundary wrapping editor content. Uses `useArtifactSelector` for visibility-driven rendering.
 
 Output files:
 - features/artifacts/components/artifact-panel.tsx
 
-Inputs: features/artifacts/hooks/ (P04-T03), features/artifacts/components/editors/ (P04-T12 through P04-T16), features/artifacts/types/ (P04-T01), all supporting components (P04-T18)
-Outputs: ArtifactPanel consumed by chat component (P04-T21)
+Inputs: features/artifacts/hooks/ (P04-T03), features/artifacts/components/editors/ (P04-T07..T10), features/artifacts/types/ (P04-T01), supporting components (P04-T12)
+Outputs: ArtifactPanel consumed by ChatShell (P04-T17)
 
 AI layer handling: AI_WRAPPER
 
-Dependencies: P04-T01, P04-T03, P04-T12, P04-T13, P04-T14, P04-T15, P04-T16, P04-T18
-Dependents: P04-T21
+Dependencies: P04-T01, P04-T03, P04-T07, P04-T08, P04-T09, P04-T10, P04-T12
+Dependents: P04-T17
 
 Success criteria:
 - Panel renders as fixed overlay when artifact.isVisible is true
@@ -618,112 +438,145 @@ Success criteria:
 - Mobile layout: full-screen editor only
 - AnimatePresence open/close animation
 - Version navigation tracks currentVersionIndex
-- Document fetched via SWR for version data
+- Artifact versions fetched for version data
 - ArtifactErrorBoundary wraps editor content
+- Uses useArtifactSelector (not SWR) for state
 - pnpm typecheck passes
 
 Complexity: L
 
 ---
 
-### TASK: [ID: P04-T18]
-Title: Create artifact supporting components
+### TASK: [ID: P04-T12]
+Title: Create artifact support components
 Phase: 4 — Artifacts Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: artifacts-system.md (actions, close button, error boundary, messages, version footer, toolbar)
-Architecture ref: components-01.md (detailed props/behavior); SEAM-039 (version navigation + restore)
+Behavior ref: artifacts-system.md (actions, close button, version footer)
+Architecture ref: SEAM-039 (version navigation + restore); redesign (useArtifactSelector)
 
-Action: Create 4 files. (1) features/artifacts/components/artifact-actions.tsx — Memo component. Props: artifact, handleVersionChange, currentVersionIndex, isCurrentVersion, mode, metadata, setMetadata. Renders per-kind action buttons from artifactDefinitions[kind].actions array. Each action receives ArtifactActionContext and renders as Button + Tooltip. (2) features/artifacts/components/artifact-close.tsx — Memo component (always skips re-render). On click: setArtifact to initial state or hide if streaming. (3) features/artifacts/components/artifact-error-boundary.tsx — Class component React error boundary. Catches editor render errors. Fallback: "Failed to render artifact" message + error display + retry button. (4) features/artifacts/components/version-footer.tsx — Version navigation. Shows "Version {n} of {total}" with prev/next/restore/latest buttons. handleVersionChange("prev"|"next"|"toggle"|"latest"). Restore: DELETE /api/document?id={id}&timestamp={ts} removes later versions. Uses motion for mount animation.
+Action: Create 3 files. (1) features/artifacts/components/artifact-actions.tsx — Memo component. Renders per-kind action buttons. Each action receives ArtifactActionContext and renders as Button + Tooltip. Uses `useArtifactSelector` for state access. (2) features/artifacts/components/artifact-close-button.tsx — Memo component (always skips re-render). On click: calls resetArtifact() from store or hides if streaming. Uses `useArtifactSelector`. (3) features/artifacts/components/version-footer.tsx — Version navigation. Shows "Version {n} of {total}" with prev/next/restore/latest buttons. handleVersionChange("prev"|"next"|"toggle"|"latest"). Restore: DELETE /api/artifact?id={artifactId}&timestamp={ts} removes later versions. Uses motion for mount animation.
 
 Output files:
 - features/artifacts/components/artifact-actions.tsx
-- features/artifacts/components/artifact-close.tsx
-- features/artifacts/components/artifact-error-boundary.tsx
+- features/artifacts/components/artifact-close-button.tsx
 - features/artifacts/components/version-footer.tsx
 
 Inputs: features/artifacts/types/artifact.types.ts (P04-T01), features/artifacts/hooks/ (P04-T03), components/ui/ (P00-T11)
-Outputs: Supporting components consumed by artifact panel (P04-T17)
+Outputs: Supporting components consumed by artifact panel (P04-T11)
 
 AI layer handling: NEW
 
 Dependencies: P04-T01, P04-T03, P00-T11
-Dependents: P04-T17
+Dependents: P04-T11
 
 Success criteria:
 - ArtifactActions renders correct buttons for each artifact kind
 - ArtifactCloseButton resets or hides artifact state
-- ArtifactErrorBoundary catches editor errors with fallback UI and retry
 - VersionFooter shows version info with navigation buttons
-- Restore deletes later versions via API
-- pnpm typecheck passes
-
-Complexity: L
-
----
-
-### TASK: [ID: P04-T19]
-Title: Create document preview and diff view components
-Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
-
-Behavior ref: artifacts-system.md (inline preview in messages, diff view); interactions.md (version switching)
-Architecture ref: SEAM-040 (inline preview → artifact panel); SEAM-039 (version diff)
-
-Action: Create 2 files. (1) features/artifacts/components/document-preview.tsx — Component rendered inline in chat messages for tool call results. Uses SWR to fetch document data (GET /api/document?id={id}). Shows mini editor preview (read-only) with document title and kind icon. Skeleton loading state. On click: captures bounding box via ref, calls setArtifact({documentId, isVisible: true, boundingBox}) to open full artifact panel with origin animation. (2) features/artifacts/components/diffview.tsx — Component for comparing two document versions side-by-side. Props: oldContent, newContent, kind. Shows additions (green) and deletions (red). Available as action on text artifacts. Uses text-based diff comparison.
-
-Output files:
-- features/artifacts/components/document-preview.tsx
-- features/artifacts/components/diffview.tsx
-
-Inputs: features/artifacts/hooks/ (P04-T03), features/artifacts/types/ (P04-T01), features/artifacts/components/editors/ (P04-T12 through P04-T16)
-Outputs: DocumentPreview consumed by message rendering (P03-T14); DiffView consumed by artifact panel (P04-T17)
-
-AI layer handling: NEW
-
-Dependencies: P04-T01, P04-T03, P04-T12, P04-T13, P04-T15, P04-T16
-Dependents: P04-T17, P04-T21
-
-Success criteria:
-- DocumentPreview fetches document via SWR and renders mini preview
-- Skeleton state shown during loading
-- Click opens full artifact panel with bounding box animation origin
-- DiffView shows additions/deletions between two versions
-- Both components handle all artifact kinds
+- Restore deletes later versions via API using artifactId (NOT documentId)
+- All components use useArtifactSelector for state
 - pnpm typecheck passes
 
 Complexity: M
 
 ---
 
-### TASK: [ID: P04-T20]
-Title: Create artifact API routes
+### TASK: [ID: P04-T13]
+Title: Create artifact error boundary
 Phase: 4 — Artifacts Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: api-contracts.md (GET/POST/DELETE /api/artifact, GET /api/suggestions)
-Architecture ref: conventions.md (route handlers); SEAM-021 (document version fetch); SEAM-025 (document data full)
+Behavior ref: artifacts-system.md (editor crash boundary)
+Architecture ref: SEAM-027 (error boundaries — artifact level)
 
-Action: Create 2 route files. (1) app/api/artifact/route.ts — GET: fetch all versions of a document by id query param, auth + ownership check. POST: save a new document version (from manual client-side edits). DELETE: delete versions after a specific timestamp (for version restore). All operations use lib/data/document.ts functions. (2) app/api/suggestions/route.ts — GET: fetch suggestions for a document by documentId query param. Returns persisted suggestions from Suggestion table for authenticated users. Guest users get empty array (suggestions not persisted for guests). Both routes include auth checks, Zod validation, and error handling.
+Action: Create features/artifacts/components/artifact-error-boundary.tsx — Class component React error boundary with getDerivedStateFromError + componentDidCatch. Fallback UI: "Failed to render artifact" message + error code + "Retry" button that resets error state. The boundary wraps only the editor content area inside the artifact panel — the panel chrome (close button, actions, version footer) remains functional outside the boundary. Error logging via console.error.
 
 Output files:
-- app/api/artifact/route.ts
-- app/api/suggestions/route.ts
+- features/artifacts/components/artifact-error-boundary.tsx
 
-Inputs: lib/data/document.ts (P01-T09), features/auth/lib/session.ts (P02-T01), features/artifacts/schemas/artifact.schema.ts (P04-T02), lib/api/ (P01-T12)
-Outputs: API routes consumed by artifact panel SWR fetches (P04-T17), document preview (P04-T19), suggestion display
+Inputs: lib/errors/app-error.ts (P00-T08)
+Outputs: ArtifactErrorBoundary consumed by artifact panel (P04-T11)
 
 AI layer handling: NEW
 
-Dependencies: P04-T02, P02-T01, P01-T09, P01-T12
-Dependents: P04-T17, P04-T19, P04-T22
+Dependencies: P00-T08
+Dependents: P04-T11
 
 Success criteria:
-- GET /api/artifact?id= returns document versions array
-- POST /api/artifact saves new version
+- Class component with getDerivedStateFromError
+- Fallback shows error message and retry button
+- Retry resets error state
+- Panel chrome (close, actions, footer) remains functional outside boundary
+- Error logged to console
+- pnpm typecheck passes
+
+Complexity: S
+
+---
+
+### TASK: [ID: P04-T14]
+Title: Create artifact preview component
+Phase: 4 — Artifacts Vertical
+Type: IMPLEMENTATION
+
+Behavior ref: artifacts-system.md (inline preview in messages)
+Architecture ref: SEAM-040 (inline artifact preview → artifact panel); redesign (artifact-preview.tsx, NOT document-preview.tsx)
+
+Action: Create features/artifacts/components/artifact-preview.tsx — Component rendered inline in chat messages for tool call results. Fetches artifact data for preview display. Shows mini editor preview (read-only) with artifact title and kind icon. Skeleton loading state. On click: captures bounding box via ref, calls setArtifact({artifactId, isVisible: true, boundingBox}) to open full artifact panel with origin animation. Uses `useArtifactSelector` for state interaction. File is named artifact-preview.tsx (NOT document-preview.tsx).
+
+Output files:
+- features/artifacts/components/artifact-preview.tsx
+
+Inputs: features/artifacts/hooks/ (P04-T03), features/artifacts/types/ (P04-T01), features/artifacts/components/editors/ (P04-T07..T10)
+Outputs: ArtifactPreview consumed by message rendering (P03-T15)
+
+AI layer handling: NEW
+
+Dependencies: P04-T01, P04-T03, P04-T07, P04-T09, P04-T10
+Dependents: P04-T17, P04-T18
+
+Success criteria:
+- Artifact preview fetches artifact data and renders mini preview
+- Skeleton state shown during loading
+- Click opens full artifact panel with bounding box animation origin
+- Uses artifactId parameter (NOT documentId)
+- File named artifact-preview.tsx (NOT document-preview.tsx)
+- Uses useArtifactSelector for state
+- Handles all artifact kinds
+- pnpm typecheck passes
+
+Complexity: M
+
+---
+
+### TASK: [ID: P04-T15]
+Title: Create artifact API route
+Phase: 4 — Artifacts Vertical
+Type: IMPLEMENTATION
+
+Behavior ref: api-contracts.md (GET/POST/DELETE /api/artifact)
+Architecture ref: SEAM-021 (artifact version fetch); SEAM-025 (artifact data full); redesign (revalidateTag on save)
+
+Action: Create app/api/artifact/route.ts — GET: fetch all versions of an artifact by id query param, auth + ownership check. POST: save a new artifact version (from manual client-side edits), calls `revalidateTag('artifact:{id}', 'max')` after save. DELETE: delete versions after a specific timestamp (for version restore). All operations use lib/data/artifact.ts functions. Auth checks, Zod validation, and error handling included.
+
+Output files:
+- app/api/artifact/route.ts
+
+Inputs: lib/data/artifact.ts (P01-T08), features/auth/lib/session.ts (P02-T01), features/artifacts/schemas/artifact.schema.ts (P04-T01), lib/cache/revalidate.ts (P01-T03)
+Outputs: API route consumed by artifact panel version fetches (P04-T11), artifact preview (P04-T14)
+
+AI layer handling: NEW
+
+Dependencies: P04-T01, P02-T01, P01-T08, P01-T03
+Dependents: P04-T11, P04-T14, P04-T18
+
+Success criteria:
+- GET /api/artifact?id= returns artifact versions array
+- POST /api/artifact saves new version + calls revalidateTag('artifact:{id}', 'max')
 - DELETE /api/artifact?id=&timestamp= removes versions after timestamp
-- GET /api/suggestions?documentId= returns suggestions array
 - Auth + ownership checks on all operations
+- Uses artifactId (NOT documentId) throughout
 - Error responses use AppError.toResponse()
 - pnpm typecheck passes
 
@@ -731,70 +584,109 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P04-T21]
-Title: Wire artifact panel into chat and layout
+### TASK: [ID: P04-T16]
+Title: Create suggestions API route
 Phase: 4 — Artifacts Vertical
-Type: INTEGRATION
+Type: IMPLEMENTATION
 
-Behavior ref: state-management.md (DataStreamHandler → useArtifact → panel); screens.md (Pyodide script in layout)
-Architecture ref: SEAM-012 (artifact stream → panel); SEAM-037 (Pyodide script loading)
+Behavior ref: api-contracts.md (GET /api/suggestions)
+Architecture ref: redesign (artifactId parameter)
 
-Action: Update 2 files. (1) features/chat/components/chat.tsx — Import and render ArtifactPanel (dynamic import for code splitting) alongside existing chat components. Pass all required props from useChat and useArtifact. Artifact panel visibility controlled by useArtifactSelector(a => a.isVisible). (2) app/(chat)/chat-layout-client.tsx — Add Script tag for Pyodide (<Script src="https://cdn.jsdelivr.net/pyodide/..." strategy="lazyOnload" />) for code artifact execution. Update DataStreamHandler to process artifact-specific data parts (data-textDelta, data-codeDelta, data-sheetDelta, data-imageDelta) and update useArtifact state accordingly. Ensure DataStreamProvider wraps both chat and artifact contexts.
+Action: Create app/api/suggestions/route.ts — GET: fetch suggestions for an artifact by artifactId query param. Returns persisted suggestions from Suggestion table for authenticated users. Guest users get empty array (suggestions not persisted for guests). Auth check, Zod validation, error handling included.
 
 Output files:
-- features/chat/components/chat.tsx (modify)
-- app/(chat)/chat-layout-client.tsx (modify)
+- app/api/suggestions/route.ts
 
-Inputs: features/artifacts/components/artifact-panel.tsx (P04-T17), features/artifacts/hooks/ (P04-T03), features/chat/components/data-stream-handler.tsx (P03-T12)
-Outputs: Complete artifact ↔ chat integration
+Inputs: lib/data/suggestion.ts (P01-T10), features/auth/lib/session.ts (P02-T01)
+Outputs: Suggestions API consumed by text editor suggestion display
 
 AI layer handling: NEW
 
-Dependencies: P04-T03, P04-T17, P04-T19, P03-T12, P03-T19
-Dependents: P04-T22
+Dependencies: P01-T10, P02-T01
+Dependents: P04-T18
 
 Success criteria:
-- ArtifactPanel renders when artifact.isVisible is true
-- DataStreamHandler updates artifact state for all delta types
-- Pyodide Script tag present in chat layout client
-- Code splitting: ArtifactPanel loaded via dynamic import
-- Chat component passes all required props to ArtifactPanel
+- GET /api/suggestions?artifactId= returns suggestions array
+- Uses artifactId parameter (NOT documentId)
+- Auth check present
+- Guest users get empty array
+- Error handling present
 - pnpm typecheck passes
 
-Complexity: L
+Complexity: M
 
 ---
 
-### TASK: [ID: P04-T22]
+### TASK: [ID: P04-T17]
+Title: Wire artifact panel into ChatShell
+Phase: 4 — Artifacts Vertical
+Type: INTEGRATION
+
+Behavior ref: state-management.md (StreamBridge → artifactStore → panel)
+Architecture ref: SEAM-012 (artifact stream → panel); SEAM-037 (Pyodide script); redesign (ChatShell orchestrator, StreamBridge → artifactStore)
+
+Action: Update 2 files. (1) features/chat/components/chat-shell.tsx — Conditionally render ArtifactPanel when artifact is visible. ArtifactPanel loaded via dynamic import for code splitting. Visibility controlled by `useArtifactSelector(a => a.isVisible)`. (2) Wire StreamBridge to push artifact stream parts (artifact-textDelta, artifact-codeDelta, artifact-sheetDelta, artifact-imageDelta) into the artifactStore via `setState()`. StreamBridge is a thin bridge (~20 lines) that calls `processStreamDelta()` → `artifactStore.setState()`. ChatStreamProvider wraps both chat and artifact contexts.
+
+Output files:
+- features/chat/components/chat-shell.tsx (modify)
+- features/chat/components/stream-bridge.tsx (modify if needed)
+
+Inputs: features/artifacts/components/artifact-panel.tsx (P04-T11), features/artifacts/lib/artifact-store.ts (P04-T02), features/chat/components/stream-bridge.tsx (P03-T20)
+Outputs: Complete artifact ↔ chat integration via ChatShell
+
+AI layer handling: NEW
+
+Dependencies: P04-T02, P04-T11, P04-T14, P03-T20
+Dependents: P04-T18
+
+Success criteria:
+- ArtifactPanel renders when artifact.isVisible is true (via useArtifactSelector)
+- StreamBridge processes all artifact-* delta types into artifactStore
+- Code splitting: ArtifactPanel loaded via dynamic import
+- ChatStreamProvider wraps both chat and artifact contexts
+- StreamBridge is thin (~20 lines) — logic in processStreamDelta()
+- pnpm typecheck passes
+
+Complexity: M
+
+---
+
+### TASK: [ID: P04-T18]
 Title: Verification gate G04
 Phase: 4 — Artifacts Vertical
 Type: VERIFICATION
 
 Behavior ref: artifacts-system.md (complete artifact flow)
-Architecture ref: AGENTS.md (post-implementation validation); strategy/phase-order.md (gate G04)
+Architecture ref: AGENTS.md (post-implementation validation); redesign (P4 exit criteria)
 
-Action: Run complete validation: (1) pnpm typecheck passes, (2) pnpm lint passes, (3) pnpm format passes. Functional verification: (4) AI can call createDocument tool → artifact panel opens with correct editor, (5) Text artifacts stream data-textDelta and render in TipTap, (6) Code artifacts stream data-codeDelta and render in CodeMirror, (7) Sheet artifacts stream data-sheetDelta and render in react-data-grid, (8) User can edit artifact content directly, (9) Edits create new versions, (10) Version footer shows version info with navigation, (11) AI can call updateDocument → existing content updated, (12) Suggestions stream as data-suggestion and display in text editor, (13) Document preview renders inline in messages, (14) Artifact error boundary catches editor crashes, (15) Code execution via Pyodide works.
+Action: Run complete validation: (1) pnpm typecheck passes, (2) pnpm lint passes, (3) pnpm format passes. Functional verification: (4) AI can call createArtifact tool → artifact panel opens with correct editor, (5) Text artifacts stream artifact-textDelta and render in TipTap, (6) Code artifacts stream artifact-codeDelta and render in CodeMirror, (7) Sheet artifacts stream artifact-sheetDelta and render in react-data-grid, (8) User can edit artifact content directly, (9) Edits create new versions, (10) Version footer shows version info with navigation, (11) AI can call updateArtifact → existing content updated, (12) Suggestions stream and display in text editor, (13) Artifact preview renders inline in messages, (14) Artifact error boundary catches editor crashes, (15) Code execution via Pyodide works.
 
 Output files: none (validation only)
 
-Inputs: all P04-T01 through P04-T21 outputs
+Inputs: all P04-T01 through P04-T17 outputs
 Outputs: Gate G04 passed — P05 (sidebar) can begin
 
 AI layer handling: N/A
 
-Dependencies: P04-T01 through P04-T21
+Dependencies: P04-T01 through P04-T17
 Dependents: P05-T01 (start of next phase)
 
 Success criteria:
 - pnpm typecheck exits 0
 - pnpm lint exits 0
 - pnpm format --check exits 0
-- createDocument tool creates artifacts for all 4 kinds
-- updateDocument tool updates existing artifacts
-- requestSuggestions streams suggestions to text editor
+- `artifactStore` uses `useSyncExternalStore` (NOT SWR synthetic key)
+- `useArtifactSelector(s => s.isVisible)` re-renders ONLY on visibility change
+- All 4 handlers register via side-effect import in `handlers/index.ts`
+- Handler registry uses `getArtifactHandler(kind)` pattern (dependency inversion)
+- Text handler uses APPEND delta, code/sheet use REPLACE delta
+- Artifact API route calls `revalidateTag('artifact:{id}', 'max')` on save
+- Suggestions API uses `artifactId` parameter (NOT documentId)
+- All files/types use "artifact" naming (zero "document")
+- createArtifact tool creates artifacts for all 4 kinds
+- updateArtifact tool updates existing artifacts
 - Version navigation works (prev/next/restore)
 - Artifact panel opens/closes with animation
-- Code execution produces console output
-- Document preview opens full panel on click
+- Artifact preview opens full panel on click
 
 Complexity: S

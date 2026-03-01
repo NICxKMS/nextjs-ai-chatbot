@@ -1,13 +1,19 @@
 # Phase P03 — Chat Core Vertical
 
-> Core chat vertical slice. Implements the complete chat experience: AI provider registry,
-> settings, streaming, message display, input, tools, and page routes.
+> **Updated per redesign audit (2026-03-01)**
+
+> Core chat vertical slice. Implements AI model catalog, system prompts, streaming infrastructure,
+> ChatShell (~60 lines) + ChatSessionContext decomposition, StreamBridge (~20 lines),
+> ChatStreamProvider (split state/dispatch with RAF batching), tools (createArtifact/updateArtifact),
+> message display, input, server layout + client islands, and chat pages.
+> SettingsProvider removed — useSettings() imported directly via useSyncExternalStore + localStorage.
+> Handler registry in lib/ai/artifact-handlers.ts for tool→handler dispatch (dependency inversion).
 >
-> **Entry state**: P02 complete — auth works, data layer ready, session resolution functional.
+> **Entry state**: P02 complete — auth works, data layer ready, AI providers registered.
 > **Exit state**: Users can send messages, receive AI streaming responses, see reasoning, use weather tool.
 > **Est. duration**: ~4 days
-> **Tasks**: 24
-> **Files created**: ~45
+> **Tasks**: 27
+> **Files created**: ~42
 
 ---
 
@@ -15,30 +21,33 @@
 
 | ID | Title | Type | Complexity | Files |
 |----|-------|------|------------|-------|
-| P03-T01 | Create AI provider registry | IMPLEMENTATION | L | 2 |
-| P03-T02 | Create AI provider wrapper | IMPLEMENTATION | L | 1 |
-| P03-T03 | Create AI model discovery | IMPLEMENTATION | M | 1 |
-| P03-T04 | Create settings module | IMPLEMENTATION | M | 3 |
-| P03-T05 | Create chat schemas | IMPLEMENTATION | M | 2 |
-| P03-T06 | Create system prompts | IMPLEMENTATION | M | 1 |
-| P03-T07 | Create chat completion logic | IMPLEMENTATION | L | 1 |
-| P03-T08 | Create chat tools | IMPLEMENTATION | M | 4 |
-| P03-T09 | Create stream chat action | IMPLEMENTATION | L | 1 |
-| P03-T10 | Create message persistence actions | IMPLEMENTATION | M | 2 |
-| P03-T11 | Create chat hooks | IMPLEMENTATION | M | 2 |
-| P03-T12 | Create DataStream infrastructure | IMPLEMENTATION | L | 2 |
-| P03-T13 | Create empty state components | IMPLEMENTATION | S | 2 |
-| P03-T14 | Create message display | IMPLEMENTATION | L | 2 |
-| P03-T15 | Create message interaction | IMPLEMENTATION | M | 2 |
-| P03-T16 | Create messages list | IMPLEMENTATION | L | 1 |
-| P03-T17 | Create chat input | IMPLEMENTATION | L | 1 |
-| P03-T18 | Create chat header + weather | IMPLEMENTATION | M | 2 |
-| P03-T19 | Create chat orchestrator | INTEGRATION | L | 1 |
-| P03-T20 | Create chat API route | IMPLEMENTATION | M | 1 |
-| P03-T21 | Create chat layouts | INTEGRATION | L | 2 |
-| P03-T22 | Create chat pages | IMPLEMENTATION | M | 2 |
-| P03-T23 | Create chat error states | IMPLEMENTATION | S | 2 |
-| P03-T24 | Verification gate G03 | VERIFICATION | S | 0 |
+| P03-T01 | Create AI model catalog | IMPLEMENTATION | M | 3 |
+| P03-T02 | Create system prompts + provider options | IMPLEMENTATION | M | 2 |
+| P03-T03 | Create tool enablement + title gen | IMPLEMENTATION | S | 2 |
+| P03-T04 | Create artifact handler registry | IMPLEMENTATION | M | 1 |
+| P03-T05 | Create chat types + schemas | IMPLEMENTATION | M | 2 |
+| P03-T06 | Create settings store + hooks | IMPLEMENTATION | M | 2 |
+| P03-T07 | Create settings panel | IMPLEMENTATION | M | 1 |
+| P03-T08 | Create ChatSessionContext | IMPLEMENTATION | S | 1 |
+| P03-T09 | Create chat pure functions | IMPLEMENTATION | M | 2 |
+| P03-T10 | Create ChatStreamProvider | IMPLEMENTATION | L | 1 |
+| P03-T11 | Create useChatSession hook | IMPLEMENTATION | L | 1 |
+| P03-T12 | Create chat side-effect hooks | IMPLEMENTATION | M | 2 |
+| P03-T13 | Create chat tools | IMPLEMENTATION | L | 4 |
+| P03-T14 | Create empty state components | IMPLEMENTATION | S | 3 |
+| P03-T15 | Create message display | IMPLEMENTATION | M | 2 |
+| P03-T16 | Create message interactions | IMPLEMENTATION | M | 2 |
+| P03-T17 | Create messages list | IMPLEMENTATION | L | 1 |
+| P03-T18 | Create multimodal input | IMPLEMENTATION | L | 2 |
+| P03-T19 | Create chat header | IMPLEMENTATION | M | 1 |
+| P03-T20 | Create StreamBridge | IMPLEMENTATION | S | 1 |
+| P03-T21 | Create ChatShell orchestrator | INTEGRATION | L | 1 |
+| P03-T22 | Create chat server actions | IMPLEMENTATION | M | 3 |
+| P03-T23 | Create chat API route | IMPLEMENTATION | L | 1 |
+| P03-T24 | Create chat layout (SERVER) | INTEGRATION | M | 1 |
+| P03-T25 | Create chat pages | IMPLEMENTATION | M | 2 |
+| P03-T26 | Create chat error boundary | IMPLEMENTATION | S | 1 |
+| P03-T27 | Verification gate G03 | VERIFICATION | S | 0 |
 
 ---
 
@@ -46,14 +55,14 @@
 
 | Seam | Description | Task |
 |------|-------------|------|
-| SEAM-006 | Chat streaming + data persistence | P03-T09, P03-T19, P03-T20 |
-| SEAM-007 | DataStream custom types | P03-T12 |
-| SEAM-008 | AI completion orchestration | P03-T07, P03-T09 |
-| SEAM-015 | Settings to completion pipeline | P03-T04, P03-T19 |
-| SEAM-028 | Chat component assembly | P03-T19 |
-| SEAM-029 | Provider tree (chat level) | P03-T21 |
-| SEAM-031 | useChat + DataStreamHandler sync | P03-T19 |
-| SEAM-038 | Message edit + re-submit | P03-T15, P03-T10 |
+| SEAM-006 | Chat streaming + data persistence | P03-T23, P03-T21 |
+| SEAM-007 | ChatStreamProvider custom types (split state/dispatch) | P03-T10 |
+| SEAM-008 | AI completion orchestration (streamText + tools) | P03-T23 |
+| SEAM-015 | Settings to completion pipeline (useSettings → useChatSession) | P03-T06, P03-T11 |
+| SEAM-028 | ChatShell component assembly (~60 lines) | P03-T21 |
+| SEAM-029 | Provider tree (chat level — SERVER layout + client islands) | P03-T24 |
+| SEAM-031 | useChat + StreamBridge sync (thin bridge + processStreamDelta) | P03-T20, P03-T21 |
+| SEAM-038 | Message edit + re-submit (deleteTrailingMessages + resubmit) | P03-T16, P03-T22 |
 
 ---
 
@@ -62,130 +71,121 @@
 ---
 
 ### TASK: [ID: P03-T01]
-Title: Create AI provider registry
+Title: Create AI model catalog
 Phase: 3 — Chat Core Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: ai-sdk-usage.md (createProviderRegistry with 6 conditional providers)
-Architecture ref: architecture/patterns.md (AI provider pattern); architecture/decisions.md (multi-provider support)
+Behavior ref: ai-sdk-usage.md (model listing, provider resolution)
+Architecture ref: redesign/ai-integration.md (model catalog)
 
-Action: Create lib/ai/registry.ts — Export createProviderRegistry() function that creates a Vercel AI SDK experimental_createProviderRegistry (or customProvider) with 6 providers, each conditionally registered based on env var presence: openai (OPENAI_API_KEY), google (GOOGLE_GENERATIVE_AI_API_KEY), anthropic (ANTHROPIC_API_KEY), openrouter (createOpenRouter with OPENROUTER_API_KEY), cloudflare-workers (CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID), vercel-gateway (gateway with all keys). Each provider is only registered if its env var exists. Create lib/ai/index.ts barrel re-exporting registry, providers (P03-T02), and model-discovery (P03-T03).
-
-Output files:
-- lib/ai/registry.ts
-- lib/ai/index.ts
-
-Inputs: ai-sdk-usage.md (provider configuration); ai, @ai-sdk/openai, @ai-sdk/google, @ai-sdk/anthropic packages
-Outputs: Provider registry consumed by AI provider wrapper (P03-T02) and completion logic (P03-T07)
-
-AI layer handling: NEW
-
-Dependencies: P01-T16
-Dependents: P03-T02, P03-T03, P03-T07
-
-Success criteria:
-- createProviderRegistry returns functional registry
-- Providers only registered when env vars present
-- Registry resolves model IDs like "google:gemma-3-4b-it"
-- Missing provider env var does not cause startup error
-- pnpm typecheck passes
-
-Complexity: L
-
----
-
-### TASK: [ID: P03-T02]
-Title: Create AI provider wrapper with middleware
-Phase: 3 — Chat Core Vertical
-Type: IMPLEMENTATION
-
-Behavior ref: ai-sdk-usage.md (myProvider wrapper, reasoning middleware, model resolution)
-Architecture ref: architecture/patterns.md (AI provider middleware chain)
-
-Action: Create lib/ai/providers.ts — Export myProvider as a customProvider that wraps the registry from P03-T01. The wrapper: (1) Resolves model IDs (e.g., "google:gemma-3-4b-it") through the registry. (2) Applies reasoning middleware for models that support it (wrapLanguageModel with extractReasoningMiddleware for Anthropic thinking, OpenAI reasoning, etc.). (3) Maps ReasoningType to appropriate middleware configuration per provider. (4) Export getModel(modelId: string): LanguageModel function that resolves and wraps a model with appropriate middleware. (5) Export isValidModelId(id: string): boolean for validation.
+Action: Create 3 files. (1) lib/ai/models.ts — Model definitions: chatModels array with id, name, provider, description for each available model. Export model lookup utilities. (2) features/models/lib/models.ts — Export listChatModels() with `use cache` directive for Next.js 16 caching. Export getAvailableModels() for server components. (3) features/models/types/model.types.ts — ChatModel type, ModelProvider type.
 
 Output files:
-- lib/ai/providers.ts
+- lib/ai/models.ts
+- features/models/lib/models.ts
+- features/models/types/model.types.ts
 
-Inputs: lib/ai/registry.ts (P03-T01), lib/types/ai.types.ts (ReasoningType from P00-T08), Vercel AI SDK
-Outputs: myProvider and getModel consumed by completion logic (P03-T07) and chat API route (P03-T20)
+Inputs: lib/ai/registry.ts (P01-T11), lib/ai/provider.ts (P01-T12)
+Outputs: Model catalog consumed by system prompts (P03-T02), chat header (P03-T19), chat pages (P03-T25)
 
-AI layer handling: NEW
-
-Dependencies: P03-T01
-Dependents: P03-T07, P03-T20
-
-Success criteria:
-- myProvider resolves any registered model ID
-- Reasoning middleware applied for Anthropic/OpenAI/Gemini thinking models
-- getModel("google:gemma-3-4b-it") returns usable LanguageModel
-- isValidModelId validates against registered providers
-- pnpm typecheck passes
-
-Complexity: L
-
----
-
-### TASK: [ID: P03-T03]
-Title: Create AI model discovery
-Phase: 3 — Chat Core Vertical
-Type: IMPLEMENTATION
-
-Behavior ref: ai-sdk-usage.md (dynamic model discovery from provider APIs, model catalog)
-Architecture ref: architecture/patterns.md (model discovery); data-flows.md (model metadata)
-
-Action: Create lib/ai/model-discovery.ts — Export discoverModels(): Promise<ModelMetadata[]> that queries each registered provider's model listing API and returns normalized ModelMetadata objects. Export getModelCatalog(): ModelMetadata[] that returns the cached/static model catalog (fallback when discovery fails). Each ModelMetadata includes: id, provider, name, capabilities, modality, contextWindow, reasoningType?, isDefault. Include a hardcoded DEFAULT_MODELS fallback array with at least the 3 default models (DEFAULT_CHAT_MODEL, DEFAULT_TITLE_MODEL, DEFAULT_ARTIFACT_MODEL). This is consumed by model selector (P06) but defined here as shared infrastructure.
-
-Output files:
-- lib/ai/model-discovery.ts
-
-Inputs: lib/ai/registry.ts (P03-T01), lib/types/ai.types.ts (ModelMetadata from P00-T08)
-Outputs: Model catalog consumed by model selector (P06) and settings (P03-T04)
-
-AI layer handling: NEW
-
-Dependencies: P03-T01
-Dependents: P03-T04, P06 (model selector)
+Dependencies: P01-T12
+Dependents: P03-T02, P03-T19, P03-T25
 
 Success criteria:
-- discoverModels returns array of ModelMetadata
-- getModelCatalog returns fallback array when discovery fails
-- DEFAULT_MODELS includes default chat, title, and artifact models
-- ModelMetadata matches type definition from ai.types.ts
+- chatModels array includes models from all registered providers
+- listChatModels uses `use cache` for Next.js 16
+- getAvailableModels returns typed ChatModel[]
 - pnpm typecheck passes
 
 Complexity: M
 
 ---
 
-### TASK: [ID: P03-T04]
-Title: Create settings module
+### TASK: [ID: P03-T02]
+Title: Create system prompts + provider options
 Phase: 3 — Chat Core Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: features.md (settings: model selection, default model persistence); state-management.md (settings state)
-Architecture ref: ADR-001 (feature collocation); SEAM-015 (settings to completion pipeline)
+Behavior ref: ai-sdk-usage.md (system prompt with artifacts instructions, date context, tool descriptions)
+Architecture ref: redesign/ai-integration.md (prompt management, provider-specific options)
 
-Action: Create 3 files in features/settings/. (1) features/settings/lib/types.ts — ChatSettings type with selectedModel (string, defaults to DEFAULT_CHAT_MODEL), temperature (number), maxTokens (number). (2) features/settings/lib/defaults.ts — DEFAULT_SETTINGS constant, getSettings(cookies/localStorage): ChatSettings reader, saveSettings(settings) writer. Settings stored in localStorage for client, passed to server via request body. (3) features/settings/hooks/use-settings.ts — "use client" hook useSettings() that reads/writes settings from localStorage, returns {settings, updateSettings, resetSettings}. Uses useState + useEffect for hydration safety.
+Action: Create 2 files. (1) lib/ai/prompts.ts — Export composeSystemPrompt(context?: {artifacts?: boolean}): string that assembles the system prompt. Include: base assistant identity, current date/time, available tools description, artifacts instructions (conditionally included). Copy prompt content from oldapp/lib/ai/prompts.ts. The prompt must describe tools as **createArtifact/updateArtifact** and artifact kinds (text, code, image, sheet). **No createDocument/updateDocument references.** (2) lib/ai/provider-options.ts — Export getProviderOptions(modelId: string) for provider-specific settings (e.g., thinking budget for Claude).
 
 Output files:
-- features/settings/lib/types.ts
-- features/settings/lib/defaults.ts
-- features/settings/hooks/use-settings.ts
+- lib/ai/prompts.ts
+- lib/ai/provider-options.ts
 
-Inputs: lib/types/ai.types.ts (DEFAULT_CHAT_MODEL from P00-T08)
-Outputs: ChatSettings type consumed by chat completion (P03-T07); useSettings consumed by chat component (P03-T19)
+Inputs: oldapp/lib/ai/prompts.ts (reference), lib/ai/models.ts (P03-T01)
+Outputs: System prompt and provider options consumed by chat API route (P03-T23)
 
-AI layer handling: NEW
-
-Dependencies: P00-T08, P01-T16
-Dependents: P03-T07, P03-T19
+Dependencies: P03-T01
+Dependents: P03-T23
 
 Success criteria:
-- ChatSettings type includes selectedModel, temperature, maxTokens
-- DEFAULT_SETTINGS uses DEFAULT_CHAT_MODEL
-- useSettings reads from localStorage with SSR safety
-- Settings persist across page reloads
+- composeSystemPrompt returns non-empty string
+- Prompt includes date context with current date
+- Prompt describes tools as **createArtifact/updateArtifact** (NOT createDocument/updateDocument)
+- Provider options return correct settings per model provider
+- pnpm typecheck passes
+
+Complexity: M
+
+---
+
+### TASK: [ID: P03-T03]
+Title: Create tool enablement + title generation
+Phase: 3 — Chat Core Vertical
+Type: IMPLEMENTATION
+
+Behavior ref: ai-sdk-usage.md (tool selection per model, title generation)
+Architecture ref: redesign/ai-integration.md (tool enablement, title flow)
+
+Action: Create 2 files. (1) lib/ai/tools.ts — Export getEnabledTools(modelId: string) that returns the subset of tools available for a given model (some models don't support tool calling). (2) lib/ai/title.ts — Export generateTitle(message: string): Promise<string> that uses a lightweight model call to generate a short chat title from the first user message. Title is **awaited server-side** before stream close (no polling).
+
+Output files:
+- lib/ai/tools.ts
+- lib/ai/title.ts
+
+Inputs: lib/ai/provider.ts (P01-T12)
+Outputs: Tool enablement consumed by API route (P03-T23); title gen consumed by API route (P03-T23)
+
+Dependencies: P01-T12
+Dependents: P03-T23
+
+Success criteria:
+- getEnabledTools returns correct tool subset per model
+- generateTitle returns a short string from first message
+- Title generation uses a lightweight model (not the full chat model)
+- pnpm typecheck passes
+
+Complexity: S
+
+---
+
+### TASK: [ID: P03-T04]
+Title: Create artifact handler registry
+Phase: 3 — Chat Core Vertical
+Type: IMPLEMENTATION
+
+Behavior ref: ai-sdk-usage.md (AI tools); redesign/ai-integration.md (handler registry)
+Architecture ref: redesign/component-architecture.md (artifact handler pattern, dependency inversion)
+
+Action: Create **lib/ai/artifact-handlers.ts** — Export ArtifactHandler type and handler registry. Export registerArtifactHandler(kind, handler) and getArtifactHandler(kind): ArtifactHandler. Each handler defines how an ArtifactKind (text, code, image, sheet) is created, updated, and rendered. Registry maps ArtifactKind → ArtifactHandler. This is the central dispatch point for all artifact operations — dependency inversion so tools don't import handler implementations directly. Handlers are registered in P04 but the registry infrastructure is created here.
+
+Output files:
+- lib/ai/artifact-handlers.ts
+
+Inputs: lib/types/artifact-handler.types.ts (P00-T06)
+Outputs: Handler registry consumed by artifact tools (P03-T13), artifact components (P04)
+
+Dependencies: P00-T06
+Dependents: P03-T13, P04-T06
+
+Success criteria:
+- ArtifactHandler type defines create/update/render interface
+- registerArtifactHandler adds handler to registry
+- getArtifactHandler returns correct handler for each kind
+- **File is lib/ai/artifact-handlers.ts** (NOT lib/ai/document-handlers.ts)
 - pnpm typecheck passes
 
 Complexity: M
@@ -193,32 +193,31 @@ Complexity: M
 ---
 
 ### TASK: [ID: P03-T05]
-Title: Create chat validation schemas
+Title: Create chat types + schemas
 Phase: 3 — Chat Core Vertical
 Type: IMPLEMENTATION
 
 Behavior ref: api-contracts.md (POST /api/chat request body schema)
-Architecture ref: conventions.md (Zod schemas with Schema suffix); AGENTS.md (input validation via Zod)
+Architecture ref: AGENTS.md (input validation via Zod); redesign/streaming-architecture.md (ArtifactDataPart types)
 
-Action: Create 2 files. (1) features/chat/schemas/chat.schema.ts — chatRequestSchema (Zod: id string uuid, message object with role/content/parts, selectedModel string, settings optional ChatSettings). (2) features/chat/schemas/message.schema.ts — messageSchema (Zod: id, chatId, role enum, parts array, attachments array optional, createdAt), editMessageSchema (messageId, content string for re-edit flow), deleteMessagesSchema (chatId, messageId for delete-trailing). These schemas validate all chat-related API inputs.
+Action: Create 2 files. (1) features/chat/types/chat.types.ts — ChatSessionValue type (from ChatSessionContext), ArtifactDataPart union type covering all artifact-* stream part types (artifact-id, artifact-title, artifact-kind, artifact-clear, artifact-finish, artifact-textDelta, artifact-codeDelta, artifact-sheetDelta, artifact-imageDelta, artifact-suggestion, chat-title). Export DataPart = ArtifactDataPart. ArtifactSuggestion interface. (2) features/chat/schemas/chat.schema.ts — chatRequestSchema (Zod: id string uuid, message object, selectedChatModel string), messageSchema, editMessageSchema, deleteMessagesSchema.
 
 Output files:
+- features/chat/types/chat.types.ts
 - features/chat/schemas/chat.schema.ts
-- features/chat/schemas/message.schema.ts
 
-Inputs: lib/types/ (P00-T08), features/settings/lib/types.ts (P03-T04)
-Outputs: Chat schemas consumed by stream chat action (P03-T09), API route (P03-T20), message actions (P03-T10)
+Inputs: lib/types/artifact.types.ts (P00-T06), lib/types/ (P00-T05)
+Outputs: Types/schemas consumed by ChatSessionContext (P03-T08), ChatStreamProvider (P03-T10), chat tools (P03-T13), API route (P03-T23), server actions (P03-T22)
 
-AI layer handling: NEW
-
-Dependencies: P00-T08, P01-T16
-Dependents: P03-T09, P03-T10, P03-T20
+Dependencies: P00-T06
+Dependents: P03-T08, P03-T09, P03-T10, P03-T22, P03-T23
 
 Success criteria:
+- ChatSessionValue type contains messages, status, input, setInput, sendMessage, stop, chatId, chatModel, isReadonly, error, clearError
+- ArtifactDataPart covers all 11 artifact-* and chat-title part types
 - chatRequestSchema validates POST /api/chat body shape
-- messageSchema validates message structure
-- deleteMessagesSchema validates chatId + messageId
 - All schemas export inferred TypeScript types
+- **Uses artifactId (NOT documentId) throughout**
 - pnpm typecheck passes
 
 Complexity: M
@@ -226,31 +225,32 @@ Complexity: M
 ---
 
 ### TASK: [ID: P03-T06]
-Title: Create system prompts
+Title: Create settings store + hooks
 Phase: 3 — Chat Core Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: ai-sdk-usage.md (system prompt with artifacts instructions, date context, tool descriptions)
-Architecture ref: architecture/patterns.md (prompt management)
+Behavior ref: features.md (settings: model selection, default model persistence)
+Architecture ref: redesign/state-management.md (**NO SettingsProvider** — useSettings() imported directly)
 
-Action: Create features/chat/lib/prompts.ts — Export buildSystemPrompt(context?: {artifacts?: boolean}): string that assembles the system prompt. Include: base assistant identity, current date/time, available tools description, artifacts instructions (conditionally included). Export PROMPT_FRAGMENTS object with individual sections: IDENTITY, DATE_CONTEXT, TOOLS_DESCRIPTION, ARTIFACTS_INSTRUCTIONS, FORMATTING_RULES. Copy prompt content from oldapp/lib/ai/prompts.ts or equivalent. The prompt must describe available tools (weather, createDocument, updateDocument) and artifact document kinds (text, code, image, sheet).
+Action: Create 2 files. (1) features/settings/types/settings.types.ts — ChatSettings type with selectedModel (string, defaults to DEFAULT_CHAT_MODEL), temperature (number), maxTokens (number). DEFAULT_SETTINGS constant. (2) features/settings/hooks/use-settings.ts — "use client" hook **useSettings()** backed by **useSyncExternalStore** + localStorage. Module-level store (not context-based). Returns {settings, updateSettings, resetSettings}. **NO SettingsProvider context** — useSettings() is imported directly where needed. SSR-safe via getServerSnapshot returning DEFAULT_SETTINGS.
 
 Output files:
-- features/chat/lib/prompts.ts
+- features/settings/types/settings.types.ts
+- features/settings/hooks/use-settings.ts
 
-Inputs: oldapp/lib/ai/prompts.ts (reference), ai-sdk-usage.md (tool descriptions)
-Outputs: System prompt consumed by completion logic (P03-T07)
+Inputs: lib/types/model.types.ts (DEFAULT_CHAT_MODEL from P00-T05), lib/types/settings.types.ts (P00-T07)
+Outputs: ChatSettings type and useSettings hook consumed by useChatSession (P03-T11), settings panel (P03-T07)
 
-AI layer handling: COPY_CONTENT
-
-Dependencies: P01-T16
-Dependents: P03-T07
+Dependencies: P00-T07
+Dependents: P03-T07, P03-T11
 
 Success criteria:
-- buildSystemPrompt returns non-empty string
-- Prompt includes date context with current date
-- Prompt includes tool descriptions
-- PROMPT_FRAGMENTS exportable for testing/customization
+- ChatSettings type includes selectedModel, temperature, maxTokens
+- DEFAULT_SETTINGS uses DEFAULT_CHAT_MODEL
+- **useSettings() uses useSyncExternalStore** (NOT useState + useEffect, NOT context-based SettingsProvider)
+- Module-level store — no provider wrapping needed
+- SSR-safe via getServerSnapshot
+- Settings persist across page reloads via localStorage
 - pnpm typecheck passes
 
 Complexity: M
@@ -258,301 +258,288 @@ Complexity: M
 ---
 
 ### TASK: [ID: P03-T07]
-Title: Create chat completion orchestration
+Title: Create settings panel
 Phase: 3 — Chat Core Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: ai-sdk-usage.md (streamText call with tools, maxSteps, onFinish callback, token usage)
-Architecture ref: architecture/patterns.md (AI completion pattern); SEAM-008 (AI completion orchestration)
+Behavior ref: features.md (settings UI: model selection, temperature, max tokens)
+Architecture ref: redesign/state-management.md (settings panel as sheet UI)
 
-Action: Create features/chat/lib/completion.ts — Export executeChatCompletion(params: {modelId, messages, system, tools, dataStream, onFinish}) that calls Vercel AI SDK streamText with: model from getModel(modelId), system prompt, messages array, tools map, maxSteps (5 for tool-calling loops), onFinish callback for persisting messages and tracking usage. Returns the streamText result. This is the core AI orchestration function — it does NOT handle HTTP or actions, only the AI SDK call. Handles AbortSignal for cancellation. Writes custom data to dataStream on events (title generation, usage tracking).
+Action: Create features/settings/components/settings-panel.tsx — "use client" sheet UI for editing chat settings (model, temperature, max tokens). Consumes **useSettings()** directly (NOT from a SettingsProvider context). Uses shadcn/ui Sheet, Slider, Select components.
 
 Output files:
-- features/chat/lib/completion.ts
+- features/settings/components/settings-panel.tsx
 
-Inputs: lib/ai/providers.ts (P03-T02 — getModel), features/chat/lib/prompts.ts (P03-T06), features/chat/lib/tools/ (P03-T08), Vercel AI SDK
-Outputs: executeChatCompletion consumed by stream chat action (P03-T09)
+Inputs: features/settings/hooks/use-settings.ts (P03-T06), components/ui/ (P00-T11)
+Outputs: Settings panel consumed by chat header or ChatShell (P03-T21)
 
-AI layer handling: NEW
-
-Dependencies: P03-T02, P03-T06, P03-T08
-Dependents: P03-T09
+Dependencies: P03-T06
+Dependents: P03-T21
 
 Success criteria:
-- streamText called with correct parameters
-- maxSteps set to 5 for multi-step tool calling
-- onFinish callback receives complete message for persistence
-- AbortSignal propagated for cancellation
-- dataStream.writeData used for custom events
+- Renders as a Sheet overlay
+- Reads/writes settings via **useSettings()** (NOT SettingsProvider context)
+- Includes model selector, temperature slider, max tokens input
 - pnpm typecheck passes
 
-Complexity: L
+Complexity: M
 
 ---
 
 ### TASK: [ID: P03-T08]
-Title: Create chat tools
+Title: Create ChatSessionContext
 Phase: 3 — Chat Core Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: ai-sdk-usage.md (tool definitions: getWeather, createDocument, updateDocument, requestSuggestions)
-Architecture ref: architecture/patterns.md (AI tool pattern); features.md (weather tool, document tools)
+Behavior ref: state-management.md (chat session context)
+Architecture ref: redesign/component-architecture.md (ChatSessionContext replaces old ChatContext); redesign/state-management.md
 
-Action: Create 4 tool files in features/chat/lib/tools/. (1) weather.ts — Full implementation of getWeather tool: Zod schema for params (latitude, longitude), execute function that calls Open-Meteo API, returns {temperature, weather}. Generates WeatherComponent UI in tool result. (2) create-document.ts — STUB: tool definition with schema (title, kind) but execute returns "Document creation not yet available" (requires P04). (3) update-document.ts — STUB: tool definition with schema (id, description) but execute returns "Document update not yet available". (4) suggestions.ts — STUB: tool definition with schema (documentId) but execute returns "Suggestions not yet available". Export all tools as a toolsMap object for registration in completion.ts.
-
-Output files:
-- features/chat/lib/tools/weather.ts
-- features/chat/lib/tools/create-document.ts
-- features/chat/lib/tools/update-document.ts
-- features/chat/lib/tools/suggestions.ts
-
-Inputs: ai-sdk-usage.md (tool specs), zod package, Vercel AI SDK (tool helper)
-Outputs: Tools map consumed by completion.ts (P03-T07)
-
-AI layer handling: NEW
-
-Dependencies: P01-T16
-Dependents: P03-T07
-
-Success criteria:
-- getWeather tool fully functional (calls Open-Meteo API)
-- 3 stub tools return "not yet available" messages
-- All tools have Zod parameter schemas
-- Tools exported as combined map object
-- pnpm typecheck passes
-
-Complexity: M
-
----
-
-### TASK: [ID: P03-T09]
-Title: Create stream chat server action
-Phase: 3 — Chat Core Vertical
-Type: IMPLEMENTATION
-
-Behavior ref: ai-sdk-usage.md (server action for chat streaming); data-flows.md (message persistence on completion)
-Architecture ref: SEAM-006 (chat streaming + data persistence); conventions.md (server actions)
-
-Action: Create features/chat/actions/stream-chat.ts — "use server" action streamChat(params: {id, messages, selectedModel}): Promise<{dataStream: ReadableStream}>. Flow: (1) Resolve session via getAppSession(), (2) Validate input with chatRequestSchema, (3) Get or create chat record, (4) Create dataStreamResponse using createDataStream(), (5) Call executeChatCompletion() with messages, model, tools, dataStream, (6) In onFinish: save assistant message via saveMessages(), generate title if first message (using generateText with DEFAULT_TITLE_MODEL), write title to dataStream, track usage, (7) Return the dataStream for client consumption. This is the primary server action called by useChat on the client.
+Action: Create features/chat/hooks/use-chat-session-context.ts — "use client". Defines **ChatSessionContext** (NOT ChatContext) with createContext. Exports **ChatSessionValue** type containing all composed chat state: messages, status, input, setInput, attachments, setAttachments, sendMessage, stop, appendMessage, chatId, chatModel, isReadonly, error, clearError. Exports **useChatSessionContext()** hook (NOT useChatContext). Intent-based callbacks (sendMessage, stop) instead of raw setter props. This context is provided by ChatShell (P03-T21) and consumed by Messages, MultimodalInput, ChatHeader.
 
 Output files:
-- features/chat/actions/stream-chat.ts
+- features/chat/hooks/use-chat-session-context.ts
 
-Inputs: features/auth/lib/session.ts (P02-T01), features/chat/schemas/ (P03-T05), features/chat/lib/completion.ts (P03-T07), lib/data/chat.ts (P01-T07), lib/data/message.ts (P01-T08)
-Outputs: Stream action consumed by useChat hook via chat API route (P03-T20) or directly
+Inputs: features/chat/types/chat.types.ts (P03-T05)
+Outputs: ChatSessionContext consumed by all chat child components (P03-T15 through P03-T19, P03-T21)
 
-AI layer handling: NEW
-
-Dependencies: P03-T07, P03-T05, P02-T01, P01-T07, P01-T08
-Dependents: P03-T20
+Dependencies: P03-T05
+Dependents: P03-T11, P03-T15, P03-T17, P03-T18, P03-T19, P03-T21
 
 Success criteria:
-- Action resolves session and validates input
-- Chat created if not exists
-- executeChatCompletion called with correct params
-- onFinish persists assistant message
-- Title generated for first message and written to dataStream
-- Returns ReadableStream
-- pnpm typecheck passes
-
-Complexity: L
-
----
-
-### TASK: [ID: P03-T10]
-Title: Create message persistence actions
-Phase: 3 — Chat Core Vertical
-Type: IMPLEMENTATION
-
-Behavior ref: features.md (message edit/re-submit, delete trailing messages); data-flows.md (message mutation flows)
-Architecture ref: conventions.md (server actions); SEAM-038 (message edit + re-submit)
-
-Action: Create 2 files. (1) features/chat/actions/save-message.ts — "use server" action saveUserMessage(params: {chatId, message}): saves a user message to the database via saveMessages(). Used when user sends a message (before AI response). (2) features/chat/actions/delete-trailing-messages.ts — "use server" action deleteTrailingMessages(params: {chatId, messageId}): deletes the specified message and all subsequent messages (by createdAt). Used by message edit flow — when user edits a previous message, all messages after it are deleted, then the edited message is re-submitted for a new AI response.
-
-Output files:
-- features/chat/actions/save-message.ts
-- features/chat/actions/delete-trailing-messages.ts
-
-Inputs: lib/data/message.ts (P01-T08), features/auth/lib/session.ts (P02-T01), features/chat/schemas/message.schema.ts (P03-T05)
-Outputs: Persistence actions consumed by message editor (P03-T15) and chat component (P03-T19)
-
-AI layer handling: NEW
-
-Dependencies: P01-T08, P02-T01, P03-T05
-Dependents: P03-T15, P03-T19
-
-Success criteria:
-- saveUserMessage persists message to DB and invalidates cache
-- deleteTrailingMessages removes correct range of messages
-- Both validate session before operating
-- Both use Zod schemas for input validation
-- pnpm typecheck passes
-
-Complexity: M
-
----
-
-### TASK: [ID: P03-T11]
-Title: Create chat client hooks
-Phase: 3 — Chat Core Vertical
-Type: IMPLEMENTATION
-
-Behavior ref: state-management.md (useMessages composition, useScrollToBottom behavior)
-Architecture ref: ADR-001 (feature collocation for hooks); DEV-003 (hooks in feature dir)
-
-Action: Create 2 hooks. (1) features/chat/hooks/use-messages.ts — "use client" hook useMessages(chatId: string) that provides messages for a chat. Wraps useChat's messages with additional logic: optimistic message handling, message formatting for display, grouping by role for rendering. Returns {messages, isLoading, error, mutate}. Uses SWR or React state for message cache. (2) features/chat/hooks/use-scroll-to-bottom.ts — "use client" hook useScrollToBottom() that auto-scrolls chat container to bottom on new messages. Returns {containerRef, endRef, isAtBottom, scrollToBottom}. Uses IntersectionObserver for efficient scroll detection.
-
-Output files:
-- features/chat/hooks/use-messages.ts
-- features/chat/hooks/use-scroll-to-bottom.ts
-
-Inputs: oldapp/hooks/use-messages.tsx (reference), oldapp/hooks/use-scroll-to-bottom.tsx (reference)
-Outputs: Chat hooks consumed by messages component (P03-T16) and chat component (P03-T19)
-
-AI layer handling: NEW
-
-Dependencies: P01-T16
-Dependents: P03-T16, P03-T19
-
-Success criteria:
-- useMessages returns typed message array for given chatId
-- useScrollToBottom auto-scrolls on new content
-- Both hooks have "use client" directive
-- IntersectionObserver used for scroll detection (not scroll events)
-- pnpm typecheck passes
-
-Complexity: M
-
----
-
-### TASK: [ID: P03-T12]
-Title: Create DataStream infrastructure
-Phase: 3 — Chat Core Vertical
-Type: IMPLEMENTATION
-
-Behavior ref: ai-sdk-usage.md (custom data stream parts); state-management.md (DataStreamProvider, DataStreamHandler)
-Architecture ref: SEAM-007 (DataStream custom types); architecture/patterns.md (streaming data pattern)
-
-Action: Create 2 files. (1) features/chat/components/data-stream-provider.tsx — "use client" context provider that holds the current dataStream state (parsed custom data parts). Creates React context DataStreamContext with value containing accumulated data from stream (suggestions, title, usage, document updates). Export DataStreamProvider and useDataStream hook. (2) features/chat/components/data-stream-handler.tsx — "use client" component that consumes useChat's data stream and dispatches custom data parts to DataStreamContext. Handles all CustomUIDataTypes from ai.types.ts: data-id, data-title, data-kind, data-clear, data-finish, data-textDelta, data-codeDelta, data-sheetDelta, data-imageDelta, data-suggestion, data-chatTitle, data-usage, data-appendMessage. Updates local state based on stream events.
-
-Output files:
-- features/chat/components/data-stream-provider.tsx
-- features/chat/components/data-stream-handler.tsx
-
-Inputs: lib/types/ai.types.ts (CustomUIDataTypes from P00-T08), oldapp/components/data-stream-provider.tsx + data-stream-handler.tsx (reference)
-Outputs: DataStream context consumed by chat component (P03-T19), artifact components (P04)
-
-AI layer handling: NEW
-
-Dependencies: P00-T08, P01-T16
-Dependents: P03-T19, P03-T21, P04 (artifacts)
-
-Success criteria:
-- DataStreamProvider creates context with custom stream state
-- DataStreamHandler processes all 14 CustomUIDataTypes
-- useDataStream hook returns current stream state
-- Stream data accumulates correctly (deltas append, not replace)
-- pnpm typecheck passes
-
-Complexity: L
-
----
-
-### TASK: [ID: P03-T13]
-Title: Create empty state components
-Phase: 3 — Chat Core Vertical
-Type: IMPLEMENTATION
-
-Behavior ref: features.md (greeting/empty state, suggested actions for new chats)
-Architecture ref: ADR-001 (feature collocation)
-
-Action: Create 2 files. (1) features/chat/components/greeting.tsx — Greeting component shown when chat has no messages. Displays welcome text, app name, brief description. Matches oldapp/components/greeting.tsx visual structure. Server component or simple client component. (2) features/chat/components/suggested-actions.tsx — "use client" component showing clickable suggestion chips below greeting. Each chip has a title and action text. On click, calls the chat submit handler with the suggestion text. Suggestions are hardcoded initially (e.g., "Write a poem", "Explain quantum computing", "Help me code").
-
-Output files:
-- features/chat/components/greeting.tsx
-- features/chat/components/suggested-actions.tsx
-
-Inputs: oldapp/components/greeting.tsx + suggested-actions.tsx (reference), components/ui/ (P00-T11)
-Outputs: Empty state components consumed by chat component (P03-T19)
-
-AI layer handling: AI_WRAPPER
-
-Dependencies: P00-T11, P01-T16
-Dependents: P03-T19
-
-Success criteria:
-- Greeting renders welcome text
-- SuggestedActions renders clickable chips
-- Clicking a suggestion calls submit handler prop
-- Visually matches oldapp
+- Context name is **ChatSessionContext** (NOT ChatContext)
+- Value type is **ChatSessionValue** (NOT ChatContextValue)
+- Hook name is **useChatSessionContext** (NOT useChatContext)
+- Uses intent-based callbacks: sendMessage, stop (NOT raw setters)
 - pnpm typecheck passes
 
 Complexity: S
 
 ---
 
-### TASK: [ID: P03-T14]
-Title: Create message display components
+### TASK: [ID: P03-T09]
+Title: Create chat pure functions
 Phase: 3 — Chat Core Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: features.md (message rendering: markdown, code blocks, tool results, reasoning); state-management.md (message parts rendering)
-Architecture ref: ADR-005 (ai-elements as primitives, feature wrappers); architecture/patterns.md (message rendering)
+Behavior ref: state-management.md (side-effect extraction, stream delta processing)
+Architecture ref: redesign/streaming-architecture.md (processStreamDelta pure function, chat-callbacks for side-effect extraction)
 
-Action: Create 2 files. (1) features/chat/components/message.tsx — ChatMessage component that renders a single message. Dispatches on message.role (user vs assistant). For assistant messages: renders parts array — text parts through Markdown renderer, tool-invocation parts through tool result components, reasoning parts through MessageReasoning. Uses ai-elements primitives (message.tsx for structure, code-block.tsx for code). For user messages: renders content with markdown support and attachment previews. (2) features/chat/components/message-reasoning.tsx — MessageReasoning component that renders thinking/reasoning content from AI models. Collapsible section showing the model's chain-of-thought. Uses ai-elements/reasoning.tsx or chain-of-thought.tsx as primitives.
+Action: Create 2 files. (1) features/chat/lib/chat-callbacks.ts — Export pure callback factory functions that extract side-effects from the chat orchestrator. createOnMessageCallback(chatId, saveMessage), createOnTitleCallback(chatId, updateTitle), createOnErrorCallback(chatId). These callbacks are injected into useChatSession (P03-T11) rather than being inline, making the orchestrator testable. (2) features/chat/lib/process-stream-deltas.ts — Export **processStreamDelta(delta: DataPart, current: UIArtifact): { artifact: UIArtifact }** pure function. Handles all artifact-* data part types: artifact-id (set artifactId + status=streaming + isVisible=true), artifact-title, artifact-kind, artifact-clear (reset content), artifact-finish (status=idle), artifact-textDelta (APPEND), artifact-codeDelta/sheetDelta/imageDelta (REPLACE). Pure function — no React state, no side effects, fully testable.
 
 Output files:
-- features/chat/components/message.tsx
-- features/chat/components/message-reasoning.tsx
+- features/chat/lib/chat-callbacks.ts
+- features/chat/lib/process-stream-deltas.ts
 
-Inputs: components/ai-elements/ (P00-T12), oldapp/components/message.tsx + message-reasoning.tsx (reference), lib/types/ (P00-T08)
-Outputs: Message components consumed by messages list (P03-T16)
+Inputs: features/chat/types/chat.types.ts (P03-T05), lib/types/artifact.types.ts (P00-T06)
+Outputs: Callbacks consumed by useChatSession (P03-T11); processStreamDelta consumed by StreamBridge (P03-T20)
 
-AI layer handling: AI_WRAPPER
-
-Dependencies: P00-T12, P01-T16
-Dependents: P03-T15, P03-T16
+Dependencies: P03-T05
+Dependents: P03-T11, P03-T20
 
 Success criteria:
-- ChatMessage renders user and assistant messages differently
-- Assistant text parts rendered as Markdown
-- Tool invocations rendered with appropriate result UI
-- Reasoning content collapsible
-- Imports from ai-elements compile correctly
+- Each callback factory returns a typed function
+- Side-effects extracted from orchestrator (testable in isolation)
+- **processStreamDelta is a pure function** (no React state, no side effects)
+- Handles all artifact-* data part types correctly
+- artifact-textDelta uses APPEND accumulation
+- artifact-codeDelta/sheetDelta/imageDelta use REPLACE accumulation
+- artifact-clear resets content, artifact-finish sets status=idle
+- Testable without React
+- pnpm typecheck passes
+
+Complexity: M
+
+---
+
+### TASK: [ID: P03-T10]
+Title: Create ChatStreamProvider
+Phase: 3 — Chat Core Vertical
+Type: IMPLEMENTATION
+
+Behavior ref: state-management.md (stream state context)
+Architecture ref: SEAM-007 (ChatStreamProvider custom types); redesign/streaming-architecture.md (split state/dispatch contexts + RAF batching)
+
+Action: Create features/chat/components/**chat-stream-provider.tsx** (NOT data-stream-provider.tsx) — "use client" context provider with **split state/dispatch contexts** and **RAF batching**. StateContext holds { ChatStream: DataPart[] } — consumed by StreamBridge (reads). DispatchContext holds { setChatStream: updater } — consumed by useChatSession.onData (writes). RAF batching coalesces ~200 SSE deltas/sec to ~60 React updates/sec. Export **ChatStreamProvider**, **useChatStream** (reads state), and **useChatStreamDispatch** (writes). Scoped to **page level** (NOT layout level) — resets on page navigation, prevents cascade to sidebar.
+
+Output files:
+- features/chat/components/chat-stream-provider.tsx
+
+Inputs: features/chat/types/chat.types.ts (P03-T05)
+Outputs: ChatStreamProvider consumed by chat pages (P03-T25); useChatStream consumed by StreamBridge (P03-T20); useChatStreamDispatch consumed by useChatSession (P03-T11)
+
+Dependencies: P03-T05
+Dependents: P03-T11, P03-T20, P03-T25
+
+Success criteria:
+- File is **chat-stream-provider.tsx** (NOT data-stream-provider.tsx)
+- Provider name is **ChatStreamProvider** (NOT DataStreamProvider)
+- Hook names are **useChatStream** and **useChatStreamDispatch** (NOT useDataStream)
+- **Split contexts**: StateCtx and DispatchCtx (prevents re-render cascades)
+- **RAF batching**: pendingRef + requestAnimationFrame coalesces rapid updates
+- Scoped to page level (placed in chat pages, NOT layout)
 - pnpm typecheck passes
 
 Complexity: L
 
 ---
 
-### TASK: [ID: P03-T15]
-Title: Create message interaction components
+### TASK: [ID: P03-T11]
+Title: Create useChatSession hook
 Phase: 3 — Chat Core Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: features.md (message actions: copy, vote, edit); state-management.md (message edit flow)
-Architecture ref: SEAM-038 (message edit + re-submit flow)
+Behavior ref: state-management.md (chat session composition)
+Architecture ref: redesign/state-management.md (useChatSession creates ChatSessionValue); redesign/component-architecture.md (ChatShell)
 
-Action: Create 2 files. (1) features/chat/components/message-actions.tsx — "use client" component rendered alongside each assistant message. Actions: copy to clipboard (copies message text content), vote up/down (calls voting API — stub for now, wired in P06). Shows on hover. Uses shadcn/ui Button, Tooltip. (2) features/chat/components/message-editor.tsx — "use client" component for inline message editing. When user clicks edit on their own message: replaces message content with textarea, save/cancel buttons. On save: calls deleteTrailingMessages() then re-submits the edited message for a new AI response. Uses useActionState for the server action.
+Action: Create features/chat/hooks/use-chat-session.ts — "use client" hook **useChatSession(params: {id, initialMessages, initialChatModel, isReadonly})** (~120 lines). Composes all chat-related state and returns a **ChatSessionValue**. Internally: (1) Calls useChat with api="/api/chat", DefaultChatTransport with prepareSendMessagesRequest, initialMessages, experimental_throttle (adaptive), maxSteps: 5, generateId. (2) Calls useSettings() directly (NOT from SettingsProvider). (3) Wires onData callback to route artifact-* parts to ChatStreamDispatch and chat-title to PendingChats.updateTitle(). (4) Wires onFinish to clear ChatStream. (5) Wires onError to toast. (6) Returns intent-based ChatSessionValue: {messages, status, input, setInput, attachments, setAttachments, sendMessage, stop, appendMessage, chatId, chatModel, isReadonly, error, clearError}. This hook creates the value for ChatSessionContext.Provider in ChatShell.
 
 Output files:
-- features/chat/components/message-actions.tsx
-- features/chat/components/message-editor.tsx
+- features/chat/hooks/use-chat-session.ts
 
-Inputs: features/chat/actions/delete-trailing-messages.ts (P03-T10), components/ui/ (P00-T11), features/chat/components/message.tsx (P03-T14)
-Outputs: Message interaction consumed by message component (P03-T14) and messages list (P03-T16)
+Inputs: @ai-sdk/react (useChat, DefaultChatTransport), features/settings/hooks/use-settings.ts (P03-T06), features/chat/hooks/use-chat-session-context.ts (P03-T08), features/chat/lib/chat-callbacks.ts (P03-T09), features/chat/components/chat-stream-provider.tsx (P03-T10)
+Outputs: ChatSessionValue consumed by ChatShell (P03-T21)
 
-AI layer handling: AI_WRAPPER
-
-Dependencies: P03-T10, P03-T14
-Dependents: P03-T16
+Dependencies: P03-T08, P03-T09, P03-T10
+Dependents: P03-T21
 
 Success criteria:
-- Copy action copies message text to clipboard
-- Vote buttons render (functional voting wired in P06)
-- Message editor shows textarea on edit click
-- Save triggers deleteTrailingMessages + re-submit
-- Actions show on hover/focus
+- Hook name is **useChatSession** (NOT useChatContext or useChatHandler)
+- Returns composed **ChatSessionValue** including all chat state
+- Calls useChat with correct api, id, initialMessages, DefaultChatTransport
+- Includes **useSettings()** directly (NOT from SettingsProvider context)
+- onData routes artifact-* parts to **useChatStreamDispatch** and chat-title to **PendingChats.updateTitle()**
+- onFinish clears ChatStream (setChatStream([]))
+- onError parses error and shows toast
+- Intent-based sendMessage wraps: validation, attachment processing, handleSubmit
+- ~120 lines (substantial but focused — NOT a God Component)
+- pnpm typecheck passes
+
+Complexity: L
+
+---
+
+### TASK: [ID: P03-T12]
+Title: Create chat side-effect hooks
+Phase: 3 — Chat Core Vertical
+Type: IMPLEMENTATION
+
+Behavior ref: state-management.md (side-effect hooks, scroll management)
+Architecture ref: redesign/component-architecture.md (useChatSideEffects, useScrollToBottom)
+
+Action: Create 2 files. (1) features/chat/hooks/use-chat-side-effects.ts — "use client" hook useChatSideEffects({id, status, messages}) that handles: URL update via history.replaceState on new chat, abort controller cleanup on chat change, artifactStore.reset() on navigation. (2) features/chat/hooks/use-scroll-to-bottom.ts — "use client" hook useScrollToBottom() that returns {containerRef, endRef, isAtBottom, scrollToBottom}. Uses **IntersectionObserver** for scroll detection (NOT scroll events). Smooth scroll behavior.
+
+Output files:
+- features/chat/hooks/use-chat-side-effects.ts
+- features/chat/hooks/use-scroll-to-bottom.ts
+
+Inputs: features/chat/hooks/use-chat-session-context.ts (P03-T08)
+Outputs: Side-effect hooks consumed by ChatShell (P03-T21); scroll hook consumed by messages list (P03-T17)
+
+Dependencies: P03-T08
+Dependents: P03-T17, P03-T21
+
+Success criteria:
+- useChatSideEffects handles URL update, abort cleanup, artifact reset
+- useScrollToBottom uses **IntersectionObserver** (NOT scroll events)
+- Returns containerRef, endRef, isAtBottom, scrollToBottom
+- Both hooks have "use client" directive
+- pnpm typecheck passes
+
+Complexity: M
+
+---
+
+### TASK: [ID: P03-T13]
+Title: Create chat tools
+Phase: 3 — Chat Core Vertical
+Type: IMPLEMENTATION
+
+Behavior ref: ai-sdk-usage.md (tool definitions for weather, artifact creation/update, suggestions)
+Architecture ref: redesign/ai-integration.md (artifact tools, handler registry dispatch)
+
+Action: Create 4 tool files. (1) features/chat/lib/tools/weather.ts — Full getWeather tool: Zod schema (latitude, longitude), execute calls Open-Meteo API, returns {temperature, weather}. (2) features/chat/lib/tools/**create-artifact.ts** — STUB: tool definition with schema (title, kind: ArtifactKind). Execute writes artifact-id, artifact-kind, artifact-title, artifact-clear data parts, calls getArtifactHandler(kind) from registry, streams content deltas, writes artifact-finish. Returns "Artifact creation not yet available" until P04 completes handlers. (3) features/chat/lib/tools/**update-artifact.ts** — STUB: tool definition with schema (**artifactId**, description). (4) features/chat/lib/tools/request-suggestions.ts — STUB: tool definition with schema (**artifactId** NOT documentId). Export all tools as a toolsMap object.
+
+Output files:
+- features/chat/lib/tools/weather.ts
+- features/chat/lib/tools/create-artifact.ts
+- features/chat/lib/tools/update-artifact.ts
+- features/chat/lib/tools/request-suggestions.ts
+
+Inputs: lib/ai/artifact-handlers.ts (P03-T04), lib/data/artifact.ts (P01-T08), zod, Vercel AI SDK (tool helper)
+Outputs: Tools consumed by API route (P03-T23)
+
+Dependencies: P03-T04, P01-T08
+Dependents: P03-T23
+
+Success criteria:
+- getWeather tool fully functional (calls Open-Meteo API)
+- Tool files named **create-artifact.ts / update-artifact.ts** (NOT create-document / update-document)
+- Schema uses **artifactId** (NOT documentId) and **ArtifactKind** (NOT DocumentKind)
+- createArtifact tool writes artifact-* data parts and dispatches to handler registry
+- All tools have Zod parameter schemas
+- pnpm typecheck passes
+
+Complexity: L
+
+---
+
+### TASK: [ID: P03-T14]
+Title: Create empty state components
+Phase: 3 — Chat Core Vertical
+Type: IMPLEMENTATION
+
+Behavior ref: features.md (greeting/empty state, suggested actions, notice handling)
+Architecture ref: redesign/component-architecture.md (NoticeHandler extracted to prevent layout contamination)
+
+Action: Create 3 files. (1) features/chat/components/greeting.tsx — Greeting component shown when chat has no messages. Welcome text. (2) features/chat/components/suggested-actions.tsx — "use client" component showing clickable suggestion chips. On click, reads sendMessage from **ChatSessionContext** and submits. (3) features/chat/components/notice-handler.tsx — "use client" renderless component (~15 lines, returns null). Reads ?notice=chat_not_found from URL via useSearchParams → shows toast. **Extracted to prevent chat layout from becoming 'use client'** (CRITICAL-1 fix).
+
+Output files:
+- features/chat/components/greeting.tsx
+- features/chat/components/suggested-actions.tsx
+- features/chat/components/notice-handler.tsx
+
+Inputs: components/ui/ (P00-T11), features/chat/hooks/use-chat-session-context.ts (P03-T08)
+Outputs: Empty state components consumed by ChatShell (P03-T21) and chat layout (P03-T24)
+
+Dependencies: P03-T08
+Dependents: P03-T21, P03-T24
+
+Success criteria:
+- Greeting renders welcome text
+- SuggestedActions reads sendMessage from **ChatSessionContext** (NOT props)
+- NoticeHandler is renderless (returns null), handles URL notice params
+- NoticeHandler prevents layout from needing 'use client'
+- pnpm typecheck passes
+
+Complexity: S
+
+---
+
+### TASK: [ID: P03-T15]
+Title: Create message display components
+Phase: 3 — Chat Core Vertical
+Type: IMPLEMENTATION
+
+Behavior ref: features.md (message rendering: markdown, code blocks, tool results, reasoning)
+Architecture ref: redesign/component-architecture.md (message rendering, ChatSessionContext consumption)
+
+Action: Create 2 files. (1) features/chat/components/message.tsx — ChatMessage component that renders a single message. For assistant: renders parts array (text through Markdown, tool-invocation through result components, reasoning through MessageReasoning). For user: renders content with markdown and attachment previews. Reads from **ChatSessionContext** where needed. (2) features/chat/components/message-reasoning.tsx — MessageReasoning component. Collapsible section for chain-of-thought reasoning display.
+
+Output files:
+- features/chat/components/message.tsx
+- features/chat/components/message-reasoning.tsx
+
+Inputs: components/ui/ (P00-T11), oldapp/components/message.tsx (reference), features/chat/hooks/use-chat-session-context.ts (P03-T08)
+Outputs: Message components consumed by messages list (P03-T17)
+
+Dependencies: P03-T08
+Dependents: P03-T16, P03-T17
+
+Success criteria:
+- ChatMessage renders user and assistant messages differently
+- Assistant text parts rendered as Markdown
+- Tool invocations rendered with appropriate result UI
+- Reasoning content collapsible
 - pnpm typecheck passes
 
 Complexity: M
@@ -560,67 +547,63 @@ Complexity: M
 ---
 
 ### TASK: [ID: P03-T16]
-Title: Create messages list component
+Title: Create message interaction components
 Phase: 3 — Chat Core Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: features.md (message list scrolling, loading states); state-management.md (messages rendering)
-Architecture ref: architecture/patterns.md (virtualized list for large conversations); ADR-005
+Behavior ref: features.md (message actions: copy, vote, edit); state-management.md (message edit flow)
+Architecture ref: SEAM-038 (message edit + re-submit flow); redesign/component-architecture.md
 
-Action: Create features/chat/components/messages.tsx — "use client" component that renders the list of chat messages. Maps over messages array, renders ChatMessage + MessageActions for each. Handles: empty state (shows Greeting), loading state (shows skeleton), error state, scroll-to-bottom behavior via useScrollToBottom. Attaches containerRef and endRef from useScrollToBottom. Shows "scroll to bottom" FAB button when user has scrolled up and isAtBottom is false. Renders ThinkingIndicator (loading dots) when assistant is generating.
+Action: Create 2 files. (1) features/chat/components/message-actions.tsx — "use client" component. Actions: copy to clipboard, vote up/down (stub for P06 — functional voting via **VoteResolver** wired later). Shows on hover/focus. (2) features/chat/components/message-editor.tsx — "use client" component for inline editing. On save: calls deleteTrailingMessages() server action (P03-T22) then re-submits via ChatSessionContext.
 
 Output files:
-- features/chat/components/messages.tsx
+- features/chat/components/message-actions.tsx
+- features/chat/components/message-editor.tsx
 
-Inputs: features/chat/components/message.tsx (P03-T14), features/chat/components/message-actions.tsx + message-editor.tsx (P03-T15), features/chat/hooks/use-scroll-to-bottom.ts (P03-T11), features/chat/components/greeting.tsx (P03-T13)
-Outputs: Messages consumed by chat component (P03-T19)
+Inputs: features/chat/actions/ (P03-T22), components/ui/ (P00-T11), features/chat/components/message.tsx (P03-T15)
+Outputs: Message interaction consumed by messages list (P03-T17)
 
-AI layer handling: AI_WRAPPER
-
-Dependencies: P03-T11, P03-T13, P03-T14, P03-T15
-Dependents: P03-T19
+Dependencies: P03-T15
+Dependents: P03-T17
 
 Success criteria:
-- Messages list renders all messages in order
-- Empty state shows Greeting component
-- Scroll-to-bottom FAB shown when scrolled up
-- Loading indicator shown during AI generation
-- Each message has actions (copy, vote, edit)
-- **[PATCH: Gap 4]** autoScroll setting from useSettingsSnapshot controls FAB behavior and followOutput mode; atBottomThreshold=100; followOutput="smooth" when autoScroll is on, disabled when off
+- Copy action copies message text to clipboard
+- Vote buttons render (functional voting via **VoteResolver** wired in P06)
+- Message editor shows textarea on edit click
+- Save triggers deleteTrailingMessages + re-submit via ChatSessionContext
+- Actions show on hover/focus
 - pnpm typecheck passes
 
-Complexity: L
+Complexity: M
 
 ---
 
 ### TASK: [ID: P03-T17]
-Title: Create multimodal chat input
+Title: Create messages list component
 Phase: 3 — Chat Core Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: features.md (multimodal input: text, file attachments, image paste); state-management.md (input composition)
-Architecture ref: ADR-005 (ai-elements prompt-input as primitive)
+Behavior ref: features.md (message list scrolling, loading states, virtualization)
+Architecture ref: redesign/component-architecture.md (messages list, react-virtuoso)
 
-Action: Create features/chat/components/multimodal-input.tsx — "use client" component. Text input area (auto-resizing textarea or ai-elements/prompt-input.tsx). File attachment button (image/PDF upload). Drag-and-drop file support. Image paste from clipboard. Preview thumbnails for attached files. Submit button (enabled when input has content). Stop button (shown during generation, calls abort). Keyboard shortcut: Enter to submit, Shift+Enter for newline. Props: onSubmit(message, attachments), isGenerating, stop(). Manages local state for input text and attachments array.
+Action: Create features/chat/components/messages.tsx — "use client" component that renders the list of chat messages. Gets state from **ChatSessionContext** (NOT props drilling). Maps over messages array, renders ChatMessage + MessageActions for each. Handles: empty state (shows Greeting + SuggestedActions), loading state, scroll-to-bottom via useScrollToBottom (P03-T12). Shows "scroll to bottom" FAB button when scrolled up. Renders ThinkingIndicator when assistant is generating. Virtualized via react-virtuoso with followOutput for streaming.
 
 Output files:
-- features/chat/components/multimodal-input.tsx
+- features/chat/components/messages.tsx
 
-Inputs: components/ai-elements/prompt-input.tsx (P00-T12), components/ui/ (P00-T11), oldapp/components/multimodal-input.tsx (reference)
-Outputs: Input component consumed by chat component (P03-T19)
+Inputs: features/chat/components/message.tsx (P03-T15), features/chat/components/message-actions.tsx (P03-T16), features/chat/components/greeting.tsx (P03-T14), features/chat/hooks/use-scroll-to-bottom.ts (P03-T12), features/chat/hooks/use-chat-session-context.ts (P03-T08)
+Outputs: Messages consumed by ChatShell (P03-T21)
 
-AI layer handling: AI_WRAPPER
-
-Dependencies: P00-T11, P00-T12, P01-T16
-Dependents: P03-T19
+Dependencies: P03-T15, P03-T12
+Dependents: P03-T21
 
 Success criteria:
-- Text input auto-resizes
-- File attachment via button and drag-and-drop
-- Image paste from clipboard
-- Submit on Enter, newline on Shift+Enter
-- Stop button shown during generation
-- File previews displayed
+- Messages list renders all messages in order
+- Empty state shows Greeting + SuggestedActions
+- Scroll-to-bottom FAB shown when scrolled up
+- Loading indicator shown during AI generation
+- Consumes state from **ChatSessionContext** (NOT props drilling)
+- Uses **useScrollToBottom** for scroll management
 - pnpm typecheck passes
 
 Complexity: L
@@ -628,133 +611,129 @@ Complexity: L
 ---
 
 ### TASK: [ID: P03-T18]
-Title: Create chat header and weather component
+Title: Create multimodal input
 Phase: 3 — Chat Core Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: features.md (chat header with model info, sidebar toggle); features.md (weather tool display)
-Architecture ref: ADR-001 (feature collocation); scaffold/directory-structure.md
+Behavior ref: features.md (multimodal input: text, file attachments, image paste)
+Architecture ref: redesign/component-architecture.md (MultimodalInput reads from ChatSessionContext)
 
-Action: Create 2 files. (1) features/chat/components/chat-header.tsx — Chat header bar at top of chat. Shows: sidebar toggle button (from @/components/sidebar-toggle), current model name/label, new chat button (navigates to "/"), visibility selector placeholder (wired in P06). Responsive: collapses model info on mobile. (2) features/chat/components/weather.tsx — Weather result display component for the getWeather tool. Renders temperature, weather description, location. Used as the UI component for weather tool invocations in message rendering. Matches oldapp/components/weather.tsx.
-
-Output files:
-- features/chat/components/chat-header.tsx
-- features/chat/components/weather.tsx
-
-Inputs: components/sidebar-toggle.tsx (P00-T13), components/ui/ (P00-T11), oldapp/components/chat-header.tsx + weather.tsx (reference)
-Outputs: ChatHeader consumed by chat component (P03-T19); Weather consumed by message tool rendering (P03-T14)
-
-AI layer handling: NEW
-
-Dependencies: P00-T11, P00-T13, P01-T16
-Dependents: P03-T14, P03-T19
-
-Success criteria:
-- ChatHeader renders sidebar toggle and model label
-- ChatHeader has new chat navigation button
-- Weather component renders temperature and description
-- Responsive layout on mobile
-- pnpm typecheck passes
-
-Complexity: M
-
----
-
-### TASK: [ID: P03-T19]
-Title: Create chat orchestrator component
-Phase: 3 — Chat Core Vertical
-Type: INTEGRATION
-
-Behavior ref: state-management.md (Chat component as orchestrator for useChat, messages, input, header)
-Architecture ref: SEAM-028 (chat component assembly); SEAM-031 (useChat + DataStreamHandler sync); SEAM-015 (settings to completion)
-
-Action: Create features/chat/components/chat.tsx — "use client" component that orchestrates the entire chat experience. Integrates: (1) useChat hook from Vercel AI SDK (or @ai-sdk/react) with api="/api/chat", id=chatId. (2) DataStreamHandler to process custom stream data. (3) Messages component with messages from useChat. (4) MultimodalInput with handleSubmit/input/setInput/isLoading from useChat. (5) ChatHeader with model info. (6) useSettings for model selection. (7) Greeting + SuggestedActions when no messages. Props: chatId (optional for new chat), initialMessages (from server). Handles: message submission (append), stop generation (stop), message edit (re-submit flow).
+Action: Create 2 files. (1) features/chat/components/multimodal-input.tsx — "use client" component (~80 lines main + extracted helpers). Auto-resizing textarea. File attachment, drag-and-drop, image paste. Submit on Enter, Shift+Enter for newline. Stop button during generation. Gets submit handler, input, setInput, attachments, setAttachments, stop from **ChatSessionContext** (NOT props). (2) features/chat/components/submit-button.tsx — Send or stop button with loading state.
 
 Output files:
-- features/chat/components/chat.tsx
+- features/chat/components/multimodal-input.tsx
+- features/chat/components/submit-button.tsx
 
-Inputs: features/chat/components/messages.tsx (P03-T16), features/chat/components/multimodal-input.tsx (P03-T17), features/chat/components/chat-header.tsx (P03-T18), features/chat/components/data-stream-handler.tsx (P03-T12), features/chat/hooks/ (P03-T11), features/settings/hooks/use-settings.ts (P03-T04), @ai-sdk/react (useChat)
-Outputs: Chat orchestrator consumed by chat pages (P03-T22)
+Inputs: components/ui/ (P00-T11), features/chat/hooks/use-chat-session-context.ts (P03-T08)
+Outputs: Input consumed by ChatShell (P03-T21)
 
-AI layer handling: NEW
-
-Dependencies: P03-T04, P03-T11, P03-T12, P03-T16, P03-T17, P03-T18
-Dependents: P03-T22
+Dependencies: P03-T08
+Dependents: P03-T21
 
 Success criteria:
-- useChat configured with api="/api/chat" and chatId
-- Messages passed from useChat to Messages component
-- Input handling wired: handleSubmit, input, setInput
-- Stop button calls useChat.stop()
-- Settings model passed in request body
-- DataStreamHandler processes stream events
-- **[PATCH: Gap 3]** When data-usage stream part indicates credit depletion, render a non-dismissable AlertDialog overlay warning the user that daily credits are exhausted; usage state tracked via DataStreamHandler data-usage event
+- Text input auto-resizes
+- File attachment via button and drag-and-drop
+- Image paste from clipboard
+- Submit on Enter, newline on Shift+Enter
+- Stop button shown during generation
+- Gets handlers from **ChatSessionContext** (NOT props drilling)
 - pnpm typecheck passes
 
 Complexity: L
 
 ---
 
-### TASK: [ID: P03-T20]
-Title: Create chat API route
+### TASK: [ID: P03-T19]
+Title: Create chat header
 Phase: 3 — Chat Core Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: api-contracts.md (POST /api/chat — streaming response); ai-sdk-usage.md (route handler with streamText)
-Architecture ref: conventions.md (route handlers); SEAM-006 (chat streaming endpoint)
+Behavior ref: features.md (chat header with model info, sidebar toggle)
+Architecture ref: redesign/component-architecture.md (ChatHeader reads from ChatSessionContext)
 
-Action: Create app/api/chat/route.ts — POST handler. Flow: (1) Extract session via getAppSession(), (2) Validate body with chatRequestSchema, (3) Check rate limit via checkRateLimit(), (4) Call executeChatCompletion() with validated params, (5) Return streaming Response. Uses createDataStreamResponse() from AI SDK for proper SSE format. Handles errors: returns AppError.toResponse() for known errors, 500 for unknown. Sets proper headers for streaming (Content-Type: text/event-stream). This is the HTTP endpoint that useChat calls.
+Action: Create features/chat/components/chat-header.tsx — "use client" chat header (~40 lines). Reads chatModel and status from **ChatSessionContext** (NOT props). Renders: sidebar toggle via useSidebar, model label, new chat navigation button. Model selector placeholder (functional ModelSelector wired in P06). Visibility selector placeholder (wired in P06).
 
 Output files:
-- app/api/chat/route.ts
+- features/chat/components/chat-header.tsx
 
-Inputs: features/auth/lib/session.ts (P02-T01), features/chat/schemas/ (P03-T05), features/chat/lib/completion.ts (P03-T07), lib/api/ (P01-T12), lib/rate-limit/ (P01-T13)
-Outputs: Chat API route consumed by useChat on client (P03-T19)
+Inputs: components/sidebar-toggle.tsx (P00-T12), components/ui/ (P00-T11), features/chat/hooks/use-chat-session-context.ts (P03-T08)
+Outputs: ChatHeader consumed by ChatShell (P03-T21)
 
-AI layer handling: NEW
-
-Dependencies: P03-T07, P03-T05, P02-T01, P01-T12, P01-T13
-Dependents: P03-T19, P03-T24
+Dependencies: P03-T08
+Dependents: P03-T21
 
 Success criteria:
-- POST /api/chat returns streaming SSE response
-- Auth required (returns 401 for unauthenticated)
-- Rate limiting applied (returns 429 when exceeded)
-- Input validated against chatRequestSchema
-- Error responses use AppError.toResponse()
+- ChatHeader reads from **ChatSessionContext** (NOT props — zero prop drilling)
+- Renders sidebar toggle and model label
+- Includes new chat navigation button
+- ~40 lines
 - pnpm typecheck passes
 
 Complexity: M
 
 ---
 
+### TASK: [ID: P03-T20]
+Title: Create StreamBridge
+Phase: 3 — Chat Core Vertical
+Type: IMPLEMENTATION
+
+Behavior ref: state-management.md (stream event dispatching)
+Architecture ref: SEAM-031 (useChat + StreamBridge sync); redesign/streaming-architecture.md (thin bridge + pure function)
+
+Action: Create features/chat/components/**stream-bridge.tsx** (NOT data-stream-handler.tsx) — "use client" thin bridge component, **~20 lines**. Renders null (renderless). Consumes useChatStream() from ChatStreamProvider (reads ChatStream data parts). Processes unprocessed deltas via **processStreamDelta()** pure function (P03-T09). Writes resulting artifact state to **artifactStore.setState()**. Tracks last processed index via useRef to avoid reprocessing. Resets on chat ID change. Cross-feature import of artifactStore is an intentional documented exception (public API of artifacts feature).
+
+Output files:
+- features/chat/components/stream-bridge.tsx
+
+Inputs: features/chat/components/chat-stream-provider.tsx (P03-T10), features/chat/lib/process-stream-deltas.ts (P03-T09)
+Outputs: StreamBridge consumed by chat pages (P03-T25)
+
+Dependencies: P03-T09, P03-T10
+Dependents: P03-T25
+
+Success criteria:
+- File is **stream-bridge.tsx** (NOT data-stream-handler.tsx)
+- Component name is **StreamBridge** (NOT DataStreamHandler)
+- **~20 lines** — thin bridge, logic in processStreamDelta
+- Bridges useChatStream() → processStreamDelta() → artifactStore.setState()
+- Tracks lastProcessedRef to avoid reprocessing deltas
+- Resets processing index on chat ID change
+- Renderless (returns null)
+- pnpm typecheck passes
+
+Complexity: S
+
+---
+
 ### TASK: [ID: P03-T21]
-Title: Create chat layouts
+Title: Create ChatShell orchestrator
 Phase: 3 — Chat Core Vertical
 Type: INTEGRATION
 
-Behavior ref: features.md (chat layout with sidebar, providers)
-Architecture ref: SEAM-029 (provider tree — chat level); scaffold/directory-structure.md (app/(chat)/ group)
+Behavior ref: state-management.md (ChatShell as thin orchestrator)
+Architecture ref: SEAM-028 (ChatShell assembly); SEAM-031 (useChat + StreamBridge sync); SEAM-015 (settings); redesign/component-architecture.md (ChatShell ~60 lines)
 
-Action: Create 2 files. (1) app/(chat)/layout.tsx — Server layout for chat route group. Fetches session via getAppSession(). If not authenticated and not guest, redirect to /login. Passes initial data to client layout. Includes SidebarProvider from shadcn/ui/sidebar. (2) app/(chat)/chat-layout-client.tsx — "use client" layout component. Wraps content with DataStreamProvider for stream state management. Includes sidebar placeholder (rendered in P05). Responsive: sidebar hidden on mobile, visible on desktop. This 2-file pattern separates server data fetching from client interactivity.
+Action: Create features/chat/components/**chat-shell.tsx** (NOT chat.tsx as God Component) — "use client" component, **~60 lines**. Thin orchestrator that: (1) Accepts props: id, initialMessages, initialChatModel, isReadonly, availableModels. (2) Calls **useChatSession({id, initialMessages, initialChatModel, isReadonly})** to get composed ChatSessionValue. (3) Calls **useChatSideEffects({id, status, messages})** for URL update, abort cleanup, artifact reset. (4) Provides **ChatSessionContext.Provider value={chatSession}**. (5) Renders ChatHeader, Messages, MultimodalInput as children — they read state from ChatSessionContext (zero props drilling). (6) Conditionally renders ArtifactPanel when artifact.isVisible (ArtifactPanel wired in P04-T17). **No direct useChat/useSettings calls** — all composition in useChatSession hook. **No SettingsProvider wrapping.** **No credit/gateway logic.**
 
 Output files:
-- app/(chat)/layout.tsx
-- app/(chat)/chat-layout-client.tsx
+- features/chat/components/chat-shell.tsx
 
-Inputs: features/auth/lib/session.ts (P02-T01), features/chat/components/data-stream-provider.tsx (P03-T12), components/ui/sidebar.tsx (P00-T11)
-Outputs: Chat layout consumed by chat pages (P03-T22)
+Inputs: features/chat/hooks/use-chat-session.ts (P03-T11), features/chat/hooks/use-chat-side-effects.ts (P03-T12), features/chat/components/messages.tsx (P03-T17), features/chat/components/multimodal-input.tsx (P03-T18), features/chat/components/chat-header.tsx (P03-T19), features/chat/hooks/use-chat-session-context.ts (P03-T08)
+Outputs: ChatShell consumed by chat pages (P03-T25)
 
-AI layer handling: NEW
-
-Dependencies: P02-T01, P03-T12
-Dependents: P03-T22, P03-T23, P05 (sidebar)
+Dependencies: P03-T11, P03-T12, P03-T17, P03-T18, P03-T19
+Dependents: P03-T25
 
 Success criteria:
-- Server layout redirects unauthenticated, non-guest users
-- DataStreamProvider wraps chat content
-- SidebarProvider included for sidebar behavior
-- Server/client split maintained properly
+- File is **chat-shell.tsx** (NOT chat.tsx as monolithic orchestrator)
+- Component is **~60 lines** (NOT 200+)
+- Uses **useChatSession** hook (NOT inline useChat + useSettings)
+- Calls **useChatSideEffects** for side-effect management
+- Provides **ChatSessionContext.Provider** to children
+- Children get state from **ChatSessionContext** (NOT prop drilling — zero props to ChatHeader, Messages, MultimodalInput)
+- **No SettingsProvider** wrapping
+- **No credit/gateway** logic
 - pnpm typecheck passes
 
 Complexity: L
@@ -762,34 +741,33 @@ Complexity: L
 ---
 
 ### TASK: [ID: P03-T22]
-Title: Create chat pages
+Title: Create chat server actions
 Phase: 3 — Chat Core Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: features.md (new chat page, existing chat page with message history)
-Architecture ref: conventions.md (page.tsx default export async function); scaffold/directory-structure.md
+Behavior ref: features.md (chat deletion, message operations)
+Architecture ref: redesign/data-flow.md (server actions for mutations); SEAM-038 (message edit flow)
 
-Action: Create 2 pages. (1) app/(chat)/page.tsx — New chat page (root "/" route). Server component: renders Chat component with no chatId and no initialMessages. Metadata: title "New Chat". (2) app/(chat)/chat/[id]/page.tsx — Existing chat page. Server component: extracts chatId from params, fetches chat + messages from DB (getChatById, getMessagesByChatId), validates ownership, passes initialMessages to Chat component. 404 if chat not found. Metadata: dynamic title from chat.title.
+Action: Create 3 files. (1) features/chat/actions/delete-chat.ts — "use server" action deleteChat(chatId): deletes chat and all messages, calls **updateTag** for cache invalidation. (2) features/chat/actions/delete-all-chats.ts — "use server" action deleteAllChats(): deletes all chats for current user, calls **updateTag**. (3) features/chat/actions/delete-trailing-messages.ts — "use server" action deleteTrailingMessages(chatId, messageId): deletes the specified message and all subsequent messages (by createdAt), calls **updateTag**. Used by message edit flow. All actions validate session via getAppSession(), use Zod schemas for input validation, return ActionResult<T> (never throw).
 
 Output files:
-- app/(chat)/page.tsx
-- app/(chat)/chat/[id]/page.tsx
+- features/chat/actions/delete-chat.ts
+- features/chat/actions/delete-all-chats.ts
+- features/chat/actions/delete-trailing-messages.ts
 
-Inputs: features/chat/components/chat.tsx (P03-T19), lib/data/chat.ts (P01-T07), lib/data/message.ts (P01-T08), features/auth/lib/session.ts (P02-T01)
-Outputs: Chat pages — the main user-facing views
+Inputs: lib/data/chat.ts (P01-T06), lib/data/message.ts (P01-T07), lib/auth/session.ts (P02-T01), lib/cache/revalidate.ts (P01-T03), features/chat/schemas/chat.schema.ts (P03-T05)
+Outputs: Server actions consumed by message editor (P03-T16), sidebar (P05)
 
-AI layer handling: NEW
-
-Dependencies: P03-T19, P03-T21, P01-T07, P01-T08
-Dependents: P03-T24
+Dependencies: P01-T06, P01-T03
+Dependents: P03-T16, P05
 
 Success criteria:
-- "/" renders empty Chat for new conversation
-- "/chat/[id]" fetches and renders existing chat with messages
-- 404 returned for non-existent or unauthorized chat
-- Initial messages passed from server to client component
-- Page metadata set correctly
-- **[PATCH: Gap 2]** New chat page reads ?q= or ?query= search params via useSearchParams; on mount, if query param present, auto-submits it as the first message via useChat.append(); ~10 lines of useEffect
+- deleteChat removes chat + messages + calls updateTag
+- deleteAllChats removes all user chats + calls updateTag
+- deleteTrailingMessages removes correct range of messages + calls updateTag
+- All validate session before operating
+- All use Zod schemas for input validation
+- All return **ActionResult<T>** (never throw)
 - pnpm typecheck passes
 
 Complexity: M
@@ -797,57 +775,152 @@ Complexity: M
 ---
 
 ### TASK: [ID: P03-T23]
-Title: Create chat error states
+Title: Create chat API route
 Phase: 3 — Chat Core Vertical
 Type: IMPLEMENTATION
 
-Behavior ref: edge-cases.md (loading states, error boundaries for chat)
-Architecture ref: conventions.md (loading.tsx and error.tsx patterns)
+Behavior ref: api-contracts.md (POST /api/chat — streaming response)
+Architecture ref: redesign/streaming-architecture.md (createUIMessageStream, onFinish revalidation, title awaited server-side)
 
-Action: Create 2 files. (1) app/(chat)/loading.tsx — Loading state for chat route group. Renders chat skeleton: header placeholder, message area with skeleton bubbles, input area placeholder. Uses shadcn/ui Skeleton component. (2) app/(chat)/error.tsx — "use client" error boundary for chat. Catches runtime errors, displays friendly message with retry button (calls reset()). Logs error for debugging. Does not crash the entire app — contained within the chat route group.
+Action: Create app/api/chat/route.ts — POST handler. Flow: (1) Extract session via getAppSession(), (2) Validate body with chatRequestSchema, (3) Create chat record if new, (4) Build createUIMessageStream with execute callback: (a) Start titlePromise = generateTitle(msg) in parallel, (b) Call streamText with model, system prompt (composeSystemPrompt), messages, tools (getEnabledTools), providerOptions (getProviderOptions), smoothStream, maxSteps: 5, abortSignal, (c) result.consumeStream() + ChatStream.merge(result.toUIMessageStream({sendReasoning: true})), (d) **Await titlePromise** → write chat-title data part, (5) onFinish: saveMessages + updateChatTitle + refreshChat + refreshChatList via revalidateTag, (6) Return Response with stream.pipeThrough(new JsonToSseTransformStream()). **No credit/gateway checks.** Handles AbortSignal for partial save.
 
 Output files:
-- app/(chat)/loading.tsx
-- app/(chat)/error.tsx
+- app/api/chat/route.ts
 
-Inputs: components/ui/skeleton.tsx (P00-T11)
-Outputs: Error and loading states for chat routes
+Inputs: lib/auth/session.ts (P02-T01), features/chat/schemas/chat.schema.ts (P03-T05), lib/ai/prompts.ts (P03-T02), lib/ai/tools.ts (P03-T03), features/chat/lib/tools/ (P03-T13), lib/data/chat.ts (P01-T06), lib/data/message.ts (P01-T07), lib/cache/revalidate.ts (P01-T03)
+Outputs: Chat API route consumed by useChat on client (P03-T11)
 
-AI layer handling: NEW
-
-Dependencies: P00-T11, P01-T16
-Dependents: P03-T24
+Dependencies: P03-T13, P03-T02
+Dependents: P03-T27
 
 Success criteria:
-- loading.tsx renders chat-shaped skeleton
-- error.tsx catches errors and shows retry button
+- POST /api/chat returns streaming SSE response
+- Uses **createUIMessageStream** (NOT createDataStreamResponse)
+- Title **awaited server-side** before stream close (no polling)
+- onFinish persists messages + revalidates cache tags via **refreshChat/refreshChatList**
+- Auth required (returns 401 for unauthenticated)
+- Input validated against chatRequestSchema
+- **No credit/gateway/quota checks**
+- Handles AbortSignal for cancellation + partial save
+- pnpm typecheck passes
+
+Complexity: L
+
+---
+
+### TASK: [ID: P03-T24]
+Title: Create chat layout (SERVER)
+Phase: 3 — Chat Core Vertical
+Type: INTEGRATION
+
+Behavior ref: features.md (chat layout with sidebar, providers)
+Architecture ref: SEAM-029 (provider tree — SERVER layout + client islands); redesign/component-architecture.md (server layout)
+
+Action: Create app/(chat)/layout.tsx — **SERVER layout** (no "use client" directive). Fetches session via getAppSession(). If not authenticated and not guest, redirect to /login. Renders: (1) NoticeHandler (P03-T14) — client island for URL notice params, (2) Script for pyodide (lazy), (3) PendingChatsProvider (stub — completed in P05-T02), (4) SidebarProvider(defaultOpen from cookie), (5) Suspense → SidebarSkeleton stub (completed in P05-T07), (6) SidebarInset → {children}. **No ChatStreamProvider here** — ChatStreamProvider is page-scoped (P03-T25). **No separate chat-layout-client.tsx** — client islands render inside this server layout.
+
+Output files:
+- app/(chat)/layout.tsx
+
+Inputs: lib/auth/session.ts (P02-T01), features/chat/components/notice-handler.tsx (P03-T14), components/ui/sidebar.tsx (P00-T11)
+Outputs: Chat layout consumed by chat pages (P03-T25)
+
+Dependencies: P03-T14, P00-T11
+Dependents: P03-T25, P05 (sidebar wiring)
+
+Success criteria:
+- Layout is a **SERVER component** (no "use client" directive)
+- Redirects unauthenticated non-guest users to /login
+- Includes **NoticeHandler** client island (prevents layout contamination)
+- **PendingChatsProvider** stub wraps content (completed in P05)
+- SidebarProvider reads defaultOpen from cookies
+- **No ChatStreamProvider here** (page-scoped, not layout-scoped)
+- **No chat-layout-client.tsx** file
+- pnpm typecheck passes
+
+Complexity: M
+
+---
+
+### TASK: [ID: P03-T25]
+Title: Create chat pages
+Phase: 3 — Chat Core Vertical
+Type: IMPLEMENTATION
+
+Behavior ref: features.md (new chat page, existing chat page with message history)
+Architecture ref: redesign/component-architecture.md (page-level ChatStreamProvider, parallel fetches)
+
+Action: Create 2 pages. (1) app/(chat)/page.tsx — New chat page ("/"). Server component: generates UUID, gets session, gets available models, renders **ChatStreamProvider** > **ChatShell** (empty) + **StreamBridge**. (2) app/(chat)/chat/[id]/page.tsx — Existing chat page. Server component: fetches chat + votes via **Promise.all** (parallel fetches), validates ownership/access, uses **`use cache`** + **cacheTag** for caching, renders **ChatStreamProvider** > **ChatShell**(initialMessages) + **StreamBridge** + Suspense > **VoteResolver**(votesPromise). VoteResolver defers vote hydration without blocking chat render.
+
+Output files:
+- app/(chat)/page.tsx
+- app/(chat)/chat/[id]/page.tsx
+
+Inputs: features/chat/components/chat-shell.tsx (P03-T21), features/chat/components/stream-bridge.tsx (P03-T20), features/chat/components/chat-stream-provider.tsx (P03-T10), lib/data/chat.ts (P01-T06), lib/auth/session.ts (P02-T01)
+Outputs: Chat pages — the main user-facing views
+
+Dependencies: P03-T21, P03-T10
+Dependents: P03-T27
+
+Success criteria:
+- "/" renders **ChatStreamProvider** > **ChatShell** (empty) + **StreamBridge** for new conversation
+- "/chat/[id]" fetches data with **Promise.all** (parallel, no waterfall)
+- "/chat/[id]" uses **`use cache`** + **cacheTag** for caching
+- 404 returned for non-existent or unauthorized chat
+- **ChatStreamProvider** is page-scoped (placed here, NOT in layout)
+- **VoteResolver** defers vote hydration in Suspense (P06 completes)
+- Page metadata set correctly
+- pnpm typecheck passes
+
+Complexity: M
+
+---
+
+### TASK: [ID: P03-T26]
+Title: Create chat error boundary
+Phase: 3 — Chat Core Vertical
+Type: IMPLEMENTATION
+
+Behavior ref: edge-cases.md (error boundaries for chat routes)
+Architecture ref: redesign/architecture.md (error.tsx per route group)
+
+Action: Create app/(chat)/error.tsx — "use client" error boundary with retry button. Catches route-level errors in the chat group. Shows user-friendly error message and a retry action. Uses reset() from Next.js error boundary props.
+
+Output files:
+- app/(chat)/error.tsx
+
+Inputs: components/ui/ (P00-T11), lib/errors/app-error.ts (P00-T08)
+Outputs: Error boundary for chat routes
+
+Dependencies: P00-T08
+Dependents: P03-T27
+
+Success criteria:
 - error.tsx has "use client" directive
-- Neither crashes on render
+- Catches route-level errors and shows retry button
+- Uses reset() for recovery
 - pnpm typecheck passes
 
 Complexity: S
 
 ---
 
-### TASK: [ID: P03-T24]
+### TASK: [ID: P03-T27]
 Title: Verification gate G03
 Phase: 3 — Chat Core Vertical
 Type: VERIFICATION
 
 Behavior ref: features.md (complete chat flow)
-Architecture ref: AGENTS.md (post-implementation validation); strategy/phase-order.md (gate G03)
+Architecture ref: AGENTS.md (post-implementation validation)
 
-Action: Run complete validation: (1) pnpm typecheck passes, (2) pnpm lint passes, (3) pnpm format passes. Functional verification: (4) pnpm dev starts, (5) Navigate to "/" — greeting displays, (6) Type a message and submit — AI streaming response appears, (7) Reasoning content shows in collapsible section (for supported models), (8) Weather tool can be invoked (e.g., "What is the weather in Paris?"), (9) New chat creates a new conversation, (10) Existing chat loads messages from DB, (11) Message edit flow works (edit previous message, trailing messages deleted, re-submitted). Integration check: stream chat action persists messages, title auto-generated, DataStreamHandler processes all custom events.
+Action: Run complete validation. **Tooling**: (1) pnpm typecheck passes, (2) pnpm lint passes, (3) pnpm format passes. **Functional**: (4) pnpm dev starts, (5) Navigate to "/" — greeting displays, (6) Send message — AI streaming response appears, (7) Reasoning content shows (supported models), (8) Weather tool works, (9) New chat creates conversation, (10) Existing chat loads messages, (11) Message edit flow works. **Architecture**: (12) **ChatShell is ~60 lines** (NOT a God Component), (13) **StreamBridge ~20 lines** (NOT DataStreamHandler), (14) **ChatStreamProvider** split state/dispatch with RAF batching (NOT DataStreamProvider), (15) **ChatSessionContext** used (NOT ChatContext), (16) **useChatSession** composes all chat state (~120 lines), (17) **processStreamDelta** is a pure testable function, (18) **No SettingsProvider** wrapping — useSettings() via useSyncExternalStore, (19) **No credit/gateway** logic, (20) **createArtifact/updateArtifact** tool stubs (NOT createDocument/updateDocument), (21) **Handler registry** in lib/ai/artifact-handlers.ts, (22) Chat API route uses **createUIMessageStream** with title **awaited server-side**, (23) Chat layout is **SERVER component**, (24) Chat pages use **`use cache`** + **cacheTag**.
 
 Output files: none (validation only)
 
-Inputs: all P03-T01 through P03-T23 outputs
+Inputs: all P03-T01 through P03-T26 outputs
 Outputs: Gate G03 passed — P04 (artifacts) can begin
 
-AI layer handling: N/A
-
-Dependencies: P03-T01 through P03-T23
-Dependents: P04-T01 (start of next phase)
+Dependencies: P03-T01 through P03-T26
+Dependents: P04-T01
 
 Success criteria:
 - pnpm typecheck exits 0
@@ -855,9 +928,51 @@ Success criteria:
 - pnpm format --check exits 0
 - Chat streaming works end-to-end (send message, receive response)
 - Messages persist to database
-- Title auto-generated for new chats
+- Title auto-generated for new chats (awaited server-side, no polling)
 - Weather tool functional
 - Message edit + re-submit works
-- Loading and error states render correctly
+- **ChatShell** ≤ 60 lines (thin orchestrator, NOT God Component)
+- **StreamBridge** ~20 lines (NOT DataStreamHandler)
+- **ChatStreamProvider** uses split contexts + RAF batching (NOT DataStreamProvider)
+- **ChatSessionContext** naming verified (NOT ChatContext)
+- **useChatSession** composes chat state (NOT inline in ChatShell)
+- **processStreamDelta** is pure function (NOT embedded in component)
+- **useSettings()** via useSyncExternalStore (NOT SettingsProvider)
+- **createArtifact/updateArtifact** stubs present (NOT createDocument/updateDocument)
+- Handler registry present in lib/ai/artifact-handlers.ts
+- Chat API uses **createUIMessageStream** (NOT createDataStreamResponse)
+- Chat layout is SERVER component (no "use client")
+- Chat pages use **`use cache`** + **cacheTag**
+- Zero credit/gateway/quota code
 
 Complexity: S
+
+---
+
+## Exit Criteria
+
+- [ ] ChatShell creates `ChatSessionContext.Provider` (~60 lines, NOT a God Component)
+- [ ] `useChatSession` encapsulates `useChat` config + callbacks (~120 lines)
+- [ ] `ChatStreamProvider` uses split contexts (state/dispatch) with RAF batching
+- [ ] `processStreamDelta()` is a pure testable function (no React state)
+- [ ] `StreamBridge` is a thin bridge (~20 lines, NOT DataStreamHandler)
+- [ ] Chat API route uses `createUIMessageStream` with `onFinish` revalidation
+- [ ] Title is AWAITED server-side before stream close (no polling)
+- [ ] System prompt uses "artifact" (not "document")
+- [ ] Chat tools: `createArtifact`, `updateArtifact` (not createDocument/updateDocument)
+- [ ] Handler registry in `lib/ai/artifact-handlers.ts` (dependency inversion)
+- [ ] Chat pages use `'use cache'` + `cacheTag` for fetching
+- [ ] Chat layout is a SERVER component (no "use client")
+- [ ] `ChatStreamProvider` is page-scoped (NOT layout-scoped)
+- [ ] `useSettings()` uses `useSyncExternalStore` + localStorage (NO SettingsProvider)
+- [ ] Children read from `ChatSessionContext` (NOT 15-16 props drilling)
+- [ ] All Server Actions return `ActionResult<T>` (never throw)
+- [ ] `pnpm typecheck && pnpm lint && pnpm format` pass
+
+---
+
+## Verification
+
+```bash
+pnpm format && pnpm typecheck && pnpm lint
+```

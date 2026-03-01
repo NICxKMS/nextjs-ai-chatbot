@@ -1,8 +1,10 @@
+> **Updated per redesign audit (2026-03-01)**
+
 # Directory Structure
 
 > The complete file tree for the rebuilt project. This is the authoritative blueprint.
 > Every file listed here will exist. No `src/` directory. Feature collocation is the
-> organizing principle.
+> organizing principle. "artifact" naming throughout. `proxy.ts` (NOT middleware.ts).
 
 ---
 
@@ -16,25 +18,37 @@ nextjs-ai-chatbot/
 ├── lib/                              # Cross-cutting infrastructure
 ├── tests/                            # Integration + E2E tests
 ├── public/                           # Static assets
+├── scripts/                          # CI/build scripts
 ├── oldapp/                           # Legacy app (read-only reference, removed post-rebuild)
 ├── plan/                             # Planning documents (this repo)
 │
-├── middleware.ts                      # Edge: rate limiting + auth guard
+├── proxy.ts                          # Next.js 16 proxy (auth guard, guest token rotation)
 ├── instrumentation.ts                # Server-side OpenTelemetry setup
 ├── instrumentation-client.ts         # Client-side instrumentation
 │
-├── next.config.ts                     # Next.js configuration
-├── tsconfig.json                      # TypeScript strict mode
-├── biome.json                         # Biome formatter + linter
-├── postcss.config.mjs                 # PostCSS → Tailwind v4
-├── package.json                       # Dependencies + scripts
-├── pnpm-lock.yaml                     # Lockfile
-├── vercel.json                        # Vercel deployment config
-├── .env.example                       # Environment variable template
+├── next.config.ts                    # Next.js config (cacheComponents: true, etc.)
+├── tsconfig.json                     # TypeScript strict mode
+├── biome.json                        # Biome formatter + linter
+├── postcss.config.mjs                # PostCSS → Tailwind v4
+├── package.json                      # Dependencies + scripts
+├── pnpm-lock.yaml                    # Lockfile
+├── vercel.json                       # Vercel deployment config
+├── .env.example                      # Environment variable template
 ├── .gitignore
 ├── LICENSE
-└── AGENTS.md                          # AI coding agent instructions
+└── AGENTS.md                         # AI coding agent instructions
 ```
+
+---
+
+## `proxy.ts` — Next.js 16 Proxy (NOT middleware.ts)
+
+```
+proxy.ts                              # Auth guard, guest token rotation, rate-limit header check
+```
+
+> Next.js 16 renamed `middleware.js` to `proxy.js`. Exports `proxy()` function + `config.matcher`.
+> Runs on the edge. No DB queries. Cookie-based auth check + guest token refresh.
 
 ---
 
@@ -44,57 +58,45 @@ Routes only. No business logic. Pages import from `features/` and `components/`.
 
 ```
 app/
-├── layout.tsx                         # Root layout: fonts, meta, AppShell provider tree
-├── globals.css                        # Tailwind v4 imports + CSS custom properties
-├── global-error.tsx                   # Root error boundary (standalone html/body)
-├── head.tsx                           # Metadata configuration
+├── layout.tsx                        # Root layout (SERVER): html/body, ThemeProvider, SessionProvider
+├── globals.css                       # Tailwind v4 imports + CSS custom properties
+├── global-error.tsx                  # Root error boundary (standalone html/body)
 │
 ├── (auth)/
-│   ├── layout.tsx                     # Auth layout (minimal, no sidebar)
+│   ├── layout.tsx                    # Auth layout (SERVER): centered card container
+│   ├── error.tsx                     # Auth route error boundary
 │   ├── login/
-│   │   └── page.tsx                   # Login page → imports AuthForm
+│   │   └── page.tsx                  # Login page (SERVER) → renders AuthForm
 │   └── register/
-│       └── page.tsx                   # Register page → imports AuthForm
+│       └── page.tsx                  # Register page (SERVER) → renders AuthForm
 │
 ├── (chat)/
-│   ├── layout.tsx                     # Chat layout (server): reads cookies, fetches session
-│   ├── chat-layout-client.tsx         # Chat layout (client): provider stack, Pyodide script
-│   ├── loading.tsx                    # Chat route loading spinner
-│   ├── error.tsx                      # Chat route error boundary
-│   ├── page.tsx                       # New chat page (/) → generates UUID, reads model cookie
+│   ├── layout.tsx                    # Chat layout (SERVER): sidebar + PendingChatsProvider
+│   ├── error.tsx                     # Chat route error boundary
+│   ├── page.tsx                      # New chat page (SERVER): generates UUID, renders ChatShell
 │   └── chat/
 │       └── [id]/
-│           └── page.tsx               # Existing chat (/chat/[id]) → fetches chat+messages+votes
+│           └── page.tsx              # Existing chat (SERVER): fetches chat+votes, renders ChatShell
 │
 └── api/
     ├── chat/
-    │   ├── route.ts                   # POST: streaming chat (SSE)
-    │   └── [id]/
-    │       ├── messages/
-    │       │   └── route.ts           # GET: paginated messages
-    │       └── reconnect/
-    │           └── route.ts           # GET: SSE reconnect
+    │   └── route.ts                  # POST: AI chat streaming (SSE via createUIMessageStream)
     ├── artifact/
-    │   └── route.ts                   # GET/POST/DELETE: document CRUD
+    │   └── route.ts                  # POST: save artifact version (user edits)
     ├── files/
     │   └── upload/
-    │       └── route.ts               # POST: file upload (Vercel Blob)
-    ├── health/
-    │   └── route.ts                   # GET: system health check
+    │       └── route.ts              # POST: file upload (Vercel Blob)
     ├── history/
-    │   └── route.ts                   # GET/DELETE: chat history
+    │   └── route.ts                  # GET: paginated chat history (cursor-based)
     ├── suggestions/
-    │   └── route.ts                   # GET: document suggestions
-    ├── vote/
-    │   └── route.ts                   # PATCH: message voting
-    └── auth/
-        ├── callback/
-        │   └── route.ts               # GET: OAuth callback
-        ├── guest/
-        │   └── route.ts               # POST: guest JWT creation
-        └── logout/
-            └── route.ts               # POST: session termination
+    │   └── route.ts                  # GET: suggestions for artifact
+    └── health/
+        └── route.ts                  # GET: system health check (DB + Redis ping)
 ```
+
+**Key change from old plan:** No `chat-layout-client.tsx` — the chat layout is a SERVER component
+with client islands. No `/api/vote` route (voting uses Server Actions). No `/api/auth/*` routes
+(auth uses Server Actions + `proxy.ts` for guards).
 
 ---
 
@@ -106,145 +108,220 @@ Each feature is self-contained: actions, components, hooks, schemas, types, lib.
 
 ```
 features/chat/
-├── actions/
-│   ├── stream-chat.ts                 # Server: createUIMessageStream, executeChatCompletion
-│   ├── save-message.ts                # Server: save user/assistant messages + quota
-│   └── delete-trailing-messages.ts    # Server: delete messages after edit point
 ├── components/
-│   ├── chat.tsx                       # Main chat component (useChat hook, orchestrator)
-│   ├── chat-header.tsx                # Header: model display, visibility selector, sidebar toggle
-│   ├── messages.tsx                   # Message list (Virtuoso), auto-scroll, thinking indicator
-│   ├── message.tsx                    # Single message renderer (user/assistant/system)
-│   ├── message-actions.tsx            # Copy, vote, edit, regenerate buttons
-│   ├── message-editor.tsx             # Inline message editor (textarea, cancel, send)
-│   ├── message-reasoning.tsx          # Collapsible reasoning/thinking display
-│   ├── multimodal-input.tsx           # Text input + file picker + model select + submit
-│   ├── greeting.tsx                   # Empty chat welcome message
-│   ├── suggested-actions.tsx          # Suggested prompt buttons (4-card grid)
-│   ├── data-stream-handler.tsx        # Bridge: SSE data parts → SWR artifact state
-│   ├── data-stream-provider.tsx       # Split state/dispatch contexts for data stream
-│   ├── preview-attachment.tsx         # File upload thumbnail preview
-│   └── weather.tsx                    # Weather tool result renderer
+│   ├── chat-shell.tsx                # Thin orchestrator (~60 lines, 'use client'), creates ChatSessionContext
+│   ├── chat-header.tsx               # Header: model selector, sidebar toggle, share ('use client')
+│   ├── messages.tsx                  # Virtualized message list + auto-scroll ('use client')
+│   ├── message.tsx                   # Single message renderer (user/assistant) ('use client')
+│   ├── message-actions.tsx           # Copy, edit, delete buttons ('use client')
+│   ├── message-editor.tsx            # Inline message editing textarea ('use client')
+│   ├── message-reasoning.tsx         # Collapsible reasoning/thinking display ('use client')
+│   ├── multimodal-input.tsx          # Text + file input + send/stop ('use client')
+│   ├── submit-button.tsx             # Send or stop button with loading state ('use client')
+│   ├── preview-attachment.tsx        # File upload thumbnail preview ('use client')
+│   ├── suggested-actions.tsx         # Clickable prompt suggestion buttons ('use client')
+│   ├── greeting.tsx                  # Empty state welcome message (SERVER or 'use client')
+│   ├── stream-bridge.tsx             # Null-render bridge: stream → artifactStore (~20 lines)
+│   ├── chat-stream-provider.tsx      # Split state/dispatch contexts with RAF batching
+│   └── notice-handler.tsx            # URL ?notice toast, renders null (~15 lines, 'use client')
 ├── hooks/
-│   ├── use-messages.ts                # Context: share messages between Chat + DataStreamHandler
-│   └── use-scroll-to-bottom.ts        # Auto-scroll with manual override detection
+│   ├── use-chat-session.ts           # useChat config + callbacks (~120 lines)
+│   ├── use-chat-side-effects.ts      # Navigation effects (URL update, abort, cleanup ~40 lines)
+│   ├── use-chat-session-context.ts   # ChatSessionContext definition + useContext wrapper
+│   └── use-scroll-to-bottom.ts       # Auto-scroll with manual override detection
+├── actions/
+│   ├── delete-chat.ts                # Server Action: delete single chat + updateTag
+│   ├── delete-all-chats.ts           # Server Action: delete all user chats + updateTag
+│   └── delete-trailing-messages.ts   # Server Action: delete messages after edit point + updateTag
+├── lib/
+│   ├── chat-callbacks.ts             # Pure functions: onData, onError, onFinish handlers
+│   ├── process-stream-deltas.ts      # Pure function: delta → artifact state update (testable)
+│   └── tools/
+│       ├── create-artifact.ts        # createArtifact tool definition (uses handler registry)
+│       ├── update-artifact.ts        # updateArtifact tool definition (uses handler registry)
+│       ├── request-suggestions.ts    # requestSuggestions tool (streamObject → suggestions)
+│       └── weather.ts                # getWeather tool (Open-Meteo API, self-contained)
 ├── schemas/
-│   ├── chat.schema.ts                 # Chat request body validation (postRequestBodySchema)
-│   └── message.schema.ts             # Message validation schemas
-└── lib/
-    ├── tools/
-    │   ├── weather.ts                 # getWeather tool definition
-    │   ├── create-document.ts         # createDocument tool (→ artifact handlers)
-    │   ├── update-document.ts         # updateDocument tool (→ artifact handlers)
-    │   └── suggestions.ts            # requestSuggestions tool
-    ├── prompts.ts                     # System prompt composition (regular + artifacts + user)
-    └── completion.ts                  # executeChatCompletion logic (model, tools, settings)
+│   └── chat.schema.ts               # Chat request body validation (Zod)
+└── types/
+    └── chat.types.ts                 # ChatSessionValue, ArtifactDataPart, DataPart, ChatStatus
 ```
+
+**Key changes from old plan:**
+- `chat.tsx` (God Component) → `chat-shell.tsx` (~60 lines, thin orchestrator)
+- `data-stream-handler.tsx` → `stream-bridge.tsx` (StreamBridge, null-render ~20 lines)
+- `data-stream-provider.tsx` → `chat-stream-provider.tsx` (ChatStreamProvider, split contexts)
+- `use-messages.ts` → `use-chat-session-context.ts` (ChatSessionContext + `useChatSessionContext()`)
+- `create-document.ts` → `create-artifact.ts` (createArtifact tool)
+- `update-document.ts` → `update-artifact.ts` (updateArtifact tool)
+- `suggestions.ts` → `request-suggestions.ts`
+- New: `chat-callbacks.ts`, `process-stream-deltas.ts` (pure, testable functions)
+- New: `use-chat-session.ts` (useChat config extracted from God Component)
+- New: `use-chat-side-effects.ts` (navigation effects extracted)
+- New: `submit-button.tsx`, `notice-handler.tsx`
+- Removed: `weather.tsx` from chat (moved to shared `components/weather.tsx`)
+- Removed: `prompts.ts`, `completion.ts` from chat/lib (moved to `lib/ai/`)
 
 ### `features/artifacts/`
 
 ```
 features/artifacts/
-├── actions/
-│   ├── create-artifact.ts             # Server: artifact creation orchestration
-│   └── update-artifact.ts             # Server: artifact update orchestration
 ├── components/
-│   ├── artifact-panel.tsx             # Main artifact panel (overlay, AnimatePresence)
-│   ├── artifact-actions.tsx           # Per-kind action buttons (copy, run, diff, etc.)
-│   ├── artifact-close.tsx             # Close button (reset state or hide)
-│   ├── artifact-error-boundary.tsx    # Error boundary for editor crashes
-│   ├── artifact-messages.tsx          # Mini message list inside artifact panel
-│   ├── create-artifact.tsx            # Artifact creation UI (if manually triggered)
-│   ├── document-preview.tsx           # Inline preview in messages (mini editor + skeleton)
-│   ├── version-footer.tsx             # Version navigation (prev/next/restore/latest)
-│   ├── toolbar.tsx                    # Draggable toolbar with artifact actions
-│   ├── diffview.tsx                   # Version diff comparison view
+│   ├── artifact-panel.tsx            # Main artifact side panel container ('use client')
+│   ├── artifact-actions.tsx          # Toolbar: copy, run, diff, undo/redo ('use client')
+│   ├── artifact-close-button.tsx     # Close button (useArtifactSelector for isVisible) ('use client')
+│   ├── artifact-preview.tsx          # Inline artifact preview in messages ('use client')
+│   ├── artifact-error-boundary.tsx   # Error boundary for editor crashes ('use client')
+│   ├── version-footer.tsx            # Version navigation prev/next ('use client')
 │   └── editors/
-│       ├── text-editor.tsx            # TipTap rich-text editor + suggestions extension
-│       ├── code-editor.tsx            # CodeMirror Python editor + Pyodide execution
-│       ├── sheet-editor.tsx           # react-data-grid spreadsheet + PapaParse CSV
-│       ├── image-editor.tsx           # Image display (base64/URL, inline/full modes)
-│       └── console.tsx               # Code execution output (stdout, stderr, images)
+│       ├── text-editor.tsx           # Tiptap rich-text editor + suggestions extension ('use client')
+│       ├── code-editor.tsx           # CodeMirror Python editor + Pyodide execution ('use client')
+│       ├── sheet-editor.tsx          # react-data-grid spreadsheet + PapaParse CSV ('use client')
+│       └── image-editor.tsx          # Image display (base64/URL) ('use client')
 ├── handlers/
-│   ├── base.ts                        # DocumentHandler interface + factory
-│   ├── text.ts                        # Text handler: streamText → data-textDelta
-│   ├── code.ts                        # Code handler: streamObject({code}) → data-codeDelta
-│   ├── image.ts                       # Image handler: (Pyodide-only, no server generation)
-│   └── sheet.ts                       # Sheet handler: streamObject({csv}) → data-sheetDelta
+│   ├── index.ts                      # Side-effect: registers all handlers into lib/ai/ registry
+│   ├── text-handler.ts              # streamText → artifact-textDelta (APPEND)
+│   ├── code-handler.ts              # streamObject → artifact-codeDelta (REPLACE)
+│   ├── sheet-handler.ts             # streamObject → artifact-sheetDelta (REPLACE)
+│   └── image-handler.ts             # Image handling (Pyodide-only, no server generation)
 ├── hooks/
-│   ├── use-artifact.ts                # SWR-based artifact state (documentId, content, status)
-│   └── use-artifact-selector.ts       # Derived slice selector for artifact state
+│   ├── use-artifact.ts               # DEPRECATED alias → re-exports from lib/artifact-store
+│   └── use-artifact-selector.ts      # DEPRECATED alias → re-exports from lib/artifact-store
+├── lib/
+│   └── artifact-store.ts            # useSyncExternalStore store (getSnapshot, subscribe, setState)
 ├── schemas/
-│   └── artifact.schema.ts            # Document/artifact validation schemas
+│   └── artifact.schema.ts           # Artifact validation schemas (Zod)
 └── types/
-    └── artifact.types.ts              # UIArtifact, ArtifactKind, ArtifactDefinition types
+    └── artifact.types.ts            # UIArtifact, ArtifactKind, ArtifactStatus
 ```
+
+**Key changes from old plan:**
+- `handlers/base.ts` → `handlers/index.ts` (side-effect registration, no base class)
+- Handler filenames: `text.ts` → `text-handler.ts`, etc.
+- `use-artifact.ts` now uses `useSyncExternalStore` (NOT SWR synthetic key)
+- New: `artifact-store.ts` under `lib/` (useSyncExternalStore store)
+- `document-preview.tsx` → `artifact-preview.tsx`
+- `artifact-close.tsx` → `artifact-close-button.tsx`
+- Removed: `artifact-messages.tsx`, `create-artifact.tsx`, `toolbar.tsx`, `diffview.tsx`, `console.tsx`
+- Removed: `actions/` directory (artifact creation/update handled via chat tools + handler registry)
 
 ### `features/auth/`
 
 ```
 features/auth/
-├── actions/
-│   ├── login.ts                       # Server: login orchestration
-│   ├── register.ts                    # Server: registration orchestration
-│   ├── exchange.ts                    # Server: Supabase token → httpOnly cookie
-│   └── logout.ts                      # Server: session termination
 ├── components/
-│   ├── auth-form.tsx                  # Consolidated login/register form (mode prop)
-│   └── auth-provider.tsx              # Session context provider (guest bootstrap, Supabase listener)
+│   ├── auth-form.tsx                 # Consolidated login/register form (mode prop, 'use client')
+│   └── session-provider.tsx          # Session context provider + guest bootstrap ('use client')
+├── actions/
+│   ├── login.ts                      # Server Action: email/password login → cookie set → redirect
+│   ├── register.ts                   # Server Action: registration → cookie set → redirect
+│   └── logout.ts                     # Server Action: cookie delete → redirect to /login
+├── lib/
+│   ├── session.ts                    # getAppSession(): resolve session from cookies (server-only)
+│   └── guest.ts                      # Guest bootstrap: JWT creation, token rotation
 ├── schemas/
-│   └── auth.schema.ts                # Login/register input validation
-└── lib/
-    └── session.ts                     # getAppSession(): resolve session from cookies
+│   └── auth.schema.ts               # Login/register input validation (Zod)
+└── types/
+    └── auth.types.ts                 # AppSession, User, GuestToken
 ```
+
+**Key changes from old plan:**
+- `auth-provider.tsx` → `session-provider.tsx` (SessionProvider, not AuthProvider)
+- `exchange.ts` action removed (login handles cookie set directly)
+- `session.ts` moved to `lib/` (was flat in the feature)
+- New: `guest.ts`, `auth.types.ts`
+- Auth routes (`/api/auth/*`) removed — Server Actions handle all auth mutations
 
 ### `features/sidebar/`
 
 ```
 features/sidebar/
 ├── components/
-│   ├── app-sidebar.tsx                # Main sidebar shell (header, content, footer)
-│   ├── sidebar-history.tsx            # Chat list with SWR infinite scroll + date grouping
-│   ├── sidebar-history-item.tsx       # Single chat item (link + dropdown: share, delete)
-│   ├── sidebar-skeleton.tsx           # Loading skeleton for sidebar
-│   └── sidebar-user-nav.tsx           # User avatar, theme toggle, login/logout
-└── hooks/
-    └── use-optimistic-chats.ts        # Context provider: optimistic sidebar entries with dedup
-```
-
-### `features/settings/`
-
-```
-features/settings/
-├── components/
-│   └── settings-panel.tsx             # Settings sheet (temperature, topP, system prompt, etc.)
+│   ├── sidebar-shell.tsx             # SERVER (async): fetches history via 'use cache', renders structure
+│   ├── sidebar-history-client.tsx    # 'use client': SWR infinite pagination + optimistic merge
+│   ├── sidebar-history-item.tsx      # 'use client': single chat item (link + rename + delete dropdown)
+│   ├── sidebar-user-nav.tsx          # 'use client': user avatar, theme toggle, logout
+│   └── sidebar-skeleton.tsx          # SERVER: loading skeleton for SSR/PPR fallback
 ├── hooks/
-│   └── use-settings.ts               # useSyncExternalStore + localStorage pub/sub
-└── lib/
-    ├── defaults.ts                    # Default settings values
-    └── types.ts                       # SettingsState type definition
+│   ├── use-pending-chats.ts          # PendingChatsProvider context + operations (add, remove, updateTitle)
+│   └── use-sidebar-history.ts        # useSWRInfinite wrapper for paginated history
+├── actions/
+│   └── rename-chat.ts               # Server Action: rename chat title + updateTag
+└── types/
+    └── sidebar.types.ts              # SidebarHistoryItem, PendingChat
 ```
+
+**Key changes from old plan:**
+- `app-sidebar.tsx` → `sidebar-shell.tsx` (SERVER component with `'use cache'`)
+- `sidebar-history.tsx` → `sidebar-history-client.tsx` (explicit client marker)
+- `use-optimistic-chats.ts` → `use-pending-chats.ts` (PendingChatsProvider)
+- New: `use-sidebar-history.ts`, `rename-chat.ts`, `sidebar.types.ts`
+- Title sync: single channel via `chat-title` stream → `PendingChats.updateTitle()` (no polling, no window events)
 
 ### `features/voting/`
 
 ```
 features/voting/
+├── components/
+│   └── vote-buttons.tsx              # Upvote/downvote with useOptimistic ('use client')
+├── hooks/
+│   └── use-votes.ts                  # Votes state (server-seeded + optimistic)
 ├── actions/
-│   └── vote.ts                        # Server: upsert vote (auth, ownership, membership checks)
-└── schemas/
-    └── vote.schema.ts                 # Vote input validation ({ chatId, messageId, type })
+│   └── vote.ts                       # Server Action: upsert vote + updateTag('votes:{chatId}')
+└── types/
+    └── vote.types.ts                 # Vote type
 ```
+
+**Key changes from old plan:**
+- Voting uses Server Actions + `useOptimistic` (NOT PATCH `/api/vote` route)
+- No `vote.schema.ts` — validation in action
+- New: `vote-buttons.tsx`, `use-votes.ts`, `vote.types.ts`
 
 ### `features/models/`
 
 ```
 features/models/
 ├── components/
-│   └── model-selector.tsx             # Model dropdown (grouped by provider, compact variant)
-└── lib/
-    ├── catalog.ts                     # listChatModels(): curated + discovered merge
-    └── discovery.ts                   # Dynamic model discovery from provider APIs
+│   └── model-selector.tsx            # Model dropdown grouped by provider ('use client')
+├── lib/
+│   └── models.ts                     # Model catalog: listChatModels() with 'use cache' + cacheTag
+└── types/
+    └── model.types.ts                # ModelMetadata, grouped model types
 ```
+
+**Key changes from old plan:**
+- `catalog.ts` + `discovery.ts` → `models.ts` (single file with `'use cache'`)
+- New: `model.types.ts`
+
+### `features/visibility/`
+
+```
+features/visibility/
+├── components/
+│   └── visibility-selector.tsx       # Public/private toggle dropdown ('use client')
+├── actions/
+│   └── update-visibility.ts          # Server Action: update chat visibility + updateTag
+└── types/
+    └── visibility.types.ts           # VisibilityType
+```
+
+**Key change from old plan:** Visibility is its own feature module (was inside chat).
+
+### `features/settings/`
+
+```
+features/settings/
+├── components/
+│   └── settings-panel.tsx            # Settings sheet: temperature, topP, system prompt ('use client')
+├── hooks/
+│   └── use-settings.ts              # useSyncExternalStore + localStorage pub/sub
+└── types/
+    └── settings.types.ts             # UserSettings, SettingsState
+```
+
+**Key changes from old plan:**
+- No SettingsProvider — `useSyncExternalStore` needs no provider
+- `lib/defaults.ts` + `lib/types.ts` → `types/settings.types.ts` (consolidated)
 
 ---
 
@@ -310,7 +387,7 @@ components/
 │   ├── select.tsx
 │   ├── separator.tsx
 │   ├── sheet.tsx
-│   ├── sidebar.tsx
+│   ├── sidebar.tsx                    # Layout sidebar primitives (SidebarProvider, SidebarInset, etc.)
 │   ├── skeleton.tsx
 │   ├── slider.tsx
 │   ├── switch.tsx
@@ -322,79 +399,93 @@ components/
 │   └── visually-hidden.tsx
 │
 ├── theme-provider.tsx                 # next-themes wrapper (attribute="class", system)
-├── sidebar-toggle.tsx                 # Sidebar open/close button (used by chat + artifacts)
-├── icons.tsx                          # Shared icon components
-└── app-shell.tsx                      # Async server component: session fetch + provider tree
+├── sidebar-toggle.tsx                 # Sidebar open/close button (used by chat + sidebar)
+├── icons.tsx                          # Shared icon components (Lucide + custom)
+├── weather.tsx                        # Weather tool result renderer (shared between chat + AI)
+└── toaster.tsx                        # Toast notification container (Sonner)
 ```
+
+**Key changes from old plan:**
+- Removed `app-shell.tsx` (no monolithic provider tree — server layout composes providers)
+- New: `weather.tsx` (moved from chat to shared), `toaster.tsx`
 
 ---
 
 ## `lib/` — Cross-Cutting Infrastructure
 
-Shared by all features. No feature-specific logic.
+Shared by all features. No feature-specific logic. Leaf layer — imports from nothing above.
 
 ```
 lib/
-├── data/                              # Shared data access functions
-│   ├── chat.ts                        # getChatById, getChatsByUserId, createChat, updateTitle, etc.
-│   ├── message.ts                     # getMessagesByChatId, createMessage, deleteTrailing
-│   ├── document.ts                    # getDocumentById, saveDocumentVersion, getDocumentVersions
-│   ├── user.ts                        # getUserById, createUser (Supabase-backed)
-│   ├── vote.ts                        # upsertVote, getVotesByChatId
-│   └── context.ts                     # DataContext type, createDataContext(session)
-│
-├── db/
-│   ├── index.ts                       # Re-export db client + schema
-│   ├── client.ts                      # Drizzle client (postgres driver, globalThis singleton)
-│   ├── schema.ts                      # Drizzle schema: User, Chat, Message_v2, Vote_v2, Document, Suggestion
-│   ├── migrate.ts                     # Migration runner script
-│   └── migrations/                    # Drizzle migration files (generated)
-│       └── ...
-│
-├── cache/
-│   ├── index.ts                       # Re-export cache client + utilities
-│   ├── client.ts                      # Upstash Redis client (globalThis singleton, edge-compatible)
-│   ├── keys.ts                        # Cache key factory: cacheKeys.chat(id), cacheKeys.userChats(userId), etc.
-│   └── with-cache.ts                  # withCache<T>(key, ttl, fetcher) helper
-│
 ├── ai/
-│   ├── index.ts                       # Re-export provider + registry
-│   ├── providers.ts                   # myProvider: registry wrapper + reasoning middleware
-│   ├── registry.ts                    # createProviderRegistry with conditional providers
-│   └── model-discovery.ts             # Dynamic model discovery from provider APIs
+│   ├── registry.ts                   # createProviderRegistry (conditional: google, openai, openrouter — NO vercel-gateway)
+│   ├── provider.ts                   # myProvider: customProvider with reasoning middleware
+│   ├── models.ts                     # listChatModels() with 'use cache' + dynamic discovery
+│   ├── prompts.ts                    # composeSystemPrompt() with conditional composition
+│   ├── provider-options.ts           # getProviderOptions() per-provider config (temperature, reasoning)
+│   ├── artifact-handlers.ts          # Handler registry: registerArtifactHandler/getArtifactHandler
+│   ├── tools.ts                      # getEnabledTools() model-based tool gating
+│   └── title.ts                      # generateTitle() for chat title generation
 │
 ├── auth/
-│   ├── index.ts                       # Re-export auth utilities
-│   └── config.ts                      # JWT secrets, cookie config, Supabase client factory
+│   └── session.ts                    # getAppSession() infrastructure (cookies → session resolution)
+│
+├── cache/
+│   ├── client.ts                     # Upstash Redis client (globalThis singleton, edge-compatible)
+│   ├── keys.ts                       # Cache key factory: cacheKeys.chat(id), cacheKeys.artifact(id), etc.
+│   ├── revalidate.ts                # updateTag/revalidateTag utilities (invalidateChat, refreshChat, etc.)
+│   └── with-cache.ts                # withCache<T>(key, ttl, fetcher) cache-through helper
+│
+├── data/
+│   ├── chat.ts                       # Chat CRUD: getChatById, getChatsByUserId, createChat, etc.
+│   ├── artifact.ts                   # Artifact CRUD: getArtifactById, saveArtifactVersion (NOT document.ts)
+│   ├── message.ts                    # Message CRUD: saveMessages, deleteTrailingMessages
+│   ├── vote.ts                       # Vote CRUD: getVotesByChatId, upsertVote
+│   ├── suggestion.ts                # Suggestion CRUD: getSuggestionsByArtifactId, saveSuggestions
+│   └── user.ts                       # User CRUD: getUserByEmail, createUser
+│
+├── db/
+│   ├── client.ts                     # Drizzle client (postgres driver, globalThis singleton)
+│   ├── schema.ts                     # Drizzle schema: User, Chat, Message, Vote, Artifact, Suggestion (NOT Document)
+│   └── migrations/                   # Drizzle migration files (generated)
+│       └── ...
 │
 ├── errors/
-│   ├── index.ts                       # Re-export AppError + codes
-│   ├── app-error.ts                   # AppError class with static factories + toResponse()
-│   └── codes.ts                       # ErrorCode string literal union type
-│
-├── api/
-│   ├── guards.ts                      # requireAuth, requireNonGuest, requireChatOwner, etc.
-│   ├── validation.ts                  # parseJsonBodyForRoute, Zod integration helpers
-│   └── response.ts                    # Response.json helpers, error response formatting
-│
-├── rate-limit/
-│   └── config.ts                      # RateLimiters: chat (50/min), standard (100/min), strict (10/min), upload (10/hr)
+│   ├── app-error.ts                  # AppError class with static factories + toResponse()
+│   └── codes.ts                      # Error code registry (NO activate_gateway, NO credit codes)
 │
 ├── types/
-│   ├── index.ts                       # Re-export all shared types
-│   ├── models.types.ts                # Drizzle-inferred types: Chat, Message, Document, Vote, User, Suggestion
-│   ├── api.types.ts                   # API response types, ChatRequestBody, PaginatedResult
-│   └── ai.types.ts                    # ModelMetadata, ModelCapability, ReasoningType, AppUsage, ProviderId
+│   ├── artifact.types.ts             # UIArtifact, ArtifactKind (re-exported from features scope)
+│   ├── artifact-handler.types.ts     # ArtifactHandler, ArtifactStreamWriter, Create/UpdateArtifactParams
+│   ├── pending-chats.types.ts        # PendingChat, PendingChatOperations
+│   ├── data-context.types.ts         # DataContext (userId, isGuest)
+│   ├── model.types.ts                # ModelMetadata, DEFAULT_CHAT_MODEL, TITLE_MODEL, ARTIFACT_MODEL
+│   ├── settings.types.ts             # UserSettings type
+│   └── result.types.ts              # ActionResult<T> for Server Actions
 │
 ├── utils/
-│   ├── index.ts                       # cn(), generateUUID(), formatDate, etc.
-│   ├── lazy.ts                        # createLazyComponentWithPreload() utility
-│   └── logger.ts                      # Structured logger (for ai-elements dependency)
+│   ├── cn.ts                         # clsx + twMerge utility
+│   ├── format.ts                     # Date/string formatting utilities
+│   └── generate-uuid.ts             # UUID generation utility
 │
-└── hooks/                             # ONLY truly generic hooks (used by 3+ features)
-    ├── use-mobile.ts                  # Media query: max-width 768px
-    └── use-debounce.ts                # Debounced value hook
+└── hooks/
+    ├── use-mobile.ts                 # Media query: max-width 768px
+    └── use-debounce.ts               # Debounced value hook
 ```
+
+**Key changes from old plan:**
+- `lib/data/document.ts` → `lib/data/artifact.ts` (artifact naming)
+- New: `lib/ai/artifact-handlers.ts` (handler registry, dependency inversion)
+- New: `lib/ai/prompts.ts`, `lib/ai/tools.ts`, `lib/ai/title.ts`, `lib/ai/provider-options.ts`
+- New: `lib/cache/revalidate.ts` (updateTag/revalidateTag utilities)
+- New: `lib/types/artifact-handler.types.ts`, `lib/types/pending-chats.types.ts`, `lib/types/result.types.ts`
+- Removed: `lib/api/` (guards, validation, response — moved to features or simplified)
+- Removed: `lib/rate-limit/` (rate limiting handled in proxy.ts + route handlers directly)
+- Removed: `lib/data/context.ts` (DataContext simplified to `lib/types/data-context.types.ts`)
+- Removed: barrel `index.ts` files (direct imports instead — no mandatory barrel files)
+- `lib/ai/providers.ts` → `lib/ai/provider.ts`
+- `lib/ai/model-discovery.ts` → merged into `lib/ai/models.ts`
+- `lib/auth/config.ts` → `lib/auth/session.ts`
 
 ---
 
@@ -402,28 +493,45 @@ lib/
 
 ```
 tests/
-├── setup.ts                           # Vitest global setup (mocks, env)
+├── setup.ts                          # Vitest global setup (env, mocks, cleanup)
 ├── mocks/
-│   ├── cache.ts                       # Redis client mock
-│   ├── db.ts                          # Drizzle client mock
-│   ├── ai.ts                          # AI SDK mock (streamText, generateText)
-│   ├── auth.ts                        # Session mock (authenticated, guest, null)
-│   └── fetch.ts                       # Global fetch mock
+│   ├── auth.ts                       # mockSession(), mockGuestSession(), mockNoSession()
+│   ├── db.ts                         # createTestDb() — Drizzle mock
+│   ├── cache.ts                      # createTestCache() — Redis mock
+│   ├── ai.ts                         # AI SDK mock (streamText, generateText)
+│   └── fetch.ts                      # Global fetch mock
 ├── fixtures/
-│   ├── chat.ts                        # Chat factory (valid chat objects)
-│   ├── message.ts                     # Message factory
-│   ├── document.ts                    # Document factory with versions
-│   └── user.ts                        # User factory (auth + guest)
+│   ├── chat.ts                       # Chat factory (valid chat objects)
+│   ├── message.ts                    # Message factory
+│   ├── artifact.ts                   # Artifact factory with versions (NOT document.ts)
+│   ├── user.ts                       # User factory (auth + guest)
+│   └── vote.ts                       # Vote factory
+├── utils/
+│   └── stream.ts                     # collectStreamEvents() — SSE test utility
 ├── integration/
-│   ├── chat-flow.test.ts              # Chat send → stream → save flow
-│   ├── artifact-flow.test.ts          # Tool call → handler → stream → state
-│   ├── auth-flow.test.ts              # Login → exchange → session
-│   └── sidebar-flow.test.ts           # History load → pagination → delete
+│   ├── chat-flow.test.ts             # Chat send → stream → save lifecycle
+│   ├── artifact-flow.test.ts         # Tool call → handler → stream → state
+│   ├── auth-flow.test.ts             # Login → session → cookie
+│   └── sidebar-flow.test.ts          # History load → pagination → delete
 └── e2e/
-    ├── chat.spec.ts                   # Full chat E2E (send, receive, history)
-    ├── artifacts.spec.ts              # Artifact creation/editing E2E
-    ├── auth.spec.ts                   # Login/register/guest E2E
-    └── sidebar.spec.ts                # Sidebar navigation E2E
+    ├── chat.spec.ts                  # Full chat E2E (send, receive, history)
+    ├── artifacts.spec.ts             # Artifact creation/editing E2E
+    ├── auth.spec.ts                  # Login/register/guest E2E
+    └── sidebar.spec.ts               # Sidebar navigation E2E
+```
+
+**Key changes from old plan:**
+- `fixtures/document.ts` → `fixtures/artifact.ts`
+- New: `fixtures/vote.ts`, `utils/stream.ts`
+- New: `mocks/ai.ts`, `mocks/fetch.ts`
+
+---
+
+## `scripts/` — CI/Build Scripts
+
+```
+scripts/
+└── check-imports.mjs                 # Import boundary enforcement (runs in pnpm lint)
 ```
 
 ---
@@ -432,8 +540,9 @@ tests/
 
 ```
 public/
-└── images/
-    └── ... (logo, favicons, etc.)
+├── favicon.ico                       # Favicon
+└── images/                           # Static images
+    └── ...                           # Logo, OG images, etc.
 ```
 
 ---
@@ -442,18 +551,29 @@ public/
 
 | Directory | Files | Purpose |
 |-----------|-------|---------|
-| `app/` | ~22 | Routes, layouts, API handlers |
-| `features/chat/` | ~20 | Chat feature (components, actions, hooks, tools) |
-| `features/artifacts/` | ~22 | Artifact feature (editors, handlers, panel) |
-| `features/auth/` | ~8 | Authentication (form, provider, session) |
-| `features/sidebar/` | ~6 | Sidebar history + navigation |
-| `features/settings/` | ~5 | User settings |
-| `features/voting/` | ~2 | Message voting |
-| `features/models/` | ~3 | Model selection + catalog |
-| `components/ai-elements/` | 31 | Read-only AI primitives (copied) |
-| `components/ui/` | ~32 | shadcn/ui base components |
-| `components/` root | ~4 | Theme, icons, sidebar toggle, app shell |
-| `lib/` | ~28 | Infrastructure (data, db, cache, ai, auth, errors, api, types, utils) |
-| `tests/` | ~16 | Mocks, fixtures, integration, E2E |
-| Root config | ~10 | Config files (next, ts, biome, postcss, etc.) |
-| **Total** | **~209** | |
+| **Root config** | 14 | proxy.ts, next.config.ts, tsconfig, biome, package.json, etc. |
+| **app/** | 15 | Routes, layouts, API handlers, error boundaries |
+| **features/chat/** | 21 | Chat session: components, hooks, actions, tools, schemas, types |
+| **features/artifacts/** | 17 | Artifact panel: components, editors, handlers, store, schemas, types |
+| **features/auth/** | 9 | Authentication: form, providers, actions, session, schemas, types |
+| **features/sidebar/** | 10 | Sidebar history: components, hooks, actions, types |
+| **features/voting/** | 5 | Message voting: component, hook, action, type |
+| **features/models/** | 4 | Model selection: component, catalog, types |
+| **features/visibility/** | 4 | Visibility toggle: component, action, types |
+| **features/settings/** | 4 | User settings: component, hook, types |
+| **components/ai-elements/** | 31 | Read-only AI primitives (copied) |
+| **components/ui/** | 32 | shadcn/ui base components |
+| **components/** (root) | 5 | Theme, icons, sidebar toggle, weather, toaster |
+| **lib/ai/** | 8 | AI registry, provider, models, prompts, handlers, tools, title |
+| **lib/auth/** | 1 | Session infrastructure |
+| **lib/cache/** | 4 | Redis client, keys, revalidation, cache-through |
+| **lib/data/** | 6 | Data access: chat, artifact, message, vote, suggestion, user |
+| **lib/db/** | 2+ | Drizzle client, schema, migrations |
+| **lib/errors/** | 2 | AppError class, error codes |
+| **lib/types/** | 7 | Shared type contracts (cross-feature) |
+| **lib/utils/** | 3 | cn, format, generate-uuid |
+| **lib/hooks/** | 2 | Truly generic hooks |
+| **tests/** | 16 | Mocks, fixtures, utils, integration, E2E |
+| **scripts/** | 1 | Import boundary enforcement |
+| **public/** | 1+ | Static assets |
+| **Total** | **~210** | |

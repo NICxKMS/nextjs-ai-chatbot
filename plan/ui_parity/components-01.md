@@ -1,36 +1,42 @@
 # Components Map — Part 01 (A–M)
 
+> **Updated per redesign audit (2026-03-01)**
+
 > Every component in `oldapp/components/`, mapped with props, hierarchy, state, events, and rebuild location.
 
 ---
 
 ## app-sidebar.tsx → `features/sidebar/components/app-sidebar.tsx`
 
+> *Redesign: Parent changes from `chat-layout-client.tsx` to `SidebarShell` (server wrapper). Delete All uses Server Action `deleteAllChats()` instead of `fetch("/api/history", DELETE)`. `useAuth` → `useSession`.*
+
 | Field | Detail |
 |-------|--------|
 | **Type** | Client (`"use client"`) |
 | **Props** | None |
-| **Parents** | `chat-layout-client.tsx` (dynamic import, ssr=false) |
-| **Children** | `Sidebar`, `SidebarHeader`, `SidebarMenu`, `SidebarContent` → `SidebarHistory`, `SidebarFooter` → `SidebarUserNav`, `AlertDialog` (delete all) |
+| **Parents** | `SidebarShell` (server component wrapper) *(redesign: replaces chat-layout-client.tsx)* |
+| **Children** | `Sidebar`, `SidebarHeader`, `SidebarMenu`, `SidebarContent` → `SidebarHistoryClient`, `SidebarFooter` → `SidebarUserNav`, `AlertDialog` (delete all) *(redesign: SidebarHistory → SidebarHistoryClient)* |
 | **State** | `showDeleteAllDialog: boolean` |
-| **Events** | New Chat click → `router.push("/")` + `router.refresh()`, Delete All → `fetch("/api/history", DELETE)` + SWR mutate, Mobile close on nav |
-| **Hooks** | `useRouter`, `useSidebar`, `useSWRConfig`, `useAuth` |
+| **Events** | New Chat click → `router.push("/")` + `router.refresh()`, Delete All → Server Action `deleteAllChats()` *(redesign: replaces fetch + SWR mutate)*, Mobile close on nav |
+| **Hooks** | `useRouter`, `useSidebar`, `useSession` *(redesign: renamed from useAuth)* |
 | **Memo** | None |
 | **Notes** | sidebar border-r-0 override; "Assistant" brand text in header |
 
 ---
 
-## artifact.tsx → `features/artifacts/components/artifact.tsx`
+## artifact.tsx → `features/artifacts/components/artifact-panel.tsx` *(redesign: renamed to ArtifactPanel)*
+
+> *Redesign: Parent changes from `Chat` to `ChatShell`. `document` state → `artifact`. `DocumentKind` → `ArtifactKind`. SWR document fetch → `useSyncExternalStore` artifact store. props drastically reduced (ChatSessionContext provides most via context).*
 
 | Field | Detail |
 |-------|--------|
 | **Type** | Client (imported, no directive — wrapped in memo) |
 | **Props** | `chatId`, `input`, `setInput`, `status`, `stop`, `attachments`, `setAttachments`, `sendMessage`, `messages`, `setMessages`, `regenerate`, `votes`, `isReadonly`, `selectedVisibilityType`, `selectedModelId`, `availableModels` |
-| **Parents** | `Chat` component |
+| **Parents** | `ChatShell` component *(redesign: renamed from Chat)* |
 | **Children** | `ArtifactCloseButton`, `ArtifactActions`, `ArtifactMessages`, `MultimodalInput`, `Toolbar`, `VersionFooter`, `ArtifactErrorBoundary` → dynamic artifact content |
-| **State** | `mode: "edit" | "diff"`, `document: Document | null`, `currentVersionIndex: number`, `isContentDirty: boolean`, `isToolbarVisible: boolean` |
-| **Events** | Version navigation (prev/next/toggle/latest), content save (debounced 2s), document fetch via SWR |
-| **Exports** | `Artifact` (memo), `artifactDefinitions` array, `ArtifactKind` type, `UIArtifact` type |
+| **State** | `mode: "edit" | "diff"`, `artifact: Artifact | null` *(redesign: renamed from document: Document)*, `currentVersionIndex: number`, `isContentDirty: boolean`, `isToolbarVisible: boolean` |
+| **Events** | Version navigation (prev/next/toggle/latest), content save (debounced 2s), artifact fetch via `useSyncExternalStore` *(redesign: replaces SWR)* |
+| **Exports** | `ArtifactPanel` (memo) *(redesign: renamed from Artifact)*, `artifactDefinitions` array, `ArtifactKind` type, `UIArtifact` type |
 | **Layout** | Fixed overlay `z-50 h-dvh w-dvw`. Desktop: 400px message sidebar + remaining for content. Mobile: full-screen. AnimatePresence for enter/exit. Spring animations. |
 | **Memo** | Deep comparison on `status`, `votes`, `input`, `messages`, `selectedVisibilityType`, `isReadonly`, `selectedModelId`, `attachments` |
 
@@ -79,9 +85,9 @@
 |-------|--------|
 | **Type** | Memo component |
 | **Props** | `chatId`, `status`, `votes`, `messages`, `setMessages`, `regenerate`, `isReadonly`, `artifactStatus`, `availableModels` |
-| **Parents** | `Artifact` (desktop only, 400px sidebar) |
+| **Parents** | `ArtifactPanel` (desktop only, 400px sidebar) *(redesign: renamed from Artifact)* |
 | **Children** | `PreviewMessage` (loop), `ThinkingMessage` (AnimatePresence), scroll sentinel |
-| **Hooks** | `useMessages` |
+| **Hooks** | `useChatSessionContext` *(redesign: renamed from useMessages — messages via ChatSessionContext)* |
 | **Memo** | Skips re-render when artifact is streaming |
 
 ---
@@ -98,7 +104,9 @@
 
 ---
 
-## auth-provider.tsx → `features/auth/components/auth-provider.tsx`
+## auth-provider.tsx → `features/auth/components/session-provider.tsx` *(redesign: renamed)*
+
+> *Redesign: `AuthProvider` → `SessionProvider`. `useAuth` → `useSession`. Guest bootstrap and Supabase listener behavior preserved.*
 
 | Field | Detail |
 |-------|--------|
@@ -107,25 +115,27 @@
 | **Context Value** | `session`, `status: "loading" | "authenticated" | "unauthenticated"`, `isNewSession`, `setSession`, `clearNewSessionFlag` |
 | **State** | `session`, `isNewSession`, `bootstrapAttempted` |
 | **Effects** | Guest bootstrap via `/api/auth/guest` (POST), Supabase auth state change listener |
-| **Exports** | `AuthProvider`, `useAuth` hook |
+| **Exports** | `SessionProvider` *(redesign: renamed from AuthProvider)*, `useSession` hook *(redesign: renamed from useAuth)* |
 
 ---
 
-## chat.tsx → `features/chat/components/chat.tsx`
+## chat.tsx → `features/chat/components/chat-shell.tsx` *(redesign: renamed to ChatShell, thin orchestrator ~60 lines)*
+
+> *Redesign: The monolithic `Chat` component (524 lines) is replaced by `ChatShell` (~60 lines). `ChatShell` provides `ChatSessionContext` (inline provider) exposing messages, setMessages, chatId, selectedModel, visibility, append, reload, stop. Most props come from server-fetched data. `useDataStream` → `useChatStream`. `useOptimisticChats` → `usePendingChats`. `useAuth` → `useSession`. `useSettings` replaces `useSettingsSnapshot`. No credit/usage alert. `data-usage` → removed. `data-chat-title` → `chat-title`. `Artifact` child → `ArtifactPanel`.*
 
 | Field | Detail |
 |-------|--------|
 | **Type** | Client (`"use client"`) |
 | **Props** | `id`, `initialMessages`, `initialChatModel`, `initialVisibilityType`, `isReadonly`, `initialLastContext?`, `availableModels?`, `initialVotes?` |
 | **Parents** | Home page, Chat/[id] page |
-| **Children** | `ChatHeader`, `Messages`, `MultimodalInput`, `Artifact` (dynamic), `AlertDialog` (credit card) |
-| **State** | `input`, `usage`, `showCreditCardAlert`, `currentModelId`, `attachments`, `hasAppendedQuery` |
-| **Hooks** | `useChat` (AI SDK), `useChatVisibility`, `useDataStream`, `useSettings`, `useAuth`, `useOptimisticChats`, `useArtifact`, `useArtifactSelector`, `useSearchParams`, `useSWR` (votes) |
-| **Key behaviors** | Adaptive throttle (50/100/150ms by connection), optimistic chat creation on first message, title polling on finish, URL query auto-send, model persistence to localStorage |
+| **Children** | `ChatHeader`, `Messages`, `MultimodalInput`, `ArtifactPanel` (dynamic) *(redesign: no AlertDialog credit card)* |
+| **State** | `input`, `currentModelId`, `attachments`, `hasAppendedQuery` *(redesign: `usage`, `showCreditCardAlert` removed)* |
+| **Hooks** | `useChat` (AI SDK), `useChatVisibility`, `useChatStream` *(redesign: renamed from useDataStream)*, `useSettings` *(redesign: useSyncExternalStore, no SettingsProvider)*, `useSession` *(redesign: renamed from useAuth)*, `usePendingChats` *(redesign: renamed from useOptimisticChats)*, `useArtifact`, `useArtifactSelector`, `useSearchParams` |
+| **Key behaviors** | Adaptive throttle (50/100/150ms by connection), optimistic chat creation on first message, title via `chat-title` stream part *(redesign: single-channel)*, URL query auto-send, model persistence to localStorage |
 | **Transport** | `DefaultChatTransport` with custom `prepareSendMessagesRequest` adding model/visibility/settings |
-| **onData handlers** | `data-usage`, `data-chat-title` (updates optimistic title), `data-appendMessage` |
+| **onData handlers** | `chat-title` (updates pending title) *(redesign: `data-usage` removed, `data-chat-title` → `chat-title`)* |
 | **Layout** | `h-dvh min-w-0 flex-col bg-background` |
-| **Lines** | 524 |
+| **Lines** | ~60 *(redesign: reduced from 524)* |
 
 ---
 
@@ -135,7 +145,7 @@
 |-------|--------|
 | **Type** | Memo Client Component |
 | **Props** | `chatId`, `selectedVisibilityType`, `isReadonly` |
-| **Parents** | `Chat` |
+| **Parents** | `ChatShell` *(redesign: renamed from Chat)* |
 | **Children** | `SidebarToggle`, `Button` (New Chat), `VisibilitySelector`, `SettingsButton` |
 | **Layout** | `sticky top-0 flex items-center gap-2 bg-background px-2 py-1.5` |
 | **Responsive** | New Chat button visible when sidebar closed or mobile. `order-*` classes for reordering. |
@@ -148,7 +158,7 @@
 |-------|--------|
 | **Type** | Memo Client Component |
 | **Props** | `content`, `onSaveContent`, `status`, `isCurrentVersion`, `currentVersionIndex`, `suggestions` |
-| **Parents** | `Artifact` (via `codeArtifact.content`) |
+| **Parents** | `ArtifactPanel` (via `codeArtifact.content`) *(redesign: renamed from Artifact)* |
 | **Dependencies** | CodeMirror (lazy-loaded): `@codemirror/state`, `@codemirror/view`, `@codemirror/lang-python`, `@codemirror/theme-one-dark` |
 | **State** | `modules: CodeMirrorModules | null` |
 | **Notes** | Module cache singleton pattern; streaming content updates via `EditorView.dispatch` |
@@ -178,25 +188,29 @@
 
 ---
 
-## data-stream-handler.tsx → `features/chat/components/data-stream-handler.tsx`
+## data-stream-handler.tsx → `features/chat/components/stream-bridge.tsx` *(redesign: renamed to StreamBridge)*
+
+> *Redesign: `DataStreamHandler` → `StreamBridge`. Uses pure `processStreamDelta()` function to process stream parts and update `artifactStore` (useSyncExternalStore). Thin ~30-line bridge component.*
 
 | Field | Detail |
 |-------|--------|
 | **Type** | Client (`"use client"`) — renders `null` |
 | **Props** | None |
-| **Parents** | Home page, Chat/[id] page (sibling to `Chat`) |
-| **Hooks** | `useDataStream`, `useArtifact` |
-| **Effects** | Processes `dataStream` deltas → updates artifact state (id, title, kind, clear, finish) + artifact-specific `onStreamPart` |
+| **Parents** | Home page, Chat/[id] page (sibling to `ChatShell`) *(redesign: renamed from Chat)* |
+| **Hooks** | `useChatStream` *(redesign: renamed from useDataStream)*, `useArtifact` *(redesign: now useSyncExternalStore-based)* |
+| **Effects** | Processes stream deltas via `processStreamDelta()` → updates `artifactStore` (id, title, kind, clear, finish) + artifact-specific `onStreamPart` |
 
 ---
 
-## data-stream-provider.tsx → `features/chat/components/data-stream-provider.tsx`
+## data-stream-provider.tsx → `features/chat/components/chat-stream-provider.tsx` *(redesign: renamed to ChatStreamProvider)*
+
+> *Redesign: `DataStreamProvider` → `ChatStreamProvider`. Scoped to page level (not layout level). Split state/dispatch pattern retained.*
 
 | Field | Detail |
 |-------|--------|
 | **Type** | Client (`"use client"`) • Split Context Provider |
 | **Props** | `children` |
-| **Exports** | `DataStreamProvider`, `useDataStreamState` (re-renders on change), `useDataStreamDispatch` (stable), `useDataStream` (both) |
+| **Exports** | `ChatStreamProvider` *(redesign: renamed from DataStreamProvider)*, `useChatStreamState` *(redesign: renamed from useDataStreamState)*, `useChatStreamDispatch` *(redesign: renamed)*, `useChatStream` *(redesign: renamed from useDataStream)* |
 | **Pattern** | Split state/dispatch contexts to prevent unnecessary re-renders |
 
 ---
@@ -213,39 +227,43 @@
 
 ---
 
-## document.tsx → `features/artifacts/components/document.tsx`
+## document.tsx → `features/artifacts/components/artifact-tool-result.tsx` *(redesign: renamed)*
+
+> *Redesign: `DocumentToolResult` → `ArtifactToolResult`. `DocumentToolCall` → `ArtifactToolCall`. File renamed from `document.tsx` to `artifact-tool-result.tsx`.*
 
 | Field | Detail |
 |-------|--------|
 | **Type** | Memo components |
-| **Exports** | `DocumentToolResult` (memo, always skip), `DocumentToolCall` |
+| **Exports** | `ArtifactToolResult` (memo, always skip) *(redesign: renamed from DocumentToolResult)*, `ArtifactToolCall` *(redesign: renamed from DocumentToolCall)* |
 | **Props** | `type: "create" | "update" | "request-suggestions"`, `result`, `isReadonly` |
 | **Parents** | `PreviewMessage` (tool call parts) |
 | **Events** | Click → opens artifact panel via `setArtifact` with bounding box |
 
 ---
 
-## document-preview.tsx → `features/artifacts/components/document-preview.tsx`
+## document-preview.tsx → `features/artifacts/components/artifact-preview.tsx` *(redesign: renamed)*
+
+> *Redesign: `DocumentPreview` → `ArtifactPreview`. Parents reference `tool-createArtifact`/`tool-updateArtifact` parts. SWR fetch `/api/document` → `/api/artifact`.*
 
 | Field | Detail |
 |-------|--------|
 | **Type** | Client (`"use client"`) with dynamic editor imports |
 | **Props** | `isReadonly`, `result?`, `args?` |
-| **Parents** | `PreviewMessage` (tool-createDocument, tool-updateDocument parts) |
+| **Parents** | `PreviewMessage` (`tool-createArtifact`, `tool-updateArtifact` parts) *(redesign: renamed from tool-createDocument/tool-updateDocument)* |
 | **Children** | Lazy: `CodeEditor`, `ImageEditor`, `SpreadsheetEditor`, `Editor` (text) |
-| **State** | Document fetched via SWR (`/api/document?id=`) |
+| **State** | Artifact fetched via SWR (`/api/artifact?id=`) *(redesign: renamed from /api/document)* |
 | **Notes** | Captures bounding box via `hitboxRef` for artifact open animation |
 | **Lines** | 349 |
 
 ---
 
-## document-skeleton.tsx → `features/artifacts/components/document-skeleton.tsx`
+## document-skeleton.tsx → `features/artifacts/components/artifact-skeleton.tsx` *(redesign: renamed)*
 
 | Field | Detail |
 |-------|--------|
 | **Type** | Client (`"use client"`) |
-| **Exports** | `DocumentSkeleton` (image vs text variants), `InlineDocumentSkeleton` |
-| **Parents** | `DocumentPreview` |
+| **Exports** | `ArtifactSkeleton` (image vs text variants) *(redesign: renamed from DocumentSkeleton)*, `InlineArtifactSkeleton` *(redesign: renamed from InlineDocumentSkeleton)* |
+| **Parents** | `ArtifactPreview` *(redesign: renamed from DocumentPreview)* |
 | **Notes** | Image skeleton: aspect-ratio 4/3, max-w-800. Text: prose layout with heading/paragraph pulse bars |
 
 ---
@@ -279,7 +297,7 @@
 |-------|--------|
 | **Type** | Named export (no `"use client"` directive — non-interactive) |
 | **Props** | `title`, `content` (base64), `status`, `isInline`, `currentVersionIndex`, `isCurrentVersion` |
-| **Parents** | Artifact (image kind), DocumentPreview |
+| **Parents** | Artifact (image kind), ArtifactPreview *(redesign: renamed from DocumentPreview)* |
 | **Layout** | Full height when not inline (`h-[calc(100dvh-60px)]`), 200px when inline |
 | **States** | Streaming: loader + "Generating Image..."; Idle: `<img>` with base64 src |
 
@@ -293,9 +311,9 @@
 | **Exports** | `PreviewMessage` (memo), `ThinkingMessage` |
 | **Props (PreviewMessage)** | `chatId`, `message`, `vote`, `isLoading`, `setMessages`, `regenerate`, `isReadonly`, `requiresScrollPadding` |
 | **Parents** | `Messages`, `ArtifactMessages` |
-| **Children** | `MessageReasoning`, `MessageContent` (element), `Response` (element), `MessageEditor`, `MessageActions`, `PreviewAttachment`, `DocumentPreview`, `DocumentToolResult`, `Weather`, `Tool`/`ToolContent`/`ToolHeader`/`ToolInput`/`ToolOutput` (elements) |
+| **Children** | `MessageReasoning`, `MessageContent` (element), `Response` (element), `MessageEditor`, `MessageActions`, `PreviewAttachment`, `ArtifactPreview` *(redesign: renamed from DocumentPreview)*, `ArtifactToolResult` *(redesign: renamed from DocumentToolResult)*, `Weather`, `Tool`/`ToolContent`/`ToolHeader`/`ToolInput`/`ToolOutput` (elements) |
 | **State** | `mode: "view" | "edit"` |
-| **Parts handled** | `reasoning`, `text`, `file`, `tool-getWeather`, `tool-createDocument`, `tool-updateDocument`, `tool-requestSuggestions` |
+| **Parts handled** | `reasoning`, `text`, `file`, `tool-getWeather`, `tool-createArtifact` *(redesign: renamed from tool-createDocument)*, `tool-updateArtifact` *(redesign: renamed from tool-updateDocument)*, `tool-requestSuggestions` |
 | **User message style** | Right-aligned, blue background (`#006cff`), white text, rounded-2xl |
 | **Assistant style** | Left-aligned, SparklesIcon avatar (ring-1 ring-border), transparent bg |
 | **Memo** | Always re-renders during loading; checks `message.id`, `parts`, `vote`, `requiresScrollPadding` |
@@ -312,7 +330,7 @@
 | **Parents** | `PreviewMessage` |
 | **User actions** | Edit (hover-only, absolute positioned), Copy |
 | **Assistant actions** | Copy, Upvote, Downvote |
-| **Vote API** | PATCH `/api/vote` with optimistic SWR mutation |
+| **Vote API** | Server Action `voteOnMessage()` with `useOptimistic` *(redesign: replaces PATCH /api/vote with SWR mutation)* |
 | **Lines** | 207 |
 
 ---
@@ -350,10 +368,10 @@
 |-------|--------|
 | **Type** | Memo Client Component |
 | **Props** | `chatId`, `status`, `votes`, `messages`, `setMessages`, `regenerate`, `isReadonly`, `isGuest`, `isArtifactVisible`, `selectedModelId`, `chatError?`, `clearError?` |
-| **Parents** | `Chat` |
+| **Parents** | `ChatShell` *(redesign: renamed from Chat)* |
 | **Children** | `Virtuoso` (react-virtuoso), `Greeting` (empty state), `PreviewMessage` (items), `ThinkingMessage` (footer), `ErrorMessage` (footer), scroll-to-bottom button |
 | **State** | `isAtBottom`, `hasSentMessage` |
-| **Hooks** | `useDataStream`, `useSettingsSnapshot` (autoScroll) |
+| **Hooks** | `useChatStream` *(redesign: renamed from useDataStream)*, `useSettings` *(redesign: replaces useSettingsSnapshot — useSyncExternalStore, no SettingsProvider)* |
 | **Key patterns** | Virtualized list with `followOutput="smooth"`, `increaseViewportBy={top:200, bottom:200}`, `atBottomThreshold=100`; empty messages filter for error state; scroll-to-bottom FAB |
 | **Memo** | Skips re-render when artifact visible (both prev & next); always re-renders during streaming |
 | **Lines** | 320 |
@@ -380,7 +398,7 @@
 |-------|--------|
 | **Type** | Memo Client Component |
 | **Props** | `chatId`, `input`, `setInput`, `status`, `stop`, `attachments`, `setAttachments`, `messages`, `setMessages`, `sendMessage`, `className?`, `selectedVisibilityType`, `selectedModelId`, `onModelChange?`, `usage?`, `availableModels?` |
-| **Parents** | `Chat`, `Artifact` (message sidebar) |
+| **Parents** | `ChatShell` *(redesign: renamed from Chat)*, `ArtifactPanel` *(redesign: renamed from Artifact)* (message sidebar) |
 | **Children** | `SuggestedActions` (when empty), `PreviewAttachment` (attachments), `PromptInput` + `PromptInputTextarea` + `PromptInputToolbar` + `PromptInputTools` + `PromptInputSubmit` (AI elements), `Context` (element), `AttachmentsButton`, `ModelSelectorCompact`, `StopButton` |
 | **State** | `localStorageInput` (persisted), `uploadQueue` |
 | **File upload** | Hidden file input, max 3 concurrent uploads via `/api/files/upload`, abort on unmount |

@@ -1,5 +1,7 @@
 # Feature Inventory
 
+> **Updated per redesign audit (2026-03-01)**
+
 ## 1. Chat (Core Feature)
 
 ### Description
@@ -11,7 +13,7 @@ Real-time AI chat interface with multi-model support, streaming responses, and m
 - `POST /api/chat` → `app/(chat)/api/chat/route.ts` (send message)
 
 ### User Flow
-1. User lands on `/` → new chat page renders with empty `<Chat>` component
+1. User lands on `/` → new chat page renders with empty `<ChatShell>` component (redesign: replaces monolithic `<Chat>`)
 2. UUID generated server-side for new chat ID
 3. Cookie `chat-model` read for persisted model selection, fallback to `DEFAULT_CHAT_MODEL`
 4. User types message in `<MultimodalInput>`, optionally attaches files
@@ -32,7 +34,7 @@ Real-time AI chat interface with multi-model support, streaming responses, and m
 
 ### AI Interactions
 - `streamText` with selected model via `myProvider.languageModel()`
-- Tools: `getWeather`, `createDocument`, `updateDocument`, `requestSuggestions`
+- Tools: `getWeather`, `createArtifact`, `updateArtifact`, `requestSuggestions`
 - System prompt composed from: `regularPrompt` + geo hints + optional user system prompt + `artifactsPrompt` (unless reasoning model)
 - `smoothStream` transform with word chunking, 2ms delay
 - 55-second timeout (`AbortSignal.timeout`)
@@ -41,7 +43,7 @@ Real-time AI chat interface with multi-model support, streaming responses, and m
 ### Edge Cases
 - Model not in registry → `bad_request:api:invalid_model_id`
 - Guest without Redis → `bad_request:api:guest_requires_cache`
-- Daily quota exceeded → `rate_limit:chat:daily_limit_exceeded`
+- Daily limit exceeded → rate limit check (daily limits retained for abuse prevention only)
 - Chat owned by different user → `forbidden:chat:owner_mismatch`
 - AI completion timeout (55s) → AbortSignal fires
 - Title generation failure → Falls back to first 80 chars of message
@@ -56,7 +58,7 @@ Dual auth system: Supabase (email/password) for registered users, JWT-based gues
 ### Entry Points
 - `/login` → `app/(auth)/login/page.tsx`
 - `/register` → `app/(auth)/register/page.tsx`
-- `POST /api/auth/exchange` (token exchange)
+- Server Actions: `loginAction`, `registerAction`, `logoutAction`
 - `proxy.ts` (guest session creation at edge)
 
 ### User Flow — Guest
@@ -92,17 +94,17 @@ Paginated list of user's chats in sidebar with optimistic updates.
 
 ### Entry Points
 - `GET /api/history` → paginated chat list
-- `DELETE /api/history` → delete all chats
-- `<SidebarHistory>` component
-- `useOptimisticChats` hook
+- Server Action `deleteAllChats()`
+- `SidebarHistoryClient` component (SidebarShell is SERVER, SidebarHistoryClient handles client pagination)
+- `usePendingChats` hook (PendingChatsProvider)
 
 ### User Flow
 1. Sidebar fetches `GET /api/history?limit=10`
 2. Server returns `{ chats, hasMore }` with cursor-based pagination
-3. New chats appear immediately via `addOptimisticChat()` (optimistic, client-only)
+3. New chats appear immediately via `PendingChats.add()` (optimistic, client-only)
 4. When server confirms, optimistic entry replaced by real data
-5. Title updates stream via `data-chatTitle` data part, update optimistic entry in-place
-6. Delete all: `DELETE /api/history` with strict rate limit (10/min)
+5. Title updates stream via `chat-title` data part → `PendingChats.updateTitle()` (single-channel)
+6. Delete all: Server Action `deleteAllChats()` + `updateTag('chats:{userId}')`
 
 ### Data Requirements
 - **Guest**: Cache ZSET → batch MGET for chat metadata
@@ -111,43 +113,45 @@ Paginated list of user's chats in sidebar with optimistic updates.
 
 ---
 
-## 4. Artifacts (Documents)
+## 4. Artifacts
 
 ### Description
-Side-panel UI for creating/editing content: text documents, code (Python), spreadsheets (CSV), images.
+Side-panel UI for creating/editing content: text artifacts, code (Python), spreadsheets (CSV), images.
+
+> *All "document" naming replaced with "artifact" at the application layer.*
 
 ### Entry Points
-- AI tools: `createDocument`, `updateDocument`, `requestSuggestions`
-- `<Artifact>` component (right panel)
-- `GET/POST/DELETE /api/document`
+- AI tools: `createArtifact`, `updateArtifact`, `requestSuggestions`
+- `<ArtifactPanel>` component (right panel)
+- `GET/POST /api/artifact`
 - `GET /api/suggestions`
 
 ### User Flow — Create
-1. AI decides to use `createDocument` tool with `{ title, kind }`
-2. Tool streams: `data-id` → `data-title` → `data-kind` → `data-clear` → content deltas → `data-finish`
-3. `DataStreamHandler` processes deltas, updates `useArtifact` SWR state
-4. Artifact panel slides open when content length crosses threshold (~300-400 chars)
-5. Server handler calls `documentData.save()` for persistence
+1. AI decides to use `createArtifact` tool with `{ title, kind }`
+2. Tool streams: `artifact-id` → `artifact-title` → `artifact-kind` → `artifact-clear` → content deltas → `artifact-finish`
+3. StreamBridge processes deltas via pure `processStreamDelta()`, updates `artifactStore` (useSyncExternalStore)
+4. ArtifactPanel opens when `artifact-id` received (isVisible: true)
+5. Server handler calls `saveArtifactVersion()` for persistence
 
 ### User Flow — Update
-1. AI uses `updateDocument` tool with `{ id, description }`
-2. Fetches existing document, streams updated content
+1. AI uses `updateArtifact` tool with `{ id, description }`
+2. Fetches existing artifact via `getArtifactById()`, streams updated content
 3. Same delta pattern as create
 4. New version appended (versioned by `createdAt` PK)
 
 ### Artifact Types
 | Kind | Server Handler | Client Component | AI Model | Streaming |
 |------|---------------|-----------------|----------|-----------|
-| text | `streamText` → text deltas | TipTap editor | artifact-model | `data-textDelta` |
-| code | `streamObject` → `{ code }` | CodeMirror editor | artifact-model | `data-codeDelta` |
-| sheet | `streamObject` → `{ csv }` | react-data-grid | artifact-model | `data-sheetDelta` |
-| image | (no server handler in `artifactKinds`) | ImageEditor | N/A | `data-imageDelta` |
+| text | `streamText` → text deltas | TipTap editor | ARTIFACT_MODEL | `artifact-textDelta` |
+| code | `streamObject` → `{ code }` | CodeMirror editor | ARTIFACT_MODEL | `artifact-codeDelta` |
+| sheet | `streamObject` → `{ csv }` | react-data-grid | ARTIFACT_MODEL | `artifact-sheetDelta` |
+| image | (no server handler) | ImageEditor | N/A | `artifact-imageDelta` |
 
 ### Data Requirements
-- **Table**: `Document` (composite PK: `id` + `createdAt` for versioning)
-- **Reads**: All versions by document ID
-- **Writes**: New version per save
-- **Cache**: Document versions cached per user
+- **Table**: `Artifact` (composite PK: `id` + `createdAt` for versioning; DB table `Document` retained for migration)
+- **Reads**: All versions by artifact ID (`getArtifactVersions`)
+- **Writes**: New version per save (`saveArtifactVersion`)
+- **Cache**: `cacheTag('artifact:{id}')` with `revalidateTag` on mutations
 
 ---
 
@@ -157,14 +161,15 @@ Side-panel UI for creating/editing content: text documents, code (Python), sprea
 Users can upvote/downvote assistant messages.
 
 ### Entry Points
-- `PATCH /api/vote` with `{ chatId, messageId, type: "up"|"down" }`
-- `<MessageActions>` component
+- Server Action `voteOnMessage()`
+- `<MessageActions>` component → `<VoteButtons>` with `useOptimistic`
 
 ### User Flow
 1. User clicks thumbs up/down on assistant message
-2. PATCH request sent with chat/message IDs
+2. Server Action `voteOnMessage()` called with `useOptimistic` for instant UI
 3. Server validates: auth, rate limit, non-guest, chat ownership, message belongs to chat
 4. Upsert to `Vote` table (atomic ON CONFLICT)
+5. `updateTag('votes:{chatId}')` for cache invalidation
 
 ### Constraints
 - Guest users cannot vote (requires DB persistence)
@@ -225,19 +230,19 @@ Chats can be public or private.
 
 ---
 
-## 9. Document Suggestions
+## 9. Artifact Suggestions
 
 ### Description
-AI-generated suggestions to improve text documents.
+AI-generated suggestions to improve text artifacts.
 
 ### Entry Points
-- `requestSuggestions` AI tool
+- `requestSuggestions` AI tool (with `artifactId` parameter)
 - `getSuggestions` server action
-- `GET /api/suggestions`
+- `GET /api/suggestions?artifactId=`
 
 ### User Flow
 1. User asks AI to suggest improvements (or AI calls `requestSuggestions` tool)
-2. Tool streams suggestion objects with `data-suggestion` type
+2. Tool streams suggestion objects with `artifact-suggestion` type
 3. Each suggestion: `{ originalText, suggestedText, description }`
 4. Suggestions displayed in text editor alongside content
 5. For authenticated users, persisted to `Suggestion` table
@@ -267,9 +272,11 @@ Real-time weather lookup via Open-Meteo API.
 ### Description
 User-configurable chat settings stored in localStorage.
 
+> *SettingsProvider removed. Settings use `useSyncExternalStore` + localStorage directly — no React Context needed.*
+
 ### Entry Points
 - Settings panel in UI
-- `useSettings` / `useSettingsSnapshot` hooks
+- `useSettings()` hook (useSyncExternalStore, no provider needed)
 - Settings sent with chat requests
 
 ### Configurable Options

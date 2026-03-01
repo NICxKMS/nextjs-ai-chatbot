@@ -1,5 +1,7 @@
 # Components Map — Part 02 (P–Z)
 
+> **Updated per redesign audit (2026-03-01)**
+
 > Continuation of component mapping. See components-01.md for A–M.
 
 ---
@@ -28,7 +30,7 @@
 | **Children** | `Sheet` → `SheetContent` (right side, max-w-xl) with sections |
 | **Sections** | 1. **Sampling:** Temperature (0–1.5), Top P (0–1), Max Output Tokens (256–1M) — all numeric inputs. 2. **System Prompt:** Textarea. 3. **Behavior:** Enable reasoning (toggle), Stream artifacts (toggle), Auto-scroll (toggle) |
 | **Footer** | Reset to defaults, Close |
-| **Hooks** | `useSettings`, `useSettingsSnapshot`, `useBoolean` (usehooks-ts) |
+| **Hooks** | `useSettings` *(redesign: `useSettingsSnapshot` merged into `useSettings` — useSyncExternalStore, SettingsProvider removed)*, `useBoolean` (usehooks-ts) |
 | **Toggle pattern** | `aria-pressed`, On/Off button styled as pill (primary when on, muted when off) |
 | **Lines** | 298 |
 
@@ -40,14 +42,16 @@
 |-------|--------|
 | **Type** | Memo Client Component |
 | **Props** | `content` (CSV string), `saveContent`, `currentVersionIndex`, `isCurrentVersion`, `status` |
-| **Parents** | `Artifact` (sheet kind), `DocumentPreview` |
+| **Parents** | `ArtifactPanel` (sheet kind) *(redesign: renamed from Artifact)*, `ArtifactPreview` *(redesign: renamed from DocumentPreview)* |
 | **Dependencies** | `papaparse` (parse/unparse), `react-data-grid` |
 | **Layout** | MIN_ROWS=50, MIN_COLS=26 (A-Z); frozen row-number column (width 50); data columns width 120 |
 | **Theme** | Dark mode classes: `dark:bg-zinc-950`, `dark:bg-zinc-900` |
 
 ---
 
-## sidebar-history.tsx → `features/sidebar/components/sidebar-history.tsx`
+## sidebar-history.tsx → `features/sidebar/components/sidebar-history-client.tsx` *(redesign: renamed to SidebarHistoryClient)*
+
+> *Redesign: `SidebarHistory` → `SidebarHistoryClient`. Optimistic chats → pending chats. `chat-title-updated` window event → `chat-title` stream part (single-channel). DELETE `/api/history/${id}` → Server Action `deleteChat()`.*
 
 | Field | Detail |
 |-------|--------|
@@ -57,11 +61,11 @@
 | **Children** | `GroupedVirtuoso` (react-virtuoso), `ChatItem` items, `AlertDialog` (delete confirm) |
 | **State** | SWR infinite pagination (20/page), `showDeleteDialog`, `chatToDelete` |
 | **Grouping** | Today, Yesterday, Last 7 days, Last 30 days, Older — with pre-calculated date boundaries |
-| **Optimistic chats** | Prepended as `__optimistic__` group before "Today" |
+| **Pending chats** | Prepended as `__pending__` group before "Today" *(redesign: renamed from `__optimistic__`)* |
 | **Auth gating** | Returns null key when no user or `isNewSession` (skips fetch for new guests) |
-| **Events** | Delete chat → DELETE `/api/history/${id}` + optimistic SWR removal, title update via `chat-title-updated` window event |
+| **Events** | Delete chat → Server Action `deleteChat()` + optimistic removal *(redesign: replaces DELETE route + SWR)*, title update via `chat-title` stream part *(redesign: replaces `chat-title-updated` window event)* |
 | **Lines** | 574 |
-| **Exported** | `SidebarHistory`, `getChatHistoryPaginationKey`, `ChatHistory` type |
+| **Exported** | `SidebarHistoryClient` *(redesign: renamed from SidebarHistory)*, `getChatHistoryPaginationKey`, `ChatHistory` type |
 
 ---
 
@@ -71,7 +75,7 @@
 |-------|--------|
 | **Type** | Memo component |
 | **Props** | `chat: Chat`, `isActive: boolean`, `onDelete`, `setOpenMobile` |
-| **Parents** | `SidebarHistory` |
+| **Parents** | `SidebarHistoryClient` *(redesign: renamed from SidebarHistory)* |
 | **Children** | `SidebarMenuItem` → `SidebarMenuButton` (Link), `DropdownMenu` (actions) |
 | **Dropdown actions** | Share → Submenu (Private/Public with checkmarks), Delete (destructive) |
 | **Hooks** | `useChatVisibility` |
@@ -85,7 +89,7 @@
 |-------|--------|
 | **Type** | Server-compatible (pure render) |
 | **Props** | None |
-| **Parents** | `ChatLayoutClient` (Suspense fallback), AppSidebar dynamic loading |
+| **Parents** | `SidebarShell` (Suspense fallback) *(redesign: renamed from ChatLayoutClient)*, AppSidebar dynamic loading |
 | **Layout** | Matches exact Sidebar structure: `hidden md:block`, `w-64`, fixed inset-y-0 |
 | **Skeleton bars** | 5 items with widths [44%, 32%, 28%, 64%, 52%], staggered animation delay (50ms increments) |
 | **Sections** | Header (title + button), Content (Today label + items), Footer (avatar + name) |
@@ -114,10 +118,10 @@
 | **Parents** | `AppSidebar` → `SidebarFooter` |
 | **Children** | `SidebarMenu` → `SidebarMenuItem` → `DropdownMenu` |
 | **State** | `mounted: boolean` (hydration guard) |
-| **Hooks** | `useAuth`, `useTheme`, `useSWRConfig` |
+| **Hooks** | `useSession` *(redesign: renamed from useAuth)*, `useTheme` |
 | **Loading state** | Skeleton avatar + pulsing text + spinner until mounted AND auth resolved |
 | **Menu items** | Theme toggle (dark ↔ light), Separator, Auth action (Login / Sign out) |
-| **Logout flow** | POST `/api/auth/logout` → Supabase `signOut()` → clear SWR history → redirect `/` |
+| **Logout flow** | Server Action `logoutAction()` → Supabase `signOut()` → redirect `/` *(redesign: replaces POST /api/auth/logout + SWR clear)* |
 | **Avatar** | `avatar.vercel.sh/{seed}` (24×24) |
 
 ---
@@ -168,7 +172,7 @@
 |-------|--------|
 | **Type** | Memo Client Component |
 | **Props** | `content`, `onSaveContent`, `status`, `isCurrentVersion`, `currentVersionIndex`, `suggestions` |
-| **Parents** | `Artifact` (text kind), `DocumentPreview` |
+| **Parents** | `ArtifactPanel` (text kind) *(redesign: renamed from Artifact)*, `ArtifactPreview` *(redesign: renamed from DocumentPreview)* |
 | **Dependencies** | TipTap: StarterKit, Markdown, Mathematics (KaTeX), Table extensions, custom SuggestionsExtension |
 | **Behavior** | Streaming: sets content without emitting save; Idle: emits markdown on update; Suggestions extension for inline suggestions with decorations |
 | **Lines** | 162 |
@@ -204,7 +208,7 @@
 |-------|--------|
 | **Type** | Memo Client Component |
 | **Props** | `artifactKind`, `isToolbarVisible`, `setIsToolbarVisible`, `sendMessage`, `setMessages`, `status`, `stop` |
-| **Parents** | `Artifact` (current version only) |
+| **Parents** | `ArtifactPanel` (current version only) *(redesign: renamed from Artifact)* |
 | **Children** | Floating tool palette with `Tool` buttons, `ReadingLevelSelector` (text kind only), custom send/stop |
 | **Animation** | `framer-motion` (direct import, not from lib/motion): spring animations, drag constraints, scale on hover/tap |
 | **Sub: ReadingLevelSelector** | 6 reading levels on draggable vertical slider, motion drag with constraints |
@@ -219,11 +223,11 @@
 | Field | Detail |
 |-------|--------|
 | **Type** | Client (`"use client"`) |
-| **Props** | `handleVersionChange`, `documents`, `currentVersionIndex` |
-| **Parents** | `Artifact` (when not current version) |
+| **Props** | `handleVersionChange`, `artifacts` *(redesign: renamed from documents)*, `currentVersionIndex` |
+| **Parents** | `ArtifactPanel` (when not current version) *(redesign: renamed from Artifact)* |
 | **Children** | "Restore this version" `Button`, "Back to latest" `Button` |
 | **State** | `isMutating: boolean` |
-| **Restore API** | DELETE `/api/document?id={id}&timestamp={ts}` with optimistic SWR mutation |
+| **Restore API** | DELETE `/api/artifact?id={id}&timestamp={ts}` *(redesign: renamed from /api/document)* with optimistic mutation |
 | **Animation** | `motion.div` slide-up from bottom (spring stiffness 140, damping 20) |
 | **Layout** | `absolute bottom-0 z-50 w-full border-t bg-background p-4` |
 
@@ -258,14 +262,16 @@
 
 ## Hooks Summary
 
+> *Redesign: `useMessages` hook removed — messages accessed via `useChatSessionContext()` from `ChatSessionContext`. `useOptimisticChats` renamed to `usePendingChats`. `useArtifact` now uses `useSyncExternalStore` (module-level store) instead of SWR.*
+
 | Hook | File | Rebuild Location |
-|------|------|-----------------|
-| `useArtifact` | `hooks/use-artifact.ts` | `features/artifacts/hooks/use-artifact.ts` |
+|------|------|------------------|
+| `useArtifact` | `hooks/use-artifact.ts` | `features/artifacts/hooks/use-artifact.ts` *(redesign: useSyncExternalStore)* |
 | `useArtifactSelector` | `hooks/use-artifact.ts` | `features/artifacts/hooks/use-artifact.ts` |
 | `useChatVisibility` | `hooks/use-chat-visibility.ts` | `features/chat/hooks/use-chat-visibility.ts` |
-| `useMessages` | `hooks/use-messages.tsx` | `features/chat/hooks/use-messages.tsx` |
+| ~~`useMessages`~~ | ~~`hooks/use-messages.tsx`~~ | *(redesign: removed — `ChatSessionContext` provides messages)* |
 | `useIsMobile` | `hooks/use-mobile.ts` | `hooks/use-mobile.ts` (shared) |
-| `useOptimisticChats` | `hooks/use-optimistic-chats.tsx` | `features/sidebar/hooks/use-optimistic-chats.tsx` |
+| `usePendingChats` | `hooks/use-pending-chats.tsx` | `features/sidebar/hooks/use-pending-chats.tsx` *(redesign: renamed from useOptimisticChats)* |
 | `useScrollToBottom` | `hooks/use-scroll-to-bottom.tsx` | `features/chat/hooks/use-scroll-to-bottom.tsx` |
 | `useWindowSize` | `hooks/use-window-size.ts` | `hooks/use-window-size.ts` (shared) |
 

@@ -1,339 +1,354 @@
-# Data Flow Chains — Part 01 (Flows 1–8)
+> **Updated per redesign audit (2026-03-01)**
 
-> Complete end-to-end data flow for core operations. Each chain traces from
-> user trigger through handler, data layer, state management, to final render.
-> See [data-flow-chains-02.md](data-flow-chains-02.md) for Flows 9–15.
+# Data Flow Chains (Part 1)
 
----
-
-## Flow 1: Chat Send Message
-
-**Trigger:** User presses Enter in `MultimodalInput` or clicks submit button
-
-```
-USER ACTION
-  │
-  ├── MultimodalInput.handleSubmit()
-  │     ├── history.replaceState('/chat/{chatId}')  ← URL update (no reload)
-  │     ├── addOptimisticChat({ id, title: input.slice(0,50) })  ← sidebar
-  │     ├── sendMessage({ message, experimental_attachments })
-  │     └── clear: attachments=[], input='', localStorage entry
-  │
-  ├── useChat (AI SDK) — DefaultChatTransport
-  │     ├── prepareSendMessagesRequest() injects:
-  │     │     selectedChatModel, selectedVisibilityType, settings
-  │     ├── POST /api/chat with JSON body
-  │     └── Opens SSE connection for response
-  │
-  ├── SERVER: POST /api/chat
-  │     ├── parseJsonBodyForRoute(body, postRequestBodySchema)
-  │     ├── isValidModelId(selectedChatModel)
-  │     ├── getAppSession() → session
-  │     ├── RateLimiters.chat(userId) → rate limit check
-  │     ├── createContext(session) → DataContext
-  │     ├── isGuest + !isRedisAvailable → error
-  │     ├── Promise.all([getUserMessageCount, chatData.getWithMessages])
-  │     ├── entitlements check (20/day guest, 100/day auth)
-  │     ├── ownership check (if existing chat)
-  │     ├── createUIMessageStream():
-  │     │     ├── Title generation (parallel, non-blocking)
-  │     │     ├── executeChatCompletion():
-  │     │     │     ├── myProvider.languageModel(model)
-  │     │     │     ├── systemPrompt(regular + user + geo + artifacts)
-  │     │     │     ├── Tools: getWeather, createDocument, updateDocument, requestSuggestions
-  │     │     │     ├── streamText() → SSE tokens
-  │     │     │     └── smoothStream({ delayInMs: 2, chunking: "word" })
-  │     │     └── SSE stream piped via JsonToSseTransformStream
-  │     └── onFinish:
-  │           ├── saveChat() → DB + cache
-  │           ├── incrementQuota() → Redis
-  │           └── updateChatTitle() → DB + cache (async)
-  │
-  └── CLIENT RECEIVES SSE
-        ├── useChat processes text-delta tokens → messages state
-        ├── onData: data-chatTitle → updateOptimisticChat(id, {title})
-        ├── onData: data-usage → setUsage(usage)
-        ├── onFinish: poll /api/chat?id= for title (5 attempts, 500ms)
-        ├── Messages re-renders with new assistant message
-        └── Virtuoso auto-scrolls if at bottom
-```
+> End-to-end data flow chains for every major user interaction.
+> Traces data from user action through client, server, and database layers.
+> Updated to reflect: ChatStreamProvider (not DataStreamProvider), StreamBridge (not DataStreamHandler),
+> artifactStore via useSyncExternalStore, revalidateTag after mutations, artifact-* stream parts,
+> PendingChatsProvider (not OptimisticChatsProvider), Server Actions for mutations.
 
 ---
 
-## Flow 2: Chat Stream/Receive
+## Chain 1: New Chat — First Message Send
 
-**Trigger:** SSE response arrives from `/api/chat`
+### Trigger
+User types message in MultimodalInput on home page and clicks send.
+
+### Flow
 
 ```
-SSE RESPONSE ARRIVES
-  │
-  ├── useChat hook (AI SDK) processes stream
-  │     ├── text-delta → append to messages[last].parts[text]
-  │     ├── reasoning → append to messages[last].parts[reasoning]
-  │     ├── tool-call → add tool invocation part
-  │     ├── tool-result → add tool result part
-  │     └── finish-message → status changes to "ready"
-  │
-  ├── useChat.onData callback processes custom parts
-  │     ├── data-chatTitle → updateOptimisticChat(chatId, {title})
-  │     ├── data-usage → setUsage(mergedUsage)
-  │     └── data-appendMessage → setMessages(prev => [...prev, msg])
-  │
-  ├── DataStreamProvider receives dataStream updates
-  │     └── setDataStream(newDeltas) → state context updates
-  │
-  ├── DataStreamHandler (sibling to Chat) processes deltas
-  │     ├── data-id → setArtifact({documentId: id, status: "streaming"})
-  │     ├── data-title → setArtifact({title})
-  │     ├── data-kind → setArtifact({kind})
-  │     ├── data-clear → setArtifact({content: ""})
-  │     ├── data-*Delta → artifactDefinition.onStreamPart()
-  │     │     ├── data-textDelta: append to content
-  │     │     ├── data-codeDelta: replace content
-  │     │     └── data-sheetDelta: replace content
-  │     └── data-finish → setArtifact({status: "idle"})
-  │
-  └── RENDER
-        ├── Messages component (Virtuoso)
-        │     ├── PreviewMessage per message
-        │     │     ├── MessageContent (markdown, syntax, math)
-        │     │     ├── MessageReasoning (collapsible thinking)
-        │     │     └── Tool-specific renderers (Weather, DocumentPreview)
-        │     ├── ThinkingMessage (animated dots during streaming)
-        │     └── Auto-scroll follows output
-        │
-        └── Artifact panel (if artifact streaming)
-              ├── AnimatePresence slide-in animation
-              ├── Editor (text/code/sheet/image) renders content
-              └── Status indicator shows "streaming"
+1. USER ACTION
+   MultimodalInput → useChatSessionContext().sendMessage()
+
+2. CLIENT: useChatSession (ChatShell)
+   a. Validate: input not empty, status === 'idle'
+   b. PendingChats.add({ id: chatId, title: input.slice(0,50), createdAt: now, visibility: 'private' })
+      → PendingChatsProvider context update
+      → SidebarHistoryClient re-renders with optimistic entry
+   c. history.replaceState({}, '', `/chat/${chatId}`)
+   d. handleSubmit() → DefaultChatTransport
+
+3. CLIENT: DefaultChatTransport
+   a. prepareSendMessagesRequest():
+      - body.id = chatId
+      - body.selectedChatModel = cookie/localStorage model ID
+      - body.selectedVisibilityType = 'private'
+      - body.settings = { temperature, topP, maxOutputTokens, systemPrompt, enableReasoning }
+      - body.messages = [latest message only]
+   b. POST /api/chat (SSE stream)
+
+4. SERVER: POST /api/chat route handler
+   a. Zod validate request body
+   b. getAppSession() → session
+   c. Rate limit check (if auth user)
+   d. getChatWithMessages(chatId) → null (new chat)
+   e. createChat({ id: chatId, userId, title: 'New Chat', visibility: 'private' })
+   f. createUIMessageStream():
+      - Merge streamText result into UIMessageStream
+      - Configure tools: getEnabledTools(modelId)
+      - System prompt: composeSystemPrompt({ model, systemPrompt? })
+      - Apply settings: temperature, topP, maxOutputTokens, providerOptions
+
+5. SERVER: streamText execution
+   a. myProvider.languageModel(modelId) → model instance
+   b. Model generates tokens → text-delta parts
+   c. smoothStream transform (optional)
+   d. Reasoning tokens → reasoning parts (if enabled)
+   e. Tool calls → tool-call part + execute → tool-result part
+   f. If createArtifact/updateArtifact tool: see Chain 5/6
+
+6. SERVER: onFinish callback
+   a. saveMessages(chatId, messages) → DB
+   b. Generate title: generateText({ model: 'google:gemini-2.0-flash-lite', messages })
+   c. updateChatTitle(chatId, title)
+   d. ChatStream.writeData({ type: 'chat-title', content: title })
+   e. revalidateTag('chat:{chatId}', 'max')
+   f. revalidateTag('chats:{userId}', 'max')
+
+7. CLIENT: useChat receives SSE
+   a. text-delta → append to assistant message (automatic)
+   b. onData callback for custom parts:
+      - { type: 'chat-title' } → PendingChats.updateTitle(chatId, title)
+      - { type: 'artifact-*' } → ChatStreamProvider dispatch
+   c. Status transitions: idle → submitted → streaming → idle
+
+8. CLIENT: ChatStreamProvider → StreamBridge (if artifact parts)
+   a. ChatStreamProvider StateCtx update (RAF batched)
+   b. StreamBridge useEffect reads new parts
+   c. processStreamDelta(part) → artifactStore.setState()
+   d. ArtifactPanel re-renders via useArtifact() subscription
+```
+
+### Revalidation
+- Server: `revalidateTag('chat:{chatId}', 'max')` + `revalidateTag('chats:{userId}', 'max')`
+- Client sidebar: PendingChats optimistic entry already visible; next navigation picks up server-confirmed data
+
+---
+
+## Chain 2: Load Existing Chat
+
+### Trigger
+User navigates to `/chat/[id]` via sidebar link or direct URL.
+
+### Flow
+
+```
+1. NAVIGATION
+   SidebarHistoryItem <Link href="/chat/{id}"> or direct URL
+
+2. SERVER: app/(chat)/chat/[id]/page.tsx (async)
+   a. getAppSession() → session
+   b. Parallel fetch:
+      - getChatWithMessages(chatId) → chat + messages
+        - 'use cache' + cacheTag('chat:{chatId}')
+      - getVotesByChatId(chatId) → votesPromise (NOT awaited)
+      - getAvailableModels() → models
+        - 'use cache' + cacheTag('models')
+   c. Access control:
+      - if (!chat) → redirect('/?notice=chat_not_found')
+      - if (chat.userId !== session.user.id && chat.visibility === 'private') → notFound()
+   d. isReadonly = (chat.userId !== session.user.id)
+
+3. SERVER RENDER
+   a. ChatStreamProvider (client)
+   b. ChatShell(id, initialMessages, initialChatModel=chat.model, isReadonly, availableModels)
+   c. StreamBridge(id)
+   d. Suspense → VoteResolver(chatId, votesPromise)
+
+4. CLIENT HYDRATION
+   a. ChatShell creates ChatSessionContext via useChatSession()
+      - Messages pre-populated from initialMessages
+      - Model set from chat.model
+      - Status: idle
+   b. VoteResolver resolves votesPromise via React 19 use()
+      - Renders vote buttons after hydration (non-blocking)
+   c. ChatSessionContext.Provider wraps children
+   d. ChatHeader, Messages, MultimodalInput consume context
+
+5. CLIENT: User sees full chat
+   - Messages rendered with tool results and artifact previews
+   - If isReadonly: MultimodalInput hidden, vote buttons hidden
+   - Model locked to chat.model (not switchable)
+```
+
+### Cache Behavior
+- `'use cache'` + `cacheTag('chat:{chatId}')` — served from cache on repeat visits
+- `revalidateTag('chat:{chatId}', 'max')` invalidates after mutations
+- Next navigation after mutation hits fresh data
+- Vote promise NOT awaited (Suspense defers hydration)
+
+---
+
+## Chain 3: Chat Deletion
+
+### Trigger
+User clicks delete in SidebarHistoryItem dropdown.
+
+### Flow
+
+```
+1. USER ACTION
+   SidebarHistoryItem → delete button click
+
+2. CLIENT: Optimistic removal
+   a. PendingChats.remove(chatId)
+   b. SidebarHistoryClient re-renders without this chat
+
+3. CLIENT: Server Action call
+   a. deleteChat({ chatId }) — Server Action
+      - getAppSession() → session
+      - Ownership verification (chat.userId === session.user.id)
+      - DB: delete chat (cascade: messages, votes, artifacts)
+      - updateTag('chats:{userId}')
+      - Return: ActionResult
+
+4. CLIENT: Post-deletion
+   a. If deleting active chat (chatId === current URL):
+      - router.push('/') → navigate to home
+   b. Success: optimistic state already applied
+   c. Failure: toast.error(), PendingChats potentially re-add (dedup handles)
+
+5. SERVER: Cache invalidation
+   - updateTag('chats:{userId}') → sidebar cache stale
+   - Next navigation will fetch fresh sidebar data
+```
+
+### Error Recovery
+- If server action fails: toast notification, but optimistic removal already happened
+- On next full fetch (SWR revalidation), list reconciles with server state
+
+---
+
+## Chain 4: Message Edit + Regenerate
+
+### Trigger
+User clicks edit on a previous user message.
+
+### Flow
+
+```
+1. USER ACTION
+   Message → edit button → MessageEditor opens
+
+2. CLIENT: MessageEditor
+   a. User edits message content
+   b. User clicks "Send" in editor
+
+3. CLIENT: Server Action + Regeneration
+   a. deleteTrailingMessages({ id: messageId, chatId }) — Server Action
+      - getAppSession() → session
+      - DB: delete all messages with createdAt > this message's createdAt
+      - updateTag('chat:{chatId}')
+      - Return: ActionResult
+   b. useChatSessionContext().editMessage(messageId, newContent)
+      - Internally: truncate local messages array at messageId
+      - Replace message content with newContent
+      - Trigger handleSubmit() → new API call with edited content
+
+4. SERVER: POST /api/chat (re-invocation)
+   a. Same flow as Chain 1.4-1.6
+   b. Server loads remaining messages from DB (trailing already deleted)
+   c. Generates new response from edited context
+
+5. CLIENT: New response streams in
+   a. Same flow as Chain 1.7
+   b. Previous assistant messages after edit point are gone
+   c. New assistant response takes their place
+```
+
+### Data Consistency
+- Server Action deletes trailing messages atomically
+- `updateTag('chat:{chatId}')` invalidates cache
+- Client local state truncated independently
+- Re-submission generates fresh response
+
+---
+
+## Chain 5: Artifact Creation (createArtifact Tool)
+
+### Trigger
+AI model decides to use `createArtifact` tool during response generation.
+
+### Flow
+
+```
+1. SERVER: Tool Call Execution
+   a. AI model emits tool-call: createArtifact({ title, kind })
+   b. Tool execute function runs:
+      - Generate artifactId = generateUUID()
+      - ChatStream.writeData({ type: 'artifact-id', content: artifactId })
+      - ChatStream.writeData({ type: 'artifact-title', content: title })
+      - ChatStream.writeData({ type: 'artifact-kind', content: kind })
+      - ChatStream.writeData({ type: 'artifact-clear', content: '' })
+      - getArtifactHandler(kind) → handler
+      - content = await handler.create({ id: artifactId, title, kind, ChatStream, session, chatId })
+      - ChatStream.writeData({ type: 'artifact-finish', content: '' })
+      - saveArtifactVersion({ id: artifactId, title, content, kind, userId, chatId })
+
+2. SERVER: Handler Execution (e.g., text handler)
+   a. streamText({ model: ARTIFACT_MODEL, prompt: title })
+   b. For each token: ChatStream.writeData({ type: 'artifact-textDelta', content: token })
+   c. Return accumulated content string
+
+3. CLIENT: SSE → ChatStreamProvider → StreamBridge
+   a. useChat.onData receives artifact-* parts
+   b. Dispatched to ChatStreamProvider (DispatchCtx)
+   c. ChatStreamProvider batches via RAF → StateCtx update
+   d. StreamBridge reads StateCtx changes
+
+4. CLIENT: StreamBridge → artifactStore
+   a. processStreamDelta(part) for each buffered part:
+      - artifact-id → setState({ artifactId })
+      - artifact-title → setState({ title })
+      - artifact-kind → setState({ kind })
+      - artifact-clear → setState({ content: '', status: 'streaming' })
+      - artifact-textDelta → setState(prev => ({ content: prev.content + delta }))
+      - artifact-finish → setState({ status: 'idle' })
+   b. artifactStore.setState() → useSyncExternalStore subscribers notified
+
+5. CLIENT: ArtifactPanel renders
+   a. useArtifact() reads full artifact state
+   b. isVisible: true → panel slides in (animation)
+   c. Routes to TextEditor/CodeEditor/SheetEditor/ImageEditor by kind
+   d. Content streams in character-by-character (text) or as partial JSON (code/sheet)
+   e. On artifact-finish: editor switches to interactive mode
+```
+
+### Handler Accumulation Modes
+| Kind | Delta Type | Accumulation | Rendering |
+|------|-----------|-------------|-----------|
+| text | `artifact-textDelta` | **Append** (`content += delta`) | TipTap incremental update |
+| code | `artifact-codeDelta` | **Replace** (`content = delta`) — partial JSON object | CodeMirror full re-render |
+| sheet | `artifact-sheetDelta` | **Replace** (`content = delta`) — partial JSON object | react-data-grid full re-render |
+| image | `artifact-imageDelta` | **Replace** (`content = delta`) — base64 | img src update |
+
+---
+
+## Chain 6: Artifact Update (updateArtifact Tool)
+
+### Trigger
+AI model decides to use `updateArtifact` tool to modify existing artifact.
+
+### Flow
+
+```
+1. SERVER: Tool Call Execution
+   a. AI model emits tool-call: updateArtifact({ id: artifactId, description })
+   b. Tool execute function runs:
+      - getArtifactById(artifactId) → existing artifact (latest version)
+      - ChatStream.writeData({ type: 'artifact-clear', content: '' })
+      - getArtifactHandler(kind) → handler
+      - content = await handler.update({ id, description, currentContent, kind, title, ChatStream, session })
+      - ChatStream.writeData({ type: 'artifact-finish', content: '' })
+      - saveArtifactVersion({ id: artifactId, title, content, kind, userId, chatId })
+
+2. CLIENT: Same flow as Chain 5.3-5.5
+   - artifact-clear resets content and sets status: streaming
+   - Delta parts stream new content
+   - artifact-finish sets status: idle
+   - New version saved, VersionFooter can show version history
 ```
 
 ---
 
-## Flow 3: Chat History Load
+## Chain 7: Settings Change → Chat Behavior
 
-**Trigger:** Sidebar mount / SWR revalidation / infinite scroll
+### Trigger
+User opens settings panel and changes a value.
 
-```
-SIDEBAR MOUNTS
-  │
-  ├── SidebarHistory component
-  │     └── useSWRInfinite(getChatHistoryPaginationKey, fetcher)
-  │           key: /api/history?limit=20&offset={page*20}
-  │           fetcher: fetch(url).then(res => res.json())
-  │
-  ├── CLIENT → GET /api/history?limit=20
-  │
-  ├── SERVER
-  │     ├── getAppSession() → session
-  │     ├── createContext(session) → ctx
-  │     ├── Guest path:
-  │     │     ├── getUserChatsFromCache(userId, limit, offset)
-  │     │     ├── ZREVRANGE user:{userId}:chats
-  │     │     ├── Batch MGET for chat:{id}:{userId}:meta
-  │     │     └── Return { chats, hasMore }
-  │     └── Auth path:
-  │           ├── DB SELECT chats WHERE userId ORDER BY createdAt DESC
-  │           ├── Cursor-based pagination (starting_after/ending_before)
-  │           ├── Fetch limit+1 to detect hasMore
-  │           └── Return { chats: chats.slice(0, limit), hasMore }
-  │
-  ├── Response: Cache-Control: private, max-age=0, s-maxage=10, stale-while-revalidate=30
-  │
-  └── RENDER
-        ├── GroupedVirtuoso groups chats by date
-        │     ├── __optimistic__ group (from OptimisticChatsProvider)
-        │     ├── Today, Yesterday, Last 7 days, Last 30 days, Older
-        │     └── Each: SidebarHistoryItem (ChatItem link + dropdown)
-        ├── Infinite scroll sentinel triggers next page
-        └── Active chat highlighted via pathname match
-```
-
----
-
-## Flow 4: Artifact Create
-
-**Trigger:** AI decides to call `createDocument` tool during chat streaming
+### Flow
 
 ```
-AI STREAMING (server-side)
-  │
-  ├── streamText tool call detected: createDocument({ title, kind })
-  │
-  ├── create-document.ts tool execute():
-  │     ├── id = generateUUID()
-  │     ├── dataStream.write({ type: "data-kind", data: kind })
-  │     ├── dataStream.write({ type: "data-id", data: id })
-  │     ├── dataStream.write({ type: "data-title", data: title })
-  │     ├── dataStream.write({ type: "data-clear", data: null })
-  │     ├── documentHandler = documentHandlersByArtifactKind.find(kind)
-  │     ├── handler.onCreateDocument({ id, title, dataStream, session, chatId }):
-  │     │     │
-  │     │     ├── TEXT: streamText() → data-textDelta parts (append)
-  │     │     ├── CODE: streamObject({ z.object({ code }) }) → data-codeDelta (replace)
-  │     │     ├── SHEET: streamObject({ z.object({ csv }) }) → data-sheetDelta (replace)
-  │     │     └── IMAGE: (no handler — created via Pyodide execution)
-  │     │
-  │     ├── documentData.save({ id, title, kind, content, userId, chatId })
-  │     │     ├── Guest: appendDocumentVersionToCache (Redis only)
-  │     │     └── Auth: DB INSERT + appendDocumentVersionToCache
-  │     └── dataStream.write({ type: "data-finish", data: null })
-  │
-  ├── CLIENT: DataStreamHandler processes deltas
-  │     ├── data-kind → artifact.kind = kind
-  │     ├── data-id → artifact.documentId = id
-  │     ├── data-title → artifact.title = title
-  │     ├── data-clear → artifact.content = ""
-  │     ├── artifactDefinition.onStreamPart handles content deltas
-  │     └── data-finish → artifact.status = "idle", isVisible = true
-  │
-  └── RENDER
-        ├── Artifact panel opens (AnimatePresence spring animation)
-        ├── Editor renders based on kind:
-        │     ├── text → TipTap editor with streaming content
-        │     ├── code → CodeMirror editor with Python syntax
-        │     ├── sheet → react-data-grid with CSV parsed rows
-        │     └── image → Base64 <img> display
-        ├── VersionFooter shows "Version 1 of 1"
-        └── Toolbar appears (per-kind actions)
+1. USER ACTION
+   SettingsPanel → change temperature / topP / maxOutputTokens / systemPrompt / enableReasoning
+
+2. CLIENT: useSyncExternalStore (module store)
+   a. settingsStore.setState({ ...state, [key]: value })
+   b. localStorage.setItem('settings', JSON.stringify(newState))
+   c. useSyncExternalStore subscribers re-render
+   d. Cross-tab sync: other tabs receive StorageEvent → update their store
+
+3. CLIENT: Next message send
+   a. useChatSession reads useSettings()
+   b. prepareSendMessagesRequest includes settings in body
+   c. POST /api/chat with settings payload
+
+4. SERVER: Route handler reads settings
+   a. Extract: temperature, topP, maxOutputTokens, systemPrompt, enableReasoning
+   b. composeSystemPrompt({ model, systemPrompt? }) — custom system prompt support
+   c. streamText({ temperature, topP, maxTokens: maxOutputTokens, ... })
+   d. providerOptions: enableReasoning → per-provider reasoning config
+
+5. EFFECT
+   AI response reflects new settings
+   - Higher temperature = more creative
+   - Custom system prompt = different persona
+   - Reasoning enabled = extended thinking visible
 ```
 
----
-
-## Flow 5: Artifact Update/Version
-
-**Trigger:** AI calls `updateDocument` tool or user edits content directly
-
-### AI-Initiated Update
-
-```
-AI STREAMING
-  │
-  ├── updateDocument tool execute({ id, description })
-  │     ├── documentData.get(id, ctx) → existing document + versions
-  │     ├── latestVersion = document.versions.at(-1)
-  │     ├── dataStream.write({ type: "data-clear", data: null })
-  │     ├── handler.onUpdateDocument({ document: latestVersion, description, dataStream })
-  │     │     ├── Same streaming pattern as create (per-kind)
-  │     │     └── Uses existing content + description as context
-  │     ├── documentData.save() → new version row (same id, new createdAt)
-  │     └── dataStream.write({ type: "data-finish", data: null })
-  │
-  └── CLIENT: same DataStreamHandler → Artifact re-render pipeline
-```
-
-### User-Initiated Edit (Direct)
-
-```
-USER EDITS IN EDITOR
-  │
-  ├── Editor onChange → debounced (2s) → saveContent()
-  │     └── POST /api/document?id={id} { title, content, kind }
-  │           ├── Auth check, rate limit
-  │           ├── documentData.save() → new version row
-  │           └── Cache updated (version appended)
-  │
-  └── RENDER: currentVersionIndex updated, VersionFooter shows version count
-```
-
----
-
-## Flow 6: Auth Login
-
-**Trigger:** User submits login form at `/login`
-
-```
-USER SUBMITS LOGIN FORM
-  │
-  ├── AuthForm.action() — form action handler
-  │     ├── Client: supabase.auth.signInWithPassword({ email, password })
-  │     ├── Supabase returns session with access_token
-  │     │
-  │     ├── POST /api/auth/exchange { accessToken }
-  │     │     ├── jwtVerify(token, SUPABASE_JWT_SECRET)
-  │     │     │     audience: "authenticated"
-  │     │     │     issuer: "{SUPABASE_URL}/auth/v1"
-  │     │     ├── Extract: sub (userId), email from payload
-  │     │     ├── Set cookie: sb_token (httpOnly, secure, sameSite=lax, 7d maxAge)
-  │     │     └── Return { user: { id, email } }
-  │     │
-  │     ├── On success: router.push('/') + router.refresh()
-  │     └── On error: toast.error(message)
-  │
-  └── AFTER REDIRECT
-        ├── Root layout: getAppSession() reads sb_token cookie → authenticated session
-        ├── AuthProvider receives initialSession
-        ├── SidebarHistory fetches history (auth path: DB query)
-        └── Chat page renders with full auth capabilities
-```
-
----
-
-## Flow 7: Auth Guest
-
-**Trigger:** First visit with no auth cookies
-
-```
-FIRST VISIT (no sb_token, no guest_token)
-  │
-  ├── AuthProvider detects no initialSession
-  │     └── POST /api/auth/guest
-  │           ├── guestId = guest:{crypto.randomUUID()}
-  │           ├── Sign JWT: { sub: guestId, iat, exp: +1h }, HS256, GUEST_JWT_SECRET
-  │           ├── Set cookie: guest_token (httpOnly, secure, sameSite=lax, 7d maxAge)
-  │           └── Return { user: { id: guestId, type: "guest" } }
-  │
-  ├── AuthProvider.setSession(guestSession)
-  │     └── isNewSession = true (skips initial SWR history fetch)
-  │
-  ├── SUBSEQUENT REQUESTS
-  │     ├── proxy.ts checks guest_token on every request
-  │     ├── If JWT.exp < 30min → rotate: new JWT, same guest:{uuid}, fresh 1h exp
-  │     └── Cookie refreshed with new 7d maxAge
-  │
-  └── GUEST LIMITATIONS
-        ├── Chat: cache-only (no DB fallback)
-        ├── History: cache ZSET only, no cursor pagination
-        ├── Voting: disabled (requires DB)
-        ├── Suggestions persistence: disabled
-        ├── Daily limit: 20 messages
-        └── Redis required (guest_requires_cache error if unavailable)
-```
-
----
-
-## Flow 8: Sidebar History
-
-**Trigger:** Layout mount, SWR revalidation, or infinite scroll
-
-```
-SIDEBAR RENDERS
-  │
-  ├── SidebarHistory component
-  │     ├── useAuth() → session (skip fetch if isNewSession)
-  │     └── useSWRInfinite(key, fetcher)
-  │           ├── key: index => `/api/history?limit=20&offset=${index*20}`
-  │           ├── fetcher: fetch(url).json()
-  │           └── revalidation: on mutation (after delete, title update)
-  │
-  ├── OPTIMISTIC LAYER
-  │     ├── OptimisticChatsProvider prepends optimistic entries
-  │     ├── addOptimisticChat() → unconfirmed entries at list head
-  │     ├── updateOptimisticChat() → title updates from stream
-  │     ├── removeOptimisticChat() → on delete
-  │     └── Auto-cleanup: entries > 2min old are removed
-  │
-  ├── TITLE SYNC
-  │     ├── Stream: data-chatTitle → updateOptimisticChat(id, {title})
-  │     ├── Polling: onFinish → poll /api/chat?id= for title (5×500ms)
-  │     ├── Event: window 'chat-title-updated' → sidebar listens
-  │     └── SWR revalidation on next page load
-  │
-  └── RENDER
-        ├── GroupedVirtuoso with date groups
-        ├── SidebarHistoryItem per chat (link + dropdown)
-        │     ├── Click → navigate to /chat/{id}
-        │     ├── Share submenu: Private/Public visibility toggle
-        │     └── Delete: confirm → DELETE /api/history/{id} → optimistic removal
-        └── Delete All: DELETE /api/history → redirect / + SWR mutate
-```
+### Persistence
+- Client-only (localStorage) — no server-side persistence needed
+- Scoped to browser/device, not user account
+- Default values if no localStorage entry exists
+- No SettingsProvider needed (useSyncExternalStore reads/writes directly)

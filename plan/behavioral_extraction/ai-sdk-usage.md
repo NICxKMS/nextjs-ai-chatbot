@@ -1,5 +1,7 @@
 # AI SDK Usage
 
+> **Updated per redesign audit (2026-03-01)**
+
 ## Overview
 
 The app uses **Vercel AI SDK v5** (`ai@5.0.26`) with `@ai-sdk/react@2.0.26` for client-side hooks. It supports multiple providers through a provider registry pattern with curated + dynamically discovered models.
@@ -13,15 +15,16 @@ Built with `createProviderRegistry(baseProviders)` from AI SDK. Providers are re
 
 | Provider ID | Package | Env Var(s) | Notes |
 |-------------|---------|------------|-------|
-| `vercel-gateway` | `@ai-sdk/gateway` | `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN` | Primary when available |
 | `openai` | `@ai-sdk/openai` | `OPENAI_API_KEY` | GPT-4o, GPT-4.1, o3 |
 | `google` | `@ai-sdk/google` | `GEMINI_API_KEY` | Gemini 2.5/3.0, Gemma 3 |
 | `openrouter` | `@openrouter/ai-sdk-provider` | `OPENROUTER_API_KEY` | Multi-provider proxy |
 | `cloudflare-workers` | `workers-ai-provider` | `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_KEY` | Workers AI |
 | `cloudflare-ai-gateway` | `ai-gateway-provider` | `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_AI_GATEWAY_NAME` + `CLOUDFLARE_AI_GATEWAY_API_KEY` | Gemini models with flash-lite fallback |
 
+> *`vercel-gateway` provider removed. No credit/gateway/quota billing integration.*
+
 ### myProvider (Custom Provider)
-`lib/ai/providers.ts` exports `myProvider` which wraps the registry:
+`lib/ai/provider.ts` exports `myProvider` which wraps the registry:
 - In test: returns mock models (`chat-model`, `title-model`, `artifact-model`, etc.)
 - In production: resolves model ID through registry, wraps reasoning models with `extractReasoningMiddleware`
 
@@ -76,24 +79,26 @@ Reasoning models are wrapped with `extractReasoningMiddleware({ tagName })` from
 
 ### 4 Tools in `lib/ai/tools/`
 
+> *Tools are registered in a handler registry (`lib/ai/`). All `data-*` stream parts renamed to `artifact-*`.*
+
 #### `getWeather`
 - **Schema**: `z.union([{ latitude, longitude }, { city }])`
 - **Behavior**: Geocodes city via Open-Meteo API, fetches weather forecast
 - **Returns**: Temperature, hourly forecast, sunrise/sunset
 
-#### `createDocument({ session, dataStream, chatId })`
+#### `createArtifact({ session, dataStream, chatId })`
 - **Schema**: `z.object({ title: z.string(), kind: z.enum(["text","code","sheet"]) })`
-- **Behavior**: Generates UUID, streams data parts (data-kind, data-id, data-title, data-clear), delegates to `documentHandler.onCreateDocument()`, writes data-finish
-- **Returns**: `{ id, title, kind, content: "A document was created..." }`
+- **Behavior**: Generates UUID, streams data parts (`artifact-kind`, `artifact-id`, `artifact-title`, `artifact-clear`), delegates to `artifactHandler.create()`, writes `artifact-finish`
+- **Returns**: `{ id, title, kind, content: "An artifact was created..." }`
 
-#### `updateDocument({ session, dataStream })`
+#### `updateArtifact({ session, dataStream })`
 - **Schema**: `z.object({ id: z.string(), description: z.string() })`
-- **Behavior**: Fetches existing document via `documentData.get()`, streams data-clear, delegates to `documentHandler.onUpdateDocument()`, writes data-finish
-- **Returns**: `{ id, title, kind, content: "The document has been updated..." }`
+- **Behavior**: Fetches existing artifact via `artifactData.get()`, streams `artifact-clear`, delegates to `artifactHandler.update()`, writes `artifact-finish`
+- **Returns**: `{ id, title, kind, content: "The artifact has been updated..." }`
 
 #### `requestSuggestions({ session, dataStream })`
-- **Schema**: `z.object({ documentId: z.string() })`
-- **Behavior**: Fetches document, uses `streamObject` with artifact-model to generate up to 5 suggestions, streams each as `data-suggestion`
+- **Schema**: `z.object({ artifactId: z.string() })`
+- **Behavior**: Fetches artifact, uses `streamObject` with artifact-model to generate up to 5 suggestions, streams each as `artifact-suggestion`
 - **Saves**: To DB for authenticated users only
 - **Returns**: `{ id, title, kind, message: "Suggestions have been added..." }`
 
@@ -119,10 +124,10 @@ const result = streamText({
   abortSignal: AbortSignal.timeout(55_000),
   experimental_activeTools: enabledTools,
   experimental_transform: smoothStream({ delayInMs: 2, chunking: "word" }),
-  tools: { getWeather, createDocument, updateDocument, requestSuggestions },
+  tools: { getWeather, createArtifact, updateArtifact, requestSuggestions },
   temperature, topP, maxOutputTokens, // from user settings
   providerOptions,  // reasoning config per provider
-  onFinish: async ({ usage }) => { /* TokenLens enrichment, emit data-usage */ },
+  onFinish: async ({ usage }) => { /* usage tracking (no data-usage stream part) */ },
 });
 
 result.consumeStream();
@@ -139,29 +144,33 @@ const { text: title } = await generateText({
 ```
 - Runs in parallel with streaming (non-blocking)
 - Fallback: first 80 chars of message text
-- Placeholder title used immediately; real title updates via `data-chatTitle` stream part
+- Placeholder title used immediately; real title updates via `chat-title` stream part (single-channel)
 
 ### Artifact Content Generation
 
-**Text**: `streamText` → `data-textDelta` (accumulated)
-**Code**: `streamObject` with `z.object({ code: z.string() })` → `data-codeDelta` (replaced)
-**Sheet**: `streamObject` with `z.object({ csv: z.string() })` → `data-sheetDelta` (replaced)
+> *Handler registry pattern — each `ArtifactKind` maps to an `ArtifactHandler` with `.create()` and `.update()` methods. Handlers live in `lib/ai/artifact-handlers/`.*
+
+**Text**: `streamText` → `artifact-textDelta` (accumulated)
+**Code**: `streamObject` with `z.object({ code: z.string() })` → `artifact-codeDelta` (replaced)
+**Sheet**: `streamObject` with `z.object({ csv: z.string() })` → `artifact-sheetDelta` (replaced)
 
 ### Data Stream Protocol (Custom Parts)
+
+> *All `data-*` parts renamed to `artifact-*`. `data-chatTitle` → `chat-title`. `data-usage` removed. `data-appendMessage` retained as-is.*
+
 | Part Type | Data | Direction | Transient |
 |-----------|------|-----------|-----------|
-| `data-id` | Document UUID | Server→Client | Yes |
-| `data-title` | Document title | Server→Client | Yes |
-| `data-kind` | Artifact kind | Server→Client | Yes |
-| `data-clear` | null | Server→Client | Yes |
-| `data-finish` | null | Server→Client | Yes |
-| `data-textDelta` | Text chunk | Server→Client | Yes |
-| `data-codeDelta` | Full code | Server→Client | Yes |
-| `data-sheetDelta` | Full CSV | Server→Client | Yes |
-| `data-imageDelta` | Base64 image | Server→Client | Yes |
-| `data-suggestion` | Suggestion object | Server→Client | Yes |
-| `data-chatTitle` | Chat title string | Server→Client | Yes |
-| `data-usage` | AppUsage object | Server→Client | No |
+| `artifact-id` | Artifact UUID | Server→Client | Yes |
+| `artifact-title` | Artifact title | Server→Client | Yes |
+| `artifact-kind` | Artifact kind | Server→Client | Yes |
+| `artifact-clear` | null | Server→Client | Yes |
+| `artifact-finish` | null | Server→Client | Yes |
+| `artifact-textDelta` | Text chunk | Server→Client | Yes |
+| `artifact-codeDelta` | Full code | Server→Client | Yes |
+| `artifact-sheetDelta` | Full CSV | Server→Client | Yes |
+| `artifact-imageDelta` | Base64 image | Server→Client | Yes |
+| `artifact-suggestion` | Suggestion object | Server→Client | Yes |
+| `chat-title` | Chat title string | Server→Client | Yes |
 | `data-appendMessage` | Message JSON | Server→Client | No |
 
 ---
@@ -182,30 +191,32 @@ systemPrompt = [
 Concise, direct assistant. Use tools only when necessary. Match user's tone.
 
 ### `artifactsPrompt`
-Instructions for `createDocument`/`updateDocument` tool usage. Rules: substantial content (>10 lines), code always in artifacts, Python only, never update immediately after creating.
+Instructions for `createArtifact`/`updateArtifact` tool usage. Rules: substantial content (>10 lines), code always in artifacts, Python only, never update immediately after creating.
 
-### Artifact-specific prompts
-- `codePrompt`: Self-contained Python, print() for output, under 15 lines, no network/file access
-- `sheetPrompt`: CSV spreadsheet with headers
-- `updateDocumentPrompt(content, type)`: Update existing content based on user feedback
+### `updateArtifactPrompt(content, type)`
+Update existing content based on user feedback.
 
 ---
 
 ## Usage Tracking
 
+> *TokenLens integration retained for cost tracking but `data-usage` stream part removed. No credit/gateway/billing display in UI. Usage saved to `chat.lastContext` for analytics only.*
+
 ### TokenLens Integration
 - `tokenlens` package for cost/token tracking
 - Catalog fetched with `"use cache"` directive (24h), tagged `tokenlens-catalog`
 - On completion: `getUsage()` enriches raw AI SDK usage with pricing data
-- Result written as `data-usage` stream part and saved to `chat.lastContext`
+- Result saved to `chat.lastContext`
 
 ### `AppUsage` type
 Extends `LanguageModelUsage` with: `modelId`, cost info from TokenLens
 
-### Entitlements
+### Rate Limits
 | User Type | Max Messages/Day |
-|-----------|-----------------|
+|-----------|------------------|
 | Guest | 20 |
 | Regular | 100 |
+
+> *"Entitlements" renamed to "Rate Limits". No credit/quota billing. Daily limits retained for abuse prevention only.*
 
 Quota tracked via Redis counter: `getUserMessageCount(userId)`, incremented async after save.

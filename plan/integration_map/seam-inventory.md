@@ -1,7 +1,12 @@
+> **Updated per redesign audit (2026-03-01)**
+
 # Seam Inventory
 
 > Every integration seam that requires an explicit implementation task in the rebuild.
 > Each seam is a boundary where two modules connect and data flows across.
+> Updated to reflect: artifact naming, handler registry, PendingChatsProvider,
+> ChatStreamProvider/StreamBridge, useSyncExternalStore, Server Actions for mutations,
+> proxy.ts, and removal of credit/quota/gateway concepts.
 
 ---
 
@@ -19,14 +24,14 @@
 
 ## Authentication & Session Seams
 
-### SEAM-001: Auth Provider Injection
+### SEAM-001: Session Provider Injection
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Root auth provider injects session into all features |
-| **Components** | `features/auth/components/auth-provider.tsx` → All feature components |
-| **Data Exchanged** | `AppSession { user: { id, type, email? } }`, `status`, `isNewSession`, `setSession()`, `clearNewSessionFlag()` |
-| **Task Needed** | Build `AuthProvider` with context, session state, guest bootstrap effect, Supabase auth listener. Wire into root layout AppShell. |
+| **Description** | Root session provider injects auth state into all features |
+| **Components** | `features/auth/components/session-provider.tsx` → All feature components |
+| **Data Exchanged** | `AppSession { user: { id, type, email? } }`, guest bootstrap effect, Supabase auth listener |
+| **Task Needed** | Build `SessionProvider` with context, session state, guest bootstrap effect, Supabase auth listener. Wire into root layout (server-fetched session passed as prop). |
 
 ### SEAM-002: Auth Exchange (Login/Register)
 
@@ -35,25 +40,25 @@
 | **Description** | Client-side Supabase auth → server-side cookie session |
 | **Components** | `features/auth/components/auth-form.tsx` → `POST /api/auth/exchange` → Cookie `sb_token` |
 | **Data Exchanged** | `{ accessToken: string }` → `{ user: { id, email } }` + Set-Cookie |
-| **Task Needed** | Build exchange route handler: jwtVerify with SUPABASE_JWT_SECRET (audience=authenticated, issuer=SUPABASE_URL/auth/v1), set httpOnly cookie (7d), return user. |
+| **Task Needed** | Build exchange route handler: jwtVerify with SUPABASE_JWT_SECRET, set httpOnly cookie (7d), return user. AuthForm uses `useActionState` for form handling. |
 
 ### SEAM-003: Guest Bootstrap
 
 | Field | Detail |
 |-------|--------|
 | **Description** | Auto-create guest session when no auth cookies present |
-| **Components** | `AuthProvider` (client detect) → `POST /api/auth/guest` → Cookie `guest_token` |
+| **Components** | `SessionProvider` (client detect) → `POST /api/auth/guest` → Cookie `guest_token` |
 | **Data Exchanged** | `void` → `{ user: { id: "guest:{uuid}", type: "guest" } }` + Set-Cookie |
-| **Task Needed** | Build guest route handler: generate guest:{uuid}, sign HS256 JWT (1h exp), set httpOnly cookie (7d). AuthProvider must POST on mount when no initialSession. |
+| **Task Needed** | Build guest route handler: generate guest:{uuid}, sign HS256 JWT (1h exp), set httpOnly cookie (7d). SessionProvider must POST on mount when no initialSession. |
 
 ### SEAM-004: Guest Token Rotation
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Proxy/middleware refreshes guest JWT before expiry |
-| **Components** | `middleware.ts` or `proxy.ts` → guest_token cookie |
+| **Description** | proxy.ts refreshes guest JWT before expiry |
+| **Components** | `proxy.ts` → guest_token cookie |
 | **Data Exchanged** | Existing JWT → New JWT (same sub, fresh exp) + Set-Cookie |
-| **Task Needed** | In middleware: decode guest_token JWT, if exp - now < 30min, sign new JWT with same sub and fresh 1h exp, set new cookie. |
+| **Task Needed** | In proxy.ts: decode guest_token JWT, if exp - now < 30min, sign new JWT with same sub and fresh 1h exp, set new cookie. |
 
 ### SEAM-005: Session Resolution
 
@@ -62,7 +67,7 @@
 | **Description** | Server-side session resolution from cookies |
 | **Components** | `lib/auth/session.ts` getAppSession() → All API routes and server actions |
 | **Data Exchanged** | Cookies (sb_token, guest_token) → `AppSession | null` |
-| **Task Needed** | Build getAppSession(): check sb_token → jwtVerify → authenticated session; check guest_token → jwtVerify → guest session; fallback null. |
+| **Task Needed** | Build getAppSession(): check sb_token → jwtVerify → authenticated session; check guest_token → jwtVerify → guest session; fallback null. Memoized via React.cache per request. |
 
 ---
 
@@ -73,67 +78,67 @@
 | Field | Detail |
 |-------|--------|
 | **Description** | Client useChat sends message, server processes and returns SSE |
-| **Components** | `features/chat/components/chat.tsx` (useChat) → `POST /api/chat` route → SSE response |
+| **Components** | `features/chat/components/chat-shell.tsx` (useChatSession → useChat) → `POST /api/chat` route → SSE response |
 | **Data Exchanged** | Request: `{ id, message, selectedChatModel, selectedVisibilityType, settings }`. Response: SSE stream (text-delta, reasoning, tool-call, tool-result, custom data parts). |
-| **Task Needed** | Build chat route handler: Zod validation, auth, rate limit, quota check, createUIMessageStream, executeChatCompletion, saveChat on finish. Build useChat config in Chat component with DefaultChatTransport and prepareSendMessagesRequest. |
+| **Task Needed** | Build chat route handler: Zod validation, auth, rate limit, createUIMessageStream, streamText with tools, saveMessages on finish, revalidateTag. Build useChatSession hook in ChatShell with DefaultChatTransport and prepareSendMessagesRequest. |
 
-### SEAM-007: DataStream Pipeline
+### SEAM-007: ChatStream Pipeline
 
 | Field | Detail |
 |-------|--------|
-| **Description** | SSE custom data parts flow from server through provider to handler to SWR state |
-| **Components** | Server `dataStream.write()` → `DataStreamProvider` (context) → `DataStreamHandler` (effect) → `useArtifact` (SWR) |
-| **Data Exchanged** | `DataUIPart<CustomUIDataTypes>[]` — array of typed data parts (data-id, data-title, data-kind, data-clear, data-*Delta, data-finish, data-suggestion, data-chatTitle, data-usage) |
-| **Task Needed** | Build DataStreamProvider (split state/dispatch contexts). Build DataStreamHandler (process deltas, update artifact SWR state). Define CustomUIDataTypes for type-safe stream parts. |
+| **Description** | SSE custom data parts flow from server through ChatStreamProvider to StreamBridge to artifactStore |
+| **Components** | Server `ChatStream.writeData()` → `ChatStreamProvider` (split context) → `StreamBridge` (effect) → `artifactStore` (useSyncExternalStore) |
+| **Data Exchanged** | `DataPart[]` — array of typed data parts (`artifact-id`, `artifact-title`, `artifact-kind`, `artifact-clear`, `artifact-*Delta`, `artifact-finish`, `artifact-suggestion`, `chat-title`) |
+| **Task Needed** | Build ChatStreamProvider (split state/dispatch contexts with RAF batching). Build StreamBridge (~20 lines, delegates to pure processStreamDelta()). Define DataPart union type for type-safe stream parts. |
 
 ### SEAM-008: Chat Completion Execution
 
 | Field | Detail |
 |-------|--------|
 | **Description** | Server-side AI model invocation with tools, system prompt, settings |
-| **Components** | `features/chat/actions/stream-chat.ts` → `lib/ai/providers.ts` → AI SDK `streamText()` |
-| **Data Exchanged** | Model ID, messages, system prompt, tools, settings (temperature, topP, maxOutputTokens, providerOptions) → `StreamTextResult` merged into data stream |
-| **Task Needed** | Build executeChatCompletion: resolve model via myProvider, compose system prompt, determine enabled tools, configure smoothStream transform, set up providerOptions for reasoning models, manage AbortSignal timeout. |
+| **Components** | `POST /api/chat` route → `lib/ai/provider.ts` (myProvider) → AI SDK `streamText()` |
+| **Data Exchanged** | Model ID, messages, system prompt, tools, settings (temperature, topP, maxOutputTokens, providerOptions) → `StreamTextResult` merged into UIMessageStream |
+| **Task Needed** | Build route handler: resolve model via myProvider, compose system prompt via composeSystemPrompt(), determine enabled tools via getEnabledTools(), configure smoothStream transform, set up per-provider reasoning options, manage AbortSignal. |
 
 ---
 
 ## Chat ↔ Artifacts Seams
 
-### SEAM-009: createDocument Tool → Artifact Handlers
+### SEAM-009: createArtifact Tool → Artifact Handlers
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Chat AI tool call invokes artifact handler for document creation |
-| **Components** | `features/chat/lib/tools/create-document.ts` → `features/artifacts/handlers/{kind}.ts` |
-| **Data Exchanged** | Input: `{ title, kind }`. Tool writes data parts to dataStream. Handler receives `{ id, title, dataStream, session, chatId }`. Handler streams content deltas. Handler calls documentData.save(). |
-| **Task Needed** | Build createDocument tool definition. Build document handler factory (base.ts). Build per-kind handlers (text.ts — streamText, code.ts — streamObject({code}), sheet.ts — streamObject({csv})). Register handlers in documentHandlersByArtifactKind. |
+| **Description** | Chat AI tool call invokes artifact handler via registry for artifact creation |
+| **Components** | `features/chat/lib/tools/create-artifact.ts` → `lib/ai/artifact-handlers.ts` (getArtifactHandler) → `features/artifacts/handlers/{kind}.ts` |
+| **Data Exchanged** | Input: `{ title, kind }`. Tool writes `artifact-*` data parts to ChatStream. Handler receives `CreateArtifactParams { id, title, kind, ChatStream, session, chatId }`. Handler streams content deltas. Handler returns content string. |
+| **Task Needed** | Build createArtifact tool definition (factory with session/ChatStream closures). Build handler registry in `lib/ai/artifact-handlers.ts`. Build per-kind handlers (text-handler.ts — streamText → artifact-textDelta, code-handler.ts — streamObject → artifact-codeDelta, sheet-handler.ts — streamObject → artifact-sheetDelta). Register handlers via side-effect import in route handler. |
 
-### SEAM-010: updateDocument Tool → Artifact Handlers
+### SEAM-010: updateArtifact Tool → Artifact Handlers
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Chat AI tool call invokes handler to update existing document |
-| **Components** | `features/chat/lib/tools/update-document.ts` → `features/artifacts/handlers/{kind}.ts` |
-| **Data Exchanged** | Input: `{ id, description }`. Handler receives existing document content + description. Streams updated content deltas. Saves new version. |
-| **Task Needed** | Build updateDocument tool. Wire to same handler factory. Handlers receive existing content and generate updated version using description as instruction. |
+| **Description** | Chat AI tool call invokes handler to update existing artifact |
+| **Components** | `features/chat/lib/tools/update-artifact.ts` → `lib/ai/artifact-handlers.ts` → `features/artifacts/handlers/{kind}.ts` |
+| **Data Exchanged** | Input: `{ id, description }`. Handler receives `UpdateArtifactParams { id, description, currentContent, kind, title, ChatStream, session }`. Streams updated content deltas. Returns content string. |
+| **Task Needed** | Build updateArtifact tool. Wire to same handler registry. Handlers receive existing content and generate updated version using description as instruction. Save new version via saveArtifactVersion(). |
 
 ### SEAM-011: requestSuggestions Tool → Text Editor
 
 | Field | Detail |
 |-------|--------|
-| **Description** | AI generates suggestions for document, streamed to text editor |
-| **Components** | `features/chat/lib/tools/suggestions.ts` → `dataStream` → `DataStreamHandler` → Text editor `SuggestionsExtension` |
-| **Data Exchanged** | `data-suggestion` parts: `{ originalText, suggestedText, description }` (max 5). Auth users: persisted to Suggestion table. |
-| **Task Needed** | Build requestSuggestions tool. Stream data-suggestion parts. Build TipTap SuggestionsExtension for inline display. Handle accept/dismiss UI. Persist for auth users. |
+| **Description** | AI generates suggestions for artifact, streamed to text editor |
+| **Components** | `features/chat/lib/tools/request-suggestions.ts` → `ChatStream` → `StreamBridge` → Text editor |
+| **Data Exchanged** | `artifact-suggestion` parts: `{ originalText, suggestedText, description }` (max 5). Auth users: persisted to Suggestion table. |
+| **Task Needed** | Build requestSuggestions tool. Stream `artifact-suggestion` parts. Build TipTap SuggestionsExtension for inline display. Handle accept/dismiss UI. Persist for auth users. |
 
 ### SEAM-012: Artifact Stream → Artifact Panel
 
 | Field | Detail |
 |-------|--------|
-| **Description** | DataStreamHandler updates trigger artifact panel open/render |
-| **Components** | `DataStreamHandler` → `useArtifact` SWR → `features/artifacts/components/artifact.tsx` → Per-kind editor |
-| **Data Exchanged** | `UIArtifact { documentId, title, kind, content, status, isVisible, boundingBox }` |
-| **Task Needed** | Build Artifact panel component. Wire useArtifact SWR state to panel visibility and content. Build AnimatePresence open/close transitions. Route to correct editor by kind. |
+| **Description** | StreamBridge processes deltas → artifactStore updates → ArtifactPanel renders |
+| **Components** | `StreamBridge` → `processStreamDelta()` (pure) → `artifactStore` (useSyncExternalStore) → `features/artifacts/components/artifact-panel.tsx` → Per-kind editor |
+| **Data Exchanged** | `UIArtifact { artifactId, title, kind, content, status, isVisible }` |
+| **Task Needed** | Build ArtifactPanel component. Wire useArtifact()/useArtifactSelector() to panel visibility and content. Route to correct editor by kind. Build processStreamDelta() pure function for testable delta processing. |
 
 ---
 
@@ -144,18 +149,20 @@
 | Field | Detail |
 |-------|--------|
 | **Description** | First message creates optimistic sidebar entry before server confirms |
-| **Components** | `features/chat/components/chat.tsx` → `OptimisticChatsProvider` → `features/sidebar/components/sidebar-history.tsx` |
-| **Data Exchanged** | `addOptimisticChat({ id, title: input.slice(0,50), createdAt, visibility })` |
-| **Task Needed** | Build OptimisticChatsProvider (context with Set-based dedup). Wire Chat.handleSubmit to call addOptimisticChat. Wire SidebarHistory to prepend optimistic entries in __optimistic__ group. Auto-cleanup entries > 2min old. |
+| **Components** | `features/chat/hooks/use-chat-session.ts` → `PendingChatsProvider` → `features/sidebar/components/sidebar-history-client.tsx` |
+| **Data Exchanged** | `PendingChats.add({ id, title: input.slice(0,50), createdAt, visibility })` |
+| **Task Needed** | Build PendingChatsProvider (context with Set-based dedup). Wire useChatSession.sendMessage to call PendingChats.add. Wire SidebarHistoryClient to merge optimistic entries with server data. |
 
-### SEAM-014: Title Sync (Stream + Poll + Event)
+### SEAM-014: Title Sync (Single Channel)
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Chat title flows from server generation to sidebar display via 3 mechanisms |
-| **Components** | Server title generation → `data-chatTitle` stream part → `useChat.onData` → `updateOptimisticChat`. `Chat.onFinish` → poll → `window.dispatchEvent('chat-title-updated')` → SidebarHistory listener → SWR revalidation. |
+| **Description** | Chat title flows from server to sidebar via single `chat-title` stream part |
+| **Components** | Server title generation → `chat-title` stream part → `useChat.onData` → `PendingChats.updateTitle()`. Server `onFinish` → `revalidateTag('chats:{userId}', 'max')` for next nav. |
 | **Data Exchanged** | `string` (generated title) |
-| **Task Needed** | Wire useChat.onData to call updateOptimisticChat on data-chatTitle. Build pollForTitle (5 attempts, 500ms). Dispatch chat-title-updated event. Wire SidebarHistory to listen for event and trigger SWR revalidation. |
+| **Task Needed** | Wire useChat.onData to call PendingChats.updateTitle on `chat-title`. Server: await title before stream close (guaranteed delivery). Revalidation in onFinish refreshes sidebar on next navigation. |
+
+> **Removed:** `pollForTitle()` polling, `window.dispatchEvent('chat-title-updated')`. Single typed channel via PendingChatsProvider.
 
 ---
 
@@ -166,9 +173,9 @@
 | Field | Detail |
 |-------|--------|
 | **Description** | Settings from localStorage flow through useChat request to server |
-| **Components** | `features/settings/` (SettingsProvider, localStorage) → `features/chat/components/chat.tsx` (useSettings) → `prepareSendMessagesRequest` → Server route → `systemPrompt()`, `streamText()` config |
-| **Data Exchanged** | `SettingsState { sampling: {temperature, topP, maxOutputTokens}, systemPrompt, enableReasoning, reasoningBudget, streamArtifacts, autoScroll, selectedModelId }` |
-| **Task Needed** | Build SettingsProvider (useSyncExternalStore + localStorage pub/sub). Build SettingsSheet component. Wire Chat to read settings and include in prepareSendMessagesRequest. Server: extract settings for streamText config and system prompt. |
+| **Components** | `features/settings/hooks/use-settings.ts` (useSyncExternalStore + localStorage) → `features/chat/hooks/use-chat-session.ts` (useSettings) → `prepareSendMessagesRequest` → Server route → `composeSystemPrompt()`, `streamText()` config |
+| **Data Exchanged** | `SettingsState { temperature, topP, maxOutputTokens, systemPrompt, enableReasoning }` |
+| **Task Needed** | Build settingsStore (useSyncExternalStore + localStorage pub/sub + cross-tab sync). Build SettingsPanel component. Wire useChatSession to read settings and include in prepareSendMessagesRequest. Server: extract settings for streamText config and system prompt. No SettingsProvider needed. |
 
 ---
 
@@ -179,18 +186,18 @@
 | Field | Detail |
 |-------|--------|
 | **Description** | Model catalog flows server→client, selection flows through cookie+localStorage to chat request |
-| **Components** | `lib/ai/model-registry.ts` (listChatModels) → Page props → `ModelSelector/ModelSelectorCompact` → `chat-model` cookie + `settings.selectedModelId` localStorage → `useChat` request → Server model resolution |
+| **Components** | `lib/ai/models.ts` (listChatModels with `use cache`) → Page props → `ModelSelector` → `chat-model` cookie + localStorage → `useChat` request → Server model resolution |
 | **Data Exchanged** | Models: `ModelMetadata[]`. Selection: `string` (model ID). Server: `myProvider.languageModel(modelId)` |
-| **Task Needed** | Build listChatModels() (curated + discovery merge). Build ModelSelector and ModelSelectorCompact components. Wire model ID to cookie + localStorage. Server: isValidModelId(), getModelById(), myProvider resolution. |
+| **Task Needed** | Build listChatModels() (curated + discovery merge, `cacheTag('models')`, `cacheLife('hours')`). Build ModelSelector component. Wire model ID to cookie + localStorage. Server: validate model ID via registry, resolve via myProvider. |
 
 ### SEAM-017: AI Provider Registry
 
 | Field | Detail |
 |-------|--------|
 | **Description** | Environment variables → provider instances → model resolution → reasoning middleware |
-| **Components** | `lib/ai/providers.ts` → `createProviderRegistry()` → `myProvider.languageModel()` → `extractReasoningMiddleware` |
+| **Components** | `lib/ai/registry.ts` → `createProviderRegistry()` → `lib/ai/provider.ts` (myProvider) → `extractReasoningMiddleware` |
 | **Data Exchanged** | Env vars → Provider instances. Model ID → Language model instance (optionally wrapped with reasoning middleware). |
-| **Task Needed** | Build provider registry with conditional initialization (6 providers). Build myProvider wrapper with reasoning middleware support. Build per-provider option builders. |
+| **Task Needed** | Build provider registry with conditional initialization (google, openai, openrouter). Build myProvider wrapper with reasoning middleware based on model ID prefix matching. Build per-provider option builders in `lib/ai/provider-options.ts`. |
 
 ---
 
@@ -200,10 +207,12 @@
 
 | Field | Detail |
 |-------|--------|
-| **Description** | User votes on assistant message, optimistic SWR update + server persistence |
-| **Components** | `features/chat/components/message-actions.tsx` → `PATCH /api/vote` → `lib/data/vote` → DB |
-| **Data Exchanged** | Request: `{ chatId, messageId, type: "up"|"down" }`. Optimistic: SWR mutate vote array. Server: ownership check, message membership check, DB upsert. |
-| **Task Needed** | Build vote route handler with all guards (auth, non-guest, rate limit, ownership, message membership). Build optimistic SWR mutation in MessageActions. Build voteMessage DB operation (INSERT ON CONFLICT UPDATE). |
+| **Description** | User votes on assistant message via Server Action + useOptimistic |
+| **Components** | `features/voting/components/vote-buttons.tsx` → Server Action `voteOnMessage()` → `lib/data/vote` → DB |
+| **Data Exchanged** | Input: `{ chatId, messageId, type: "up"|"down" }`. Optimistic: `useOptimistic(type)` immediate UI. Server: auth check, upsert vote, `updateTag('votes:{chatId}')`. Return: `ActionResult<{ messageId }>`. |
+| **Task Needed** | Build VoteButtons component with useOptimistic + useTransition. Build voteOnMessage Server Action (auth, non-guest, DB upsert, updateTag). Build VoteResolver for deferred vote hydration via React 19 use(). |
+
+> **Replaced:** SWR `PATCH /api/vote` with optimistic mutate → Server Action + useOptimistic.
 
 ---
 
@@ -226,23 +235,23 @@
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Paginated chat history loaded via SWR infinite scroll |
-| **Components** | `features/sidebar/components/sidebar-history.tsx` → `useSWRInfinite` → `GET /api/history` → `lib/data/chat` |
-| **Data Exchanged** | Request: `?limit=20&offset={page*20}`. Response: `{ chats: Chat[], hasMore: boolean }`. Guest: cache ZSET + batch MGET. Auth: DB cursor pagination. |
-| **Task Needed** | Build history route handler (auth, rate limit, guest/auth branching, cursor pagination). Build SidebarHistory with useSWRInfinite and GroupedVirtuoso. Build date grouping logic (Today, Yesterday, Last 7/30 days, Older). Wire delete and visibility actions. |
+| **Description** | Server-rendered initial data + client SWR pagination for chat history |
+| **Components** | `features/sidebar/components/sidebar-shell.tsx` (SERVER, 'use cache') → `SidebarHistoryClient` (CLIENT, useSWRInfinite) → `GET /api/history` → `lib/data/chat` |
+| **Data Exchanged** | Server: chats via `'use cache'` + `cacheTag('chats:{userId}')`. Client pagination: `?limit=20&offset={page*20}`. Response: `{ chats: Chat[], hasMore: boolean }`. |
+| **Task Needed** | Build SidebarShell server component with 'use cache'. Build SidebarHistoryClient with useSWRInfinite (fallbackData from server). Build history route handler. Build date grouping logic. Wire delete and visibility actions. |
 
 ---
 
-## Document Fetch Seam
+## Artifact Fetch Seam
 
-### SEAM-021: Document Version Fetch
+### SEAM-021: Artifact Version Fetch
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Document versions fetched for artifact display and version navigation |
-| **Components** | `features/artifacts/components/artifact.tsx` / `document-preview.tsx` → SWR `"/api/document?id={id}"` → `GET /api/document` → `lib/data/document` |
-| **Data Exchanged** | Response: `Document[]` (array of versions, ordered by createdAt). Each: `{ id, createdAt, title, content, kind, userId, chatId }`. |
-| **Task Needed** | Build document route handler (GET: auth + ownership, fetch all versions). Build version navigation in Artifact component (currentVersionIndex state, prev/next/restore). Wire DocumentPreview to fetch and display mini editors. |
+| **Description** | Artifact versions fetched for artifact display and version navigation |
+| **Components** | `features/artifacts/components/artifact-panel.tsx` / `artifact-preview.tsx` → SWR `"/api/artifact?id={id}"` → `GET /api/artifact` → `lib/data/artifact` |
+| **Data Exchanged** | Response: `Artifact[]` (array of versions, ordered by createdAt). Each: `{ id, createdAt, title, content, kind, userId, chatId }`. |
+| **Task Needed** | Build artifact route handler (GET: auth + ownership, fetch all versions). Build version navigation in ArtifactPanel (currentVersionIndex state, prev/next/restore). Wire ArtifactPreview to fetch and display mini editors. |
 
 ---
 
@@ -252,50 +261,52 @@
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Chat visibility toggled with optimistic update and server action |
-| **Components** | `features/chat/components/visibility-selector.tsx` → `useChatVisibility` hook → server action `updateChatVisibility` → `lib/data/chat` |
-| **Data Exchanged** | `{ chatId, visibility: "public"|"private" }`. SWR key: `"{chatId}-visibility"`. Optimistic mutate, rollback on failure. |
-| **Task Needed** | Build VisibilitySelector component. Build useChatVisibility hook (SWR optimistic + server action). Build updateChatVisibility server action (auth, ownership, DB + cache update). |
+| **Description** | Chat visibility toggled with Server Action + useOptimistic |
+| **Components** | `features/visibility/components/visibility-selector.tsx` → Server Action `updateChatVisibility()` → `lib/data/chat`, `lib/cache/revalidate` |
+| **Data Exchanged** | `{ chatId, visibility: "public"|"private" }`. Optimistic: `useOptimistic`. Server: auth, ownership, DB update, `updateTag('chat:{id}')` + `updateTag('chats:{userId}')`. Return: `ActionResult`. |
+| **Task Needed** | Build VisibilitySelector component with useOptimistic. Build updateChatVisibility Server Action (auth, ownership, DB + updateTag). |
+
+> **Replaced:** SWR optimistic + server action → pure useOptimistic + Server Action.
 
 ---
 
 ## Data Layer Seams
 
-### SEAM-023: Data Context (Session → Guest/Auth Branching)
+### SEAM-023: Session → Data Access
 
 | Field | Detail |
 |-------|--------|
-| **Description** | AppSession creates DataContext that gates all data access for guest vs auth paths |
-| **Components** | `lib/data/context.ts` createDataContext() → All `lib/data/` functions |
-| **Data Exchanged** | `AppSession` → `DataContext { userId, isGuest }`. Guest: cache-only (no DB fallback). Auth: cache-first with DB fallback + cache warming. |
-| **Task Needed** | Build DataContext type and createDataContext(). All lib/data/ functions must accept DataContext and branch on isGuest. Build withCache helper for common cache-through pattern. |
+| **Description** | AppSession gates all data access for guest vs auth paths |
+| **Components** | `lib/auth/session.ts` getAppSession() → All `lib/data/` functions |
+| **Data Exchanged** | `AppSession` → `{ userId, isGuest }` branching. Guest: cache-only. Auth: DB with cache. |
+| **Task Needed** | All lib/data/ functions accept session context for guest/auth branching. |
 
 ### SEAM-024: Chat Data Operations
 
 | Field | Detail |
 |-------|--------|
 | **Description** | Chat CRUD operations via lib/data/chat with cache-through pattern |
-| **Components** | `lib/data/chat.ts` → `lib/db/` (Drizzle) + `lib/cache/` (Redis) |
-| **Data Exchanged** | `Chat`, `ChatWithMessages`, `PaginatedResult<Chat>`. Operations: get, getWithMessages, list, create, updateTitle, updateVisibility, delete, deleteAll. |
-| **Task Needed** | Build all chat data functions with guest/auth branching, cache-first reads, write-through cache, and cache invalidation. Build saveChat orchestrator (creates chat + saves messages + updates quota). |
+| **Components** | `lib/data/chat.ts` → `lib/db/` (Drizzle) + cache via `'use cache'` + `cacheTag` |
+| **Data Exchanged** | `Chat`, `ChatWithMessages`. Operations: get, getWithMessages, list, create, updateTitle, updateVisibility, delete, deleteAll. |
+| **Task Needed** | Build all chat data functions. 'use cache' + cacheTag for reads. updateTag/revalidateTag for writes. |
 
-### SEAM-025: Document Data Operations
+### SEAM-025: Artifact Data Operations
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Document CRUD with composite PK versioning |
-| **Components** | `lib/data/document.ts` → `lib/db/` + `lib/cache/` |
-| **Data Exchanged** | `Document` (with versions array). PK: (id, createdAt). Each save creates new row. Cache: entire version history in single key. |
-| **Task Needed** | Build document data functions: get (with all versions), save (append new version), delete (specific version by timestamp). Handle cache versioning (append to cached array). |
+| **Description** | Artifact CRUD with composite PK versioning |
+| **Components** | `lib/data/artifact.ts` → `lib/db/` |
+| **Data Exchanged** | `Artifact` (with versions array). PK: (id, createdAt). Each save creates new row. |
+| **Task Needed** | Build artifact data functions: getArtifactById (with all versions), saveArtifactVersion (append new version), deleteArtifactVersion. revalidateTag('artifact:{id}', 'max') on saves. |
 
 ### SEAM-026: Message Persistence
 
 | Field | Detail |
 |-------|--------|
 | **Description** | Messages saved after chat completion, deleted on edit+regenerate |
-| **Components** | `lib/data/chat-operations.ts` saveChat() → `lib/data/message.ts` → DB + cache |
-| **Data Exchanged** | User message saved before streaming. Assistant messages saved in onFinish. deleteTrailingMessages removes messages after edit point. |
-| **Task Needed** | Build saveChat orchestrator: create chat if new, save user message, save assistant messages (from onFinish), increment quota counter. Build deleteTrailingMessages server action. |
+| **Components** | `lib/data/message.ts` → DB. `onFinish` callback in route handler → saveMessages(). |
+| **Data Exchanged** | Messages saved in onFinish. deleteTrailingMessages Server Action removes messages after edit point. |
+| **Task Needed** | Build saveMessages (called in onFinish). Build deleteTrailingMessages Server Action with updateTag('chat:{id}'). |
 
 ---
 
@@ -308,16 +319,16 @@
 | **Description** | Three levels of error boundaries catch and display errors |
 | **Components** | `app/global-error.tsx` (root), `app/(chat)/error.tsx` (chat route), `features/artifacts/components/artifact-error-boundary.tsx` (artifact panel) |
 | **Data Exchanged** | `Error` objects caught by boundary. Reset functions for retry. |
-| **Task Needed** | Build three error boundary components. Global: standalone html/body wrapper. Chat: preserves sidebar, shows retry + home buttons. Artifact: prevents editor crashes from propagating, retry button. |
+| **Task Needed** | Build three error boundary components. Global: standalone html/body wrapper. Chat: preserves sidebar, shows retry + home. Artifact: prevents editor crashes from propagating. |
 
 ### SEAM-028: Client Error Handling (useChat.onError)
 
 | Field | Detail |
 |-------|--------|
 | **Description** | Chat errors from SSE stream parsed and displayed as toast notifications |
-| **Components** | `useChat.onError` → ChatSDKError parsing → `toast()` (sonner) |
-| **Data Exchanged** | Error response: `{ error: { code, message, status } }`. Rate limit errors show specific message. Offline errors show "connection lost". |
-| **Task Needed** | Build onError handler: parse ChatSDKError from response JSON, match error codes to user-friendly messages, display toast notification. Handle specific codes: rate_limit, offline, activate_gateway. |
+| **Components** | `useChat.onError` → Error parsing → `toast()` (sonner) |
+| **Data Exchanged** | Error response: `{ error: { code, message, status } }`. Rate limit errors show specific message. |
+| **Task Needed** | Build onError handler in useChatSession: parse error from response, match codes to user-friendly messages, display toast. Handle: rate_limit, offline, auth errors. |
 
 ---
 
@@ -328,27 +339,29 @@
 | Field | Detail |
 |-------|--------|
 | **Description** | Exact provider nesting order in root and chat layouts |
-| **Components** | Root: ThemeProvider → TooltipProvider → Toaster → SWRConfig → AuthProvider. Chat: SettingsProvider → DataStreamProvider → OptimisticChatsProvider → SidebarProvider. |
-| **Data Exchanged** | Each provider injects its context. Order matters: Auth must be inside SWR. Settings must wrap DataStream. DataStream must wrap OptimisticChats (both consumed by Chat). |
-| **Task Needed** | Build root layout AppShell with exact provider order. Build ChatLayoutClient with exact provider order. Wire Suspense boundaries with correct fallbacks (AppShellFallback, SidebarSkeleton, Loader). |
+| **Components** | Root (SERVER): ThemeProvider → SessionProvider. Chat layout (SERVER): PendingChatsProvider → SidebarProvider. Chat page: ChatStreamProvider → ChatShell (ChatSessionContext inline). |
+| **Data Exchanged** | Each provider injects its context. Order: Session must wrap routes. PendingChats must wrap sidebar + pages. ChatStreamProvider page-scoped only. |
+| **Task Needed** | Build root layout with ThemeProvider + SessionProvider. Build chat layout (SERVER) with PendingChatsProvider + SidebarProvider + Suspense boundaries. Chat page: ChatStreamProvider + ChatShell + StreamBridge. |
+
+> **Removed:** ~~SettingsProvider~~, ~~SWRConfig~~ at root, ~~TooltipProvider~~ at root, ~~ChatLayoutClient~~ monolith.
 
 ### SEAM-030: Theme System
 
 | Field | Detail |
 |-------|--------|
-| **Description** | next-themes provider + inline script for theme-color meta sync |
-| **Components** | `components/theme-provider.tsx` (ThemeProvider), inline Script in root layout, `SidebarUserNav` theme toggle |
-| **Data Exchanged** | Theme: `"light"|"dark"|"system"`. Applied as `class` attribute on `<html>`. Theme-color meta tag synced via MutationObserver on html class. |
-| **Task Needed** | Build ThemeProvider wrapper. Add inline script for theme-color meta sync (MutationObserver watching html class changes). Wire theme toggle in SidebarUserNav. |
+| **Description** | next-themes provider for dark/light mode |
+| **Components** | `ThemeProvider` in root layout, `SidebarUserNav` theme toggle |
+| **Data Exchanged** | Theme: `"light"|"dark"|"system"`. Applied as `class` attribute on `<html>`. |
+| **Task Needed** | Build ThemeProvider wrapper in root layout. Wire theme toggle in SidebarUserNav. |
 
 ### SEAM-031: URL State Management
 
 | Field | Detail |
 |-------|--------|
 | **Description** | URL updates without reload for chat navigation and notice params |
-| **Components** | `Chat` component (history.replaceState for /chat/{id}), `ChatLayoutClient` (?notice params → toast → clean URL) |
-| **Data Exchanged** | `history.replaceState({}, '', '/chat/{chatId}')` on first message. `?notice=chat_not_found` → warning toast. `?notice=user_not_found` → error toast. |
-| **Task Needed** | Wire Chat.handleSubmit to update URL on first message. Build ChatLayoutClient notice param handling (read, toast, clean via history.replaceState). |
+| **Components** | `useChatSession` (history.replaceState for /chat/{id}), `NoticeHandler` (?notice params → toast → clean URL) |
+| **Data Exchanged** | `history.replaceState({}, '', '/chat/{chatId}')` on first message. `?notice=chat_not_found` → warning toast. |
+| **Task Needed** | Wire useChatSession to update URL on first message. Build NoticeHandler client island (read params, toast, clean via history.replaceState). Extracted to prevent layout from becoming 'use client'. |
 
 ---
 
@@ -360,26 +373,26 @@
 |-------|--------|
 | **Description** | TipTap rich-text editor renders and edits text artifact content |
 | **Components** | `features/artifacts/components/text-editor.tsx` → TipTap (StarterKit, Markdown, Mathematics, Tables, SuggestionsExtension) |
-| **Data Exchanged** | Props: `content` (markdown), `onSaveContent`, `status`, `isCurrentVersion`, `suggestions[]`. During streaming: content set without save emission. During idle: content changes emit save. |
-| **Task Needed** | Build TextEditor with TipTap configuration. Build SuggestionsExtension for inline suggestion decorations. Handle streaming vs idle modes. Wire debounced save to document API. |
+| **Data Exchanged** | Content from artifactStore via useArtifact(). During streaming: content set without save emission. During idle: content changes emit debounced save. |
+| **Task Needed** | Build TextEditor with TipTap configuration. Build SuggestionsExtension for inline suggestion decorations. Handle streaming vs idle modes. Wire debounced save to artifact API. |
 
 ### SEAM-033: Code Editor (CodeMirror + Pyodide)
 
 | Field | Detail |
 |-------|--------|
 | **Description** | CodeMirror editor renders Python code, Pyodide executes it client-side |
-| **Components** | `features/artifacts/components/code-editor.tsx` (CodeMirror), `features/artifacts/components/console.tsx` (output), Pyodide (loaded via Script tag) |
-| **Data Exchanged** | Props: `content` (Python code), `onSaveContent`, `status`. Console: `consoleOutputs[]` (stdout, stderr, images). Pyodide: code string → execution results. |
-| **Task Needed** | Build CodeEditor with lazy-loaded CodeMirror (Python lang, one-dark theme). Build Console component with resizable output area. Wire Pyodide execution (loaded in ChatLayoutClient via Script). Handle module cache for CodeMirror. |
+| **Components** | `features/artifacts/components/code-editor.tsx` (CodeMirror), `features/artifacts/components/console.tsx` (output), Pyodide |
+| **Data Exchanged** | Content from artifactStore. Console: consoleOutputs[] (stdout, stderr, images). Pyodide: code string → execution results. |
+| **Task Needed** | Build CodeEditor with lazy-loaded CodeMirror (Python lang, one-dark theme). Build Console component. Wire Pyodide execution (loaded via Script in chat layout). |
 
 ### SEAM-034: Sheet Editor (react-data-grid + PapaParse)
 
 | Field | Detail |
 |-------|--------|
 | **Description** | Spreadsheet editor parses CSV and renders editable grid |
-| **Components** | `features/artifacts/components/sheet-editor.tsx` → PapaParse (CSV ↔ rows/columns), react-data-grid (grid rendering) |
-| **Data Exchanged** | Props: `content` (CSV string), `saveContent`, `status`. Internal: parsed rows + columns for grid. MIN_ROWS=50, MIN_COLS=26 (A-Z). |
-| **Task Needed** | Build SheetEditor with PapaParse CSV parsing and react-data-grid rendering. Handle empty cells padding to MIN_ROWS/MIN_COLS. Wire cell editing to CSV re-serialization and save. |
+| **Components** | `features/artifacts/components/sheet-editor.tsx` → PapaParse (CSV ↔ rows/columns), react-data-grid |
+| **Data Exchanged** | Content from artifactStore (CSV string). Internal: parsed rows + columns for grid. |
+| **Task Needed** | Build SheetEditor with PapaParse CSV parsing and react-data-grid rendering. Handle empty cells padding. Wire cell editing to CSV re-serialization and save. |
 
 ### SEAM-035: Image Editor
 
@@ -387,8 +400,8 @@
 |-------|--------|
 | **Description** | Image display for base64/URL images from code execution |
 | **Components** | `features/artifacts/components/image-editor.tsx` |
-| **Data Exchanged** | Props: `content` (base64 data URL or URL), `title`, `status`, `isInline`. |
-| **Task Needed** | Build ImageEditor component. Handle streaming state (loader). Handle inline vs full display modes. No AI server handler needed (images created via Pyodide). |
+| **Data Exchanged** | Content from artifactStore (base64 data URL or URL). |
+| **Task Needed** | Build ImageEditor component. Handle streaming state (loader). No AI server handler needed (images created via Pyodide). |
 
 ---
 
@@ -398,46 +411,48 @@
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Edge + application rate limiting with per-route configuration |
-| **Components** | `middleware.ts` (edge rate limit via @upstash/ratelimit) → Per-route app rate limiters (via lib/api/guards) |
-| **Data Exchanged** | User ID → rate limit check result (allowed, retryAfter). Edge: 100 req/min global. App: chat 50/min, standard 100/min, strict 10/min, upload 10/hour. |
-| **Task Needed** | Build middleware.ts with Upstash rate limiter. Build RateLimiters config for app-level per-route limits. Build requireRateLimitForRoute guard. Daily quota: separate Redis counter check in chat route. |
+| **Description** | Application rate limiting with per-route configuration |
+| **Components** | `proxy.ts` (edge rate limit) → Per-route app rate limiters (via lib/api/guards) |
+| **Data Exchanged** | User ID → rate limit check result (allowed, retryAfter). |
+| **Task Needed** | Build proxy.ts with rate limiter. Build per-route rate limit configs. |
+
+> **Changed:** `middleware.ts` → `proxy.ts` (Next.js 16).
 
 ### SEAM-037: Pyodide Script Loading
 
 | Field | Detail |
 |-------|--------|
 | **Description** | Python runtime loaded lazily for code artifact execution |
-| **Components** | `Script src="pyodide.js" strategy="lazyOnload"` in ChatLayoutClient → Code editor execution → Console output |
+| **Components** | `Script src="pyodide.js" strategy="lazyOnload"` in chat layout (SERVER) → Code editor execution → Console output |
 | **Data Exchanged** | Pyodide global → code execution → stdout/stderr/matplotlib images |
-| **Task Needed** | Wire Script tag in ChatLayoutClient. Build Pyodide execution handler in code editor. Capture stdout/stderr and matplotlib IOPub images. Display in Console component. |
+| **Task Needed** | Wire Script tag in chat layout. Build Pyodide execution handler in code editor. Capture stdout/stderr and matplotlib images. Display in Console component. |
 
 ### SEAM-038: Message Edit + Regenerate
 
 | Field | Detail |
 |-------|--------|
 | **Description** | User edits previous message, trailing messages deleted, AI regenerates |
-| **Components** | `features/chat/components/message-editor.tsx` → `deleteTrailingMessages` server action → `setMessages` → `regenerate()` (useChat) |
-| **Data Exchanged** | `{ id: messageId, chatId }` to server action. Client: truncate messages array to edit point. `regenerate()` re-sends from edited message. |
-| **Task Needed** | Build MessageEditor component (textarea, cancel, send). Build deleteTrailingMessages server action (delete from DB + cache). Wire setMessages to truncate and regenerate to re-send. |
+| **Components** | `features/chat/components/message-editor.tsx` → `deleteTrailingMessages` Server Action → `useChatSessionContext().editMessage()` |
+| **Data Exchanged** | `{ id: messageId, chatId }` to Server Action. `editMessage(id, content)` encapsulates: delete trailing → update messages → regenerate. updateTag('chat:{id}'). |
+| **Task Needed** | Build MessageEditor component. Build deleteTrailingMessages Server Action with updateTag. Wire useChatSessionContext.editMessage() to truncate and regenerate. |
 
 ### SEAM-039: Version Navigation + Restore
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Navigate document versions and restore older versions |
-| **Components** | `features/artifacts/components/version-footer.tsx` → `features/artifacts/components/artifact.tsx` (version state) → `DELETE /api/document?id=&timestamp=` |
+| **Description** | Navigate artifact versions and restore older versions |
+| **Components** | `features/artifacts/components/version-footer.tsx` → `features/artifacts/components/artifact-panel.tsx` (version state) → `DELETE /api/artifact?id=&timestamp=` |
 | **Data Exchanged** | `currentVersionIndex` (local state). Restore: DELETE removes later versions. SWR mutation truncates version array. |
-| **Task Needed** | Build VersionFooter (prev/next/restore/latest buttons). Build version navigation logic in Artifact (currentVersionIndex state). Build document DELETE route for version restore (delete all versions after timestamp). |
+| **Task Needed** | Build VersionFooter (prev/next/restore/latest buttons). Build version navigation logic in ArtifactPanel (currentVersionIndex state). Build artifact DELETE route for version restore. |
 
-### SEAM-040: Inline Document Preview → Artifact Panel
+### SEAM-040: Inline Artifact Preview → Artifact Panel
 
 | Field | Detail |
 |-------|--------|
 | **Description** | Tool call renders inline preview that opens full artifact panel on click |
-| **Components** | `features/artifacts/components/document-preview.tsx` (in message) → `useArtifact.setArtifact()` → Artifact panel open |
-| **Data Exchanged** | Click captures bounding box via hitboxRef. `setArtifact({ documentId, isVisible: true, boundingBox })`. Panel opens with origin animation from bounding box. |
-| **Task Needed** | Build DocumentPreview component (SWR fetch, mini editor, skeleton). Capture bounding box on click. Wire to setArtifact to open full panel. Build AnimatePresence transition from bounding box origin. |
+| **Components** | `features/artifacts/components/artifact-preview.tsx` (in message) → `artifactStore.setState()` → ArtifactPanel open |
+| **Data Exchanged** | Click: `artifactStore.setState({ artifactId, isVisible: true })`. Panel opens with animation. |
+| **Task Needed** | Build ArtifactPreview component (SWR fetch, mini editor, skeleton). Wire click to artifactStore.setState to open full panel. |
 
 ---
 
@@ -454,7 +469,7 @@
 | Voting | SEAM-018 | 1 |
 | File Upload | SEAM-019 | 1 |
 | Sidebar History | SEAM-020 | 1 |
-| Document Fetch | SEAM-021 | 1 |
+| Artifact Fetch | SEAM-021 | 1 |
 | Visibility | SEAM-022 | 1 |
 | Data Layer | SEAM-023 through SEAM-026 | 4 |
 | Error Handling | SEAM-027 through SEAM-028 | 2 |

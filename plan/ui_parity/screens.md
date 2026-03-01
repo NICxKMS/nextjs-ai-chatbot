@@ -1,5 +1,7 @@
 # Screens & Routes — UI Parity Reference
 
+> **Updated per redesign audit (2026-03-01)**
+
 ## Route Map
 
 | Route | Page File | Layout Chain |
@@ -23,13 +25,11 @@
 2. `<body className="antialiased">`
 3. `<Script id="theme-color">` — inline theme-color meta sync (dark/light)
 4. `<SpeedInsights />` + `<Analytics />` (Vercel)
-5. `<Suspense fallback={<AppShellFallback />}>`
-6. `<AppShell>` (async — fetches session via `getAppSession()`)
-   - `<ThemeProvider>` (next-themes, attribute="class", system enabled)
-   - `<TooltipProvider delayDuration={0}>`
-   - `<Toaster position="top-center" />` (sonner)
-   - `<SWRConfig>` (dedupingInterval=10s, no focus/reconnect revalidation)
-   - `<AuthProvider initialSession={...}>`
+5. `<ThemeProvider>` (next-themes, attribute="class", system enabled)
+6. `<SessionProvider session={...}>` *(redesign: renamed from AuthProvider)*
+7. `<Toaster position="top-center" />` (sonner)
+
+> *(redesign: `<AppShell>` wrapper removed — providers placed directly in layout. `<SWRConfig>` removed from root — configured at point of use. `<TooltipProvider>` moved to point of consumption. `<Suspense>` + `<AppShellFallback>` no longer needed.)*
 
 **Loading Fallback (`AppShellFallback`):**
 - Full-viewport centered spinner
@@ -47,34 +47,29 @@
 
 ### 2. Chat Layout (`app/(chat)/layout.tsx`)
 
+> *Redesign: Fully server-rendered. `ChatLayoutClient` eliminated. `SettingsProvider` removed (replaced by `useSettings` useSyncExternalStore). `DataStreamProvider` → `ChatStreamProvider` (moved to page-level). `OptimisticChatsProvider` → `PendingChatsProvider`. `AppSidebar` → `SidebarShell` (server component). Notice handling extracted to `NoticeHandler` client island.*
+
 **Type:** Server Component (async)
 
 **Server-side data fetched:**
-- `headers()` → `x-device-type` for mobile detection
 - `cookies()` → `sidebar_state` for initial sidebar open/closed
-
-**Renders:** `<ChatLayoutClient>` passing `initialIsMobile` and `initialSidebarOpen`
-
----
-
-### 3. Chat Layout Client (`app/(chat)/chat-layout-client.tsx`)
-
-**Type:** Client Component (`"use client"`)
+- Session via `getAppSession()`
 
 **Provider Stack (outer → inner):**
-1. `<Script src="pyodide.js" strategy="lazyOnload" />` — Python runtime for code artifacts
-2. `<SettingsProvider>` — localStorage-backed sampling/system-prompt/behavior settings
-3. `<DataStreamProvider>` — split context (state + dispatch) for AI data stream
-4. `<OptimisticChatsProvider>` — optimistic sidebar chat entries
-5. `<SidebarProvider defaultOpen={true}>`
-6. `<Suspense fallback={<SidebarSkeleton />}>` → `<AppSidebar>` (dynamic, ssr=false)
-7. `<SidebarInset>` → `<Suspense fallback={<Loader />}>` → `{children}`
+1. `<NoticeHandler />` — client island: reads `?notice=` from URL → toast *(redesign: extracted from layout to prevent client contamination)*
+2. `<Script src="pyodide.js" strategy="lazyOnload" />` — Python runtime for code artifacts
+3. `<PendingChatsProvider>` *(redesign: renamed from OptimisticChatsProvider)* — pending sidebar chat entries
+4. `<SidebarProvider defaultOpen={sidebarOpen}>`
+5. `<Suspense fallback={<SidebarSkeleton />}>` → `<SidebarShell session={...} />` *(redesign: server component, renamed from AppSidebar)*
+6. `<SidebarInset>` → `{children}`
 
-**Notice Handling:**
+**Notice Handling** *(via NoticeHandler client island):*
 - Reads `?notice=` from URL search params
 - `chat_not_found` → warning toast
 - `user_not_found` → error toast
 - Cleans query param via `history.replaceState` to prevent repeat toasts
+
+> *(redesign: `ChatLayoutClient` wrapper — REMOVED. Layout is now fully server-rendered. `SettingsProvider` removed — settings use `useSyncExternalStore` module-level store. `ChatStreamProvider` (formerly DataStreamProvider) moved to page-level to prevent high-frequency cascades to sidebar.)*
 
 ---
 
@@ -89,17 +84,19 @@
 
 **Renders:**
 ```
-<Chat
-  id={newUUID}
-  initialMessages={[]}
-  initialChatModel={fromCookieOrDefault}
-  initialVisibilityType="private"
-  initialVotes={[]}
-  isReadonly={false}
-  availableModels={...}
-/>
-<DataStreamHandler />
+<ChatStreamProvider>
+  <ChatShell
+    id={newUUID}
+    initialMessages={[]}
+    initialChatModel={fromCookieOrDefault}
+    isReadonly={false}
+    availableModels={...}
+  />
+  <StreamBridge id={newUUID} />
+</ChatStreamProvider>
 ```
+
+> *(redesign: `Chat` → `ChatShell` (~60 lines, thin orchestrator). `DataStreamHandler` → `StreamBridge`. Wrapped in page-level `ChatStreamProvider`. `initialVisibilityType` and `initialVotes` removed from props.)*
 
 **Visual States:**
 - **Empty state:** Greeting component ("Hello there! How can I help you today?") + SuggestedActions grid (4 items, 2-col on sm+)
@@ -129,18 +126,22 @@
 
 **Renders:**
 ```
-<Chat
-  id={chat.id}
-  initialMessages={uiMessages}
-  initialChatModel={chat.lastContext?.modelId || DEFAULT}
-  initialVisibilityType={chat.visibility}
-  initialVotes={votes}
-  isReadonly={session.user.id !== chat.userId}
-  initialLastContext={chat.lastContext}
-  availableModels={...}
-/>
-<DataStreamHandler />
+<ChatStreamProvider>
+  <ChatShell
+    id={chat.id}
+    initialMessages={uiMessages}
+    initialChatModel={chat.lastContext?.modelId || DEFAULT}
+    isReadonly={session.user.id !== chat.userId}
+    availableModels={...}
+  />
+  <StreamBridge id={chat.id} />
+  <Suspense>
+    <VoteResolver chatId={chat.id} votesPromise={votesPromise} />
+  </Suspense>
+</ChatStreamProvider>
 ```
+
+> *(redesign: `Chat` → `ChatShell`. `DataStreamHandler` → `StreamBridge`. `VoteResolver` (redesign: renamed from VoteHydrator) defers vote loading via `<Suspense>`. `initialVisibilityType`, `initialVotes`, `initialLastContext` removed from props.)*
 
 **Loading State (`loading.tsx`):**
 - Centered column: spinning border circle + "Loading conversation..."

@@ -1,6 +1,9 @@
+> **Updated per redesign audit (2026-03-01)**
+
 # Dependencies Index
 
 > All dependency analysis artifacts for the rebuild plan.
+> Reflects redesign: 125 tasks across 8 phases. "artifact" naming throughout. No credit/gateway logic.
 
 ---
 
@@ -8,25 +11,40 @@
 
 | File | Description |
 |------|-------------|
-| [graph.md](graph.md) | Full 135-task dependency graph by phase with parallelization |
-| [critical-path.md](critical-path.md) | Critical path analysis: 32 tasks, ~27 working days |
+| [graph.md](graph.md) | Full 125-task dependency graph by phase with parallelization |
+| [critical-path.md](critical-path.md) | Critical path analysis with redesign task IDs (P0-T01 through P7-T13) |
 | [inter-phase-deps.md](inter-phase-deps.md) | Phase-to-phase dependencies, bridge files, entry/exit states |
 
 ## Key Metrics
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 135 |
-| Phases | 8 (P00–P07) |
-| Critical path tasks | 32 (24%) |
-| Estimated duration | ~27 working days |
-| Longest phase | P03 Chat Core (5.75d on critical path) |
-| Max parallelism | P03 (8+ concurrent tracks) |
+| Total tasks | 125 |
+| Phases | 8 (P0–P7) |
+| Critical path tasks | ~30 (24%) |
+| Estimated duration | ~25 working days |
+| Longest phase | P3 Chat Core (27 tasks, ~6d on critical path) |
+| Max parallelism | P3 (8+ concurrent tracks) |
 | Bottleneck tasks | 8 identified |
-| Gate tasks | 8 (one per phase) |
+| Gate tasks | 8 (one per phase: G00–G07) |
+
+## Key Naming (Redesign)
+
+| Old Name | New Name |
+|----------|----------|
+| OptimisticChatsProvider | PendingChatsProvider |
+| DataStreamProvider | ChatStreamProvider |
+| DataStreamHandler | StreamBridge |
+| AuthProvider | SessionProvider |
+| DocumentHandler | ArtifactHandler |
+| document (everywhere) | artifact |
+| middleware.ts | proxy.ts |
+| SettingsProvider | REMOVED (useSyncExternalStore + localStorage) |
+| ChatContext | ChatSessionContext |
+| VoteHydrator | VoteResolver |
 
 ## Related Documents
 
-- Phase definitions: `plan/phases/p00-scaffold.md` through `p07-polish.md`
+- Phase definitions: `redesign/phase-plan.md`
 - Traceability: `plan/traceability/index.md`
-- Seam inventory: `plan/integration_map/seam-inventory.md`
+- Cleanup inventory: `redesign/cleanup-inventory.md`

@@ -1,34 +1,37 @@
+> **Updated per redesign audit (2026-03-01)**
+
 # Uncovered Features
 
 > Features from `features.md` or `interactions.md` that do NOT have a fully corresponding task.
+> Reflects redesign: credit/usage alert UI removed (no credit system), task IDs updated.
 
 ---
 
 ## All Gaps Resolved
 
-All 4 previously identified gaps have been patched into the plan.
+3 previously identified gaps have been resolved. 1 gap (Credit/Usage Alert UI) was **removed** because the redesign eliminates all credit/gateway/quota logic.
 
 ### 1. Reconnection / Resilience — **RESOLVED**
 
-**Resolution:** New task P07-T15 added to `p07-polish.md`. Creates `useConnectionStatus` hook with `navigator.onLine` monitoring, offline toast, and SSE reconnection with exponential backoff (max 3 retries). Chat component updated to disable submit when offline and auto-reconnect dropped streams.
+**Resolution:** Handled within P7 polish tasks. Chat component uses `useChat` built-in SSE lifecycle management. `navigator.onLine` monitoring + offline toast added during P7-T03 (accessibility + keyboard nav). Submit button disabled when offline.
 
 ---
 
 ### 2. URL Query Auto-Send — **RESOLVED**
 
-**Resolution:** P03-T22 (chat pages) success criteria extended. New chat page reads `?q=` or `?query=` search params via `useSearchParams`; on mount, auto-submits as first message via `useChat.append()`. ~10 lines of `useEffect`.
+**Resolution:** P3-T25 (chat pages) success criteria extended. New chat page reads `?q=` or `?query=` search params via `useSearchParams`; on mount, auto-submits as first message via `useChat.append()`. ~10 lines of `useEffect`.
 
 ---
 
-### 3. Credit/Usage Alert UI — **RESOLVED**
+### 3. Credit/Usage Alert UI — **REMOVED**
 
-**Resolution:** P03-T19 (chat orchestrator) success criteria extended. When `data-usage` stream part indicates credit depletion, the chat orchestrator renders a non-dismissable `AlertDialog` overlay warning the user. Usage state tracked via DataStreamHandler `data-usage` event.
+**Resolution:** The redesign eliminates all credit/gateway/quota logic (see `redesign/cleanup-inventory.md` §1). There is no `data-usage` stream part, no `AppUsage` type, no credit depletion `AlertDialog`. Rate limiting for abuse prevention (50 req/min) uses standard HTTP 429 responses, not a credit system.
 
 ---
 
 ### 4. AutoScroll Setting Wire — **RESOLVED**
 
-**Resolution:** P03-T16 (messages list) success criteria extended. `autoScroll` setting from `useSettingsSnapshot` controls FAB behavior and `followOutput` mode; `atBottomThreshold=100`; `followOutput="smooth"` when autoScroll is on, disabled when off.
+**Resolution:** P3-T17 (messages list) success criteria extended. `autoScroll` setting from `useSyncExternalStore`-backed settings store controls FAB behavior and `followOutput` mode; `atBottomThreshold=100`; `followOutput="smooth"` when autoScroll is on, disabled when off. Note: SettingsProvider is removed — settings use `useSyncExternalStore` + localStorage directly (P3-T06).
 
 ---
 
@@ -36,9 +39,9 @@ All 4 previously identified gaps have been patched into the plan.
 
 | Gap | Severity | Resolution | Task |
 |-----|----------|------------|------|
-| Reconnection / resilience | Medium | New task | P07-T15 |
-| URL query auto-send | Low | Extended | P03-T22 |
-| Credit/usage alert UI | Low | Extended | P03-T19 |
-| AutoScroll setting wire | Low | Extended | P03-T16 |
+| Reconnection / resilience | Medium | Resolved in polish | P7-T03 |
+| URL query auto-send | Low | Extended | P3-T25 |
+| Credit/usage alert UI | — | **REMOVED** (no credit system) | — |
+| AutoScroll setting wire | Low | Extended | P3-T17 |
 
-**Overall traceability: 20/20 features fully covered (100%). All interaction gaps resolved.**
+**Overall traceability: 19/19 features fully covered (100%). Credit/usage alert removed per redesign. All remaining gaps resolved.**

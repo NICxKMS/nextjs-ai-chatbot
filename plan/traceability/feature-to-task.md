@@ -1,7 +1,12 @@
+> **Updated per redesign audit (2026-03-01)**
+
 # Feature-to-Task Traceability Matrix
 
 > Maps every feature from behavioral extraction to its implementing tasks.
-> 100% coverage of all 20 identified features.
+> 19 features tracked (credit/usage alert removed per redesign).
+> Task IDs: P0-T01 through P7-T13. "artifact" naming throughout.
+> ChatStreamProvider (not DataStreamProvider), StreamBridge (not DataStreamHandler),
+> SessionProvider (not AuthProvider), PendingChatsProvider (not OptimisticChatsProvider).
 
 ---
 
@@ -9,26 +14,27 @@
 
 | # | Feature | Phase Tasks | Key Files | Integration Tasks |
 |---|---------|-------------|-----------|-------------------|
-| 1 | Chat messaging (send, receive, stream) | P03-T01, T02, T05, T06, T07, T09, T11, T14, T16, T17, T18, T19, T20, T21, T22 | features/chat/\*, app/api/chat/, app/(chat)/ | P03-T19, P03-T20, P03-T22 |
-| 2 | Auth (login, register, guest) | P01-T11, P02-T01..T12 | features/auth/\*, lib/auth/, app/(auth)/, app/api/auth/ | P02-T10, P02-T11 |
-| 3 | Chat history / sidebar | P05-T01..T12 | features/sidebar/\*, app/api/history/ | P05-T08, P05-T09, P05-T10 |
-| 4 | Artifacts (code, text, image, sheet) | P04-T01..T10, T12..T21 | features/artifacts/\*, features/chat/lib/tools/, app/api/artifact/ | P04-T09, P04-T10, P04-T21 |
-| 5 | Artifact versioning | P04-T18, T19, T20 | features/artifacts/components/version-footer.tsx, diffview.tsx, app/api/artifact/ | P04-T21 |
-| 6 | Artifact suggestions | P04-T11, T12 | features/chat/lib/tools/suggestions.ts, features/artifacts/components/editors/text-editor.tsx | P04-T11 |
-| 7 | Message voting | P01-T10, P06-T01, T02, T03 | features/voting/\*, lib/data/vote.ts, app/api/vote/ | P06-T03 |
-| 8 | File upload | P06-T09, T10, T11 | app/api/files/upload/, features/chat/components/preview-attachment.tsx | P06-T11 |
-| 9 | Model selection | P03-T03, P06-T04, T05, T06 | features/models/\*, lib/ai/model-discovery.ts | P06-T06 |
-| 10 | Chat visibility | P06-T12, T13, T14 | features/chat/components/visibility-selector.tsx, use-chat-visibility.ts | P06-T14 |
-| 11 | Settings (sampling, system prompt) | P03-T04, P06-T07, T08 | features/settings/\* | P06-T08 |
-| 12 | Weather tool | P03-T08, T18 | features/chat/lib/tools/weather.ts, features/chat/components/weather.tsx | — (via P03-T07) |
-| 13 | Title generation | P03-T09, P05-T09 | features/chat/actions/stream-chat.ts, features/chat/components/chat.tsx | P05-T09 |
-| 14 | Message actions (copy, edit, delete) | P03-T10, T15 | features/chat/components/message-actions.tsx, message-editor.tsx | P03-T15 |
-| 15 | Suggested actions | P03-T13 | features/chat/components/suggested-actions.tsx | — (via P03-T19) |
-| 16 | Data streaming (Provider/Handler) | P03-T12 | features/chat/components/data-stream-provider.tsx, data-stream-handler.tsx | P03-T19, P04-T21 |
-| 17 | Error handling (boundaries) | P00-T04, T09, P03-T23, P04-T18, P07-T01, T02, T03 | app/global-error.tsx, app/(chat)/error.tsx, lib/errors/, artifact-error-boundary.tsx | P07-T01, P07-T02, P07-T03 |
-| 18 | Reconnection / resilience | P03-T07 (partial), P03-T19 (partial), P03-T23 (partial) | features/chat/lib/completion.ts (AbortSignal), chat.tsx (onError) | — (see uncovered-features.md) |
-| 19 | Theme switching | P00-T05, P05-T03 | components/theme-provider.tsx, features/sidebar/components/sidebar-user-nav.tsx | P05-T03 |
-| 20 | Health check | P06-T17 | app/api/health/route.ts | — (standalone) |
+| 1 | Chat messaging (send, receive, stream) | P3-T01, T02, T05, T08, T09, T10, T11, T12, T14, T15, T16, T17, T18, T19, T20, T21, T23, T25 | features/chat/\*, app/api/chat/, app/(chat)/ | P3-T21 (ChatShell), P3-T23 (API route), P3-T25 (pages) |
+| 2 | Auth (login, register, guest) | P1-T05, P2-T01..T09 | features/auth/\*, lib/auth/, app/(auth)/ | P2-T08 (wire layout) |
+| 3 | Chat history / sidebar | P5-T01..T12 | features/sidebar/\*, app/api/history/ | P5-T08, P5-T11 |
+| 4 | Artifacts (code, text, image, sheet) | P4-T01..T11, T14..T17 | features/artifacts/\*, features/chat/lib/tools/, app/api/artifact/ | P4-T06, P4-T17 |
+| 5 | Artifact versioning | P4-T12, T15 | features/artifacts/components/version-footer.tsx, app/api/artifact/ | P4-T17 |
+| 6 | Artifact suggestions | P4-T16 | features/chat/lib/tools/request-suggestions.ts, features/artifacts/components/editors/text-editor.tsx | P4-T16 |
+| 7 | Message voting | P1-T09, P6-T01, T02, T03 | features/voting/\*, lib/data/vote.ts | P6-T03 (VoteResolver) |
+| 8 | File upload | P6-T09, T10, T11 | app/api/files/upload/, features/chat/components/preview-attachment.tsx | P6-T11 |
+| 9 | Model selection | P3-T01, P6-T04, T05 | features/models/\*, lib/ai/models.ts | P6-T05 |
+| 10 | Chat visibility | P6-T06, T07, T08 | features/visibility/\* | P6-T08 |
+| 11 | Settings (sampling, system prompt) | P3-T06, P3-T07 | features/settings/hooks/use-settings.ts, features/settings/components/settings-panel.tsx | — (via P3-T06 useSyncExternalStore) |
+| 12 | Weather tool | P3-T13, P6-T12 | features/chat/lib/tools/weather.ts, components/weather.tsx | — (via P3-T23) |
+| 13 | Title generation | P3-T23, P5-T02 | app/api/chat/route.ts (onFinish awaits title), features/sidebar/hooks/use-pending-chats.ts | P5-T02 (PendingChats.updateTitle) |
+| 14 | Message actions (copy, edit, delete) | P3-T16, P3-T15 | features/chat/components/message-actions.tsx, message-editor.tsx | P3-T16 |
+| 15 | Suggested actions | P3-T14 | features/chat/components/suggested-actions.tsx | — (via P3-T21 ChatShell) |
+| 16 | Chat streaming (ChatStreamProvider/StreamBridge) | P3-T10, P3-T20 | features/chat/components/chat-stream-provider.tsx, stream-bridge.tsx | P3-T21, P4-T17 |
+| 17 | Error handling (boundaries) | P0-T13, P0-T08, P3-T26, P4-T13, P7-T01, T02 | app/global-error.tsx, app/(chat)/error.tsx, lib/errors/, artifact-error-boundary.tsx | P7-T01, P7-T02 |
+| 18 | Reconnection / resilience | P3-T11 (partial), P3-T21 (partial), P7-T03 (partial) | features/chat/hooks/use-chat-session.ts (AbortSignal), chat-shell.tsx (onError) | — (see uncovered-features.md) |
+| 19 | Theme switching | P0-T12, P5-T06 | components/theme-provider.tsx, features/sidebar/components/sidebar-user-nav.tsx | P5-T06 |
+
+> **Note:** Feature #20 (Health check) renumbered to standalone. Credit/usage alert UI feature removed per redesign — no credit/gateway/quota system exists.
 
 ---
 
@@ -38,79 +44,71 @@
 
 | Task | Title | Role |
 |------|-------|------|
-| P03-T01 | AI provider registry | Provider initialization (6 providers) |
-| P03-T02 | AI provider wrapper | Model resolution + reasoning middleware |
-| P03-T05 | Chat schemas | Zod validation for chat request/messages |
-| P03-T06 | System prompts | System prompt composition |
-| P03-T07 | Chat completion logic | `streamText()` orchestration |
-| P03-T09 | Stream chat action | Server action: auth + validate + stream + persist |
-| P03-T11 | Chat hooks | `useMessages`, `useScrollToBottom` |
-| P03-T14 | Message display | Message + reasoning rendering |
-| P03-T16 | Messages list | Virtualized list + scroll FAB |
-| P03-T17 | Chat input | Multimodal input (text + file + paste) |
-| P03-T18 | Chat header + weather | Header bar + weather result display |
-| P03-T19 | Chat orchestrator | Wires useChat + DataStream + Messages + Input |
-| P03-T20 | Chat API route | `POST /api/chat` SSE endpoint |
-| P03-T21 | Chat layouts | Server + client layout split |
-| P03-T22 | Chat pages | `/` (new) and `/chat/[id]` (existing) |
+| P3-T01 | AI model catalog | Model list with `use cache` |
+| P3-T02 | System prompts + provider options | System prompt composition ("artifact" not "document") |
+| P3-T05 | Chat types + schemas | Zod validation, ChatSessionValue, ArtifactDataPart |
+| P3-T08 | ChatSessionContext | Context + `useChatSessionContext()` (NOT prop drilling) |
+| P3-T09 | Chat pure functions | `chat-callbacks.ts`, `process-stream-deltas.ts` (testable) |
+| P3-T10 | ChatStreamProvider | Split state/dispatch contexts, RAF batching |
+| P3-T11 | useChatSession hook | `useChat` config + callbacks (~120 lines) |
+| P3-T12 | Chat side-effect hooks | `use-chat-side-effects.ts`, `use-scroll-to-bottom.ts` |
+| P3-T15 | Message display | Message + reasoning rendering |
+| P3-T17 | Messages list | Virtualized list + auto-scroll |
+| P3-T18 | Multimodal input | Text + file + paste |
+| P3-T19 | Chat header | Reads ChatSessionContext, sidebar toggle |
+| P3-T20 | StreamBridge | Thin bridge ~20 lines → `processStreamDelta` → `artifactStore` |
+| P3-T21 | ChatShell orchestrator | ~60 lines, creates `ChatSessionContext.Provider` |
+| P3-T23 | Chat API route | `createUIMessageStream`, `streamText`, tools, `onFinish` revalidation |
+| P3-T25 | Chat pages | `/` (new) and `/chat/[id]` (`use cache` + `cacheTag`) |
 
 ### Feature 2: Authentication
 
 | Task | Title | Role |
 |------|-------|------|
-| P01-T11 | Auth config | Supabase client + guest JWT helpers |
-| P02-T01 | Session resolution | `getAppSession()` — single source of truth |
-| P02-T02 | Auth schemas | Zod login/register schemas |
-| P02-T03 | Token exchange | Guest-to-auth data migration |
-| P02-T04 | Login + register actions | Server actions for auth flows |
-| P02-T05 | Logout action | Session clear + guest mint |
-| P02-T06 | Auth form component | Client form with useActionState |
-| P02-T07 | Auth provider | React context for session broadcasting |
-| P02-T08 | Auth API routes | Guest mint, OAuth callback, logout |
-| P02-T09 | Auth pages | `/login`, `/register`, layout |
-| P02-T10 | Middleware guest rotation | Auto-bootstrap + token refresh |
-| P02-T11 | Wire root layout | AuthProvider in provider tree |
+| P1-T05 | User data access | `getUserByEmail`, `createUser` |
+| P2-T01 | Session resolution | `getAppSession()` — single source of truth |
+| P2-T02 | Auth types + schemas | Zod login/register schemas |
+| P2-T03 | Guest bootstrap | JWT creation, token rotation |
+| P2-T04 | Auth actions | Login, register, logout Server Actions |
+| P2-T05 | Auth form | Client form with `useActionState` |
+| P2-T06 | SessionProvider (NOT AuthProvider) | Session context, guest bootstrap effect |
+| P2-T07 | Auth layout + pages | `/login`, `/register`, layout |
+| P2-T08 | Wire root layout | SessionProvider in layout |
 
 ### Feature 3: Chat History / Sidebar
 
 | Task | Title | Role |
 |------|-------|------|
-| P05-T01 | Optimistic chats provider | Context + Set-based dedup |
-| P05-T02 | Sidebar skeleton | Loading fallback |
-| P05-T03 | Sidebar user nav | Theme toggle + logout |
-| P05-T04 | Sidebar history item | Memo item + dropdown actions |
-| P05-T05 | Sidebar history list | SWRInfinite + GroupedVirtuoso |
-| P05-T06 | App sidebar shell | Header + content + footer |
-| P05-T07 | History API route | GET paginated + DELETE all |
-| P05-T08 | Wire optimistic chats | First-message sidebar entry |
-| P05-T09 | Wire title sync | Stream → poll → event pipeline |
-| P05-T10 | Wire sidebar into layout | Provider tree + dynamic import |
-| P05-T11 | Sidebar toggle | Shared toggle component |
+| P5-T01 | Sidebar types | Type definitions |
+| P5-T02 | PendingChatsProvider (NOT OptimisticChats) | Context: `add`, `remove`, `updateTitle`, `markConfirmed` |
+| P5-T03 | useSidebarHistory | `useSWRInfinite` wrapper for pagination |
+| P5-T04 | SidebarHistoryItem | Link + rename + delete dropdown |
+| P5-T05 | SidebarHistoryClient | Initial data from server + SWR pagination + optimistic merge |
+| P5-T06 | SidebarUserNav | Avatar, theme toggle, logout |
+| P5-T07 | SidebarSkeleton | PPR fallback (SERVER) |
+| P5-T08 | SidebarShell (SERVER) | `use cache` + `cacheTag('chats:{userId}')` |
+| P5-T09 | Rename chat action | Server Action + `updateTag` |
+| P5-T10 | History API route | GET cursor-based paginated |
+| P5-T11 | Wire sidebar into chat layout | `SidebarProvider` → `Suspense` → `SidebarShell` |
 
 ### Feature 4: Artifacts (All 4 Types)
 
 | Task | Title | Role |
 |------|-------|------|
-| P04-T01 | Artifact types | ArtifactKind, UIArtifact, definitions |
-| P04-T02 | Artifact schemas | Zod for CRUD endpoints |
-| P04-T03 | Artifact hooks | `useArtifact` SWR + selector |
-| P04-T04 | Handler factory | `createDocumentHandler` + registration map |
-| P04-T05 | Text handler | `streamText` → data-textDelta |
-| P04-T06 | Code handler | `streamObject({code})` → data-codeDelta |
-| P04-T07 | Sheet handler | `streamObject({csv})` → data-sheetDelta |
-| P04-T08 | Image handler | No-op save (Pyodide-only) |
-| P04-T09 | Wire createDocument | Stub → full tool with handlers |
-| P04-T10 | Wire updateDocument | Stub → full tool with existing content |
-| P04-T12 | Text editor | TipTap + SuggestionsExtension |
-| P04-T13 | Code editor | CodeMirror + Pyodide execution |
-| P04-T14 | Console | Resizable stdout/stderr/image output |
-| P04-T15 | Sheet editor | react-data-grid + PapaParse CSV |
-| P04-T16 | Image editor | Base64/URL image display |
-| P04-T17 | Artifact panel | Fixed overlay, editor routing, animations |
-| P04-T18 | Supporting components | Actions, close, error boundary, version footer |
-| P04-T19 | Document preview + diff | Inline preview + version diff |
-| P04-T20 | Artifact API routes | GET/POST/DELETE + suggestions |
-| P04-T21 | Wire into chat | Dynamic import + Pyodide script |
+| P4-T01 | Artifact types + schemas | ArtifactKind, UIArtifact |
+| P4-T02 | Artifact store | `useSyncExternalStore`: getSnapshot, subscribe, setState, reset |
+| P4-T03 | Artifact hook aliases | `useArtifact`, `useArtifactSelector` (re-exports from store) |
+| P4-T04 | Text + code handlers | ArtifactHandler interface: `streamText` → `artifact-textDelta` APPEND, `streamObject` → `artifact-codeDelta` REPLACE |
+| P4-T05 | Sheet + image handlers | `streamObject` → `artifact-sheetDelta` REPLACE, image handler |
+| P4-T06 | Handler registration | Side-effect import registers into `lib/ai/artifact-handlers.ts` |
+| P4-T07 | Text editor | TipTap + suggestions extension |
+| P4-T08 | Code editor | CodeMirror + Pyodide execution |
+| P4-T09 | Sheet editor | react-data-grid + PapaParse CSV |
+| P4-T10 | Image editor | Base64/URL display |
+| P4-T11 | Artifact panel | Main container, kind-specific editor switch |
+| P4-T14 | Artifact preview | Inline in messages, `useArtifactSelector` |
+| P4-T15 | Artifact API route | POST: save edits, `revalidateTag('artifact:{id}', 'max')` |
+| P4-T17 | Wire into ChatShell | Conditionally render `ArtifactPanel` + wire `StreamBridge` → `artifactStore` |
 
 ---
 
@@ -118,25 +116,24 @@
 
 | Feature | Task Count | Phase(s) | Status |
 |---------|-----------|----------|--------|
-| Chat messaging | 15 | P03 | ✅ Full |
-| Auth | 13 | P01, P02 | ✅ Full |
-| Chat history / sidebar | 12 | P05 | ✅ Full |
-| Artifacts (4 types) | 20 | P04 | ✅ Full |
-| Artifact versioning | 3 | P04 | ✅ Full |
-| Artifact suggestions | 2 | P04 | ✅ Full |
-| Message voting | 4 | P01, P06 | ✅ Full |
-| File upload | 3 | P06 | ✅ Full |
-| Model selection | 4 | P03, P06 | ✅ Full |
-| Chat visibility | 3 | P06 | ✅ Full |
-| Settings | 3 | P03, P06 | ✅ Full |
-| Weather tool | 2 | P03 | ✅ Full |
-| Title generation | 2 | P03, P05 | ✅ Full |
-| Message actions | 2 | P03 | ✅ Full |
-| Suggested actions | 1 | P03 | ✅ Full |
-| Data streaming | 1 | P03 | ✅ Full |
-| Error handling | 7 | P00, P03, P04, P07 | ✅ Full |
-| Reconnection / resilience | 3 (partial) | P03 | ⚠️ Partial |
-| Theme switching | 2 | P00, P05 | ✅ Full |
-| Health check | 1 | P06 | ✅ Full |
+| Chat messaging | 16 | P3 | ✅ Full |
+| Auth | 9 | P1, P2 | ✅ Full |
+| Chat history / sidebar | 11 | P5 | ✅ Full |
+| Artifacts (4 types) | 14 | P4 | ✅ Full |
+| Artifact versioning | 2 | P4 | ✅ Full |
+| Artifact suggestions | 1 | P4 | ✅ Full |
+| Message voting | 4 | P1, P6 | ✅ Full |
+| File upload | 3 | P6 | ✅ Full |
+| Model selection | 3 | P3, P6 | ✅ Full |
+| Chat visibility | 3 | P6 | ✅ Full |
+| Settings | 2 | P3 | ✅ Full |
+| Weather tool | 2 | P3, P6 | ✅ Full |
+| Title generation | 2 | P3, P5 | ✅ Full |
+| Message actions | 2 | P3 | ✅ Full |
+| Suggested actions | 1 | P3 | ✅ Full |
+| Chat streaming (ChatStreamProvider/StreamBridge) | 2 | P3 | ✅ Full |
+| Error handling | 6 | P0, P3, P4, P7 | ✅ Full |
+| Reconnection / resilience | 3 (partial) | P3, P7 | ⚠️ Partial |
+| Theme switching | 2 | P0, P5 | ✅ Full |
 
-**19/20 features fully covered. 1 feature (reconnection) partially covered.**
+**18/19 features fully covered. 1 feature (reconnection) partially covered. Credit/usage alert removed.**

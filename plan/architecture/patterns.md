@@ -2,6 +2,11 @@
 
 > Concrete patterns for the new codebase. Each pattern includes when to use it,
 > the template, and rules. Replaces the v6 spec's Pattern Catalog (§13-14).
+>
+> **Updated per redesign audit (2026-03-01)**: Provider names updated (ChatStreamProvider,
+> StreamBridge, PendingChatsProvider, SessionProvider). Artifact state uses useSyncExternalStore.
+> ActionResult<T> pattern added. Revalidation pattern added. ChatSessionContext pattern added.
+> "document" → "artifact" throughout.
 
 ---
 
@@ -76,12 +81,7 @@ export type DataContext = {
   isGuest: boolean
 }
 
-export function createDataContext(session: AppSession): DataContext {
-  return {
-    userId: session.user.id,
-    isGuest: session.user.type === 'guest',
-  }
-}
+// Also exported from lib/types/data-context.types.ts for cross-feature use
 ```
 
 ### withCache Helper
@@ -168,6 +168,32 @@ export async function saveMessageAction(input: unknown) {
     role: 'user',
     parts: parsed.data.parts,
   })
+}
+```
+
+### ActionResult Pattern (for mutations)
+
+> **Added per redesign audit (2026-03-01)**
+
+```typescript
+// lib/types/result.types.ts
+export type ActionResult<T = void> =
+  | { success: true; data: T }
+  | { success: false; error: string; code?: string }
+
+// features/chat/actions/delete-chat.ts
+'use server'
+
+import { revalidateTag } from 'next/cache'
+
+export async function deleteChat(chatId: string): Promise<ActionResult> {
+  const session = await getAppSession()
+  if (!session) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' }
+
+  await deleteChatById(chatId, session.user.id)
+  revalidateTag(`chat:${chatId}`)
+  revalidateTag(`chats:${session.user.id}`)
+  return { success: true, data: undefined }
 }
 ```
 
@@ -379,7 +405,8 @@ export class AppError extends Error {
 
 ### Rules
 
-- ✅ Throw `AppError` in actions for expected errors
+- ✅ Throw `AppError` in route handlers for expected errors
+- ✅ Use `ActionResult<T>` in Server Actions (don't throw)
 - ✅ Use `.toResponse()` in route handlers to serialize
 - ✅ Let unexpected errors propagate to error boundaries
 - ❌ No raw `throw new Error()` for expected conditions
@@ -434,37 +461,83 @@ export async function streamChatAction(body: ChatRequestBody) {
 }
 ```
 
-### 7.2 DataStreamProvider/Handler (Split Context)
+### 7.2 ChatStreamProvider / StreamBridge (Split Context)
+
+> **Updated per redesign audit (2026-03-01)**: Renamed from DataStreamProvider/Handler.
+> Split context pattern preserved but with clearer naming.
 
 ```tsx
-// features/chat/components/data-stream-provider.tsx
+// features/chat/components/chat-stream-provider.tsx
 'use client'
 
-const DataStreamStateContext = createContext<DataStreamState>(null!)
-const DataStreamDispatchContext = createContext<DataStreamDispatch>(null!)
+const ChatStreamStateContext = createContext<ChatStreamState>(null!)
+const ChatStreamDispatchContext = createContext<ChatStreamDispatch>(null!)
 
 // Split prevents re-renders: components reading state don't re-render
 // when dispatch functions change, and vice versa.
 ```
 
-### 7.3 Artifact Streaming (Tool → Data Parts → SWR)
+```tsx
+// features/chat/components/stream-bridge.tsx (~20 lines)
+'use client'
+
+import { processStreamDelta } from '@/features/chat/lib/process-stream-deltas'
+
+// StreamBridge is thin — it receives data parts from useChat and calls
+// processStreamDelta() pure function to dispatch updates to ChatStreamProvider
+// and artifact store.
+```
+
+### 7.3 Artifact Streaming (Tool → Data Parts → Store)
+
+> **Updated per redesign audit (2026-03-01)**: useSyncExternalStore replaces SWR
+> for artifact state. StreamBridge replaces DataStreamHandler.
 
 ```
-Tool call → dataStream.writeData({ type: 'data-id/title/kind/clear' })
+Tool call → dataStream.writeData({ type: 'artifact-id/title/kind/clear' })
          → Handler streams content deltas
-         → dataStream.writeData({ type: 'data-textDelta/codeDelta/sheetDelta' })
-         → dataStream.writeData({ type: 'data-finish' })
+         → dataStream.writeData({ type: 'artifact-textDelta/codeDelta/sheetDelta' })
+         → dataStream.writeData({ type: 'artifact-finish' })
 
-Client: DataStreamHandler processes parts → mutates useArtifact SWR → panel renders
+Client: StreamBridge processes parts → processStreamDelta() → artifact store
+     → useSyncExternalStore → panel renders
 ```
+
+### 7.4 ChatSessionContext
+
+> **Added per redesign audit (2026-03-01)**
+
+```tsx
+// features/chat/components/chat-shell.tsx (~60 lines)
+'use client'
+
+import { useChat } from '@ai-sdk/react'
+import { ChatSessionContext } from '@/features/chat/hooks/use-chat-session-context'
+
+export function ChatShell({ chatId, initialMessages, votesPromise }: ChatShellProps) {
+  const chatSession = useChat({ id: chatId, initialMessages })
+  return (
+    <ChatSessionContext.Provider value={chatSession}>
+      <VoteResolver votesPromise={votesPromise} />
+      <StreamBridge />
+      <Messages />
+      <MultimodalInput />
+    </ChatSessionContext.Provider>
+  )
+}
+```
+
+Children access chat state via `useChatSessionContext()` — no prop drilling.
 
 ### Rules
 
 - ✅ Streaming always via route handler (POST /api/chat)
-- ✅ DataStreamProvider wraps entire chat UI
-- ✅ DataStreamHandler is child of provider, sibling to Chat
-- ✅ Artifact state managed via SWR with optimistic mutate
+- ✅ ChatStreamProvider wraps chat UI at page level
+- ✅ StreamBridge is thin child of ChatShell, dispatches to store
+- ✅ Artifact state managed via useSyncExternalStore (module-level store)
+- ✅ Every data part prefixed with `artifact-` or `chat-`
 - ❌ No Server Actions for streaming endpoints
+- ❌ No direct ChatStreamProvider usage outside chat feature
 
 ---
 
@@ -472,7 +545,7 @@ Client: DataStreamHandler processes parts → mutates useArtifact SWR → panel 
 
 ### 8.1 Redis Cache (User-Specific, Real-Time)
 
-Used for: chat data, messages, documents, quota counters, rate limits.
+Used for: chat data, messages, artifacts, rate limits.
 
 ```typescript
 // Read pattern
@@ -512,3 +585,88 @@ export async function getModelCatalog() {
 | Shared/static data | ❌ | ✅ |
 | Tag-based invalidation | Manual | Built-in |
 | Edge compatible | ✅ (Upstash) | ✅ (framework) |
+
+---
+
+## 9. Revalidation Pattern
+
+> **Added per redesign audit (2026-03-01)**
+
+### Purpose
+
+Keep `use cache` data fresh after mutations. Every mutation must pair with tag
+invalidation.
+
+### Template
+
+```typescript
+// lib/cache/revalidate.ts
+import { revalidateTag } from 'next/cache'
+
+// Server Action revalidation (push invalidation)
+export function invalidateChat(chatId: string, userId: string) {
+  revalidateTag(`chat:${chatId}`)
+  revalidateTag(`chats:${userId}`)
+}
+
+export function invalidateArtifact(artifactId: string) {
+  revalidateTag(`artifact:${artifactId}`)
+}
+
+export function invalidateVotes(chatId: string) {
+  revalidateTag(`votes:${chatId}`)
+}
+```
+
+### Rules
+
+- ✅ Every Server Action mutation calls the appropriate `invalidate*` function
+- ✅ Route Handlers use `updateTag` for cooperative freshness
+- ✅ Tag names follow `entity:{id}` convention
+- ❌ Never skip revalidation after a mutation
+- ❌ Never use generic tags like `'all'` or `'data'`
+
+---
+
+## 10. Provider Tree
+
+> **Added per redesign audit (2026-03-01)**
+
+### Purpose
+
+Minimal provider tree. Each provider wraps only the components that consume it.
+
+### Layout Provider Tree
+
+```tsx
+// app/(chat)/layout.tsx (SERVER)
+<SidebarProvider>
+  <PendingChatsProvider>   {/* wraps sidebar + content */}
+    <Sidebar />
+    {children}             {/* chat page */}
+  </PendingChatsProvider>
+</SidebarProvider>
+```
+
+### Page Provider Tree
+
+```tsx
+// app/(chat)/chat/[id]/page.tsx (SERVER)
+<ChatStreamProvider>       {/* page-level, not layout */}
+  <ChatShell>              {/* 'use client' — calls useChat, provides ChatSessionContext */}
+    <StreamBridge />       {/* thin — dispatches stream deltas */}
+    <VoteResolver />       {/* use() for deferred votes */}
+    <Messages />
+    <MultimodalInput />
+  </ChatShell>
+  <ArtifactPanel />        {/* reads from artifact store */}
+</ChatStreamProvider>
+```
+
+### Rules
+
+- ✅ SessionProvider at root layout level
+- ✅ PendingChatsProvider at (chat) layout level
+- ✅ ChatStreamProvider at page level (per-chat)
+- ✅ No SettingsProvider (direct import)
+- ❌ ThemeProvider NOT at app level — let next-themes handle it

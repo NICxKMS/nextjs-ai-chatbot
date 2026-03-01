@@ -1,11 +1,16 @@
 # Improvements Over Architecture v6 Spec
 
-> Proposed changes organized by impact. Feature collocation is the primary driver.
+> Confirmed improvements organized by impact. Feature collocation is the primary driver.
 > Every change justified against behavioral extraction and Next.js 16 best practices.
+>
+> **Updated per redesign audit (2026-03-01)**: All improvements confirmed and incorporated
+> into the redesign. Provider names finalized (ChatStreamProvider, PendingChatsProvider,
+> SessionProvider, StreamBridge). Artifact state uses useSyncExternalStore. SettingsProvider
+> removed. Handler registry adopted. Revalidation strategy added.
 
 ---
 
-## 1. Feature Collocation Enforcement (STRUCTURAL)
+## 1. Feature Collocation Enforcement (STRUCTURAL — CONFIRMED)
 
 ### What the Spec Does
 
@@ -21,33 +26,34 @@ is genuinely cross-cutting infrastructure:
 ```
 features/
 ├── chat/            # Chat streaming, messages, input, tools, prompts
-├── artifacts/       # Document panel, editors, handlers, versioning
-├── auth/            # Login, register, session, exchange
-├── sidebar/         # Chat history, optimistic updates, navigation
-├── settings/        # User preferences, sampling config
+├── artifacts/       # Artifact panel, editors, handlers, versioning
+├── auth/            # Login, register, session, SessionProvider
+├── sidebar/         # Chat history, pending chats, navigation
+├── settings/        # User preferences (useSyncExternalStore, no provider)
 ├── voting/          # Message upvote/downvote
-└── models/          # Model selection, catalog, discovery
+├── visibility/      # Chat visibility toggle
+└── models/          # Model selection, catalog
 ```
 
 Each feature owns: `actions/`, `components/`, `hooks/`, `schemas/`, `lib/`, `types/`
 
 ### What Stays Shared
 
+> **Updated per redesign audit (2026-03-01)**: ai-elements removed from shared (no longer
+> needed in new architecture). lib/api/ and lib/rate-limit/ consolidated. lib/ai/ now
+> includes handler registry.
+
 | Location | Content | Reason |
 |----------|---------|--------|
-| `components/ai-elements/` | Read-only AI primitives | External dependency, used by multiple features |
 | `components/ui/` | shadcn/ui base | Generic design system, no feature logic |
-| `components/` root | `theme-provider.tsx`, `sidebar-toggle.tsx`, `icons.tsx` | App-wide utilities |
 | `lib/db/` | Drizzle client, schema, migrations | Database infrastructure |
-| `lib/cache/` | Redis client, key constants, `withCache()` | Cache infrastructure |
-| `lib/ai/` | Provider registry, model resolution | AI infrastructure |
-| `lib/auth/` | Auth config, JWT validation | Auth infrastructure |
+| `lib/cache/` | Redis client, key constants, `withCache()`, revalidation | Cache infrastructure |
+| `lib/ai/` | Provider registry, model resolution, handler registry | AI infrastructure |
+| `lib/auth/` | `getAppSession()` infrastructure | Auth infrastructure |
 | `lib/errors/` | AppError class, error codes | Cross-cutting error handling |
-| `lib/api/` | Guards, validation, response utils | API route utilities |
-| `lib/rate-limit/` | Rate limit config | Edge middleware config |
 | `lib/data/` | Shared data access functions | Used across multiple features |
-| `lib/types/` | Model types (from Drizzle), API types | Shared type definitions |
-| `lib/utils/` | Generic utilities (formatDate, etc.) | Cross-cutting helpers |
+| `lib/types/` | Artifact handler types, pending chats types, data context, ActionResult | Shared type definitions |
+| `lib/utils/` | Generic utilities (cn, formatDate, etc.) | Cross-cutting helpers |
 | `lib/hooks/` | `useMobile()`, `useDebounce()`, `useMediaQuery()` | 2-3 truly generic hooks only |
 
 ### Import Rules (Simplified)
@@ -63,7 +69,7 @@ No `src/` layer. Three layers instead of five.
 
 ---
 
-## 2. Simplified Data Access (STRUCTURAL)
+## 2. Simplified Data Access (STRUCTURAL — CONFIRMED)
 
 ### What the Spec Does
 
@@ -155,7 +161,7 @@ export async function getChatById(id: string, ctx: DataContext): Promise<Chat | 
 
 ---
 
-## 3. State Management: No Jotai (MAJOR)
+## 3. State Management: No Jotai (MAJOR — CONFIRMED)
 
 ### What the Spec Does
 
@@ -166,14 +172,19 @@ Creates `SettingsProvider` backed by Jotai atoms.
 
 Keep the existing patterns that already work:
 
+> **Updated per redesign audit (2026-03-01)**: Artifact state updated to useSyncExternalStore
+> (not SWR). Provider names finalized. SettingsProvider removed (direct import). SessionProvider
+> added. PendingChatsProvider replaces optimistic chats context.
+
 | State | Current Pattern | Keep? |
 |-------|----------------|-------|
-| Settings | `useSyncExternalStore` + localStorage pub/sub | ✅ Yes |
-| Artifact state | SWR with optimistic mutate | ✅ Yes |
-| Chat visibility | SWR with optimistic mutate | ✅ Yes |
-| Optimistic chats | React context + `Set<string>` | ✅ Yes |
-| Data stream | Split state/dispatch context | ✅ Yes |
-| Messages | Context wrapping `useChat` | ✅ Yes |
+| Settings | `useSyncExternalStore` + localStorage pub/sub | ✅ Yes (no provider needed) |
+| Artifact state | `useSyncExternalStore` + module-level store | ✅ Yes (was SWR, now simpler) |
+| Chat visibility | SWR with server action | ✅ Yes |
+| Pending chats | `PendingChatsProvider` (React context + `Set<string>`) | ✅ Yes (renamed from Optimistic) |
+| Chat stream | `ChatStreamProvider` (split state/dispatch context) | ✅ Yes (renamed from DataStream) |
+| Auth session | `SessionProvider` (React context) | ✅ Yes (renamed from AuthProvider) |
+| Messages | `ChatSessionContext` wrapping `useChat` | ✅ Yes (renamed from ChatContext) |
 | Theme | `next-themes` ThemeProvider | ✅ Yes |
 | Sidebar open | URL state or simple React state | ✅ Yes |
 
@@ -187,7 +198,7 @@ Keep the existing patterns that already work:
 
 ---
 
-## 4. AI Wrapper Collocation (STRUCTURAL)
+## 4. AI Wrapper Collocation (STRUCTURAL — CONFIRMED)
 
 ### What the Spec Does
 
@@ -213,13 +224,16 @@ categories don't correspond to any current functionality. Don't create dead code
 
 ### `ai-elements/` Stays Global
 
+> **Updated per redesign audit (2026-03-01)**: The ai-elements external dependency may be
+> removed entirely if the new architecture doesn't require it. If kept, it stays global.
+
 `components/ai-elements/` remains unchanged — it's an external read-only dependency. The
 `import from '@/components/ai-elements'` pattern is fine because it's infrastructure, not
 feature logic.
 
 ---
 
-## 5. Eliminate `src/` Directory (STRUCTURAL)
+## 5. Eliminate `src/` Directory (STRUCTURAL — CONFIRMED)
 
 ### What the Spec Does
 
@@ -248,7 +262,7 @@ Result: `src/` does not exist. Three layers: `app/ → features/ → lib/` + `co
 
 ---
 
-## 6. Next.js 16 Alignment (MAJOR)
+## 6. Next.js 16 Alignment (MAJOR — CONFIRMED)
 
 ### 6.1 `use cache` for Read-Heavy Operations
 
@@ -313,7 +327,7 @@ The layout chrome is static. User-specific content (sidebar, chat) streams in vi
 
 ---
 
-## 7. Simplified Error Handling (MINOR)
+## 7. Simplified Error Handling (MINOR — CONFIRMED)
 
 ### What the Spec Does
 
@@ -322,6 +336,9 @@ The layout chrome is static. User-specific content (sidebar, chat) streams in vi
 ### What We Do Instead
 
 Keep AppError but use string literal codes (not enum):
+
+> **Updated per redesign audit (2026-03-01)**: ActionResult<T> adopted for Server Actions.
+> AppError + throw preserved for Route Handlers. No Result<T, E>.
 
 ```typescript
 // lib/errors/app-error.ts
@@ -345,11 +362,18 @@ export class AppError extends Error {
 ```
 
 String literal union type is tree-shakeable (enums are not in TypeScript) and provides
-the same type safety. Drop `Result<T, E>` entirely — use thrown AppError consistently.
+the same type safety. Drop `Result<T, E>` entirely.
+
+For Server Actions, use `ActionResult<T>` return type instead of thrown errors:
+```typescript
+type ActionResult<T = void> =
+  | { success: true; data: T }
+  | { success: false; error: string; code?: string }
+```
 
 ---
 
-## 8. Import Boundary Enforcement (MINOR)
+## 8. Import Boundary Enforcement (MINOR — CONFIRMED)
 
 Biome doesn't support `no-restricted-imports`. Options:
 
@@ -364,15 +388,73 @@ effective, and tool-agnostic.
 
 ## 9. Summary of Changes
 
-| Change | Impact | Effort | Priority |
+> **Updated per redesign audit (2026-03-01)**: All improvements CONFIRMED. New improvements
+> added for revalidation strategy, ChatShell decomposition, provider naming, StreamBridge,
+> and handler registry.
+
+| Change | Impact | Status | Priority |
 |--------|--------|--------|----------|
-| Feature collocation enforcement | STRUCTURAL | Medium | P0 |
-| Simplified data access (no Repository) | STRUCTURAL | Low | P0 |
-| Eliminate `src/` directory | STRUCTURAL | Low | P0 |
-| AI wrapper collocation | STRUCTURAL | Medium | P1 |
-| No Jotai (keep existing patterns) | MAJOR | Zero (don't add) | P0 |
-| Next.js 16 `use cache` integration | MAJOR | Medium | P1 |
-| Server Action vs Route Handler clarity | MAJOR | Low | P0 |
-| Simplified error handling | MINOR | Low | P2 |
-| Build-only wrappers for existing features | MINOR | Low | P1 |
-| Import boundary enforcement | MINOR | Low | P2 |
+| Feature collocation enforcement | STRUCTURAL | ✅ CONFIRMED | P0 |
+| Simplified data access (no Repository) | STRUCTURAL | ✅ CONFIRMED | P0 |
+| Eliminate `src/` directory | STRUCTURAL | ✅ CONFIRMED | P0 |
+| AI wrapper collocation | STRUCTURAL | ✅ CONFIRMED | P1 |
+| No Jotai (keep existing patterns) | MAJOR | ✅ CONFIRMED | P0 |
+| Next.js 16 `use cache` integration | MAJOR | ✅ CONFIRMED | P1 |
+| Server Action vs Route Handler clarity | MAJOR | ✅ CONFIRMED | P0 |
+| Simplified error handling + ActionResult | MINOR | ✅ CONFIRMED | P2 |
+| Build-only wrappers for existing features | MINOR | ✅ CONFIRMED | P1 |
+| Import boundary enforcement | MINOR | ✅ CONFIRMED | P2 |
+| **Revalidation completeness** | MAJOR | ✅ NEW | P0 |
+| **ChatShell decomposition** | MAJOR | ✅ NEW | P1 |
+| **Provider naming alignment** | MINOR | ✅ NEW | P1 |
+| **StreamBridge pattern** | MINOR | ✅ NEW | P1 |
+| **Handler registry (artifacts)** | STRUCTURAL | ✅ NEW | P1 |
+| **SettingsProvider removal** | MINOR | ✅ NEW | P1 |
+| **proxy.ts (Next.js 16)** | STRUCTURAL | ✅ NEW | P0 |
+| **useSyncExternalStore for artifacts** | MAJOR | ✅ NEW | P1 |
+| **VoteResolver pattern** | MINOR | ✅ NEW | P2 |
+
+---
+
+## 10. New Improvements from Redesign Audit
+
+> **Added per redesign audit (2026-03-01)**
+
+### 10.1 Revalidation Completeness
+
+Every `use cache` + `cacheTag` data fetch must be paired with `revalidateTag` (in Server
+Actions) or `updateTag` (in Route Handlers) after the corresponding mutation. This is a
+non-negotiable convention — `lib/cache/revalidate.ts` provides the utilities.
+
+### 10.2 ChatShell Decomposition
+
+The existing `Chat` god component (~200 lines) is split into:
+- `ChatShell` (~60 lines) — calls `useChat`, provides `ChatSessionContext`, renders children
+- `StreamBridge` (~20 lines) — thin component calling `processStreamDelta()` pure function
+- `VoteResolver` — uses `use()` to resolve deferred vote promise, hydrates SWR
+
+### 10.3 Provider Naming Alignment
+
+All providers renamed to match their actual purpose:
+- `DataStreamProvider` → `ChatStreamProvider`
+- `DataStreamHandler` → `StreamBridge`
+- `AuthProvider` → `SessionProvider`
+- `OptimisticChatsProvider` → `PendingChatsProvider`
+- `ChatContext` → `ChatSessionContext`
+- `SettingsProvider` → **removed** (direct import)
+
+### 10.4 Handler Registry
+
+Artifact handlers are registered via `lib/ai/artifact-handlers.ts` instead of being
+directly imported by the chat feature. This breaks the coupling between chat and artifacts.
+
+### 10.5 useSyncExternalStore for Artifact State
+
+Artifact state uses `useSyncExternalStore` with a module-level store in
+`features/artifacts/lib/artifact-store.ts`. This replaces the previous SWR-based approach,
+providing better selector support and no Context provider overhead.
+
+### 10.6 proxy.ts for Next.js 16
+
+`middleware.ts` is replaced by `proxy.ts` per Next.js 16 conventions. Same responsibilities:
+auth guard, guest token rotation, per-route rate limiting.

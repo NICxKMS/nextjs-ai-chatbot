@@ -1,36 +1,50 @@
-# Phase 02 — Authentication
+> **Updated per redesign audit (2026-03-01)**
 
-> Supabase Auth integration: session management, guest rotation, login/register/logout, auth UI, middleware.
+# Phase 2 — Auth Vertical
+
+> Complete authentication: session resolution, login/register/logout, guest bootstrap, SessionProvider, auth pages, proxy wiring.
 
 ---
 
 ## Objective
 
-Implement the full authentication flow: Supabase session resolution, Zod schemas, token exchange, server actions (login, register, logout), auth form component, auth provider, API routes, auth pages, middleware guest rotation, and wire into root layout. After this phase, users can authenticate and sessions are managed.
+Implement complete authentication — session resolution, login/register/logout, guest bootstrap, SessionProvider (was AuthProvider), auth pages, and proxy wiring. Auth actions return `ActionResult<T>` (never throw). Auth form uses `useActionState`. Root layout passes server-fetched session to `SessionProvider`. `proxy.ts` redirects unauthenticated users to `/login`.
 
-**Entry state:** P01 complete — data layer operational, auth config exists
-**Exit state:** Login/register/logout functional; sessions persist; guest users auto-created; middleware handles auth redirects
-**Est. duration:** ~1.5 days
-**Tasks:** 12
+**Entry state:** P1 complete — data layer ready, cache wired, user CRUD available
+**Exit state:** Login/register/logout functional; sessions persist; guest users bootstrapped; `proxy.ts` handles auth redirects; `pnpm typecheck && pnpm lint && pnpm format` pass
+**Tasks:** 9
 
 ---
 
 ## Task Table
 
-| ID | Title | Type | Complexity | Dependencies |
-|----|-------|------|------------|-------------|
-| P02-T01 | Session resolution helper | IMPLEMENTATION | M | P01-T11 |
-| P02-T02 | Auth Zod schemas | IMPLEMENTATION | S | P00-T08 |
-| P02-T03 | Token exchange utility | IMPLEMENTATION | M | P01-T11 |
-| P02-T04 | Login + register server actions | IMPLEMENTATION | M | T01, T02, T03 |
-| P02-T05 | Logout server action | IMPLEMENTATION | S | T01, T03 |
-| P02-T06 | Auth form component | IMPLEMENTATION | M | T04, P00-T11 |
-| P02-T07 | Auth provider (client context) | IMPLEMENTATION | M | T01 |
-| P02-T08 | Auth API routes (guest, callback, logout) | IMPLEMENTATION | M | T03, T04, T05 |
-| P02-T09 | Auth pages (login, register) | IMPLEMENTATION | M | T06 |
-| P02-T10 | Middleware guest rotation | IMPLEMENTATION | M | T03, P00-T14 |
-| P02-T11 | Wire auth into root layout | INTEGRATION | M | T07, P00-T05 |
-| P02-T12 | Verification gate G02 | VERIFICATION | S | ALL |
+| ID | Title | Type | Files Created | Dependencies | Complexity |
+|---|---|---|---|---|---|
+| P2-T01 | Create session resolution | IMPL | `lib/auth/session.ts` (`getAppSession()`: cookies → session) | P1-T05 | M |
+| P2-T02 | Create auth types + schemas | IMPL | `features/auth/types/auth.types.ts`, `features/auth/schemas/auth.schema.ts` | P0-T05 | S |
+| P2-T03 | Create guest bootstrap | IMPL | `features/auth/lib/guest.ts` (JWT creation, token rotation), `features/auth/lib/session.ts` | P2-T01 | M |
+| P2-T04 | Create auth actions | IMPL | `features/auth/actions/login.ts`, `features/auth/actions/register.ts`, `features/auth/actions/logout.ts` | P2-T01, P2-T02 | M |
+| P2-T05 | Create auth form | IMPL | `features/auth/components/auth-form.tsx` (`mode` prop, `useActionState`) | P2-T04 | L |
+| P2-T06 | Create SessionProvider | IMPL | `features/auth/components/session-provider.tsx` (session context, guest bootstrap effect) | P2-T03 | M |
+| P2-T07 | Create auth layout + pages | IMPL | `app/(auth)/layout.tsx` (SERVER), `app/(auth)/login/page.tsx`, `app/(auth)/register/page.tsx`, `app/(auth)/error.tsx` | P2-T05 | M |
+| P2-T08 | Wire root layout with auth | INTEG | Update `app/layout.tsx` to use `SessionProvider(session)` | P2-T06 | M |
+| P2-T09 | Verification gate G02 | VERIFY | — | P2-T01..T08 | S |
+
+---
+
+## Key Changes from Pre-Redesign Plan
+
+| Aspect | Before | After |
+|--------|--------|-------|
+| Phase naming | P02 | P2 |
+| Task count | 12 | 9 (streamlined) |
+| Auth provider | `AuthProvider` (P02-T07) | `SessionProvider` (`features/auth/components/session-provider.tsx`) |
+| Middleware | "Middleware guest rotation" (P02-T10) | `proxy.ts` does guest token rotation (wired in P0-T14) |
+| Auth API routes | Standalone task (P02-T08) | Removed — auth actions are Server Actions, not API routes |
+| Token exchange | Standalone task (P02-T03) | Folded into guest bootstrap (P2-T03) |
+| Feature location | Scattered across `lib/`, `components/` | Colocated in `features/auth/` |
+| Action return type | Unspecified | `ActionResult<T>` (never throw) |
+| Form pattern | Unspecified | `useActionState` in auth form |
 
 ---
 
@@ -38,19 +52,20 @@ Implement the full authentication flow: Supabase session resolution, Zod schemas
 
 | State | Condition |
 |-------|-----------|
-| Entry | P01 gate passed; DB client, auth config, middleware base exist |
-| Exit | Login/register works against Supabase; sessions persist across requests; guest users created on first visit; middleware redirects unauthenticated users from chat routes |
+| Entry | P1 gate passed; DB client, data access, cache layer exist |
+| Exit | `getAppSession()` resolves from cookies; login/register forms render and submit via `useActionState`; auth actions return `ActionResult<T>`; root layout passes session to `SessionProvider`; `proxy.ts` redirects unauthenticated users |
 
 ---
 
-## Integration Verification
+## Exit Criteria
 
-- Register creates user in Supabase + DB
-- Login returns valid session token
-- Logout clears session
-- Guest rotation creates anonymous user on first visit
-- Middleware redirects `/chat/*` for unauthenticated users
-- Auth provider exposes user state to client components
+- [ ] `getAppSession()` resolves from cookies (Supabase + guest fallback)
+- [ ] Login/register forms render and submit via `useActionState`
+- [ ] Auth actions return `ActionResult<T>` (never throw)
+- [ ] Root layout passes server-fetched session to `SessionProvider`
+- [ ] `proxy.ts` redirects unauthenticated users to `/login`
+
+**Verification:** `pnpm typecheck && pnpm lint && pnpm format`
 
 ---
 
@@ -58,8 +73,8 @@ Implement the full authentication flow: Supabase session resolution, Zod schemas
 
 | Seam | Description | Task |
 |------|-------------|------|
-| SEAM-001 | Supabase session ↔ app session | P02-T01 |
-| SEAM-002 | Auth token exchange flow | P02-T03 |
-| SEAM-003 | Guest ↔ authenticated user transition | P02-T10 |
-| SEAM-004 | Auth provider ↔ server session sync | P02-T07, P02-T11 |
-| SEAM-005 | Middleware auth redirect logic | P02-T10 |
+| SEAM-001 | Supabase session ↔ app session | P2-T01 |
+| SEAM-002 | Guest bootstrap + token rotation | P2-T03 |
+| SEAM-003 | Guest ↔ authenticated user transition | P2-T03, P2-T04 |
+| SEAM-004 | SessionProvider ↔ server session sync | P2-T06, P2-T08 |
+| SEAM-005 | proxy.ts auth redirect logic | P0-T14 (wired), P2-T01 (session) |

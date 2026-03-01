@@ -1,8 +1,34 @@
 # API Contracts
 
+> **Updated per redesign audit (2026-03-01)**
+
 ## Route Inventory
 
 All routes are under `app/(chat)/api/` or `app/api/`.
+
+**Route Handlers** (retained): `POST /api/chat`, `GET /api/history`, `GET/POST /api/artifact`, `GET /api/suggestions`, `POST /api/files/upload`, `GET /api/health`.
+
+**Server Actions** (mutations): `deleteChat`, `deleteAllChats`, `voteOnMessage`, `updateChatVisibility`, `deleteTrailingMessages`, `loginAction`, `registerAction`, `logoutAction`, `exchangeTokenAction`.
+
+### `ActionResult<T>` Return Type
+
+All Server Actions return `ActionResult<T>` instead of throwing HTTP errors:
+
+```typescript
+type ActionResult<T = void> =
+  | { success: true; data: T }
+  | { success: false; error: { code: string; message: string } }
+```
+
+### Server Action vs Route Handler Decision
+
+| Criterion | Choice |
+|-----------|--------|
+| SSE stream or file upload | Route Handler |
+| Paginated GET consumed by SWR | Route Handler |
+| Public non-auth endpoint | Route Handler |
+| User-triggered mutation | Server Action (`updateTag` works) |
+| Form submission | Server Action (`useActionState`) |
 
 ---
 
@@ -56,10 +82,10 @@ SSE stream (`Content-Type: text/event-stream`). Uses Vercel AI SDK `UIMessageStr
 8. Build system prompt, configure tools, stream response
 
 ### Side Effects
-- Creates chat record (DB + cache) if new
+- Creates chat record (DB + cache) if new; `revalidateTag('chats:{userId}')`
 - Creates message records (user message saved before streaming, assistant after)
 - Increments daily message quota counter
-- Updates chat title (async)
+- Updates chat title (async) via `chat-title` stream part (single-channel)
 - Updates chat `lastContext` with usage data
 
 ### Error Responses
@@ -74,7 +100,9 @@ SSE stream (`Content-Type: text/event-stream`). Uses Vercel AI SDK `UIMessageStr
 
 ---
 
-## DELETE `/api/chat/[id]` — Delete Single Chat
+## ~~DELETE `/api/chat/[id]`~~ → Server Action `deleteChat(chatId)`
+
+> *Replaced by Server Action `deleteChat()`. Enables `updateTag('chats:{userId}')` + `useOptimistic` pattern. Returns `ActionResult<void>`.*
 
 ### Auth
 Required, non-guest.
@@ -90,6 +118,7 @@ Path param: `id` (UUID)
 ### Side Effects
 - Deletes chat from DB
 - Removes from cache (meta + messages + user's ZSET entry)
+- `revalidateTag('chats:{userId}')`
 
 ### Response
 `204 No Content` on success
@@ -133,7 +162,9 @@ Required (guest or authenticated).
 
 ---
 
-## DELETE `/api/history` — Delete All Chats
+## ~~DELETE `/api/history`~~ → Server Action `deleteAllChats()`
+
+> *Replaced by Server Action `deleteAllChats()`. Rate limited (strict: 10/min). Returns `ActionResult<void>`.*
 
 ### Auth
 Required. Rate limited (strict: 10/min).
@@ -144,10 +175,11 @@ Required. Rate limited (strict: 10/min).
 ### Side Effects
 - Deletes all chats for user from DB
 - Clears all cache entries (per-chat meta + messages + user ZSET)
+- `revalidateTag('chats:{userId}')` *(cache invalidation)*
 
 ---
 
-## GET `/api/document` — Get Document Versions
+## GET `/api/artifact` — Get Artifact Versions
 
 ### Auth
 Required.
@@ -159,16 +191,16 @@ Required.
 
 ### Response
 ```typescript
-Document[]  // Array of document versions, ordered by createdAt
+Artifact[]  // Array of artifact versions, ordered by createdAt
 // Each: { id, createdAt, title, content, kind, userId, chatId }
 ```
 
 ### Behavior
-Cache-first. Document versions returned as array (latest = last element).
+Cache-first. Artifact versions returned as array (latest = last element).
 
 ---
 
-## POST `/api/document` — Save Document Version
+## POST `/api/artifact` — Save Artifact Version
 
 ### Auth
 Required.
@@ -185,15 +217,15 @@ Body:
 ```
 
 ### Side Effects
-- Creates new document version row (same `id`, new `createdAt`)
+- Creates new artifact version row (same `id`, new `createdAt`)
 - Updates cache
+- `revalidateTag('artifact:{id}')`
 
 ---
 
-## DELETE `/api/document` — Delete Document Version
+## ~~DELETE `/api/document`~~ → managed via artifact version history
 
-### Auth
-Required, non-guest.
+> *Version deletion may be handled by Server Action `deleteArtifactVersion()` instead of Route Handler. Same validation: auth required, non-guest.*
 
 ### Query Parameters
 | Param | Type | Required |
@@ -202,11 +234,13 @@ Required, non-guest.
 | `timestamp` | string (ISO 8601) | Yes |
 
 ### Side Effects
-Deletes specific version from DB and cache.
+Deletes specific version from DB and cache. `revalidateTag('artifact:{id}')`.
 
 ---
 
-## PATCH `/api/vote` — Vote on Message
+## ~~PATCH `/api/vote`~~ → Server Action `voteOnMessage()`
+
+> *Replaced by Server Action `voteOnMessage()`. Enables `updateTag('votes:{chatId}')` + `useOptimistic` pattern. Returns `ActionResult<{ messageId, type }>`.*
 
 ### Auth
 Required, non-guest only.
@@ -245,7 +279,7 @@ Required, non-guest only.
 
 ---
 
-## GET `/api/suggestions` — Get Document Suggestions
+## GET `/api/suggestions` — Get Artifact Suggestions
 
 ### Auth
 Required.
@@ -253,12 +287,12 @@ Required.
 ### Query Parameters
 | Param | Type | Required |
 |-------|------|----------|
-| `documentId` | string (UUID) | Yes |
+| `artifactId` | string (UUID) | Yes |
 
 ### Response
 ```typescript
 Suggestion[]  // Array of suggestion objects
-// Each: { id, documentId, documentCreatedAt, originalText, suggestedText, description, isResolved }
+// Each: { id, artifactId, artifactCreatedAt, originalText, suggestedText, description, isResolved }
 ```
 
 ---
@@ -318,7 +352,9 @@ None (public endpoint, skips edge rate limiting).
 
 ---
 
-## POST `/api/auth/exchange` — Exchange Supabase Token
+## ~~POST `/api/auth/exchange`~~ → Server Action `exchangeTokenAction()`
+
+> *Replaced by Server Action. Same validation logic, but returns `ActionResult<{ user }>` and sets cookie server-side. `proxy.ts` handles guest session creation.*
 
 ### Auth
 None (this *creates* the session).

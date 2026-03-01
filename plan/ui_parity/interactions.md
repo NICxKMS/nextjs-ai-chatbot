@@ -1,5 +1,7 @@
 # Interaction Patterns — UI Parity Reference
 
+> **Updated per redesign audit (2026-03-01)**
+
 > Every user-facing interaction flow in the oldapp, documented for zero-regression rebuild.
 
 ---
@@ -16,7 +18,7 @@
    - Submit aborted if `status !== "ready"` or input is empty (whitespace-only)
 3. `handleSubmit()`:
    - `history.replaceState` to `/chat/{chatId}` (if on `/`)
-   - If first message: creates optimistic chat entry in sidebar (`addOptimisticChat`)
+   - If first message: creates pending chat entry in sidebar (`addPendingChat`) *(redesign: renamed from addOptimisticChat)*
    - Calls `sendMessage()` (AI SDK) with `{ message: text, experimental_attachments: files }`
    - Clears `attachments`, `input`, `localStorage` entry
 4. `useChat` streams response via `DefaultChatTransport`
@@ -26,8 +28,7 @@
    - Medium: 100ms
    - Slow (<1Mbps): 150ms
 6. On completion (`onFinish`):
-   - Polls `/api/chat?id={chatId}` for title (max 5 attempts, 500ms interval)
-   - Dispatches `chat-title-updated` window event → sidebar updates
+   - Title received via `chat-title` stream part *(redesign: replaces polling `/api/chat` + `chat-title-updated` window event — single-channel)*
 
 ### Receive Flow
 
@@ -47,8 +48,8 @@
 
 ### Creation Flow
 
-1. AI calls `createDocument` tool during response
-2. `DataStreamHandler` processes stream deltas:
+1. AI calls `createArtifact` tool during response *(redesign: renamed from createDocument)*
+2. `StreamBridge` processes stream deltas *(redesign: renamed from DataStreamHandler)*:
    - `id` → set artifact ID
    - `title` → set artifact title  
    - `kind` → set artifact kind (text/code/image/sheet)
@@ -57,7 +58,7 @@
    - `finish` → mark artifact complete, call `onStreamPart("finish")`
 3. Artifact panel opens with spring animation
    - `AnimatePresence mode="wait"` with opacity + horizontal slide
-   - Captures bounding box from `DocumentPreview` inline card for origin animation
+   - Captures bounding box from `ArtifactPreview` inline card for origin animation *(redesign: renamed from DocumentPreview)*
 4. Artifact rendered based on `kind`:
    - `text` → TipTap editor (`text-editor.tsx`)
    - `code` → CodeMirror editor (`code-editor.tsx`)
@@ -67,14 +68,14 @@
 ### Editing Flow
 
 1. User edits content in artifact editor (text/code/sheet)
-2. Debounced save (2s) → `saveDocument` API
+2. Debounced save (2s) → `saveArtifact` API *(redesign: renamed from saveDocument)*
 3. Content marked as `isContentDirty`
 4. On save: creates new version via API
 
 ### Update Flow
 
-1. AI calls `updateDocument` tool
-2. Same DataStreamHandler delta processing
+1. AI calls `updateArtifact` tool *(redesign: renamed from updateDocument)*
+2. Same `StreamBridge` delta processing *(redesign: renamed from DataStreamHandler)*
 3. Previous content preserved as version
 
 ### Version Switching
@@ -82,7 +83,7 @@
 1. `VersionFooter` shown when viewing non-current version
 2. Navigation: left/right buttons in artifact header
 3. `handleVersionChange("prev" | "next" | "toggle" | "latest")`
-4. "Restore this version" → DELETE `/api/document?id={}&timestamp={ts}` (deletes later versions)
+4. "Restore this version" → DELETE `/api/artifact?id={}&timestamp={ts}` *(redesign: renamed from /api/document)* (deletes later versions)
 5. "Back to latest" → jump to most recent version
 
 ### Close Flow
@@ -95,26 +96,26 @@
 ## 3. Sidebar Navigation
 
 ### Structure
-- `AppSidebar` with header (brand + new chat), content (history), footer (user nav)
+- `SidebarShell` → `AppSidebar` with header (brand + new chat), content (history), footer (user nav) *(redesign: SidebarShell is the server wrapper; AppSidebar is the client inner component)*
 - History: `GroupedVirtuoso` with date group headers
 
 ### Chat List
 1. `useSWRInfinite` with `/api/history?limit=20&offset=X`
 2. Infinite scroll via sentinel at bottom → `setSize(s => s+1)`
 3. **Grouping:** Today, Yesterday, Last 7 days, Last 30 days, Older
-4. Optimistic chats prepended in `__optimistic__` group
+4. Pending chats prepended in `__pending__` group *(redesign: renamed from `__optimistic__`)*
 5. Active chat highlighted via pathname match
 
 ### Actions on Chat Items
 - Click → navigate to `/chat/{id}`
 - Dropdown menu:
-  - **Share** → submenu: Private/Public radio (PATCH `/api/chat/visibility`)
-  - **Delete** → confirm dialog → DELETE `/api/history/{id}` + optimistic SWR removal + redirect if active
+  - **Share** → submenu: Private/Public radio (`saveChatVisibility` server action)
+  - **Delete** → confirm dialog → Server Action `deleteChat()` + optimistic removal + redirect if active *(redesign: replaces DELETE `/api/history/{id}` + SWR)*
 
 ### Delete All
 - Button in sidebar header
 - `AlertDialog` confirmation
-- DELETE `/api/history` → redirect `/` + SWR mutate all
+- Server Action `deleteAllChats()` → redirect `/` *(redesign: replaces DELETE `/api/history` + SWR mutate)*
 
 ### Mobile Behavior
 - Sidebar opens as overlay sheet
@@ -191,8 +192,7 @@
 
 ### Vote (Assistant Messages Only)
 - Upvote / Downvote buttons
-- PATCH `/api/vote` with `{ chatId, messageId, type }`
-- Optimistic SWR mutation of vote cache
+- Server Action `voteOnMessage()` with `useOptimistic` *(redesign: replaces PATCH `/api/vote` + SWR mutation)*
 - Visual: filled/highlighted icon when active vote exists
 
 ### Visibility
@@ -227,7 +227,7 @@
 
 #### System Prompt
 - `Textarea` with placeholder
-- Persisted to `SettingsProvider` (localStorage-backed)
+- Persisted to `useSettings` (useSyncExternalStore, localStorage-backed) *(redesign: SettingsProvider removed)*
 
 #### Behavior Toggles
 - **Enable Reasoning:** `SettingToggle` (aria-pressed)
@@ -269,9 +269,9 @@
 
 ---
 
-## 12. Inline Document Preview
+## 12. Inline Artifact Preview *(redesign: renamed from Inline Document Preview)*
 
-1. Tool calls (`createDocument`, `updateDocument`) render inline `DocumentPreview`
+1. Tool calls (`createArtifact`, `updateArtifact`) render inline `ArtifactPreview` *(redesign: renamed from DocumentPreview)*
 2. Shows skeleton during loading, mini editor when ready
 3. Click → opens full artifact panel
 4. Captures bounding box for smooth open animation (`hitboxRef`)
@@ -293,7 +293,7 @@
 ### Chat Error
 - `ErrorMessage` footer in `Messages` component
 - "An error occurred" with retry button
-- Retry → `clearError()` (from Chat component)
+- Retry → `clearError()` (from `ChatShell` component) *(redesign: renamed from Chat)*
 
 ### Network/API Errors
 - Toast notifications (top-center) via sonner
@@ -316,7 +316,7 @@
 3. Scroll-to-bottom FAB (floating action button) when not at bottom
 4. `Button` with `ArrowDownIcon`, `animate-bounce`, positioned bottom-right of messages
 5. Click → `scrollToBottom("smooth")`
-6. `autoScroll` setting toggle (from `useSettingsSnapshot`) controls FAB behavior
+6. `autoScroll` setting toggle (from `useSettings`) controls FAB behavior *(redesign: replaces useSettingsSnapshot — useSyncExternalStore)*
 
 ---
 
@@ -333,26 +333,28 @@
 ## 17. Guest Authentication Flow
 
 1. App detects no session on load
-2. `AuthProvider` auto-creates guest session via POST `/api/auth/guest`
+2. `SessionProvider` auto-creates guest session via POST `/api/auth/guest` *(redesign: renamed from AuthProvider)*
 3. Guest gets limited functionality (no persistent history list)
 4. Guest sidebar shows login CTA
 5. `isNewSession` flag skips SWR history fetch to avoid unnecessary 401s
 
 ---
 
-## 18. Credit/Usage Alert
+## 18. Credit/Usage Alert *(redesign: REMOVED)*
 
-1. `Chat` component tracks `usage` state (from `data-usage` stream event)
-2. When credits depleted: `AlertDialog` with warning
-3. Shows usage limit message + link to manage subscription
-4. Non-dismissable overlay
+> *Redesign: `data-usage` stream event removed. Credit/usage alert (`AlertDialog`) removed from `ChatShell`.*
+
+1. ~~`Chat` component tracks `usage` state (from `data-usage` stream event)~~
+2. ~~When credits depleted: `AlertDialog` with warning~~
+3. ~~Shows usage limit message + link to manage subscription~~
+4. ~~Non-dismissable overlay~~
 
 ---
 
-## 19. Optimistic Chat Creation
+## 19. Pending Chat Creation *(redesign: renamed from Optimistic Chat Creation)*
 
 1. When user sends first message in new chat (route is `/`)
-2. `addOptimisticChat({ id, title: input.substring(0,50) })` 
-3. Sidebar immediately shows new entry in `__optimistic__` group
-4. Title updates when server responds via `chat-title-updated` event
-5. If title unchanged (no event): optimistic entry persists until next SWR revalidation
+2. `addPendingChat({ id, title: input.substring(0,50) })` *(redesign: renamed from addOptimisticChat)*
+3. Sidebar immediately shows new entry in `__pending__` group *(redesign: renamed from `__optimistic__`)*
+4. Title updates when server responds via `chat-title` stream part *(redesign: replaces `chat-title-updated` window event — single-channel)*
+5. If title unchanged (no event): pending entry persists until next SWR revalidation

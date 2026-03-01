@@ -2,6 +2,10 @@
 
 > Critical evaluation of the 1943-line v6 spec against best practices,
 > Next.js 16 patterns, actual app behavior, and feature collocation requirements.
+>
+> **Updated per redesign audit (2026-03-01)**: All verdicts validated against the
+> redesign. Missing items (PPR, Server Action vs Route, Guest data, proxy.ts) now
+> ADDRESSED. Provider names and artifact terminology updated throughout.
 
 ---
 
@@ -24,11 +28,14 @@ where route handlers are thin orchestrators.
 
 ### 1.3 Edge-Only Rate Limiting (§6, Decision 3)
 
-Centralizing rate limiting in `middleware.ts` with per-route config is the right call. The
-config-driven approach with wildcard matching is clean. Upstash Redis at the edge is the
-standard pattern for Vercel deployments.
+Centralizing rate limiting in `proxy.ts` (was `middleware.ts` — Next.js 16 rename) with
+per-route config is the right call. The config-driven approach with wildcard matching is
+clean. Upstash Redis at the edge is the standard pattern for Vercel deployments.
 
-**Verdict**: Keep the middleware-only approach. The config structure is solid.
+> **Updated per redesign audit (2026-03-01)**: `middleware.ts` replaced by `proxy.ts`
+> per Next.js 16. Same responsibilities. See ADR-010.
+
+**Verdict**: Keep the edge-only approach. The config structure is solid.
 
 ### 1.4 Standardized Error Handling (§10)
 
@@ -164,7 +171,7 @@ data access objects (`chatData.get()`, `documentData.save()`) which work perfect
 
 The behavioral extraction (data-flows.md) shows the actual data access patterns:
 - Chat: get, getWithMessages, list, updateTitle, updateVisibility, delete, deleteAll
-- Document: get, getAll, save, getSuggestions
+- Artifact: get, getAll, save, getSuggestions
 - Messages: save, getByChat (via sorted set)
 - Votes: upsert, getByChat
 
@@ -194,6 +201,11 @@ which conflicts with collocation and doesn't exist in the spec's import hierarch
 
 ### 3.3 Jotai State Management (§12 Decision 1, §19)
 
+> **CONFIRMED REJECT per redesign audit (2026-03-01)**: All state patterns validated.
+> Artifact state updated to useSyncExternalStore (was SWR). Provider names finalized:
+> ChatStreamProvider, PendingChatsProvider, SessionProvider. SettingsProvider removed
+> (direct import via useSyncExternalStore). No Jotai.
+
 The spec chooses Jotai for client-side state management. The stated reasons:
 - Atomic updates (minimal re-renders)
 - `atomWithStorage` built-in
@@ -202,12 +214,13 @@ The spec chooses Jotai for client-side state management. The stated reasons:
 BUT the behavioral extraction (state-management.md) shows the existing app already handles
 state well without ANY external state management library:
 
-- **Settings**: `useSyncExternalStore` + localStorage (pub/sub pattern)
-- **Artifact state**: SWR with optimistic mutate
+- **Settings**: `useSyncExternalStore` + localStorage (pub/sub pattern, no provider)
+- **Artifact state**: `useSyncExternalStore` + module-level store (was SWR)
 - **Chat visibility**: SWR with optimistic mutate
-- **Optimistic chats**: React context with `Set<string>` for dedup
-- **Data stream**: Split context pattern (state/dispatch separation)
-- **Messages**: Context provider wrapping `useChat`
+- **Pending chats**: `PendingChatsProvider` (React context with `Set<string>` dedup)
+- **Chat stream**: `ChatStreamProvider` (split state/dispatch context)
+- **Auth session**: `SessionProvider` (React context)
+- **Messages**: `ChatSessionContext` wrapping `useChat`
 
 None of these need Jotai. The existing patterns are simpler, have zero bundle cost, and
 already solve the re-render problem (split context, SWR selectors).
@@ -218,6 +231,9 @@ which is not worth adding a dependency.
 **Verdict**: REJECT. Keep existing SWR + context + localStorage patterns. See DEV-007.
 
 ### 3.4 Result<T, E> Type (§14 Pattern 2)
+
+> **CONFIRMED REJECT per redesign audit (2026-03-01)**: ActionResult<T> adopted for
+> Server Actions. AppError + throw preserved for Route Handlers. See ADR-014.
 
 Rust-style `Result<T, E>` with `ok()`, `err()`, `unwrap()` helpers. This pattern:
 - Is not idiomatic in the TypeScript/Next.js ecosystem
@@ -261,7 +277,15 @@ and simplify to `Response.json(data)` for most cases. See DEV-010.
 
 ## 4. What's Missing
 
-### 4.1 Next.js 16 `use cache` Integration
+> **Updated per redesign audit (2026-03-01)**: All missing items now ADDRESSED
+> in the redesign documents.
+
+### 4.1 Next.js 16 `use cache` Integration — ADDRESSED
+
+> **ADDRESSED**: The redesign specifies a dual caching strategy. Redis for user-specific,
+> real-time data (chat, messages, artifacts, rate limits, guest data). `use cache` +
+> `cacheTag` for server-rendered, static-ish data (model catalog, prompts, static config).
+> Every mutation pairs with `revalidateTag`/`updateTag`. See ADR-015.
 
 The spec's caching strategy is entirely Redis-based (cache-through in repositories).
 Next.js 16 introduces Cache Components with `use cache` directive + `cacheTag` for
@@ -275,13 +299,21 @@ For read-heavy operations like model catalog, prompts, and static configuration,
 **Missing**: Strategy for when to use Redis (session, real-time, guest) vs `use cache`
 (server-rendered, static-ish data).
 
-### 4.2 Partial Prerendering (PPR) Strategy
+### 4.2 Partial Prerendering (PPR) Strategy — ADDRESSED
+
+> **ADDRESSED**: The redesign specifies server layout + Suspense boundary architecture
+> that enables PPR. Static shell (sidebar, layout) is cacheable. Dynamic content (chat
+> messages) loads via Suspense. See redesign/architecture.md.
 
 Next.js 16 Cache Components enable PPR — static shell + dynamic Suspense holes.
 The chat page is an ideal PPR candidate: sidebar and layout are cacheable, chat content
 is dynamic. The spec doesn't mention PPR or how to structure components for it.
 
-### 4.3 Server Functions vs Route Handlers Decision
+### 4.3 Server Functions vs Route Handlers Decision — ADDRESSED
+
+> **ADDRESSED**: The redesign provides a clear decision tree. Server Actions for
+> mutations (delete, vote, visibility toggle, CRUD). Route Handler for chat streaming
+> (SSE), file upload, paginated reads. See redesign/data-flow.md.
 
 The spec uses both Server Actions (features/*/actions/) AND route handlers (app/api/).
 But doesn't clarify the decision boundary. When do you use a Server Action vs a route?
@@ -292,18 +324,27 @@ from client components.
 
 **Missing**: Clear decision tree for Server Action vs Route Handler.
 
-### 4.4 Data Stream Architecture Detail
+### 4.4 Data Stream Architecture Detail — ADDRESSED
+
+> **ADDRESSED**: The redesign specifies ChatStreamProvider (split state/dispatch context),
+> StreamBridge (~20 lines delegating to processStreamDelta() pure function), and
+> ChatSessionContext wrapping useChat. Artifact state via useSyncExternalStore store.
+> See redesign/streaming-architecture.md and ADR-013.
 
 The spec describes DataStreamProvider/Handler (§8) at a high level but doesn't address:
 - How the split state/dispatch context pattern works
-- How `useChat` from AI SDK integrates with the provider
-- How `DataStreamHandler` bridges stream events to SWR state
+- How `useChat` from AI SDK integrates with the ChatStreamProvider
+- How StreamBridge bridges stream events to artifact store
 - Re-render optimization details
 
 The behavioral extraction (state-management.md) documents this thoroughly. The spec
 should have preserved these implementation details.
 
-### 4.5 Guest/Auth Data Access Branching
+### 4.5 Guest/Auth Data Access Branching — ADDRESSED
+
+> **ADDRESSED**: The redesign specifies guest users as cache-only (no database writes
+> that bypass cache). DataContext type carries `isGuest` flag. Session management
+> handled by SessionProvider + getAppSession(). See redesign/data-flow.md.
 
 The behavioral extraction documents a critical pattern: guest users are cache-only
 (no database), while authenticated users have cache+DB fallback. The spec's repository
@@ -312,7 +353,11 @@ whether the current user is a guest.
 
 **Missing**: How data access handles the guest vs authenticated split.
 
-### 4.6 Testing Strategy
+### 4.6 Testing Strategy — PARTIALLY ADDRESSED
+
+> **PARTIALLY ADDRESSED**: The redesign specifies test file colocation
+> (features/*/\_\_tests\_\_/) and mock structure (tests/mocks/). Full testing strategy
+> deferred to implementation phase.
 
 The spec mentions test file locations (§24) but doesn't address:
 - What to test (actions? hooks? components? data access?)
@@ -366,12 +411,15 @@ but singleton patterns may not work on edge as expected).
 
 ## 6. Summary Assessment
 
+> **Updated per redesign audit (2026-03-01)**: All "Missing" items now addressed.
+> Provider naming validated. Artifact terminology confirmed.
+
 | Area | Verdict | Confidence |
 |------|---------|------------|
 | Feature module structure | ✅ Keep | 95% |
 | Slim routes | ✅ Keep | 95% |
-| Edge-only rate limiting | ✅ Keep | 90% |
-| Error handling (AppError) | ✅ Keep, simplify | 90% |
+| Edge-only rate limiting (proxy.ts) | ✅ Keep | 90% |
+| Error handling (AppError + ActionResult) | ✅ Keep, simplify | 90% |
 | Auth consolidation | ✅ Keep, colocate | 90% |
 | AI two-layer concept | ✅ Keep concept | 85% |
 | Cache keys | ✅ Keep | 90% |
@@ -381,9 +429,9 @@ but singleton patterns may not work on edge as expected).
 | `lib/hooks/` blanket | ❌ Reject | 85% |
 | Repository pattern | ❌ Reject, simplify | 90% |
 | Singleton services | ❌ Reject | 95% |
-| Jotai | ❌ Reject | 85% |
-| Result<T, E> type | ❌ Reject | 90% |
+| Jotai | ❌ Reject (CONFIRMED) | 95% |
+| Result<T, E> type | ❌ Reject (ActionResult<T> instead) | 90% |
 | Mandatory barrel files | ❌ Reject mandatory | 85% |
-| PPR / `use cache` | ⚠️ Missing | 90% |
-| Server Action vs Route | ⚠️ Missing decision | 85% |
-| Guest data branching | ⚠️ Missing | 90% |
+| PPR / `use cache` | ✅ Addressed (redesign) | 90% |
+| Server Action vs Route | ✅ Addressed (redesign) | 90% |
+| Guest data branching | ✅ Addressed (redesign) | 90% |

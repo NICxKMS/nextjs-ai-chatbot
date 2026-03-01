@@ -2,6 +2,11 @@
 
 > Key decisions with rationale, alternatives considered, and tradeoffs.
 > Each decision references the v6 spec where applicable.
+>
+> **Updated per redesign audit (2026-03-01)**: State management map, caching strategy,
+> provider naming, and error handling patterns updated. New ADRs added for proxy.ts,
+> SettingsProvider removal, handler registry, ChatShell decomposition, ActionResult<T>,
+> and revalidation completeness.
 
 ---
 
@@ -118,14 +123,19 @@ for settings.
 
 ### State Management Map
 
+> **Updated per redesign audit (2026-03-01)**: Artifact state uses `useSyncExternalStore`
+> (not SWR). Provider names updated. SessionProvider added. PendingChatsProvider replaces
+> optimistic chats context. ChatStreamProvider replaces DataStreamProvider.
+
 | State | Owner | Pattern | Why |
 |-------|-------|---------|-----|
 | Chat messages | AI SDK | `useChat` hook | Framework-provided, no choice |
-| Artifact state | features/artifacts | SWR with optimistic mutate | Already working, supports selectors |
+| Artifact state | features/artifacts | `useSyncExternalStore` + external store | Module-level store, no Context needed, selector support |
 | Chat visibility | features/chat | SWR with server action | Optimistic updates with rollback |
-| Optimistic chats | features/sidebar | React context | Cross-component, needs Set-based dedup |
-| Data stream | features/chat | Split context (state+dispatch) | Prevents re-render cascades |
-| Settings | features/settings | `useSyncExternalStore` + localStorage | Pub/sub without React overhead |
+| Pending chats | features/sidebar | `PendingChatsProvider` (React context) | Wraps sidebar + content, Set-based dedup |
+| Chat stream | features/chat | `ChatStreamProvider` (split state+dispatch) | Prevents re-render cascades |
+| Auth session | features/auth | `SessionProvider` (React context) | Session available to client components |
+| Settings | features/settings | `useSyncExternalStore` + localStorage | No provider needed — direct import |
 | Theme | app-wide | `next-themes` | Already a dependency |
 | Model selection | features/models | Cookie + localStorage | Server-readable (SSR), client-persisted |
 
@@ -276,17 +286,26 @@ The v6 spec uses Redis exclusively for caching. Next.js 16 introduces `use cache
 
 ### Boundary
 
+> **Updated per redesign audit (2026-03-01)**: "Document versions" renamed to "Artifact versions".
+> Quota/credit/gateway logic removed (not in scope). Revalidation strategy added.
+
 | Pattern | Redis | `use cache` |
 |---------|-------|-------------|
 | Chat messages | ✅ | — |
 | Chat metadata | ✅ | — |
-| Document versions | ✅ | — |
-| Quota counters | ✅ | — |
+| Artifact versions | ✅ | — |
 | Rate limit state | ✅ | — |
 | Guest data | ✅ (only source) | — |
 | Model catalog | — | ✅ |
 | Token pricing catalog | — | ✅ (already used) |
 | Static prompts | — | ✅ or compile-time |
+
+### Revalidation Strategy
+
+Every mutation must call `updateTag`/`revalidateTag` to keep `use cache` data fresh.
+Server Actions call `revalidateTag` (push invalidation). Route Handlers call `updateTag`
+(cooperative freshness). This is enforced as a coding convention — no mutation ships
+without the corresponding tag invalidation.
 
 ### Tradeoffs
 
@@ -304,21 +323,24 @@ The v6 spec uses Redis exclusively for caching. Next.js 16 introduces `use cache
 
 ### Context
 
-The v6 spec (§6, Decision 3) prescribes edge-only rate limiting in middleware with
+The v6 spec (§6, Decision 3) prescribes edge-only rate limiting in proxy with
 per-route configuration. The existing app has both edge AND application-level rate limiting.
 
 ### Decision
 
 **Keep edge-only rate limiting** per the spec. The per-route config approach is clean.
 Application-level rate limiters in the existing app (chat: 50/min, standard: 100/min,
-strict: 10/min, upload: 10/hour) can be expressed as middleware route configs.
+strict: 10/min, upload: 10/hour) can be expressed as proxy route configs.
 
 ### Caveat for Next.js 16
+
+> **Updated per redesign audit (2026-03-01)**: `middleware.ts` replaced by `proxy.ts`
+> in Next.js 16. See ADR-010.
 
 The Edge Runtime has API limitations. The rate limit implementation must:
 - Use Upstash Redis (HTTP-based, edge-compatible)
 - Use lazy initialization for rate limiter instances
-- Avoid Node.js-specific APIs in middleware
+- Avoid Node.js-specific APIs in `proxy.ts`
 
 The daily quota check (20 messages/day for guest, 100/day for auth) is NOT a rate limit —
 it's a business rule. This check stays in the chat action, reading from a Redis counter.
@@ -345,3 +367,168 @@ Most feature subdirectories (actions/, components/, hooks/) will NOT have barrel
 Import directly from the specific file.
 
 ### Confidence: 85%
+
+---
+
+## ADR-010: proxy.ts Replaces middleware.ts (Next.js 16)
+
+> **Added per redesign audit (2026-03-01)**
+
+### Context
+
+Next.js 16 replaces `middleware.ts` with `proxy.ts` as the request interception layer.
+The proxy runs at the edge and handles auth guards, token rotation, and rate limiting.
+
+### Decision
+
+**Use `proxy.ts`** at the project root. Same responsibilities as the old middleware:
+auth guard, guest token rotation (< 30 min remaining), and per-route rate limiting.
+
+### Confidence: 95%
+
+---
+
+## ADR-011: SettingsProvider Removed
+
+> **Added per redesign audit (2026-03-01)**
+
+### Context
+
+The v6 spec wraps settings state in a `SettingsProvider` React context backed by Jotai
+atoms. The existing app uses `useSyncExternalStore` + localStorage for settings.
+
+### Decision
+
+**No SettingsProvider.** `useSettings()` is imported directly from
+`features/settings/hooks/use-settings.ts`. It uses `useSyncExternalStore` with a
+module-level store backed by localStorage. No provider in the tree, no context overhead.
+
+### Why
+
+- `useSyncExternalStore` already provides pub/sub reactivity without a provider
+- One fewer provider in the tree = simpler component hierarchy
+- Direct import = no context lookup cost
+- Module-level store = singleton behavior naturally
+
+### Confidence: 90%
+
+---
+
+## ADR-012: Handler Registry for Artifacts
+
+> **Added per redesign audit (2026-03-01)**
+
+### Context
+
+The existing app has a `documentHandlersByArtifactKind` map imported directly into
+the chat feature. This creates a hard coupling: chat must know about every artifact kind.
+
+### Decision
+
+**Use a handler registry** in `lib/ai/artifact-handlers.ts` with `registerHandler(kind, handler)`
+and `getHandler(kind)` functions. Each artifact kind registers itself. The chat feature
+gets handlers via the registry without importing artifact internals.
+
+### Pattern
+
+```typescript
+// lib/ai/artifact-handlers.ts
+const handlers = new Map<ArtifactKind, ArtifactHandler>()
+export function registerHandler(kind: ArtifactKind, handler: ArtifactHandler) { ... }
+export function getHandler(kind: ArtifactKind): ArtifactHandler | undefined { ... }
+
+// features/artifacts/handlers/index.ts
+import { registerHandler } from '@/lib/ai/artifact-handlers'
+registerHandler('text', textHandler)
+registerHandler('code', codeHandler)
+// ...
+```
+
+### Confidence: 85%
+
+---
+
+## ADR-013: ChatShell + ChatSessionContext
+
+> **Added per redesign audit (2026-03-01)**
+
+### Context
+
+The existing `Chat` component (~200 lines) is a "God Component" that manages useChat,
+data streaming, artifact state, scroll behavior, vote loading, and rendering. This
+makes it untestable and creates a re-render blast radius.
+
+### Decision
+
+**Decompose into ChatShell (~60 lines) + ChatSessionContext.** ChatShell calls `useChat`,
+wraps children in `ChatSessionContext.Provider`, and renders the component tree.
+Children access chat state via `useChatSessionContext()` instead of prop drilling.
+
+### Components
+
+- `ChatShell`: Calls useChat, provides context, renders Messages + MultimodalInput + StreamBridge
+- `ChatSessionContext`: Holds messages, status, append, reload, stop, setMessages
+- `StreamBridge`: Thin component (~20 lines) that calls `processStreamDelta()` pure function
+- `VoteResolver`: Uses `use()` to resolve deferred vote promise, hydrates SWR
+
+### Confidence: 90%
+
+---
+
+## ADR-014: ActionResult<T> for Server Actions
+
+> **Added per redesign audit (2026-03-01)**
+
+### Context
+
+Server Actions need a consistent error handling pattern. Thrown errors don't compose
+well with `useActionState` and optimistic updates. The spec's `Result<T, E>` type is
+too complex.
+
+### Decision
+
+**Use `ActionResult<T>` as the return type for all Server Actions.**
+
+```typescript
+type ActionResult<T = void> =
+  | { success: true; data: T }
+  | { success: false; error: string; code?: string }
+```
+
+This is simpler than `Result<T, E>` and works naturally with `useActionState`.
+Route Handlers still throw `AppError` and catch at the boundary.
+
+### Confidence: 85%
+
+---
+
+## ADR-015: Revalidation Completeness
+
+> **Added per redesign audit (2026-03-01)**
+
+### Context
+
+With `use cache` + `cacheTag` for server-rendered data, stale data is a risk if
+mutations don't properly invalidate tags.
+
+### Decision
+
+**Every mutation must pair with `revalidateTag` (Server Actions) or `updateTag`
+(Route Handlers).** This is a non-negotiable coding convention.
+
+### Pattern
+
+```typescript
+// In a Server Action:
+export async function deleteChat(chatId: string): Promise<ActionResult> {
+  // ... delete logic ...
+  revalidateTag(`chat:${chatId}`)
+  revalidateTag(`chats:${userId}`)
+  return { success: true, data: undefined }
+}
+
+// In a Route Handler:
+await updateTag(`chat:${chatId}`)
+```
+
+### Confidence: 95%

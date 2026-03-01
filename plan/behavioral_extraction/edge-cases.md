@@ -1,5 +1,7 @@
 # Edge Cases & Error Handling
 
+> **Updated per redesign audit (2026-03-01)**
+
 ## Error System Architecture
 
 ### `ChatSDKError` (`lib/errors.ts`)
@@ -21,7 +23,9 @@ Format: `{type}:{surface}:{reason?}`
 
 **Types**: `bad_request` (400), `unauthorized` (401), `forbidden` (403), `not_found` (404), `rate_limit` (429), `offline` (503)
 
-**Surfaces**: `chat`, `auth`, `api`, `stream`, `database`, `history`, `vote`, `document`, `suggestions`, `activate_gateway`, `ui`
+**Surfaces**: `chat`, `auth`, `api`, `stream`, `database`, `history`, `vote`, `artifact`, `suggestions`, `ui`
+
+> *`document` error surface renamed to `artifact`. `activate_gateway` surface removed (no credit/gateway logic). Server Actions return `ActionResult<T>` instead of throwing `ChatSDKError`.*
 
 ### Visibility Rules
 Each surface has a visibility setting controlling how errors are exposed:
@@ -64,9 +68,9 @@ Each surface has a visibility setting controlling how errors are exposed:
 - Animated pulse effect
 - Displayed while `GET /api/history` is in flight
 
-### Document Skeleton (`components/document-skeleton.tsx`)
-- Placeholder bars for document content area
-- Shows while document is being fetched or generated
+### Artifact Skeleton (`components/artifact-skeleton.tsx`)
+- Placeholder bars for artifact content area
+- Shows while artifact is being fetched or generated
 
 ### Artifact Streaming
 - During `status: "streaming"`:
@@ -94,7 +98,7 @@ Each surface has a visibility setting controlling how errors are exposed:
 - "No chats yet" message when history is empty
 
 ### No Suggestions
-- Suggestions panel hidden when no suggestions exist for a document
+- Suggestions panel hidden when no suggestions exist for an artifact
 
 ---
 
@@ -145,6 +149,8 @@ onError: (error: Error) => {
 | Guest | 20/day | `rate_limit:chat:daily_limit_exceeded` |
 | Authenticated | 100/day | `rate_limit:chat:daily_limit_exceeded` |
 
+> *Daily quota retained for abuse prevention, but credit/gateway/entitlement logic removed. No token-based billing.*
+
 Tracked via Redis counter with daily TTL. Checked before processing, incremented after successful save.
 
 ---
@@ -182,7 +188,7 @@ Normal → 5 consecutive failures → Circuit OPEN (30s)
 
 ### Optimistic Update Rollback
 - `useChatVisibility`: On server action failure, reverts to previous value + shows toast
-- `useOptimisticChats`: Auto-cleanup of stale optimistic entries (>2 min old)
+- `usePendingChats`: Auto-cleanup of stale pending entries (>2 min old)
 
 ### Race Conditions
 - Title generation: runs in parallel with streaming, writes to cache/DB async
@@ -192,7 +198,7 @@ Normal → 5 consecutive failures → Circuit OPEN (30s)
 
 ### Chat Ownership Validation
 - Every mutation checks `chat.userId === session.user.id`
-- Prevents IDOR attacks on chat/vote/document operations
+- Prevents IDOR attacks on chat/vote/artifact operations
 - Public chats readable by anyone, writable only by owner
 
 ---
@@ -214,9 +220,9 @@ Normal → 5 consecutive failures → Circuit OPEN (30s)
 - Cookies blocked → No auth possible, stuck on login page
 
 ### Concurrent Editors
-- No collaborative editing (single-user documents)
+- No collaborative editing (single-user artifacts)
 - Multiple tabs: last save wins, no conflict detection
-- SWR state is per-tab (no cross-tab sync)
+- Artifact state is per-tab via `useSyncExternalStore` (no cross-tab sync)
 
 ### File Upload Edge Cases
 - Large files: Vercel Blob limits apply
@@ -231,7 +237,7 @@ Normal → 5 consecutive failures → Circuit OPEN (30s)
 - No filesystem or network access (sandboxed)
 
 ### Version Overflow
-- No limit on document versions
+- No limit on artifact versions
 - Each version is a separate DB row + appended to cache array
 - Theoretical unlimited growth (performance may degrade)
 

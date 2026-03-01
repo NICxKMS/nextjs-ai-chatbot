@@ -1,87 +1,100 @@
+> **Updated per redesign audit (2026-03-01)**
+
 # Vertical Slices
 
 > Every phase of the rebuild defined with entry state, scope, exit criteria,
-> files touched, seams wired, and integration verification.
+> files touched, and integration verification.
+> 125 tasks across 8 phases. ~210 files. "artifact" naming throughout.
+> ChatShell + ChatSessionContext, proxy.ts, useSyncExternalStore, handler registry.
 
 ---
 
-## Phase 00 — Scaffold (Blocking)
+## Phase 0 — Scaffold & Infrastructure (Blocking)
 
 ### Entry State
-Empty project directory (or existing repo with `oldapp/` preserved).
+Empty project directory (or existing repo with `oldapp/` preserved as read-only reference).
 
 ### Objective
-Set up the project skeleton: config, directory structure, shared types, ai-elements copy, and a minimal rendering root layout. The project must build and pass all linting.
+Create the project skeleton — config, shared types, error handling, utilities, UI primitives, root layout, proxy, and test infrastructure. No `app-shell.tsx`, no barrel `index.ts` files.
 
 ### Scope
 
 **Config files:**
 - `package.json` — dependencies + scripts
-- `next.config.ts` — React Compiler, PPR incremental
+- `next.config.ts` — `cacheComponents: true`, React Compiler
 - `tsconfig.json` — strict mode, `@/*` path alias, exclude oldapp/plan
 - `biome.json` — formatting + linting rules, ai-elements excluded
 - `postcss.config.mjs` — Tailwind v4 plugin
 - `vercel.json` — minimal
 
 **Root app shell:**
-- `app/layout.tsx` — Root layout: fonts (Geist, Geist Mono), `<html>` with suppressed hydration warning, `<body>` with `antialiased`
+- `app/layout.tsx` — Root layout (SERVER): `<html>` with `suppressHydrationWarning`, `<body>` with `antialiased`, ThemeProvider stub
 - `app/globals.css` — Tailwind v4 imports, CSS custom properties (light/dark themes), copied from oldapp
 - `app/global-error.tsx` — Standalone html/body error boundary
-- `app/head.tsx` — Metadata configuration
-- `components/app-shell.tsx` — Provider tree stub (ThemeProvider → TooltipProvider → Toaster)
-- `components/theme-provider.tsx` — next-themes wrapper
 
 **Shared infrastructure (type-level only):**
-- `lib/db/schema.ts` — Drizzle table definitions (users, chats, messages, votes, documents, suggestions)
-- `lib/types/models.types.ts` — InferSelectModel / InferInsertModel types
-- `lib/types/api.types.ts` — Request/response shapes
-- `lib/types/ai.types.ts` — ModelMetadata, ProviderId, ReasoningType, CustomUIDataTypes, constants
-- `lib/types/index.ts` — AppSession, DataContext, re-exports
-- `lib/errors/codes.ts` — ErrorCode string literal union
+- `lib/db/schema.ts` — Drizzle table definitions (users, chats, messages, votes, **artifacts** (NOT documents), suggestions)
+- `lib/types/models.types.ts` — InferSelectModel / InferInsertModel types (Artifact, NOT Document)
+- `lib/types/result.types.ts` — `ActionResult<T>` for Server Actions
+- `lib/types/data-context.types.ts` — DataContext (userId, isGuest)
+- `lib/types/artifact.types.ts` — UIArtifact, ArtifactKind, ArtifactStatus
+- `lib/types/artifact-handler.types.ts` — ArtifactHandler, ArtifactStreamWriter interfaces
+- `lib/types/pending-chats.types.ts` — PendingChat, PendingChatOperations
+- `lib/types/model.types.ts` — ModelMetadata, ProviderId (NO vercel-gateway), constants
+- `lib/types/settings.types.ts` — UserSettings type
+- `lib/errors/codes.ts` — ErrorCode union (NO activate_gateway, NO credit codes)
 - `lib/errors/app-error.ts` — AppError class with static factories + toResponse()
-- `lib/errors/index.ts` — Re-exports
-- `lib/utils/index.ts` — cn(), generateUUID(), formatDate (carried from oldapp)
-- `lib/utils/lazy.ts` — createLazyComponentWithPreload (needed by ai-elements)
-- `lib/utils/logger.ts` — Structured logger (needed by ai-elements)
+- `lib/utils/cn.ts` — clsx + twMerge
+- `lib/utils/format.ts` — Date/string formatting
+- `lib/utils/generate-uuid.ts` — UUID generation
 
 **AI elements (copy):**
 - Copy all 31 files from `oldapp/components/elements/` → `components/ai-elements/`
-- Adjust import paths if `@/lib/utils/index` or `@/components/ui/` paths changed
-- Verify no logic modifications
+- Verify import paths match `@/components/ui/` and `@/lib/utils/`
 
 **shadcn/ui components (copy):**
-- Copy all UI primitives from `oldapp/components/ui/` → `components/ui/`
-- These are the base components ai-elements depends on (button, badge, card, collapsible, command, dialog, dropdown-menu, hover-card, input, input-group, progress, scroll-area, select, separator, tooltip, etc.)
+- Copy all UI primitives from `oldapp/components/ui/` → `components/ui/` (~32 files including sidebar.tsx)
 
 **Shared components:**
+- `components/theme-provider.tsx` — next-themes wrapper
 - `components/icons.tsx` — Shared icon components (copy from oldapp)
-- `components/sidebar-toggle.tsx` — Sidebar toggle button (copy from oldapp)
+- `components/sidebar-toggle.tsx` — Sidebar toggle button
+- `components/toaster.tsx` — Toast notification container (Sonner)
 
-**Directory stubs:**
-- Create empty directories for all features: `features/chat/`, `features/artifacts/`, `features/auth/`, `features/sidebar/`, `features/settings/`, `features/voting/`, `features/models/`
-- Create `tests/` with `setup.ts` stub
+**Shared hooks:**
+- `lib/hooks/use-mobile.ts` — Media query: max-width 768px
+- `lib/hooks/use-debounce.ts` — Debounced value hook
 
-**Middleware base:**
-- `middleware.ts` — Device detection header only (rate limiting and auth added in later phases)
+**proxy.ts (Next.js 16):**
+- `proxy.ts` — Exports `proxy()` function + `config.matcher`. Auth guard, guest token rotation. NOT middleware.ts.
 
 **Instrumentation:**
 - `instrumentation.ts` — OTel skeleton
 - `instrumentation-client.ts` — Empty export
 
-### Files Created (~80+)
+**Test infrastructure:**
+- `tests/setup.ts` — Vitest global setup stub
+
+**Import boundary script:**
+- `scripts/check-imports.mjs` — Validates import hierarchy (runs in `pnpm lint`)
+
+### Files Created (~55)
 
 | Directory | Count | Key Files |
 |-----------|-------|-----------|
 | Root config | 7 | package.json, next.config.ts, tsconfig.json, biome.json, postcss, vercel.json, .env.example |
-| `app/` | 5 | layout.tsx, globals.css, global-error.tsx, head.tsx |
+| `app/` | 3 | layout.tsx, globals.css, global-error.tsx |
 | `components/ai-elements/` | 31 | All 31 read-only primitives |
 | `components/ui/` | ~32 | All shadcn/ui base components |
-| `components/` | 4 | app-shell.tsx, theme-provider.tsx, icons.tsx, sidebar-toggle.tsx |
-| `lib/types/` | 4 | models.types.ts, api.types.ts, ai.types.ts, index.ts |
-| `lib/errors/` | 3 | codes.ts, app-error.ts, index.ts |
-| `lib/utils/` | 3 | index.ts, lazy.ts, logger.ts |
+| `components/` | 4 | theme-provider.tsx, icons.tsx, sidebar-toggle.tsx, toaster.tsx |
+| `lib/types/` | 7 | models.types.ts, result.types.ts, data-context.types.ts, artifact.types.ts, artifact-handler.types.ts, pending-chats.types.ts, model.types.ts, settings.types.ts |
+| `lib/errors/` | 2 | codes.ts, app-error.ts |
+| `lib/utils/` | 3 | cn.ts, format.ts, generate-uuid.ts |
+| `lib/hooks/` | 2 | use-mobile.ts, use-debounce.ts |
 | `lib/db/` | 1 | schema.ts |
-| Root | 3 | middleware.ts, instrumentation.ts, instrumentation-client.ts |
+| Root | 3 | proxy.ts, instrumentation.ts, instrumentation-client.ts |
+| Scripts | 1 | check-imports.mjs |
+| Tests | 1 | setup.ts |
 
 ### Exit Criteria
 
@@ -89,578 +102,520 @@ Set up the project skeleton: config, directory structure, shared types, ai-eleme
 - [ ] `pnpm typecheck` passes
 - [ ] `pnpm lint` passes
 - [ ] `pnpm format` passes
-- [ ] `pnpm dev` starts, root layout renders (blank page with theme provider)
+- [ ] `pnpm dev` starts, root layout renders
+- [ ] `proxy.ts` exports `proxy()` function + `config.matcher`
+- [ ] DB schema uses `Artifact` table (NOT `Document`)
+- [ ] `lib/errors/codes.ts` has zero credit/gateway codes
 - [ ] All ai-elements files exist at `@/components/ai-elements/`
 - [ ] All shadcn/ui files exist at `@/components/ui/`
-- [ ] `@/lib/types` exports AppSession, DataContext, ModelMetadata, etc.
-- [ ] `@/lib/errors` exports AppError with factory methods
+- [ ] `@/lib/types/artifact.types` exports UIArtifact, ArtifactKind
+- [ ] `@/lib/types/result.types` exports ActionResult<T>
 - [ ] Import `@/components/ai-elements/message` resolves without errors
 - [ ] Directory structure matches scaffold/directory-structure.md
 
-### Seams Addressed
-None directly — this phase creates the foundation for all seams.
+### 18 Tasks (P0-T01 through P0-T18)
+
+See `redesign/phase-plan.md` for complete task table with IDs, types, files, dependencies, and complexity ratings.
 
 ---
 
-## Phase 01 — Data Foundation (Blocking)
+## Phase 1 — Data Foundation (Blocking)
 
 ### Entry State
-Scaffold complete. Types, config, and ai-elements available.
+Scaffold complete. Types, config, proxy, and ai-elements available.
 
 ### Objective
-Build the entire data access layer: database client, cache client, data access functions (stubs with core implementations), auth infrastructure, and API utilities. After this phase, any feature can call data functions.
+Create the database migration infrastructure, cache layer, all data access functions, revalidation utilities, and AI provider foundation. After this phase, any feature can call data functions and invalidate caches.
 
 ### Scope
 
 **Database (`lib/db/`):**
-- `lib/db/client.ts` — Drizzle client with postgres driver, globalThis singleton for HMR safety
-- `lib/db/index.ts` — Re-export db + schema
+- `lib/db/client.ts` — Drizzle client with postgres driver, globalThis singleton
 - `lib/db/migrate.ts` — Migration runner
+- `drizzle.config.ts` — Drizzle config at root
 - `lib/db/migrations/` — Initial migration (generated from schema)
 
 **Cache (`lib/cache/`):**
 - `lib/cache/client.ts` — Upstash Redis client (HTTP-based, edge-compatible, globalThis singleton)
-- `lib/cache/keys.ts` — Cache key factory (`cacheKeys.chat()`, `.userChats()`, `.document()`, `.quota()`)
+- `lib/cache/keys.ts` — Cache key factory (`cacheKeys.chat()`, `.chats()`, `.artifact()`, `.votes()`)
+- `lib/cache/revalidate.ts` — `updateTag`/`revalidateTag` utilities: `invalidateChat()`, `invalidateChatList()`, `refreshChat()`, `refreshArtifact()`, etc.
 - `lib/cache/with-cache.ts` — `withCache<T>(key, ttl, fetcher)` helper with failure tolerance
-- `lib/cache/index.ts` — Re-exports
 
 **Data access (`lib/data/`):**
-- `lib/data/context.ts` — DataContext type + `createDataContext(session)`
-- `lib/data/chat.ts` — `getChatById`, `getChatsByUserId`, `createChat`, `updateChatTitle`, `updateChatVisibility`, `deleteChatById`, `deleteAllChatsByUserId`, `getChatWithMessages`, `saveChat` (orchestrator)
-- `lib/data/message.ts` — `getMessagesByChatId`, `createMessage`, `deleteTrailingMessages`, `getUserMessageCount`, `incrementMessageCount`
-- `lib/data/document.ts` — `getDocumentById`, `getDocumentVersions`, `saveDocumentVersion`, `deleteDocumentVersion`
+- `lib/data/user.ts` — `getUserByEmail`, `createUser`
+- `lib/data/chat.ts` — `getChatById`, `getChatsByUserId`, `createChat`, `updateChatTitle`, `deleteChat`, `deleteAllChats`, `getChatWithMessages`
+- `lib/data/message.ts` — `saveMessages`, `deleteTrailingMessages`
+- `lib/data/artifact.ts` — `getArtifactById`, `getArtifactVersions`, `saveArtifactVersion` (NOT document.ts — zero "document" identifiers)
 - `lib/data/vote.ts` — `upsertVote`, `getVotesByChatId`
-- `lib/data/user.ts` — `getUserById`, `createUser`
+- `lib/data/suggestion.ts` — `getSuggestionsByArtifactId`, `saveSuggestions`
 
-All data functions implement the guest/auth branching pattern:
-- Guest: cache-only reads (return null on miss), cache-only writes
-- Auth: cache-first reads with DB fallback + cache warming, DB-first writes with cache update
+**AI infrastructure:**
+- `lib/ai/registry.ts` — `createProviderRegistry` (conditional: google, openai, openrouter — NO vercel-gateway)
+- `lib/ai/provider.ts` — `myProvider`: customProvider with reasoning middleware
 
-**Auth infrastructure (`lib/auth/`):**
-- `lib/auth/config.ts` — JWT secrets, cookie names/config, Supabase server client factory
-- `lib/auth/index.ts` — Re-exports
+**Test fixtures:**
+- `tests/fixtures/chat.ts`, `tests/fixtures/artifact.ts`, `tests/fixtures/user.ts`, `tests/fixtures/vote.ts`
+- `tests/mocks/auth.ts`, `tests/mocks/db.ts`, `tests/mocks/cache.ts`
 
-**API utilities (`lib/api/`):**
-- `lib/api/guards.ts` — `requireAuth()`, `requireNonGuest()`, `requireChatOwner()`, `requireMessageInChat()`
-- `lib/api/validation.ts` — `parseJsonBodyForRoute(body, schema)` with Zod
-- `lib/api/response.ts` — Error response helpers
-
-**Rate limiting (`lib/rate-limit/`):**
-- `lib/rate-limit/config.ts` — `RateLimiters` with chat (50/min), standard (100/min), strict (10/min), upload (10/hr) configs using @upstash/ratelimit
-
-**Shared hooks (`lib/hooks/`):**
-- `lib/hooks/use-mobile.ts` — useSyncExternalStore + matchMedia
-- `lib/hooks/use-debounce.ts` — Debounced value hook
-
-### Files Created (~25)
+### Files Created (~22)
 
 | Directory | Count | Key Files |
 |-----------|-------|-----------|
-| `lib/db/` | 4 | client.ts, index.ts, migrate.ts, migrations/ |
-| `lib/cache/` | 4 | client.ts, keys.ts, with-cache.ts, index.ts |
-| `lib/data/` | 6 | context.ts, chat.ts, message.ts, document.ts, vote.ts, user.ts |
-| `lib/auth/` | 2 | config.ts, index.ts |
-| `lib/api/` | 3 | guards.ts, validation.ts, response.ts |
-| `lib/rate-limit/` | 1 | config.ts |
-| `lib/hooks/` | 2 | use-mobile.ts, use-debounce.ts |
-| `tests/mocks/` | 3 | cache.ts, db.ts, auth.ts |
+| `lib/db/` | 3 | client.ts, migrate.ts, drizzle.config.ts |
+| `lib/cache/` | 4 | client.ts, keys.ts, revalidate.ts, with-cache.ts |
+| `lib/data/` | 6 | user.ts, chat.ts, message.ts, artifact.ts, vote.ts, suggestion.ts |
+| `lib/ai/` | 2 | registry.ts, provider.ts |
+| `tests/` | 7 | fixtures + mocks |
 
 ### Exit Criteria
 
 - [ ] `pnpm typecheck` passes
 - [ ] `pnpm lint` passes
+- [ ] All `lib/data/*.ts` functions type-check with Drizzle schema
+- [ ] `lib/cache/revalidate.ts` exports both `invalidate*` (SA) and `refresh*` (RH) functions
+- [ ] `lib/ai/registry.ts` has NO `vercel-gateway` provider
+- [ ] `lib/data/artifact.ts` (NOT `document.ts`) — zero "document" identifiers
 - [ ] DB client connects (or mocked in test)
 - [ ] Cache client connects (or mocked in test)
-- [ ] `createDataContext()` produces correct context from mock session
-- [ ] `getChatById` correctly branches on `isGuest`
-- [ ] `withCache` handles cache miss → fetcher → cache warm
-- [ ] `AppError.unauthorized().toResponse()` returns 401 JSON
-- [ ] `parseJsonBodyForRoute` validates with Zod and returns parsed data
-- [ ] `RateLimiters.chat` instantiates correctly
 - [ ] Unit tests for data access functions pass (mocked db/cache)
 
-### Seams Addressed
-- **SEAM-023**: DataContext (session → guest/auth branching)
-- **SEAM-024**: Chat data operations (partial — functions defined, full integration in P03)
-- **SEAM-025**: Document data operations (partial — functions defined, full integration in P04)
-- **SEAM-026**: Message persistence (partial — functions defined, full integration in P03)
+### 14 Tasks (P1-T01 through P1-T14)
+
+See `redesign/phase-plan.md` for complete task table.
 
 ---
 
-## Phase 02 — Auth Vertical (Blocking)
+## Phase 2 — Auth Vertical (Blocking)
 
 ### Entry State
-Data foundation available. DB/cache clients work. Auth config exists.
+Data foundation available. DB/cache clients work. User CRUD available.
 
 ### Objective
-Complete authentication end-to-end: login, register, guest bootstrap, token exchange, session resolution, middleware auth guards. After this phase, users can authenticate and the session is available everywhere.
+Implement complete authentication — session resolution, login/register/logout, guest bootstrap, SessionProvider, auth pages, and proxy wiring. After this phase, users can authenticate and the session is available everywhere.
 
 ### Scope
 
 **Auth feature (`features/auth/`):**
-- `features/auth/lib/session.ts` — `getAppSession()`: checks sb_token → guest_token → null
-- `features/auth/actions/login.ts` — Login server action (form validation)
-- `features/auth/actions/register.ts` — Register server action
-- `features/auth/actions/exchange.ts` — Token exchange: jwtVerify Supabase token, set httpOnly cookie
-- `features/auth/actions/logout.ts` — Clear cookies, redirect
-- `features/auth/components/auth-form.tsx` — Consolidated form with `mode` prop (login/register)
-- `features/auth/components/auth-provider.tsx` — Session context: Supabase listener, guest bootstrap effect, session state
+- `features/auth/types/auth.types.ts` — AppSession, User, GuestToken types
 - `features/auth/schemas/auth.schema.ts` — Login/register Zod schemas
-
-**Auth routes (`app/api/auth/`):**
-- `app/api/auth/callback/route.ts` — OAuth callback (if needed)
-- `app/api/auth/guest/route.ts` — POST: generate guest JWT, set cookie
-- `app/api/auth/logout/route.ts` — POST: clear cookies
+- `features/auth/lib/session.ts` — `getAppSession()`: checks sb_token → guest_token → null
+- `features/auth/lib/guest.ts` — Guest bootstrap: JWT creation, token rotation
+- `features/auth/actions/login.ts` — Server Action: email/password login → cookie set → redirect
+- `features/auth/actions/register.ts` — Server Action: registration → cookie set → redirect
+- `features/auth/actions/logout.ts` — Server Action: cookie delete → redirect to /login
+- `features/auth/components/auth-form.tsx` — Consolidated form with `mode` prop, `useActionState`
+- `features/auth/components/session-provider.tsx` — Session context provider + guest bootstrap effect (NOT auth-provider.tsx)
 
 **Auth pages (`app/(auth)/`):**
-- `app/(auth)/layout.tsx` — Minimal auth layout (no sidebar)
+- `app/(auth)/layout.tsx` — Auth layout (SERVER): centered card container
 - `app/(auth)/login/page.tsx` — Login page importing AuthForm
 - `app/(auth)/register/page.tsx` — Register page importing AuthForm
-
-**Middleware updates:**
-- `middleware.ts` — Add guest token rotation (if <30min remaining → resign JWT, same sub, fresh exp)
+- `app/(auth)/error.tsx` — Auth route error boundary
 
 **Root layout update:**
-- `app/layout.tsx` — Wire AppShell to fetch session via `getAppSession()`, pass to AuthProvider
-- `components/app-shell.tsx` — Add SWRConfig + AuthProvider to provider tree
+- `app/layout.tsx` — Wire with `SessionProvider(session)` — server-fetched session passed as prop
 
 ### Files Created/Modified (~14)
 
 | Directory | Count | Key Files |
 |-----------|-------|-----------|
-| `features/auth/` | 8 | session.ts, login.ts, register.ts, exchange.ts, logout.ts, auth-form.tsx, auth-provider.tsx, auth.schema.ts |
-| `app/(auth)/` | 3 | layout.tsx, login/page.tsx, register/page.tsx |
-| `app/api/auth/` | 3 | guest/route.ts, logout/route.ts, callback/route.ts |
+| `features/auth/` | 9 | types, schemas, lib (session, guest), actions (login, register, logout), components (auth-form, session-provider) |
+| `app/(auth)/` | 4 | layout.tsx, login/page.tsx, register/page.tsx, error.tsx |
+| Modified | 1 | app/layout.tsx (wire SessionProvider) |
 
 ### Exit Criteria
 
 - [ ] `getAppSession()` resolves Supabase JWT → authenticated session
 - [ ] `getAppSession()` resolves guest JWT → guest session
 - [ ] `getAppSession()` returns null when no cookies
-- [ ] Login form submits → exchange route → cookie set → redirect to `/`
-- [ ] Register form submits → Supabase signUp → exchange → redirect
-- [ ] Guest route generates JWT → sets cookie → returns session
-- [ ] AuthProvider bootstraps guest session on first visit (no cookies)
-- [ ] Middleware rotates guest token when <30min remaining
+- [ ] Login form submits via `useActionState` → cookie set → redirect to `/`
+- [ ] Register form submits → registration → cookie set → redirect
+- [ ] Auth actions return `ActionResult<T>` (never throw)
+- [ ] Root layout passes server-fetched session to `SessionProvider`
+- [ ] `proxy.ts` redirects unauthenticated users to `/login`
 - [ ] Auth pages render correctly (login, register)
 - [ ] `pnpm typecheck` and `pnpm lint` pass
-- [ ] Integration test: login flow end-to-end
 
-### Seams Addressed
-- **SEAM-001**: Auth provider injection (AuthProvider with context)
-- **SEAM-002**: Auth exchange (client Supabase → server cookie)
-- **SEAM-003**: Guest bootstrap (auto-create guest session)
-- **SEAM-004**: Guest token rotation (middleware)
-- **SEAM-005**: Session resolution (getAppSession)
+### 9 Tasks (P2-T01 through P2-T09)
+
+See `redesign/phase-plan.md` for complete task table.
 
 ---
 
-## Phase 03 — Chat Core Vertical (Blocking)
+## Phase 3 — Chat Core Vertical (Blocking)
 
 ### Entry State
 Auth works. Users can log in, register, or browse as guest. Session available everywhere.
 
 ### Objective
-Build the complete chat feature: send a message, receive a streaming AI response, display it with markdown/reasoning, persist to DB/cache, load existing chats. This is the most complex phase.
+Build the complete chat experience — AI integration, settings, streaming, message display, input, ChatShell + ChatSessionContext decomposition, handler registry, server layout, and chat pages. This is the most complex phase (27 tasks).
 
 ### Scope
 
 **AI infrastructure (`lib/ai/`):**
-- `lib/ai/providers.ts` — `myProvider`: registry wrapper with reasoning middleware
-- `lib/ai/registry.ts` — `createProviderRegistry()` with 6 conditional providers
-- `lib/ai/model-discovery.ts` — Dynamic model discovery from provider APIs
-- `lib/ai/index.ts` — Re-exports
+- `lib/ai/models.ts` — `listChatModels()` with `'use cache'` + model catalog
+- `lib/ai/prompts.ts` — `composeSystemPrompt()` with conditional composition ("artifact" not "document")
+- `lib/ai/provider-options.ts` — `getProviderOptions()` per-provider config
+- `lib/ai/tools.ts` — `getEnabledTools()` model-based tool gating
+- `lib/ai/title.ts` — `generateTitle()` for chat title generation
+- `lib/ai/artifact-handlers.ts` — Handler registry: `registerArtifactHandler()`, `getArtifactHandler()` (dependency inversion)
 
 **Chat feature (`features/chat/`):**
-- `features/chat/actions/stream-chat.ts` — `streamChatAction()`: validate, auth, rate limit, quota, createUIMessageStream, executeChatCompletion, saveChat onFinish
-- `features/chat/actions/save-message.ts` — Message persistence orchestration
-- `features/chat/actions/delete-trailing-messages.ts` — Delete messages after edit point
-- `features/chat/components/chat.tsx` — Main orchestrator: useChat hook, transport config, onData/onFinish/onError handlers, URL state management
-- `features/chat/components/chat-header.tsx` — Header with sidebar toggle, model display
-- `features/chat/components/messages.tsx` — Message list with Virtuoso, auto-scroll, thinking indicator
-- `features/chat/components/message.tsx` — Single message renderer (wraps ai-elements)
-- `features/chat/components/message-actions.tsx` — Copy, edit, regenerate buttons (vote in P06)
-- `features/chat/components/message-editor.tsx` — Inline edit textarea
-- `features/chat/components/message-reasoning.tsx` — Collapsible reasoning display
-- `features/chat/components/multimodal-input.tsx` — Text input + submit (file upload in P06, model selector in P06)
-- `features/chat/components/greeting.tsx` — Empty chat welcome
-- `features/chat/components/suggested-actions.tsx` — Quick action buttons
-- `features/chat/components/data-stream-handler.tsx` — SSE → SWR bridge
-- `features/chat/components/data-stream-provider.tsx` — Split state/dispatch contexts
-- `features/chat/components/weather.tsx` — Weather tool result renderer
-- `features/chat/hooks/use-messages.ts` — Context: share messages between components
-- `features/chat/hooks/use-scroll-to-bottom.ts` — Auto-scroll with override
-- `features/chat/schemas/chat.schema.ts` — Chat request body validation
-- `features/chat/schemas/message.schema.ts` — Message validation
-- `features/chat/lib/prompts.ts` — System prompt composition (regular + geo + user + artifacts)
-- `features/chat/lib/completion.ts` — executeChatCompletion (model, tools, settings, stream)
-- `features/chat/lib/tools/weather.ts` — getWeather tool definition
+- **Types/Schemas:** `chat.types.ts` (ChatSessionValue, ArtifactDataPart, DataPart, ChatStatus), `chat.schema.ts`
+- **Context:** `use-chat-session-context.ts` (ChatSessionContext + `useChatSessionContext()` wrapper)
+- **Pure functions:** `chat-callbacks.ts` (onData, onError, onFinish handlers), `process-stream-deltas.ts` (delta → artifact state update)
+- **Streaming:** `chat-stream-provider.tsx` (ChatStreamProvider: split state/dispatch contexts, RAF batching)
+- **Hooks:** `use-chat-session.ts` (useChat config + callbacks ~120 lines), `use-chat-side-effects.ts` (navigation effects ~40 lines), `use-scroll-to-bottom.ts`
+- **Tools:** `create-artifact.ts`, `update-artifact.ts` (use handler registry), `request-suggestions.ts`, `weather.ts`
+- **Components:**
+  - `greeting.tsx`, `suggested-actions.tsx`, `notice-handler.tsx` (empty state + notifications)
+  - `message.tsx`, `message-reasoning.tsx` (single message rendering)
+  - `message-actions.tsx`, `message-editor.tsx` (message interactions)
+  - `messages.tsx` (virtualized list + auto-scroll)
+  - `multimodal-input.tsx`, `submit-button.tsx` (input area)
+  - `chat-header.tsx` (header with sidebar toggle)
+  - `stream-bridge.tsx` (StreamBridge: thin null-render bridge ~20 lines → processStreamDelta → artifactStore)
+  - `chat-shell.tsx` (ChatShell: thin orchestrator ~60 lines, creates `ChatSessionContext.Provider`)
+- **Actions:** `delete-chat.ts`, `delete-all-chats.ts`, `delete-trailing-messages.ts` (each calls `updateTag`)
 
 **Settings feature (minimal for chat):**
-- `features/settings/hooks/use-settings.ts` — useSyncExternalStore + localStorage pub/sub
-- `features/settings/lib/defaults.ts` — Default settings values
-- `features/settings/lib/types.ts` — SettingsState type
+- `features/settings/hooks/use-settings.ts` — `useSyncExternalStore` + localStorage pub/sub (NO SettingsProvider needed)
+- `features/settings/types/settings.types.ts`
+- `features/settings/components/settings-panel.tsx`
 
 **Chat routes:**
-- `app/api/chat/route.ts` — POST: streaming chat (delegates to streamChatAction)
-- `app/(chat)/layout.tsx` — Server side: cookies, session, mobile detection
-- `app/(chat)/chat-layout-client.tsx` — Client: SettingsProvider → DataStreamProvider → provider stack
-- `app/(chat)/page.tsx` — New chat: UUID, model cookie, Chat + DataStreamHandler
-- `app/(chat)/chat/[id]/page.tsx` — Existing chat: fetch data, access control, Chat + DataStreamHandler
-- `app/(chat)/loading.tsx` — Loading spinner
+- `app/api/chat/route.ts` — POST: `createUIMessageStream`, `streamText`, tools, `onFinish` with title AWAITED server-side + revalidation
+- `app/(chat)/layout.tsx` — SERVER: SidebarProvider, Suspense → SidebarSkeleton stub, PendingChatsProvider stub, NoticeHandler
+- `app/(chat)/page.tsx` — New chat: generates UUID, renders ChatStreamProvider → ChatShell
+- `app/(chat)/chat/[id]/page.tsx` — Existing chat: `Promise.all([chat, votes])`, `'use cache'` + `cacheTag`, renders ChatStreamProvider → ChatShell
 - `app/(chat)/error.tsx` — Chat error boundary
 
 **Data layer completion:**
 - `lib/data/chat.ts` — Full implementation with guest/auth branching
 - `lib/data/message.ts` — Full implementation
 
-**Note on tools**: Only `getWeather` is implemented in this phase. `createDocument`, `updateDocument`, `requestSuggestions` are stubs that return "not yet available" — they require artifacts infrastructure from Phase 04.
+**Note on tools:** `createArtifact` and `updateArtifact` tools are created with handler registry calls, but handler implementations are stubs until Phase 4. `getWeather` is fully functional.
 
-### Files Created/Modified (~35)
+### Files Created/Modified (~42)
 
 | Directory | Count | Key Files |
 |-----------|-------|-----------|
-| `lib/ai/` | 4 | providers.ts, registry.ts, model-discovery.ts, index.ts |
-| `features/chat/` | ~20 | All actions, components, hooks, schemas, lib |
-| `features/settings/` | 3 | use-settings.ts, defaults.ts, types.ts |
-| `app/(chat)/` | 6 | layout.tsx, chat-layout-client.tsx, page.tsx, chat/[id]/page.tsx, loading.tsx, error.tsx |
+| `lib/ai/` | 6 | models.ts, prompts.ts, provider-options.ts, artifact-handlers.ts, tools.ts, title.ts |
+| `features/chat/` | ~21 | All components, hooks, actions, lib, schemas, types |
+| `features/settings/` | 3 | use-settings.ts, settings.types.ts, settings-panel.tsx |
+| `app/(chat)/` | 5 | layout.tsx, page.tsx, chat/[id]/page.tsx, error.tsx |
 | `app/api/chat/` | 1 | route.ts |
 
 ### Exit Criteria
 
+- [ ] ChatShell creates `ChatSessionContext.Provider` (~60 lines, NOT a God Component)
+- [ ] `useChatSession` encapsulates `useChat` config + callbacks
+- [ ] `ChatStreamProvider` uses split contexts (state/dispatch) with RAF batching
+- [ ] `processStreamDelta()` is a pure testable function
+- [ ] `StreamBridge` is a thin null-render bridge (~20 lines)
+- [ ] Chat API route uses `createUIMessageStream` with `onFinish` revalidation
+- [ ] Title is AWAITED server-side before stream close (no polling)
+- [ ] System prompt uses "artifact" (not "document")
+- [ ] Chat tools: `createArtifact`, `updateArtifact` (not createDocument/updateDocument)
+- [ ] Handler registry in `lib/ai/artifact-handlers.ts` (dependency inversion)
+- [ ] Chat pages use `'use cache'` + `cacheTag` for fetching
 - [ ] New chat page renders with greeting + suggested actions
-- [ ] User can type a message and submit
-- [ ] URL updates to `/chat/{id}` on first message (no reload)
-- [ ] POST /api/chat returns SSE stream
-- [ ] AI response streams token-by-token in the message area
-- [ ] Reasoning/thinking is collapsible and renders correctly
+- [ ] User can type a message, submit, and see streaming response
+- [ ] URL updates to `/chat/{id}` on first message
 - [ ] Messages persist to DB (auth) or cache (guest)
-- [ ] Existing chat loads from DB/cache with correct messages
-- [ ] Weather tool works (user asks about weather, gets response)
-- [ ] Chat header shows (sidebar toggle, model name)
-- [ ] Message actions (copy, edit) work
 - [ ] Settings (temperature, system prompt) affect AI responses
-- [ ] `pnpm typecheck` and `pnpm lint` pass
-- [ ] DataStreamHandler processes custom data parts
-- [ ] Error boundary catches and displays chat errors
+- [ ] `pnpm typecheck && pnpm lint && pnpm format` pass
 
-### Seams Addressed
-- **SEAM-006**: Chat request pipeline (useChat → POST /api/chat → SSE)
-- **SEAM-007**: DataStream pipeline (SSE → DataStreamProvider → DataStreamHandler → SWR)
-- **SEAM-008**: Chat completion execution (model, tools, settings, streaming)
-- **SEAM-015**: Settings pipeline (localStorage → useChat → server → streamText config)
-- **SEAM-028**: Client error handling (useChat.onError → toast)
-- **SEAM-029**: Provider tree assembly (root + chat layout provider stacks)
-- **SEAM-031**: URL state management (history.replaceState for chat nav)
-- **SEAM-038**: Message edit + regenerate (edit → delete trailing → regenerate)
+### 27 Tasks (P3-T01 through P3-T27)
+
+See `redesign/phase-plan.md` for complete task table.
 
 ---
 
-## Phase 04 — Artifacts Vertical
+## Phase 4 — Artifacts Vertical
 
 ### Entry State
-Chat works end-to-end. Messages stream and persist. DataStreamHandler processes data parts.
+Chat works end-to-end. StreamBridge processes stream deltas. Handler registry exists. Tool stubs call registry.
 
 ### Objective
-Build the artifact system: AI can create documents (text, code, sheet), user can edit them, versions are tracked. This wires the most complex cross-feature seam (chat tools → artifact handlers → data stream → artifact panel).
+Build the artifact system: `useSyncExternalStore` store, handler implementations, editors, artifact panel, versioning, and API routes. This wires the complete cross-feature pipeline (chat tools → handler registry → stream → artifact store → panel).
 
 ### Scope
 
 **Artifact feature (`features/artifacts/`):**
-- `features/artifacts/handlers/base.ts` — DocumentHandler interface + factory + handler registration
-- `features/artifacts/handlers/text.ts` — Text handler: streamText → data-textDelta
-- `features/artifacts/handlers/code.ts` — Code handler: streamObject({code}) → data-codeDelta
-- `features/artifacts/handlers/sheet.ts` — Sheet handler: streamObject({csv}) → data-sheetDelta
-- `features/artifacts/handlers/image.ts` — Image handler (Pyodide-only, no server generation)
-- `features/artifacts/components/artifact-panel.tsx` — Overlay panel with AnimatePresence
-- `features/artifacts/components/artifact-actions.tsx` — Per-kind action buttons
-- `features/artifacts/components/artifact-close.tsx` — Close/reset button
-- `features/artifacts/components/artifact-error-boundary.tsx` — Editor crash boundary
-- `features/artifacts/components/artifact-messages.tsx` — Mini message sidebar in panel
-- `features/artifacts/components/create-artifact.tsx` — Manual creation UI
-- `features/artifacts/components/document-preview.tsx` — Inline preview in messages
-- `features/artifacts/components/version-footer.tsx` — Version navigation
-- `features/artifacts/components/toolbar.tsx` — Draggable action toolbar
-- `features/artifacts/components/diffview.tsx` — Version diff comparison
-- `features/artifacts/components/editors/text-editor.tsx` — TipTap with suggestions extension
-- `features/artifacts/components/editors/code-editor.tsx` — CodeMirror + Pyodide
-- `features/artifacts/components/editors/sheet-editor.tsx` — react-data-grid + PapaParse
-- `features/artifacts/components/editors/image-editor.tsx` — Image display
-- `features/artifacts/components/editors/console.tsx` — Code execution output
-- `features/artifacts/hooks/use-artifact.ts` — SWR-based state
-- `features/artifacts/hooks/use-artifact-selector.ts` — Derived slice selector
-- `features/artifacts/schemas/artifact.schema.ts` — Validation
-- `features/artifacts/types/artifact.types.ts` — UIArtifact, ArtifactKind, ArtifactDefinition
-
-**Chat tools (completing stubs from P03):**
-- `features/chat/lib/tools/create-document.ts` — createDocument tool (→ handler factory)
-- `features/chat/lib/tools/update-document.ts` — updateDocument tool (→ handler factory)
-- `features/chat/lib/tools/suggestions.ts` — requestSuggestions tool (streamObject → data-suggestion)
+- **Types/Schemas:** `artifact.types.ts` (UIArtifact, ArtifactKind, ArtifactStatus), `artifact.schema.ts`
+- **Store:** `artifact-store.ts` (`useSyncExternalStore`: getSnapshot, subscribe, setState, reset)
+- **Hook aliases:** `use-artifact.ts`, `use-artifact-selector.ts` (re-exports from store)
+- **Handlers:**
+  - `text-handler.ts` — streamText → artifact-textDelta (APPEND)
+  - `code-handler.ts` — streamObject → artifact-codeDelta (REPLACE)
+  - `sheet-handler.ts` — streamObject → artifact-sheetDelta (REPLACE)
+  - `image-handler.ts` — Image handling (Pyodide-only)
+  - `index.ts` — Side-effect: registers all handlers into `lib/ai/artifact-handlers.ts` registry
+- **Editors:**
+  - `text-editor.tsx` — Tiptap rich-text + suggestions extension
+  - `code-editor.tsx` — CodeMirror Python + Pyodide execution
+  - `sheet-editor.tsx` — react-data-grid + PapaParse CSV
+  - `image-editor.tsx` — Image display (base64/URL)
+- **Panel components:**
+  - `artifact-panel.tsx` — Main container (kind-specific editor switch)
+  - `artifact-actions.tsx` — Toolbar: copy, run, diff, undo/redo
+  - `artifact-close-button.tsx` — Close button (`useArtifactSelector` for isVisible)
+  - `artifact-error-boundary.tsx` — Error boundary for editor crashes
+  - `artifact-preview.tsx` — Inline preview in messages
+  - `version-footer.tsx` — Version navigation (prev/next)
 
 **Routes:**
-- `app/api/artifact/route.ts` — GET/POST/DELETE document CRUD
-- `app/api/suggestions/route.ts` — GET suggestions
+- `app/api/artifact/route.ts` — POST: save artifact version, `revalidateTag('artifact:{id}', 'max')`
+- `app/api/suggestions/route.ts` — GET: suggestions by artifactId
 
 **Data layer:**
-- `lib/data/document.ts` — Full implementation (versioned saves, version retrieval)
+- `lib/data/artifact.ts` — Full implementation (versioned saves, retrieval)
+
+**Integration:**
+- Update `features/chat/components/chat-shell.tsx` to conditionally render `ArtifactPanel` + wire `StreamBridge` → `artifactStore`
 
 ### Files Created/Modified (~28)
 
 | Directory | Count | Key Files |
 |-----------|-------|-----------|
-| `features/artifacts/` | 22 | handlers, components, editors, hooks, schemas, types |
-| `features/chat/lib/tools/` | 3 | create-document.ts, update-document.ts, suggestions.ts |
+| `features/artifacts/` | 17 | types, schemas, lib (store), hooks (aliases), handlers (5), components (6), editors (4) |
 | `app/api/` | 2 | artifact/route.ts, suggestions/route.ts |
+| Modified | 1 | chat-shell.tsx (wire artifact panel) |
 
 ### Exit Criteria
 
-- [ ] AI can call `createDocument` tool → artifact panel opens
-- [ ] Text artifacts stream with data-textDelta, render in TipTap
-- [ ] Code artifacts stream with data-codeDelta, render in CodeMirror
-- [ ] Sheet artifacts stream with data-sheetDelta, render in react-data-grid
+- [ ] `artifactStore` uses `useSyncExternalStore` (NOT SWR synthetic key)
+- [ ] `useArtifactSelector(s => s.isVisible)` re-renders ONLY on visibility change
+- [ ] All 4 handlers register via side-effect import in `handlers/index.ts`
+- [ ] Handler registry uses `getArtifactHandler(kind)` pattern (dependency inversion)
+- [ ] Text handler uses APPEND delta, code/sheet use REPLACE delta
+- [ ] AI can call `createArtifact` tool → artifact panel opens
+- [ ] Text artifacts stream and render in Tiptap editor
+- [ ] Code artifacts stream and render in CodeMirror editor
 - [ ] User can edit artifact content directly in editor
 - [ ] Edits create new versions (composite PK: id + createdAt)
-- [ ] Version footer shows "Version X of Y" with prev/next buttons
-- [ ] Version restore works (DELETE later versions)
-- [ ] AI can call `updateDocument` → existing content updated
-- [ ] Suggestions stream as data-suggestion, display in text editor
-- [ ] Artifact panel has AnimatePresence open/close animation
-- [ ] Artifact error boundary catches editor crashes
-- [ ] Document inline preview renders in message area
-- [ ] Code execution via Pyodide works (run button → console output)
-- [ ] `pnpm typecheck` and `pnpm lint` pass
+- [ ] Version footer shows "Version X of Y" with prev/next
+- [ ] Artifact API route calls `revalidateTag('artifact:{id}', 'max')` on save
+- [ ] Suggestions API uses `artifactId` parameter
+- [ ] All files/types use "artifact" naming (zero "document")
+- [ ] `pnpm typecheck && pnpm lint && pnpm format` pass
 
-### Seams Addressed
-- **SEAM-009**: createDocument tool → artifact handlers
-- **SEAM-010**: updateDocument tool → artifact handlers
-- **SEAM-011**: requestSuggestions tool → text editor
-- **SEAM-012**: Artifact stream → artifact panel (DataStreamHandler → useArtifact → panel)
-- **SEAM-021**: Document version fetch
-- **SEAM-032**: Text editor (TipTap + suggestions extension)
-- **SEAM-033**: Code editor (CodeMirror + Pyodide)
-- **SEAM-034**: Sheet editor (react-data-grid + PapaParse)
-- **SEAM-035**: Image editor
-- **SEAM-037**: Pyodide script loading
-- **SEAM-039**: Version navigation + restore
-- **SEAM-040**: Inline document preview → artifact panel
+### 18 Tasks (P4-T01 through P4-T18)
+
+See `redesign/phase-plan.md` for complete task table.
 
 ---
 
-## Phase 05 — Sidebar & Navigation Vertical
+## Phase 5 — Sidebar & Navigation Vertical
 
 ### Entry State
-Chat + artifacts work. Users can send messages, AI responds, documents are created.
+Chat + artifacts work. Users can send messages, AI responds, artifacts are created/edited.
 
 ### Objective
-Build sidebar chat history with infinite scroll, optimistic updates, date grouping, chat switching, and delete. After this phase, full navigation works.
+Implement the server-rendered sidebar with client pagination, PendingChatsProvider for optimistic operations, chat history, and user navigation. SidebarShell is a SERVER component with `'use cache'`.
 
 ### Scope
 
 **Sidebar feature (`features/sidebar/`):**
-- `features/sidebar/components/app-sidebar.tsx` — Shell: header (brand, new chat), content (history), footer (user nav)
-- `features/sidebar/components/sidebar-history.tsx` — SWR infinite scroll + GroupedVirtuoso + date grouping
-- `features/sidebar/components/sidebar-history-item.tsx` — Chat link + dropdown (share, delete)
-- `features/sidebar/components/sidebar-skeleton.tsx` — Loading skeleton
-- `features/sidebar/components/sidebar-user-nav.tsx` — Avatar, theme toggle, login/logout
-- `features/sidebar/hooks/use-optimistic-chats.ts` — Context provider with Set-based dedup, auto-cleanup
+- `features/sidebar/types/sidebar.types.ts` — SidebarHistoryItem, PendingChat types
+- `features/sidebar/hooks/use-pending-chats.ts` — PendingChatsProvider context: `add`, `remove`, `updateTitle`, `markConfirmed`
+- `features/sidebar/hooks/use-sidebar-history.ts` — `useSWRInfinite` wrapper for cursor-based pagination
+- `features/sidebar/components/sidebar-history-item.tsx` — Single chat item (link + rename + delete dropdown)
+- `features/sidebar/components/sidebar-history-client.tsx` — `'use client'`: initial data from server + SWR pagination + optimistic merge with PendingChatsProvider
+- `features/sidebar/components/sidebar-user-nav.tsx` — User avatar, theme toggle, logout
+- `features/sidebar/components/sidebar-skeleton.tsx` — Loading skeleton (SERVER, PPR fallback)
+- `features/sidebar/components/sidebar-shell.tsx` — SERVER (async): `'use cache'` + `cacheTag('chats:{userId}')`, fetches first 20 chats, renders sidebar structure
+- `features/sidebar/actions/rename-chat.ts` — Server Action: rename chat title + `updateTag`
 
 **Route:**
-- `app/api/history/route.ts` — GET (paginated, guest/auth branching) + DELETE (all chats)
+- `app/api/history/route.ts` — GET: cursor-based paginated chat history (guest/auth branching)
 
 **Wiring updates:**
-- `app/(chat)/chat-layout-client.tsx` — Wire OptimisticChatsProvider + SidebarProvider + dynamic AppSidebar import
-- `features/chat/components/chat.tsx` — Wire `addOptimisticChat()` on first message submit
-- `features/chat/components/chat.tsx` — Wire `updateOptimisticChat()` on data-chatTitle
-- Title sync: pollForTitle in onFinish, dispatch `chat-title-updated` event, sidebar listens
+- `app/(chat)/layout.tsx` — Replace stubs with `SidebarProvider` → `Suspense` → `SidebarShell`, `PendingChatsProvider`
+- Title sync: single channel via `chat-title` stream part → `useChatSession.onData` → `PendingChats.updateTitle()` (NO polling, NO window events)
 
-### Files Created/Modified (~8)
+### Files Created/Modified (~12)
 
 | Directory | Count | Key Files |
 |-----------|-------|-----------|
-| `features/sidebar/` | 6 | All components + hooks |
+| `features/sidebar/` | 10 | types, hooks (2), components (5), actions (1) |
 | `app/api/history/` | 1 | route.ts |
-| Modified | 1 | chat-layout-client.tsx |
+| Modified | 1 | app/(chat)/layout.tsx |
 
 ### Exit Criteria
 
-- [ ] Sidebar renders with chat history (grouped by date: Today, Yesterday, Last 7/30 days, Older)
-- [ ] Infinite scroll loads more chats on scroll
-- [ ] New chat creates optimistic sidebar entry immediately
-- [ ] Title updates stream from AI → sidebar entry
+- [ ] `SidebarShell` is a SERVER component with `'use cache'` + `cacheTag`
+- [ ] Initial 20 chats fetched server-side (no client waterfall)
+- [ ] `SidebarHistoryClient` uses `useSWRInfinite` only for pagination (not initial load)
+- [ ] `PendingChatsProvider` provides `add`, `remove`, `updateTitle` operations
+- [ ] Title flows via single channel: `chat-title` stream → `PendingChats.updateTitle()` (no polling, no window events)
+- [ ] `SidebarSkeleton` renders as Suspense fallback
+- [ ] Chat layout is a SERVER component (no `'use client'` on layout)
 - [ ] Click a chat → navigates to `/chat/{id}`, loads messages
-- [ ] Delete a chat → optimistic removal + server delete
-- [ ] Delete all chats → redirect to `/` + clear history
+- [ ] Delete a chat → optimistic removal + server delete + `updateTag`
 - [ ] New chat button → navigates to `/`
-- [ ] User nav shows avatar, theme toggle, login/logout
-- [ ] Guest: sidebar shows cache-only chats
-- [ ] Auth: sidebar shows DB-backed chats with cursor pagination
 - [ ] Active chat highlighted in sidebar
-- [ ] `pnpm typecheck` and `pnpm lint` pass
+- [ ] `pnpm typecheck && pnpm lint && pnpm format` pass
 
-### Seams Addressed
-- **SEAM-013**: Optimistic chat creation (Chat → OptimisticChatsProvider → SidebarHistory)
-- **SEAM-014**: Title sync (stream + poll + event)
-- **SEAM-020**: Sidebar history pagination (SWR infinite → GET /api/history)
-- **SEAM-030**: Theme system (provider + toggle in user nav)
+### 12 Tasks (P5-T01 through P5-T12)
+
+See `redesign/phase-plan.md` for complete task table.
 
 ---
 
-## Phase 06 — Enhancement Vertical
+## Phase 6 — Enhancements
 
 ### Entry State
-Core features work: auth, chat, artifacts, sidebar. Users can have complete conversations with AI-created documents and navigate between chats.
+Core features work: auth, chat, artifacts, sidebar. Users can have complete conversations with AI-created artifacts and navigate between chats.
 
 ### Objective
-Build all secondary features that augment the core experience: voting, model selection, settings panel, file upload, visibility toggle. These are independent enough to potentially parallelize.
+Build all secondary features that augment the core experience: voting, model selection, visibility toggle, file upload, weather UI, and health check. These are independent enough to parallelize.
 
-### Scope (6 Sub-Tasks)
+### Scope
 
-**06a. Voting (`features/voting/` + message-actions update):**
-- `features/voting/actions/vote.ts` — Server: auth, non-guest, ownership, membership, upsert
-- `features/voting/schemas/vote.schema.ts` — Zod validation
-- `app/api/vote/route.ts` — PATCH route
-- Update `features/chat/components/message-actions.tsx` — Add vote buttons with SWR optimistic
+**Voting (`features/voting/`):**
+- `features/voting/types/vote.types.ts` — Vote type
+- `features/voting/actions/vote.ts` — Server Action: auth, non-guest check, upsert vote + `useOptimistic` + `updateTag('votes:{chatId}')`
+- `features/voting/components/vote-buttons.tsx` — Thumbs up/down with `useOptimistic`
+- `features/voting/hooks/use-votes.ts` — Votes state (server-seeded + optimistic)
+- Wire VoteButtons into `message.tsx`, add VoteResolver to chat pages
 
-**06b. Model Selection (`features/models/`):**
-- `features/models/components/model-selector.tsx` — Dropdown with provider grouping, compact variant
-- `features/models/lib/catalog.ts` — `listChatModels()`: curated + discovered merge
-- `features/models/lib/discovery.ts` — Dynamic discovery from provider APIs
-- Wire model selector into `multimodal-input.tsx`
-- Wire cookie `chat-model` persistence
+**Model Selection (`features/models/`):**
+- `features/models/components/model-selector.tsx` — Dropdown with provider grouping
+- `features/models/lib/models.ts` — Model catalog with `'use cache'`
+- `features/models/types/model.types.ts` — Model display types
+- Wire model selector into `chat-header.tsx`
+- Cookie `chat-model` + localStorage persistence
 
-**06c. Settings Panel (`features/settings/`):**
-- `features/settings/components/settings-panel.tsx` — Sheet with temperature, topP, maxOutputTokens, system prompt, toggles
-- Complete settings hook (already stubbed in P03)
-- Wire settings panel into chat layout
+**Visibility (`features/visibility/`):**
+- `features/visibility/types/visibility.types.ts` — VisibilityType
+- `features/visibility/actions/update-visibility.ts` — Server Action + `updateTag` on both chat and chat-list tags
+- `features/visibility/components/visibility-selector.tsx` — `useOptimistic` toggle
+- Wire into `chat/[id]/page.tsx`
 
-**06d. File Upload:**
-- `app/api/files/upload/route.ts` — POST: auth, rate limit, Vercel Blob put()
+**File Upload:**
+- `app/api/files/upload/route.ts` — POST: multipart → Vercel Blob
 - `features/chat/components/preview-attachment.tsx` — Upload thumbnail
-- Update `features/chat/components/multimodal-input.tsx` — Add file picker, upload queue, attachment previews
+- Wire into `multimodal-input.tsx` with attachment handling
 
-**06e. Visibility Toggle:**
-- Add `features/chat/components/visibility-selector.tsx` — Private/Public dropdown
-- Add hook `use-chat-visibility.ts` in `features/chat/hooks/` — SWR optimistic + server action
-- Update `features/chat/chat-header.tsx` — Wire visibility selector (desktop only)
+**Weather UI:**
+- `components/weather.tsx` — Weather tool result renderer (shared component)
 
-**06f. Health Check:**
-- `app/api/health/route.ts` — DB ping, cache ping, env var check
+**Health Check:**
+- `app/api/health/route.ts` — DB + Redis ping
 
-### Files Created/Modified (~18)
+### Files Created/Modified (~17)
 
 | Sub-Task | Files | Key Files |
 |----------|-------|-----------|
-| 06a Voting | 3+1 | vote.ts, vote.schema.ts, vote/route.ts, message-actions update |
-| 06b Models | 3+1 | model-selector.tsx, catalog.ts, discovery.ts, multimodal-input update |
-| 06c Settings | 1+1 | settings-panel.tsx, chat layout update |
-| 06d Upload | 1+2 | upload/route.ts, preview-attachment.tsx, multimodal-input update |
-| 06e Visibility | 2+1 | visibility-selector.tsx, use-chat-visibility.ts, chat-header update |
-| 06f Health | 1 | health/route.ts |
+| Voting | 5 | types, action, component, hook, message.tsx update |
+| Models | 3+1 | component, lib, types, chat-header update |
+| Visibility | 3+1 | types, action, component, chat page update |
+| Upload | 1+2 | route.ts, preview-attachment.tsx, multimodal-input update |
+| Weather | 1 | weather.tsx |
+| Health | 1 | health/route.ts |
 
 ### Exit Criteria
 
-- [ ] **Voting**: Thumbs up/down on assistant messages works, optimistic SWR update, persisted to DB
-- [ ] **Voting**: Guest cannot vote (returns 403)
-- [ ] **Models**: Model dropdown shows grouped, searchable models
-- [ ] **Models**: Selection persists to cookie + localStorage
-- [ ] **Models**: Different models produce different responses
-- [ ] **Settings**: Temperature, topP, maxOutputTokens affect AI output
-- [ ] **Settings**: Custom system prompt injected into AI context
-- [ ] **Settings**: Enable reasoning toggle works on supported models
-- [ ] **Upload**: File picker opens, file uploads to Vercel Blob
-- [ ] **Upload**: Attachment preview shows before send
-- [ ] **Upload**: Attachments sent as message parts
-- [ ] **Visibility**: Toggle between public/private with optimistic update
-- [ ] **Visibility**: Rollback on failure with toast
+- [ ] **Voting**: Server Action + `useOptimistic` (NOT `PATCH /api/vote`) — thumbs up/down works
+- [ ] **Voting**: Guest cannot vote (returns `ActionResult` with `FORBIDDEN`)
+- [ ] **Models**: Selection persists to cookie (server-readable) + localStorage
+- [ ] **Visibility**: Server Action + `updateTag` on both `chat:{id}` and `chats:{userId}` tags
+- [ ] **Upload**: File uploads to Vercel Blob, preview renders thumbnail
+- [ ] **Weather**: Weather tool result renders in messages
 - [ ] **Health**: GET /api/health returns status with DB + cache latency
+- [ ] All Server Actions return `ActionResult<T>` (never throw)
 - [ ] All features work together without conflicts
-- [ ] `pnpm typecheck` and `pnpm lint` pass
+- [ ] `pnpm typecheck && pnpm lint && pnpm format` pass
 
-### Seams Addressed
-- **SEAM-016**: Model catalog → selector → chat
-- **SEAM-017**: AI provider registry (fully wired with all providers)
-- **SEAM-018**: Vote mutation (optimistic + server + DB)
-- **SEAM-019**: File upload → message attachment
-- **SEAM-022**: Visibility toggle (optimistic + server action)
-- **SEAM-036**: Rate limiting pipeline (all per-route limiters active)
+### 14 Tasks (P6-T01 through P6-T14)
+
+See `redesign/phase-plan.md` for complete task table.
 
 ---
 
-## Phase 07 — Polish Vertical
+## Phase 7 — Polish & Production
 
 ### Entry State
-All features working. Auth, chat, artifacts, sidebar, voting, models, settings, upload, visibility, health.
+All features working: auth, chat, artifacts, sidebar, voting, models, settings, upload, visibility, health.
 
 ### Objective
-Production-readiness: error boundaries, loading states, accessibility, responsive design, performance. After this phase, the app is deployable.
+Production-readiness: error boundaries, accessibility, responsive design, instrumentation, testing, import boundary enforcement, naming verification, and final build. After this phase, the app is deployable.
 
 ### Scope
 
 **Error boundaries:**
 - Finalize `app/global-error.tsx` — Standalone HTML wrapper
 - Finalize `app/(chat)/error.tsx` — Preserves sidebar, retry + home buttons
-- Finalize `features/artifacts/components/artifact-error-boundary.tsx` — Prevents editor crash propagation
-
-**Loading states:**
-- Finalize `app/(chat)/loading.tsx` — Full-viewport centered spinner
-- Finalize `features/sidebar/components/sidebar-skeleton.tsx` — Animated sidebar placeholders
-- `components/app-shell.tsx` — AppShellFallback (full-viewport spinner)
+- Finalize `app/(auth)/error.tsx` — Auth-specific error handling
+- Finalize `features/artifacts/components/artifact-error-boundary.tsx` — Editor crash isolation
 
 **Accessibility:**
 - ARIA labels on all interactive elements
 - Focus management for modal dialogs (artifact panel, settings sheet)
 - Keyboard navigation for sidebar, message actions, model selector
-- Screen reader support for streaming messages
-- Color contrast verification
-- `maximumScale: 1` in viewport (prevents mobile Safari zoom)
 
 **Responsive design:**
-- Mobile: full-screen artifact panel (no message sidebar)
+- Mobile: full-screen artifact panel
 - Mobile: sidebar as sheet overlay
-- Mobile: compact model selector
-- Tablet: adaptive layout breakpoints
 - Touch-friendly interaction targets (44px minimum)
 
-**Performance:**
-- Verify lazy loading: CodeMirror, react-data-grid, Pyodide, ai-elements heavy components
-- Verify adaptive throttle for streaming (50/100/150ms by connection)
-- Verify SWR dedup and stale-while-revalidate
-- Bundle analysis (ensure no large dependencies in critical path)
+**Instrumentation:**
+- Complete `instrumentation.ts` (OpenTelemetry)
+- Complete `instrumentation-client.ts`
 
-**Pyodide integration:**
-- `<Script src="pyodide.js" strategy="lazyOnload" />` in ChatLayoutClient
-- Module cache for CodeMirror (prevent re-initialization)
+**Testing:**
+- E2E specs: `tests/e2e/chat.spec.ts`, `artifacts.spec.ts`, `auth.spec.ts`, `sidebar.spec.ts`
+- Integration tests: `tests/integration/chat-flow.test.ts`, `artifact-flow.test.ts`, `auth-flow.test.ts`, `sidebar-flow.test.ts`
+- Stream test utility: `tests/utils/stream.ts`, mocks: `tests/mocks/ai.ts`, `tests/mocks/fetch.ts`
 
-**Final CI/CD:**
-- Import boundary check script (~50 lines, validates layer rules)
-- `pnpm build` succeeds
-- E2E test suite completion
+**Verification gates:**
+- `scripts/check-imports.mjs` — zero import boundary violations
+- `grep -r "document"` in code — zero results (excluding .next-docs, oldapp, node_modules)
+- `grep -rE "credit|gateway|quota|entitlement|AppUsage|activate_gateway"` — zero results
+- `proxy.ts` exists (not `middleware.ts`)
+- `pnpm format && pnpm typecheck && pnpm lint` — all pass
+- `pnpm build` — clean production build
 
-### Files Created/Modified (~10)
+### Files Created/Modified (~20)
 
 | Area | Count | Key Files |
 |------|-------|-----------|
-| Error boundaries | 3 | global-error, chat error, artifact error boundary |
-| Loading states | 3 | loading.tsx, sidebar-skeleton, app-shell fallback |
-| Tests | 4 | E2E specs (chat, artifacts, auth, sidebar) |
+| Error boundaries | 4 | global-error, chat error, auth error, artifact error boundary |
+| Tests | 12 | E2E specs (4), integration tests (4), utils/mocks (4) |
+| Instrumentation | 2 | instrumentation.ts, instrumentation-client.ts |
+| Responsive | ~3 | Layout adjustments across chat, sidebar, artifact |
 
 ### Exit Criteria
 
-- [ ] Error boundary catches and displays errors at all 3 levels
-- [ ] Loading states render for all route transitions
-- [ ] Sidebar skeleton shows during initial load
+- [ ] All error boundaries render standalone with recovery actions
+- [ ] `scripts/check-imports.mjs` reports zero violations
+- [ ] Zero occurrences of "document" in code identifiers
+- [ ] Zero occurrences of credit/gateway/quota terminology
+- [ ] `proxy.ts` exists (not `middleware.ts`)
+- [ ] `pnpm format && pnpm typecheck && pnpm lint` all pass
+- [ ] `pnpm build` succeeds cleanly
+- [ ] E2E test specs cover: auth flow, chat send/receive, artifact create/edit, sidebar navigation
 - [ ] App is usable on mobile (320px width)
-- [ ] Artifact panel is full-screen on mobile
-- [ ] All interactive elements have ARIA labels
-- [ ] Keyboard navigation works throughout
-- [ ] `pnpm build` succeeds with zero errors
-- [ ] E2E tests pass for all core flows
-- [ ] No console errors in production build
-- [ ] Import boundary script passes
-- [ ] Bundle size is reasonable (no unexpected large deps)
 - [ ] Core Web Vitals are acceptable
 
-### Seams Addressed
-- **SEAM-027**: Error boundaries (all 3 levels)
-- **SEAM-030**: Theme system (fully polished)
-- **SEAM-037**: Pyodide script loading (finalized)
+### 13 Tasks (P7-T01 through P7-T13)
+
+See `redesign/phase-plan.md` for complete task table.
+
+---
+
+## Task Count Summary
+
+| Phase | Name | Tasks | Est. Files | Focus |
+|---|---|---|---|---|
+| P0 | Scaffold & Infrastructure | 18 | ~55 | Config, types, errors, utils, UI primitives, root layout, proxy |
+| P1 | Data Foundation | 14 | ~22 | DB, cache, data access, AI providers, test fixtures |
+| P2 | Auth Vertical | 9 | ~14 | Session, auth actions, auth UI, proxy wiring |
+| P3 | Chat Core Vertical | 27 | ~42 | AI integration, settings, streaming, ChatShell, messages, input, pages |
+| P4 | Artifacts Vertical | 18 | ~28 | Store, handlers, editors, artifact panel, API routes |
+| P5 | Sidebar & Navigation | 12 | ~12 | Server-rendered sidebar, PendingChatsProvider, history pagination |
+| P6 | Enhancements | 14 | ~17 | Voting, model selector, visibility, file upload, weather |
+| P7 | Polish & Production | 13 | ~20 | Error boundaries, a11y, tests, verification, build |
+| **Total** | | **125** | **~210** | |

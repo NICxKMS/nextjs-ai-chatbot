@@ -1,6 +1,9 @@
+> **Updated per redesign audit (2026-03-01)**
+
 # Deviations from Architecture v6 Spec
 
 > Source: `.ouroboros/specs/refactor-migration/architecture-v6-final.md`
+> **Redesign additions:** DEV-016 through DEV-022 added at end of file.
 
 ---
 
@@ -299,3 +302,150 @@ Do NOT build: canvas, citations, workflow, queue, checkpoint wrappers.
 **Reason**: The `.action.ts` suffix is redundant when files are already in an `actions/` directory. It adds noise to file names and import paths. The AGENTS.md naming convention specifies `kebab-case` files without mandating domain suffixes. The `schemas/` directory uses `.schema.ts` because schemas share directories with other code; actions do not.
 
 **Trade-offs**: Cannot tell from import path alone that a function is a server action. Mitigated by `'use server'` directive in the file and the `actions/` directory in the path.
+
+---
+
+## DEV-016: Document → Artifact Complete Rename
+
+**ID**: DEV-016
+**Area**: naming
+**Severity**: MAJOR
+
+**Spec says**: Uses `Document` table, `DocumentHandler`, `DocumentKind`, `createDocument`, `updateDocument`, `documentId`, `data-id`/`data-title`/`data-kind`/`data-clear` stream parts throughout. (Multiple sections)
+
+**We do instead**: Complete rename to artifact terminology:
+- `Document` table → `Artifact` table
+- `document_kind` enum → `artifact_kind`
+- `DocumentHandler` → `ArtifactHandler` interface
+- `DocumentKind` → `ArtifactKind`
+- `createDocument` tool → `createArtifact`
+- `updateDocument` tool → `updateArtifact`
+- `documentId` → `artifactId`
+- `data-id` → `artifact-id`, `data-title` → `artifact-title`, `data-kind` → `artifact-kind`, `data-clear` → `artifact-clear`
+- `lib/data/document.ts` → `lib/data/artifact.ts`
+- All function names: `getDocumentById` → `getArtifactById`, etc.
+- System prompt: "artifact" not "document"
+
+**Reason**: The existing application uses "document" to refer to rich content artifacts (code, text, sheet, image), which conflicts with both the DOM `document` object and browser `Document` concept. "Artifact" is clearer, avoids naming conflicts, and better describes the concept of AI-generated content. The rename was identified in the redesign audit as universally beneficial.
+
+**Trade-offs**: Any future reference to the old plan must mentally translate "document" → "artifact". All 36+ identifiers change. See `redesign/cleanup-inventory.md` §2 for the exhaustive rename inventory.
+
+---
+
+## DEV-017: SettingsProvider Removed
+
+**ID**: DEV-017
+**Area**: state
+**Severity**: MAJOR
+
+**Spec says**: `SettingsProvider` wraps the app and manages user settings via a React context provider, possibly backed by Jotai atoms. (§12, §19)
+
+**We do instead**: No `SettingsProvider` exists. Settings (sampling parameters, system prompt, auto-scroll) use `useSyncExternalStore` + `localStorage` directly via a `useSettings()` hook:
+```typescript
+// features/settings/hooks/use-settings.ts
+export function useSettings() {
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+}
+```
+
+**Reason**: A provider wrapping the entire app for settings is overengineering when `useSyncExternalStore` achieves the same reactivity with zero tree overhead. Settings are simple key-value pairs stored in localStorage. No server-side state needed. The pub/sub pattern means any component calling `useSettings()` re-renders atomically when settings change, without a context provider re-rendering the entire tree.
+
+**Trade-offs**: No settings context available in server components (but settings are client-only by nature). The pub/sub subscription is manual (~30 lines) vs `SettingsProvider` React context which is ~20 lines — comparable complexity.
+
+---
+
+## DEV-018: Handler Registry (Dependency Inversion)
+
+**ID**: DEV-018
+**Area**: architecture
+**Severity**: STRUCTURAL
+
+**Spec says**: `createDocumentHandler` factory function creates handlers, stored in a static map. Handler factory lives in `features/artifacts/handlers/base.ts`. (Implied by spec code structure)
+
+**We do instead**: `ArtifactHandler` is a TypeScript interface defined in `lib/types/artifact-handler.types.ts`. The handler registry lives in `lib/ai/artifact-handlers.ts` with `registerArtifactHandler()` and `getArtifactHandler()`. Individual handlers (text, code, sheet, image) register via **side-effect imports** in `features/artifacts/handlers/index.ts`:
+```typescript
+// features/artifacts/handlers/index.ts
+import './text-handler';   // side-effect: registerArtifactHandler('text', textHandler)
+import './code-handler';
+import './sheet-handler';
+import './image-handler';
+```
+
+**Reason**: This is dependency inversion — the registry depends on the `ArtifactHandler` interface (in `lib/types/`), not on concrete handler implementations. New artifact kinds can be added by creating a handler file and importing it, without modifying registry code. This also separates the "what handlers exist" concern from the "how do handlers work" concern.
+
+**Trade-offs**: Side-effect imports are a pattern some developers find surprising. The `handlers/index.ts` file must be imported somewhere to register handlers (e.g., in the chat API route). This is a well-known pattern in plugin architectures.
+
+---
+
+## DEV-019: ChatShell Decomposition (~60 Lines)
+
+**ID**: DEV-019
+**Area**: components
+**Severity**: MAJOR
+
+**Spec says**: `chat.tsx` is the central chat orchestrator, wiring `useChat`, `DataStreamProvider`, `DataStreamHandler`, messages, input, header, settings, and artifacts into a single component. (P03-T19 in original plan)
+
+**We do instead**: The chat orchestrator is decomposed into:
+1. **ChatShell** (`chat-shell.tsx`, ~60 lines) — creates `ChatSessionContext.Provider`, renders `Header`, `Messages`, `Input`, and conditionally `ArtifactPanel`
+2. **ChatSessionContext** (`chat-session-context.tsx`) — intent-based context providing `send`, `stop`, `reload`, `editMessage` callbacks (NOT prop drilling)
+3. **useChatSession** (`use-chat-session.ts`, ~120 lines) — encapsulates `useChat` config, `onSubmit`/`onReload` callbacks via pure `chat-callbacks.ts`
+4. **StreamBridge** (`stream-bridge.tsx`, ~20 lines) — thin bridge that reads `ChatStreamProvider` dispatch and calls `processStreamDelta()` pure function
+5. **ChatStreamProvider** (`chat-stream-provider.tsx`) — split state/dispatch contexts with RAF batching, replaces `DataStreamProvider`
+
+**Reason**: The original `chat.tsx` was a ~300-line "God Component" mixing state management, side effects, UI layout, and streaming logic. Decomposing into focused pieces:
+- ChatShell is trivially readable and testable
+- `useChatSession` can be unit-tested with mock `useChat`
+- `processStreamDelta()` is a pure function: input delta → state update, no side effects
+- ChatSessionContext eliminates 8+ props being drilled through 4 levels
+
+**Trade-offs**: More files (5 instead of 1). But each file is single-purpose and under 120 lines, making them individually comprehensible and testable.
+
+---
+
+## DEV-020: proxy.ts Replaces middleware.ts
+
+**ID**: DEV-020
+**Area**: infrastructure
+**Severity**: STRUCTURAL
+
+**Spec says**: `middleware.ts` handles auth token refresh, guest rotation, and rate limiting at the Next.js middleware edge layer. (P02-T10 in original plan)
+
+**We do instead**: `proxy.ts` at project root replaces `middleware.ts`. Same functionality (auth guard, guest token rotation, rate-limit check) but uses the Next.js 16 middleware proxy pattern.
+
+**Reason**: The existing `oldapp/proxy.ts` already demonstrates this pattern. Next.js 16 uses `proxy.ts` as the standard middleware file for edge-level request interception. Using the framework convention improves discoverability and aligns with `.next-docs/` documentation.
+
+**Trade-offs**: Must ensure Next.js 16 proxy.ts API is used correctly (verify against `.next-docs/`). Any references to `middleware.ts` in documentation must be updated.
+
+---
+
+## DEV-021: DataStreamProvider/Handler → ChatStreamProvider/StreamBridge
+
+**ID**: DEV-021
+**Area**: naming
+**Severity**: MINOR
+
+**Spec says**: `DataStreamProvider` and `DataStreamHandler` manage the SSE data stream from the Vercel AI SDK. (P03-T12 in original plan)
+
+**We do instead**: Renamed for clarity:
+- `DataStreamProvider` → `ChatStreamProvider` (describes what it provides: chat stream state)
+- `DataStreamHandler` → `StreamBridge` (describes what it does: bridges stream events to stores)
+
+**Reason**: The Vercel AI SDK already exports a `DataStreamHandler` type. Our component does something different — it's a React bridge that reads stream events and writes to stores. "StreamBridge" is accurate and avoids naming collision. "ChatStreamProvider" clarifies it's specific to chat (not a generic data stream), and uses split state/dispatch contexts with RAF batching.
+
+**Trade-offs**: Deviates from Vercel AI SDK naming conventions. Anyone familiar with the SDK must learn the new names. Clear documentation and consistent usage mitigate this.
+
+---
+
+## DEV-022: OptimisticChatsProvider → PendingChatsProvider
+
+**ID**: DEV-022
+**Area**: naming
+**Severity**: MINOR
+
+**Spec says**: `OptimisticChatsProvider` provides optimistic UI for chat creation in the sidebar. (P05-T01 in original plan)
+
+**We do instead**: Renamed to `PendingChatsProvider`.
+
+**Reason**: "Optimistic" implies React's `useOptimistic` pattern, which is not what this provider does. It manages chats that have been created but not yet confirmed by the server (pending state). The provider API is `add`, `remove`, `updateTitle`, `markConfirmed` — all operations on a pending set. "Pending" accurately describes the lifecycle state, while "optimistic" is misleading.
+
+**Trade-offs**: None. A naming improvement with no functional change.

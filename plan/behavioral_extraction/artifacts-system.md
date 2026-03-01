@@ -1,29 +1,34 @@
 # Artifacts System
 
+> **Updated per redesign audit (2026-03-01)**
+
 ## Overview
 
-Artifacts are AI-generated documents displayed in a side panel alongside the chat. Four types supported: **text**, **code**, **sheet**, and **image**. Each has a server handler (AI generation) and client component (rendering/editing).
+Artifacts are AI-generated content displayed in a side panel alongside the chat. Four types supported: **text**, **code**, **sheet**, and **image**. Each has a server handler (AI generation) and client component (rendering/editing).
+
+> *All "document" naming replaced with "artifact" at the application layer. The DB table remains `Document` for migration compatibility.*
 
 ---
 
 ## Architecture
 
 ```
-AI Tool Call (createDocument/updateDocument)
+AI Tool Call (createArtifact/updateArtifact)
   │
-  ├── lib/ai/tools/create-document.ts
-  │   └── documentHandler.onCreateDocument(params)
-  │       ├── artifacts/{kind}/server.ts  ← AI generation
-  │       └── lib/data/document.ts        ← persistence
+  ├── lib/ai/tools/create-artifact.ts
+  │   └── artifactHandler.create(params)
+  │       ├── lib/ai/artifact-handlers/{kind}.ts
+  │       └── lib/data/artifact.ts
   │
   ├── Data Stream (SSE)
-  │   └── data-id, data-title, data-kind, data-clear, content-deltas, data-finish
+  │   └── artifact-id, artifact-title, artifact-kind, artifact-clear, content-deltas, artifact-finish
   │
-  ├── components/data-stream-handler.tsx  ← processes stream parts
-  │   └── hooks/use-artifact.ts           ← SWR state update
+  ├── components/stream-bridge.tsx
+  │   └── lib/stores/artifact-store.ts               (useSyncExternalStore)
   │
-  └── components/artifact.tsx             ← renders panel
-      └── artifacts/{kind}/client.tsx     ← type-specific editor
+  └── components/artifact-panel.tsx
+      └── artifacts/{kind}/client.tsx                (type-specific editor)
+```
 ```
 
 ---
@@ -32,11 +37,11 @@ AI Tool Call (createDocument/updateDocument)
 
 ### Text (`artifacts/text/`)
 
-**Server** (`server.ts`):
+**Server** (`lib/ai/artifact-handlers/text.ts`):
 - Uses `streamText()` from AI SDK
 - Model: `artifact-model` (resolves to Gemini 2.5 Flash Lite by default)
 - System prompt: `textPrompt` — write Markdown, no code blocks
-- Streams `data-textDelta` parts (appended character-by-character)
+- Streams `artifact-textDelta` parts (appended character-by-character)
 - On update: receives existing content + description, generates replacement
 
 **Client** (`client.tsx`):
@@ -54,12 +59,12 @@ AI Tool Call (createDocument/updateDocument)
 
 ### Code (`artifacts/code/`)
 
-**Server** (`server.ts`):
+**Server** (`lib/ai/artifact-handlers/code.ts`):
 - Uses `streamObject()` from AI SDK with structured output
 - Schema: `z.object({ code: z.string() })`
 - Model: `artifact-model`
 - System prompt: `codePrompt` — self-contained Python, print() for output, max 15 lines
-- Streams `data-codeDelta` parts (full replacement each time, not appended)
+- Streams `artifact-codeDelta` parts (full replacement each time, not appended)
 - On update: receives existing code + description, generates new version
 
 **Client** (`client.tsx`):
@@ -77,12 +82,12 @@ AI Tool Call (createDocument/updateDocument)
 
 ### Sheet (`artifacts/sheet/`)
 
-**Server** (`server.ts`):
+**Server** (`lib/ai/artifact-handlers/sheet.ts`):
 - Uses `streamObject()` from AI SDK with structured output
 - Schema: `z.object({ csv: z.string() })`
 - Model: `artifact-model`
 - System prompt: `sheetPrompt` — CSV with headers
-- Streams `data-sheetDelta` parts (full CSV replacement)
+- Streams `artifact-sheetDelta` parts (full CSV replacement)
 
 **Client** (`client.tsx`):
 - Uses **react-data-grid** for spreadsheet rendering
@@ -100,47 +105,50 @@ AI Tool Call (createDocument/updateDocument)
 
 **Client** (`client.tsx`):
 - Renders image from `content` (base64 data URL or URL)
-- Simpler than other types — no AI server handler registered in `artifactKinds` array
+- Simpler than other types — no AI server handler registered in the handler registry
 - ImageEditor component for display/manipulation
 
 **Note**: Image artifacts are created via code execution (Pyodide matplotlib) or other means, not via a dedicated AI generation flow.
 
 ---
 
-## Document Handler Factory
+## Artifact Handler Registry
 
-`lib/artifacts/server.ts` exports `createDocumentHandler`:
+`lib/ai/artifact-handlers/registry.ts` exports `getArtifactHandler`:
+
+> *Handler registry pattern — each `ArtifactKind` maps to an `ArtifactHandler` with `.create()` and `.update()` methods.*
 
 ```typescript
-function createDocumentHandler<T>({ kind, onCreateDocument, onUpdateDocument }) {
+function getArtifactHandler(kind: ArtifactKind): ArtifactHandler {
+  // Registry lookup returns handler with:
   return {
     kind,
-    onCreateDocument: async ({ title, dataStream, session, chatId }) => {
+    create: async ({ title, dataStream, session, chatId }) => {
       const id = generateUUID();
-      dataStream.writeData({ type: "data-kind", content: kind });
-      dataStream.writeData({ type: "data-id", content: id });
-      dataStream.writeData({ type: "data-title", content: title });
-      dataStream.writeData({ type: "data-clear", content: null });
+      dataStream.writeData({ type: "artifact-kind", content: kind });
+      dataStream.writeData({ type: "artifact-id", content: id });
+      dataStream.writeData({ type: "artifact-title", content: title });
+      dataStream.writeData({ type: "artifact-clear", content: null });
 
-      const result = await onCreateDocument({ id, title, dataStream, session });
+      const result = await handler.generate({ id, title, dataStream, session });
 
       // Persist to DB/cache
-      await documentData.save({ id, title, kind, content: result, userId, chatId });
-      dataStream.writeData({ type: "data-finish", content: null });
-      return { id, title, kind, content: "A document was created..." };
+      await artifactData.save({ id, title, kind, content: result, userId, chatId });
+      dataStream.writeData({ type: "artifact-finish", content: null });
+      return { id, title, kind, content: "An artifact was created..." };
     },
-    onUpdateDocument: async ({ id, description, dataStream, session }) => {
-      const document = await documentData.get(id, ctx);
-      const latestVersion = document.versions.at(-1);
-      dataStream.writeData({ type: "data-clear", content: null });
+    update: async ({ id, description, dataStream, session }) => {
+      const artifact = await artifactData.get(id, ctx);
+      const latestVersion = artifact.versions.at(-1);
+      dataStream.writeData({ type: "artifact-clear", content: null });
 
-      const result = await onUpdateDocument({
-        document: latestVersion, description, dataStream, session
+      const result = await handler.regenerate({
+        artifact: latestVersion, description, dataStream, session
       });
 
-      await documentData.save({ id, title: latestVersion.title, kind, content: result, userId });
-      dataStream.writeData({ type: "data-finish", content: null });
-      return { id, title, kind, content: "The document has been updated..." };
+      await artifactData.save({ id, title: latestVersion.title, kind, content: result, userId });
+      dataStream.writeData({ type: "artifact-finish", content: null });
+      return { id, title, kind, content: "The artifact has been updated..." };
     }
   };
 }
@@ -151,7 +159,7 @@ function createDocumentHandler<T>({ kind, onCreateDocument, onUpdateDocument }) 
 ## Versioning
 
 ### Storage Model
-Documents use composite PK: `(id, createdAt)`. Each save creates a new row:
+Artifacts use composite PK: `(id, createdAt)`. Each save creates a new row (DB table `Document` retained for migration compatibility, application layer uses artifact naming):
 ```
 id="abc123", createdAt="2025-01-01T00:00:00Z", content="v1"
 id="abc123", createdAt="2025-01-01T00:05:00Z", content="v2"
@@ -166,7 +174,7 @@ id="abc123", createdAt="2025-01-01T00:10:00Z", content="v3"
 
 ### Cache Versioning
 ```typescript
-type CachedDocument = {
+type CachedArtifact = {
   id: string;
   userId: string;
   chatId?: string;
@@ -175,7 +183,7 @@ type CachedDocument = {
     createdAt: string;
     title: string;
     content: string;
-    kind: DocumentKind;
+    kind: ArtifactKind;
   }>;
 };
 ```
@@ -186,8 +194,8 @@ Entire version history stored in single cache key. New versions appended to arra
 ## Suggestions
 
 ### Flow
-1. AI tool `requestSuggestions` called with `{ documentId }`
-2. Fetches latest document version
+1. AI tool `requestSuggestions` called with `{ artifactId }`
+2. Fetches latest artifact version
 3. Uses `streamObject()` with artifact-model to generate up to 5 suggestions:
    ```typescript
    z.object({
@@ -198,7 +206,7 @@ Entire version history stored in single cache key. New versions appended to arra
      })).max(5)
    })
    ```
-4. Each suggestion streamed as `data-suggestion` part
+4. Each suggestion streamed as `artifact-suggestion` part
 5. For authenticated users: saved to `Suggestion` table
 6. For guests: available in-session only
 
@@ -211,7 +219,7 @@ Entire version history stored in single cache key. New versions appended to arra
 
 ## Diff View
 
-### Text Documents
+### Text Artifacts
 - `<DiffView>` component compares two versions
 - Uses `react-diff-viewer` or similar
 - Shows additions (green), deletions (red)
@@ -252,9 +260,9 @@ Toolbar items trigger AI update calls with predefined descriptions.
 
 ### Visibility Logic
 - Panel hidden by default (`isVisible: false`)
-- Opens when `data-finish` received (or when content exceeds ~300-400 chars during streaming)
+- Opens when `artifact-id` received (isVisible: true)
 - Close button sets `isVisible: false`
-- Reopens when user clicks document reference in chat messages
+- Reopens when user clicks artifact reference in chat messages
 - `<ArtifactCloseButton>` handles close action
 
 ### Error Handling
@@ -265,4 +273,4 @@ Toolbar items trigger AI update calls with predefined descriptions.
 ### Loading States
 - During streaming: `status: "streaming"` shows progress indicator
 - Content appears incrementally as deltas arrive
-- Empty content during initial `data-clear` → shows "Generating..." placeholder
+- Empty content during initial `artifact-clear` → shows "Generating..." placeholder

@@ -1,32 +1,36 @@
+> **Updated per redesign audit (2026-03-01)**
+
 # Phase Order & Dependencies
 
 > Execution order, dependency graph, critical path, and parallelization opportunities.
+> 125 tasks across 8 phases (P0–P7). ~210 files total.
+> Reflects redesign decisions: ChatShell, proxy.ts, useSyncExternalStore, handler registry.
 
 ---
 
 ## 1. Dependency Graph
 
 ```
-P00 Scaffold ─────────────────────────────────────────────────────┐
+P0 Scaffold ─────────────────────────────────────────────────────┐
   │                                                                │
   ▼                                                                │
-P01 Data Foundation ──────────────────────────────────────────┐    │
+P1 Data Foundation ──────────────────────────────────────────┐    │
   │                                                            │    │
   ▼                                                            │    │
-P02 Auth ─────────────────────────────────────────────────┐    │    │
+P2 Auth ─────────────────────────────────────────────────┐    │    │
   │                                                        │    │    │
   ▼                                                        │    │    │
-P03 Chat Core ────────────────────────────────────────┐    │    │    │
+P3 Chat Core ────────────────────────────────────────┐    │    │    │
   │                    │                               │    │    │    │
   ▼                    ▼                               │    │    │    │
-P04 Artifacts      P05 Sidebar  ◄──── CAN PARALLEL    │    │    │    │
+P4 Artifacts      P5 Sidebar  ◄──── CAN PARALLEL    │    │    │    │
   │                    │                               │    │    │    │
   └────────┬───────────┘                               │    │    │    │
            ▼                                           │    │    │    │
-         P06 Enhancements ────────────────────────┐    │    │    │    │
+         P6 Enhancements ────────────────────────┐    │    │    │    │
            │                                       │    │    │    │    │
            ▼                                       │    │    │    │    │
-         P07 Polish                                │    │    │    │    │
+         P7 Polish                                │    │    │    │    │
                                                    │    │    │    │    │
                                             All must pass format/typecheck/lint
 ```
@@ -37,14 +41,14 @@ P04 Artifacts      P05 Sidebar  ◄──── CAN PARALLEL    │    │    �
 
 | Phase | Depends On | Reason |
 |-------|-----------|--------|
-| P00 Scaffold | — | First phase, no dependencies |
-| P01 Data Foundation | P00 | Needs schema types, error types, config |
-| P02 Auth | P01 | Needs DB client, cache client, API guards |
-| P03 Chat Core | P02 | Needs auth session, data context, rate limiting |
-| P04 Artifacts | P03 | Needs chat tools, DataStreamHandler, data stream pipeline |
-| P05 Sidebar | P03 | Needs chat data, optimistic chat context, title sync |
-| P06 Enhancements | P04 + P05 | Needs all core features working for cross-feature wiring |
-| P07 Polish | P06 | Needs all features complete for error boundaries and E2E tests |
+| P0 Scaffold | — | First phase, no dependencies |
+| P1 Data Foundation | P0 | Needs schema types, error types, config |
+| P2 Auth | P1 | Needs DB client, cache client, user data access |
+| P3 Chat Core | P2 | Needs auth session, data context, handler registry |
+| P4 Artifacts | P3 | Needs chat tools, StreamBridge, handler registry, data stream pipeline |
+| P5 Sidebar | P3 | Needs chat data, PendingChatsProvider context, title sync |
+| P6 Enhancements | P4 + P5 | Needs all core features working for cross-feature wiring |
+| P7 Polish | P6 | Needs all features complete for error boundaries and E2E tests |
 
 ---
 
@@ -53,111 +57,107 @@ P04 Artifacts      P05 Sidebar  ◄──── CAN PARALLEL    │    │    �
 The **critical path** determines the minimum total time:
 
 ```
-P00 (Scaffold)    →  ~1 day
-P01 (Data)        →  ~2 days
-P02 (Auth)        →  ~1.5 days
-P03 (Chat Core)   →  ~4 days
-P04 (Artifacts)   →  ~3 days   ──┐
-                                   ├──  P04 + P05 in parallel = ~3 days
-P05 (Sidebar)     →  ~2 days   ──┘
-P06 (Enhancements)→  ~2.5 days
-P07 (Polish)      →  ~2 days
-                     ─────────
-     Critical Path:  ~16 days (sequential estimate)
-     With parallel:  ~15 days (P04 ∥ P05 saves ~2 days)
+P0 (Scaffold)      →  18 tasks, ~55 files
+P1 (Data)          →  14 tasks, ~22 files
+P2 (Auth)          →  9 tasks, ~14 files
+P3 (Chat Core)     →  27 tasks, ~42 files
+P4 (Artifacts)     →  18 tasks, ~28 files  ──┐
+                                               ├──  P4 + P5 in parallel
+P5 (Sidebar)       →  12 tasks, ~12 files  ──┘
+P6 (Enhancements)  →  14 tasks, ~17 files
+P7 (Polish)        →  13 tasks, ~20 files
 ```
 
-**The critical path runs through: P00 → P01 → P02 → P03 → P04 → P06 → P07**
+**The critical path runs through: P0 → P1 → P2 → P3 → P4 → P6 → P7**
 
-P05 (Sidebar) is off the critical path when parallelized with P04.
+P5 (Sidebar) is off the critical path when parallelized with P4.
 
 ---
 
 ## 4. Parallelization Opportunities
 
-### P04 ∥ P05 (After P03)
+### P4 ∥ P5 (After P3)
 
 After Chat Core is complete, Artifacts and Sidebar can be built independently:
 
-| P04 (Artifacts) | P05 (Sidebar) |
+| P4 (Artifacts) | P5 (Sidebar) |
 |-----------------|---------------|
-| Artifact handlers + editors | Sidebar history + optimistic updates |
-| Chat tool implementations | SWR infinite scroll |
-| Document data layer | Date grouping + Virtuoso |
-| Artifact panel + versions | User nav + theme toggle |
-| DataStreamHandler extensions | History route handler |
+| Artifact store (useSyncExternalStore) | PendingChatsProvider + operations |
+| Handler registration (side-effect) | SidebarShell (SERVER, `'use cache'`) |
+| Editors (text, code, sheet, image) | SidebarHistoryClient (SWR infinite) |
+| Artifact panel + versions | SidebarHistoryItem + user nav |
+| Artifact API route | History API route |
 
-**No shared files** between P04 and P05 except:
-- `features/chat/components/chat.tsx` — P04 adds tool wiring, P05 adds optimistic chat calls
-- **Resolution**: P04 works on chat tool definitions (separate files), P05 works on optimistic chat context (separate file). Both modify `chat.tsx` but in different sections (tool config vs handleSubmit). Merge at P05 completion.
+**No shared files** between P4 and P5 except:
+- `features/chat/components/chat-shell.tsx` — P4 adds ArtifactPanel wiring, P5 adds PendingChats calls
+- **Resolution**: P4 works on artifact panel (separate file), P5 works on PendingChatsProvider (separate file). Both modify `chat-shell.tsx` but in different sections (artifact rendering vs title updates). Merge at P5 completion.
 
-### P06 Sub-Task Parallelism
+### P6 Sub-Task Parallelism
 
-The 6 enhancement sub-tasks have minimal interdependencies:
+The enhancement sub-tasks have minimal interdependencies:
 
 ```
-06a Voting       ──── independent
-06b Models       ──── independent
-06c Settings     ──── independent (hook already stubbed)
-06d Upload       ──── independent
-06e Visibility   ──── independent
-06f Health       ──── independent
+Voting           ──── independent (Server Action + useOptimistic)
+Models           ──── independent
+Visibility       ──── independent (own feature module)
+Upload           ──── independent
+Weather UI       ──── independent
+Health           ──── independent
 ```
 
-**All 6 can run in parallel.** Each touches different feature directories and API routes. The only shared modification is `multimodal-input.tsx` which gets file upload (06d) and model selector (06b) — these touch different sections of the component.
-
-With 2 workers: ~1.5 days instead of ~2.5 days.
+**All can run in parallel.** Each touches different feature directories and files. The only shared modification is `multimodal-input.tsx` which gets file upload and model selector — these touch different sections of the component.
 
 ---
 
 ## 5. Phase Execution Table
 
-| Phase | Est. Days | Blocking? | Parallel With | Files (~) | Seams |
-|-------|-----------|-----------|---------------|-----------|-------|
-| P00 Scaffold | 1 | Yes | — | 80+ | 0 |
-| P01 Data Foundation | 2 | Yes | — | 25 | 4 (partial) |
-| P02 Auth | 1.5 | Yes | — | 14 | 5 |
-| P03 Chat Core | 4 | Yes | — | 35 | 8 |
-| P04 Artifacts | 3 | No | P05 | 28 | 12 |
-| P05 Sidebar | 2 | No | P04 | 8 | 4 |
-| P06 Enhancements | 2.5 | Yes (for P07) | Internal sub-tasks | 18 | 6 |
-| P07 Polish | 2 | — | — | 10 | 3 |
-| **Total** | **~16** | | | **~218** | **40** |
+| Phase | Tasks | Files (~) | Blocking? | Parallel With |
+|-------|-------|-----------|-----------|---------------|
+| P0 Scaffold | 18 | ~55 | Yes | — |
+| P1 Data Foundation | 14 | ~22 | Yes | — |
+| P2 Auth | 9 | ~14 | Yes | — |
+| P3 Chat Core | 27 | ~42 | Yes | — |
+| P4 Artifacts | 18 | ~28 | No | P5 |
+| P5 Sidebar | 12 | ~12 | No | P4 |
+| P6 Enhancements | 14 | ~17 | Yes (for P7) | Internal sub-tasks |
+| P7 Polish | 13 | ~20 | — | — |
+| **Total** | **125** | **~210** | | |
 
 ---
 
-## 6. Seam Coverage by Phase
-
-| Phase | Seams Addressed | IDs |
-|-------|----------------|-----|
-| P00 | 0 | — |
-| P01 | 4 | SEAM-023, 024*, 025*, 026* (* = partial, stubs) |
-| P02 | 5 | SEAM-001, 002, 003, 004, 005 |
-| P03 | 8 | SEAM-006, 007, 008, 015, 028, 029, 031, 038 |
-| P04 | 12 | SEAM-009, 010, 011, 012, 021, 032, 033, 034, 035, 037, 039, 040 |
-| P05 | 4 | SEAM-013, 014, 020, 030 |
-| P06 | 6 | SEAM-016, 017, 018, 019, 022, 036 |
-| P07 | 3 | SEAM-027, 030*, 037* (* = finalized from earlier stub) |
-| **Total** | **40** | **SEAM-001 through SEAM-040** |
-
-All 40 seams are covered. No orphan seams.
-
----
-
-## 7. Checkpoint Gates
+## 6. Checkpoint Gates
 
 Each phase must pass its gate before the next begins:
 
 | Gate | Required Checks | Blocks |
 |------|-----------------|--------|
-| G00 | `pnpm install` + `typecheck` + `lint` + `dev` starts | P01 |
-| G01 | Data functions unit-tested, DB connects, cache connects | P02 |
-| G02 | Login/register/guest works E2E, session resolves | P03 |
-| G03 | Send message → stream → display → persist works | P04, P05 |
-| G04 | AI creates document, user edits, versions work | P06 (with P05) |
-| G05 | Sidebar loads, navigates, optimistic updates work | P06 (with P04) |
-| G06 | All secondary features work, no regressions | P07 |
-| G07 | `pnpm build` succeeds, E2E suite passes | Release |
+| G00 | `pnpm install` + `typecheck` + `lint` + `format` + `dev` starts, proxy.ts exports `proxy()` | P1 |
+| G01 | Data functions type-check, DB connects, cache connects, `lib/data/artifact.ts` exists (NOT document.ts) | P2 |
+| G02 | Login/register/guest works, session resolves, `proxy.ts` redirects unauthenticated | P3 |
+| G03 | ChatShell ~60 lines, StreamBridge works, handler registry functional, send message → stream → display → persist | P4, P5 |
+| G04 | Artifact store (useSyncExternalStore), all 4 handlers register, editors render, artifact naming verified | P6 (with P5) |
+| G05 | SidebarShell SERVER with `'use cache'`, PendingChatsProvider works, single-channel title sync | P6 (with P4) |
+| G06 | All secondary features work, voting via Server Actions + useOptimistic, no regressions | P7 |
+| G07 | `pnpm build` succeeds, E2E suite passes, zero "document" identifiers, zero credit/gateway refs | Release |
+
+---
+
+## 7. Key Architectural Decisions (Enforced Throughout)
+
+| Decision | Enforcement |
+|----------|-------------|
+| `proxy.ts` NOT `middleware.ts` | P0 creates it; P7 verifies no middleware.ts |
+| "artifact" EVERYWHERE | Every task uses artifact naming; P7 grep verification |
+| No credit/gateway/quota | No tasks create credit logic; P7 grep verification |
+| Server layout + client islands | Chat layout is SERVER (P3); ChatShell is `'use client'` |
+| ChatShell ~60 lines (not God Component) | P3 creates thin orchestrator; logic in hooks/pure functions |
+| `useSyncExternalStore` for artifact state | P4 creates store; NOT SWR synthetic key |
+| `updateTag`/`revalidateTag` after EVERY mutation | P1 creates utilities; every SA/RH uses them |
+| Handler registry (dependency inversion) | P3 creates registry; P4 registers handlers; P3 tools consume |
+| Providers scoped as siblings | Layout places SidebarProvider; page places ChatStreamProvider |
+| Single-channel title delivery | P3 awaits title server-side; P5 receives via PendingChats.updateTitle() |
+| Import boundaries enforced | P0 creates script; P7 runs verification |
+| No mandatory barrel files | Direct imports throughout; one exception: handlers/index.ts |
 
 ---
 
@@ -190,27 +190,27 @@ Merge into `main` only after gate passes.
 
 ### Solo Developer
 
-Execute strictly sequentially: P00 → P01 → P02 → P03 → P04 → P05 → P06 → P07.
+Execute strictly sequentially: P0 → P1 → P2 → P3 → P4 → P5 → P6 → P7.
 No parallelism. Each phase is a single focused sprint.
 
 ### Two Developers
 
 ```
-Dev A: P00 → P01 → P02 → P03 → P04 ──────→ P06(abc) → P07
-Dev B:                         (wait) → P05 → P06(def) → P07
+Dev A: P0 → P1 → P2 → P3 → P4 ──────→ P6(abc) → P7
+Dev B:                         (wait) → P5 → P6(def) → P7
 ```
 
-Dev B joins at P05 (after P03 completes). P06 sub-tasks split between developers.
+Dev B joins at P5 (after P3 completes). P6 sub-tasks split between developers.
 
 ### Three+ Developers
 
 ```
-Dev A: P00 → P01 → P02 → P03 → P04 → P07
-Dev B:                    (wait) → P05 → P06(abc)
-Dev C:                         (wait) → P06(def) → P07
+Dev A: P0 → P1 → P2 → P3 → P4 → P7
+Dev B:                    (wait) → P5 → P6(abc)
+Dev C:                         (wait) → P6(def) → P7
 ```
 
-P04, P05, and P06 sub-tasks distribute across developers after the critical path (P00-P03) completes.
+P4, P5, and P6 sub-tasks distribute across developers after the critical path (P0-P3) completes.
 
 ---
 
@@ -218,13 +218,13 @@ P04, P05, and P06 sub-tasks distribute across developers after the critical path
 
 | Phase | Complexity | Primary Risk | Time Estimate |
 |-------|-----------|-------------|---------------|
-| P00 | Low | ai-elements import paths | 1 day |
-| P01 | Medium | Guest/auth data branching pattern | 2 days |
-| P02 | Medium | JWT validation + cookie security | 1.5 days |
-| P03 | **High** | SSE streaming + DataStreamHandler pipeline | 4 days |
-| P04 | **High** | 4 editor types + handler factory + versioning | 3 days |
-| P05 | Medium | Optimistic updates + infinite scroll | 2 days |
-| P06 | Medium | Cross-feature integration | 2.5 days |
-| P07 | Low-Medium | Error boundary edge cases | 2 days |
+| P0 | Low | ai-elements import paths | 1 day |
+| P1 | Medium | Guest/auth data branching pattern | 2 days |
+| P2 | Medium | JWT validation + cookie security | 1.5 days |
+| P3 | **High** | ChatShell decomposition + StreamBridge + handler registry pipeline | 4 days |
+| P4 | **High** | useSyncExternalStore store + 4 editor types + handler registration | 3 days |
+| P5 | Medium | PendingChatsProvider + SERVER sidebar with `'use cache'` | 2 days |
+| P6 | Medium | Cross-feature integration, Server Action voting | 2.5 days |
+| P7 | Low-Medium | Import boundary verification, artifact naming grep | 2 days |
 
-**P03 is the riskiest phase.** It wires the most complex integration (useChat → SSE → DataStreamHandler → SWR) and has the most seams (8). Allocate extra time and test thoroughly.
+**P3 is the riskiest phase.** It creates the ChatShell orchestrator, StreamBridge, ChatStreamProvider (split contexts with RAF batching), handler registry, and wires the complete streaming pipeline. Allocate extra time and test thoroughly.

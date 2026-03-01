@@ -1,5 +1,7 @@
 # UI Parity Analysis — Index
 
+> **Updated per redesign audit (2026-03-01)**
+
 > Generated from analysis of `oldapp/` source. Zero-regression reference for rebuild.
 
 ## Documents

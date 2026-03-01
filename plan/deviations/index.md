@@ -1,7 +1,10 @@
+> **Updated per redesign audit (2026-03-01)**
+
 # Deviations from Architecture v6 Spec
 
 > Every deviation from `architecture-v6-final.md` logged with justification.
 > Deviations are tracked by ID (DEV-NNN) and severity.
+> **Redesign additions:** DEV-016 through DEV-022 added for document→artifact rename, SettingsProvider removal, handler registry, ChatShell decomposition, proxy.ts, ChatStreamProvider/StreamBridge, and PendingChatsProvider.
 
 ## Severity Levels
 
@@ -15,15 +18,15 @@
 
 | File | IDs | Summary |
 |------|-----|---------|
-| [deviations-01.md](deviations-01.md) | DEV-001 through DEV-015 | All deviations |
+| [deviations-01.md](deviations-01.md) | DEV-001 through DEV-022 | All deviations (original + redesign) |
 
 ## Summary by Severity
 
 | Severity | Count | Key Items |
 |----------|-------|-----------|
-| MAJOR | 4 | Repository pattern, Jotai, Result type, ApiResponse envelope |
-| STRUCTURAL | 7 | src/ elimination, AI wrapper collocation, lib/hooks, auth-form, barrel files, services, action suffix |
-| MINOR | 4 | Error code enum, ESLint→Biome, use cache gap, aspirational AI wrappers |
+| MAJOR | 7 | Repository pattern, Jotai, Result type, ApiResponse envelope, SettingsProvider removal, document→artifact rename, ChatShell decomposition |
+| STRUCTURAL | 9 | src/ elimination, AI wrapper collocation, lib/hooks, auth-form, barrel files, services, action suffix, handler registry, proxy.ts |
+| MINOR | 6 | Error code enum, ESLint→Biome, use cache gap, aspirational AI wrappers, ChatStreamProvider/StreamBridge rename, PendingChatsProvider rename |
 
 ## Quick Reference
 
@@ -44,3 +47,10 @@
 | DEV-013 | Add `use cache` strategy (missing from spec) | MINOR |
 | DEV-014 | Don't build aspirational AI wrappers | MINOR |
 | DEV-015 | Drop `.action.ts` file suffix | STRUCTURAL |
+| DEV-016 | Document → Artifact complete rename | MAJOR |
+| DEV-017 | SettingsProvider removed | MAJOR |
+| DEV-018 | Handler registry (dependency inversion) | STRUCTURAL |
+| DEV-019 | ChatShell decomposition (~60 lines) | MAJOR |
+| DEV-020 | proxy.ts replaces middleware.ts | STRUCTURAL |
+| DEV-021 | DataStreamProvider/Handler → ChatStreamProvider/StreamBridge | MINOR |
+| DEV-022 | OptimisticChatsProvider → PendingChatsProvider | MINOR |

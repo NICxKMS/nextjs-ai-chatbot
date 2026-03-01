@@ -1,7 +1,12 @@
+> **Updated per redesign audit (2026-03-01)**
+
 # Integration Contracts
 
 > Every interface contract between modules. Defines what crosses feature boundaries,
 > what each module provides and consumes, and the exact data shapes exchanged.
+> Updated to reflect: artifact naming, handler registry, ChatSessionValue,
+> PendingChatOperations, ArtifactHandler interface, artifact-* stream parts,
+> Server Actions replacing Route Handlers for mutations, useSyncExternalStore.
 
 ---
 
@@ -9,29 +14,29 @@
 
 ### features/chat/ → features/artifacts/
 
-**Direction:** Chat invokes artifact creation/update via AI tools (server-side only)
+**Direction:** Chat invokes artifact creation/update via handler registry (server-side only)
 
 | Contract | Provider | Consumer | Data Shape |
 |----------|----------|----------|------------|
-| `createDocument` tool | `features/chat/lib/tools/create-document.ts` | `features/artifacts/handlers/` | `{ title: string, kind: ArtifactKind }` |
-| `updateDocument` tool | `features/chat/lib/tools/update-document.ts` | `features/artifacts/handlers/` | `{ id: string, description: string }` |
-| `requestSuggestions` tool | `features/chat/lib/tools/suggestions.ts` | `features/artifacts/handlers/` | `{ documentId: string }` |
-| Artifact data stream events | Artifact handlers (server) | `DataStreamHandler` (client, chat) | `data-id`, `data-title`, `data-kind`, `data-clear`, `data-*Delta`, `data-finish` |
+| `createArtifact` tool | `features/chat/lib/tools/create-artifact.ts` | `lib/ai/artifact-handlers.ts` → `features/artifacts/handlers/` | `{ title: string, kind: ArtifactKind }` |
+| `updateArtifact` tool | `features/chat/lib/tools/update-artifact.ts` | `lib/ai/artifact-handlers.ts` → `features/artifacts/handlers/` | `{ id: string, description: string }` |
+| `requestSuggestions` tool | `features/chat/lib/tools/request-suggestions.ts` | `features/artifacts/handlers/` | `{ artifactId: string }` |
+| Artifact data stream events | Artifact handlers (server) | `StreamBridge` → `artifactStore` (client) | `artifact-id`, `artifact-title`, `artifact-kind`, `artifact-clear`, `artifact-*Delta`, `artifact-finish` |
 
-**Import boundary:** Chat tools import artifact handler factory from `features/artifacts/handlers/`. No component imports cross this boundary.
+**Import boundary:** Chat tools import `getArtifactHandler()` from `lib/ai/artifact-handlers.ts` (registry). No direct cross-feature component imports. Artifact handlers register themselves via side-effect import in route handler.
 
 ### features/chat/ → features/sidebar/
 
-**Direction:** Bidirectional via shared state (no direct imports)
+**Direction:** Bidirectional via shared PendingChatsProvider context (no direct imports)
 
 | Contract | Mechanism | Data Shape |
 |----------|-----------|------------|
-| Optimistic chat creation | `OptimisticChatsProvider` context | `{ id, title, createdAt, visibility }` |
-| Title update | `window.dispatchEvent('chat-title-updated')` | No payload (triggers SWR revalidation) |
-| Chat title from stream | `data-chatTitle` stream part → `updateOptimisticChatTitle(id, title)` | `string` |
+| Optimistic chat creation | `PendingChatsProvider` context | `PendingChats.add({ id, title, createdAt, visibility })` |
+| Title update (single channel) | `chat-title` stream part → `PendingChats.updateTitle(id, title)` | `string` |
 | Active chat highlight | URL pathname (`/chat/[id]`) | Sidebar reads `usePathname()` |
 
-**Import boundary:** Both features import from `OptimisticChatsProvider` (shared hook). No direct feature→feature component imports.
+> **Removed:** `window.dispatchEvent('chat-title-updated')`, `pollForTitle()` 3×500ms.
+> Title delivery is guaranteed — server awaits title before stream close.
 
 ### features/sidebar/ → features/chat/
 
@@ -40,27 +45,29 @@
 | Contract | Mechanism | Data |
 |----------|-----------|------|
 | Navigate to chat | `router.push('/chat/{id}')` | Chat ID in URL |
-| Delete chat redirect | `router.push('/')` after DELETE | None |
+| Delete chat redirect | `router.push('/')` after Server Action | None |
 
 ### features/chat/ → features/settings/
 
-**Direction:** Chat reads settings, settings provides configuration
+**Direction:** Chat reads settings from module store, settings provides configuration
 
 | Contract | Provider | Consumer | Data Shape |
 |----------|----------|----------|------------|
-| Chat settings | `SettingsProvider` context | `Chat` component | `SettingsState` (temperature, topP, maxOutputTokens, systemPrompt, enableReasoning, reasoningBudget, streamArtifacts, autoScroll) |
-| Model selection | `useSettings().setSelectedModelId` | `Chat` component | `string` (model ID) |
-| Auto-scroll | `useSettingsSnapshot().autoScroll` | `Messages` component | `boolean` |
+| Chat settings | `useSettings()` (module store) | `useChatSession` hook | `SettingsState { temperature, topP, maxOutputTokens, systemPrompt, enableReasoning }` |
+
+> **No SettingsProvider** — `useSettings()` imports directly from `features/settings/hooks/use-settings.ts` (useSyncExternalStore module store).
 
 ### features/chat/ → features/voting/
 
-**Direction:** Chat provides message context, voting renders in message actions
+**Direction:** Voting renders in message actions via Server Action + useOptimistic
 
 | Contract | Provider | Consumer | Data Shape |
 |----------|----------|----------|------------|
-| Vote state | Server (initial) → SWR cache | `MessageActions` component | `UserVote[]` |
-| Vote mutation | PATCH `/api/vote` | `MessageActions` | `{ chatId, messageId, type }` |
-| Chat ownership | Chat props `isReadonly`, `isGuest` | Vote button visibility | `boolean` |
+| Vote state | Server (initial via VoteResolver) | `VoteButtons` component | `Vote[]` |
+| Vote mutation | `voteOnMessage()` Server Action | `VoteButtons` | `{ chatId, messageId, type }` → `ActionResult<{ messageId }>` |
+| Chat ownership | Chat props `isReadonly` | Vote button visibility | `boolean` |
+
+> **Replaced:** SWR `PATCH /api/vote` → Server Action + `useOptimistic` (React 19).
 
 ### features/chat/ → features/models/
 
@@ -68,9 +75,9 @@
 
 | Contract | Provider | Consumer | Data Shape |
 |----------|----------|----------|------------|
-| Available models | `listChatModels()` (server) | Chat page props → `ModelSelector` | `ModelMetadata[]` |
+| Available models | `getAvailableModels()` (server, `use cache`) | Chat page props → `ModelSelector` | `ModelMetadata[]` |
 | Selected model | Cookie `chat-model` + localStorage | `useChat` body | `string` (model ID) |
-| Model capabilities | `ModelMetadata.capabilities` | Tool enablement logic | `ModelCapability[]` |
+| Model capabilities | `ModelMetadata.supportsToolCalling` | Tool enablement logic | `boolean` |
 
 ### features/chat/ → features/auth/
 
@@ -78,9 +85,8 @@
 
 | Contract | Provider | Consumer | Data Shape |
 |----------|----------|----------|------------|
-| Session | `AuthProvider` context | `Chat` component, API routes | `AppSession` |
-| Guest state | `useAuth().isGuest` | Vote visibility, history behavior | `boolean` |
-| New session flag | `useAuth().clearNewSessionFlag` | Chat component | `() => void` |
+| Session | `SessionProvider` context | `useChatSession`, API routes | `AppSession` |
+| Guest state | `useSession().user.type` | Vote visibility, history behavior | `"authenticated" | "guest"` |
 
 ---
 
@@ -90,50 +96,54 @@
 
 | lib/ Module | Functions Used | Purpose |
 |-------------|----------------|---------|
-| `lib/data/chat` | `chatData.get`, `chatData.getWithMessages`, `chatData.list`, `chatData.delete` | Chat CRUD |
+| `lib/data/chat` | `getChatWithMessages`, `createChat`, `updateChatTitle`, `deleteChat` | Chat CRUD |
 | `lib/data/message` | `saveMessages`, `deleteTrailingMessages` | Message persistence |
-| `lib/data/context` | `createContext(session)` | Guest/auth branching |
-| `lib/ai/providers` | `myProvider.languageModel(modelId)` | Model resolution |
-| `lib/ai/registry` | `isValidModelId()`, `listChatModels()` | Model validation |
+| `lib/data/artifact` | `getArtifactById` (in updateArtifact tool) | Artifact fetch for updates |
+| `lib/ai/artifact-handlers` | `getArtifactHandler()` | Handler registry (dependency inversion) |
+| `lib/ai/provider` | `myProvider.languageModel(modelId)` | Model resolution |
+| `lib/ai/prompts` | `composeSystemPrompt()`, `ARTIFACTS_PROMPT` | System prompt |
+| `lib/ai/tools` | `getEnabledTools()` | Model-based tool gating |
 | `lib/auth/session` | `getAppSession()` | Session resolution |
-| `lib/errors` | `ChatSDKError`, `AppError` | Error creation |
-| `lib/api/guards` | `requireAuthForRoute`, `requireRateLimitForRoute` | Route protection |
-| `lib/api/validators` | `parseJsonBodyForRoute`, Zod parsing | Input validation |
-| `lib/cache/` | (indirect via lib/data/) | Cache operations |
-| `lib/utils` | `generateUUID`, `fetchWithErrorHandlers` | UUID generation, fetch wrapper |
+| `lib/cache/revalidate` | `refreshChat`, `refreshChatList` | revalidateTag wrappers |
+| `lib/types/` | `ArtifactHandler`, `PendingChatOperations`, `ActionResult`, `UIArtifact` | Type contracts |
+| `lib/errors/` | `AppError` | Error creation |
+| `lib/utils` | `generateUUID` | UUID generation |
 
 ### features/artifacts/ → lib/
 
 | lib/ Module | Functions Used | Purpose |
 |-------------|----------------|---------|
-| `lib/data/document` | `documentData.get`, `documentData.getAll`, `documentData.save` | Document CRUD |
-| `lib/data/context` | `createContext(session)` | Guest/auth branching |
-| `lib/ai/providers` | `myProvider.languageModel('artifact-model')` | Artifact AI model |
-| `lib/db/queries` | `saveSuggestions` | Suggestion persistence |
-| `lib/utils` | `generateUUID` | Document ID generation |
+| `lib/ai/artifact-handlers` | `registerArtifactHandler()` | Handler registration |
+| `lib/ai/provider` | `myProvider.languageModel(ARTIFACT_MODEL)` | Artifact AI model |
+| `lib/data/artifact` | `getArtifactById`, `saveArtifactVersion` | Artifact CRUD |
+| `lib/types/` | `ArtifactHandler`, `ArtifactStreamWriter`, `CreateArtifactParams`, `UpdateArtifactParams` | Type contracts |
 
 ### features/sidebar/ → lib/
 
 | lib/ Module | Functions Used | Purpose |
 |-------------|----------------|---------|
-| `lib/data/chat` | (indirect via API) | Chat history fetching |
-| `lib/types` | `Chat`, `ChatMessage` types | Type definitions |
+| `lib/data/chat` | `getChatsByUserId` | Chat history |
+| `lib/types/` | `PendingChatOperations` | Type definitions |
+| `lib/cache/revalidate` | (indirect via Server Actions) | Cache invalidation |
 
 ### features/auth/ → lib/
 
 | lib/ Module | Functions Used | Purpose |
 |-------------|----------------|---------|
 | `lib/auth/session` | `getAppSession()` | Session resolution |
-| `lib/auth/config` | JWT secrets, Supabase config | Auth configuration |
-| `lib/errors` | `ChatSDKError` | Auth error responses |
 
 ### features/voting/ → lib/
 
 | lib/ Module | Functions Used | Purpose |
 |-------------|----------------|---------|
-| `lib/data/chat` | `chatData.get`, `chatData.getWithMessages` | Ownership + membership verification |
-| `lib/db/queries` | `voteMessage` | Vote upsert |
-| `lib/api/guards` | All route guards | Auth, rate limit, ownership |
+| `lib/data/vote` | `upsertVote`, `getVotesByChatId` | Vote CRUD |
+| `lib/types/` | `ActionResult` | Return type |
+
+### features/settings/ → lib/
+
+| lib/ Module | Functions Used | Purpose |
+|-------------|----------------|---------|
+| (none) | — | Leaf feature — no lib imports |
 
 ---
 
@@ -142,97 +152,117 @@
 ### Chat Send Message Chain
 
 ```
-MultimodalInput (component)
-  → useChat.handleSubmit() (hook — @ai-sdk/react)
-    → DefaultChatTransport (AI SDK transport)
-      → POST /api/chat (route handler)
-        → parseJsonBodyForRoute (lib/api/validators)
-        → getAppSession() (lib/auth/session)
-        → requireRateLimitForRoute (lib/api/guards)
-        → getUserMessageCount (lib/data/ → lib/cache/)
-        → chatData.getWithMessages (lib/data/chat → lib/cache/ → lib/db/)
-        → createUIMessageStream (AI SDK)
-          → streamText (AI SDK → lib/ai/providers)
-          → tool calls → features/artifacts/handlers/
-        → saveChat (lib/data/chat-operations → lib/data/ → lib/db/ + lib/cache/)
+MultimodalInput (component, reads ChatSessionContext)
+  → useChatSessionContext().sendMessage() (intent-based callback)
+    → useChatSession internally: validate → PendingChats.add → handleSubmit()
+      → DefaultChatTransport (AI SDK)
+        → POST /api/chat (route handler)
+          → Zod validation
+          → getAppSession() → session
+          → Rate limit check
+          → getChatWithMessages (if existing)
+          → createChat (if new)
+          → createUIMessageStream():
+            → composeSystemPrompt() with settings
+            → getEnabledTools() for model
+            → streamText (AI SDK → myProvider)
+            → tool calls → getArtifactHandler() → artifact handlers
+          → onFinish:
+            → saveMessages() → DB
+            → updateChatTitle() → DB
+            → refreshChat(chatId)
+            → refreshChatList(userId)
 ```
 
 ### Artifact Create/Update Chain
 
 ```
 AI streamText response (server)
-  → createDocument tool execution (features/chat/lib/tools/)
-    → documentHandlersByArtifactKind[kind] (features/artifacts/handlers/)
-      → handler.onCreateDocument() (features/artifacts/handlers/{kind}.ts)
+  → createArtifact tool execution (features/chat/lib/tools/)
+    → getArtifactHandler(kind) (lib/ai/artifact-handlers — registry)
+      → handler.create() (features/artifacts/handlers/{kind}.ts)
         → streamText/streamObject (AI SDK)
-        → dataStream.writeData() (data-id, data-title, data-kind, data-clear, deltas, data-finish)
-        → documentData.save() (lib/data/document → lib/db/ + lib/cache/)
+        → ChatStream.writeData() (artifact-id, artifact-title, artifact-kind, artifact-clear, deltas, artifact-finish)
+        → saveArtifactVersion() (lib/data/artifact)
   → SSE response to client
-    → useChat.onData() (hook — @ai-sdk/react)
-      → setDataStream() (DataStreamProvider dispatch)
-        → DataStreamHandler (component)
-          → setArtifact() (useArtifact SWR mutate)
-            → Artifact panel re-renders (component)
-              → Editor component ({kind}-editor.tsx)
+    → useChat.onData() → artifact-* parts → ChatStreamProvider dispatch
+      → StreamBridge (useEffect)
+        → processStreamDelta() (pure function)
+          → artifactStore.setState() (useSyncExternalStore)
+            → ArtifactPanel re-renders (useArtifact subscription)
+              → Editor component (text/code/sheet/image)
 ```
 
 ### Visibility Toggle Chain
 
 ```
 VisibilitySelector (component)
-  → useChatVisibility.setVisibilityType() (hook)
-    → SWR optimistic mutate (immediate UI)
-    → updateChatVisibility() (server action — app/(chat)/actions.ts)
-      → getAppSession() (lib/auth/session)
-      → chatData.updateVisibility() (lib/data/chat → lib/db/ + lib/cache/)
-    → on failure: SWR rollback + toast.error()
+  → useOptimistic(visibility) — immediate UI
+  → updateChatVisibility({ chatId, visibility }) — Server Action
+    → getAppSession() → session
+    → Ownership verification
+    → DB update
+    → updateTag('chat:{chatId}') + updateTag('chats:{userId}')
+  → on failure: optimistic rolls back + toast.error()
 ```
 
 ### Vote Chain
 
 ```
-MessageActions (component) → vote button click
-  → PATCH /api/vote (route handler)
-    → parseJsonBodyForRoute (lib/api/validators)
-    → requireAuthForRoute (lib/api/guards)
-    → requireNonGuestForRoute (lib/api/guards)
-    → chatData.get (lib/data/chat) → ownership check
-    → chatData.getWithMessages (lib/data/chat) → message membership check
-    → voteMessage (lib/db/queries) → DB upsert
+VoteButtons (component) → handleVote(type)
+  → useOptimistic(type) — immediate UI
+  → voteOnMessage({ chatId, messageId, type }) — Server Action
+    → getAppSession() → session
+    → requireNonGuest check
+    → upsertVote (lib/data/vote) → DB
+    → updateTag('votes:{chatId}')
+  → on failure: optimistic rolls back + toast.error()
 ```
 
 ### Sidebar History Chain
 
 ```
-SidebarHistory (component)
-  → useSWRInfinite(getChatHistoryPaginationKey, fetcher) (hook)
-    → GET /api/history?limit=20 (route handler)
-      → requireAuthForRoute (lib/api/guards)
-      → requireRateLimitForRoute (lib/api/guards)
-      → chatData.list (lib/data/chat)
-        → Guest: cache ZSET + batch MGET
-        → Auth: DB query with cursor pagination
+SidebarShell (SERVER component)
+  → getCachedChats(userId) — 'use cache' + cacheTag('chats:{userId}')
+    → getChatsByUserId(userId, { limit: 21 })
+  → SidebarHistoryClient (initialChats, initialHasMore)
+    → useSWRInfinite(key, fetcher, { fallbackData })
+      → GET /api/history?limit=20&offset={page*20} (route handler)
+        → auth, rate limit
+        → getChatsByUserId with cursor pagination
+    → usePendingChats() — merge optimistic entries
 ```
 
 ---
 
 ## 4. API Route → Action → Repository Chain
 
-| Route | Handler | Guards | Data Layer | DB/Cache |
-|-------|---------|--------|------------|----------|
-| `POST /api/chat` | `route.ts` | auth, rate limit, quota | `chatData.getWithMessages`, `saveChat` | Both |
-| `GET /api/history` | `route.ts` | auth, rate limit | `chatData.list` | Both |
-| `DELETE /api/history` | `route.ts` | auth, strict rate limit | `chatData.deleteAll` | Both |
-| `DELETE /api/chat/[id]` | `route.ts` | auth, ownership | `chatData.get`, `chatData.delete` | Both |
-| `PATCH /api/vote` | `route.ts` | auth, non-guest, rate limit, ownership, membership | `chatData.get`, `chatData.getWithMessages`, `voteMessage` | DB only |
-| `GET /api/document` | `route.ts` | auth, rate limit, ownership | `documentData.getAll` | Both |
-| `POST /api/document` | `route.ts` | auth, rate limit | `documentData.save` | Both |
-| `DELETE /api/document` | `route.ts` | auth, non-guest, ownership | `documentData.delete` | Both |
-| `GET /api/suggestions` | `route.ts` | auth | `documentData.getSuggestions` | DB |
-| `POST /api/files/upload` | `route.ts` | auth, upload rate limit | Vercel Blob `put()` | Blob storage |
-| `POST /api/auth/exchange` | `route.ts` | none (creates session) | JWT verify + cookie set | None |
-| `POST /api/auth/guest` | `route.ts` (or proxy) | none | JWT sign + cookie set | None |
-| `GET /api/health` | `route.ts` | none | DB ping + cache ping | Both |
+| Route | Handler | Guards | Data Layer | Revalidation |
+|-------|---------|--------|------------|--------------|
+| `POST /api/chat` | Route Handler | auth, rate limit | `createChat`, `saveMessages`, `updateChatTitle` | `revalidateTag('chat:{id}', 'max')`, `revalidateTag('chats:{userId}', 'max')` |
+| `GET /api/history` | Route Handler | auth, rate limit | `getChatsByUserId` | — |
+| `GET /api/artifact` | Route Handler | auth, ownership | `getArtifactById` (all versions) | — |
+| `POST /api/artifact` | Route Handler | auth, rate limit | `saveArtifactVersion` | `revalidateTag('artifact:{id}', 'max')` |
+| `DELETE /api/artifact` | Route Handler | auth, non-guest, ownership | `deleteArtifactVersion` | `revalidateTag('artifact:{id}', 'max')` |
+| `GET /api/suggestions` | Route Handler | auth | `getSuggestionsByArtifactId` | — |
+| `POST /api/files/upload` | Route Handler | auth, upload rate limit | Vercel Blob `put()` | — |
+| `POST /api/auth/exchange` | Route Handler | none | JWT verify + cookie set | — |
+| `POST /api/auth/guest` | Route Handler | none | JWT sign + cookie set | — |
+| `GET /api/health` | Route Handler | none | DB ping | — |
+
+**Server Actions (mutations):**
+
+| Action | Guards | Data Layer | Revalidation |
+|--------|--------|------------|--------------|
+| `deleteChat` | auth, ownership | `deleteChat` | `updateTag('chats:{userId}')` |
+| `deleteAllChats` | auth | `deleteAllChats` | `updateTag('chats:{userId}')` |
+| `deleteTrailingMessages` | auth | `deleteTrailingMessages` | `updateTag('chat:{id}')` |
+| `voteOnMessage` | auth, non-guest | `upsertVote` | `updateTag('votes:{chatId}')` |
+| `updateChatVisibility` | auth, ownership | `updateVisibility` | `updateTag('chat:{id}')` + `updateTag('chats:{userId}')` |
+| `renameChat` | auth, ownership | `updateChatTitle` | `updateTag('chats:{userId}')` |
+| `login` | none | `cookies.set()` | Router Cache invalidated |
+| `register` | none | `cookies.set()` | Router Cache invalidated |
+| `logout` | auth | `cookies.delete()` | Router Cache invalidated |
 
 ---
 
@@ -240,21 +270,21 @@ SidebarHistory (component)
 
 ### SSE Data Part Types (Server → Client)
 
-| Part Type | Data Type | Source | Consumer | Lifecycle |
-|-----------|-----------|--------|----------|-----------|
-| `data-id` | `string` (UUID) | `createDocument` tool | `DataStreamHandler` → `useArtifact` | Transient |
-| `data-title` | `string` | `createDocument` tool | `DataStreamHandler` → `useArtifact` | Transient |
-| `data-kind` | `ArtifactKind` | `createDocument` tool | `DataStreamHandler` → `useArtifact` | Transient |
-| `data-clear` | `null` | `create/updateDocument` tool | `DataStreamHandler` → `useArtifact` | Transient |
-| `data-textDelta` | `string` | Text artifact handler | `DataStreamHandler` → `useArtifact` (append) | Transient |
-| `data-codeDelta` | `string` | Code artifact handler | `DataStreamHandler` → `useArtifact` (replace) | Transient |
-| `data-sheetDelta` | `string` | Sheet artifact handler | `DataStreamHandler` → `useArtifact` (replace) | Transient |
-| `data-imageDelta` | `string` (base64) | Image handler | `DataStreamHandler` → `useArtifact` (replace) | Transient |
-| `data-finish` | `null` | Document handlers | `DataStreamHandler` → `useArtifact` (status→idle) | Transient |
-| `data-suggestion` | `Suggestion` object | `requestSuggestions` tool | `DataStreamHandler` → suggestions state | Transient |
-| `data-chatTitle` | `string` | Title generation | `useChat.onData` → `updateOptimisticChatTitle` | Transient |
-| `data-usage` | `AppUsage` object | Chat completion onFinish | `useChat.onData` → `setUsage` state | Persisted (lastContext) |
-| `data-appendMessage` | `ChatMessage` JSON | Server action | `useChat.onData` → `setMessages` | Persisted |
+| Part Type | Data Type | Source | Consumer | Accumulation |
+|-----------|-----------|--------|----------|-------------|
+| `artifact-id` | `string` (UUID) | `createArtifact` tool | StreamBridge → artifactStore | Set artifactId |
+| `artifact-title` | `string` | `createArtifact` tool | StreamBridge → artifactStore | Set title |
+| `artifact-kind` | `ArtifactKind` | `createArtifact` tool | StreamBridge → artifactStore | Set kind |
+| `artifact-clear` | `string` (`''`) | `create/updateArtifact` tool | StreamBridge → artifactStore | Clear content, status → streaming |
+| `artifact-textDelta` | `string` | Text artifact handler | StreamBridge → artifactStore | **Append** (`content += delta`) |
+| `artifact-codeDelta` | `string` | Code artifact handler | StreamBridge → artifactStore | **Replace** (`content = delta`) |
+| `artifact-sheetDelta` | `string` | Sheet artifact handler | StreamBridge → artifactStore | **Replace** (`content = delta`) |
+| `artifact-imageDelta` | `string` (base64) | Image handler | StreamBridge → artifactStore | **Replace** (`content = delta`) |
+| `artifact-finish` | `string` (`''`) | Artifact handlers | StreamBridge → artifactStore | status → idle |
+| `artifact-suggestion` | `ArtifactSuggestion` | `requestSuggestions` tool | StreamBridge → suggestions state | Accumulated |
+| `chat-title` | `string` | Title generation (AWAITED) | `useChat.onData` → `PendingChats.updateTitle()` | Set title |
+
+> **Removed:** `data-usage` (no credit logic), `data-appendMessage` (not needed — useChat manages messages natively).
 
 ### AI SDK UIMessageStream Parts (Automatic)
 
@@ -271,21 +301,33 @@ SidebarHistory (component)
 
 ## 6. Server Action Contracts
 
-### `generateTitleFromUserMessage({ message })`
-- **Input:** `{ message: UIMessage }` (the first user message)
-- **Output:** `string` (generated title, or first 80 chars fallback)
-- **Side effects:** None (pure generation)
-
 ### `deleteTrailingMessages({ id, chatId })`
-- **Input:** `{ id: string, chatId: string }` (message ID to delete from)
-- **Output:** `void`
-- **Side effects:** Deletes messages after the specified ID from DB + cache
+- **Input:** `{ id: string, chatId: string }` (Zod validated)
+- **Output:** `ActionResult`
+- **Side effects:** Deletes messages after the specified ID from DB, `updateTag('chat:{chatId}')`
 
 ### `updateChatVisibility({ chatId, visibility })`
-- **Input:** `{ chatId: string, visibility: 'public' | 'private' }` (validated by Zod)
-- **Output:** `void`
-- **Side effects:** Updates chat visibility in DB + cache
-- **Auth:** Requires non-guest, ownership verified
+- **Input:** `{ chatId: string, visibility: 'public' | 'private' }` (Zod validated)
+- **Output:** `ActionResult`
+- **Side effects:** Updates visibility in DB, `updateTag('chat:{chatId}')` + `updateTag('chats:{userId}')`
+- **Auth:** Requires authenticated user, ownership verified
+
+### `deleteChat({ chatId })`
+- **Input:** `{ chatId: string }` (Zod validated)
+- **Output:** `ActionResult`
+- **Side effects:** Deletes chat from DB, `updateTag('chats:{userId}')`
+- **Auth:** Requires ownership
+
+### `voteOnMessage({ chatId, messageId, type })`
+- **Input:** `{ chatId: string, messageId: string, type: 'up' | 'down' }` (Zod validated)
+- **Output:** `ActionResult<{ messageId: string }>`
+- **Side effects:** Upsert vote in DB, `updateTag('votes:{chatId}')`
+- **Auth:** Requires non-guest
+
+### `renameChat({ chatId, title })`
+- **Input:** `{ chatId: string, title: string }` (Zod validated)
+- **Output:** `ActionResult`
+- **Side effects:** Updates title in DB, `updateTag('chats:{userId}')`
 
 ---
 
@@ -304,64 +346,119 @@ type AppSession = {
 **Produced by:** `getAppSession()` (lib/auth/session)
 **Consumed by:** All features, all route handlers, all server actions
 
-### `DataContext`
+### `ChatSessionValue`
 ```typescript
-type DataContext = {
-  userId: string;
-  isGuest: boolean;
+type ChatSessionValue = {
+  chatId: string;
+  chatModel: string;
+  isReadonly: boolean;
+  messages: Message[];
+  status: 'idle' | 'submitted' | 'streaming' | 'error' | 'ready';
+  input: string;
+  setInput: (input: string) => void;
+  attachments: Attachment[];
+  setAttachments: Dispatch<SetStateAction<Attachment[]>>;
+  sendMessage: (event?: { preventDefault?: () => void }) => void;
+  stop: () => void;
+  appendMessage: (message: Message) => void;
+  editMessage: (messageId: string, newContent: string) => Promise<void>;
+  error: Error | null;
+  clearError: () => void;
 };
 ```
-**Produced by:** `createDataContext(session)` (lib/data/context)
-**Consumed by:** All `lib/data/` functions
+**Produced by:** `useChatSession()` in ChatShell
+**Consumed by:** ChatHeader, Messages, MultimodalInput, ArtifactPanel (via `useChatSessionContext()`)
 
 ### `UIArtifact`
 ```typescript
 type UIArtifact = {
-  documentId: string;
+  artifactId: string;
   content: string;
   kind: ArtifactKind;      // "text" | "code" | "image" | "sheet"
   title: string;
   status: "idle" | "streaming";
   isVisible: boolean;
-  boundingBox: { top, left, width, height };
 };
 ```
-**Produced by:** `useArtifact()` SWR state
-**Consumed by:** `DataStreamHandler`, `Artifact` panel, `DocumentPreview`
+**Produced by:** `artifactStore` (useSyncExternalStore)
+**Consumed by:** `StreamBridge`, `ArtifactPanel`, `ArtifactPreview`
+
+### `ArtifactHandler`
+```typescript
+interface ArtifactHandler {
+  create(params: CreateArtifactParams): Promise<string>;   // returns content
+  update(params: UpdateArtifactParams): Promise<string>;   // returns content
+}
+
+interface CreateArtifactParams {
+  id: string; title: string; kind: ArtifactKind;
+  ChatStream: ArtifactStreamWriter; session: { userId: string; isGuest: boolean };
+  chatId: string;
+}
+
+interface UpdateArtifactParams {
+  id: string; description: string; currentContent: string;
+  kind: ArtifactKind; title: string;
+  ChatStream: ArtifactStreamWriter; session: { userId: string; isGuest: boolean };
+}
+```
+**Produced by:** `features/artifacts/handlers/` (text, code, sheet)
+**Consumed by:** `features/chat/lib/tools/` via `getArtifactHandler()` registry
+
+### `PendingChatOperations`
+```typescript
+interface PendingChatOperations {
+  add(chat: Omit<PendingChat, 'isOptimistic'>): void;
+  remove(id: string): void;
+  updateTitle(id: string, title: string): void;
+  markConfirmed(id: string): void;
+}
+```
+**Produced by:** `PendingChatsProvider`
+**Consumed by:** `SidebarHistoryClient` (reads), `useChatSession` (writes)
+
+### `ActionResult<T>`
+```typescript
+type ActionResult<T = void> =
+  | { success: true; data: T }
+  | { success: false; error: { code: string; message: string } };
+```
+**Used by:** All Server Actions (never throw — return structured results)
 
 ### `ModelMetadata`
 ```typescript
 type ModelMetadata = {
   id: string;                     // "provider:model-name"
-  providerId: ProviderId;
-  modelId: string;
   name: string;
-  capabilities: ModelCapability[];
-  modalities: ModelModality[];
-  reasoningType?: ReasoningType;
-  source: "curated" | "discovered";
-  isCurated: boolean;
+  provider: string;
+  providerModelId: string;
+  modalities: { input: string[]; output: string[] };
+  contextWindow: number;
+  maxOutputTokens: number;
+  supportsToolCalling: boolean;
+  supportsReasoning: boolean;
+  source: "static" | "dynamic";
 };
 ```
-**Produced by:** `listChatModels()` (lib/ai/registry)
-**Consumed by:** `ModelSelector`, `Chat` (tool enablement), chat route (model resolution)
+**Produced by:** `getAvailableModels()` (lib/ai/models, `use cache`)
+**Consumed by:** `ModelSelector`, `ChatShell` (props), chat route (model resolution)
 
-### `ChatMessage` (extends AI SDK `UIMessage`)
+### `DataPart` (Stream Parts)
 ```typescript
-type ChatMessage = UIMessage & {
-  // Standard AI SDK message fields: id, role, parts[], createdAt
-};
-```
-**Produced by:** Server (DB/cache), `useChat` hook (client)
-**Consumed by:** `Messages`, `PreviewMessage`, `MessageActions`, server actions
+type ArtifactDataPart =
+  | { type: 'artifact-id'; content: string }
+  | { type: 'artifact-title'; content: string }
+  | { type: 'artifact-kind'; content: ArtifactKind }
+  | { type: 'artifact-clear'; content: string }
+  | { type: 'artifact-finish'; content: string }
+  | { type: 'artifact-textDelta'; content: string }
+  | { type: 'artifact-codeDelta'; content: string }
+  | { type: 'artifact-sheetDelta'; content: string }
+  | { type: 'artifact-imageDelta'; content: string }
+  | { type: 'artifact-suggestion'; content: ArtifactSuggestion }
+  | { type: 'chat-title'; content: string };
 
-### `UserVote`
-```typescript
-type UserVote = {
-  chatId: string;
-  messageId: string;
-  isUpvoted: boolean;
-};
+type DataPart = ArtifactDataPart;
 ```
-**Produced by:** Server (DB query on chat page load)
-**Consumed by:** `MessageActions` (vote button state)
+**Produced by:** Server route handler (ChatStream.writeData)
+**Consumed by:** `ChatStreamProvider` → `StreamBridge` → `artifactStore`

@@ -1,6 +1,10 @@
+> **Updated per redesign audit (2026-03-01)**
+
 # Final Rebuild Plan — Master Index
 
 > ai-assistant · Next.js AI chatbot rebuild with multi-model support, artifact management, and real-time streaming.
+> Server layouts + client islands. ChatShell + ChatSessionContext. `useSyncExternalStore` for artifact state.
+> `proxy.ts` (not middleware.ts). "artifact" naming throughout. No credit/gateway logic.
 
 ---
 
@@ -10,16 +14,16 @@
 |---|------|-------------|
 | 1 | [preamble.md](preamble.md) | Plan overview, key decisions, deviations, risks, success criteria |
 | 2 | [ai-migration-guide.md](ai-migration-guide.md) | AI layer copy manifest, wrapper mapping, import rules, SDK patterns |
-| 3 | [phase-00-plan.md](phase-00-plan.md) | P00 — Project Scaffold & Foundation |
-| 4 | [phase-01-plan.md](phase-01-plan.md) | P01 — Data Foundation |
-| 5 | [phase-02-plan.md](phase-02-plan.md) | P02 — Authentication |
-| 6 | [phase-03-plan.md](phase-03-plan.md) | P03 — Chat Core |
-| 7 | [phase-04-plan.md](phase-04-plan.md) | P04 — Artifacts |
-| 8 | [phase-05-plan.md](phase-05-plan.md) | P05 — Sidebar & History |
-| 9 | [phase-06-plan.md](phase-06-plan.md) | P06 — Enhancements |
-| 10 | [phase-07-plan.md](phase-07-plan.md) | P07 — Polish & Production |
-| 11 | [integration-summary.md](integration-summary.md) | All 40 seams, data flow, provider tree, API routes |
-| 12 | [traceability-proof.md](traceability-proof.md) | Feature coverage 20/20, seam coverage 40/40, task totals, critical path |
+| 3 | [phase-00-plan.md](phase-00-plan.md) | P0 — Scaffold & Infrastructure |
+| 4 | [phase-01-plan.md](phase-01-plan.md) | P1 — Data Foundation |
+| 5 | [phase-02-plan.md](phase-02-plan.md) | P2 — Auth Vertical |
+| 6 | [phase-03-plan.md](phase-03-plan.md) | P3 — Chat Core Vertical |
+| 7 | [phase-04-plan.md](phase-04-plan.md) | P4 — Artifacts Vertical |
+| 8 | [phase-05-plan.md](phase-05-plan.md) | P5 — Sidebar & Navigation |
+| 9 | [phase-06-plan.md](phase-06-plan.md) | P6 — Enhancements |
+| 10 | [phase-07-plan.md](phase-07-plan.md) | P7 — Polish & Production |
+| 11 | [integration-summary.md](integration-summary.md) | All integration seams, data flow, provider tree, API routes |
+| 12 | [traceability-proof.md](traceability-proof.md) | Feature coverage, seam coverage, task totals, critical path |
 
 ---
 
@@ -40,15 +44,31 @@
 
 ---
 
+## Redesign Documents (in `/redesign/`)
+
+| File | Contents |
+|------|----------|
+| `architecture.md` | Three-layer architecture, directory structure, proxy.ts, request/data flow, caching strategy |
+| `principles.md` | 14 core design principles governing every decision |
+| `phase-plan.md` | Authoritative 125-task execution plan across 8 phases |
+| `component-architecture.md` | ChatShell decomposition, provider scoping, artifact store |
+| `streaming-architecture.md` | ChatStreamProvider, StreamBridge, processStreamDelta |
+| `state-management.md` | useSyncExternalStore, PendingChatsProvider, settings via localStorage |
+| `data-flow.md` | Server fetch → client hydrate → real-time streaming |
+| `domain-boundaries.md` | Feature module boundaries, cross-feature contracts |
+| `naming-conventions.md` | Artifact naming, provider renames, component renames |
+
+---
+
 ## Quick Stats
 
 | Metric | Value |
 |--------|-------|
-| Total phases | 8 (P00–P07) |
-| Total tasks | 136 |
-| Integration seams | 40 |
+| Total phases | 8 (P0–P7) |
+| Total tasks | 125 |
+| Estimated files | ~210 |
 | Features covered | 20/20 (100%) |
-| Estimated duration | ~19.5 working days |
-| Critical path tasks | 32 |
-| AI elements to copy | 31 files, 4881 LOC |
-| Architectural deviations | 10 |
+| Decision hierarchy | Correctness → Architecture → Consistency → Performance → Speed |
+| Reuse hierarchy | Reuse → Extend → Refactor → Create |
+| Key patterns | Server layouts + client islands, ChatShell + ChatSessionContext, useSyncExternalStore |
+| Naming | "artifact" everywhere (zero "document" in code identifiers) |

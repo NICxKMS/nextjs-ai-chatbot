@@ -1,13 +1,15 @@
 # Phase P00 — Scaffold
 
-> Foundation phase. Creates the project skeleton: config, directory structure, shared types,
-> ai-elements copy, root layout, and all infrastructure needed before feature work begins.
+> **Updated per redesign audit (2026-03-01)**
+
+> Foundation phase. Creates the project skeleton: config, shared types, error handling,
+> utilities, UI primitives, root layout, proxy, and test infrastructure.
 >
 > **Entry state**: Empty project directory (oldapp/ preserved as read-only reference).
 > **Exit state**: Project builds, typechecks, lints. All shared infrastructure importable.
 > **Est. duration**: ~1 day
-> **Tasks**: 17
-> **Files created**: ~80+
+> **Tasks**: 18
+> **Files created**: ~55
 
 ---
 
@@ -16,22 +18,23 @@
 | ID | Title | Type | Complexity | Files |
 |----|-------|------|------------|-------|
 | P00-T01 | Initialize project config | SCAFFOLD | M | 4 |
-| P00-T02 | Create tooling config | SCAFFOLD | S | 3 |
+| P00-T02 | Create tooling config | SCAFFOLD | S | 4 |
 | P00-T03 | Set up Tailwind v4 CSS | SCAFFOLD | M | 1 |
-| P00-T04 | Create root app shell | SCAFFOLD | M | 3 |
-| P00-T05 | Create provider components | IMPLEMENTATION | M | 2 |
-| P00-T06 | Create directory skeleton | SCAFFOLD | S | 0 (dirs only) |
-| P00-T07 | Define Drizzle schema | IMPLEMENTATION | L | 1 |
-| P00-T08 | Define shared types | IMPLEMENTATION | L | 4 |
-| P00-T09 | Create error handling | IMPLEMENTATION | M | 3 |
-| P00-T10 | Create utility functions | IMPLEMENTATION | M | 3 |
+| P00-T04 | Create Drizzle schema + client | IMPLEMENTATION | L | 2 |
+| P00-T05 | Define core shared types | IMPLEMENTATION | M | 3 |
+| P00-T06 | Define artifact shared types | IMPLEMENTATION | M | 2 |
+| P00-T07 | Define state shared types | IMPLEMENTATION | S | 2 |
+| P00-T08 | Create error handling | IMPLEMENTATION | M | 2 |
+| P00-T09 | Create utility functions | IMPLEMENTATION | S | 3 |
+| P00-T10 | Create shared hooks | IMPLEMENTATION | S | 2 |
 | P00-T11 | Copy shadcn/ui components | SCAFFOLD | M | ~32 |
-| P00-T12 | Copy ai-elements | AI_COPY | M | 31 |
-| P00-T13 | Copy shared components | SCAFFOLD | S | 2 |
-| P00-T14 | Create middleware base | SCAFFOLD | S | 1 |
+| P00-T12 | Create shared components | IMPLEMENTATION | M | 4 |
+| P00-T13 | Create root layout + global error | IMPLEMENTATION | M | 2 |
+| P00-T14 | Create proxy.ts (Next.js 16) | IMPLEMENTATION | M | 1 |
 | P00-T15 | Create instrumentation stubs | SCAFFOLD | S | 2 |
-| P00-T16 | Create test setup | SCAFFOLD | S | 1 |
-| P00-T17 | Verification gate G00 | VERIFICATION | S | 0 |
+| P00-T16 | Create test infrastructure | SCAFFOLD | M | 3 |
+| P00-T17 | Create import boundary script | IMPLEMENTATION | S | 1 |
+| P00-T18 | Verification gate G00 | VERIFICATION | S | 0 |
 
 ---
 
@@ -137,240 +140,231 @@ Complexity: M
 ---
 
 ### TASK: [ID: P00-T04]
-Title: Create root app shell files
+Title: Create Drizzle schema + client
 Phase: 0 — Scaffold
-Type: SCAFFOLD
+Type: IMPLEMENTATION
 
-Behavior ref: edge-cases.md (global error boundary)
-Architecture ref: scaffold/directory-structure.md (app/ root); conventions.md (server components default)
+Behavior ref: data-flows.md (database schema — 6 tables with columns, indexes, enums)
+Architecture ref: redesign/architecture.md (data layer); redesign/directory-structure.md (lib/db/)
 
-Action: Create app/layout.tsx as root layout: import Geist and Geist Mono fonts from "geist/font/sans" and "geist/font/mono", set metadata (title, description), render html with lang="en" suppressHydrationWarning, body with font class variables and "antialiased", import globals.css, wrap children in AppShell component. Create app/global-error.tsx as "use client" standalone error boundary with its own html/body tags, "Try Again" button calling reset(), and error reporting stub. Create app/head.tsx with viewport and theme-color metadata configuration.
+Action: Create lib/db/schema.ts defining all 6 Drizzle tables using drizzle-orm/pg-core. Tables: users (uuid PK, email unique, passwordHash, createdAt, lastLogin), chats (uuid PK, userId FK, title, visibility enum, createdAt, updatedAt, lastContext jsonb), messages aliased as Message_v2 (uuid PK, chatId FK, role enum, parts jsonb, attachments jsonb, createdAt), votes aliased as Vote_v2 (composite PK: chatId+messageId+userId, isUpvoted boolean), **artifacts** (composite PK: id+createdAt, title, content text, kind enum, userId FK, chatId FK, updatedAt), suggestions (uuid PK, artifactId, artifactCreatedAt, originalText, suggestedText, description, isResolved boolean, userId FK). Define pgEnum for visibility (public/private), role (user/assistant/system), **artifact_kind** (text/code/image/sheet). Add all indexes. Create lib/db/client.ts with Drizzle client initialization from DATABASE_URL env var.
 
 Output files:
-- app/layout.tsx
-- app/global-error.tsx
-- app/head.tsx
+- lib/db/schema.ts
+- lib/db/client.ts
 
-Inputs: globals.css (P00-T03), components/app-shell.tsx (P00-T05 — imported but can use stub initially)
-Outputs: Root layout consumed by all routes; global error boundary
+Inputs: data-flows.md (schema spec), oldapp/lib/db/schema.ts (reference implementation)
+Outputs: Schema tables exported for Drizzle queries and type inference (P00-T05)
 
 AI layer handling: NEW
 
-Dependencies: P00-T01, P00-T03
-Dependents: P00-T05, P00-T17
+Dependencies: P00-T01
+Dependents: P00-T05, P01-T01, P01-T02
 
 Success criteria:
-- layout.tsx is a default export async function with RootLayout signature
-- Geist fonts loaded and applied via CSS variables
-- global-error.tsx renders standalone html/body with error message and reset button
-- layout.tsx imports globals.css
+- All 6 tables defined with correct column types
+- Table name is **artifacts** (NOT documents)
+- 3 enums defined (visibility, role, **artifact_kind** NOT document_kind)
+- Composite PKs on votes (chatId+messageId+userId) and artifacts (id+createdAt)
+- lib/db/client.ts exports working Drizzle client
+- pnpm typecheck passes for these files
 
-Complexity: M
+Complexity: L
 
 ---
 
 ### TASK: [ID: P00-T05]
-Title: Create provider shell components
+Title: Define core shared types
 Phase: 0 — Scaffold
 Type: IMPLEMENTATION
 
-Behavior ref: state-management.md (ThemeProvider, provider tree)
-Architecture ref: conventions.md (server components default); architecture/patterns.md (provider tree); SEAM-029 (provider tree assembly — root level only)
+Behavior ref: ai-sdk-usage.md (model types); data-flows.md (entity types)
+Architecture ref: redesign/architecture.md (type system); redesign/directory-structure.md (lib/types/)
 
-Action: Create components/theme-provider.tsx as a "use client" wrapper around next-themes ThemeProvider with attribute="class", defaultTheme="system", enableSystem, disableTransitionOnChange props. Create components/app-shell.tsx as an async server component that will eventually fetch session and compose the root provider tree. Initial implementation: ThemeProvider wrapping TooltipProvider (from @/components/ui/tooltip) wrapping children, plus Toaster from sonner. Include a Suspense boundary. Add commented placeholders for SWRConfig and AuthProvider (wired in P02).
+Action: Create 3 type files. (1) lib/types/result.types.ts — Result<T> type for data access layer, success/failure discriminated union. (2) lib/types/data-context.types.ts — DataContext type for server-to-client data passing, AppSession type. (3) lib/types/model.types.ts — ProviderId (6 providers), ModelCapability, ModelModality, ReasoningType, ModelMetadata, DEFAULT_CHAT_MODEL / DEFAULT_TITLE_MODEL / DEFAULT_ARTIFACT_MODEL constants.
 
 Output files:
-- components/app-shell.tsx
-- components/theme-provider.tsx
+- lib/types/result.types.ts
+- lib/types/data-context.types.ts
+- lib/types/model.types.ts
 
-Inputs: components/ui/tooltip.tsx (P00-T11), sonner package
-Outputs: AppShell consumed by app/layout.tsx; ThemeProvider available for theme toggle
+Inputs: lib/db/schema.ts (P00-T04) for InferSelectModel types
+Outputs: Core types consumed by all subsequent phases
 
 AI layer handling: NEW
 
-Dependencies: P00-T01, P00-T04, P00-T10, P00-T11
-Dependents: P02-T11, P00-T17
+Dependencies: P00-T04
+Dependents: P00-T06, P00-T07, P01-T05 through P01-T10, P02-T01, P03-T05
 
 Success criteria:
-- theme-provider.tsx has "use client" directive and wraps next-themes
-- app-shell.tsx exports AppShell (async server component)
-- Provider tree order: ThemeProvider > TooltipProvider > Toaster > children
-- No TypeScript errors
+- Result<T> is a discriminated union with success/failure variants
+- DataContext type compiles against schema entity types
+- ModelMetadata exports all required model fields
+- pnpm typecheck passes
 
 Complexity: M
 
 ---
 
 ### TASK: [ID: P00-T06]
-Title: Create directory skeleton
+Title: Define artifact shared types
 Phase: 0 — Scaffold
-Type: SCAFFOLD
+Type: IMPLEMENTATION
 
-Behavior ref: N/A
-Architecture ref: scaffold/directory-structure.md (complete tree); conventions.md (feature collocation); ADR-001
+Behavior ref: features.md (artifact system)
+Architecture ref: redesign/architecture.md (artifact types); redesign/component-architecture.md (handler registry)
 
-Action: Create all empty directories for the feature-collocated structure. Features: features/chat/{actions,components,hooks,schemas,lib/tools}, features/artifacts/{actions,components/editors,handlers,hooks,schemas,types}, features/auth/{actions,components,schemas,lib}, features/sidebar/{components,hooks}, features/settings/{components,hooks,lib}, features/voting/{actions,schemas}, features/models/{components,lib}. Tests: tests/{mocks,fixtures,integration,e2e}. Lib stubs: lib/data/, lib/cache/, lib/ai/, lib/auth/, lib/api/, lib/rate-limit/, lib/hooks/. Add .gitkeep to each empty directory.
+Action: Create 2 type files. (1) lib/types/artifact.types.ts — ArtifactKind literal union (text/code/image/sheet), ArtifactMetadata, ArtifactVersion, Artifact (replaces old Document type). (2) lib/types/artifact-handler.types.ts — ArtifactHandler interface defining onStreamPart, onFinish, validate methods. Used by handler registry in P04.
 
 Output files:
-- features/chat/ (full subtree)
-- features/artifacts/ (full subtree)
-- features/auth/ (full subtree)
-- features/sidebar/ (full subtree)
-- features/settings/ (full subtree)
-- features/voting/ (full subtree)
-- features/models/ (full subtree)
-- tests/ (full subtree)
-- lib/data/, lib/cache/, lib/ai/, lib/auth/, lib/api/, lib/rate-limit/, lib/hooks/
+- lib/types/artifact.types.ts
+- lib/types/artifact-handler.types.ts
 
-Inputs: scaffold/directory-structure.md
-Outputs: Directory structure for all subsequent phases
+Inputs: lib/types/result.types.ts (P00-T05), lib/db/schema.ts (P00-T04)
+Outputs: Artifact types consumed by P03 (AI tools), P04 (handlers, editors)
 
-AI layer handling: N/A
+AI layer handling: NEW
 
-Dependencies: P00-T01
-Dependents: P01-T01 through P01-T16, P02-T01 through P02-T12
+Dependencies: P00-T04, P00-T05
+Dependents: P03-T05, P04-T01 through P04-T05
 
 Success criteria:
-- All directories from directory-structure.md exist
-- Each empty dir has .gitkeep file
-- No files other than .gitkeep in feature directories
+- ArtifactKind is a string literal union (NOT DocumentKind)
+- ArtifactHandler interface defines onStreamPart, onFinish, validate
+- No references to "document" in type names or artifact context
+- pnpm typecheck passes
+
+Complexity: M
+
+---
+
+### TASK: [ID: P00-T07]
+Title: Define state shared types
+Phase: 0 — Scaffold
+Type: IMPLEMENTATION
+
+Behavior ref: state-management.md (pending chats, settings)
+Architecture ref: redesign/state-management.md (client state types)
+
+Action: Create 2 type files. (1) lib/types/pending-chats.types.ts — PendingChat type, PendingChatsState interface for PendingChatsProvider (replaces old OptimisticChatsProvider). (2) lib/types/settings.types.ts — ChatSettings type (model selection, system prompt). Note: SettingsProvider is removed; useSettings() reads from cookies/localStorage directly.
+
+Output files:
+- lib/types/pending-chats.types.ts
+- lib/types/settings.types.ts
+
+Inputs: lib/types/model.types.ts (P00-T05)
+Outputs: State types consumed by P03 (chat session), P05 (sidebar)
+
+AI layer handling: NEW
+
+Dependencies: P00-T05
+Dependents: P03-T04, P05-T02
+
+Success criteria:
+- PendingChat type maps chat ID to optimistic title
+- ChatSettings type includes model and system prompt fields
+- No SettingsProvider type (removed per redesign)
+- pnpm typecheck passes
 
 Complexity: S
 
 ---
 
-### TASK: [ID: P00-T07]
-Title: Define Drizzle ORM schema
-Phase: 0 — Scaffold
-Type: IMPLEMENTATION
-
-Behavior ref: data-flows.md (database schema — 6 tables with columns, indexes, enums)
-Architecture ref: scaffold/shared-types.md (schema column reference); DEV-005 (function-based data access uses this schema)
-
-Action: Create lib/db/schema.ts defining all 6 Drizzle tables using drizzle-orm/pg-core. Tables: users (uuid PK, email unique, passwordHash, createdAt, lastLogin), chats (uuid PK, userId FK, title, visibility enum, createdAt, updatedAt, lastContext jsonb), messages aliased as Message_v2 (uuid PK, chatId FK, role enum, parts jsonb, attachments jsonb, createdAt), votes aliased as Vote_v2 (composite PK: chatId+messageId+userId, isUpvoted boolean), documents (composite PK: id+createdAt, title, content text, kind enum, userId FK, chatId FK, updatedAt), suggestions (uuid PK, documentId, documentCreatedAt, originalText, suggestedText, description, isResolved boolean, userId FK). Define pgEnum for visibility (public/private), role (user/assistant/system), document_kind (text/code/image/sheet). Add all indexes from data-flows.md.
-
-Output files:
-- lib/db/schema.ts
-
-Inputs: data-flows.md (schema spec), oldapp/lib/db/schema.ts (reference implementation)
-Outputs: Schema tables exported for Drizzle queries and type inference (P00-T08)
-
-AI layer handling: NEW
-
-Dependencies: P00-T01
-Dependents: P00-T08, P01-T01, P01-T02
-
-Success criteria:
-- All 6 tables defined with correct column types
-- 3 enums defined (visibility, role, document_kind)
-- Composite PKs on votes (chatId+messageId+userId) and documents (id+createdAt)
-- All indexes from data-flows.md present
-- pnpm typecheck passes for this file
-
-Complexity: L
-
----
-
 ### TASK: [ID: P00-T08]
-Title: Define shared type modules
+Title: Create error handling
 Phase: 0 — Scaffold
 Type: IMPLEMENTATION
 
-Behavior ref: ai-sdk-usage.md (model types, data stream types); data-flows.md (entity types)
-Architecture ref: scaffold/shared-types.md (complete type specs); DEV-011 (string literal error codes)
+Behavior ref: edge-cases.md (error handling strategy)
+Architecture ref: redesign/architecture.md (AppError, error codes); DEV-011 (string literal error codes)
 
-Action: Create 4 type files. (1) lib/types/models.types.ts — InferSelectModel/InferInsertModel types for all 6 tables (User, Chat, Message, Document, Vote, Suggestion + New* insert variants), Visibility/MessageRole/DocumentKind literal unions, ChatWithMessages and DocumentWithVersions composite types. (2) lib/types/ai.types.ts — ProviderId (6 providers), ModelCapability (10 values), ModelModality (4 values), ReasoningType (5 values), ModelMetadata, AppUsage, CustomUIDataTypes (14 stream part types), SuggestionData, DEFAULT_CHAT_MODEL/DEFAULT_TITLE_MODEL/DEFAULT_ARTIFACT_MODEL constants. (3) lib/types/api.types.ts — ChatRequestBody, ChatSettings, PaginatedResult<T>, PaginationParams, HistoryResponse, VoteRequest, DocumentRequest, HealthStatus, HealthResponse, ErrorResponse. (4) lib/types/index.ts — Re-exports from all three type files plus AppSession and DataContext types, optionally UserEntitlements.
-
-Output files:
-- lib/types/models.types.ts
-- lib/types/ai.types.ts
-- lib/types/api.types.ts
-- lib/types/index.ts
-
-Inputs: lib/db/schema.ts (P00-T07) for InferSelectModel; scaffold/shared-types.md
-Outputs: All shared types consumed by every subsequent phase
-
-AI layer handling: NEW
-
-Dependencies: P00-T07
-Dependents: P00-T09, P01-T05, P01-T06 through P01-T10, P02-T01, P03-T05
-
-Success criteria:
-- models.types.ts InferSelectModel compiles against schema
-- ai.types.ts exports ModelMetadata with all required fields
-- api.types.ts exports ChatRequestBody matching api-contracts.md POST /api/chat schema
-- index.ts re-exports AppSession and DataContext
-- pnpm typecheck passes
-
-Complexity: L
-
----
-
-### TASK: [ID: P00-T09]
-Title: Create error handling infrastructure
-Phase: 0 — Scaffold
-Type: IMPLEMENTATION
-
-Behavior ref: edge-cases.md (ChatSDKError system, error codes)
-Architecture ref: scaffold/shared-types.md (ErrorCode); architecture/patterns.md (AppError); DEV-008 (no Result<T,E>), DEV-011 (string literals not enum)
-
-Action: Create 3 files. (1) lib/errors/codes.ts — ErrorCode string literal union (UNAUTHORIZED, FORBIDDEN, NOT_FOUND, VALIDATION, RATE_LIMITED, AI_ERROR, DATABASE_ERROR, CACHE_ERROR, CONFLICT, BAD_REQUEST) and ERROR_STATUS_MAP Record<ErrorCode, number> mapping each to HTTP status. (2) lib/errors/app-error.ts — AppError class extending Error with code (ErrorCode), statusCode (number), details (optional Record). Static factory methods: unauthorized(), forbidden(), notFound(resource), validation(msg, details?), rateLimited(), aiError(msg), databaseError(msg), cacheError(msg), badRequest(msg). Instance method toResponse() returning Response.json({error: {code, message, details}}, {status}). (3) lib/errors/index.ts — Re-exports AppError, ErrorCode, ERROR_STATUS_MAP.
+Action: Create 2 files. (1) lib/errors/app-error.ts — AppError class extending Error with static factory methods: AppError.unauthorized(), AppError.notFound(), AppError.validation(), AppError.databaseError(), AppError.aiError(), AppError.rateLimited(). Each factory returns typed error with string literal code, HTTP status, and optional details. (2) lib/errors/codes.ts — String literal error code constants. **No ACTIVATE_GATEWAY, no credit/quota error codes** (removed per redesign).
 
 Output files:
-- lib/errors/codes.ts
 - lib/errors/app-error.ts
-- lib/errors/index.ts
+- lib/errors/codes.ts
 
-Inputs: scaffold/shared-types.md; architecture/patterns.md
-Outputs: AppError class consumed by all actions, routes, and data functions
+Inputs: redesign/architecture.md (error handling spec)
+Outputs: Error handling consumed by all data access functions, server actions, and API routes
 
 AI layer handling: NEW
 
-Dependencies: P00-T01
-Dependents: P00-T08, P01-T07, P01-T12, P02-T03
+Dependencies: P00-T05
+Dependents: P00-T09, P01-T05, P01-T06 through P01-T10, P02-T01
 
 Success criteria:
-- ErrorCode is a string literal union, not an enum
-- AppError.unauthorized() creates instance with code "UNAUTHORIZED" and status 401
-- AppError.toResponse() returns a valid Response object
-- All 10 error codes mapped to correct HTTP status
+- AppError has factory methods for all error types (unauthorized, notFound, validation, databaseError, aiError, rateLimited)
+- Error codes are string literals (not numeric)
+- **No ACTIVATE_GATEWAY or credit/quota error codes**
+- AppError.unauthorized() returns 401, AppError.notFound() returns 404
 - pnpm typecheck passes
 
 Complexity: M
 
 ---
 
-### TASK: [ID: P00-T10]
+### TASK: [ID: P00-T09]
 Title: Create utility functions
 Phase: 0 — Scaffold
 Type: IMPLEMENTATION
 
 Behavior ref: N/A (cross-cutting utilities)
-Architecture ref: conventions.md (lib/utils for 3+ users); ai-elements-manifest.md (lazy.tsx, prompt-input.tsx depend on @/lib/utils)
+Architecture ref: redesign/directory-structure.md (lib/utils/)
 
-Action: Create 3 files. (1) lib/utils/index.ts — cn() using clsx + tailwind-merge, generateUUID() using crypto.randomUUID(), formatDate(date, format?) using date-fns. Copy the exact cn implementation from oldapp/lib/utils.ts. (2) lib/utils/lazy.ts — createLazyComponentWithPreload<T>(factory) utility that returns {Component, preload}. Required by components/ai-elements/lazy.tsx. Copy implementation from oldapp or create matching signature. (3) lib/utils/logger.ts — Structured logger with info/warn/error/debug methods. Required by components/ai-elements/prompt-input.tsx. Minimal implementation using console with structured JSON output in production.
+Action: Create 3 files. (1) lib/utils/cn.ts — cn() using clsx + tailwind-merge. Copy exact implementation from oldapp/lib/utils.ts. (2) lib/utils/format.ts — formatDate(date, format?) using date-fns. (3) lib/utils/generate-uuid.ts — generateUUID() using crypto.randomUUID(). No barrel index.ts files (import directly from each module).
 
 Output files:
-- lib/utils/index.ts
-- lib/utils/lazy.ts
-- lib/utils/logger.ts
+- lib/utils/cn.ts
+- lib/utils/format.ts
+- lib/utils/generate-uuid.ts
 
-Inputs: oldapp/lib/utils.ts (cn, generateUUID), oldapp/lib/utils (lazy reference if exists)
-Outputs: Utilities consumed by ai-elements, all features, and all components
+Inputs: oldapp/lib/utils.ts (cn, generateUUID reference)
+Outputs: Utilities consumed by all features and components
 
 AI layer handling: COPY_CONTENT
 
 Dependencies: P00-T01
-Dependents: P00-T05, P00-T11, P00-T12, P00-T13
+Dependents: P00-T10, P00-T11, P00-T12
 
 Success criteria:
 - cn("foo", "bar") merges class names correctly
 - generateUUID() returns valid UUID string
-- createLazyComponentWithPreload returns object with Component and preload
-- Logger exports info/warn/error/debug functions
+- **No barrel index.ts** — each utility imported from its own file
 - pnpm typecheck passes
 
-Complexity: M
+Complexity: S
+
+---
+
+### TASK: [ID: P00-T10]
+Title: Create shared hooks
+Phase: 0 — Scaffold
+Type: IMPLEMENTATION
+
+Behavior ref: N/A (cross-cutting hooks)
+Architecture ref: redesign/directory-structure.md (lib/hooks/)
+
+Action: Create 2 files. (1) lib/hooks/use-mobile.ts — useMobile() hook using window.matchMedia for responsive breakpoint detection. Copy from oldapp/hooks/use-mobile.tsx. (2) lib/hooks/use-debounce.ts — useDebounce(value, delay) hook for debouncing input values.
+
+Output files:
+- lib/hooks/use-mobile.ts
+- lib/hooks/use-debounce.ts
+
+Inputs: oldapp/hooks/use-mobile.tsx (reference)
+Outputs: Hooks consumed by sidebar, chat input, model selector
+
+AI layer handling: COPY_CONTENT
+
+Dependencies: P00-T01
+Dependents: P00-T12, P03-T13, P05-T03
+
+Success criteria:
+- useMobile() returns boolean for mobile detection
+- useDebounce returns debounced value
+- Both hooks use "use client" if needed
+- pnpm typecheck passes
+
+Complexity: S
 
 ---
 
@@ -392,8 +386,8 @@ Outputs: UI primitives consumed by ai-elements and all feature components
 
 AI layer handling: COPY_CONTENT
 
-Dependencies: P00-T01, P00-T10
-Dependents: P00-T05, P00-T12, P00-T13
+Dependencies: P00-T01, P00-T09
+Dependents: P00-T12, P03-T13
 
 Success criteria:
 - All ~32 shadcn/ui files exist in components/ui/
@@ -406,97 +400,101 @@ Complexity: M
 ---
 
 ### TASK: [ID: P00-T12]
-Title: Copy ai-elements primitives
+Title: Create shared components
 Phase: 0 — Scaffold
-Type: AI_COPY
+Type: IMPLEMENTATION
 
-Behavior ref: ai-elements-manifest.md (31 files, 4881 LOC, ~440 exports)
-Architecture ref: ADR-005 (global primitives, colocated wrappers); DEV-014 (copy all, do not build aspirational wrappers)
+Behavior ref: features.md (icons used across UI, sidebar toggle, theme provider)
+Architecture ref: redesign/component-architecture.md (shared components); redesign/directory-structure.md (components/)
 
-Action: Copy all 31 files verbatim from oldapp/components/elements/ to components/ai-elements/. Files: artifact.tsx, canvas.tsx, chain-of-thought.tsx, checkpoint.tsx, code-block.tsx, confirmation.tsx, connection.tsx, context.tsx, controls.tsx, conversation.tsx, edge.tsx, image.tsx, inline-citation.tsx, lazy.tsx, loader.tsx, message.tsx, model-selector.tsx, node.tsx, open-in-chat.tsx, panel.tsx, plan.tsx, prompt-input.tsx, queue.tsx, reasoning.tsx, shimmer.tsx, sources.tsx, suggestion.tsx, task.tsx, tool.tsx, toolbar.tsx, web-preview.tsx. Adjust import paths: @/lib/utils to @/lib/utils/index, @/components/ui/ stays the same. Verify no logic modifications. Generate SHA-256 checksums for all 31 files and store in components/ai-elements/CHECKSUMS.md.
+Action: Create 4 shared component files. (1) components/theme-provider.tsx — "use client" wrapper around next-themes ThemeProvider with attribute="class", defaultTheme="system", enableSystem, disableTransitionOnChange. (2) components/icons.tsx — Copy from oldapp/components/icons.tsx, shared icon components. (3) components/sidebar-toggle.tsx — Copy from oldapp/components/sidebar-toggle.tsx, sidebar open/close button. (4) components/toaster.tsx — Toaster component from sonner library. **No app-shell.tsx** (server layout handles composition directly). **No barrel index.ts files.**
 
 Output files:
-- components/ai-elements/*.tsx (31 files)
-- components/ai-elements/CHECKSUMS.md
+- components/theme-provider.tsx
+- components/icons.tsx
+- components/sidebar-toggle.tsx
+- components/toaster.tsx
 
-Inputs: oldapp/components/elements/ (31 source files); lib/utils/ (P00-T10); components/ui/ (P00-T11)
-Outputs: AI element primitives consumed by chat, artifact, model features (P03+)
+Inputs: oldapp/components/icons.tsx, oldapp/components/sidebar-toggle.tsx, oldapp/components/theme-provider.tsx
+Outputs: Shared components consumed by root layout (P00-T13), chat (P03), sidebar (P05)
 
-AI layer handling: AI_COPY
+AI layer handling: COPY_CONTENT + NEW
 
-Dependencies: P00-T01, P00-T10, P00-T11
-Dependents: P03-T13, P03-T14, P03-T15, P03-T16, P03-T17
+Dependencies: P00-T01, P00-T09, P00-T11
+Dependents: P00-T13, P03-T18, P05-T03
 
 Success criteria:
-- All 31 files exist in components/ai-elements/
-- Import @/components/ai-elements/message resolves without errors
-- No logic modifications (only import path adjustments)
-- CHECKSUMS.md lists SHA-256 for each file
-- pnpm typecheck passes (ai-elements excluded from lint but included in typecheck)
+- theme-provider.tsx has "use client" directive and wraps next-themes
+- icons.tsx compiles with no errors
+- sidebar-toggle.tsx compiles with no errors
+- **No app-shell.tsx created** (removed per redesign)
+- pnpm typecheck passes
 
 Complexity: M
 
 ---
 
 ### TASK: [ID: P00-T13]
-Title: Copy shared components
+Title: Create root layout + global error
 Phase: 0 — Scaffold
-Type: SCAFFOLD
+Type: IMPLEMENTATION
 
-Behavior ref: features.md (icons used across UI, sidebar toggle used by chat + artifacts)
-Architecture ref: scaffold/directory-structure.md (components/ root); conventions.md (shared components for 3+ consumers)
+Behavior ref: edge-cases.md (global error boundary)
+Architecture ref: redesign/architecture.md (server layout); redesign/component-architecture.md (no app-shell)
 
-Action: Copy components/icons.tsx from oldapp/components/icons.tsx — shared icon components used across multiple features. Copy components/sidebar-toggle.tsx from oldapp/components/sidebar-toggle.tsx — sidebar open/close button used by chat header and artifact panel. Adjust any import paths to use @/ alias. Verify these are truly shared (used by 2+ features).
+Action: Create 2 files. (1) app/layout.tsx — **Server component** (NOT client). Import Geist and Geist Mono fonts, set metadata (title, description), render html with lang="en" suppressHydrationWarning, body with font class variables and "antialiased", import globals.css. Wrap children directly in ThemeProvider (from P00-T12) + Toaster. **No AppShell wrapper** — the server layout is the composition root. SessionProvider and PendingChatsProvider are wired in later phases (P02, P05). (2) app/global-error.tsx — "use client" standalone error boundary with its own html/body tags, "Try Again" button calling reset(), error reporting stub.
 
 Output files:
-- components/icons.tsx
-- components/sidebar-toggle.tsx
+- app/layout.tsx
+- app/global-error.tsx
 
-Inputs: oldapp/components/icons.tsx, oldapp/components/sidebar-toggle.tsx
-Outputs: Shared icons and sidebar toggle consumed by chat header (P03) and sidebar (P05)
+Inputs: globals.css (P00-T03), components/theme-provider.tsx (P00-T12), components/toaster.tsx (P00-T12)
+Outputs: Root layout consumed by all routes; global error boundary
 
-AI layer handling: COPY_CONTENT
+AI layer handling: NEW
 
-Dependencies: P00-T01, P00-T10, P00-T11
-Dependents: P03-T18, P05 (sidebar)
+Dependencies: P00-T03, P00-T12
+Dependents: P02-T08, P00-T18
 
 Success criteria:
-- Both files exist and compile
-- Import paths use @/ alias
-- No feature-specific logic in these files
+- layout.tsx is a **server component** (no "use client")
+- Geist fonts loaded and applied via CSS variables
+- **No AppShell import** — providers composed directly in layout
+- global-error.tsx renders standalone html/body with error message and reset button
+- layout.tsx imports globals.css
 
-Complexity: S
+Complexity: M
 
 ---
 
 ### TASK: [ID: P00-T14]
-Title: Create middleware base
+Title: Create proxy.ts (Next.js 16)
 Phase: 0 — Scaffold
-Type: SCAFFOLD
+Type: IMPLEMENTATION
 
-Behavior ref: auth-system.md (middleware architecture — edge rate limiting, path guards)
-Architecture ref: scaffold/base-config.md (middleware structure)
+Behavior ref: auth-system.md (request interception)
+Architecture ref: redesign/architecture.md (proxy.ts replaces middleware.ts)
 
-Action: Create middleware.ts at project root. Initial implementation: skip static assets and /api/health, set x-device-type header based on user-agent regex (mobile detection). Include commented placeholders for edge rate limiting (P01) and guest token rotation (P02). Export config.matcher excluding _next/static, _next/image, favicon.ico, images/. This is a minimal shell that grows in P01 and P02.
+Action: Create proxy.ts at project root (**NOT middleware.ts** — Next.js 16 uses proxy.ts). Initial implementation: skip static assets and /api/health, set x-device-type header based on user-agent regex (mobile detection). Include commented placeholders for guest token rotation (P02). Export config.matcher excluding _next/static, _next/image, favicon.ico, images/. This is a minimal shell that grows in P02. **No edge rate limiting** (handled differently in redesign).
 
 Output files:
-- middleware.ts
+- proxy.ts
 
-Inputs: scaffold/base-config.md
-Outputs: Middleware shell extended in P01-T13 (rate limiting) and P02-T10 (guest rotation)
+Inputs: redesign/architecture.md
+Outputs: Proxy shell extended in P02-T08 (auth wiring)
 
 AI layer handling: NEW
 
 Dependencies: P00-T01
-Dependents: P01-T13, P02-T10
+Dependents: P02-T08
 
 Success criteria:
-- middleware.ts exports async middleware function and config
+- **proxy.ts** exists at project root (NOT middleware.ts)
 - Device detection header set on responses
-- Rate limiting and auth sections are commented placeholders
+- Auth section is commented placeholder
 - File under 50 lines
 
-Complexity: S
+Complexity: M
 
 ---
 
@@ -532,36 +530,71 @@ Complexity: S
 ---
 
 ### TASK: [ID: P00-T16]
-Title: Create test setup stub
+Title: Create test infrastructure
 Phase: 0 — Scaffold
 Type: SCAFFOLD
 
 Behavior ref: N/A (test infrastructure)
-Architecture ref: conventions.md (testing conventions); scaffold/directory-structure.md (tests/)
+Architecture ref: redesign/architecture.md (testing); redesign/directory-structure.md (tests/)
 
-Action: Create tests/setup.ts as the Vitest global setup file. Include basic environment variable mocking (DATABASE_URL, CACHE_KV_REST_API_URL, etc. set to test values). Import @testing-library/jest-dom for DOM matchers. This file is referenced in vitest.config.ts (if needed) or package.json vitest config.
+Action: Create 3 files. (1) tests/setup.ts — Vitest global setup file with environment variable mocking (DATABASE_URL, etc. set to test values), import @testing-library/jest-dom for DOM matchers. (2) tests/mocks/auth.ts — Mock session resolution function for auth testing. (3) tests/mocks/db.ts — Mock Drizzle client for data access testing. These files are referenced in vitest.config.ts.
 
 Output files:
 - tests/setup.ts
+- tests/mocks/auth.ts
+- tests/mocks/db.ts
 
-Inputs: conventions.md
+Inputs: redesign/architecture.md
 Outputs: Test setup consumed by all unit and integration tests
 
 AI layer handling: NEW
 
 Dependencies: P00-T01
-Dependents: P01-T15
+Dependents: P01-T13
 
 Success criteria:
 - tests/setup.ts exists and is valid TypeScript
 - Environment variables mocked for test context
+- Mock auth and db modules export usable stubs
 - @testing-library/jest-dom imported
+
+Complexity: M
+
+---
+
+### TASK: [ID: P00-T17]
+Title: Create import boundary script
+Phase: 0 — Scaffold
+Type: IMPLEMENTATION
+
+Behavior ref: N/A (build-time enforcement)
+Architecture ref: redesign/architecture.md (import boundaries); redesign/domain-boundaries.md
+
+Action: Create scripts/check-imports.mjs — a Node.js script that enforces import boundary rules at build time. Rules: (1) features/ cannot import from other features/ (only from lib/ or components/). (2) lib/ cannot import from features/. (3) components/ cannot import from features/. The script scans all .ts/.tsx files and reports violations. Intended to be run as part of CI/CD or `pnpm lint`. Configured in biome.json or as a standalone check.
+
+Output files:
+- scripts/check-imports.mjs
+
+Inputs: redesign/domain-boundaries.md (boundary rules)
+Outputs: Import boundary enforcement available for all subsequent phases
+
+AI layer handling: NEW
+
+Dependencies: P00-T01
+Dependents: P07-T10
+
+Success criteria:
+- scripts/check-imports.mjs runs without errors on empty project
+- Correctly detects cross-feature imports as violations
+- Exits with code 0 when no violations found
+- Exits with code 1 when violations found
+- Can be invoked via `node scripts/check-imports.mjs`
 
 Complexity: S
 
 ---
 
-### TASK: [ID: P00-T17]
+### TASK: [ID: P00-T18]
 Title: Verification gate G00
 Phase: 0 — Scaffold
 Type: VERIFICATION
@@ -569,16 +602,16 @@ Type: VERIFICATION
 Behavior ref: N/A
 Architecture ref: AGENTS.md (post-implementation validation); strategy/phase-order.md (gate G00)
 
-Action: Run the complete validation suite: (1) pnpm install succeeds, (2) pnpm typecheck passes with zero errors, (3) pnpm lint passes, (4) pnpm format passes (or check mode), (5) pnpm dev starts and root layout renders (blank page with theme provider). Verify: all ai-elements files at @/components/ai-elements/, all ui files at @/components/ui/, @/lib/types exports AppSession/DataContext/ModelMetadata, @/lib/errors exports AppError with factory methods, import @/components/ai-elements/message resolves. Fix any issues found.
+Action: Run the complete validation suite: (1) pnpm install succeeds, (2) pnpm typecheck passes with zero errors, (3) pnpm lint passes, (4) pnpm format passes (or check mode), (5) pnpm dev starts and root layout renders (blank page with theme provider). Verify: all ui files at @/components/ui/, shared types export correctly, @/lib/errors exports AppError with factory methods, **proxy.ts** exists (NOT middleware.ts), **Artifact table** in schema (NOT Document), **artifact_kind** enum (NOT document_kind), **no credit/gateway error codes**, import boundary script runs clean. Fix any issues found.
 
 Output files: none (validation only)
 
-Inputs: all P00-T01 through P00-T16 outputs
+Inputs: all P00-T01 through P00-T17 outputs
 Outputs: Gate G00 passed — P01 can begin
 
 AI layer handling: N/A
 
-Dependencies: P00-T01, P00-T02, P00-T03, P00-T04, P00-T05, P00-T06, P00-T07, P00-T08, P00-T09, P00-T10, P00-T11, P00-T12, P00-T13, P00-T14, P00-T15, P00-T16
+Dependencies: P00-T01 through P00-T17
 Dependents: P01-T01 (start of next phase)
 
 Success criteria:
@@ -587,6 +620,9 @@ Success criteria:
 - pnpm lint exits 0
 - pnpm format --check exits 0
 - pnpm dev starts without crash
-- Directory structure matches scaffold/directory-structure.md
+- **proxy.ts** at root (NOT middleware.ts)
+- **artifacts** table in schema (NOT documents)
+- **No ACTIVATE_GATEWAY or credit codes in lib/errors/**
+- `node scripts/check-imports.mjs` exits 0
 
 Complexity: S

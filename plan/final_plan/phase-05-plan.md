@@ -1,15 +1,17 @@
-# Phase 05 — Sidebar & History
+> **Updated per redesign audit (2026-03-01)**
 
-> Sidebar navigation: chat history with infinite scroll, optimistic updates, date grouping, user nav, chat switching.
+# Phase 5 — Sidebar & Navigation
+
+> Server-rendered sidebar with `'use cache'`, PendingChatsProvider for optimistic updates, single-channel title delivery, cursor-based pagination.
 
 ---
 
 ## Objective
 
-Implement the complete sidebar experience: optimistic chats provider with Set-based dedup, sidebar skeleton, user navigation with theme toggle, history item with dropdown actions, history list with SWRInfinite + GroupedVirtuoso, app sidebar shell, history API route, and wire everything into the chat layout provider tree.
+Implement the server-rendered sidebar with client pagination: SidebarShell as a SERVER component with `'use cache'` + `cacheTag`, PendingChatsProvider for optimistic chat operations, SidebarHistoryClient with `useSWRInfinite` for pagination only (not initial load), single-channel title delivery via `PendingChats.updateTitle()`, user navigation, chat switching, and history API route.
 
-**Entry state:** P04 complete — chat + artifacts work, messages stream, documents created
-**Exit state:** Full sidebar navigation works — chat switching, history loading, creation, deletion, title syncing
+**Entry state:** P4 complete — chat + artifacts work end-to-end, layout has sidebar stub
+**Exit state:** Full sidebar navigation works — server-rendered initial load, chat switching, history pagination, creation, deletion, title syncing via single channel
 **Est. duration:** ~2 days
 **Tasks:** 12
 
@@ -17,20 +19,35 @@ Implement the complete sidebar experience: optimistic chats provider with Set-ba
 
 ## Task Table
 
-| ID | Title | Type | Complexity | Dependencies |
-|----|-------|------|------------|-------------|
-| P05-T01 | Create optimistic chats provider | IMPLEMENTATION | L | P00-T08 |
-| P05-T02 | Create sidebar skeleton | IMPLEMENTATION | S | P00-T11 |
-| P05-T03 | Create sidebar user nav | IMPLEMENTATION | M | P00-T11, P02-T07 |
-| P05-T04 | Create sidebar history item | IMPLEMENTATION | M | P00-T11 |
-| P05-T05 | Create sidebar history list (SWRInfinite) | IMPLEMENTATION | L | T01, T04, P00-T11 |
-| P05-T06 | Create app sidebar shell | IMPLEMENTATION | M | T03, T05, P00-T11 |
-| P05-T07 | Create history API route (GET/DELETE) | IMPLEMENTATION | M | P01-T07, P02-T01 |
-| P05-T08 | Wire optimistic chats into chat | INTEGRATION | M | T01, P03-T19 |
-| P05-T09 | Wire title sync flow | INTEGRATION | M | T05, T08 |
-| P05-T10 | Wire sidebar into chat layout | INTEGRATION | L | T01, T02, T06, P03-T21 |
-| P05-T11 | Move sidebar toggle to feature | IMPLEMENTATION | S | P00-T13 |
-| P05-T12 | Verification gate G05 | VERIFICATION | S | ALL |
+| ID | Title | Type | Files Created | Dependencies | Complexity |
+|---|---|---|---|---|---|
+| P5-T01 | Create sidebar types | IMPL | `features/sidebar/types/sidebar.types.ts` | P0-T07 | S |
+| P5-T02 | Create PendingChatsProvider | IMPL | `features/sidebar/hooks/use-pending-chats.ts` (context: `add`, `remove`, `updateTitle`, `markConfirmed`) | P0-T07 | L |
+| P5-T03 | Create useSidebarHistory hook | IMPL | `features/sidebar/hooks/use-sidebar-history.ts` (`useSWRInfinite` wrapper) | P5-T01 | M |
+| P5-T04 | Create SidebarHistoryItem | IMPL | `features/sidebar/components/sidebar-history-item.tsx` (link + rename + delete dropdown) | P5-T01 | M |
+| P5-T05 | Create SidebarHistoryClient | IMPL | `features/sidebar/components/sidebar-history-client.tsx` (initial data from server + SWR pagination + optimistic merge) | P5-T02, P5-T03, P5-T04 | L |
+| P5-T06 | Create SidebarUserNav | IMPL | `features/sidebar/components/sidebar-user-nav.tsx` (avatar, theme toggle, logout) | P2-T04 | M |
+| P5-T07 | Create SidebarSkeleton | IMPL | `features/sidebar/components/sidebar-skeleton.tsx` (PPR fallback, SERVER) | P0-T11 | S |
+| P5-T08 | Create SidebarShell (SERVER) | IMPL | `features/sidebar/components/sidebar-shell.tsx` (async, `'use cache'` + `cacheTag('chats:{userId}')`, renders structure) | P1-T06, P5-T05, P5-T06 | L |
+| P5-T09 | Create rename chat action | IMPL | `features/sidebar/actions/rename-chat.ts` (Server Action + `updateTag`) | P1-T06, P1-T03 | S |
+| P5-T10 | Create history API route | IMPL | `app/api/history/route.ts` (GET: cursor-based paginated chat history) | P1-T06 | M |
+| P5-T11 | Wire sidebar into chat layout | INTEG | Update `app/(chat)/layout.tsx`: replace stub with `SidebarProvider` → `Suspense` → `SidebarShell`, `PendingChatsProvider` | P5-T08, P5-T02 | L |
+| P5-T12 | Verification gate G05 | VERIFY | — | P5-T01..T11 | S |
+
+---
+
+## Key Changes from Pre-Redesign Plan
+
+| Aspect | Before | After |
+|--------|--------|-------|
+| Provider name | `OptimisticChatsProvider` | `PendingChatsProvider` (wraps both sidebar + content) |
+| Sidebar shell | Client component | **SERVER** component with `'use cache'` + `cacheTag('chats:{userId}')` |
+| Initial load | Client-side SWR fetch | Server-fetched first 20 chats (no client waterfall) |
+| SWR role | Full data loading + pagination | **Pagination only** (not initial load) |
+| Title sync | Stream + poll + `window.dispatchEvent` (3 channels) | **Single channel:** `chat-title` stream → `PendingChats.updateTitle()` (no polling, no window events) |
+| Task IDs | P05-T01..T12 (12 tasks) | P5-T01..T12 (12 tasks) |
+| Delete API | Included in history route | Moved to Server Action (consistent with mutation policy) |
+| Layout composition | `'use client'` layout with providers | **SERVER** layout — `PendingChatsProvider` + `SidebarProvider` as client islands |
 
 ---
 
@@ -38,18 +55,35 @@ Implement the complete sidebar experience: optimistic chats provider with Set-ba
 
 | State | Condition |
 |-------|-----------|
-| Entry | P04 gate passed; chat + artifacts functional |
-| Exit | Sidebar loads chat history with pagination; chat switching works; optimistic entries appear instantly; title syncs from stream; delete removes chats |
+| Entry | P4 gate passed; chat + artifacts functional; layout has sidebar stub |
+| Exit | Sidebar loads chat history with server-rendered initial page; chat switching works; pending entries appear instantly; title syncs from single-channel stream; delete removes chats and redirects if active |
+
+---
+
+## Exit Criteria
+
+- [ ] `SidebarShell` is a SERVER component with `'use cache'` + `cacheTag`
+- [ ] Initial 20 chats fetched server-side (no client waterfall)
+- [ ] `SidebarHistoryClient` uses `useSWRInfinite` only for pagination (not initial load)
+- [ ] `PendingChatsProvider` provides `add`, `remove`, `updateTitle`, `markConfirmed` operations
+- [ ] Title flows via single channel: `chat-title` stream → `PendingChats.updateTitle()` (no polling, no window events)
+- [ ] `SidebarSkeleton` renders as Suspense fallback
+- [ ] Chat layout is a SERVER component (no `'use client'` on layout)
+- [ ] `pnpm typecheck && pnpm lint` pass
+
+**Verification:** `pnpm typecheck && pnpm lint && pnpm format`
 
 ---
 
 ## Integration Verification
 
-- Sidebar loads 20 chats per page with infinite scroll
+- Sidebar loads initial 20 chats server-rendered (no loading flash)
+- Infinite scroll loads subsequent pages via `useSWRInfinite`
 - Date grouping: Today, Yesterday, Last 7 days, Last 30 days, Older
-- Optimistic entry appears in sidebar before server confirms
-- Title updates flow: stream → optimistic update → poll → SWR revalidation
+- Pending entry appears in sidebar before server confirms
+- Title updates flow: `chat-title` stream part → `PendingChats.updateTitle()` → sidebar re-renders
 - Delete chat removes from list and redirects if active
+- Rename chat via Server Action + `updateTag` invalidation
 - Mobile: sidebar as overlay sheet
 
 ---
@@ -58,7 +92,7 @@ Implement the complete sidebar experience: optimistic chats provider with Set-ba
 
 | Seam | Description | Task |
 |------|-------------|------|
-| SEAM-013 | Optimistic chat creation | P05-T01, T08 |
-| SEAM-014 | Title sync (stream + poll + event) | P05-T09 |
-| SEAM-020 | Sidebar history pagination | P05-T05, T07 |
-| SEAM-030 | Theme system (toggle in user nav) | P05-T03 |
+| SEAM-013 | Optimistic chat creation (PendingChatsProvider) | P5-T02, P5-T11 |
+| SEAM-014 | Title sync (single-channel stream → PendingChats) | P5-T02, P5-T05 |
+| SEAM-020 | Sidebar history pagination (server initial + SWR pagination) | P5-T05, P5-T10 |
+| SEAM-030 | Theme system (toggle in user nav) | P5-T06 |

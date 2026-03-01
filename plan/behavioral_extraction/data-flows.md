@@ -1,5 +1,7 @@
 # Data Flows
 
+> **Updated per redesign audit (2026-03-01)**
+
 ## Database Schema
 
 ### Tables
@@ -11,6 +13,9 @@
 | `Message_v2` | `id` (uuid) | chatId (FK→Chat), role (enum), parts (jsonb), attachments (jsonb), createdAt | `message_chat_created_idx(chatId, createdAt)`, `message_chat_created_role_idx(chatId, createdAt, role)` |
 | `Vote_v2` | composite(chatId, messageId, userId) | isUpvoted (boolean) | — |
 | `Document` | composite(id, createdAt) | title, content, kind (enum), userId (FK→User), chatId (FK→Chat), updatedAt | `document_user_idx(userId)`, `document_chat_idx(chatId)` |
+
+> *The `Document` DB table retains its name at the schema level for migration compatibility, but all application-layer references use "Artifact" naming — `ArtifactKind`, `getArtifactById()`, `saveArtifactVersion()`. The `document_kind` enum values remain `text | code | image | sheet`.*
+
 | `Suggestion` | `id` (uuid) | documentId, documentCreatedAt, originalText, suggestedText, description, isResolved, userId | `suggestion_doc_idx(documentId)` |
 
 ### Enums
@@ -18,8 +23,10 @@
 - `role`: `user` | `assistant` | `system`
 - `document_kind`: `text` | `code` | `image` | `sheet`
 
+> *Application layer uses `ArtifactKind` type alias for `document_kind` enum.*
+
 ### Versioning Strategy
-Documents use composite PK `(id, createdAt)` — each save creates a new row with same `id` but different `createdAt`. Versions are ordered chronologically. The latest version is `documents.at(-1)`.
+Artifacts use composite PK `(id, createdAt)` — each save creates a new row with same `id` but different `createdAt`. Versions are ordered chronologically. The latest version is `artifacts.at(-1)`.
 
 ---
 
@@ -34,9 +41,14 @@ Route/Action → Guards (auth, rate limit) → Data Layer → Cache Layer → DB
 - `base.ts` — `DataContext` type, `createContext()`, `isGuest()`
 - `chat.ts` — `chatData` object with: get, getWithMessages, list, updateTitle, updateVisibility, delete, deleteAll
 - `chat-operations.ts` — `saveChat()`, `updateChatTitle()` (higher-level orchestration)
-- `document.ts` — `documentData` object with: get, getAll, save, getSuggestions
+- `artifact.ts` — `artifactData` object with: get, getAll, save, getSuggestions
+
+> *Every mutation in the data layer calls `revalidateTag`/`updateTag` for Next.js cache invalidation. `'use cache'` + `cacheTag` replace Redis-based caching for most reads.*
 
 ### Cache-First Strategy
+
+> *Cache layer shifts to Next.js `'use cache'` + `cacheTag` for reads, with `revalidateTag`/`updateTag` after mutations. Redis retained only for guest-only data, rate limiting, and daily quotas. The cache-first read pattern below remains behavioral truth for the old app.*
+
 All data access follows this pattern:
 1. **Check cache** (Redis) — both guest and auth users
 2. **Cache hit** → return cached data
@@ -66,7 +78,7 @@ All data access follows this pattern:
 | `chat:{chatId}:{userId}:meta` | String (JSON) | `CachedChatMeta` — id, userId, title, visibility, timestamps, lastContext |
 | `chat:{chatId}:{userId}:msgs` | Sorted Set | Members = JSON messages, Scores = timestamps |
 | `user:{userId}:chats` | Sorted Set | Members = `{chatId}`, Scores = timestamps |
-| `doc:{docId}:{userId}` | String (JSON) | `CachedDocument` — id, userId, chatId, versions[] |
+| `artifact:{artifactId}:{userId}` | String (JSON) | `CachedArtifact` — id, userId, chatId, versions[] |
 | `quota:{userId}:messages` | String | Message count for daily quota |
 
 ### Performance Characteristics
@@ -89,6 +101,8 @@ All data access follows this pattern:
 ---
 
 ## Flow: Send Chat Message
+
+> *`updateTag`/`revalidateTag` called after saveChat, updateChatTitle. Title generated via `chat-title` stream part (single-channel).*
 
 ```
 Client                    Server                        Cache              DB
@@ -116,6 +130,8 @@ Client                    Server                        Cache              DB
 
 ## Flow: Load Chat Page (`/chat/[id]`)
 
+> *Page is a Server Component. Chat data fetched server-side with `'use cache'` + `cacheTag('chat:{id}')`. `ChatShell` replaces monolithic `<Chat>` component. `VoteResolver` is deferred (Suspense-wrapped).*
+
 ```
 1. getAppSession() → Supabase JWT or Guest JWT
 2. createContext(session) → DataContext { userId, isGuest }
@@ -126,27 +142,29 @@ Client                    Server                        Cache              DB
 4. Verify visibility + ownership
 5. convertToUIMessages(messagesFromDb) → UIMessage[]
 6. getVotesByChatIdAndUserId (DB, only for auth users with messages)
-7. Render <Chat> with all data server-side
+7. Render <ChatShell> with all data server-side
 ```
 
-## Flow: Save Document (Artifact)
+## Flow: Save Artifact
+
+> *Tool names: `createArtifact`/`updateArtifact`. Stream parts: `artifact-*`. StreamBridge processes deltas via pure `processStreamDelta()` into `artifactStore` (useSyncExternalStore). `saveArtifactVersion()` persists. `revalidateTag('artifact:{id}')` after save.*
 
 ```
-AI Tool (createDocument/updateDocument)
+AI Tool (createArtifact/updateArtifact)
   │
   ├──Stream data parts to client:
-  │   data-id → data-title → data-kind → data-clear → content deltas → data-finish
+  │   artifact-id → artifact-title → artifact-kind → artifact-clear → content deltas → artifact-finish
   │
-  ├──documentHandler.onCreateDocument():
+  ├──artifactHandler.create() / .update():
   │   ├──streamObject/streamText (AI SDK)
   │   ├──Stream deltas to dataStream
-  │   └──documentData.save():
-  │       ├──Guest: appendDocumentVersionToCache (Redis only)
-  │       └──Auth: DB INSERT + appendDocumentVersionToCache
+  │   └──saveArtifactVersion():
+  │       ├──Guest: appendArtifactVersionToCache (Redis only)
+  │       └──Auth: DB INSERT + revalidateTag('artifact:{id}')
   │
-  └──Client processes via DataStreamHandler:
-      ├──Updates useArtifact SWR state
-      └──Artifact panel renders content
+  └──Client processes via StreamBridge:
+      ├──processStreamDelta() → artifactStore (useSyncExternalStore)
+      └──ArtifactPanel renders content
 ```
 
 ## Flow: Chat History Pagination
@@ -166,6 +184,8 @@ Authenticated:
 
 ## Flow: Token Exchange (Auth)
 
+> *Token exchange consolidated to Server Action `exchangeTokenAction()`. No separate `/api/auth/exchange` route. `proxy.ts` handles guest session creation.*
+
 ```
 Client                    Supabase                Server (/api/auth/exchange)
   │                         │                         │
@@ -178,4 +198,41 @@ Client                    Supabase                Server (/api/auth/exchange)
   │                         │                         ├──Set httpOnly cookie
   │<────────────────────────────{ user }──────────────│
   ├──router.push("/")
+```
+
+---
+
+## Revalidation Matrix
+
+> *Every mutation calls `revalidateTag`/`updateTag`. Server Actions use `updateTag` (read-your-own-writes). Route Handlers use `revalidateTag(tag, 'max')` (stale-while-revalidate).*
+
+| Cache Tag | Tagged By | Invalidated By | Primitive |
+|-----------|-----------|---------------|-----------|
+| `chat:{id}` | `getCachedChat()` via `cacheTag` | delete trailing messages, update visibility | `updateTag` (SA) |
+| `chat:{id}` | `getCachedChat()` via `cacheTag` | save messages (onFinish), update title | `revalidateTag(tag, 'max')` (RH) |
+| `chats:{userId}` | `getCachedChats()` via `cacheTag` | delete chat, delete all chats | `updateTag` (SA) |
+| `chats:{userId}` | `getCachedChats()` via `cacheTag` | create chat, update title (onFinish) | `revalidateTag(tag, 'max')` (RH) |
+| `votes:{chatId}` | `getCachedVotes()` via `cacheTag` | vote on message | `updateTag` (SA) |
+| `artifact:{id}` | `getCachedArtifact()` via `cacheTag` | create artifact, update artifact, user save | `revalidateTag(tag, 'max')` (RH) |
+| `models` | `getAvailableModels()` via `cacheTag` | Deploy / admin action | `revalidateTag('models', 'max')` |
+
+---
+
+## Mutation Architecture
+
+| Mutation | Method | Pattern | Revalidation | Optimistic? |
+|----------|--------|---------|--------------|-------------|
+| Send message (stream) | `POST /api/chat` (Route Handler) | SSE stream via AI SDK | `revalidateTag('chat:{id}', 'max')` + `revalidateTag('chats:{userId}', 'max')` in `onFinish` | Messages via `useChat` |
+| Create chat (first message) | Inside `POST /api/chat` | DB insert if new chat | `revalidateTag('chats:{userId}', 'max')` | `PendingChats.add()` |
+| Update chat title | Inside `onFinish` | Await title gen → stream `chat-title` → DB update | `revalidateTag('chats:{userId}', 'max')` | `PendingChats.updateTitle()` |
+| Delete chat | Server Action | `deleteChat()` | `updateTag('chats:{userId}')` | `PendingChats.remove()` |
+| Delete all chats | Server Action | `deleteAllChats()` | `updateTag('chats:{userId}')` | Redirect to `/` |
+| Update chat visibility | Server Action | `updateChatVisibility()` | `updateTag('chat:{id}')` + `updateTag('chats:{userId}')` | `useOptimistic` |
+| Create artifact (AI tool) | Inside SSE stream | Stream data parts → DB insert | `revalidateTag('artifact:{id}', 'max')` | Artifact store progressive update |
+| Update artifact (AI tool) | Inside SSE stream | Stream data parts → DB insert | `revalidateTag('artifact:{id}', 'max')` | Artifact store progressive update |
+| Save artifact (user edit) | `POST /api/artifact` | Debounced save → new version row | `revalidateTag('artifact:{id}', 'max')` | Local editor state |
+| Vote on message | Server Action | `voteOnMessage()` | `updateTag('votes:{chatId}')` | `useOptimistic` |
+| Login / Register | Server Action | `useActionState` | `cookies.set()` invalidates Router Cache | Form return value |
+| Logout | Server Action | `logoutAction()` | `cookies.delete()` invalidates Router Cache | Redirect to `/login` |
+| Delete trailing messages | Server Action | `deleteTrailingMessages()` | `updateTag('chat:{id}')` | `setMessages` via `useChat` |
 ```

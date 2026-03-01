@@ -1,5 +1,7 @@
 # AI Elements Manifest — 31 Read-Only Primitives
 
+> **Updated per redesign audit (2026-03-01)**
+
 > Location: `oldapp/components/elements/` → Rebuild: `components/ai-elements/`
 > These are read-only UI primitives. They must be copied verbatim (checksum-verified) into the rebuild.
 

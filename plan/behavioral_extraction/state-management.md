@@ -1,15 +1,41 @@
 # State Management
 
+> **Updated per redesign audit (2026-03-01)**
+
 ## Client-Side State Architecture
 
-The app uses a layered state management approach combining React context, SWR, the AI SDK `useChat` hook, localStorage, and URL state. There is no Redux or Zustand.
+The app uses a layered state management approach combining React context, `useSyncExternalStore`, the AI SDK `useChat` hook, localStorage, and URL state. There is no Redux or Zustand.
+
+> *SWR-as-state removed. Artifact state uses `useSyncExternalStore` with module-level store. ChatStreamProvider scoped to page level, not layout. StreamBridge uses pure `processStreamDelta()` function. SettingsProvider removed — settings use `useSyncExternalStore` + localStorage directly.*
+
+---
+
+## Complete State Inventory
+
+| State | Owner/Source | Pattern | Server/Client | Scope | Frequency |
+|-------|-------------|---------|---------------|-------|-----------|
+| Chat messages | AI SDK `useChat` | Hook state | Client | ChatShell | Per-message (~1-10/sec during streaming) |
+| Chat status | AI SDK `useChat` | Hook state | Client | ChatShell → ChatSessionContext | Per-stream lifecycle |
+| Chat input | AI SDK `useChat` | Hook state | Client | ChatShell → ChatSessionContext | Per-keystroke |
+| Attachments | `useState` | Component state | Client | ChatShell → ChatSessionContext | Per user action |
+| Artifact state | `artifactStore` | `useSyncExternalStore` | Client | Global (module-level) | ~10-20/sec during streaming |
+| Settings | `settingsStore` | `useSyncExternalStore` + localStorage | Client | Global (module-level) | Per user action (rare) |
+| Optimistic chats | `PendingChatsProvider` | React Context | Client | Chat layout | Per chat create/delete |
+| Data stream | `ChatStreamProvider` | React Context (split) | Client | Chat page | ~10-20/sec during streaming |
+| Votes | `useOptimistic` | React 19 optimistic | Client | Per-message | Per vote action (rare) |
+| Visibility | Server-fetched + `useOptimistic` | React 19 optimistic | Client | Per-chat | Per toggle action (rare) |
+| Auth session | `SessionProvider` | React Context | Client | Entire app | On login/logout |
+| Sidebar open/close | `SidebarProvider` | React Context (shadcn) | Client | Chat layout | Per toggle (rare) |
+| Theme | `ThemeProvider` | React Context (next-themes) | Client | Entire app | Per toggle (rare) |
+| Scroll position | `useRef` | Ref (no re-renders) | Client | Messages | Per scroll/mutation |
+| Model selection | Cookie + localStorage | Persisted state | Both | Per-session | Per model change |
 
 ---
 
 ## Hooks
 
 ### `useChat` (from `@ai-sdk/react`)
-Core chat hook. Configured in `<Chat>` component.
+Core chat hook. Configured in `<ChatShell>` component (thin orchestrator ~60 lines).
 
 ```typescript
 const { messages, setMessages, handleSubmit, append, status, stop, reload, ... } = useChat({
@@ -26,8 +52,8 @@ const { messages, setMessages, handleSubmit, append, status, stop, reload, ... }
     id, message: options.messages.at(-1),
     selectedChatModel, selectedVisibilityType, settings
   }),
-  onData: (data) => { /* process data-chatTitle, data-usage parts */ },
-  onFinish: (message) => { /* handle completion, update optimistic chats */ },
+  onData: (data) => { /* process chat-title parts */ },
+  onFinish: (message) => { /* handle completion, update pending chats */ },
   onError: (error) => { /* parse ChatSDKError from response, show toast */ },
 });
 ```
@@ -39,11 +65,11 @@ const { messages, setMessages, handleSubmit, append, status, stop, reload, ... }
 - `messages` starts with server-fetched `initialMessages`
 
 ### `useArtifact`
-SWR-based state for the artifact (document) panel.
+`useSyncExternalStore`-based state for the artifact panel.
 
 ```typescript
 type ArtifactState = {
-  documentId: string;
+  artifactId: string;
   title: string;
   kind: ArtifactKind;
   content: string;
@@ -51,56 +77,58 @@ type ArtifactState = {
   status: "idle" | "streaming";
 };
 
-const { data: artifact, mutate } = useSWR("artifact", null, {
-  fallbackData: initialArtifactState
-});
+// Module-level store with useSyncExternalStore (no SWR, no context needed)
+const artifactStore = createArtifactStore(initialArtifactState);
+const artifact = useSyncExternalStore(artifactStore.subscribe, artifactStore.getSnapshot);
 ```
 
+> *`useSyncExternalStore` replaces SWR `useSWR('artifact', null)`. Module-level store eliminates context dependency. `useArtifactSelector(selector)` available for derived slices.*
+
 **Operations:**
-- `setArtifact(updater)` — SWR optimistic mutate
+- `setArtifact(updater)` — direct store update (no SWR mutate)
 - `useArtifactSelector(selector)` — subscribe to derived slice, avoids full re-render
-- Stream handlers update artifact state: `data-textDelta` appends to content, `data-codeDelta`/`data-sheetDelta` replace content
-- `data-clear` resets content to empty
-- `data-finish` sets status to "idle", isVisible to true
+- Stream handlers update artifact state: `artifact-textDelta` appends to content, `artifact-codeDelta`/`artifact-sheetDelta` replace content
+- `artifact-clear` resets content to empty
+- `artifact-finish` sets status to "idle", isVisible to true
 
 ### `useChatVisibility`
-SWR-based with server action mutation.
+`useOptimistic`-based with server action mutation.
 
 ```typescript
-const { data: visibilityType, mutate } = useSWR(`${chatId}-visibility`, null, {
-  fallbackData: initialVisibility
-});
+const [visibilityType, setOptimisticVisibility] = useOptimistic(initialVisibility);
 
 const setVisibilityType = (type) => {
-  mutate(type, false);                    // Optimistic update
+  setOptimisticVisibility(type);       // Instant UI update
   updateChatVisibility({ chatId, visibility: type })
-    .catch(() => { mutate(initialVisibility); toast.error(...); });
+    .catch(() => { setOptimisticVisibility(initialVisibility); toast.error(...); });
 };
 ```
 
-### `useOptimisticChats`
-Context-based provider for sidebar chat list.
+### `usePendingChats`
+Context-based provider for sidebar chat list (PendingChatsProvider).
 
 ```typescript
-type OptimisticChat = Chat & { isOptimistic?: boolean };
+type PendingChat = Chat & { isPending?: boolean };
 
-// Provider wraps children with context
+// PendingChatsProvider wraps both sidebar + content area
 // Uses Set<string> internally for O(1) dedup by chat ID
 // Operations:
-addOptimisticChat(chat)     // Add unconfirmed chat to list head
-removeOptimisticChat(chatId) // Remove (on delete)
-markChatConfirmed(chatId)    // Replace optimistic with real data
-updateOptimisticChat(chatId, updates) // Modify title, visibility, etc.
+PendingChats.add(chat)         // Add unconfirmed chat to list head
+PendingChats.remove(chatId)    // Remove (on delete)
+PendingChats.confirm(chatId)   // Replace pending with real data
+PendingChats.updateTitle(chatId, title) // Modify title
 ```
 
-**Auto-cleanup:** Optimistic chats older than 2 minutes are auto-removed.
+**Auto-cleanup:** Pending chats older than 2 minutes are auto-removed.
 
 ### `useMessages`
-Context provider for sharing messages between Chat and DataStreamHandler.
+
+> *`useMessages` context is replaced by `ChatSessionContext`. Messages are accessed via `useChatSessionContext()` which provides messages, setMessages, and other chat state from the inline provider in `ChatShell`.*
 
 ```typescript
-const { messages, setMessages } = useMessages();
-// Wraps useChat's messages in context for cross-component access
+const { messages, setMessages } = useChatSessionContext();
+// ChatSessionContext is an inline provider in ChatShell (thin orchestrator)
+// Provides: messages, setMessages, chatId, selectedModel, visibility, append, reload, stop
 ```
 
 ### `useScrollToBottom`
@@ -134,43 +162,49 @@ const { width, height } = useWindowSize();
 
 ## Context Providers
 
-### `DataStreamProvider`
+### `ChatStreamProvider`
 **Pattern: Split State + Dispatch**
+
+> *Scoped to page level (not layout level). Split state/dispatch pattern prevents unnecessary re-renders.*
 
 Splits into two separate contexts to prevent unnecessary re-renders:
 ```typescript
-const DataStreamStateContext = createContext<DataStreamState>();
-const DataStreamDispatchContext = createContext<DataStreamDispatch>();
+const ChatStreamStateContext = createContext<ChatStreamState>();
+const ChatStreamDispatchContext = createContext<ChatStreamDispatch>();
 ```
 
 State:
 ```typescript
-type DataStreamState = {
+type ChatStreamState = {
   artifact: ArtifactState;
-  // ... derived from DataStreamHandler processing
+  // ... derived from StreamBridge processing
 };
 ```
 
 Dispatch exposes mutation functions without causing consumer re-renders.
 
-### `OptimisticChatsProvider`
-Wraps sidebar + chat area. Provides `useOptimisticChats()` context.
+### `PendingChatsProvider`
+Wraps sidebar + chat area. Provides `usePendingChats()` context.
 
-### `AuthProvider` (`components/auth-provider.tsx`)
+### `SessionProvider`
 Provides Supabase browser client and session state:
 ```typescript
-const { supabase, session, user, isGuest } = useAuth();
+const { supabase, session, user, isGuest } = useSession();
 ```
 
 ### `ThemeProvider` (`next-themes`)
 Wraps entire app. Supports `light` / `dark` / `system` themes.
 
+> *SettingsProvider removed. Settings use `useSyncExternalStore` + localStorage directly — no React Context needed.*
+
 ---
 
 ## Settings (localStorage)
 
-### `useSettings` / `useSettingsSnapshot`
+### `useSettings`
 Settings are stored in localStorage, not on the server. The store uses a pub/sub pattern with `useSyncExternalStore`.
+
+> *SettingsProvider removed. Any component imports `useSettings()` directly from the module-level store. No wrapping provider needed.*
 
 ```typescript
 type SettingsState = {
@@ -213,38 +247,40 @@ Settings are passed in the chat request body and used server-side for temperatur
 - Also in localStorage via `settings.selectedModelId`
 
 ### Visibility
-- Persisted in SWR cache (key: `${chatId}-visibility`)
-- Written to DB via server action
+- Managed via `useOptimistic` (React 19). Server-fetched initial value, optimistic toggle via Server Action.
+- Written to DB via `updateChatVisibility` Server Action + `updateTag('chat:{id}')`
 
 ---
 
-## Data Flow: DataStreamHandler
+## Data Flow: StreamBridge
 
-The `DataStreamHandler` component is the bridge between SSE stream and client state:
+The `StreamBridge` component is the bridge between SSE stream and client state:
+
+> *StreamBridge uses a pure `processStreamDelta()` function to process stream parts and update `artifactStore` (useSyncExternalStore). Thin ~30-line bridge component.*
 
 ```
-SSE Response → useChat onData callback → DataStreamHandler → useArtifact SWR state
+SSE Response → useChat onData callback → StreamBridge → artifactStore (useSyncExternalStore)
 ```
 
 Processes custom data parts from the stream:
-1. `data-chatTitle` → Updates optimistic chat title in sidebar
-2. `data-id`, `data-title`, `data-kind` → Sets artifact metadata
-3. `data-textDelta` → Appends to artifact content
-4. `data-codeDelta`, `data-sheetDelta` → Replaces artifact content
-5. `data-imageDelta` → Sets artifact content to base64 image
-6. `data-clear` → Resets artifact content to empty
-7. `data-finish` → Sets artifact status to "idle", visibility to true
-8. `data-suggestion` → Appends to suggestions list
-9. `data-usage` → Stored for display in message footer
+1. `chat-title` → Updates pending chat title in sidebar (single-channel)
+2. `artifact-id`, `artifact-title`, `artifact-kind` → Sets artifact metadata
+3. `artifact-textDelta` → Appends to artifact content
+4. `artifact-codeDelta`, `artifact-sheetDelta` → Replaces artifact content
+5. `artifact-imageDelta` → Sets artifact content to base64 image
+6. `artifact-clear` → Resets artifact content to empty
+7. `artifact-finish` → Sets artifact status to "idle", visibility to true
+8. `artifact-suggestion` → Appends to suggestions list
+
+> *`data-usage` removed (no credit/gateway/quota display).*
 
 ---
 
-## SWR Keys
+## State Keys
 
 | Key Pattern | Data Type | Usage |
 |-------------|-----------|-------|
-| `"artifact"` | `ArtifactState` | Global artifact panel state |
-| `"artifact-metadata-{docId}"` | Document metadata | Per-document metadata cache |
-| `"{chatId}-visibility"` | `"public" \| "private"` | Chat visibility state |
+| `artifactStore` (module-level) | `ArtifactState` | Global artifact panel state |
+| `useOptimistic` (component-level) | `"public" \| "private"` | Chat visibility state |
 | `"messages:should-scroll"` | `boolean` | Auto-scroll control |
-| `"/api/document?id={id}"` | `Document[]` | Document versions (fetcher-backed) |
+| `"/api/artifact?id={id}"` | `Artifact[]` | Artifact versions (fetcher-backed) |
