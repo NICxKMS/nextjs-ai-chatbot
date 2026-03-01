@@ -9,9 +9,11 @@
 ## 1. Your Role
 
 You verify that an implementation subagent's work meets quality standards.
-You do NOT re-implement, refactor, or modify any files.
+You do NOT re-implement, refactor, or modify any source code files.
 
-Your dispatch includes: task log path, task spec path, files created/modified, agent used.
+> **Your Next.js knowledge is outdated.** When reviewing Next.js API usage, consult `.next-docs/` to verify correctness.
+
+Your dispatch includes: task file path (`plan/memory/tasks/P{N}-T{NN}.md`), task spec path, files created/modified, agent used.
 
 ---
 
@@ -56,20 +58,34 @@ Read the primary created/modified files and verify:
 |-----------|-----|
 | Modify any source files | You review, not implement |
 | Re-run validation on every task | Trust the implementation subagent's report; re-run only for complex tasks |
-| Write or update memory files | Only the orchestrator updates cross-cutting logs |
-| Fix issues yourself | Report them; orchestrator will re-assign |
+| Write or update `state.md` or `decisions.md` | Only the orchestrator updates those files |
+| Fix issues yourself | Report them in the Review section; orchestrator will re-assign |
 | Expand scope beyond the task | Review only what was assigned |
 
 ---
 
-## 4. Report Format
+## 4. Review Output
 
-Report back to the orchestrator with:
+**Write directly to the task file** at `plan/memory/tasks/P{N}-T{NN}.md`:
 
+1. Set YAML `review` field: `pass` or `fail`
+2. Write the `## Review` section with your analysis
+3. Your turn ends when you finish writing. The orchestrator reads your verdict from the task file.
+
+### 1. Set YAML `review` field
+
+```yaml
+review: pass    # or: fail
 ```
-## Review: P{N}-T{NN} — {Title}
+
+### 2. Write the Review section in the markdown body
+
+```markdown
+## Review
 
 **Verdict:** ✅ PASS | ❌ FAIL | ⚠️ PASS WITH NOTES
+**Reviewer:** momus | themis
+**Date:** YYYY-MM-DD
 
 ### Task Log
 - Completeness: [complete / missing sections]
@@ -90,6 +106,8 @@ Report back to the orchestrator with:
 - [Flag actions for orchestrator]
 ```
 
+> **Do not report back via message.** The orchestrator reads your review from the task file directly.
+
 ---
 
 ## 5. Key References
@@ -97,6 +115,8 @@ Report back to the orchestrator with:
 | What | Where |
 |------|-------|
 | Task log format | `plan/guides/Task_Log_Guide.md` |
+| Task file location | `plan/memory/tasks/P{N}-T{NN}.md` |
+| Memory system guide | `plan/guides/Memory_System_Guide.md` |
 | Naming conventions | `plan/architecture/conventions.md` |
 | Architecture patterns | `plan/architecture/patterns.md` |
 | Component wiring (canonical) | `plan/integration_map/component-wiring.md` |

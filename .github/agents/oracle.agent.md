@@ -3,7 +3,7 @@
 name: oracle
 description: "The Consultant — Architecture advisor for design decisions, complex debugging, pattern validation, and tradeoff analysis. Writes reports, never writes code."
 tools: [read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit, search/codebase, search, web, memory]
-disable-model-invocation: true
+
 ---
 
 # Oracle — The Consultant

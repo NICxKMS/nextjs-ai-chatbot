@@ -10,157 +10,12 @@
 
 ## 1. `package.json`
 
-### Scripts
-
-```json
-{
-  "name": "ai-assistant",
-  "version": "4.0.0",
-  "private": true,
-  "packageManager": "pnpm@10.26.0",
-  "scripts": {
-    "dev": "next dev",
-    "build": "tsx lib/db/migrate && next build",
-    "start": "next start",
-    "lint": "biome check .",
-    "format": "biome check --write .",
-    "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run",
-    "test:unit:watch": "vitest",
-    "test:e2e": "playwright test",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx lib/db/migrate.ts",
-    "db:studio": "drizzle-kit studio",
-    "db:push": "drizzle-kit push"
-  }
-}
-```
 
 ### Dependencies (Production)
 
 Carried over from `oldapp/package.json` with version pins verified:
 
-```json
-{
-  "dependencies": {
-    "next": "16.0.10",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
 
-    "ai": "5.0.26",
-    "@ai-sdk/react": "2.0.26",
-    "@ai-sdk/provider": "2.0.0",
-    // "@ai-sdk/gateway" REMOVED — no credit/gateway system
-    "@ai-sdk/google": "^2.0.24",
-    "@ai-sdk/openai": "^2.0.54",
-    "@ai-sdk/xai": "2.0.13",
-    "@openrouter/ai-sdk-provider": "^1.2.0",
-    "workers-ai-provider": "^2.0.0",
-    "ai-gateway-provider": "^2.0.1",
-
-    "drizzle-orm": "^0.34.0",
-    "postgres": "^3.4.4",
-    "@upstash/redis": "^1.35.6",
-    "@upstash/ratelimit": "^2.0.7",
-
-    "@supabase/ssr": "^0.7.0",
-    "@supabase/supabase-js": "^2.49.1",
-    "jose": "^6.1.2",
-
-    "@tiptap/core": "^3.9.0",
-    "@tiptap/react": "^3.9.0",
-    "@tiptap/starter-kit": "^3.9.0",
-    "@tiptap/markdown": "^3.9.0",
-    "@tiptap/pm": "^3.9.0",
-    "@tiptap/extension-mathematics": "^3.9.0",
-    "@tiptap/extension-table": "^3.9.0",
-    "@tiptap/extension-table-cell": "^3.9.0",
-    "@tiptap/extension-table-header": "^3.9.0",
-    "@tiptap/extension-table-row": "^3.9.0",
-
-    "@codemirror/lang-python": "^6.1.6",
-    "@codemirror/state": "^6.5.0",
-    "@codemirror/theme-one-dark": "^6.1.2",
-    "@codemirror/view": "^6.35.3",
-    "codemirror": "^6.0.1",
-
-    "react-data-grid": "7.0.0-beta.47",
-    "papaparse": "^5.5.2",
-    "react-resizable-panels": "^2.1.7",
-
-    "radix-ui": "^1.4.3",
-    "@radix-ui/react-use-controllable-state": "^1.2.2",
-    "@radix-ui/react-visually-hidden": "^1.1.0",
-
-    "lucide-react": "^0.446.0",
-    "geist": "^1.3.1",
-    "next-themes": "^0.4.6",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "tailwind-merge": "^2.5.2",
-
-    "swr": "^2.2.5",
-    "sonner": "^1.5.0",
-    "react-virtuoso": "^4.17.0",
-    "framer-motion": "^11.3.19",
-    "embla-carousel-react": "^8.6.0",
-    "use-stick-to-bottom": "^1.1.1",
-
-    "zod": "^3.25.76",
-    "nanoid": "^5.0.8",
-    "date-fns": "^4.1.0",
-    "fast-deep-equal": "^3.1.3",
-    "diff-match-patch": "^1.0.5",
-    "streamdown": "^1.3.0",
-
-    "@vercel/analytics": "^1.3.1",
-    "@vercel/speed-insights": "^1.2.0",
-    "@vercel/blob": "^0.24.1",
-    "@vercel/functions": "^2.0.0",
-    "@vercel/otel": "^2.1.0",
-    "@vercel/postgres": "^0.10.0",
-    "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/api-logs": "^0.200.0",
-
-    "rehype-katex": "^7.0.1",
-    "remark-math": "^6.0.0",
-    "tokenlens": "1.3.0",
-    "dompurify": "latest",
-    "shiki": "latest",
-
-    "babel-plugin-react-compiler": "^1.0.0"
-  }
-}
-```
-
-### Dependencies (Dev)
-
-```json
-{
-  "devDependencies": {
-    "@biomejs/biome": "2.2.2",
-    "typescript": "^5.6.3",
-    "drizzle-kit": "^0.25.0",
-    "tsx": "^4.19.1",
-
-    "tailwindcss": "^4.1.13",
-    "@tailwindcss/postcss": "^4.1.13",
-    "@tailwindcss/typography": "^0.5.15",
-    "postcss": "^8",
-
-    "vitest": "^3.0.0",
-    "@testing-library/react": "^16.0.0",
-    "@testing-library/jest-dom": "^6.0.0",
-    "@playwright/test": "^1.57.0",
-
-    "@types/node": "^22.8.6",
-    "@types/react": "19.2.7",
-    "@types/react-dom": "19.2.3",
-    "@types/papaparse": "^5.3.15",
-    "@types/dompurify": "latest"
-  }
-}
-```
 
 ### Removed from Old App
 
@@ -181,32 +36,10 @@ Carried over from `oldapp/package.json` with version pins verified:
 
 ## 2. `next.config.ts`
 
-```typescript
-import type { NextConfig } from 'next'
 
-const nextConfig: NextConfig = {
-  experimental: {
-    reactCompiler: true,
-    ppr: 'incremental',
-    cacheComponents: true,
-  },
-  images: {
-    remotePatterns: [
-      { hostname: 'avatar.vercel.sh' },
-    ],
-  },
-  // Redirect old routes if needed
-  async redirects() {
-    return []
-  },
-}
-
-export default nextConfig
-```
 
 **Key decisions:**
 - `reactCompiler: true` — React Compiler for automatic memoization
-- `ppr: 'incremental'` — Partial Prerendering (static shell + dynamic Suspense)
 - No `serverExternalPackages` unless needed by specific dependencies
 
 ---
@@ -261,68 +94,8 @@ export default nextConfig
 ---
 
 ## 4. `biome.json`
+Read Config in node module for latest info, your knowledge is outdated
 
-```json
-{
-  "$schema": "https://biomejs.dev/schemas/2.2.2/schema.json",
-  "vcs": {
-    "enabled": true,
-    "clientKind": "git",
-    "useIgnoreFile": true,
-    "defaultBranch": "main"
-  },
-  "organizeImports": {
-    "enabled": true
-  },
-  "formatter": {
-    "enabled": true,
-    "indentStyle": "tab",
-    "indentWidth": 2,
-    "lineWidth": 100
-  },
-  "linter": {
-    "enabled": true,
-    "rules": {
-      "recommended": true,
-      "complexity": {
-        "noExcessiveCognitiveComplexity": {
-          "level": "warn",
-          "options": { "maxAllowedComplexity": 25 }
-        }
-      },
-      "suspicious": {
-        "noExplicitAny": "error"
-      },
-      "style": {
-        "noDefaultExport": "off",
-        "useNamingConvention": "off"
-      }
-    }
-  },
-  "files": {
-    "ignore": [
-      "node_modules",
-      ".next",
-      "oldapp",
-      "plan",
-      "public",
-      "components/ai-elements"
-    ]
-  },
-  "overrides": [
-    {
-      "include": ["app/**/page.tsx", "app/**/layout.tsx", "app/**/route.ts", "app/**/error.tsx", "app/**/loading.tsx", "app/**/global-error.tsx", "next.config.ts", "proxy.ts", "instrumentation.ts", "instrumentation-client.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noDefaultExport": "off"
-          }
-        }
-      }
-    }
-  ]
-}
-```
 
 **Key decisions:**
 - `noExplicitAny: "error"` — AGENTS.md requirement
@@ -350,59 +123,6 @@ Tailwind v4 uses `@tailwindcss/postcss` plugin directly. No `tailwind.config.ts`
 ---
 
 ## 6. `app/globals.css`
-
-```css
-@import 'tailwindcss';
-@plugin '@tailwindcss/typography';
-
-@custom-variant dark (&:is(.dark *));
-
-:root {
-  /* Theme tokens — carried over from oldapp/app/globals.css */
-  /* Light theme */
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --sidebar-background: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  --radius: 0.625rem;
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  /* ... dark theme tokens (carry over from oldapp) */
-}
-
-/* Utility overrides */
-@utility scrollbar-thin {
-  scrollbar-width: thin;
-}
-
-/* Print styles, animations, etc. — copy from oldapp/app/globals.css */
-```
 
 **Note**: The exact CSS token values should be copied verbatim from `oldapp/app/globals.css` during scaffold implementation. The above shows the structure.
 

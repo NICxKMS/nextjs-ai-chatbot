@@ -135,7 +135,7 @@ Carried over from `oldapp/package.json` with version pins verified:
 ```json
 {
   "devDependencies": {
-    "@biomejs/biome": "2.2.2",
+    "@biomejs/biome": "2.4.4",
     "typescript": "^5.6.3",
     "drizzle-kit": "^0.25.0",
     "tsx": "^4.19.1",
@@ -260,7 +260,7 @@ export default nextConfig
 
 ```json
 {
-  "$schema": "https://biomejs.dev/schemas/2.2.2/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.4.4/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",

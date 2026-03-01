@@ -1,22 +1,23 @@
 # Task Log Guide
 
 > How to write per-task execution logs.
-> **Who writes:** The implementation subagent executing the task.
-> **Who reads:** Review subagents (evaluates quality) and the orchestrator (reads for dispatch context). Also read by future sessions for context recovery.
+> **Who writes:** The implementation subagent executing the task (all sections except Review).
+> **Who reads:** Review subagents (evaluates quality, writes Review section + `review` field), orchestrator (reads frontmatter + flagged sections). Also read by future sessions for context recovery.
 
 ---
 
 ## 1. File Location
 
 ```
-plan/memory/phases/Phase_{NN}_{Slug}/P{N}-T{NN}_{Title_Words}.md
+plan/memory/tasks/P{N}-T{NN}.md
 ```
 
 Examples:
-- `plan/memory/phases/Phase_00_Scaffold/P0-T01_Initialize_Project_Config.md`
-- `plan/memory/phases/Phase_03_Chat_Core/P3-T08_Create_ChatShell.md`
+- `plan/memory/tasks/P0-T01.md`
+- `plan/memory/tasks/P3-T08.md`
 
-> **ID format:** Phase specs use `P00-T01`, guides use `P0-T01`. These are equivalent. Task logs use single-digit.
+> Title is in YAML frontmatter `title` field, not the filename.
+> **File does not exist = task has not started.** No pre-creation.
 
 ---
 
@@ -27,13 +28,15 @@ Examples:
 ```yaml
 ---
 task: P0-T01
-title: Initialize project config
+title: "Initialize project config"
+phase: P0
 agent: hephaestus
-status: completed | partial | blocked | error
-phase: 0
-started: YYYY-MM-DD HH:MM
-finished: YYYY-MM-DD HH:MM
-validation_passed: true | false
+depends_on: []              # Populated from task spec
+status: active              # active | done | failed
+review: null                # null | pass | fail — set by review subagent
+attempt_count: 1            # Starts at 1, incremented by orchestrator on rework/retry
+started: "2026-03-02 10:00"
+finished: null              # Set on completion, null if active/failed
 has_deviations: false
 has_issues: false
 has_findings: false
@@ -43,15 +46,10 @@ has_findings: false
 ### Markdown Sections
 
 ```markdown
-# P0-T01: Initialize project config
-
 ## Summary
 [1–2 sentences: what was accomplished]
 
-## Work Performed
-[Steps taken in logical order. Decisions and outcomes, not every keystroke.]
-
-## Files Created/Modified
+## Files Changed
 - `package.json` — created with all dependencies
 - `tsconfig.json` — strict mode, path aliases
 
@@ -62,29 +60,38 @@ pnpm lint      # ✅ pass | ❌ fail (details)
 
 ## Issues
 [Problems encountered with error messages. "None" if clean.]
+[Only present when has_issues: true]
 
 ## Deviations
-[Only if has_deviations: true — what plan said vs what was done and why]
+[Only present when has_deviations: true — what plan said vs what was done and why]
 
-## Important Findings
-[Only if has_findings: true — context that affects future tasks]
+## Findings
+[Only present when has_findings: true — context that affects future tasks]
 
-## Next
-[What the next agent should know. "Continue with P0-T02" if clean.]
+## Review
+_Populated by review subagent after implementation._
+
+**Verdict:** ✅ PASS | ❌ FAIL
+**Reviewer:** momus | themis
+**Date:** YYYY-MM-DD
+
+[Review findings, recommendations, flag evaluations]
 ```
 
 ---
 
 ## 3. Status Values
 
-| Status | Meaning |
-|--------|---------|
-| `completed` | Done, validation passed, ready for next task |
-| `partial` | Some work done — log what's done and what remains |
-| `blocked` | Cannot proceed — log the blocker clearly |
-| `error` | Failed — log error, fixes attempted, recommended approach |
+| Status | Meaning | Set By |
+|--------|---------|--------|
+| `active` | Subagent is currently working (body may be partial) | Implementation subagent (create) |
+| `done` | Subagent finished, all sections populated | Implementation subagent |
+| `failed` | Subagent could not complete — Issues section explains why | Implementation subagent |
+| `blocked` | Cannot proceed — dependency missing or external blocker | Implementation subagent |
+| `partial` | Partially done — Remaining Work checklist in body | Implementation subagent |
 
----
+Progress map in `state.md` uses: `active` · `done` · `done/pass` · `done/fail` · `failed` · `blocked`.
+`partial` maps to `active` in progress (needs re-dispatch to complete).
 
 ## 4. Flags
 
@@ -94,44 +101,58 @@ pnpm lint      # ✅ pass | ❌ fail (details)
 | `has_issues` | Bug, blocker, or error encountered during implementation | Fill Issues section |
 | `has_findings` | Unexpected discovery that affects other tasks (not a bug) | Fill Findings section |
 
-When any flag is `true`, the orchestrator **must** read the corresponding section before assigning the next task.
+When any flag is `true`, the orchestrator **must** read the corresponding section before assigning the next task. Cross-cutting items get promoted to `plan/memory/decisions.md`.
 
 ---
 
-## 5. Gate Task Logs
+## 5. Review Section
+
+The **review subagent** (momus/themis) writes the Review section and sets the YAML `review` field:
+
+1. Reads the entire task file
+2. Spot-checks source files listed in Files Changed
+3. Writes Review section with verdict, findings, and recommendations
+4. Sets YAML `review: pass` or `review: fail`
+
+On rework (review failed), the previous Review section is preserved under `### Previous Review` and the review subagent writes a new Review section.
+
+---
+
+## 6. Gate Task Logs
 
 Verification gate tasks (P0-T18, P1-T14, P2-T09, etc.) create no implementation files.
 
 - **Summary:** What was verified and overall result
-- **Work Performed:** Each gate check and its pass/fail result
-- **Files Created/Modified:** `None — verification-only gate task`
+- **Files Changed:** `None — verification-only gate task`
 - **Validation:** Gate-specific outputs (e.g., grep results, typecheck stdout)
 - **Issues:** Gate failures encountered and how they were resolved
 
 ---
 
-## 6. Writing Guidelines
+## 7. Writing Guidelines
 
 **Be concise** — summarize outcomes, don't narrate every step. Reference files by path. Code snippets only for novel logic (≤20 lines).
 
 **Be specific** — exact error messages for issues. Plan file paths for deviations. Validation command output.
 
-**Be actionable** — Issues should suggest solutions. Deviations should explain why new approach is better. Next section should give enough context to start immediately.
+**Be actionable** — Issues should suggest solutions. Deviations should explain why new approach is better.
 
 ---
 
-## 7. Example
+## 8. Example
 
 ```yaml
 ---
 task: P0-T01
-title: Initialize project config
+title: "Initialize project config"
+phase: P0
 agent: hephaestus
-status: completed
-phase: 0
-started: 2026-03-02 10:00
-finished: 2026-03-02 10:42
-validation_passed: true
+depends_on: []
+status: done
+review: pass
+attempt_count: 1
+started: "2026-03-02 10:00"
+finished: "2026-03-02 10:42"
 has_deviations: true
 has_issues: false
 has_findings: false
@@ -139,18 +160,11 @@ has_findings: false
 ```
 
 ```markdown
-# P0-T01: Initialize project config
-
 ## Summary
-Created project config files (package.json, tsconfig.json, next.config.ts, biome.json) with all dependencies pinned per scaffold/base-config.md.
+Created project config files (package.json, tsconfig.json, next.config.ts, biome.json)
+with all dependencies pinned per scaffold/base-config.md.
 
-## Work Performed
-1. Created package.json with exact dependency versions from plan/scaffold/base-config.md
-2. Created tsconfig.json with strict mode, path aliases (@/ → .), incremental builds
-3. Created next.config.ts with experimental.reactCompiler, ppr, cacheComponents
-4. Created biome.json with formatting (indent: tab, line: 100) and lint rules
-
-## Files Created/Modified
+## Files Changed
 - `package.json` — 42 dependencies, 8 devDependencies
 - `tsconfig.json` — strict, paths: {"@/*": ["./*"]}
 - `next.config.ts` — experimental block + images remotePatterns
@@ -162,12 +176,20 @@ pnpm typecheck # ✅ pass
 pnpm lint      # ✅ pass
 
 ## Issues
-None
+None.
 
 ## Deviations
-Plan specified `react: "^19.0.0"` but pinned to `react: "19.1.0"` to avoid RC instability.
-Logged as IMPL-DEV-001.
+Plan specified `react: "^19.0.0"` but pinned to `react: "19.1.0"` for stability.
+Logged as DEC-001 in decisions.md.
 
-## Next
-Continue with P0-T02 (Create tooling config). No blockers.
+## Findings
+None.
+
+## Review
+**Verdict:** ✅ PASS
+**Reviewer:** momus
+**Date:** 2026-03-02
+
+Naming compliant. Size within limits. Validation confirmed.
+No issues found.
 ```

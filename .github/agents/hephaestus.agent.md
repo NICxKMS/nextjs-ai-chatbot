@@ -100,7 +100,7 @@ Provide:
 - Simple single-file changes → Use `@sisyphus` directly
 - Planning only, no implementation → Use `@prometheus`
 - Architecture review without coding → Use `@oracle`
-- Frontend-only UI/UX work → Use `@frontend-engineer`
+- Frontend-only UI/UX work → Use `@apollo`
 
 ## The Craftsman's Code
 

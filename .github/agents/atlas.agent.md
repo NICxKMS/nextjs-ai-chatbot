@@ -94,13 +94,17 @@ After each task (or batch of tasks), report:
 | ----------------------- | -------------------- | ------------------------- |
 | Complex multi-file impl | `@hephaestus`        | Deep autonomous execution |
 | Simple code changes     | `@sisyphus`          | Quick focused changes     |
-| Frontend/UI components  | `@frontend-engineer` | UI/UX specialization      |
-| Backend/API/DB          | `@backend-engineer`  | Backend specialization    |
+| Frontend/UI components  | `@apollo`            | UI/UX specialization      |
+| Backend/API/DB          | `@poseidon`          | Backend specialization    |
 | Architecture decisions  | `@oracle`            | Read-only consultation    |
-| Codebase research       | `@explorer`          | Fast pattern discovery    |
-| Security concerns       | `@sentinel`          | Security-focused analysis |
-| Documentation           | `@docs-specialist`   | Technical writing         |
-| Verification            | `@code-skeptic`      | Independent verification  |
+| Codebase research       | `@hermes`            | Fast pattern discovery    |
+| Security concerns       | `@athena`            | Security-focused analysis |
+| Documentation           | `@calliope`          | Technical writing         |
+| Verification            | `@momus`             | Independent verification  |
+| Performance analysis    | `@daedalus`          | Performance engineering   |
+| Code review             | `@themis`            | Quality gatekeeper        |
+| Refactoring             | `@theseus`           | Complexity reduction      |
+| DevOps/CI/CD            | `@charon`            | Deployment/infrastructure |
 
 ## Constraints
 

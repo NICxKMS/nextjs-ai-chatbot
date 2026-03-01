@@ -33,23 +33,23 @@ You are the **Migration Planning Orchestrator** for rebuilding the ai-assistant 
 
 Use these agents by role:
 
-| Agent             | Invoke               | Use For                                     |
-| ----------------- | -------------------- | ------------------------------------------- |
-| Sisyphus          | `@sisyphus`          | Multi-step orchestrated execution           |
-| Prometheus        | `@prometheus`        | Strategic planning, interview-based scoping |
-| Hephaestus        | `@hephaestus`        | Deep autonomous implementation              |
-| Oracle            | `@oracle`            | Architecture review, tradeoff analysis      |
-| Explorer          | `@explorer`          | Codebase discovery, pattern finding         |
-| Atlas             | `@atlas`             | Structured plan execution                   |
-| Frontend Engineer | `@frontend-engineer` | React/UI implementation                     |
-| Backend Engineer  | `@backend-engineer`  | Server Actions, DB, API                     |
-| Sentinel          | `@sentinel`          | Security audit                              |
-| Code Reviewer     | `@code-reviewer`     | Quality review                              |
-| Code Skeptic      | `@code-skeptic`      | Verification, evidence checking             |
-| Optimizer         | `@optimizer`         | Performance analysis                        |
-| Docs Specialist   | `@docs-specialist`   | Documentation                               |
-| DevOps Specialist | `@devops-specialist` | CI/CD, deployment                           |
-| Code Simplifier   | `@code-simplifier`   | Refactoring                                 |
+| Agent      | Invoke         | Use For                                     |
+| ---------- | -------------- | ------------------------------------------- |
+| Sisyphus   | `@sisyphus`    | Multi-step orchestrated execution           |
+| Prometheus | `@prometheus`  | Strategic planning, interview-based scoping |
+| Hephaestus | `@hephaestus`  | Deep autonomous implementation              |
+| Oracle     | `@oracle`      | Architecture review, tradeoff analysis      |
+| Hermes     | `@hermes`      | Codebase discovery, pattern finding         |
+| Atlas      | `@atlas`       | Structured plan execution                   |
+| Apollo     | `@apollo`      | React/UI implementation                     |
+| Poseidon   | `@poseidon`    | Server Actions, DB, API                     |
+| Athena     | `@athena`      | Security audit                              |
+| Daedalus   | `@daedalus`    | Performance analysis                        |
+| Themis     | `@themis`      | Quality review                              |
+| Momus      | `@momus`       | Verification, evidence checking             |
+| Theseus    | `@theseus`     | Refactoring                                 |
+| Calliope   | `@calliope`    | Documentation                               |
+| Charon     | `@charon`      | CI/CD, deployment                           |
 
 ---
 
@@ -399,6 +399,6 @@ The completed `/plan/` directory containing:
 
 Previous plan failed: missing features, broken integrations, rewritten AI primitives. This plan must be **complete**, **integrated**, and **traceable**.
 
-Use your agent team. Delegate to `@prometheus` for planning, `@explorer` for codebase research, `@oracle` for architecture decisions, and `@atlas` to execute the plan.
+Use your agent team. Delegate to `@prometheus` for planning, `@hermes` for codebase research, `@oracle` for architecture decisions, and `@atlas` to execute the plan.
 
 Completion condition: **Fully verified, production-ready rebuild plan.**

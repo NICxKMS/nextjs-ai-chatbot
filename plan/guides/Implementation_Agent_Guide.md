@@ -11,9 +11,11 @@
 You are building new code in the project root. Old app at `oldapp/` is behavioral reference only.
 Stack and hierarchies: see `STARTER-PROMPT.md` § 1.
 
+> **Your Next.js knowledge is outdated.** This project runs Next.js 16 with App Router. Always consult `.next-docs/` before using Next.js APIs. Do not rely on training data for Next.js features.
+
 Your assignment includes: task ID, task spec path, task log path, and acceptance criteria.
 
-> **Task ID format note:** Phase specs use two-digit prefix (`P00-T01`, `P03-T08`). Guides use single-digit (`P0-T01`, `P3-T08`). These are equivalent.
+> **Task ID format:** Always use **single-digit phase prefix** (`P0`, not `P00`) for task file names and YAML `task` field. Phase specs use `P00-T01` — strip the leading zero when creating files. Example: spec `P00-T01` → file `P0-T01.md`.
 
 ---
 
@@ -23,15 +25,16 @@ Your assignment includes: task ID, task spec path, task log path, and acceptance
 
 1. **Your task spec** — `plan/phases/p{NN}-{name}.md` → your task section
 2. **This guide** — you're reading it now
-3. **Naming conventions** — `plan/architecture/conventions.md`
-4. **Relevant patterns** — `plan/architecture/patterns.md` (only sections your task touches)
+3. **Next.js 16 local docs** — `.next-docs/` (your training data about Next.js is outdated; always consult these)
+4. **Naming conventions** — `plan/architecture/conventions.md`
+5. **Relevant patterns** — `plan/architecture/patterns.md` (only sections your task touches)
 
 ### Conditional Reading
 
 | If your task involves... | Also read... |
 |--------------------------|-------------|
 | Phase context | `plan/final_plan/phase-{NN}-plan.md` (your phase overview) |
-| Next.js features (`use cache`, proxy, routes) | `.next-docs/` local docs (if missing, skip — use patterns.md) |
+| Next.js features (`use cache`, proxy, routes) | `.next-docs/` relevant sections for the specific API |
 | Data access or Drizzle | `plan/phases/p01-data-foundation.md` |
 | Streaming or AI SDK | `plan/final_plan/ai-migration-guide.md` |
 | Component wiring or providers | `plan/integration_map/component-wiring.md` |
