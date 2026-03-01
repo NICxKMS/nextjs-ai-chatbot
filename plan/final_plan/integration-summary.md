@@ -205,18 +205,20 @@ All seams resolved across 8 phases using redesign patterns.
 
 ## API Route Inventory
 
-| Method | Path | Auth | Phase |
-|--------|------|------|-------|
-| POST | `/api/chat` | Required | P3 |
-| POST | `/api/auth/guest` | None | P2 |
-| GET | `/api/auth/callback` | None | P2 |
-| POST | `/api/auth/logout` | Required | P2 |
-| POST | `/api/files/upload` | Required | P6 |
-| GET | `/api/history` | Required | P5 |
-| GET | `/api/artifact` | Required | P4 |
-| POST | `/api/artifact` | Required | P4 |
-| GET | `/api/suggestions` | Required | P4 |
-| GET | `/api/health` | None | P6 |
+| Method | Path | Auth | Rate Limit | Phase |
+|--------|------|------|------------|-------|
+| POST | `/api/chat` | Required | 50 req/min | P3 |
+| POST | `/api/auth/guest` | None | 5 req/min | P2 |
+| GET | `/api/auth/callback` | None | 5 req/min | P2 |
+| POST | `/api/auth/logout` | Required | 10 req/min | P2 |
+| POST | `/api/files/upload` | Required | 20 req/min | P6 |
+| GET | `/api/history` | Required | 100 req/min | P5 |
+| GET | `/api/artifact` | Required | 100 req/min | P4 |
+| POST | `/api/artifact` | Required | 50 req/min | P4 |
+| GET | `/api/suggestions` | Required | 100 req/min | P4 |
+| GET | `/api/health` | None | 100 req/min | P6 |
+
+Rate limits are enforced in `proxy.ts`. Auth routes have stricter limits to prevent brute-force attacks.
 
 ### Removed Routes (Redesign)
 

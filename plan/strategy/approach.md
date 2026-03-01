@@ -188,6 +188,10 @@ Every phase completes with:
 4. **Feature-specific verification** — Defined per phase in vertical-slices.md
 5. **No regressions** — Previous phase features still work
 
+### Dual-Path Testing Mandate
+
+Integration tests must include both guest and authenticated user paths. Every feature that has different behavior for guest vs. authenticated users must be tested in both modes. This applies to all data access paths (cache-only for guests, cache+DB for authenticated), `proxy.ts` routing, session resolution in `getAppSession()`, and UI-level feature gating (e.g., guest cannot vote). Failure to test both paths is a phase gate blocker.
+
 ### Integration Checkpoints
 
 | After Phase | Integration Checkpoint |

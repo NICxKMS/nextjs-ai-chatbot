@@ -412,6 +412,7 @@ Types must be created in this order (each depends on the previous):
 10. lib/errors/codes.ts           ← ErrorCode string literal union
 11. lib/errors/app-error.ts       ← Imports ErrorCode
 12. lib/cache/keys.ts             ← String templates (no type dependencies)
+13. lib/types/api.types.ts         ← PaginatedResult, PaginationParams, ErrorResponse, HealthResponse
 ```
 
 ---
@@ -432,3 +433,42 @@ Before starting any feature phase, verify:
 - [ ] Cache key factory compiles with correct string templates
 - [ ] Zero occurrences of "document" in any type name or identifier
 - [ ] `pnpm typecheck` passes with all type files in place
+
+---
+
+## 14. Cross-Cutting API Types (`lib/types/api.types.ts`)
+
+Generic contracts for paginated responses, error shapes, and health checks.
+Used by route handlers (`app/api/`) and data access functions (`lib/data/`).
+
+```typescript
+// lib/types/api.types.ts
+export interface PaginatedResult<T> {
+  data: T[]
+  hasMore: boolean
+  nextCursor?: string
+}
+
+export interface PaginationParams {
+  cursor?: string
+  limit?: number
+}
+
+export interface ErrorResponse {
+  error: string
+  code?: string
+  details?: Record<string, unknown>
+}
+
+export interface HealthResponse {
+  status: 'ok' | 'degraded' | 'down'
+  timestamp: string
+  services: Record<string, 'ok' | 'error'>
+}
+```
+
+**Usage:**
+- `PaginatedResult<Chat>` returned by `GET /api/history`
+- `PaginationParams` accepted by `getChatsByUserId()` in `lib/data/chat.ts`
+- `ErrorResponse` returned by all API error responses
+- `HealthResponse` returned by `GET /api/health`

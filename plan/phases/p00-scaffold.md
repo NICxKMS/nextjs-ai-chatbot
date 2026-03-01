@@ -181,7 +181,7 @@ Type: IMPLEMENTATION
 Behavior ref: ai-sdk-usage.md (model types); data-flows.md (entity types)
 Architecture ref: redesign/architecture.md (type system); redesign/directory-structure.md (lib/types/)
 
-Action: Create 3 type files. (1) lib/types/result.types.ts — Result<T> type for data access layer, success/failure discriminated union. (2) lib/types/data-context.types.ts — DataContext type for server-to-client data passing, AppSession type. (3) lib/types/model.types.ts — ProviderId (6 providers), ModelCapability, ModelModality, ReasoningType, ModelMetadata, DEFAULT_CHAT_MODEL / DEFAULT_TITLE_MODEL / DEFAULT_ARTIFACT_MODEL constants.
+Action: Create 3 type files. (1) lib/types/result.types.ts — ActionResult<T> type for Server Actions and data access layer, success/failure discriminated union. (2) lib/types/data-context.types.ts — DataContext type for server-to-client data passing, AppSession type. (3) lib/types/model.types.ts — ProviderId (6 providers), ModelCapability, ModelModality, ReasoningType, ModelMetadata, DEFAULT_CHAT_MODEL / DEFAULT_TITLE_MODEL / DEFAULT_ARTIFACT_MODEL constants.
 
 Output files:
 - lib/types/result.types.ts
@@ -197,7 +197,7 @@ Dependencies: P00-T04
 Dependents: P00-T06, P00-T07, P01-T05 through P01-T10, P02-T01, P03-T05
 
 Success criteria:
-- Result<T> is a discriminated union with success/failure variants
+- ActionResult<T> is a discriminated union with success/failure variants
 - DataContext type compiles against schema entity types
 - ModelMetadata exports all required model fields
 - pnpm typecheck passes

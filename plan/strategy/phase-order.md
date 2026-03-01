@@ -200,6 +200,24 @@ Dev A: P0 → P1 → P2 → P3 → P4 ──────→ P6(abc) → P7
 Dev B:                         (wait) → P5 → P6(def) → P7
 ```
 
+---
+
+## 10. Seam-to-Phase Coverage
+
+Condensed mapping of integration seams (SEAM-001 through SEAM-040) to the phase that implements them. Every seam is verified in P7 via integration testing.
+
+| Phase | Seams | Key Integration Points |
+|-------|-------|------------------------|
+| P0 Scaffold | SEAM-029 (Provider Assembly), SEAM-036 (`proxy.ts` Rate Limiting) | Root layout provider tree, proxy auth guard |
+| P1 Data Foundation | SEAM-021 (Artifact Version Schema), SEAM-025 (Artifact Data Access), SEAM-033 (Cache-Through Helper) | Drizzle schema, `lib/data/artifact.ts`, `withCache` |
+| P2 Auth | SEAM-001 (SessionProvider Injection), SEAM-002 (Auth State to UI), SEAM-003 (Guest→Auth Migration), SEAM-004 (`proxy.ts` Guest Token), SEAM-005 (Auth Callback) | Session resolution, guest bootstrap, proxy wiring |
+| P3 Chat Core | SEAM-006 (Chat Send), SEAM-007 (ChatStreamProvider Pipeline), SEAM-008 (Message Rendering), SEAM-009 (`createArtifact` Tool), SEAM-010 (`updateArtifact` Tool), SEAM-011 (Suggestion Pipeline), SEAM-014 (Title Sync Single-Channel), SEAM-015 (Settings `useSyncExternalStore`), SEAM-016 (Error Display) | Streaming pipeline, handler registry, ChatShell orchestration |
+| P4 Artifacts | SEAM-012 (Artifact Store `useSyncExternalStore`), SEAM-017 (Artifact Save), SEAM-019 (Artifact UI Shell), SEAM-020 (Artifact Action Bar), SEAM-023 (Artifact Version Navigation), SEAM-024 (Code Editor), SEAM-026 (Sheet Editor), SEAM-027 (Text/Image Editor), SEAM-028 (Artifact Close), SEAM-040 (Inline Artifact Preview) | Artifact store, editors, panel, StreamBridge→store |
+| P5 Sidebar | SEAM-013 (PendingChatsProvider), SEAM-030 (Sidebar Toggle), SEAM-031 (History Item), SEAM-032 (History Pagination), SEAM-034 (Search/Filter) | SidebarShell SERVER, SWR infinite, PendingChatsProvider |
+| P6 Enhancements | SEAM-018 (Vote Server Action), SEAM-022 (Visibility Toggle), SEAM-035 (Model Selector), SEAM-037 (Attachment Preview), SEAM-038 (Multimodal Tools), SEAM-039 (Theme Toggle) | Voting `useOptimistic`, model persistence, file upload |
+| P7 Polish | All seams verified via integration testing | E2E suite covers every seam end-to-end |
+```
+
 Dev B joins at P5 (after P3 completes). P6 sub-tasks split between developers.
 
 ### Three+ Developers

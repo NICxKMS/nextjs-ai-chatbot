@@ -39,15 +39,19 @@ nextjs-ai-chatbot/
 │   │   │   ├── delete-chat.ts
 │   │   │   └── delete-all-chats.ts
 │   │   ├── components/               # Chat UI components
-│   │   │   ├── chat.tsx
+│   │   │   ├── chat-shell.tsx            # ~60 lines, composes chat UI
+│   │   │   ├── chat-header.tsx
+│   │   │   ├── chat-stream-provider.tsx   # Split state/dispatch contexts
+│   │   │   ├── stream-bridge.tsx          # ~20 lines, thin bridge to artifact store
+│   │   │   ├── notice-handler.tsx         # Reads ?notice → shows toast
 │   │   │   ├── messages.tsx
 │   │   │   ├── message.tsx
 │   │   │   ├── message-actions.tsx
+│   │   │   ├── message-editor.tsx
 │   │   │   ├── message-reasoning.tsx
 │   │   │   ├── multimodal-input.tsx
+│   │   │   ├── submit-button.tsx
 │   │   │   ├── greeting.tsx
-│   │   │   ├── data-stream-handler.tsx
-│   │   │   ├── data-stream-provider.tsx
 │   │   │   └── suggested-actions.tsx
 │   │   ├── hooks/
 │   │   │   ├── use-chat-session.ts
@@ -243,7 +247,7 @@ nextjs-ai-chatbot/
 
 | Type | Suffix | Example |
 |------|--------|---------|
-| Component | `.tsx` | `chat.tsx` |
+| Component | `.tsx` | `chat-shell.tsx` |
 | Server action | `.ts` | `stream-chat.ts` |
 | Hook | `.ts` with `use-` prefix | `use-messages.ts` |
 | Schema | `.schema.ts` | `chat.schema.ts` |

@@ -72,6 +72,7 @@ app/
 │
 ├── (chat)/
 │   ├── layout.tsx                    # Chat layout (SERVER): sidebar + PendingChatsProvider
+│   ├── loading.tsx                   # Loading skeleton while chat data loads (SERVER)
 │   ├── error.tsx                     # Chat route error boundary
 │   ├── page.tsx                      # New chat page (SERVER): generates UUID, renders ChatShell
 │   └── chat/
@@ -263,7 +264,8 @@ features/sidebar/
 ```
 features/voting/
 ├── components/
-│   └── vote-buttons.tsx              # Upvote/downvote with useOptimistic ('use client')
+│   ├── vote-buttons.tsx              # Upvote/downvote with useOptimistic ('use client')
+│   └── vote-resolver.tsx             # Resolves deferred vote promises via React 19 use() ('use client')
 ├── hooks/
 │   └── use-votes.ts                  # Votes state (server-seeded + optimistic)
 ├── actions/
@@ -455,6 +457,7 @@ lib/
 │   └── codes.ts                      # Error code registry (NO activate_gateway, NO credit codes)
 │
 ├── types/
+│   ├── api.types.ts                  # PaginatedResult<T>, PaginationParams, ErrorResponse, HealthResponse
 │   ├── artifact.types.ts             # UIArtifact, ArtifactKind (re-exported from features scope)
 │   ├── artifact-handler.types.ts     # ArtifactHandler, ArtifactStreamWriter, Create/UpdateArtifactParams
 │   ├── pending-chats.types.ts        # PendingChat, PendingChatOperations
@@ -552,12 +555,12 @@ public/
 | Directory | Files | Purpose |
 |-----------|-------|---------|
 | **Root config** | 14 | proxy.ts, next.config.ts, tsconfig, biome, package.json, etc. |
-| **app/** | 15 | Routes, layouts, API handlers, error boundaries |
+| **app/** | 16 | Routes, layouts, API handlers, error/loading boundaries |
 | **features/chat/** | 21 | Chat session: components, hooks, actions, tools, schemas, types |
 | **features/artifacts/** | 17 | Artifact panel: components, editors, handlers, store, schemas, types |
 | **features/auth/** | 9 | Authentication: form, providers, actions, session, schemas, types |
 | **features/sidebar/** | 10 | Sidebar history: components, hooks, actions, types |
-| **features/voting/** | 5 | Message voting: component, hook, action, type |
+| **features/voting/** | 6 | Message voting: components, hook, action, type |
 | **features/models/** | 4 | Model selection: component, catalog, types |
 | **features/visibility/** | 4 | Visibility toggle: component, action, types |
 | **features/settings/** | 4 | User settings: component, hook, types |
@@ -570,10 +573,10 @@ public/
 | **lib/data/** | 6 | Data access: chat, artifact, message, vote, suggestion, user |
 | **lib/db/** | 2+ | Drizzle client, schema, migrations |
 | **lib/errors/** | 2 | AppError class, error codes |
-| **lib/types/** | 7 | Shared type contracts (cross-feature) |
+| **lib/types/** | 8 | Shared type contracts (cross-feature) |
 | **lib/utils/** | 3 | cn, format, generate-uuid |
 | **lib/hooks/** | 2 | Truly generic hooks |
 | **tests/** | 16 | Mocks, fixtures, utils, integration, E2E |
 | **scripts/** | 1 | Import boundary enforcement |
 | **public/** | 1+ | Static assets |
-| **Total** | **~210** | |
+| **Total** | **~212** | |

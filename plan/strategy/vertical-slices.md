@@ -570,6 +570,10 @@ Production-readiness: error boundaries, accessibility, responsive design, instru
 - Integration tests: `tests/integration/chat-flow.test.ts`, `artifact-flow.test.ts`, `auth-flow.test.ts`, `sidebar-flow.test.ts`
 - Stream test utility: `tests/utils/stream.ts`, mocks: `tests/mocks/ai.ts`, `tests/mocks/fetch.ts`
 
+**Pyodide & lazy loading:**
+- Code editor artifact component loads Pyodide via `<Script src="pyodide.js" strategy="lazyOnload" />`
+- Module cache for CodeMirror bundle (dynamic import, not eagerly loaded)
+
 **Verification gates:**
 - `scripts/check-imports.mjs` — zero import boundary violations
 - `grep -r "document"` in code — zero results (excluding .next-docs, oldapp, node_modules)
@@ -599,6 +603,10 @@ Production-readiness: error boundaries, accessibility, responsive design, instru
 - [ ] E2E test specs cover: auth flow, chat send/receive, artifact create/edit, sidebar navigation
 - [ ] App is usable on mobile (320px width)
 - [ ] Core Web Vitals are acceptable
+- [ ] Lazy loading verified: CodeMirror, react-data-grid, Pyodide via dynamic import
+- [ ] Bundle analysis passes (`next build` + `ANALYZE=true`), no regression > 5% from baseline
+- [ ] Adaptive streaming throttle verified (50/100/150ms based on message length)
+- [ ] SWR deduplication confirmed on sidebar pagination
 
 ### 13 Tasks (P7-T01 through P7-T13)
 

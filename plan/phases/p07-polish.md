@@ -122,7 +122,7 @@ Type: IMPLEMENTATION
 Behavior ref: accessibility.md (ARIA attributes, roles, labels, states, live regions, keyboard patterns)
 Architecture ref: interactions.md (keyboard shortcuts)
 
-Action: Audit and update ~8 key component files for comprehensive ARIA coverage and keyboard navigation. Key areas: (1) multimodal-input.tsx — aria-label="Upload file" on file input, aria-label="Send Message" on submit, Enter submits (not during composition), Shift+Enter newline. (2) settings-panel.tsx — aria-pressed on all toggle buttons, label+input pairings. (3) auth-form.tsx — label+input with htmlFor, output aria-live="polite". (4) sidebar-skeleton.tsx — aria-busy on loading sections. (5) message-editor.tsx — Escape cancels, Enter submits. (6) code-editor console — ArrowUp/ArrowDown adjusts resize. (7) artifact-panel.tsx — focus management on open/close. (8) vote-buttons.tsx — aria-pressed on vote buttons.
+Action: Audit and update ~8 key component files for comprehensive ARIA coverage, keyboard navigation, and motion preferences. Key areas: (1) multimodal-input.tsx — aria-label="Upload file" on file input, aria-label="Send Message" on submit, Enter submits (not during composition), Shift+Enter newline. (2) settings-panel.tsx — aria-pressed on all toggle buttons, label+input pairings. (3) auth-form.tsx — label+input with htmlFor, output aria-live="polite". (4) sidebar-skeleton.tsx — aria-busy on loading sections. (5) message-editor.tsx — Escape cancels, Enter submits. (6) code-editor console — ArrowUp/ArrowDown adjusts resize. (7) artifact-panel.tsx — focus management on open/close. (8) vote-buttons.tsx — aria-pressed on vote buttons. (9) Add `prefers-reduced-motion` CSS media query in globals.css — disable all CSS transitions/animations when user prefers reduced motion. Apply `@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }` as a global baseline.
 
 Output files:
 - ~8 component files (modify)
@@ -144,6 +144,7 @@ Success criteria:
 - Shift+Enter creates newline
 - Escape cancels message editing
 - No keyboard traps
+- `prefers-reduced-motion: reduce` disables all CSS animations/transitions
 - pnpm typecheck passes
 
 Complexity: M

@@ -342,8 +342,8 @@ The Edge Runtime has API limitations. The rate limit implementation must:
 - Use lazy initialization for rate limiter instances
 - Avoid Node.js-specific APIs in `proxy.ts`
 
-The daily quota check (20 messages/day for guest, 100/day for auth) is NOT a rate limit —
-it's a business rule. This check stays in the chat action, reading from a Redis counter.
+The daily quota check (20 messages/day for guest, 100/day for auth) is **CONDITIONAL** per
+redesign audit — the credit/gateway system is removed, but basic abuse prevention rate limits may be retained in `proxy.ts`. If daily message caps are kept, they are reframedmas abuse prevention (not entitlements) and enforced in the proxy layer, not as a business rule in the chat action. Evaluate during P7 polish whether these limits add value.
 
 ### Confidence: 90%
 

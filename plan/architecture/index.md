@@ -27,12 +27,16 @@
 ## Guiding Principles
 
 1. **Server-first architecture** — every component is a Server Component unless it requires browser APIs, state, or event handlers
-2. **Feature collocation is non-negotiable** — all feature code lives in `features/[name]/`
-3. **Simplify aggressively** — no unnecessary abstraction layers
-4. **Align with Next.js 16** — Server Components, Server Functions, `use cache`, PPR, `proxy.ts`
-5. **Preserve behavioral parity** — everything the oldapp does, the new app must do
-6. **Evidence-based** — every recommendation grounded in actual codebase analysis
-7. **Revalidation completeness** — every mutation calls `updateTag`/`revalidateTag`
-8. **Naming consistency** — "artifact" not "document", provider names match their purpose
-9. **Provider scope minimization** — providers wrap only the components that consume them
-10. **No dead code** — no credit/gateway/quota logic, no unused infrastructure
+2. **Streaming-first data flow** — SSE via route handler, never poll; single-channel delivery for side data (titles, suggestions)
+3. **Feature collocation is non-negotiable** — all feature code lives in `features/[name]/`
+4. **Simplify aggressively** — no unnecessary abstraction layers
+5. **Align with Next.js 16** — Server Components, Server Functions, `use cache`, PPR, `proxy.ts`
+6. **Preserve behavioral parity** — everything the oldapp does, the new app must do
+7. **Evidence-based** — every recommendation grounded in actual codebase analysis
+8. **Single responsibility components** — ChatShell ~60 lines, StreamBridge ~20 lines — each component does one thing
+9. **Composition over inheritance** — compose hooks and pure functions, not class hierarchies
+10. **Revalidation completeness** — every mutation calls `updateTag`/`revalidateTag`
+11. **Naming consistency** — "artifact" not "document", provider names match their purpose
+12. **Provider scope minimization** — providers wrap only the components that consume them
+13. **Resilient streaming** — await title before closing stream, save partial responses on abort, clean client-side abort on navigation
+14. **No dead code** — no credit/gateway/quota logic, no unused infrastructure

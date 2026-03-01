@@ -201,6 +201,12 @@ export async function deleteChat(chatId: string): Promise<ActionResult> {
 
 Every action follows: **Auth → Validate → Authorize → Execute**.
 
+> **Pattern disambiguation:** The first template above (throw-based) is for Server Actions
+> called as **delegates from route handlers** — thrown errors are caught by the route handler's
+> error boundary. The `ActionResult<T>` template is for Server Actions called **directly from
+> client components** (forms, buttons, `useActionState`) — these return structured results
+> so the UI can display errors without error boundaries.
+
 ### Rules
 
 - ✅ `'use server'` directive at file level (all exports are server functions)
@@ -436,7 +442,7 @@ export async function streamChatAction(body: ChatRequestBody) {
       // Title generation (parallel, non-blocking)
       if (isNewChat) {
         generateTitle(validated.message).then(title => {
-          dataStream.writeData({ type: 'data-chatTitle', content: title })
+          dataStream.writeData({ type: 'chat-title', content: title })
         })
       }
 
@@ -475,6 +481,17 @@ const ChatStreamDispatchContext = createContext<ChatStreamDispatch>(null!)
 
 // Split prevents re-renders: components reading state don't re-render
 // when dispatch functions change, and vice versa.
+
+// RAF batching: Stream deltas arrive at 10-20Hz. Batch state updates
+// with requestAnimationFrame to limit re-renders to ~60fps:
+// let pending = false
+// function batchUpdate(delta) {
+//   queue.push(delta)
+//   if (!pending) {
+//     pending = true
+//     requestAnimationFrame(() => { flush(queue); pending = false })
+//   }
+// }
 ```
 
 ```tsx
@@ -529,6 +546,31 @@ export function ChatShell({ chatId, initialMessages, votesPromise }: ChatShellPr
 
 Children access chat state via `useChatSessionContext()` — no prop drilling.
 
+### 7.5 React 19 `use()` Promise-Passing (VoteResolver)
+
+> **Added per redesign audit (2026-03-01)**
+
+```tsx
+// Server component (page.tsx) creates the promise — does NOT await it:
+const votesPromise = getCachedVotes(chatId)  // returns Promise<Vote[]>
+return <ChatShell votesPromise={votesPromise} />
+
+// Client component resolves with use():
+'use client'
+import { use } from 'react'
+
+function VoteResolver({ votesPromise }: { votesPromise: Promise<Vote[]> }) {
+  const votes = use(votesPromise)       // Suspends until resolved
+  const { mergeVotes } = useChatSessionContext()
+  useEffect(() => { mergeVotes(votes) }, [votes])
+  return null                           // Render-less data bridge
+}
+```
+
+This pattern enables **parallel data fetching**: the server starts fetching votes
+while the chat page streams — no waterfall. The `<Suspense>` boundary around
+`VoteResolver` shows a fallback while votes load.
+
 ### Rules
 
 - ✅ Streaming always via route handler (POST /api/chat)
@@ -565,11 +607,12 @@ Used for: model catalog, pricing data, static config.
 
 ```typescript
 // lib/ai/catalog.ts
-import { cacheTag } from 'next/cache'
+import { cacheTag, cacheLife } from 'next/cache'
 
 export async function getModelCatalog() {
   'use cache'
   cacheTag('model-catalog')
+  cacheLife('hours')   // Controls cache duration (seconds/hours/days)
   const models = await fetchModelsFromProviders()
   return models
 }
@@ -642,7 +685,7 @@ Minimal provider tree. Each provider wraps only the components that consume it.
 // app/(chat)/layout.tsx (SERVER)
 <SidebarProvider>
   <PendingChatsProvider>   {/* wraps sidebar + content */}
-    <Sidebar />
+    <SidebarShell />       {/* SERVER component with 'use cache' */}
     {children}             {/* chat page */}
   </PendingChatsProvider>
 </SidebarProvider>
