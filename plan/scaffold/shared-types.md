@@ -188,6 +188,7 @@ Model metadata and provider config.
 export type ProviderId =
   | 'openai'
   | 'google'
+  | 'xai'
   | 'openrouter'
   | 'cloudflare-workers'
   | 'cloudflare-ai-gateway'

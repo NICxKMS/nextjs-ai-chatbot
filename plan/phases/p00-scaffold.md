@@ -21,7 +21,7 @@
 | P00-T02 | Create tooling config | SCAFFOLD | S | 4 |
 | P00-T03 | Set up Tailwind v4 CSS | SCAFFOLD | M | 1 |
 | P00-T04 | Create Drizzle schema + client | IMPLEMENTATION | L | 2 |
-| P00-T05 | Define core shared types | IMPLEMENTATION | M | 3 |
+| P00-T05 | Define core shared types | IMPLEMENTATION | M | 4 |
 | P00-T06 | Define artifact shared types | IMPLEMENTATION | M | 2 |
 | P00-T07 | Define state shared types | IMPLEMENTATION | S | 2 |
 | P00-T08 | Create error handling | IMPLEMENTATION | M | 2 |
@@ -181,9 +181,10 @@ Type: IMPLEMENTATION
 Behavior ref: ai-sdk-usage.md (model types); data-flows.md (entity types)
 Architecture ref: redesign/architecture.md (type system); redesign/directory-structure.md (lib/types/)
 
-Action: Create 3 type files. (1) lib/types/result.types.ts — ActionResult<T> type for Server Actions and data access layer, success/failure discriminated union. (2) lib/types/data-context.types.ts — DataContext type for server-to-client data passing, AppSession type. (3) lib/types/model.types.ts — ProviderId (6 providers), ModelCapability, ModelModality, ReasoningType, ModelMetadata, DEFAULT_CHAT_MODEL / DEFAULT_TITLE_MODEL / DEFAULT_ARTIFACT_MODEL constants.
+Action: Create 4 type files. (1) lib/types/models.types.ts — Drizzle InferSelectModel/InferInsertModel re-exports for User, Chat, Message, Artifact, Vote, Suggestion (and insert variants), plus composite types like ChatWithMessages. (2) lib/types/result.types.ts — ActionResult<T> type for Server Actions and data access layer, success/failure discriminated union. (3) lib/types/data-context.types.ts — DataContext type for server-to-client data passing. (4) lib/types/model.types.ts — ProviderId (6 providers), ModelCapability, ModelModality, ReasoningType, ModelMetadata, DEFAULT_CHAT_MODEL / TITLE_MODEL / ARTIFACT_MODEL constants.
 
 Output files:
+- lib/types/models.types.ts
 - lib/types/result.types.ts
 - lib/types/data-context.types.ts
 - lib/types/model.types.ts

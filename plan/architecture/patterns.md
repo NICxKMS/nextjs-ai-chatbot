@@ -179,7 +179,7 @@ export async function saveMessageAction(input: unknown) {
 // lib/types/result.types.ts
 export type ActionResult<T = void> =
   | { success: true; data: T }
-  | { success: false; error: string; code?: string }
+  | { success: false; error: { code: string; message: string } }
 
 // features/chat/actions/delete-chat.ts
 'use server'
@@ -188,7 +188,7 @@ import { revalidateTag } from 'next/cache'
 
 export async function deleteChat(chatId: string): Promise<ActionResult> {
   const session = await getAppSession()
-  if (!session) return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' }
+  if (!session) return { success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }
 
   await deleteChatById(chatId, session.user.id)
   revalidateTag(`chat:${chatId}`)
@@ -215,7 +215,7 @@ Every action follows: **Auth → Validate → Authorize → Execute**.
 - ✅ Ownership checks before mutations
 - ✅ Call `lib/data/` functions for data access
 - ❌ No direct DB/cache access in actions
-- ❌ No `try/catch` wrapping — let errors propagate to error boundaries
+- ❌ No `try/catch` wrapping **in RH-delegated SAs** — let errors propagate to the route handler's catch
 
 ---
 
@@ -531,17 +531,25 @@ Client: StreamBridge processes parts → processStreamDelta() → artifact store
 import { useChat } from '@ai-sdk/react'
 import { ChatSessionContext } from '@/features/chat/hooks/use-chat-session-context'
 
-export function ChatShell({ chatId, initialMessages, votesPromise }: ChatShellProps) {
+export function ChatShell({ chatId, initialMessages }: ChatShellProps) {
   const chatSession = useChat({ id: chatId, initialMessages })
   return (
     <ChatSessionContext.Provider value={chatSession}>
-      <VoteResolver votesPromise={votesPromise} />
-      <StreamBridge />
+      <ChatHeader />
       <Messages />
       <MultimodalInput />
+      <ArtifactPanel />
     </ChatSessionContext.Provider>
   )
 }
+
+// NOTE: StreamBridge and VoteResolver are SIBLINGS of ChatShell, NOT children.
+// See component-wiring.md § 1 for the canonical layout:
+//   <ChatStreamProvider>
+//     <ChatShell />
+//     <StreamBridge />        ← sibling
+//     <Suspense><VoteResolver /></Suspense>  ← sibling
+//   </ChatStreamProvider>
 ```
 
 Children access chat state via `useChatSessionContext()` — no prop drilling.
@@ -575,7 +583,7 @@ while the chat page streams — no waterfall. The `<Suspense>` boundary around
 
 - ✅ Streaming always via route handler (POST /api/chat)
 - ✅ ChatStreamProvider wraps chat UI at page level
-- ✅ StreamBridge is thin child of ChatShell, dispatches to store
+- ✅ StreamBridge is thin sibling of ChatShell, dispatches to store
 - ✅ Artifact state managed via useSyncExternalStore (module-level store)
 - ✅ Every data part prefixed with `artifact-` or `chat-`
 - ❌ No Server Actions for streaming endpoints
@@ -683,12 +691,12 @@ Minimal provider tree. Each provider wraps only the components that consume it.
 
 ```tsx
 // app/(chat)/layout.tsx (SERVER)
-<SidebarProvider>
-  <PendingChatsProvider>   {/* wraps sidebar + content */}
+<PendingChatsProvider>     {/* wraps sidebar + content */}
+  <SidebarProvider>
     <SidebarShell />       {/* SERVER component with 'use cache' */}
     {children}             {/* chat page */}
-  </PendingChatsProvider>
-</SidebarProvider>
+  </SidebarProvider>
+</PendingChatsProvider>
 ```
 
 ### Page Provider Tree
@@ -697,12 +705,15 @@ Minimal provider tree. Each provider wraps only the components that consume it.
 // app/(chat)/chat/[id]/page.tsx (SERVER)
 <ChatStreamProvider>       {/* page-level, not layout */}
   <ChatShell>              {/* 'use client' — calls useChat, provides ChatSessionContext */}
-    <StreamBridge />       {/* thin — dispatches stream deltas */}
-    <VoteResolver />       {/* use() for deferred votes */}
+    <ChatHeader />
     <Messages />
     <MultimodalInput />
+    <ArtifactPanel />      {/* reads from artifact store */}
   </ChatShell>
-  <ArtifactPanel />        {/* reads from artifact store */}
+  <StreamBridge />         {/* sibling — dispatches stream deltas */}
+  <Suspense>
+    <VoteResolver />       {/* use() for deferred votes */}
+  </Suspense>
 </ChatStreamProvider>
 ```
 
