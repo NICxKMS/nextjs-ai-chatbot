@@ -131,7 +131,7 @@ PendingChats.markConfirmed(chatId)   // Replace pending with real data
 PendingChats.updateTitle(chatId, title) // Modify title
 ```
 
-**Auto-cleanup:** Pending chats older than 2 minutes are auto-removed.
+**Lifecycle:** Pending chats are explicitly removed/confirmed by chat events (`remove`, `markConfirmed`); no time-based auto-cleanup behavior.
 
 ### `useMessages`
 
@@ -212,7 +212,6 @@ Provides authentication session state:
 // useSession() returns AppSession | null
 type AppSession = {
   user: { id: string; type: 'authenticated' | 'guest'; email?: string };
-  supabaseToken?: string;
 };
 
 const session = useSession(); // AppSession | null

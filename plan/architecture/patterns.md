@@ -447,7 +447,9 @@ export async function streamChatAction(body: ChatRequestBody) {
         model: myProvider.languageModel(validated.selectedChatModel),
         system: buildSystemPrompt(validated, session),
         messages: convertToModelMessages(validated.messages),
-        tools: getEnabledTools(validated.selectedChatModel, session, dataStream),
+        tools: getEnabledTools(validated.selectedChatModel)
+          ? buildTools({ session, dataStream, chatId: validated.chatId })
+          : undefined,
         abortSignal: AbortSignal.timeout(55_000),
         // ... settings from user preferences
       })
@@ -667,13 +669,13 @@ provides better latency.
 | Mutation | Tags Invalidated | Caller | Primitive |
 |----------|-----------------|--------|-----------|
 | `deleteChat({ chatId })` | `chats:{userId}` | Server Action | `updateTag` |
-| `deleteAllChats(userId)` | `chats:{userId}` | Server Action | `updateTag` |
+| `deleteAllChats()` | `chats:{userId}` | Server Action | `updateTag` |
 | `renameChat({ chatId, title })` | `chats:{userId}` | Server Action | `updateTag` |
 | `updateChatVisibility({ chatId, visibility })` | `chat:{chatId}`, `chats:{userId}` | Server Action | `updateTag` |
-| `voteOnMessage(chatId)` | `votes:{chatId}` | Server Action | `updateTag` |
+| `voteOnMessage({ chatId, messageId, type })` | `votes:{chatId}` | Server Action | `updateTag` |
 | `saveArtifactVersion(artifactId)` | `artifact:{artifactId}` | Route Handler | `revalidateTag` |
 | `streamChat(chatId)` | `chat:{chatId}`, `chats:{userId}` | Route Handler | `revalidateTag` |
-| `deleteTrailingMessages(chatId)` | `chat:{chatId}` | Server Action | `updateTag` |
+| `deleteTrailingMessages({ id, chatId })` | `chat:{chatId}` | Server Action | `updateTag` |
 
 ### Template — Server Action Invalidation Functions
 

@@ -194,7 +194,7 @@ Normal → 5 consecutive failures → Circuit OPEN (30s)
 
 ### Optimistic Update Rollback
 - `useChatVisibility`: On server action failure, reverts to previous value + shows toast
-- `usePendingChats`: Auto-cleanup of stale pending entries (>2 min old)
+- `usePendingChats`: Explicit pending lifecycle via `add/remove/markConfirmed` (no timer-based auto-cleanup)
 
 ### Race Conditions
 - Title generation: runs in parallel with streaming, writes to cache/DB async

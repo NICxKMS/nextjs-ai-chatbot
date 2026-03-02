@@ -2,7 +2,7 @@
 
 > **Updated per redesign audit (2026-03-01)**
 
-> Complete behavioral analysis of `oldapp/` for rebuild planning.
+> Complete behavioral analysis of `oldapp/` for rebuild planning. File/path references are normalized to the target rebuild layout (`app/**`, `features/**`) while preserving oldapp behavior semantics.
 
 ## Files
 

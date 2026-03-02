@@ -44,7 +44,7 @@ Each phase has a **gate task** (final task) that must pass `pnpm format && pnpm 
 - Type system established (shared types, artifact types, Zod patterns)
 - Error handling framework in place (no credit/gateway error codes)
 - UI primitives available (Tailwind, shadcn/ui)
-- `proxy.ts` exists at project root (NOT `middleware.ts`)
+- P0 output includes `proxy.ts` at project root (NOT `middleware.ts`)
 
 ### Exit State of P1
 
@@ -302,9 +302,9 @@ Shows which phases each phase depends on (direct dependencies only):
 | P4 | ✅ | ✅ | — | ✅ | — | — | — |
 | P5 | ✅ | ✅ | ✅ | ✅ | — | — | — |
 | P6 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
-| P7 | ✅ | — | — | ✅ | ✅ | ✅ | ✅ |
+| P7 | ✅ | — | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-Every phase depends on P0 (scaffold). P7 does NOT depend on P1/P2 directly — it only needs their outputs through later phases.
+Every phase depends on P0 (scaffold). P7 has one direct P2 dependency (`P2-T07`) for auth-route typecheck/lint baseline in final verification.
 
 ---
 

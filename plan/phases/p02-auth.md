@@ -54,7 +54,7 @@ Type: IMPL
 Behavior ref: auth-system.md (session resolution pipeline: check Supabase session, fall back to guest JWT, resolve AppSession.user)
 Architecture ref: architecture/patterns.md (session resolution); SEAM-005 (session resolution pipeline)
 
-Action: Create **lib/auth/session.ts** (NOT features/auth/lib/session.ts, NOT lib/auth/config.ts) — Export getAppSession(cookieStore): Promise<AppSession> function. Resolution pipeline: (1) Read Supabase session token from cookies, verify with supabase.auth.getUser(). (2) If no Supabase session, read guest token from cookies, verify with verifyGuestToken(). (3) Return `AppSession` with normalized shape `{ user: { id, type, email? }, supabaseToken? }`. (4) If neither token exists, return null session (not logged in). This is the single source of truth for "who is the current user" used by all server actions and API routes.
+Action: Create **lib/auth/session.ts** (NOT features/auth/lib/session.ts, NOT lib/auth/config.ts) — Export getAppSession(cookieStore): Promise<AppSession> function. Resolution pipeline: (1) Read Supabase session token from cookies, verify with supabase.auth.getUser(). (2) If no Supabase session, read guest token from cookies, verify with verifyGuestToken(). (3) Return `AppSession` with normalized shape `{ user: { id, type, email? } }`. (4) If neither token exists, return null session (not logged in). This is the single source of truth for "who is the current user" used by all server actions and API routes.
 
 Output files:
 - lib/auth/session.ts
@@ -119,7 +119,7 @@ Type: IMPL
 Behavior ref: auth-system.md (guest user creation, JWT minting, rotation)
 Architecture ref: SEAM-003 (guest token lifecycle); ../../plan-archives/redesign/architecture.md (guest identity)
 
-Action: Create `features/auth/lib/guest.ts` — Export functions: mintGuestToken(userId): string (creates JWT with guest userId, 24h expiry), verifyGuestToken(token): {userId: string} | null (validates and decodes JWT), rotateGuestToken(token): string (refreshes expiring token with same userId). Uses jose library for JWT operations.
+Action: Create `features/auth/lib/guest.ts` — Export functions: mintGuestToken(userId): string (creates JWT with guest userId, 1h expiry), verifyGuestToken(token): {userId: string} | null (validates and decodes JWT), rotateGuestToken(token): string (refreshes expiring token with same userId when near expiry). Uses jose library for JWT operations.
 
 Output files:
 - features/auth/lib/guest.ts
@@ -133,7 +133,7 @@ Dependencies: P2-T01
 Dependents: P2-T04, P2-T08
 
 Success criteria:
-- mintGuestToken creates valid JWT with 24h expiry
+- mintGuestToken creates valid JWT with 1h expiry
 - verifyGuestToken returns null for expired/invalid tokens (no throw)
 - rotateGuestToken preserves userId with new expiry
 - pnpm typecheck passes

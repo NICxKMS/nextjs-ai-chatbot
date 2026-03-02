@@ -58,13 +58,13 @@
 | Field | Detail |
 |-------|--------|
 | **Type** | Client (`"use client"`) |
-| **Props** | `user: { email?: string | null }` |
+| **Props** | `initialChats: Chat[]`, `initialHasMore: boolean` |
 | **Parents** | `SidebarShell` client history region |
-| **Children** | `GroupedVirtuoso` (react-virtuoso), `ChatItem` items, `AlertDialog` (delete confirm) |
+| **Children** | Native scroll list + `SidebarHistoryItem` rows + `AlertDialog` (delete confirm) |
 | **State** | SWR infinite pagination (20/page), `showDeleteDialog`, `chatToDelete` |
 | **Grouping** | Today, Yesterday, Last 7 days, Last 30 days, Older — with pre-calculated date boundaries |
 | **Pending chats** | Prepended as `__pending__` group before "Today" *(redesign: renamed from `__optimistic__`)* |
-| **Auth gating** | Returns null key when no user or `isNewSession` (skips fetch for new guests) |
+| **Auth gating** | Uses session availability; guest sessions still fetch owned history via same API contract |
 | **Events** | Delete chat → Server Action `deleteChat()` + optimistic removal *(redesign: replaces DELETE route + SWR)*, title update via `chat-title` stream part *(redesign: replaces `chat-title-updated` window event)* |
 | **Lines** | 574 |
 | **Exported** | `SidebarHistoryClient` *(redesign: renamed from SidebarHistory)*, `getChatHistoryPaginationKey`, `ChatHistory` type |

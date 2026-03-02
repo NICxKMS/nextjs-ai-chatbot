@@ -50,12 +50,12 @@
 
 1. AI calls `createArtifact` tool during response *(redesign: renamed from createDocument)*
 2. `StreamBridge` processes stream deltas *(redesign: renamed from DataStreamHandler)*:
-   - `id` → set artifact ID
-   - `title` → set artifact title  
-   - `kind` → set artifact kind (text/code/image/sheet)
-   - `clear` → clear artifact content
-   - `text` / `delta` → append content
-   - `finish` → mark artifact complete, call `onStreamPart("finish")`
+   - `artifact-id` → set artifact ID
+   - `artifact-title` → set artifact title
+   - `artifact-kind` → set artifact kind (text/code/image/sheet)
+   - `artifact-clear` → clear artifact content
+   - `artifact-textDelta` / `artifact-codeDelta` / `artifact-sheetDelta` / `artifact-imageDelta` → append content
+   - `artifact-finish` → mark artifact complete
 3. Artifact panel opens with spring animation
    - `AnimatePresence mode="wait"` with opacity + horizontal slide
    - Captures bounding box from `ArtifactPreview` inline card for origin animation *(redesign: renamed from DocumentPreview)*
@@ -151,7 +151,7 @@
 2. Hidden `<input type="file" accept="image/*">` triggered
 3. Files queued to `uploadQueue` state
 4. Each file: POST `/api/files/upload` (FormData)
-5. Response: `{ url, name, contentType }`
+5. Response: `{ url, pathname, contentType }`
 6. Added to `attachments` array → `PreviewAttachment` thumbnails shown
 7. On submit: attachments converted to `{ type: "file", data: url, mimeType }` parts
 8. Remove before send: click X on `PreviewAttachment`

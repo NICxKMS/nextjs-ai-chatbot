@@ -107,7 +107,7 @@ User navigates to `/chat/[id]` via sidebar link or direct URL.
       - getAvailableModels() → models
         - 'use cache' + cacheTag('models')
    c. Access control:
-      - if (!chat) → redirect('/?notice=chat_not_found')
+      - if (!chat) → notFound()
       - if (chat.userId !== session.user.id && chat.visibility === 'private') → notFound()
    d. isReadonly = (chat.userId !== session.user.id)
 

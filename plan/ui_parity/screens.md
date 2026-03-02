@@ -8,8 +8,8 @@
 |-------|-----------|--------------|
 | `/` | `app/(chat)/page.tsx` | Root → Chat Layout |
 | `/chat/[id]` | `app/(chat)/chat/[id]/page.tsx` | Root → Chat Layout |
-| `/login` | `app/(auth)/login/page.tsx` | Root only |
-| `/register` | `app/(auth)/register/page.tsx` | Root only |
+| `/login` | `app/(auth)/login/page.tsx` | Root → Auth Layout |
+| `/register` | `app/(auth)/register/page.tsx` | Root → Auth Layout |
 | Global Error | `app/global-error.tsx` | None (standalone) |
 
 ---
@@ -121,8 +121,8 @@
 
 **Access Control:**
 - No session → redirect `/`
-- Chat not found → redirect `/?notice=chat_not_found`
-- Private chat + not owner → redirect `/?notice=chat_not_found`
+- Chat not found → `notFound()` (404)
+- Private chat + not owner → `notFound()` (404)
 
 **Renders:**
 ```

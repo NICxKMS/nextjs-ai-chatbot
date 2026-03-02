@@ -2,6 +2,8 @@
 
 > **Updated per redesign audit (2026-03-01)**
 
+> Entry-point paths are expressed in target rebuild form (`app/**`) while behavior is extracted from `oldapp/` implementation.
+
 ## 1. Chat (Core Feature)
 
 ### Description
@@ -106,7 +108,7 @@ Paginated list of user's chats in sidebar with optimistic updates.
 6. Delete all: Server Action `deleteAllChats()` + `updateTag('chats:{userId}')`
 
 ### Data Requirements
-- DB query with pagination (`startingAfter`/`endingBefore` cursors) for both guest and authenticated sessions
+- DB query with cursor pagination (`cursor` + `nextCursor`) for both guest and authenticated sessions
 - Server-side cache tags for fast repeat reads
 - Limit clamped: min 1, max 100, default 20
 

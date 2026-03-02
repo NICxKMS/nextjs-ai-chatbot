@@ -2,6 +2,8 @@
 
 > **Updated per redesign audit (2026-03-01)**
 
+> Path notation is normalized to target rebuild routes (`app/api/**`). Equivalent oldapp source paths are mapped during extraction.
+
 ## Route Inventory
 
 All route handlers follow `app/api/**/route.ts`.
@@ -99,13 +101,13 @@ SSE stream (`Content-Type: text/event-stream`). Uses Vercel AI SDK `UIMessageStr
 > *Replaced by Server Action `deleteChat()`. Enables `updateTag('chats:{userId}')` + `useOptimistic` pattern. Returns `ActionResult<void>`.*
 
 ### Auth
-Required, non-guest.
+Required (guest sessions allowed with ownership checks).
 
 ### Input
 `{ chatId: string }` (UUID, Zod validated)
 
 ### Validation
-1. Auth check (non-guest)
+1. Auth check (authenticated or guest session)
 2. UUID validation
 3. Chat ownership verification (query chat, compare userId)
 
@@ -218,6 +220,11 @@ Body:
 - Updates cache
 - `revalidateTag('artifact:{id}', 'max')`
 
+### Response
+```typescript
+{ artifact: Artifact }
+```
+
 ---
 
 ## ~~DELETE `/api/document`~~ → handled by `POST /api/artifact` restore mode
@@ -235,6 +242,11 @@ Body:
 
 ### Side Effects
 Truncates newer versions after the restore timestamp and revalidates `artifact:{id}`.
+
+### Response
+```typescript
+{ success: true }
+```
 
 ---
 

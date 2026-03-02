@@ -33,7 +33,7 @@
 | Field | Detail |
 |-------|--------|
 | **Type** | Client (imported, no directive — wrapped in memo) |
-| **Props** | `chatId`, `input`, `setInput`, `status`, `stop`, `attachments`, `setAttachments`, `sendMessage`, `messages`, `setMessages`, `regenerate`, `votes`, `isReadonly`, `selectedVisibilityType`, `selectedModelId`, `availableModels` |
+| **Props** | Context-driven; own props kept minimal (2 or fewer) |
 | **Parents** | `ChatShell` component *(redesign: renamed from Chat)* |
 | **Children** | `ArtifactCloseButton`, `ArtifactActions`, `ArtifactMessages`, `MultimodalInput`, `Toolbar`, `VersionFooter`, `ArtifactErrorBoundary` → dynamic artifact content |
 | **State** | `mode: "edit" | "diff"`, `artifact: Artifact | null` *(redesign: renamed from document: Document)*, `currentVersionIndex: number`, `isContentDirty: boolean`, `isToolbarVisible: boolean` |

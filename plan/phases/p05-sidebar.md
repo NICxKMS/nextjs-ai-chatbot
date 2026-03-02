@@ -84,10 +84,10 @@ Title: Create PendingChatsProvider
 Phase: 5 — Sidebar & Navigation Vertical
 Type: IMPL
 
-Behavior ref: state-management.md (pending chats: Set-based dedup, auto-cleanup); redesign (PendingChatsProvider, NOT OptimisticChatsProvider)
+Behavior ref: state-management.md (pending chats: Set-based dedup, explicit lifecycle operations); redesign (PendingChatsProvider, NOT OptimisticChatsProvider)
 Architecture ref: conventions.md (feature hooks collocation); redesign (use-pending-chats.ts)
 
-Action: Create features/sidebar/hooks/use-pending-chats.ts — "use client" context provider + hook. PendingChatsProvider wraps both sidebar AND content (placed in chat layout). Internal state: array of PendingChat, Set<string> for O(1) dedup by chat ID. Operations: add(chat) — add unconfirmed chat to list head (dedup by ID), remove(chatId) — remove by ID (used on delete), updateTitle(chatId, title) — update title in-place (used for streaming title via single-channel delivery), markConfirmed(chatId) — remove pending flag. Auto-cleanup: entries older than 2 minutes auto-removed. Export PendingChatsProvider and usePendingChats hook. Title flows via single channel: `chat-title` stream event → `PendingChats.updateTitle()` — NO window.dispatchEvent, NO polling.
+Action: Create features/sidebar/hooks/use-pending-chats.ts — "use client" context provider + hook. PendingChatsProvider wraps both sidebar AND content (placed in chat layout). Internal state: array of PendingChat, Set<string> for O(1) dedup by chat ID. Operations: add(chat) — add unconfirmed chat to list head (dedup by ID), remove(chatId) — remove by ID (used on delete), updateTitle(chatId, title) — update title in-place (used for streaming title via single-channel delivery), markConfirmed(chatId) — clear pending flag when server-confirmed. No timer-based cleanup. Export PendingChatsProvider and usePendingChats hook. Title flows via single channel: `chat-title` stream event → `PendingChats.updateTitle()` — NO window.dispatchEvent, NO polling.
 
 Output files:
 - features/sidebar/hooks/use-pending-chats.ts
@@ -106,7 +106,7 @@ Success criteria:
 - remove() removes by ID
 - updateTitle() updates title in-place (single-channel title delivery)
 - markConfirmed() removes pending flag
-- Auto-cleanup removes entries older than 2 minutes
+- Pending entries are managed via explicit `remove` / `markConfirmed` operations (no timer cleanup)
 - Context provides stable dispatch functions (no re-render cascading)
 - NO window.dispatchEvent, NO polling for title sync
 - Named PendingChatsProvider (NOT OptimisticChatsProvider)

@@ -57,7 +57,7 @@ Implement all enhancement features that augment the core experience: message vot
 
 | State | Condition |
 |-------|-----------|
-| Entry | P5 gate passed; chat, artifacts, sidebar all functional |
+| Entry | P4 + P5 gates passed; chat, artifacts, sidebar all functional |
 | Exit | Voting works via Server Action on assistant messages; VoteResolver hydrates via `use()`; model selector changes AI model; visibility toggle as own feature; file upload attaches images; health check returns OK |
 
 ---

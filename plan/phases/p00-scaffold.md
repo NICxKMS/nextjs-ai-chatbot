@@ -346,13 +346,13 @@ Type: IMPL
 Behavior ref: N/A (cross-cutting hooks)
 Architecture ref: ../../plan-archives/redesign/directory-structure.md (lib/hooks/)
 
-Action: Create 2 files. (1) lib/hooks/use-mobile.ts — useMobile() hook using window.matchMedia for responsive breakpoint detection. Copy from oldapp/hooks/use-mobile.tsx. (2) lib/hooks/use-debounce.ts — useDebounce(value, delay) hook for debouncing input values.
+Action: Create 2 files. (1) lib/hooks/use-mobile.ts — useMobile() hook using window.matchMedia for responsive breakpoint detection. Copy from oldapp/hooks/use-mobile.ts. (2) lib/hooks/use-debounce.ts — useDebounce(value, delay) hook for debouncing input values.
 
 Output files:
 - lib/hooks/use-mobile.ts
 - lib/hooks/use-debounce.ts
 
-Inputs: oldapp/hooks/use-mobile.tsx (reference)
+Inputs: oldapp/hooks/use-mobile.ts (reference)
 Outputs: Hooks consumed by sidebar, chat input, model selector
 
 AI layer handling: COPY_CONTENT

@@ -197,8 +197,10 @@ Parallelization is allowed where dependency graph permits (notably P4 and P5 aft
 ### Two Developers
 
 ```
-Dev A: P0 → P1 → P2 → P3 → P4 ──────→ P6(abc) → P7
-Dev B:                         (wait) → P5 → P6(def) → P7
+Dev A: P0 → P1 → P2 → P3 → P4 ──┐
+                                 ├─→ P6(abc) → P7
+Dev B:                         (wait) → P5 ──┘
+                                           └→ P6(def) → P7
 ```
 
 ---
@@ -224,9 +226,10 @@ Dev B joins at P5 (after P3 completes). P6 sub-tasks split between developers.
 ### Three+ Developers
 
 ```
-Dev A: P0 → P1 → P2 → P3 → P4 → P7
-Dev B:                    (wait) → P5 → P6(abc)
-Dev C:                         (wait) → P6(def) → P7
+Dev A: P0 → P1 → P2 → P3 → P4 ──┐
+                                 ├─→ P6(abc) → P7
+Dev B:                    (wait) → P5 ──┘
+Dev C:                               └→ P6(def) → P7
 ```
 
 P4, P5, and P6 sub-tasks distribute across developers after the critical path (P0-P3) completes.

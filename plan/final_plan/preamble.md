@@ -127,7 +127,7 @@ Full details: `deviations/deviations-01.md`
 6. E2E tests pass for all core flows
 7. Mobile usable at 320px width
 8. No console errors in production build
-9. Import boundaries enforced — no cross-feature implementation imports
+9. Import boundaries enforced — no unauthorized cross-feature implementation imports (allowlist exceptions only)
 10. Zero "document" in code identifiers (artifact naming verified by grep)
 11. Zero credit/gateway/quota terminology in codebase
 12. `proxy.ts` exists (not `middleware.ts`)

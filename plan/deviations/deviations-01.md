@@ -210,7 +210,7 @@ export function track(event: string, properties?: Record<string, unknown>) { ...
 
 **We do instead**: The chat endpoint returns an SSE stream (not JSON). No envelope. For REST endpoints, return `Response.json(data)` directly. The `meta.timestamp` and `meta.requestId` add overhead that no consumer reads.
 
-**Reason**: The primary API endpoint (POST /api/chat) is a streaming SSE response — wrapping it in ApiResponse makes no sense. For REST endpoints like GET /api/history, the response shape is `{ chats, hasMore }` — adding a `data` wrapper level and `meta.timestamp` creates unnecessary nesting. This matches Next.js conventions where `Response.json()` is the standard pattern.
+**Reason**: The primary API endpoint (POST /api/chat) is a streaming SSE response — wrapping it in ApiResponse makes no sense. For REST endpoints like GET /api/history, the response shape is `{ chats, hasMore, nextCursor? }` — adding a `data` wrapper level and `meta.timestamp` creates unnecessary nesting. This matches Next.js conventions where `Response.json()` is the standard pattern.
 
 **Trade-offs**: No standardized envelope if a third-party ever consumes the API. Acceptable because this is a web app, not a public API.
 
@@ -330,7 +330,7 @@ Do NOT build: canvas, citations, workflow, queue, checkpoint wrappers.
 
 **Reason**: The existing application uses "document" to refer to rich content artifacts (code, text, sheet, image), which conflicts with both the DOM `document` object and browser `Document` concept. "Artifact" is clearer, avoids naming conflicts, and better describes the concept of AI-generated content. The rename was identified in the redesign audit as universally beneficial.
 
-**Trade-offs**: Any future reference to the old plan must mentally translate "document" → "artifact". All 36+ identifiers change. See `../../plan-archives/redesign/cleanup-inventory.md` §2 for the exhaustive rename inventory.
+**Trade-offs**: Existing legacy references (archives/snapshots) require historical context, but active implementation docs are artifact-native. All 36+ identifiers changed. See `../../plan-archives/redesign/cleanup-inventory.md` §2 for the exhaustive rename inventory.
 
 ---
 
@@ -451,3 +451,19 @@ import './image-handler';
 **Reason**: "Optimistic" implies React's `useOptimistic` pattern, which is not what this provider does. It manages chats that have been created but not yet confirmed by the server (pending state). The provider API is `add`, `remove`, `updateTitle`, `markConfirmed` — all operations on a pending set. "Pending" accurately describes the lifecycle state, while "optimistic" is misleading.
 
 **Trade-offs**: None. A naming improvement with no functional change.
+
+---
+
+## DEV-023: Cross-Feature UI Composition Allowlist
+
+**ID**: DEV-023
+**Area**: architecture
+**Severity**: MINOR
+
+**Spec says**: Cross-feature imports should be types/schemas-only (with a minimal exception profile).
+
+**We do instead**: Keep a narrow, explicit allowlist for UI composition imports that are integration seams in practice (documented in `architecture/conventions.md` and enforced by `scripts/check-imports.mjs`).
+
+**Reason**: Certain UI composition points are naturally cross-feature (e.g., chat surface embedding visibility/model selectors and voting controls). Keeping them explicit/allowlisted is clearer and safer than ad-hoc exceptions in implementation.
+
+**Trade-offs**: Slightly broader exception surface than baseline redesign guidance; mitigated by a centralized allowlist + CI enforcement and explicit documentation.

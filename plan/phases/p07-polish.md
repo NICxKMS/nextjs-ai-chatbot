@@ -395,10 +395,10 @@ Title: Verify no credit/gateway logic
 Phase: 7 — Polish & Production
 Type: VERIFY
 
-Behavior ref: redesign (no credit/gateway/quota terminology)
+Behavior ref: redesign (no credit/gateway/quota/data-usage terminology)
 Architecture ref: redesign (zero credit/gateway across entire codebase)
 
-Action: Run grep verification: `grep -rE "credit|gateway|quota|entitlement|AppUsage|activate_gateway|vercel-gateway"` across all code directories (excluding .next-docs/, oldapp/, node_modules/, plan/). Verify zero results. Fix any violations found.
+Action: Run grep verification: `grep -rE "credit|gateway|quota|entitlement|AppUsage|activate_gateway|vercel-gateway|data-usage"` across all code directories (excluding .next-docs/, oldapp/, node_modules/, plan/). Verify zero results. Fix any violations found.
 
 Output files: none (verification only, fix files if violations found)
 
@@ -411,7 +411,7 @@ Dependencies: P6-T14
 Dependents: P7-T13
 
 Success criteria:
-- Zero occurrences of credit/gateway/quota/entitlement/AppUsage/activate_gateway/vercel-gateway
+- Zero occurrences of credit/gateway/quota/data-usage/entitlement/AppUsage/activate_gateway/vercel-gateway
 - No credit-related error codes in lib/errors/codes.ts
 - No gateway provider in AI registry
 
@@ -461,7 +461,7 @@ Type: VERIFY
 Behavior ref: All behavioral extraction documents
 Architecture ref: AGENTS.md (final validation); redesign (complete exit criteria)
 
-Action: Final gate — verify all exit criteria. Checklist: (1) All 3 error boundaries render standalone with recovery actions, (2) `scripts/check-imports.mjs` reports zero violations, (3) Zero occurrences of "document" in code identifiers (use "artifact"), (4) Zero occurrences of credit/gateway/quota terminology, (5) `proxy.ts` exists (not `middleware.ts`), (6) `pnpm format && pnpm typecheck && pnpm lint` all pass, (7) `pnpm build` succeeds cleanly, (8) E2E test specs cover: auth flow, chat send/receive, artifact create/edit, sidebar navigation, (9) All naming consistent per redesign: StreamBridge, ChatStreamProvider, ChatSessionContext, PendingChatsProvider, VoteResolver, SessionProvider, ArtifactHandler, ArtifactKind, artifactId, createArtifact, updateArtifact, artifact-preview, (10) No SettingsProvider exists (REMOVED), (11) Responsive design verified at mobile + desktop, (12) Keyboard navigation functional, (13) ARIA attributes present on all interactive elements.
+Action: Final gate — verify all exit criteria. Checklist: (1) All 3 error boundaries render standalone with recovery actions, (2) `scripts/check-imports.mjs` reports zero violations, (3) Zero occurrences of "document" in code identifiers (use "artifact"), (4) Zero occurrences of credit/gateway/quota/data-usage terminology, (5) `proxy.ts` exists (not `middleware.ts`), (6) `pnpm format && pnpm typecheck && pnpm lint` all pass, (7) `pnpm build` succeeds cleanly, (8) E2E test specs cover: auth flow, chat send/receive, artifact create/edit, sidebar navigation, (9) All naming consistent per redesign: StreamBridge, ChatStreamProvider, ChatSessionContext, PendingChatsProvider, VoteResolver, SessionProvider, ArtifactHandler, ArtifactKind, artifactId, createArtifact, updateArtifact, artifact-preview, (10) No SettingsProvider exists (REMOVED), (11) Responsive design verified at mobile + desktop, (12) Keyboard navigation functional, (13) ARIA attributes present on all interactive elements.
 
 Output files: none (validation only)
 
@@ -485,7 +485,7 @@ Success criteria:
 - All 3 error boundaries functional
 - Import boundaries respected (zero violations)
 - "artifact" naming throughout (zero "document" identifiers)
-- Zero credit/gateway/quota terminology
+- Zero credit/gateway/quota/data-usage terminology
 - `proxy.ts` exists (not `middleware.ts`)
 - `pnpm format && pnpm typecheck && pnpm lint` pass
 - `pnpm build` succeeds

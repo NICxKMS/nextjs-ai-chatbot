@@ -51,8 +51,10 @@ interface ModelMetadata {
 
 > **Redesign note:** `providerId` → `provider`, `modelId` → `providerModelId`, `name` → `label`. The `capabilities` array was replaced by explicit boolean flags (`supportsToolCalling`, `supportsReasoning`). `isCurated` removed; use `source === 'static'` instead. `reasoningType` and `thinkingBudget` are no longer part of `ModelMetadata` — reasoning config is resolved at call time via provider options.
 
-### Capabilities
-`chat`, `reasoning`, `vision`, `audio`, `multimodal`, `code`, `tooling`, `memory`, `image-generation`, `video-generation`
+### Capability Flags (Canonical)
+Tool and reasoning behavior is determined by explicit booleans on `ModelMetadata`:
+- `supportsToolCalling`
+- `supportsReasoning`
 
 ### Reasoning Types & Middleware
 | Type | Tag Name | Provider Options |
@@ -109,10 +111,9 @@ Model discovery and catalog merge live in `lib/ai/models.ts` (no standalone `mod
 
 ### Tool Enablement Logic
 ```
-if (model has ONLY "reasoning" capability) → no tools
+if (!model.supportsToolCalling) → no tools
 if (model is google:gemma-*) → no tools
-if (model has "tooling" capability) → ALL tools enabled
-otherwise → no tools
+otherwise → tools enabled per `getEnabledTools(modelId)`
 ```
 
 ---
