@@ -145,8 +145,7 @@ type DataContext = {
 export async function getChatById(id: string, ctx: DataContext): Promise<Chat | null> {
   const cached = await cache.get<Chat>(cacheKeys.chat(id))
   if (cached) return cached
-  if (ctx.isGuest) return null  // Guest: cache-only, no DB fallback
-  // Auth: DB fallback + cache warming
+  // Guest and auth paths both fall through to DB-backed persistence
 }
 ```
 
@@ -180,7 +179,7 @@ Keep the existing patterns that already work:
 |-------|----------------|-------|
 | Settings | `useSyncExternalStore` + localStorage pub/sub | ✅ Yes (no provider needed) |
 | Artifact state | `useSyncExternalStore` + module-level store | ✅ Yes (was SWR, now simpler) |
-| Chat visibility | SWR with server action | ✅ Yes |
+| Chat visibility | `useOptimistic` + Server Action (`updateTag`) | ✅ Yes |
 | Pending chats | `PendingChatsProvider` (React context + `Set<string>`) | ✅ Yes (renamed from Optimistic) |
 | Chat stream | `ChatStreamProvider` (split state/dispatch context) | ✅ Yes (renamed from DataStream) |
 | Auth session | `SessionProvider` (React context) | ✅ Yes (renamed from AuthProvider) |
@@ -287,7 +286,7 @@ Use Redis for data that is **user-specific** or **real-time**.
 ```
 Does the endpoint return an SSE stream?
 ├── YES → Route Handler (POST in route.ts)
-│         Examples: /api/chat (streaming), /api/chat/[id]/reconnect
+│         Examples: /api/chat (streaming)
 └── NO: ↓
 
 Is it called from a <form> or client component?
@@ -422,8 +421,8 @@ effective, and tool-agnostic.
 
 ### 10.1 Revalidation Completeness
 
-Every `use cache` + `cacheTag` data fetch must be paired with `revalidateTag` (in Server
-Actions) or `updateTag` (in Route Handlers) after the corresponding mutation. This is a
+Every `use cache` + `cacheTag` data fetch must be paired with `updateTag` (in Server
+Actions) or `revalidateTag(tag, 'max')` (in Route Handlers) after the corresponding mutation. This is a
 non-negotiable convention — `lib/cache/revalidate.ts` provides the utilities.
 
 ### 10.2 ChatShell Decomposition

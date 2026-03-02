@@ -1,13 +1,13 @@
-# Phase P05 — Sidebar & Navigation Vertical
+# Phase P5 — Sidebar & Navigation Vertical
 
 > **Updated per redesign audit (2026-03-01)**
 
 > Sidebar phase. Implements the complete sidebar experience: server-rendered shell with
 > client pagination, pending chat operations, chat history, user navigation, and chat switching.
 >
-> **Entry state**: P04 complete — chat + artifacts work, messages stream, artifacts created.
+> **Entry state**: P4 complete — chat + artifacts work, messages stream, artifacts created.
 > **Exit state**: Full sidebar navigation works — chat switching, history loading, creation, deletion, rename.
-> **Est. duration**: ~2 days
+> **Est. duration**: ~4.25 days
 > **Tasks**: 12
 > **Files created**: ~12
 
@@ -17,18 +17,18 @@
 
 | ID | Title | Type | Complexity | Files |
 |----|-------|------|------------|-------|
-| P05-T01 | Create sidebar types | IMPLEMENTATION | S | 1 |
-| P05-T02 | Create PendingChatsProvider | IMPLEMENTATION | L | 1 |
-| P05-T03 | Create useSidebarHistory hook | IMPLEMENTATION | M | 1 |
-| P05-T04 | Create SidebarHistoryItem | IMPLEMENTATION | M | 1 |
-| P05-T05 | Create SidebarHistoryClient | IMPLEMENTATION | L | 1 |
-| P05-T06 | Create SidebarUserNav | IMPLEMENTATION | M | 1 |
-| P05-T07 | Create SidebarSkeleton | IMPLEMENTATION | S | 1 |
-| P05-T08 | Create SidebarShell (SERVER) | IMPLEMENTATION | L | 1 |
-| P05-T09 | Create rename chat action | IMPLEMENTATION | S | 1 |
-| P05-T10 | Create history API route | IMPLEMENTATION | M | 1 |
-| P05-T11 | Wire sidebar into chat layout | INTEGRATION | L | 1 |
-| P05-T12 | Verification gate G05 | VERIFICATION | S | 0 |
+| P5-T01 | Create sidebar types | IMPL | S | 1 |
+| P5-T02 | Create PendingChatsProvider | IMPL | L | 1 |
+| P5-T03 | Create useSidebarHistory hook | IMPL | M | 1 |
+| P5-T04 | Create SidebarHistoryItem | IMPL | M | 1 |
+| P5-T05 | Create SidebarHistoryClient | IMPL | L | 1 |
+| P5-T06 | Create SidebarUserNav | IMPL | M | 1 |
+| P5-T07 | Create SidebarSkeleton | IMPL | S | 1 |
+| P5-T08 | Create SidebarShell (SERVER) | IMPL | L | 1 |
+| P5-T09 | Create rename chat action | IMPL | S | 1 |
+| P5-T10 | Create history API route | IMPL | M | 1 |
+| P5-T11 | Wire sidebar into chat layout | INTEG | L | 1 |
+| P5-T12 | Verification gate G05 | VERIFY | S | 0 |
 
 ---
 
@@ -36,10 +36,10 @@
 
 | Seam | Description | Task |
 |------|-------------|------|
-| SEAM-013 | Pending chat creation (optimistic sidebar entries) | P05-T02, P05-T05 |
-| SEAM-014 | Title sync (single-channel stream delivery) | P05-T02, P05-T05 |
-| SEAM-020 | Sidebar history pagination | P05-T03, P05-T05, P05-T10 |
-| SEAM-030 | Theme system (toggle in user nav) | P05-T06 |
+| SEAM-013 | Pending chat creation (optimistic sidebar entries) | P5-T02, P5-T05 |
+| SEAM-014 | Title sync (single-channel stream delivery) | P5-T02, P5-T05 |
+| SEAM-020 | Sidebar history pagination | P5-T03, P5-T05, P5-T10 |
+| SEAM-030 | Theme system (toggle in user nav) | P5-T06 |
 
 ---
 
@@ -47,10 +47,10 @@
 
 ---
 
-### TASK: [ID: P05-T01]
+### TASK: [ID: P5-T01]
 Title: Create sidebar types
 Phase: 5 — Sidebar & Navigation Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: state-management.md (pending chats types)
 Architecture ref: conventions.md (feature types collocation); redesign (features/sidebar/types/)
@@ -60,13 +60,13 @@ Action: Create features/sidebar/types/sidebar.types.ts — Define sidebar-relate
 Output files:
 - features/sidebar/types/sidebar.types.ts
 
-Inputs: lib/types/pending-chats.types.ts (P00-T07)
-Outputs: Sidebar types consumed by all P05 tasks
+Inputs: lib/types/pending-chats.types.ts (P0-T07)
+Outputs: Sidebar types consumed by all P5 tasks
 
 AI layer handling: NEW
 
-Dependencies: P00-T07
-Dependents: P05-T02, P05-T03, P05-T04, P05-T05
+Dependencies: P0-T07
+Dependents: P5-T02, P5-T03, P5-T04, P5-T05
 
 Success criteria:
 - PendingChat type includes isPending flag
@@ -78,10 +78,10 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P05-T02]
+### TASK: [ID: P5-T02]
 Title: Create PendingChatsProvider
 Phase: 5 — Sidebar & Navigation Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: state-management.md (pending chats: Set-based dedup, auto-cleanup); redesign (PendingChatsProvider, NOT OptimisticChatsProvider)
 Architecture ref: conventions.md (feature hooks collocation); redesign (use-pending-chats.ts)
@@ -91,13 +91,13 @@ Action: Create features/sidebar/hooks/use-pending-chats.ts — "use client" cont
 Output files:
 - features/sidebar/hooks/use-pending-chats.ts
 
-Inputs: features/sidebar/types/sidebar.types.ts (P05-T01)
-Outputs: Pending chats context consumed by SidebarHistoryClient (P05-T05), ChatShell (P05-T11)
+Inputs: features/sidebar/types/sidebar.types.ts (P5-T01)
+Outputs: Pending chats context consumed by SidebarHistoryClient (P5-T05), ChatShell (P5-T11)
 
 AI layer handling: NEW
 
-Dependencies: P05-T01
-Dependents: P05-T05, P05-T11, P05-T12
+Dependencies: P0-T07
+Dependents: P5-T05, P5-T11, P5-T12
 
 Success criteria:
 - add() adds entry with isPending=true
@@ -116,26 +116,26 @@ Complexity: L
 
 ---
 
-### TASK: [ID: P05-T03]
+### TASK: [ID: P5-T03]
 Title: Create useSidebarHistory hook
 Phase: 5 — Sidebar & Navigation Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: features.md (paginated chat history)
 Architecture ref: SEAM-020 (sidebar history pagination); redesign (useSWRInfinite only for pagination, not initial load)
 
-Action: Create features/sidebar/hooks/use-sidebar-history.ts — "use client" hook that wraps `useSWRInfinite` for paginated chat history loading. Used by SidebarHistoryClient for pagination beyond the initial server-fetched data. Key: GET /api/history?limit=20&offset=X. Only used for loading additional pages — initial 20 chats come from server via SidebarShell. Auth gating: returns null SWR key when no user (skips fetch for guests without session).
+Action: Create features/sidebar/hooks/use-sidebar-history.ts — "use client" hook that wraps `useSWRInfinite` for paginated chat history loading. Used by SidebarHistoryClient for pagination beyond the initial server-fetched data. Key: GET `/api/history?limit=20` for first page, then `/api/history?limit=20&cursor={nextCursor}`. Only used for loading additional pages — initial 20 chats come from server via SidebarShell.
 
 Output files:
 - features/sidebar/hooks/use-sidebar-history.ts
 
-Inputs: features/sidebar/types/sidebar.types.ts (P05-T01), swr package
-Outputs: useSidebarHistory consumed by SidebarHistoryClient (P05-T05)
+Inputs: features/sidebar/types/sidebar.types.ts (P5-T01), swr package
+Outputs: useSidebarHistory consumed by SidebarHistoryClient (P5-T05)
 
 AI layer handling: NEW
 
-Dependencies: P05-T01
-Dependents: P05-T05
+Dependencies: P5-T01, P2-T06
+Dependents: P5-T05
 
 Success criteria:
 - Uses useSWRInfinite with pagination
@@ -148,10 +148,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P05-T04]
+### TASK: [ID: P5-T04]
 Title: Create SidebarHistoryItem component
 Phase: 5 — Sidebar & Navigation Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: components-02.md (sidebar-history-item.tsx: memo, dropdown actions, visibility)
 Architecture ref: interactions.md (sidebar actions: rename, share, delete)
@@ -161,13 +161,13 @@ Action: Create features/sidebar/components/sidebar-history-item.tsx — "use cli
 Output files:
 - features/sidebar/components/sidebar-history-item.tsx
 
-Inputs: components/ui/sidebar.tsx (P00-T11)
-Outputs: SidebarHistoryItem consumed by SidebarHistoryClient (P05-T05)
+Inputs: components/ui/sidebar.tsx (P0-T11)
+Outputs: SidebarHistoryItem consumed by SidebarHistoryClient (P5-T05)
 
 AI layer handling: NEW
 
-Dependencies: P00-T11
-Dependents: P05-T05
+Dependencies: P5-T01
+Dependents: P5-T05
 
 Success criteria:
 - Renders as link to /chat/{id}
@@ -181,26 +181,26 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P05-T05]
+### TASK: [ID: P5-T05]
 Title: Create SidebarHistoryClient component
 Phase: 5 — Sidebar & Navigation Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: features.md (chat history with infinite scroll, date grouping)
 Architecture ref: SEAM-020 (sidebar history pagination); redesign (SidebarHistoryClient, NOT SidebarHistory)
 
-Action: Create features/sidebar/components/sidebar-history-client.tsx — "use client" component. Receives initial data from SidebarShell (server-fetched first 20 chats). Uses useSWRInfinite only for pagination beyond initial data. GroupedVirtuoso (react-virtuoso) for virtualized rendering with group headers. Date grouping: Today, Yesterday, Last 7 days, Last 30 days, Older. Pending chats from usePendingChats prepended before "Today" group. Infinite scroll: sentinel at bottom triggers loadMore. Delete chat: Server Action delete + pending removal + redirect if active chat. Title update: received via PendingChatsProvider.updateTitle() single-channel delivery (NO window.dispatchEvent, NO polling). AlertDialog for delete confirmation. Active chat highlighted via pathname matching.
+Action: Create features/sidebar/components/sidebar-history-client.tsx — "use client" component. Receives initial data from SidebarShell (server-fetched first 20 chats). Uses useSWRInfinite only for pagination beyond initial data. Uses native scrolling with grouped sections (Today, Yesterday, Last 7 days, Last 30 days, Older); virtualization may be added in a future optimization pass if needed. Pending chats from usePendingChats prepended before "Today" group. Infinite scroll: sentinel at bottom triggers loadMore. Delete chat: Server Action delete + pending removal + redirect if active chat. Title update: received via PendingChatsProvider.updateTitle() single-channel delivery (NO window.dispatchEvent, NO polling). AlertDialog for delete confirmation. Active chat highlighted via pathname matching.
 
 Output files:
 - features/sidebar/components/sidebar-history-client.tsx
 
-Inputs: features/sidebar/hooks/use-pending-chats.ts (P05-T02), features/sidebar/hooks/use-sidebar-history.ts (P05-T03), features/sidebar/components/sidebar-history-item.tsx (P05-T04), components/ui/ (P00-T11), react-virtuoso
-Outputs: SidebarHistoryClient consumed by SidebarShell (P05-T08)
+Inputs: features/sidebar/hooks/use-pending-chats.ts (P5-T02), features/sidebar/hooks/use-sidebar-history.ts (P5-T03), features/sidebar/components/sidebar-history-item.tsx (P5-T04), components/ui/ (P0-T11)
+Outputs: SidebarHistoryClient consumed by SidebarShell (P5-T08)
 
 AI layer handling: NEW
 
-Dependencies: P05-T02, P05-T03, P05-T04, P00-T11
-Dependents: P05-T08, P05-T12
+Dependencies: P5-T02, P5-T03, P5-T04, P0-T11
+Dependents: P5-T08, P5-T12
 
 Success criteria:
 - Receives initial server-fetched data (no client waterfall for first 20)
@@ -219,10 +219,10 @@ Complexity: L
 
 ---
 
-### TASK: [ID: P05-T06]
+### TASK: [ID: P5-T06]
 Title: Create SidebarUserNav component
 Phase: 5 — Sidebar & Navigation Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: components-02.md (sidebar-user-nav.tsx: theme toggle, login/logout, avatar)
 Architecture ref: SEAM-030 (theme system — toggle in user nav)
@@ -232,13 +232,13 @@ Action: Create features/sidebar/components/sidebar-user-nav.tsx — "use client"
 Output files:
 - features/sidebar/components/sidebar-user-nav.tsx
 
-Inputs: components/ui/sidebar.tsx (P00-T11), features/auth/components/session-provider.tsx (P02-T06 — SessionProvider), next-themes
-Outputs: SidebarUserNav consumed by SidebarShell (P05-T08)
+Inputs: components/ui/sidebar.tsx (P0-T11), features/auth/components/session-provider.tsx (P2-T06 — SessionProvider), next-themes
+Outputs: SidebarUserNav consumed by SidebarShell (P5-T08)
 
 AI layer handling: NEW
 
-Dependencies: P00-T11, P02-T06
-Dependents: P05-T08
+Dependencies: P2-T04
+Dependents: P5-T08
 
 Success criteria:
 - Theme toggle switches between dark and light
@@ -253,10 +253,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P05-T07]
+### TASK: [ID: P5-T07]
 Title: Create SidebarSkeleton loading component
 Phase: 5 — Sidebar & Navigation Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: components-02.md (sidebar-skeleton.tsx: structure, widths, animation)
 Architecture ref: accessibility.md (aria-busy on skeleton sections); redesign (SERVER component, PPR fallback)
@@ -266,13 +266,13 @@ Action: Create features/sidebar/components/sidebar-skeleton.tsx — Server-compa
 Output files:
 - features/sidebar/components/sidebar-skeleton.tsx
 
-Inputs: components/ui/skeleton.tsx (P00-T11)
-Outputs: SidebarSkeleton consumed by chat layout (P05-T11) as Suspense fallback
+Inputs: components/ui/skeleton.tsx (P0-T11)
+Outputs: SidebarSkeleton consumed by chat layout (P5-T11) as Suspense fallback
 
 AI layer handling: NEW
 
-Dependencies: P00-T11
-Dependents: P05-T11
+Dependencies: P0-T11
+Dependents: P5-T11
 
 Success criteria:
 - Skeleton matches sidebar structure (header, content with 5 items, footer)
@@ -286,10 +286,10 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P05-T08]
+### TASK: [ID: P5-T08]
 Title: Create SidebarShell (SERVER component)
 Phase: 5 — Sidebar & Navigation Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: features.md (server-rendered sidebar); redesign (SidebarShell is async SERVER component)
 Architecture ref: redesign (use cache + cacheTag('chats:{userId}'), NOT ssr:false client dynamic import)
@@ -299,13 +299,13 @@ Action: Create features/sidebar/components/sidebar-shell.tsx — Async SERVER co
 Output files:
 - features/sidebar/components/sidebar-shell.tsx
 
-Inputs: lib/data/chat.ts (P01-T06), features/sidebar/components/sidebar-history-client.tsx (P05-T05), features/sidebar/components/sidebar-user-nav.tsx (P05-T06), components/ui/sidebar.tsx (P00-T11)
-Outputs: SidebarShell consumed by chat layout (P05-T11)
+Inputs: lib/data/chat.ts (P1-T06), features/sidebar/components/sidebar-history-client.tsx (P5-T05), features/sidebar/components/sidebar-user-nav.tsx (P5-T06), components/ui/sidebar.tsx (P0-T11)
+Outputs: SidebarShell consumed by chat layout (P5-T11)
 
 AI layer handling: NEW
 
-Dependencies: P01-T06, P05-T05, P05-T06, P00-T11
-Dependents: P05-T11, P05-T12
+Dependencies: P1-T06, P5-T05, P5-T06, P0-T11, P2-T01
+Dependents: P5-T11, P5-T12
 
 Success criteria:
 - SidebarShell is a SERVER component (NOT "use client")
@@ -321,10 +321,10 @@ Complexity: L
 
 ---
 
-### TASK: [ID: P05-T09]
+### TASK: [ID: P5-T09]
 Title: Create rename chat Server Action
 Phase: 5 — Sidebar & Navigation Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: interactions.md (rename chat in sidebar)
 Architecture ref: conventions.md (Server Actions for mutations); redesign (rename-chat.ts + updateTag)
@@ -334,13 +334,13 @@ Action: Create features/sidebar/actions/rename-chat.ts — "use server" action r
 Output files:
 - features/sidebar/actions/rename-chat.ts
 
-Inputs: lib/data/chat.ts (P01-T06), lib/cache/revalidate.ts (P01-T03), features/auth/lib/session.ts (P02-T01)
-Outputs: renameChat action consumed by SidebarHistoryItem (P05-T04)
+Inputs: lib/data/chat.ts (P1-T06), lib/cache/revalidate.ts (P1-T03), lib/auth/session.ts (P2-T01)
+Outputs: renameChat action consumed by SidebarHistoryItem (P5-T04)
 
 AI layer handling: NEW
 
-Dependencies: P01-T06, P01-T03, P02-T01
-Dependents: P05-T12
+Dependencies: P1-T06, P1-T03, P2-T01, P0-T08
+Dependents: P5-T04, P5-T12
 
 Success criteria:
 - Server Action validates auth and ownership
@@ -353,10 +353,10 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P05-T10]
+### TASK: [ID: P5-T10]
 Title: Create history API route
 Phase: 5 — Sidebar & Navigation Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: features.md (GET paginated history); api-contracts.md
 Architecture ref: SEAM-020 (sidebar history pagination)
@@ -366,13 +366,13 @@ Action: Create app/api/history/route.ts — GET handler: auth check, rate limit,
 Output files:
 - app/api/history/route.ts
 
-Inputs: lib/data/chat.ts (P01-T06), features/auth/lib/session.ts (P02-T01)
-Outputs: History API consumed by SidebarHistoryClient useSWRInfinite pagination (P05-T05)
+Inputs: lib/data/chat.ts (P1-T06), lib/auth/session.ts (P2-T01)
+Outputs: History API consumed by SidebarHistoryClient useSWRInfinite pagination (P5-T05)
 
 AI layer handling: NEW
 
-Dependencies: P01-T06, P02-T01
-Dependents: P05-T05, P05-T12
+Dependencies: P1-T06, P2-T01, P0-T08
+Dependents: P5-T05, P5-T12
 
 Success criteria:
 - GET returns paginated chat list with hasMore flag
@@ -385,10 +385,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P05-T11]
+### TASK: [ID: P5-T11]
 Title: Wire sidebar into chat layout
 Phase: 5 — Sidebar & Navigation Vertical
-Type: INTEGRATION
+Type: INTEG
 
 Behavior ref: screens.md (chat layout with sidebar)
 Architecture ref: SEAM-029 (provider tree); redesign (PendingChatsProvider wraps both sidebar + content, chat layout is SERVER component)
@@ -398,13 +398,13 @@ Action: Update app/(chat)/layout.tsx — Wire the complete sidebar infrastructur
 Output files:
 - app/(chat)/layout.tsx (modify)
 
-Inputs: features/sidebar/components/sidebar-shell.tsx (P05-T08), features/sidebar/components/sidebar-skeleton.tsx (P05-T07), features/sidebar/hooks/use-pending-chats.ts (P05-T02)
+Inputs: features/sidebar/components/sidebar-shell.tsx (P5-T08), features/sidebar/components/sidebar-skeleton.tsx (P5-T07), features/sidebar/hooks/use-pending-chats.ts (P5-T02)
 Outputs: Complete sidebar rendered in chat layout
 
 AI layer handling: NEW
 
-Dependencies: P05-T02, P05-T07, P05-T08
-Dependents: P05-T12
+Dependencies: P5-T02, P5-T07, P5-T08, P0-T11
+Dependents: P5-T12
 
 Success criteria:
 - SidebarShell rendered as SERVER component with Suspense fallback (NOT ssr:false dynamic import)
@@ -420,10 +420,10 @@ Complexity: L
 
 ---
 
-### TASK: [ID: P05-T12]
+### TASK: [ID: P5-T12]
 Title: Verification gate G05
 Phase: 5 — Sidebar & Navigation Vertical
-Type: VERIFICATION
+Type: VERIFY
 
 Behavior ref: features.md (chat history, sidebar navigation)
 Architecture ref: AGENTS.md (post-implementation validation); redesign (P5 exit criteria)
@@ -432,13 +432,13 @@ Action: Run complete validation: (1) pnpm typecheck passes, (2) pnpm lint passes
 
 Output files: none (validation only)
 
-Inputs: all P05-T01 through P05-T11 outputs
-Outputs: Gate G05 passed — P06 (enhancements) can begin
+Inputs: all P5-T01 through P5-T11 outputs
+Outputs: Gate G05 passed — P6 (enhancements) can begin
 
 AI layer handling: N/A
 
-Dependencies: P05-T01 through P05-T11
-Dependents: P06-T01 (start of next phase)
+Dependencies: P5-T01 through P5-T11
+Dependents: P6-T01 (start of next phase)
 
 Success criteria:
 - pnpm typecheck exits 0

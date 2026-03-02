@@ -381,6 +381,22 @@ features/artifacts/
 
 ---
 
+## Required External Packages
+
+Key external packages required by the editors and rendering components:
+
+| Package(s) | Purpose | Used By |
+|------------|---------|--------|
+| `@tiptap/*` | Rich text editing | Text editor (P4-T07) |
+| `@codemirror/*`, `@lezer/*` | Code editing + syntax parsing | Code editor (P4-T08) |
+| `react-data-grid`, `papaparse` | Spreadsheet grid + CSV parsing | Sheet editor (P4-T09) |
+| `pyodide` | Python execution in browser | Code editor console (P4-T08) |
+| `shiki` or `react-syntax-highlighter` | Code syntax highlighting | Code blocks in messages (P3-T15) |
+| `dompurify` | HTML sanitization | Text editor output (P4-T07) |
+| `react-markdown`, `remark-gfm` | Markdown rendering + GFM support | Message display (P3-T15) |
+
+---
+
 ## What Changed from Old Architecture
 
 | Old Pattern | New Pattern | Source |

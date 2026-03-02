@@ -17,11 +17,9 @@ Built with `createProviderRegistry(baseProviders)` from AI SDK. Providers are re
 |-------------|---------|------------|-------|
 | `openai` | `@ai-sdk/openai` | `OPENAI_API_KEY` | GPT-4o, GPT-4.1, o3 |
 | `google` | `@ai-sdk/google` | `GEMINI_API_KEY` | Gemini 2.5/3.0, Gemma 3 |
-| `openrouter` | `@openrouter/ai-sdk-provider` | `OPENROUTER_API_KEY` | Multi-provider proxy |
-| `cloudflare-workers` | `workers-ai-provider` | `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_KEY` | Workers AI |
-| `cloudflare-ai-gateway` | `ai-gateway-provider` | `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_AI_GATEWAY_NAME` + `CLOUDFLARE_AI_GATEWAY_API_KEY` | Gemini models with flash-lite fallback |
+| `openrouter` | `@ai-sdk/openai` (OpenRouter baseURL) | `OPENROUTER_API_KEY` | Multi-provider proxy |
 
-> *`vercel-gateway` provider removed. No credit/gateway/quota billing integration.*
+> *Registry follows redesign baseline providers only: `google`, `openai`, `openrouter`.*
 
 ### myProvider (Custom Provider)
 `lib/ai/provider.ts` exports `myProvider` which wraps the registry:
@@ -71,7 +69,7 @@ Reasoning models are wrapped with `extractReasoningMiddleware({ tagName })` from
 | Reasoning | `google:gemini-2.5-flash` | — |
 
 ### Model Discovery
-`lib/ai/model-discovery.ts` dynamically discovers models from configured providers. Curated models take priority; discovered models extend the catalog. Merged via `mergeCatalogs()` with dedup by model ID.
+Model discovery and catalog merge live in `lib/ai/models.ts` (no standalone `model-discovery.ts`). Curated models take priority; discovered models extend the catalog with dedup by model ID.
 
 ---
 
@@ -93,7 +91,7 @@ Reasoning models are wrapped with `extractReasoningMiddleware({ tagName })` from
 
 #### `updateArtifact({ session, dataStream })`
 - **Schema**: `z.object({ id: z.string(), description: z.string() })`
-- **Behavior**: Fetches existing artifact via `artifactData.get()`, streams `artifact-clear`, delegates to `artifactHandler.update()`, writes `artifact-finish`
+- **Behavior**: Fetches existing artifact via `getArtifactById()`, streams `artifact-clear`, delegates to `artifactHandler.update()`, writes `artifact-finish`
 - **Returns**: `{ id, title, kind, content: "The artifact has been updated..." }`
 
 #### `requestSuggestions({ session, dataStream })`
@@ -137,7 +135,7 @@ dataStream.merge(result.toUIMessageStream({ sendReasoning: true }));
 ### Title Generation
 ```typescript
 const { text: title } = await generateText({
-  model: myProvider.languageModel(DEFAULT_TITLE_MODEL),
+  model: myProvider.languageModel(TITLE_MODEL),
   system: "generate short title...",
   prompt: JSON.stringify(message),
 });
@@ -156,7 +154,7 @@ const { text: title } = await generateText({
 
 ### Data Stream Protocol (Custom Parts)
 
-> *All `data-*` parts renamed to `artifact-*`. `data-chatTitle` → `chat-title`. `data-usage` removed. `data-appendMessage` retained as-is.*
+> *All `data-*` parts renamed to `artifact-*`. `data-chatTitle` → `chat-title`. `data-usage` removed. `data-appendMessage` removed (useChat manages messages natively).*
 
 | Part Type | Data | Direction | Transient |
 |-----------|------|-----------|-----------|
@@ -171,7 +169,8 @@ const { text: title } = await generateText({
 | `artifact-imageDelta` | Base64 image | Server→Client | Yes |
 | `artifact-suggestion` | Suggestion object | Server→Client | Yes |
 | `chat-title` | Chat title string | Server→Client | Yes |
-| `data-appendMessage` | Message JSON | Server→Client | No |
+
+> *`data-appendMessage` was removed per redesign — `useChat` manages messages natively, so a separate append stream part is unnecessary.*
 
 ---
 
@@ -196,27 +195,14 @@ Instructions for `createArtifact`/`updateArtifact` tool usage. Rules: substantia
 ### `updateArtifactPrompt(content, type)`
 Update existing content based on user feedback.
 
+### `codePrompt`
+Instructs the model to write self-contained Python code: use `print()` for output, keep under 15 lines, no network or file access.
+
+### `sheetPrompt`
+Instructs the model to generate CSV data with headers as the first row.
+
 ---
 
-## Usage Tracking
+## Usage & Limits
 
-> *TokenLens integration retained for cost tracking but `data-usage` stream part removed. No credit/gateway/billing display in UI. Usage saved to `chat.lastContext` for analytics only.*
-
-### TokenLens Integration
-- `tokenlens` package for cost/token tracking
-- Catalog fetched with `"use cache"` directive (24h), tagged `tokenlens-catalog`
-- On completion: `getUsage()` enriches raw AI SDK usage with pricing data
-- Result saved to `chat.lastContext`
-
-### `AppUsage` type
-Extends `LanguageModelUsage` with: `modelId`, cost info from TokenLens
-
-### Rate Limits
-| User Type | Max Messages/Day |
-|-----------|------------------|
-| Guest | 20 |
-| Regular | 100 |
-
-> *"Entitlements" renamed to "Rate Limits". No credit/quota billing. Daily limits retained for abuse prevention only.*
-
-Quota tracked via Redis counter: `getUserMessageCount(userId)`, incremented async after save.
+`data-usage` stream parts and `AppUsage` credit-style UI state are removed. The AI layer emits standard SDK usage to server-side logs/observability only. Abuse prevention is enforced through route/action rate limiting (HTTP 429), independent of AI provider billing semantics.

@@ -1,13 +1,13 @@
-# Phase P06 — Enhancements Vertical
+# Phase P6 — Enhancements Vertical
 
 > **Updated per redesign audit (2026-03-01)**
 
 > Enhancement phase. Implements all secondary features that augment the core experience:
 > voting (Server Action + useOptimistic), model selection, visibility toggle, file upload, weather UI, health check.
 >
-> **Entry state**: P05 complete — chat, artifacts, sidebar all work. Full navigation functional.
+> **Entry state**: P5 complete — chat, artifacts, sidebar all work. Full navigation functional.
 > **Exit state**: All enhancement features work — voting, model selection, upload, visibility, weather, health.
-> **Est. duration**: ~3 days
+> **Est. duration**: ~1.75 days
 > **Tasks**: 14
 > **Files created**: ~17
 
@@ -17,20 +17,20 @@
 
 | ID | Title | Type | Complexity | Files |
 |----|-------|------|------------|-------|
-| P06-T01 | Create voting types + action | IMPLEMENTATION | M | 2 |
-| P06-T02 | Create VoteButtons + useVotes | IMPLEMENTATION | M | 2 |
-| P06-T03 | Wire voting into messages | INTEGRATION | M | 2 |
-| P06-T04 | Create ModelSelector | IMPLEMENTATION | L | 1 |
-| P06-T05 | Wire model selector into ChatHeader | INTEGRATION | S | 1 |
-| P06-T06 | Create visibility types + action | IMPLEMENTATION | M | 2 |
-| P06-T07 | Create VisibilitySelector | IMPLEMENTATION | M | 1 |
-| P06-T08 | Wire visibility into chat page | INTEGRATION | S | 1 |
-| P06-T09 | Create file upload route | IMPLEMENTATION | M | 1 |
-| P06-T10 | Create PreviewAttachment | IMPLEMENTATION | S | 1 |
-| P06-T11 | Wire file upload into MultimodalInput | INTEGRATION | M | 1 |
-| P06-T12 | Create Weather component | IMPLEMENTATION | S | 1 |
-| P06-T13 | Create health check route | IMPLEMENTATION | S | 1 |
-| P06-T14 | Verification gate G06 | VERIFICATION | S | 0 |
+| P6-T01 | Create voting types + action | IMPL | M | 2 |
+| P6-T02 | Create VoteButtons + useVotes | IMPL | M | 2 |
+| P6-T03 | Wire voting into messages | INTEG | M | 2 |
+| P6-T04 | Create ModelSelector | IMPL | L | 1 |
+| P6-T05 | Wire model selector into ChatHeader | INTEG | S | 1 |
+| P6-T06 | Create visibility types + action | IMPL | M | 2 |
+| P6-T07 | Create VisibilitySelector | IMPL | M | 1 |
+| P6-T08 | Wire visibility into chat page | INTEG | S | 1 |
+| P6-T09 | Create file upload route | IMPL | M | 1 |
+| P6-T10 | Create PreviewAttachment | IMPL | S | 1 |
+| P6-T11 | Wire file upload into MultimodalInput | INTEG | M | 1 |
+| P6-T12 | Create Weather component | IMPL | S | 1 |
+| P6-T13 | Create health check route | IMPL | S | 1 |
+| P6-T14 | Verification gate G06 | VERIFY | S | 0 |
 
 ---
 
@@ -38,11 +38,12 @@
 
 | Seam | Description | Task |
 |------|-------------|------|
-| SEAM-016 | Model catalog → selector → chat | P06-T04, P06-T05 |
-| SEAM-018 | Vote mutation (Server Action + useOptimistic) | P06-T01, P06-T02, P06-T03 |
-| SEAM-019 | File upload → message attachment | P06-T09, P06-T10, P06-T11 |
-| SEAM-022 | Visibility toggle (Server Action + updateTag) | P06-T06, P06-T07, P06-T08 |
-| SEAM-036 | Rate limiting pipeline (per-route limiters) | P06-T09, P06-T13 |
+| SEAM-016 | Model catalog → selector → chat | P6-T04, P6-T05 |
+| SEAM-018 | Vote mutation (Server Action + useOptimistic) | P6-T01, P6-T02, P6-T03 |
+| SEAM-019 | File upload → message attachment | P6-T09, P6-T10, P6-T11 |
+| SEAM-022 | Visibility toggle (Server Action + updateTag) | P6-T06, P6-T07, P6-T08 |
+| SEAM-017 | AI Provider Registry (model discovery + registration) | P6-T04 |
+| SEAM-036 | Rate limiting pipeline (per-route limiters) | P6-T09, P6-T13 |
 
 ---
 
@@ -50,27 +51,27 @@
 
 ---
 
-### TASK: [ID: P06-T01]
+### TASK: [ID: P6-T01]
 Title: Create voting types and Server Action
 Phase: 6 — Enhancements Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: features.md (vote on messages, auth only, non-guest)
 Architecture ref: conventions.md (Zod schemas, Server Actions for mutations); redesign (Server Action + useOptimistic, NOT API route + SWR)
 
-Action: Create 2 files. (1) features/voting/types/vote.types.ts — Vote types and Zod schema: voteSchema (chatId string uuid, messageId string uuid, type enum "up" | "down"). Export inferred VoteRequest type. (2) features/voting/actions/vote.ts — "use server" action voteMessage(input: unknown). Flow: auth check (non-guest required — guests cannot vote), validate with voteSchema, verify chat ownership (user owns the chat), verify message belongs to chat (IDOR protection), upsert vote via lib/data/vote.ts upsertVote(), call `updateTag` to invalidate vote cache. Returns ActionResult<void>. This is a Server Action — NOT an API route. Voting uses `useOptimistic` on the client for immediate feedback.
+Action: Create 2 files. (1) features/voting/types/vote.types.ts — Vote types and Zod schema: voteSchema (chatId string uuid, messageId string uuid, type enum "up" | "down"). Export inferred VoteRequest type. (2) features/voting/actions/vote.ts — "use server" action voteOnMessage(input: unknown). Flow: auth check (non-guest required — guests cannot vote), validate with voteSchema, verify chat ownership (user owns the chat), verify message belongs to chat (IDOR protection), upsert vote via lib/data/vote.ts upsertVote(), call `updateTag` to invalidate vote cache. Returns `ActionResult<{ messageId: string; type: "up" | "down" }>` for optimistic reconciliation. This is a Server Action — NOT an API route. Voting uses `useOptimistic` on the client for immediate feedback.
 
 Output files:
 - features/voting/types/vote.types.ts
 - features/voting/actions/vote.ts
 
-Inputs: lib/data/vote.ts (P01-T09), features/auth/lib/session.ts (P02-T01), lib/data/chat.ts (P01-T06), lib/cache/revalidate.ts (P01-T03)
-Outputs: Vote action consumed by VoteButtons (P06-T02) and message integration (P06-T03)
+Inputs: lib/data/vote.ts (P1-T09), lib/auth/session.ts (P2-T01), lib/data/chat.ts (P1-T06), lib/cache/revalidate.ts (P1-T03)
+Outputs: Vote action consumed by VoteButtons (P6-T02) and message integration (P6-T03)
 
 AI layer handling: NEW
 
-Dependencies: P01-T06, P01-T09, P02-T01, P01-T03
-Dependents: P06-T02, P06-T03
+Dependencies: P1-T09
+Dependents: P6-T02, P6-T03
 
 Success criteria:
 - voteSchema validates chatId + messageId + type ("up" | "down")
@@ -88,10 +89,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P06-T02]
+### TASK: [ID: P6-T02]
 Title: Create VoteButtons component and useVotes hook
 Phase: 6 — Enhancements Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: features.md (upvote/downvote on assistant messages)
 Architecture ref: redesign (useOptimistic for instant feedback, Server Action for persistence)
@@ -102,13 +103,13 @@ Output files:
 - features/voting/hooks/use-votes.ts
 - features/voting/components/vote-buttons.tsx
 
-Inputs: features/voting/actions/vote.ts (P06-T01), features/voting/types/vote.types.ts (P06-T01)
-Outputs: VoteButtons consumed by message integration (P06-T03)
+Inputs: features/voting/actions/vote.ts (P6-T01), features/voting/types/vote.types.ts (P6-T01)
+Outputs: VoteButtons consumed by message integration (P6-T03)
 
 AI layer handling: NEW
 
-Dependencies: P06-T01
-Dependents: P06-T03
+Dependencies: P6-T01, P0-T11
+Dependents: P6-T03
 
 Success criteria:
 - useVotes uses React 19 `useOptimistic` (NOT SWR optimistic mutate)
@@ -125,10 +126,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P06-T03]
+### TASK: [ID: P6-T03]
 Title: Wire voting into messages with VoteResolver
 Phase: 6 — Enhancements Vertical
-Type: INTEGRATION
+Type: INTEG
 
 Behavior ref: features.md (voting in message actions)
 Architecture ref: redesign (VoteResolver using React 19 use() for deferred data, NOT VoteHydrator)
@@ -139,13 +140,13 @@ Output files:
 - features/chat/components/message.tsx (modify)
 - app/(chat)/chat/[id]/page.tsx (modify)
 
-Inputs: features/voting/components/vote-buttons.tsx (P06-T02), features/voting/hooks/use-votes.ts (P06-T02), lib/data/vote.ts (P01-T09)
+Inputs: features/voting/components/vote-buttons.tsx (P6-T02), features/voting/hooks/use-votes.ts (P6-T02), lib/data/vote.ts (P1-T09)
 Outputs: Functional voting in messages
 
 AI layer handling: NEW
 
-Dependencies: P06-T02, P01-T09, P03-T15, P03-T25
-Dependents: P06-T14
+Dependencies: P6-T02, P1-T09, P3-T15, P3-T25
+Dependents: P6-T14
 
 Success criteria:
 - VoteButtons render on assistant messages
@@ -161,10 +162,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P06-T04]
+### TASK: [ID: P6-T04]
 Title: Create ModelSelector component
 Phase: 6 — Enhancements Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: features.md (model selection UI)
 Architecture ref: SEAM-016 (model catalog → selector → chat); redesign (grouped by provider, cookie + localStorage persistence)
@@ -174,13 +175,13 @@ Action: Create features/models/components/model-selector.tsx — "use client" co
 Output files:
 - features/models/components/model-selector.tsx
 
-Inputs: features/models/lib/models.ts (P03-T01), features/models/types/model.types.ts (P03-T01), components/ui/ (P00-T11)
-Outputs: ModelSelector consumed by ChatHeader (P06-T05)
+Inputs: features/models/lib/models.ts (P3-T01), features/models/types/model.types.ts (P3-T01), components/ui/ (P0-T11)
+Outputs: ModelSelector consumed by ChatHeader (P6-T05)
 
 AI layer handling: NEW
 
-Dependencies: P03-T01, P00-T11
-Dependents: P06-T05
+Dependencies: P3-T01, P0-T11
+Dependents: P6-T05
 
 Success criteria:
 - Searchable dropdown grouped by provider
@@ -194,10 +195,10 @@ Complexity: L
 
 ---
 
-### TASK: [ID: P06-T05]
+### TASK: [ID: P6-T05]
 Title: Wire model selector into ChatHeader
 Phase: 6 — Enhancements Vertical
-Type: INTEGRATION
+Type: INTEG
 
 Behavior ref: interactions.md (model selection in header)
 Architecture ref: redesign (model selector in chat header)
@@ -207,13 +208,13 @@ Action: Update features/chat/components/chat-header.tsx — Import and render Mo
 Output files:
 - features/chat/components/chat-header.tsx (modify)
 
-Inputs: features/models/components/model-selector.tsx (P06-T04), features/chat/components/chat-header.tsx (P03-T19)
+Inputs: features/models/components/model-selector.tsx (P6-T04), features/chat/components/chat-header.tsx (P3-T19)
 Outputs: Model selection integrated into chat header
 
 AI layer handling: NEW
 
-Dependencies: P06-T04, P03-T19
-Dependents: P06-T14
+Dependencies: P6-T04, P3-T19
+Dependents: P6-T14
 
 Success criteria:
 - ModelSelector rendered in chat header
@@ -225,27 +226,27 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P06-T06]
+### TASK: [ID: P6-T06]
 Title: Create visibility types and Server Action
 Phase: 6 — Enhancements Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: features.md (chat visibility toggle)
 Architecture ref: redesign (visibility as own feature module with Server Actions + updateTag)
 
-Action: Create 2 files. (1) features/visibility/types/visibility.types.ts — Visibility types: VisibilityType ("public" | "private"), visibility Zod schema. (2) features/visibility/actions/update-visibility.ts — "use server" action updateVisibility({chatId, visibility}). Flow: auth check, validate ownership, update visibility in DB via lib/data/chat.ts, call `updateTag` to invalidate chat and chat-list cache tags. Returns ActionResult<void>. Visibility is its own feature module (NOT mixed into chat feature).
+Action: Create 2 files. (1) features/visibility/types/visibility.types.ts — Visibility types: VisibilityType ("public" | "private"), visibility Zod schema. (2) features/visibility/actions/update-visibility.ts — "use server" action updateChatVisibility({chatId, visibility}). Flow: auth check, validate ownership, update visibility in DB via lib/data/chat.ts, call `updateTag` to invalidate chat and chat-list cache tags. Returns ActionResult<void>. Visibility is its own feature module (NOT mixed into chat feature).
 
 Output files:
 - features/visibility/types/visibility.types.ts
 - features/visibility/actions/update-visibility.ts
 
-Inputs: lib/data/chat.ts (P01-T06), lib/cache/revalidate.ts (P01-T03), features/auth/lib/session.ts (P02-T01)
-Outputs: Visibility action consumed by VisibilitySelector (P06-T07)
+Inputs: lib/data/chat.ts (P1-T06), lib/cache/revalidate.ts (P1-T03), lib/auth/session.ts (P2-T01)
+Outputs: Visibility action consumed by VisibilitySelector (P6-T07)
 
 AI layer handling: NEW
 
-Dependencies: P01-T06, P01-T03, P02-T01
-Dependents: P06-T07, P06-T08
+Dependencies: P1-T06, P1-T03, P2-T01, P0-T08
+Dependents: P6-T07, P6-T08
 
 Success criteria:
 - Visibility is its own feature module (features/visibility/)
@@ -259,26 +260,26 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P06-T07]
+### TASK: [ID: P6-T07]
 Title: Create VisibilitySelector component
 Phase: 6 — Enhancements Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: features.md (chat visibility toggle UI)
 Architecture ref: SEAM-022 (visibility toggle); redesign (useOptimistic toggle)
 
-Action: Create features/visibility/components/visibility-selector.tsx — "use client" component. Props: chatId, initialVisibility. DropdownMenu with two options: Private (lock icon) and Public (globe icon). Current selection shown as trigger button text/icon. On selection: uses `useOptimistic` for instant feedback, calls updateVisibility Server Action. On failure: reverts optimistic state + shows toast error. Responsive: hidden on mobile (className includes "hidden md:flex"). Only shown for own chats (not readonly).
+Action: Create features/visibility/components/visibility-selector.tsx — "use client" component. Props: chatId, initialVisibility. DropdownMenu with two options: Private (lock icon) and Public (globe icon). Current selection shown as trigger button text/icon. On selection: uses `useOptimistic` for instant feedback, calls `updateChatVisibility` Server Action. On failure: reverts optimistic state + shows toast error. Responsive: hidden on mobile (className includes "hidden md:flex"). Only shown for own chats (not readonly).
 
 Output files:
 - features/visibility/components/visibility-selector.tsx
 
-Inputs: features/visibility/actions/update-visibility.ts (P06-T06), components/ui/ (P00-T11)
-Outputs: VisibilitySelector consumed by chat page (P06-T08)
+Inputs: features/visibility/actions/update-visibility.ts (P6-T06), components/ui/ (P0-T11)
+Outputs: VisibilitySelector consumed by chat page (P6-T08)
 
 AI layer handling: NEW
 
-Dependencies: P06-T06, P00-T11
-Dependents: P06-T08
+Dependencies: P6-T06, P0-T11
+Dependents: P6-T08
 
 Success criteria:
 - Dropdown with Private and Public options
@@ -294,10 +295,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P06-T08]
+### TASK: [ID: P6-T08]
 Title: Wire visibility into chat page
 Phase: 6 — Enhancements Vertical
-Type: INTEGRATION
+Type: INTEG
 
 Behavior ref: interactions.md (visibility toggle in chat)
 Architecture ref: SEAM-022 (visibility toggle in header)
@@ -307,13 +308,13 @@ Action: Update app/(chat)/chat/[id]/page.tsx — Render VisibilitySelector compo
 Output files:
 - app/(chat)/chat/[id]/page.tsx (modify)
 
-Inputs: features/visibility/components/visibility-selector.tsx (P06-T07)
+Inputs: features/visibility/components/visibility-selector.tsx (P6-T07)
 Outputs: Visibility selector functional in chat page
 
 AI layer handling: NEW
 
-Dependencies: P06-T07, P03-T25
-Dependents: P06-T14
+Dependencies: P6-T07, P3-T25
+Dependents: P6-T14
 
 Success criteria:
 - VisibilitySelector rendered for owned chats
@@ -326,10 +327,10 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P06-T09]
+### TASK: [ID: P6-T09]
 Title: Create file upload API route
 Phase: 6 — Enhancements Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: features.md (file upload to Vercel Blob)
 Architecture ref: SEAM-019 (file upload → message attachment); SEAM-036 (upload rate limit)
@@ -339,13 +340,13 @@ Action: Create app/api/files/upload/route.ts — POST handler. Flow: (1) Auth ch
 Output files:
 - app/api/files/upload/route.ts
 
-Inputs: features/auth/lib/session.ts (P02-T01), @vercel/blob package
-Outputs: Upload endpoint consumed by MultimodalInput (P06-T11)
+Inputs: lib/auth/session.ts (P2-T01), @vercel/blob package
+Outputs: Upload endpoint consumed by MultimodalInput (P6-T11)
 
 AI layer handling: NEW
 
-Dependencies: P02-T01
-Dependents: P06-T11, P06-T14
+Dependencies: P2-T01
+Dependents: P6-T11, P6-T14
 
 Success criteria:
 - POST /api/files/upload accepts FormData with file
@@ -360,10 +361,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P06-T10]
+### TASK: [ID: P6-T10]
 Title: Create PreviewAttachment component
 Phase: 6 — Enhancements Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: components-02.md (preview-attachment.tsx: thumbnail, uploading state, remove button)
 Architecture ref: conventions.md (feature collocation)
@@ -373,13 +374,13 @@ Action: Create features/chat/components/preview-attachment.tsx — Component. Pr
 Output files:
 - features/chat/components/preview-attachment.tsx
 
-Inputs: components/ui/ (P00-T11), next/image
-Outputs: PreviewAttachment consumed by MultimodalInput (P06-T11)
+Inputs: components/ui/ (P0-T11), next/image
+Outputs: PreviewAttachment consumed by MultimodalInput (P6-T11)
 
 AI layer handling: NEW
 
-Dependencies: P00-T11
-Dependents: P06-T11
+Dependencies: P0-T11
+Dependents: P6-T11
 
 Success criteria:
 - Image attachments show thumbnail via next/image
@@ -392,10 +393,10 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P06-T11]
+### TASK: [ID: P6-T11]
 Title: Wire file upload into MultimodalInput
 Phase: 6 — Enhancements Vertical
-Type: INTEGRATION
+Type: INTEG
 
 Behavior ref: interactions.md (file upload flow: picker, queue, preview, submit)
 Architecture ref: SEAM-019 (file upload → message attachment)
@@ -405,13 +406,13 @@ Action: Update features/chat/components/multimodal-input.tsx — Add file upload
 Output files:
 - features/chat/components/multimodal-input.tsx (modify)
 
-Inputs: app/api/files/upload/route.ts (P06-T09), features/chat/components/preview-attachment.tsx (P06-T10)
+Inputs: app/api/files/upload/route.ts (P6-T09), features/chat/components/preview-attachment.tsx (P6-T10)
 Outputs: File upload integrated into chat input
 
 AI layer handling: NEW
 
-Dependencies: P06-T09, P06-T10, P03-T18
-Dependents: P06-T14
+Dependencies: P6-T09, P6-T10, P3-T18
+Dependents: P6-T14
 
 Success criteria:
 - Attachment button opens file picker
@@ -426,10 +427,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P06-T12]
+### TASK: [ID: P6-T12]
 Title: Create Weather component
 Phase: 6 — Enhancements Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: tools (weather tool result renderer)
 Architecture ref: conventions.md (shared components)
@@ -439,13 +440,13 @@ Action: Create components/weather.tsx — Weather tool result renderer component
 Output files:
 - components/weather.tsx
 
-Inputs: features/chat/lib/tools/weather.ts (P03-T13)
+Inputs: features/chat/lib/tools/weather.ts (P3-T13)
 Outputs: Weather component consumed by message rendering
 
 AI layer handling: NEW
 
-Dependencies: P03-T13
-Dependents: P06-T14
+Dependencies: P3-T13, P0-T11
+Dependents: P6-T14
 
 Success criteria:
 - Renders weather tool results in formatted card
@@ -455,10 +456,10 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P06-T13]
+### TASK: [ID: P6-T13]
 Title: Create health check route
 Phase: 6 — Enhancements Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: features.md (health check: DB ping, Redis ping)
 Architecture ref: conventions.md (route handlers)
@@ -468,13 +469,13 @@ Action: Create app/api/health/route.ts — GET handler (no auth required). Check
 Output files:
 - app/api/health/route.ts
 
-Inputs: lib/db/client.ts (P01-T01), lib/cache/client.ts (P01-T02)
+Inputs: lib/db/client.ts (P1-T01), lib/cache/client.ts (P1-T02)
 Outputs: Health check endpoint for monitoring
 
 AI layer handling: NEW
 
-Dependencies: P01-T01, P01-T02
-Dependents: P06-T14
+Dependencies: P1-T01, P1-T02
+Dependents: P6-T14
 
 Success criteria:
 - GET /api/health returns JSON with status + individual checks
@@ -487,10 +488,10 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P06-T14]
+### TASK: [ID: P6-T14]
 Title: Verification gate G06
 Phase: 6 — Enhancements Vertical
-Type: VERIFICATION
+Type: VERIFY
 
 Behavior ref: features.md (all enhancement features)
 Architecture ref: AGENTS.md (post-implementation validation); redesign (P6 exit criteria)
@@ -499,13 +500,13 @@ Action: Run complete validation: (1) pnpm typecheck passes, (2) pnpm lint passes
 
 Output files: none (validation only)
 
-Inputs: all P06-T01 through P06-T13 outputs
-Outputs: Gate G06 passed — P07 (polish) can begin
+Inputs: all P6-T01 through P6-T13 outputs
+Outputs: Gate G06 passed — P7 (polish) can begin
 
 AI layer handling: N/A
 
-Dependencies: P06-T01 through P06-T13
-Dependents: P07-T01 (start of next phase)
+Dependencies: P6-T01 through P6-T13
+Dependents: P7-T03, P7-T04, P7-T06, P7-T07, P7-T09, P7-T10, P7-T11
 
 Success criteria:
 - pnpm typecheck exits 0

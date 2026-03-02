@@ -124,7 +124,8 @@ by category (chat/, reasoning/, tools/, content/, canvas/, etc.). However:
 With feature collocation, these should live in the feature that uses them.
 
 **Verdict**: REJECT global `components/ai/`. Colocate wrappers in their consuming features.
-`ai-elements/` stays global. See DEV-002.
+`ai-elements/` has been eliminated in the redesign — wrappers are colocated in their
+consuming features; no shared ai-elements directory is needed. See DEV-002.
 
 ### 2.3 `lib/hooks/` Shared Hooks (§20)
 
@@ -158,14 +159,14 @@ The spec defines:
 - `BaseRepository<T, TCreate, TUpdate>` abstract class (10+ methods)
 - Per-entity repository classes extending the base
 
-This is enterprise Java OOP in a Next.js app. The existing app uses simple function-based
-data access objects (`chatData.get()`, `documentData.save()`) which work perfectly.
+This is enterprise Java OOP in a Next.js app. The redesign uses simple function-based
+data access APIs (`getChatById()`, `saveArtifactVersion()`) which keep boundaries explicit.
 
 **Problems**:
 1. Generic type parameters add complexity with no runtime benefit
 2. Abstract classes force inheritance hierarchies that are hard to extend laterally
-3. The cache-through logic is duplicated conceptually (in base) but each repo has unique
-   cache patterns (guest-only cache, versioned documents, sorted sets for messages)
+3. The cache-through logic is duplicated conceptually (in base) but each data module has unique
+  access patterns (artifact versioning, message ordering, ownership/visibility checks)
 4. `findMany`, `count`, `exists` methods are defined but may never be used
 5. Testing requires mocking class instances vs simple function stubs
 
@@ -216,7 +217,7 @@ state well without ANY external state management library:
 
 - **Settings**: `useSyncExternalStore` + localStorage (pub/sub pattern, no provider)
 - **Artifact state**: `useSyncExternalStore` + module-level store (was SWR)
-- **Chat visibility**: SWR with optimistic mutate
+- **Chat visibility**: `useOptimistic` with Server Action (`updateTag`)
 - **Pending chats**: `PendingChatsProvider` (React context with `Set<string>` dedup)
 - **Chat stream**: `ChatStreamProvider` (split state/dispatch context)
 - **Auth session**: `SessionProvider` (React context)
@@ -228,7 +229,7 @@ already solve the re-render problem (split context, SWR selectors).
 `atomWithStorage` saves ~5 lines over `useSyncExternalStore` + localStorage, 
 which is not worth adding a dependency.
 
-**Verdict**: REJECT. Keep existing SWR + context + localStorage patterns. See DEV-007.
+**Verdict**: REJECT. Keep existing lightweight patterns: context where needed, `useSyncExternalStore` module stores, and localStorage persistence. See DEV-007.
 
 ### 3.4 Result<T, E> Type (§14 Pattern 2)
 
@@ -285,7 +286,7 @@ and simplify to `Response.json(data)` for most cases. See DEV-010.
 > **ADDRESSED**: The redesign specifies a dual caching strategy. Redis for user-specific,
 > real-time data (chat, messages, artifacts, rate limits, guest data). `use cache` +
 > `cacheTag` for server-rendered, static-ish data (model catalog, prompts, static config).
-> Every mutation pairs with `revalidateTag`/`updateTag`. See ADR-015.
+> Every mutation pairs with `revalidateTag`/`updateTag`. See ADR-007.
 
 The spec's caching strategy is entirely Redis-based (cache-through in repositories).
 Next.js 16 introduces Cache Components with `use cache` directive + `cacheTag` for
@@ -303,7 +304,7 @@ For read-heavy operations like model catalog, prompts, and static configuration,
 
 > **ADDRESSED**: The redesign specifies server layout + Suspense boundary architecture
 > that enables PPR. Static shell (sidebar, layout) is cacheable. Dynamic content (chat
-> messages) loads via Suspense. See redesign/architecture.md.
+> messages) loads via Suspense. See ../../plan-archives/redesign/architecture.md.
 
 Next.js 16 Cache Components enable PPR — static shell + dynamic Suspense holes.
 The chat page is an ideal PPR candidate: sidebar and layout are cacheable, chat content
@@ -313,7 +314,7 @@ is dynamic. The spec doesn't mention PPR or how to structure components for it.
 
 > **ADDRESSED**: The redesign provides a clear decision tree. Server Actions for
 > mutations (delete, vote, visibility toggle, CRUD). Route Handler for chat streaming
-> (SSE), file upload, paginated reads. See redesign/data-flow.md.
+> (SSE), file upload, paginated reads. See ../../plan-archives/redesign/data-flow.md.
 
 The spec uses both Server Actions (features/*/actions/) AND route handlers (app/api/).
 But doesn't clarify the decision boundary. When do you use a Server Action vs a route?
@@ -329,7 +330,7 @@ from client components.
 > **ADDRESSED**: The redesign specifies ChatStreamProvider (split state/dispatch context),
 > StreamBridge (~20 lines delegating to processStreamDelta() pure function), and
 > ChatSessionContext wrapping useChat. Artifact state via useSyncExternalStore store.
-> See redesign/streaming-architecture.md and ADR-013.
+> See ../../plan-archives/redesign/streaming-architecture.md and ADR-013.
 
 The spec describes DataStreamProvider/Handler (§8) at a high level but doesn't address:
 - How the split state/dispatch context pattern works
@@ -342,16 +343,13 @@ should have preserved these implementation details.
 
 ### 4.5 Guest/Auth Data Access Branching — ADDRESSED
 
-> **ADDRESSED**: The redesign specifies guest users as cache-only (no database writes
-> that bypass cache). DataContext type carries `isGuest` flag. Session management
-> handled by SessionProvider + getAppSession(). See redesign/data-flow.md.
+> **ADDRESSED**: The redesign keeps `DataContext` for auth-aware branching, but both
+> guest and authenticated sessions use DB-backed persistence with cache-tagged reads.
+> Session management is handled by SessionProvider + getAppSession().
 
-The behavioral extraction documents a critical pattern: guest users are cache-only
-(no database), while authenticated users have cache+DB fallback. The spec's repository
-pattern has no concept of this dual-path logic. Every `findById()` would need to check
-whether the current user is a guest.
-
-**Missing**: How data access handles the guest vs authenticated split.
+The important split is now authorization/capabilities, not “cache-only vs DB”.
+Repository abstractions were still rejected in favor of explicit data functions,
+but the persistence model is unified.
 
 ### 4.6 Testing Strategy — PARTIALLY ADDRESSED
 
@@ -369,13 +367,13 @@ The spec mentions test file locations (§24) but doesn't address:
 
 ## 5. Technical Concerns
 
-### 5.1 `components/ai-elements/` Path Discrepancy
+### 5.1 `components/ai-elements/` Path Discrepancy — RESOLVED
 
 The spec alternates between `src/components/ai-elements/` and `components/ai-elements/`
-in different sections. Section 3 shows `components/ai-elements/`, Section 11 says
-`src/components/ai-elements/`. This must be resolved consistently.
-
-Since we're eliminating `src/`, ai-elements stays at `components/ai-elements/`.
+in different sections. This is now moot: `ai-elements/` has been eliminated in the
+redesign. Wrappers are colocated in their consuming features (e.g., chat wrappers in
+`features/chat/components/`, artifact wrappers in `features/artifacts/components/`).
+No shared ai-elements directory exists in the new architecture.
 
 ### 5.2 `components/ai/` — 31 Wrappers That Don't Exist Yet
 

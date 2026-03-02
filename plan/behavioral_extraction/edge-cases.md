@@ -120,6 +120,13 @@ onError: (error: Error) => {
 - Server-side: `AbortSignal.timeout(55_000)` for AI completions
 - User can click "Stop" button → aborts current stream
 
+### Partial Response Save on Abort
+When the user navigates away or explicitly aborts a streaming response, the server's abort handler saves any accumulated partial assistant response to prevent message loss:
+```
+if (accumulatedContent.length > 0) await savePartialMessage(...)
+```
+This ensures that even interrupted responses are persisted and visible on reload.
+
 ### Fetch Retry
 - No automatic retry on failure
 - User can click "Reload" button to retry last message
@@ -143,13 +150,13 @@ onError: (error: Error) => {
 | `strict` | 10/min | `rate_limit:{surface}:too_many_requests` |
 | `upload` | 10/hour | `rate_limit:upload:too_many_requests` |
 
-### Daily Quota
+### Daily Message Limits
 | User Type | Limit | Error Code |
 |-----------|-------|------------|
 | Guest | 20/day | `rate_limit:chat:daily_limit_exceeded` |
 | Authenticated | 100/day | `rate_limit:chat:daily_limit_exceeded` |
 
-> *Daily quota retained for abuse prevention, but credit/gateway/entitlement logic removed. No token-based billing.*
+> *Daily message limits are abuse-prevention controls, not credit/entitlement billing.*
 
 Tracked via Redis counter with daily TTL. Checked before processing, incremented after successful save.
 
@@ -168,10 +175,9 @@ Normal → 5 consecutive failures → Circuit OPEN (30s)
   └── After 30s → Circuit HALF-OPEN → next success → CLOSED
 ```
 
-### Guest Without Redis
-- If Redis unavailable on first request: `bad_request:api:guest_requires_cache`
-- If Redis fails mid-session: cached data inaccessible, no fallback
-- Guest users cannot create/read chats without cache
+### Guest Session Resilience
+- Guest sessions are cookie-backed via `proxy.ts` and use the same DB-backed reads/writes as authenticated sessions.
+- Cache outages degrade performance but do not force guest-only hard failures.
 
 ### Auth User Cache Miss
 - Transparent fallback to database
@@ -240,6 +246,18 @@ Normal → 5 consecutive failures → Circuit OPEN (30s)
 - No limit on artifact versions
 - Each version is a separate DB row + appended to cache array
 - Theoretical unlimited growth (performance may degrade)
+
+---
+
+## Memory Leak Prevention
+
+| Source | Prevention Pattern |
+|--------|-------------------|
+| SWR cache growth | Bounded cache size; stale entries evicted on navigation |
+| MutationObserver / ResizeObserver | Disconnect observers in cleanup return of `useEffect` |
+| ChatStream array growth | Reset accumulated stream arrays on chat change or navigation |
+| `artifactStore` synchronous reset | `artifactStore.reset()` called synchronously on unmount / chat switch to prevent stale references |
+| `requestAnimationFrame` timers | Cancel outstanding RAF handles in cleanup (`cancelAnimationFrame`) |
 
 ---
 

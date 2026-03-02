@@ -121,7 +121,7 @@
 | **Hooks** | `useSession` *(redesign: renamed from useAuth)*, `useTheme` |
 | **Loading state** | Skeleton avatar + pulsing text + spinner until mounted AND auth resolved |
 | **Menu items** | Theme toggle (dark ↔ light), Separator, Auth action (Login / Sign out) |
-| **Logout flow** | Server Action `logoutAction()` → Supabase `signOut()` → redirect `/` *(redesign: replaces POST /api/auth/logout + SWR clear)* |
+| **Logout flow** | Server Action `logout()` → Supabase `signOut()` → redirect `/login` *(redesign: replaces legacy auth route + SWR clear)* |
 | **Avatar** | `avatar.vercel.sh/{seed}` (24×24) |
 
 ---

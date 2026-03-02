@@ -23,7 +23,7 @@ Polish the application for production: finalize error boundaries at all levels, 
 |---|---|---|---|---|---|
 | P7-T01 | Finalize error boundaries | IMPL | Polish `app/global-error.tsx`, `app/(chat)/error.tsx`, `app/(auth)/error.tsx` | P0-T13, P3-T26, P2-T07 | M |
 | P7-T02 | Finalize artifact error boundary | IMPL | Polish `features/artifacts/components/artifact-error-boundary.tsx` | P4-T13 | S |
-| P7-T03 | Add accessibility + keyboard nav | IMPL | ARIA attributes across chat, sidebar, artifact components (~8 files) | P3-T21, P5-T11 | M |
+| P7-T03 | Add accessibility + keyboard nav | IMPL | ARIA attributes across chat, sidebar, artifact components (~8 files); `prefers-reduced-motion` support | P3-T21, P5-T11 | M |
 | P7-T04 | Verify responsive design | VERIFY | Mobile layout adjustments across chat, sidebar, artifact (~5 files) | P5-T11 | M |
 | P7-T05 | Finalize instrumentation | IMPL | Complete `instrumentation.ts`, `instrumentation-client.ts` (OpenTelemetry) | P0-T15 | M |
 | P7-T06 | Create E2E test specs | IMPL | `tests/e2e/chat.spec.ts`, `artifacts.spec.ts`, `auth.spec.ts`, `sidebar.spec.ts` | all phases | L |
@@ -77,6 +77,7 @@ pnpm format && pnpm typecheck && pnpm lint
 node scripts/check-imports.mjs
 pnpm build
 pnpm test:unit
+pnpm test:e2e
 ```
 
 ---
@@ -92,6 +93,7 @@ pnpm test:unit
 - Import boundary script passes — zero cross-feature imports
 - Artifact naming grep: zero "document" in code
 - Credit/gateway grep: zero forbidden terms
+- All CSS animations respect `prefers-reduced-motion: reduce` media query
 - SSE streaming recovers via `useChat` built-in reconnection
 
 ---

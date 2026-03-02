@@ -203,10 +203,6 @@ GUEST_JWT_SECRET=...
 OPENAI_API_KEY=               # OpenAI direct
 GEMINI_API_KEY=               # Google Gemini direct
 OPENROUTER_API_KEY=           # OpenRouter proxy
-CLOUDFLARE_ACCOUNT_ID=        # Cloudflare Workers AI
-CLOUDFLARE_API_KEY=           # Cloudflare Workers AI
-CLOUDFLARE_AI_GATEWAY_NAME=   # Cloudflare AI Gateway
-CLOUDFLARE_AI_GATEWAY_API_KEY=# Cloudflare AI Gateway
 
 # ── Storage ──
 BLOB_READ_WRITE_TOKEN=        # Vercel Blob (file uploads)
@@ -224,7 +220,7 @@ VERCEL_OIDC_TOKEN=            # Vercel OIDC (auto-injected on Vercel)
 | `CACHE_KV_REST_API_TOKEN` | Yes | `lib/cache/client.ts` |
 | `SUPABASE_URL` | Yes | `lib/auth/session.ts`, JWT validation |
 | `SUPABASE_ANON_KEY` | Yes | `lib/auth/session.ts`, client-side Supabase |
-| `SUPABASE_JWT_SECRET` | Yes | `features/auth/lib/session.ts` |
+| `SUPABASE_JWT_SECRET` | Yes | `lib/auth/session.ts` |
 | `GUEST_JWT_SECRET` | Yes | `features/auth/lib/guest.ts`, `proxy.ts` |
 | At least one AI provider key | Yes | `lib/ai/registry.ts` |
 | `BLOB_READ_WRITE_TOKEN` | For uploads | `app/api/files/upload/route.ts` |

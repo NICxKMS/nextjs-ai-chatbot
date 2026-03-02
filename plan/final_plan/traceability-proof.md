@@ -2,23 +2,23 @@
 
 # Traceability Proof
 
-> Complete coverage verification: 20/20 features, 40 seams, ~125 tasks, critical path analysis — updated with redesign task IDs and patterns.
+> Complete coverage verification: 20 features (20 full), 40 seams, 125 tasks, critical path analysis — updated with redesign task IDs and patterns.
 
 ---
 
-## Feature Coverage — 20/20 (100%)
+## Feature Coverage — 20 Features (20 Full)
 
 | # | Feature | Phase(s) | Task Count | Status |
 |---|---------|----------|-----------|--------|
-| 1 | Chat messaging (send, receive, stream) | P3 | 15 | ✅ Full |
-| 2 | Auth (login, register, guest) | P1, P2 | 11 | ✅ Full |
-| 3 | Chat history / sidebar | P5 | 12 | ✅ Full |
-| 4 | Artifacts (text, code, image, sheet) | P4 | 16 | ✅ Full |
-| 5 | Artifact versioning | P4 | 3 | ✅ Full |
-| 6 | Artifact suggestions | P4 | 2 | ✅ Full |
+| 1 | Chat messaging (send, receive, stream) | P3 | 16 | ✅ Full |
+| 2 | Auth (login, register, guest) | P1, P2 | 9 | ✅ Full |
+| 3 | Chat history / sidebar | P5 | 11 | ✅ Full |
+| 4 | Artifacts (text, code, image, sheet) | P4 | 14 | ✅ Full |
+| 5 | Artifact versioning | P4 | 2 | ✅ Full |
+| 6 | Artifact suggestions | P4 | 1 | ✅ Full |
 | 7 | Message voting (Server Action + VoteResolver) | P1, P6 | 4 | ✅ Full |
 | 8 | File upload | P6 | 3 | ✅ Full |
-| 9 | Model selection | P3, P6 | 4 | ✅ Full |
+| 9 | Model selection | P3, P6 | 3 | ✅ Full |
 | 10 | Chat visibility (own feature module) | P6 | 3 | ✅ Full |
 | 11 | Settings (`useSyncExternalStore` + localStorage) | P3 | 2 | ✅ Full |
 | 12 | Weather tool | P3, P6 | 2 | ✅ Full |
@@ -26,20 +26,22 @@
 | 14 | Message actions (copy, edit, delete) | P3 | 2 | ✅ Full |
 | 15 | Suggested actions | P3 | 1 | ✅ Full |
 | 16 | Data streaming (ChatStreamProvider + StreamBridge) | P3 | 2 | ✅ Full |
-| 17 | Error handling (boundaries) | P0, P3, P4, P7 | 5 | ✅ Full |
-| 18 | Theme switching | P0, P5 | 2 | ✅ Full |
-| 19 | Health check | P6 | 1 | ✅ Full |
+| 17 | Error handling (boundaries) | P0, P3, P4, P7 | 6 | ✅ Full |
+| 18 | Reconnection / resilience | P3, P7 | 3 | ✅ Full |
+| 19 | Theme switching | P0, P5 | 2 | ✅ Full |
 | 20 | Import boundary enforcement | P0, P7 | 2 | ✅ Full |
+
+> **Standalone:** Health check (P6-T13) — tracked separately, not a numbered feature.
 
 ---
 
 ## Traceability Gap Resolution
 
-All gaps from original plan resolved. Redesign-specific resolutions:
+All gaps from original plan are resolved. Redesign-specific resolutions:
 
-| Gap | Severity | Resolution | Task |
-|-----|----------|------------|------|
-| Reconnection / resilience | Medium | Handled natively by `useChat` + error boundaries (no standalone task) | P3-T11, P7-T01 |
+| Gap | Severity | Resolution | Status | Task |
+|-----|----------|------------|--------|------|
+| Reconnection / resilience | Medium | Covered by `useChat` built-in reconnection + error boundaries + offline UX handling in polish | ✅ Resolved | P3-T11, P7-T03 |
 | URL query auto-send (`?q=`) | Low | Handled in `useChatSession` URL state logic | P3-T11 |
 | Credit/usage alert UI | N/A | **Removed entirely** — no credit/gateway/quota logic | — |
 | AutoScroll setting wire | Low | Absorbed into `use-scroll-to-bottom.ts` | P3-T12 |
@@ -74,15 +76,15 @@ All gaps from original plan resolved. Redesign-specific resolutions:
 
 | Phase | Title | Tasks | Seams | Est. Duration |
 |-------|-------|-------|-------|---------------|
-| P0 | Scaffold & Infrastructure | 18 | 0 (foundation) | ~1 day |
-| P1 | Data Foundation | 14 | 4 | ~2 days |
-| P2 | Auth Vertical | 9 | 5 | ~1.5 days |
+| P0 | Scaffold & Infrastructure | 18 | 0 (foundation) | ~2.5 days |
+| P1 | Data Foundation | 14 | 5 | ~2 days |
+| P2 | Auth Vertical | 9 | 5 | ~2.75 days |
 | P3 | Chat Core Vertical | 27 | 8 | ~4 days |
-| P4 | Artifacts Vertical | 18 | 13 | ~4 days |
-| P5 | Sidebar & Navigation | 12 | 4 | ~2 days |
-| P6 | Enhancements | 14 | 5 | ~3 days |
-| P7 | Polish & Production | 13 | 1 | ~2 days |
-| **Total** | | **125** | **40** | **~19.5 days** |
+| P4 | Artifacts Vertical | 18 | 13 | ~4.25 days |
+| P5 | Sidebar & Navigation | 12 | 4 | ~4.25 days |
+| P6 | Enhancements | 14 | 6 | ~1.75 days |
+| P7 | Polish & Production | 13 | 1 | ~1.25 days |
+| **Total** | | **125** | **40** | **~23 days** |
 
 ---
 
@@ -90,10 +92,10 @@ All gaps from original plan resolved. Redesign-specific resolutions:
 
 | Type | Count | Percentage |
 |------|-------|-----------|
-| IMPLEMENTATION | 93 | 74% |
-| INTEGRATION | 14 | 11% |
-| VERIFICATION | 10 | 8% |
-| SCAFFOLD | 8 | 7% |
+| IMPL | 97 | 78% |
+| VERIFY | 13 | 10% |
+| INTEG | 9 | 7% |
+| SCAFFOLD | 6 | 5% |
 
 ---
 
@@ -118,9 +120,9 @@ P0 (scaffold) → P1 (data) → P2 (auth) → P3 (chat core) → P4 (artifacts) 
 | Metric | Value |
 |--------|-------|
 | Critical path length | ~30 tasks |
-| Estimated sequential duration | ~19.5 working days |
-| Longest phase on path | P3 Chat Core (~4d) |
-| Shortest phase on path | P0 Scaffold (~1d) |
+| Estimated sequential duration | ~23 working days |
+| Longest phase on path | P4 Artifacts + P5 Sidebar (~4.25d each) |
+| Shortest phase on path | P7 Polish (~1.25d) |
 | Parallelizable (P4 ∥ P5 start) | Saves ~1 day |
 
 ### Bottleneck Tasks
@@ -177,14 +179,17 @@ P0 (scaffold) → P1 (data) → P2 (auth) → P3 (chat core) → P4 (artifacts) 
 
 | Document | Location |
 |----------|----------|
-| Phase plan (authoritative) | `redesign/phase-plan.md` |
-| AI integration | `redesign/ai-integration.md` |
-| Streaming architecture | `redesign/streaming-architecture.md` |
-| Component architecture | `redesign/component-architecture.md` |
-| State management | `redesign/state-management.md` |
-| Data flow | `redesign/data-flow.md` |
-| Domain boundaries | `redesign/domain-boundaries.md` |
-| Directory structure | `redesign/directory-structure.md` |
-| Naming conventions | `redesign/naming-conventions.md` |
-| Principles | `redesign/principles.md` |
-| Redesign audit | `plan_review/redesign-reaudit.md` |
+| Phase plan (authoritative) | `../../plan-archives/redesign/phase-plan.md` |
+| AI integration | `../../plan-archives/redesign/ai-integration.md` |
+| Streaming architecture | `../../plan-archives/redesign/streaming-architecture.md` |
+| Component architecture | `../../plan-archives/redesign/component-architecture.md` |
+| Architecture overview | `../../plan-archives/redesign/architecture.md` |
+| State management | `../../plan-archives/redesign/state-management.md` |
+| Data flow | `../../plan-archives/redesign/data-flow.md` |
+| Domain boundaries | `../../plan-archives/redesign/domain-boundaries.md` |
+| Directory structure | `../../plan-archives/redesign/directory-structure.md` |
+| Naming conventions | `../../plan-archives/redesign/naming-conventions.md` |
+| Cleanup inventory | `../../plan-archives/redesign/cleanup-inventory.md` |
+| Principles | `../../plan-archives/redesign/principles.md` |
+| Redesign index | `../../plan-archives/redesign/index.md` |
+| Redesign audit | `../../plan-archives/plan_review/redesign-reaudit.md` |

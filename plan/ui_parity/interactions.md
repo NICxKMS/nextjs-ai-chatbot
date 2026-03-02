@@ -97,10 +97,10 @@
 
 ### Structure
 - `SidebarShell` → `AppSidebar` with header (brand + new chat), content (history), footer (user nav) *(redesign: SidebarShell is the server wrapper; AppSidebar is the client inner component)*
-- History: `GroupedVirtuoso` with date group headers
+- History: native grouped sections (Today/Yesterday/Last 7/30/Older); virtualization is optional follow-up optimization
 
 ### Chat List
-1. `useSWRInfinite` with `/api/history?limit=20&offset=X`
+1. `useSWRInfinite` with cursor contract (`/api/history?limit=20` then `?cursor={nextCursor}`)
 2. Infinite scroll via sentinel at bottom → `setSize(s => s+1)`
 3. **Grouping:** Today, Yesterday, Last 7 days, Last 30 days, Older
 4. Pending chats prepended in `__pending__` group *(redesign: renamed from `__optimistic__`)*
@@ -333,7 +333,7 @@
 ## 17. Guest Authentication Flow
 
 1. App detects no session on load
-2. `SessionProvider` auto-creates guest session via POST `/api/auth/guest` *(redesign: renamed from AuthProvider)*
+2. `proxy.ts` mints/rotates `guest_token`; `SessionProvider` consumes resolved session *(redesign: renamed from AuthProvider)*
 3. Guest gets limited functionality (no persistent history list)
 4. Guest sidebar shows login CTA
 5. `isNewSession` flag skips SWR history fetch to avoid unnecessary 401s
@@ -357,4 +357,4 @@
 2. `addPendingChat({ id, title: input.substring(0,50) })` *(redesign: renamed from addOptimisticChat)*
 3. Sidebar immediately shows new entry in `__pending__` group *(redesign: renamed from `__optimistic__`)*
 4. Title updates when server responds via `chat-title` stream part *(redesign: replaces `chat-title-updated` window event — single-channel)*
-5. If title unchanged (no event): pending entry persists until next SWR revalidation
+5. If title unchanged (no event): pending entry persists until next history refresh cycle

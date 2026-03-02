@@ -53,7 +53,7 @@ infrastructure lives outside features.
 The v6 spec (§5) prescribes a full Repository pattern: `IReadRepository<T>`,
 `IWriteRepository<T, TCreate, TUpdate>`, `BaseRepository<T, TCreate, TUpdate>` abstract
 class, and per-entity repository classes. The existing app uses simple function-based
-data objects (`chatData.get()`, `documentData.save()`).
+data access APIs (`getChatById()`, `saveArtifactVersion()`).
 
 ### Decision
 
@@ -98,13 +98,13 @@ impractical. Every read operation must know about `DataContext`.
 
 ---
 
-## ADR-003: No Jotai — Keep SWR + Context + localStorage
+## ADR-003: No Jotai — Keep existing lightweight state patterns
 
 ### Context
 
 The v6 spec (§12 Decision 1, §19) prescribes Jotai for client-side state management,
-citing atomic updates and `atomWithStorage`. The existing app uses SWR for data state,
-React context for cross-component sharing, and `useSyncExternalStore` + localStorage
+citing atomic updates and `atomWithStorage`. The redesign uses React context where cross-feature coordination is needed,
+`useSyncExternalStore` for local module stores, and localStorage
 for settings.
 
 ### Decision
@@ -118,7 +118,7 @@ for settings.
      all identified state management needs
 2. **Zustand**: Global store with selectors
    - Rejected: Even heavier dependency. Overkill for this app's state needs
-3. **Keep existing patterns (chosen)**: SWR + context + localStorage
+3. **Keep existing patterns (chosen)**: context + `useSyncExternalStore` + localStorage
    - Accepted: Zero additional bundle cost, already working, well-understood
 
 ### State Management Map
@@ -131,7 +131,7 @@ for settings.
 |-------|-------|---------|-----|
 | Chat messages | AI SDK | `useChat` hook | Framework-provided, no choice |
 | Artifact state | features/artifacts | `useSyncExternalStore` + external store | Module-level store, no Context needed, selector support |
-| Chat visibility | features/chat | SWR with server action | Optimistic updates with rollback |
+| Chat visibility | features/visibility | `useOptimistic` + Server Action | Optimistic updates with rollback |
 | Pending chats | features/sidebar | `PendingChatsProvider` (React context) | Wraps sidebar + content, Set-based dedup |
 | Chat stream | features/chat | `ChatStreamProvider` (split state+dispatch) | Prevents re-render cascades |
 | Auth session | features/auth | `SessionProvider` (React context) | Session available to client components |
@@ -252,22 +252,22 @@ preserves this approach.
 ### Key Patterns to Preserve
 
 1. `getAppSession()` resolves session from cookies (Supabase JWT → Guest JWT → null)
-2. `DataContext.isGuest` gates data access (cache-only vs cache+DB)
+2. `DataContext.isGuest` gates authorization/capabilities while data persistence remains DB-backed
 3. Token rotation in proxy for guest sessions (<30 min remaining)
-4. Token exchange endpoint for Supabase auth (client validates, server sets httpOnly cookie)
+4. Auth Server Actions (`login`, `register`, `logout`) manage cookie lifecycle
 
 ### Location Change
 
-Auth session resolution (`getAppSession()`) moves to `features/auth/lib/session.ts`.
-Auth infrastructure (JWT config, secrets) stays in `lib/auth/`.
+Auth session resolution (`getAppSession()`) lives in `lib/auth/session.ts`.
+Auth feature helpers live under `features/auth/lib/`.
 
 ### Tradeoffs
 
 | Gain | Cost |
 |------|------|
-| Anonymous users can try the app | Guest data is ephemeral (no migration path) |
+| Anonymous users can try the app | Two auth paths to maintain |
 | Consistent session shape simplifies code | Two auth paths to maintain |
-| Cache-only guest reduces DB load | Guest depends on Redis availability |
+| Shared persistence model simplifies consistency | Additional DB write load for guest activity |
 
 ### Confidence: 90%
 
@@ -303,8 +303,8 @@ The v6 spec uses Redis exclusively for caching. Next.js 16 introduces `use cache
 ### Revalidation Strategy
 
 Every mutation must call `updateTag`/`revalidateTag` to keep `use cache` data fresh.
-Server Actions call `revalidateTag` (push invalidation). Route Handlers call `updateTag`
-(cooperative freshness). This is enforced as a coding convention — no mutation ships
+Server Actions call `updateTag` (immediate invalidation — read-your-own-writes). Route Handlers call `revalidateTag(tag, 'max')`
+(cooperative freshness — stale-while-revalidate). This is enforced as a coding convention — no mutation ships
 without the corresponding tag invalidation.
 
 ### Tradeoffs
@@ -342,8 +342,7 @@ The Edge Runtime has API limitations. The rate limit implementation must:
 - Use lazy initialization for rate limiter instances
 - Avoid Node.js-specific APIs in `proxy.ts`
 
-The daily quota check (20 messages/day for guest, 100/day for auth) is **CONDITIONAL** per
-redesign audit — the credit/gateway system is removed, but basic abuse prevention rate limits may be retained in `proxy.ts`. If daily message caps are kept, they are reframedmas abuse prevention (not entitlements) and enforced in the proxy layer, not as a business rule in the chat action. Evaluate during P7 polish whether these limits add value.
+Daily message caps are **optional abuse-prevention controls** in `proxy.ts` (not product entitlements). If retained, they should be documented as rate limits and never as quota/credit business rules in chat actions.
 
 ### Confidence: 90%
 
@@ -513,22 +512,22 @@ mutations don't properly invalidate tags.
 
 ### Decision
 
-**Every mutation must pair with `revalidateTag` (Server Actions) or `updateTag`
+**Every mutation must pair with `updateTag` (Server Actions) or `revalidateTag(tag, 'max')`
 (Route Handlers).** This is a non-negotiable coding convention.
 
 ### Pattern
 
 ```typescript
-// In a Server Action:
+// In a Server Action (immediate invalidation, read-your-own-writes):
 export async function deleteChat(chatId: string): Promise<ActionResult> {
   // ... delete logic ...
-  revalidateTag(`chat:${chatId}`)
-  revalidateTag(`chats:${userId}`)
+  updateTag(`chat:${chatId}`)
+  updateTag(`chats:${userId}`)
   return { success: true, data: undefined }
 }
 
-// In a Route Handler:
-await updateTag(`chat:${chatId}`)
+// In a Route Handler (cooperative freshness, stale-while-revalidate):
+revalidateTag(`chat:${chatId}`, 'max')
 ```
 
 ### Confidence: 95%

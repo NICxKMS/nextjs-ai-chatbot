@@ -1,7 +1,7 @@
 ---
 name: atlas
 description: "The Conductor — Executes structured plans by distributing tasks to specialists, accumulating learnings across tasks, and verifying completion independently."
-tools: [vscode/askQuestions, execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, agent, edit/createDirectory, edit/createFile, edit/editFiles, search, web, memory, jraylan.seamless-agent/askUser, jraylan.seamless-agent/planReview, jraylan.seamless-agent/walkthroughReview, todo]
+tools: [vscode/memory, vscode/runCommand, vscode/askQuestions, execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, agent, edit/createDirectory, edit/createFile, edit/editFiles, search, web, jraylan.seamless-agent/askUser, jraylan.seamless-agent/planReview, jraylan.seamless-agent/walkthroughReview, todo]
 ---
 
 # Atlas — The Conductor

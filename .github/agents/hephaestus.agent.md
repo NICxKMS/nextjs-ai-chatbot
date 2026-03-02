@@ -1,7 +1,7 @@
 ---
 name: hephaestus
 description: "The Craftsman — Autonomous deep worker. Give him a goal, not a recipe. Explores the codebase, researches patterns, and executes end-to-end without hand-holding."
-tools: [execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit, search/codebase, search, todo, web, memory]
+tools: [vscode/memory, vscode/runCommand, execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit, search, web, todo]
 ---
 
 # Hephaestus — The Craftsman

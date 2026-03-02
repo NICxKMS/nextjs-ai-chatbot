@@ -64,6 +64,12 @@ const { messages, setMessages, handleSubmit, append, status, stop, reload, ... }
 - Custom `fetch` wraps `AbortController` for cancellation
 - `messages` starts with server-fetched `initialMessages`
 
+**Abort cleanup lifecycle:**
+When a stream is aborted (user clicks Stop or navigates away), the full cleanup sequence is:
+1. `stop()` — signals `useChat` to stop processing the stream
+2. `abortControllerRef.current.abort()` — cancels the in-flight fetch request
+3. `artifactStore.reset()` — synchronously resets artifact state to prevent stale streaming UI
+
 ### `useArtifact`
 `useSyncExternalStore`-based state for the artifact panel.
 
@@ -140,7 +146,7 @@ Auto-scroll management for chat message area.
 // Two modes:
 //   - Auto-scroll: snap to bottom on new content
 //   - Manual: user scrolled up, show "scroll to bottom" button
-// SWR key "messages:should-scroll" for cross-component state
+// Scroll state managed via useRef (no SWR, no re-renders on scroll)
 ```
 
 ### `useMobile`
@@ -172,6 +178,8 @@ Splits into two separate contexts to prevent unnecessary re-renders:
 const ChatStreamStateContext = createContext<ChatStreamState>();
 const ChatStreamDispatchContext = createContext<ChatStreamDispatch>();
 ```
+
+> **RAF batching:** High-frequency SSE deltas (~200/sec) are coalesced to ~60 React updates/sec using `requestAnimationFrame` batching. Incoming deltas are buffered and flushed once per animation frame, preventing React from being overwhelmed during fast streaming.
 
 State:
 ```typescript
@@ -282,5 +290,5 @@ Processes custom data parts from the stream:
 |-------------|-----------|-------|
 | `artifactStore` (module-level) | `ArtifactState` | Global artifact panel state |
 | `useOptimistic` (component-level) | `"public" \| "private"` | Chat visibility state |
-| `"messages:should-scroll"` | `boolean` | Auto-scroll control |
+| `scrollRef` (useRef) | `boolean` | Auto-scroll control (ref-based, no re-renders) |
 | `"/api/artifact?id={id}"` | `Artifact[]` | Artifact versions (fetcher-backed) |

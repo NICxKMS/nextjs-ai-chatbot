@@ -1,13 +1,13 @@
-# Phase P04 — Artifacts Vertical
+# Phase P4 — Artifacts Vertical
 
 > **Updated per redesign audit (2026-03-01)**
 
 > Artifact system phase. Implements the complete artifact experience: artifact handlers,
-> editors, panel UI, versioning, and wires AI tools from P03 stubs to real creation.
+> editors, panel UI, versioning, and wires AI tools from P3 stubs to real creation.
 >
-> **Entry state**: P03 complete — chat works end-to-end, messages stream, StreamBridge processes artifact parts.
+> **Entry state**: P3 complete — chat works end-to-end, messages stream, StreamBridge processes artifact parts.
 > **Exit state**: AI can create/update text, code, sheet artifacts; users can edit them; versions tracked; suggestion flow works.
-> **Est. duration**: ~4 days
+> **Est. duration**: ~4.25 days
 > **Tasks**: 18
 > **Files created**: ~28
 
@@ -17,24 +17,24 @@
 
 | ID | Title | Type | Complexity | Files |
 |----|-------|------|------------|-------|
-| P04-T01 | Create artifact types + schemas | IMPLEMENTATION | M | 2 |
-| P04-T02 | Create artifact store | IMPLEMENTATION | L | 1 |
-| P04-T03 | Create artifact hook aliases | IMPLEMENTATION | S | 2 |
-| P04-T04 | Create text + code handlers | IMPLEMENTATION | M | 2 |
-| P04-T05 | Create sheet + image handlers | IMPLEMENTATION | M | 2 |
-| P04-T06 | Create handler registration | IMPLEMENTATION | S | 1 |
-| P04-T07 | Create text editor | IMPLEMENTATION | L | 1 |
-| P04-T08 | Create code editor | IMPLEMENTATION | L | 1 |
-| P04-T09 | Create sheet editor | IMPLEMENTATION | L | 1 |
-| P04-T10 | Create image editor | IMPLEMENTATION | S | 1 |
-| P04-T11 | Create artifact panel | IMPLEMENTATION | L | 1 |
-| P04-T12 | Create artifact support components | IMPLEMENTATION | M | 3 |
-| P04-T13 | Create artifact error boundary | IMPLEMENTATION | S | 1 |
-| P04-T14 | Create artifact preview | IMPLEMENTATION | M | 1 |
-| P04-T15 | Create artifact API route | IMPLEMENTATION | M | 1 |
-| P04-T16 | Create suggestions API route | IMPLEMENTATION | M | 1 |
-| P04-T17 | Wire artifact panel into ChatShell | INTEGRATION | M | 2 |
-| P04-T18 | Verification gate G04 | VERIFICATION | S | 0 |
+| P4-T01 | Create artifact types + schemas | IMPL | M | 2 |
+| P4-T02 | Create artifact store | IMPL | L | 1 |
+| P4-T03 | Create artifact hook aliases | IMPL | S | 2 |
+| P4-T04 | Create text + code handlers | IMPL | M | 2 |
+| P4-T05 | Create sheet + image handlers | IMPL | M | 2 |
+| P4-T06 | Create handler registration | IMPL | S | 1 |
+| P4-T07 | Create text editor | IMPL | L | 1 |
+| P4-T08 | Create code editor | IMPL | L | 1 |
+| P4-T09 | Create sheet editor | IMPL | L | 1 |
+| P4-T10 | Create image editor | IMPL | S | 1 |
+| P4-T11 | Create artifact panel | IMPL | L | 1 |
+| P4-T12 | Create artifact support components | IMPL | M | 3 |
+| P4-T13 | Create artifact error boundary | IMPL | S | 1 |
+| P4-T14 | Create artifact preview | IMPL | M | 1 |
+| P4-T15 | Create artifact API route | IMPL | M | 1 |
+| P4-T16 | Create suggestions API route | IMPL | M | 1 |
+| P4-T17 | Wire artifact panel into ChatShell | INTEG | M | 2 |
+| P4-T18 | Verification gate G04 | VERIFY | S | 0 |
 
 ---
 
@@ -42,19 +42,19 @@
 
 | Seam | Description | Task |
 |------|-------------|------|
-| SEAM-009 | createArtifact tool → artifact handlers | P04-T04, P04-T05 |
-| SEAM-010 | updateArtifact tool → artifact handlers | P04-T04, P04-T05 |
-| SEAM-011 | requestSuggestions tool → text editor | P04-T07 |
-| SEAM-012 | Artifact stream → artifact panel | P04-T11, P04-T17 |
-| SEAM-021 | Artifact version fetch | P04-T15 |
-| SEAM-025 | Artifact data operations (full) | P04-T15 |
-| SEAM-032 | Text editor (TipTap + suggestions) | P04-T07 |
-| SEAM-033 | Code editor (CodeMirror + Pyodide) | P04-T08 |
-| SEAM-034 | Sheet editor (react-data-grid + PapaParse) | P04-T09 |
-| SEAM-035 | Image editor | P04-T10 |
-| SEAM-037 | Pyodide script loading | P04-T17 |
-| SEAM-039 | Version navigation + restore | P04-T12 |
-| SEAM-040 | Inline artifact preview → artifact panel | P04-T14 |
+| SEAM-009 | createArtifact tool → artifact handlers | P4-T04, P4-T06 |
+| SEAM-010 | updateArtifact tool → artifact handlers | P4-T04, P4-T06 |
+| SEAM-011 | requestSuggestions tool → text editor | P4-T07, P4-T16 |
+| SEAM-012 | Artifact stream → artifact panel | P4-T11, P4-T17 |
+| SEAM-021 | Artifact version fetch | P4-T15 |
+| SEAM-025 | Artifact data operations (full) | P4-T15 |
+| SEAM-032 | Text editor (TipTap + suggestions) | P4-T07 |
+| SEAM-033 | Code editor (CodeMirror + Pyodide) | P4-T08 |
+| SEAM-034 | Sheet editor (react-data-grid + PapaParse) | P4-T09 |
+| SEAM-035 | Image editor | P4-T10 |
+| SEAM-037 | Pyodide script loading | P4-T08, P4-T17 |
+| SEAM-039 | Version navigation + restore | P4-T12 |
+| SEAM-040 | Inline artifact preview → artifact panel | P4-T14 |
 
 ---
 
@@ -62,10 +62,10 @@
 
 ---
 
-### TASK: [ID: P04-T01]
+### TASK: [ID: P4-T01]
 Title: Create artifact types and schemas
 Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: artifacts-system.md (ArtifactKind, UIArtifact, ArtifactHandler)
 Architecture ref: conventions.md (feature types collocation, Zod schemas with Schema suffix); scaffold/directory-structure.md (features/artifacts/types/, features/artifacts/schemas/)
@@ -76,13 +76,13 @@ Output files:
 - features/artifacts/types/artifact.types.ts
 - features/artifacts/schemas/artifact.schema.ts
 
-Inputs: lib/types/artifact.types.ts (P00-T06), zod package
-Outputs: Artifact types and schemas consumed by all P04 tasks
+Inputs: lib/types/artifact.types.ts (P0-T06), zod package
+Outputs: Artifact types and schemas consumed by all P4 tasks
 
 AI layer handling: NEW
 
-Dependencies: P00-T06
-Dependents: P04-T02, P04-T03, P04-T04, P04-T05, P04-T07..T16
+Dependencies: P0-T06
+Dependents: P4-T02, P4-T03, P4-T04, P4-T05, P4-T07..T16
 
 Success criteria:
 - ArtifactKind includes all 4 types
@@ -100,10 +100,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P04-T02]
+### TASK: [ID: P4-T02]
 Title: Create artifact store with useSyncExternalStore
 Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: state-management.md (artifact state via useSyncExternalStore)
 Architecture ref: redesign (useSyncExternalStore, NOT SWR synthetic key)
@@ -113,13 +113,13 @@ Action: Create features/artifacts/lib/artifact-store.ts — Artifact state store
 Output files:
 - features/artifacts/lib/artifact-store.ts
 
-Inputs: features/artifacts/types/artifact.types.ts (P04-T01)
-Outputs: Artifact store consumed by hook aliases (P04-T03), StreamBridge (P03-T20), artifact panel (P04-T11)
+Inputs: features/artifacts/types/artifact.types.ts (P4-T01)
+Outputs: Artifact store consumed by hook aliases (P4-T03), StreamBridge (P3-T20), artifact panel (P4-T11)
 
 AI layer handling: NEW
 
-Dependencies: P04-T01
-Dependents: P04-T03, P04-T11, P04-T17
+Dependencies: P4-T01
+Dependents: P4-T03, P4-T11, P4-T17
 
 Success criteria:
 - Store uses `useSyncExternalStore` pattern (NOT SWR synthetic key)
@@ -135,10 +135,10 @@ Complexity: L
 
 ---
 
-### TASK: [ID: P04-T03]
+### TASK: [ID: P4-T03]
 Title: Create artifact hook aliases
 Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: state-management.md (useArtifact, useArtifactSelector)
 Architecture ref: redesign (re-exports from useSyncExternalStore store)
@@ -149,13 +149,13 @@ Output files:
 - features/artifacts/hooks/use-artifact.ts
 - features/artifacts/hooks/use-artifact-selector.ts
 
-Inputs: features/artifacts/lib/artifact-store.ts (P04-T02)
-Outputs: Artifact hooks consumed by artifact panel (P04-T11), artifact components (P04-T12, P04-T14), StreamBridge (P04-T17)
+Inputs: features/artifacts/lib/artifact-store.ts (P4-T02)
+Outputs: Artifact hooks consumed by artifact panel (P4-T11), artifact components (P4-T12, P4-T14), StreamBridge (P4-T17)
 
 AI layer handling: NEW
 
-Dependencies: P04-T02
-Dependents: P04-T11, P04-T12, P04-T14, P04-T17
+Dependencies: P4-T02
+Dependents: P4-T11, P4-T12, P4-T14, P4-T17
 
 Success criteria:
 - useArtifact returns UIArtifact state from useSyncExternalStore
@@ -170,10 +170,10 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P04-T04]
+### TASK: [ID: P4-T04]
 Title: Create text and code artifact handlers
 Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: artifacts-system.md (text handler: streamText → artifact-textDelta; code handler: streamObject → artifact-codeDelta)
 Architecture ref: SEAM-009, SEAM-010 (createArtifact/updateArtifact → handlers); redesign (ArtifactHandler type, handler registration)
@@ -184,13 +184,13 @@ Output files:
 - features/artifacts/handlers/text-handler.ts
 - features/artifacts/handlers/code-handler.ts
 
-Inputs: lib/types/artifact-handler.types.ts (P00-T06), lib/ai/artifact-handlers.ts (P03-T04 — registry), lib/ai/provider.ts (P01-T12), lib/data/artifact.ts (P01-T08)
+Inputs: lib/types/artifact-handler.types.ts (P0-T06), lib/ai/artifact-handlers.ts (P3-T04 — registry), lib/ai/provider.ts (P1-T12), lib/data/artifact.ts (P1-T08)
 Outputs: Text and code handlers registered in handler registry; consumed via getArtifactHandler("text"|"code")
 
 AI layer handling: NEW
 
-Dependencies: P03-T04, P01-T12, P01-T08
-Dependents: P04-T06
+Dependencies: P3-T04, P1-T12, P1-T08
+Dependents: P4-T06
 
 Success criteria:
 - Text handler streams `artifact-textDelta` parts (APPEND, not replacement)
@@ -206,10 +206,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P04-T05]
+### TASK: [ID: P4-T05]
 Title: Create sheet and image artifact handlers
 Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: artifacts-system.md (sheet handler: streamObject → artifact-sheetDelta; image: no AI generation)
 Architecture ref: SEAM-034, SEAM-035; redesign (ArtifactHandler type)
@@ -220,13 +220,13 @@ Output files:
 - features/artifacts/handlers/sheet-handler.ts
 - features/artifacts/handlers/image-handler.ts
 
-Inputs: lib/types/artifact-handler.types.ts (P00-T06), lib/ai/artifact-handlers.ts (P03-T04), lib/data/artifact.ts (P01-T08)
+Inputs: lib/types/artifact-handler.types.ts (P0-T06), lib/ai/artifact-handlers.ts (P3-T04), lib/data/artifact.ts (P1-T08)
 Outputs: Sheet and image handlers registered in handler registry; consumed via getArtifactHandler("sheet"|"image")
 
 AI layer handling: NEW
 
-Dependencies: P03-T04, P01-T08
-Dependents: P04-T06
+Dependencies: P3-T04, P1-T08, P1-T12
+Dependents: P4-T06
 
 Success criteria:
 - Sheet handler streams `artifact-sheetDelta` parts (REPLACE)
@@ -241,10 +241,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P04-T06]
+### TASK: [ID: P4-T06]
 Title: Create handler registration via side-effect import
 Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: artifacts-system.md (handler registration pattern)
 Architecture ref: redesign (side-effect: registers all handlers into lib/ai/artifact-handlers.ts on import)
@@ -254,13 +254,13 @@ Action: Create features/artifacts/handlers/index.ts — Side-effect module that 
 Output files:
 - features/artifacts/handlers/index.ts
 
-Inputs: features/artifacts/handlers/text-handler.ts (P04-T04), features/artifacts/handlers/code-handler.ts (P04-T04), features/artifacts/handlers/sheet-handler.ts (P04-T05), features/artifacts/handlers/image-handler.ts (P04-T05), lib/ai/artifact-handlers.ts (P03-T04)
-Outputs: All handlers registered in registry; consumed by chat API route (P03-T23) via side-effect import
+Inputs: features/artifacts/handlers/text-handler.ts (P4-T04), features/artifacts/handlers/code-handler.ts (P4-T04), features/artifacts/handlers/sheet-handler.ts (P4-T05), features/artifacts/handlers/image-handler.ts (P4-T05), lib/ai/artifact-handlers.ts (P3-T04)
+Outputs: All handlers registered in registry; consumed by chat API route (P3-T23) via side-effect import
 
 AI layer handling: NEW
 
-Dependencies: P04-T04, P04-T05, P03-T04
-Dependents: P04-T17, P04-T18
+Dependencies: P4-T04, P4-T05, P3-T04
+Dependents: P4-T17, P4-T18
 
 Success criteria:
 - All 4 handlers register via side-effect import
@@ -274,10 +274,10 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P04-T07]
+### TASK: [ID: P4-T07]
 Title: Create text editor component
 Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: artifacts-system.md (TipTap editor with suggestions extension)
 Architecture ref: SEAM-032 (TipTap + suggestions extension)
@@ -287,13 +287,13 @@ Action: Create features/artifacts/components/editors/text-editor.tsx — "use cl
 Output files:
 - features/artifacts/components/editors/text-editor.tsx
 
-Inputs: features/artifacts/types/artifact.types.ts (P04-T01), tiptap packages, oldapp/components/text-editor.tsx (reference)
-Outputs: TextEditor consumed by artifact panel (P04-T11) and artifact preview (P04-T14)
+Inputs: features/artifacts/types/artifact.types.ts (P4-T01), tiptap packages, oldapp/components/text-editor.tsx (reference)
+Outputs: TextEditor consumed by artifact panel (P4-T11) and artifact preview (P4-T14)
 
 AI layer handling: AI_WRAPPER
 
-Dependencies: P04-T01, P04-T02
-Dependents: P04-T11, P04-T14
+Dependencies: P4-T01
+Dependents: P4-T11, P4-T14
 
 Success criteria:
 - TipTap renders markdown content
@@ -308,10 +308,10 @@ Complexity: L
 
 ---
 
-### TASK: [ID: P04-T08]
+### TASK: [ID: P4-T08]
 Title: Create code editor component
 Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: artifacts-system.md (CodeMirror + Pyodide execution)
 Architecture ref: SEAM-033 (CodeMirror + Pyodide)
@@ -321,13 +321,13 @@ Action: Create features/artifacts/components/editors/code-editor.tsx — "use cl
 Output files:
 - features/artifacts/components/editors/code-editor.tsx
 
-Inputs: features/artifacts/types/artifact.types.ts (P04-T01), CodeMirror packages, oldapp/components/code-editor.tsx (reference)
-Outputs: CodeEditor consumed by artifact panel (P04-T11)
+Inputs: features/artifacts/types/artifact.types.ts (P4-T01), CodeMirror packages, oldapp/components/code-editor.tsx (reference)
+Outputs: CodeEditor consumed by artifact panel (P4-T11)
 
 AI layer handling: AI_WRAPPER
 
-Dependencies: P04-T01, P04-T02
-Dependents: P04-T11
+Dependencies: P4-T01, P0-T11
+Dependents: P4-T11, P4-T14
 
 Success criteria:
 - CodeMirror renders with Python syntax highlighting
@@ -343,10 +343,10 @@ Complexity: L
 
 ---
 
-### TASK: [ID: P04-T09]
+### TASK: [ID: P4-T09]
 Title: Create sheet editor component
 Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: artifacts-system.md (react-data-grid + PapaParse CSV)
 Architecture ref: SEAM-034 (sheet editor)
@@ -356,13 +356,13 @@ Action: Create features/artifacts/components/editors/sheet-editor.tsx — "use c
 Output files:
 - features/artifacts/components/editors/sheet-editor.tsx
 
-Inputs: features/artifacts/types/artifact.types.ts (P04-T01), papaparse, react-data-grid, oldapp/components/sheet-editor.tsx (reference)
-Outputs: SheetEditor consumed by artifact panel (P04-T11) and artifact preview (P04-T14)
+Inputs: features/artifacts/types/artifact.types.ts (P4-T01), papaparse, react-data-grid, oldapp/components/sheet-editor.tsx (reference)
+Outputs: SheetEditor consumed by artifact panel (P4-T11) and artifact preview (P4-T14)
 
 AI layer handling: AI_WRAPPER
 
-Dependencies: P04-T01, P04-T02
-Dependents: P04-T11, P04-T14
+Dependencies: P4-T01
+Dependents: P4-T11, P4-T14
 
 Success criteria:
 - CSV parsed into grid rows/columns via PapaParse
@@ -377,10 +377,10 @@ Complexity: L
 
 ---
 
-### TASK: [ID: P04-T10]
+### TASK: [ID: P4-T10]
 Title: Create image editor component
 Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: artifacts-system.md (image display from base64/URL)
 Architecture ref: SEAM-035 (image editor)
@@ -390,13 +390,13 @@ Action: Create features/artifacts/components/editors/image-editor.tsx — "use c
 Output files:
 - features/artifacts/components/editors/image-editor.tsx
 
-Inputs: features/artifacts/types/artifact.types.ts (P04-T01)
-Outputs: ImageEditor consumed by artifact panel (P04-T11) and artifact preview (P04-T14)
+Inputs: features/artifacts/types/artifact.types.ts (P4-T01)
+Outputs: ImageEditor consumed by artifact panel (P4-T11) and artifact preview (P4-T14)
 
 AI layer handling: NEW
 
-Dependencies: P04-T01
-Dependents: P04-T11, P04-T14
+Dependencies: P4-T01
+Dependents: P4-T11, P4-T14
 
 Success criteria:
 - Renders base64 data URL images and regular URLs
@@ -410,10 +410,10 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P04-T11]
+### TASK: [ID: P4-T11]
 Title: Create artifact panel component
 Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: artifacts-system.md (panel layout, visibility logic, AnimatePresence)
 Architecture ref: SEAM-012 (artifact stream → panel); redesign (ArtifactPanel naming)
@@ -423,13 +423,13 @@ Action: Create features/artifacts/components/artifact-panel.tsx — "use client"
 Output files:
 - features/artifacts/components/artifact-panel.tsx
 
-Inputs: features/artifacts/hooks/ (P04-T03), features/artifacts/components/editors/ (P04-T07..T10), features/artifacts/types/ (P04-T01), supporting components (P04-T12)
-Outputs: ArtifactPanel consumed by ChatShell (P04-T17)
+Inputs: features/artifacts/hooks/ (P4-T03), features/artifacts/components/editors/ (P4-T07..T10), features/artifacts/types/ (P4-T01), supporting components (P4-T12)
+Outputs: ArtifactPanel consumed by ChatShell (P4-T17)
 
 AI layer handling: AI_WRAPPER
 
-Dependencies: P04-T01, P04-T03, P04-T07, P04-T08, P04-T09, P04-T10, P04-T12
-Dependents: P04-T17
+Dependencies: P4-T01, P4-T03, P4-T07, P4-T08, P4-T09, P4-T10, P4-T12, P4-T13, P0-T11
+Dependents: P4-T17
 
 Success criteria:
 - Panel renders as fixed overlay when artifact.isVisible is true
@@ -447,10 +447,10 @@ Complexity: L
 
 ---
 
-### TASK: [ID: P04-T12]
+### TASK: [ID: P4-T12]
 Title: Create artifact support components
 Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: artifacts-system.md (actions, close button, version footer)
 Architecture ref: SEAM-039 (version navigation + restore); redesign (useArtifactSelector)
@@ -462,13 +462,13 @@ Output files:
 - features/artifacts/components/artifact-close-button.tsx
 - features/artifacts/components/version-footer.tsx
 
-Inputs: features/artifacts/types/artifact.types.ts (P04-T01), features/artifacts/hooks/ (P04-T03), components/ui/ (P00-T11)
-Outputs: Supporting components consumed by artifact panel (P04-T11)
+Inputs: features/artifacts/types/artifact.types.ts (P4-T01), features/artifacts/hooks/ (P4-T03), components/ui/ (P0-T11)
+Outputs: Supporting components consumed by artifact panel (P4-T11)
 
 AI layer handling: NEW
 
-Dependencies: P04-T01, P04-T03, P00-T11
-Dependents: P04-T11
+Dependencies: P4-T01, P4-T03, P0-T11
+Dependents: P4-T11
 
 Success criteria:
 - ArtifactActions renders correct buttons for each artifact kind
@@ -482,10 +482,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P04-T13]
+### TASK: [ID: P4-T13]
 Title: Create artifact error boundary
 Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: artifacts-system.md (editor crash boundary)
 Architecture ref: SEAM-027 (error boundaries — artifact level)
@@ -495,13 +495,13 @@ Action: Create features/artifacts/components/artifact-error-boundary.tsx — Cla
 Output files:
 - features/artifacts/components/artifact-error-boundary.tsx
 
-Inputs: lib/errors/app-error.ts (P00-T08)
-Outputs: ArtifactErrorBoundary consumed by artifact panel (P04-T11)
+Inputs: lib/errors/app-error.ts (P0-T08)
+Outputs: ArtifactErrorBoundary consumed by artifact panel (P4-T11)
 
 AI layer handling: NEW
 
-Dependencies: P00-T08
-Dependents: P04-T11
+Dependencies: P0-T08
+Dependents: P4-T11
 
 Success criteria:
 - Class component with getDerivedStateFromError
@@ -515,10 +515,10 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P04-T14]
+### TASK: [ID: P4-T14]
 Title: Create artifact preview component
 Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: artifacts-system.md (inline preview in messages)
 Architecture ref: SEAM-040 (inline artifact preview → artifact panel); redesign (artifact-preview.tsx, NOT document-preview.tsx)
@@ -528,13 +528,13 @@ Action: Create features/artifacts/components/artifact-preview.tsx — Component 
 Output files:
 - features/artifacts/components/artifact-preview.tsx
 
-Inputs: features/artifacts/hooks/ (P04-T03), features/artifacts/types/ (P04-T01), features/artifacts/components/editors/ (P04-T07..T10)
-Outputs: ArtifactPreview consumed by message rendering (P03-T15)
+Inputs: features/artifacts/hooks/ (P4-T03), features/artifacts/types/ (P4-T01), features/artifacts/components/editors/ (P4-T07..T10)
+Outputs: ArtifactPreview consumed by message rendering (P3-T15)
 
 AI layer handling: NEW
 
-Dependencies: P04-T01, P04-T03, P04-T07, P04-T09, P04-T10
-Dependents: P04-T17, P04-T18
+Dependencies: P4-T01, P4-T03, P4-T07, P4-T08, P4-T09, P4-T10, P0-T11
+Dependents: P4-T18
 
 Success criteria:
 - Artifact preview fetches artifact data and renders mini preview
@@ -550,10 +550,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P04-T15]
+### TASK: [ID: P4-T15]
 Title: Create artifact API route
 Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: api-contracts.md (GET/POST/DELETE /api/artifact)
 Architecture ref: SEAM-021 (artifact version fetch); SEAM-025 (artifact data full); redesign (revalidateTag on save)
@@ -563,13 +563,13 @@ Action: Create app/api/artifact/route.ts — GET: fetch all versions of an artif
 Output files:
 - app/api/artifact/route.ts
 
-Inputs: lib/data/artifact.ts (P01-T08), features/auth/lib/session.ts (P02-T01), features/artifacts/schemas/artifact.schema.ts (P04-T01), lib/cache/revalidate.ts (P01-T03)
-Outputs: API route consumed by artifact panel version fetches (P04-T11), artifact preview (P04-T14)
+Inputs: lib/data/artifact.ts (P1-T08), lib/auth/session.ts (P2-T01), features/artifacts/schemas/artifact.schema.ts (P4-T01), lib/cache/revalidate.ts (P1-T03)
+Outputs: API route consumed by artifact panel version fetches (P4-T11), artifact preview (P4-T14)
 
 AI layer handling: NEW
 
-Dependencies: P04-T01, P02-T01, P01-T08, P01-T03
-Dependents: P04-T11, P04-T14, P04-T18
+Dependencies: P4-T01, P2-T01, P1-T08, P1-T03, P0-T08
+Dependents: P4-T11, P4-T14, P4-T18
 
 Success criteria:
 - GET /api/artifact?id= returns artifact versions array
@@ -584,10 +584,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P04-T16]
+### TASK: [ID: P4-T16]
 Title: Create suggestions API route
 Phase: 4 — Artifacts Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: api-contracts.md (GET /api/suggestions)
 Architecture ref: redesign (artifactId parameter)
@@ -597,13 +597,13 @@ Action: Create app/api/suggestions/route.ts — GET: fetch suggestions for an ar
 Output files:
 - app/api/suggestions/route.ts
 
-Inputs: lib/data/suggestion.ts (P01-T10), features/auth/lib/session.ts (P02-T01)
+Inputs: lib/data/suggestion.ts (P1-T10), lib/auth/session.ts (P2-T01)
 Outputs: Suggestions API consumed by text editor suggestion display
 
 AI layer handling: NEW
 
-Dependencies: P01-T10, P02-T01
-Dependents: P04-T18
+Dependencies: P1-T10, P2-T01, P0-T08
+Dependents: P4-T18
 
 Success criteria:
 - GET /api/suggestions?artifactId= returns suggestions array
@@ -617,10 +617,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P04-T17]
+### TASK: [ID: P4-T17]
 Title: Wire artifact panel into ChatShell
 Phase: 4 — Artifacts Vertical
-Type: INTEGRATION
+Type: INTEG
 
 Behavior ref: state-management.md (StreamBridge → artifactStore → panel)
 Architecture ref: SEAM-012 (artifact stream → panel); SEAM-037 (Pyodide script); redesign (ChatShell orchestrator, StreamBridge → artifactStore)
@@ -631,13 +631,13 @@ Output files:
 - features/chat/components/chat-shell.tsx (modify)
 - features/chat/components/stream-bridge.tsx (modify if needed)
 
-Inputs: features/artifacts/components/artifact-panel.tsx (P04-T11), features/artifacts/lib/artifact-store.ts (P04-T02), features/chat/components/stream-bridge.tsx (P03-T20)
+Inputs: features/artifacts/components/artifact-panel.tsx (P4-T11), features/artifacts/lib/artifact-store.ts (P4-T02), features/chat/components/stream-bridge.tsx (P3-T20)
 Outputs: Complete artifact ↔ chat integration via ChatShell
 
 AI layer handling: NEW
 
-Dependencies: P04-T02, P04-T11, P04-T14, P03-T20
-Dependents: P04-T18
+Dependencies: P4-T02, P4-T03, P4-T11, P3-T20
+Dependents: P4-T18
 
 Success criteria:
 - ArtifactPanel renders when artifact.isVisible is true (via useArtifactSelector)
@@ -651,10 +651,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P04-T18]
+### TASK: [ID: P4-T18]
 Title: Verification gate G04
 Phase: 4 — Artifacts Vertical
-Type: VERIFICATION
+Type: VERIFY
 
 Behavior ref: artifacts-system.md (complete artifact flow)
 Architecture ref: AGENTS.md (post-implementation validation); redesign (P4 exit criteria)
@@ -663,13 +663,13 @@ Action: Run complete validation: (1) pnpm typecheck passes, (2) pnpm lint passes
 
 Output files: none (validation only)
 
-Inputs: all P04-T01 through P04-T17 outputs
-Outputs: Gate G04 passed — P05 (sidebar) can begin
+Inputs: all P4-T01 through P4-T17 outputs
+Outputs: Gate G04 passed — P5 (sidebar) can begin
 
 AI layer handling: N/A
 
-Dependencies: P04-T01 through P04-T17
-Dependents: P05-T01 (start of next phase)
+Dependencies: P4-T01 through P4-T17
+Dependents: P5-T01 (start of next phase)
 
 Success criteria:
 - pnpm typecheck exits 0

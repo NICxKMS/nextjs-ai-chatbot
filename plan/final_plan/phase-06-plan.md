@@ -98,3 +98,4 @@ Implement all enhancement features that augment the core experience: message vot
 | SEAM-018 | Vote mutation (Server Action + `useOptimistic` + VoteResolver) | P6-T01, P6-T02, P6-T03 |
 | SEAM-019 | File upload → message attachment | P6-T09, P6-T10, P6-T11 |
 | SEAM-022 | Visibility toggle (Server Action + `useOptimistic` + `updateTag`) | P6-T06, P6-T07, P6-T08 |
+| SEAM-036 | Rate limiting pipeline (proxy.ts + route handlers) | P6-T09, P6-T13 |

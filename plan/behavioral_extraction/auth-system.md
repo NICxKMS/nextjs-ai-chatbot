@@ -6,7 +6,7 @@
 
 Dual authentication: **Supabase** (registered users) and **Guest JWT** (anonymous users). Both produce an `AppSession` with consistent shape, allowing the rest of the app to be auth-agnostic.
 
-> *SessionProvider wraps the app. `proxy.ts` handles guest JWT, token rotation, rate limiting, and mobile detection in a single edge layer. Auth routes consolidated to Server Actions (`loginAction`, `registerAction`, `logoutAction`, `exchangeTokenAction`).*
+> *SessionProvider wraps the app. `proxy.ts` handles guest JWT bootstrap/rotation, rate limiting, and request guards in a single edge layer. Auth mutations are Server Actions (`login`, `register`, `logout`).*
 
 ```
                    ┌─────────────────┐
@@ -59,19 +59,11 @@ type AppSession = {
 
 ## Supabase Authentication
 
-### Token Exchange Flow
-1. Client calls `supabase.auth.signInWithPassword({ email, password })`
-2. Supabase returns `session.access_token`
-3. Client calls Server Action `exchangeTokenAction({ accessToken })`
-4. Server validates JWT:
-   ```typescript
-   const { payload } = await jwtVerify(accessToken, secret, {
-     audience: "authenticated",
-     issuer: `${SUPABASE_URL}/auth/v1`,
-   });
-   ```
-5. Server sets `sb_token` httpOnly cookie (7-day maxAge)
-6. Returns `{ user: { id: payload.sub, email: payload.email } }`
+### Login Action Flow
+1. Client submits AuthForm (`useActionState`) to `login` Server Action
+2. Server Action validates input and calls `supabase.auth.signInWithPassword({ email, password })`
+3. Server Action sets `sb_token` httpOnly cookie (7-day maxAge)
+4. Redirect to `/` (router cache invalidated)
 
 ### Cookie Configuration
 ```
@@ -85,14 +77,16 @@ Path: /
 ```
 
 ### Registration
-1. Client calls `supabase.auth.signUp({ email, password })`
-2. If email confirmation required → redirect to login with message
-3. If session returned immediately → exchange token (same as login flow)
+1. Client submits AuthForm (`useActionState`) to `register` Server Action
+2. Server Action calls `supabase.auth.signUp({ email, password })`
+3. If email confirmation required → redirect to login with message
+4. If session returned immediately → set `sb_token` cookie and redirect
 
 ### Logout
-1. Client calls `supabase.auth.signOut()`
-2. Delete `sb_token` cookie
-3. Redirect to `/login`
+1. Client invokes `logout` Server Action
+2. Server Action calls `supabase.auth.signOut()`
+3. Delete `sb_token` cookie
+4. Redirect to `/login`
 
 ---
 
@@ -117,21 +111,21 @@ In `proxy.ts`, on every request:
 ### Guest Limitations
 | Feature | Guest | Authenticated |
 |---------|-------|---------------|
-| Chat | Yes (cache-only) | Yes (DB + cache) |
-| Chat history | Yes (limited, cache-only) | Yes (full, DB-backed) |
+| Chat | Yes (DB + cache) | Yes (DB + cache) |
+| Chat history | Yes (DB-backed, scoped to session) | Yes (full, DB-backed) |
 | View others' public chats | No | Yes |
 | Vote on messages | No | Yes |
 | Artifact suggestions persistence | No | Yes |
-| Delete chats | Yes (cache delete) | Yes (DB + cache) |
+| Delete chats | Yes (DB + cache) | Yes (DB + cache) |
 | Daily message limit | 20 | 100 |
 | File upload | Yes | Yes |
 | Settings | Yes (localStorage) | Yes (localStorage) |
 
 ### Guest Data Lifecycle
-- All guest data lives in Redis with 7-day TTL
+- Guest identity is cookie-backed (`guest:{uuid}`) and participates in normal DB persistence
 - Guest ID format: `guest:{uuid}` (embedded in JWT `sub` claim)
-- If Redis is unavailable, guest cannot use the app (`guest_requires_cache` error)
-- Guest data is ephemeral — no migration path to authenticated account
+- Redis outages may reduce performance but do not fully block guest usage
+- Guest data may be migrated during authenticated transitions by auth/data layer flows
 
 ---
 

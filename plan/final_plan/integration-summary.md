@@ -158,10 +158,8 @@ All seams resolved across 8 phases using redesign patterns.
   <body>
     <ThemeProvider>
       <SessionProvider session={serverSession}>
-        <TooltipProvider>
-          {children}
-          <Toaster />
-        </TooltipProvider>
+        {children}
+        <Toaster />
       </SessionProvider>
     </ThemeProvider>
   </body>
@@ -208,17 +206,14 @@ All seams resolved across 8 phases using redesign patterns.
 | Method | Path | Auth | Rate Limit | Phase |
 |--------|------|------|------------|-------|
 | POST | `/api/chat` | Required | 50 req/min | P3 |
-| POST | `/api/auth/guest` | None | 5 req/min | P2 |
-| GET | `/api/auth/callback` | None | 5 req/min | P2 |
-| POST | `/api/auth/logout` | Required | 10 req/min | P2 |
-| POST | `/api/files/upload` | Required | 20 req/min | P6 |
+| POST | `/api/files/upload` | Required | 10/hour | P6 |
 | GET | `/api/history` | Required | 100 req/min | P5 |
 | GET | `/api/artifact` | Required | 100 req/min | P4 |
 | POST | `/api/artifact` | Required | 50 req/min | P4 |
 | GET | `/api/suggestions` | Required | 100 req/min | P4 |
 | GET | `/api/health` | None | 100 req/min | P6 |
 
-Rate limits are enforced in `proxy.ts`. Auth routes have stricter limits to prevent brute-force attacks.
+Rate limits are enforced in `proxy.ts`. Authentication mutations are handled by Server Actions (`login`, `register`, `logout`) rather than `/api/auth/*` routes.
 
 ### Removed Routes (Redesign)
 
@@ -233,8 +228,8 @@ Rate limits are enforced in `proxy.ts`. Auth routes have stricter limits to prev
 
 | Action | Location | Purpose | Phase |
 |--------|----------|---------|-------|
-| `vote` | `features/voting/actions/vote.ts` | Upvote/downvote message | P6 |
-| `updateVisibility` | `features/visibility/actions/update-visibility.ts` | Toggle chat visibility | P6 |
+| `voteOnMessage` | `features/voting/actions/vote.ts` | Upvote/downvote message | P6 |
+| `updateChatVisibility` | `features/visibility/actions/update-visibility.ts` | Toggle chat visibility | P6 |
 | `renameChat` | `features/sidebar/actions/rename-chat.ts` | Rename chat title | P5 |
 | `deleteChat` | `features/chat/actions/delete-chat.ts` | Delete single chat | P3 |
 | `deleteAllChats` | `features/chat/actions/delete-all-chats.ts` | Delete all user chats | P3 |

@@ -103,11 +103,11 @@ Cross-feature artifact type contract.
 ```typescript
 export type ArtifactKind = 'text' | 'code' | 'image' | 'sheet'
 
+// Per redesign, only two states needed — artifact errors are handled
+// at the component level via error boundaries.
 export type ArtifactStatus =
   | 'idle'
   | 'streaming'
-  | 'complete'
-  | 'error'
 
 export type UIArtifact = {
   artifactId: string
@@ -132,26 +132,28 @@ export type ArtifactStreamWriter = {
   writeData(data: { type: string; content: unknown }): void
 }
 
-export type CreateArtifactParams = {
-  kind: ArtifactKind
+export interface CreateArtifactParams {
+  id: string                    // was artifactId
   title: string
-  artifactId: string
-  streamWriter: ArtifactStreamWriter
-  // ... additional context as needed
+  kind: ArtifactKind
+  chatId: string                // NEW
+  session: { userId: string; isGuest: boolean } // NEW
+  dataStream: ReturnType<typeof createDataStream> // was streamWriter
 }
 
-export type UpdateArtifactParams = {
+export interface UpdateArtifactParams {
+  id: string                    // was artifactId
+  title: string
   kind: ArtifactKind
-  artifactId: string
+  currentContent: string        // NEW
   description: string
-  streamWriter: ArtifactStreamWriter
-  // ... additional context as needed
+  session: { userId: string; isGuest: boolean } // NEW
+  dataStream: ReturnType<typeof createDataStream> // was streamWriter
 }
 
 export type ArtifactHandler = {
-  kind: ArtifactKind
-  create(params: CreateArtifactParams): Promise<void>
-  update(params: UpdateArtifactParams): Promise<void>
+  create(params: CreateArtifactParams): Promise<string>
+  update(params: UpdateArtifactParams): Promise<string>
 }
 ```
 
@@ -166,11 +168,12 @@ export type PendingChat = {
   id: string
   title: string
   createdAt: Date
-  confirmed: boolean
+  isOptimistic: boolean
+  visibility: 'public' | 'private'
 }
 
 export type PendingChatOperations = {
-  add(chat: PendingChat): void
+  add(chat: Omit<PendingChat, 'isOptimistic'>): void
   remove(chatId: string): void
   updateTitle(chatId: string, title: string): void
   markConfirmed(chatId: string): void
@@ -188,10 +191,7 @@ Model metadata and provider config.
 export type ProviderId =
   | 'openai'
   | 'google'
-  | 'xai'
   | 'openrouter'
-  | 'cloudflare-workers'
-  | 'cloudflare-ai-gateway'
 
 // ── Model capabilities ──
 export type ModelCapability =
@@ -216,18 +216,20 @@ export type ReasoningType =
   | 'deepseek-thinking'
   | 'internal-thinking'
 
-// ── Model metadata ──
-export type ModelMetadata = {
-  id: string                           // e.g., "google:gemini-2.5-flash"
-  providerId: ProviderId
-  modelId: string                      // Provider-specific ID
-  name: string                         // Human-readable
-  capabilities: ModelCapability[]
-  modalities: ModelModality[]
-  reasoningType?: ReasoningType
-  thinkingBudget?: number
-  source: 'curated' | 'discovered'
-  isCurated: boolean
+// ── Model metadata (aligned with redesign/contracts.md) ──
+// Note: ProviderId union kept above for type checking but not referenced in ModelMetadata
+export interface ModelMetadata {
+  id: string                           // full model ID (e.g. "openai:gpt-4o")
+  provider: string                     // was providerId: ProviderId
+  providerModelId: string              // was modelId
+  label: string                        // was name
+  description?: string
+  supportsToolCalling: boolean         // was capabilities array
+  supportsReasoning: boolean           // was capabilities array
+  modalities: { input: string[]; output: string[] }
+  contextWindow: number                // NEW
+  maxOutputTokens: number              // NEW
+  source: 'static' | 'dynamic'        // was 'curated' | 'discovered'
 }
 
 // ── Default model constants ──
@@ -240,24 +242,21 @@ export const ARTIFACT_MODEL = 'google:gemini-2.5-flash-lite'
 - Removed `vercel-gateway` from `ProviderId`
 - Removed `AppUsage` type (no credit/usage system)
 - Constants renamed: `DEFAULT_TITLE_MODEL` → `TITLE_MODEL`, `DEFAULT_ARTIFACT_MODEL` → `ARTIFACT_MODEL`
+- Provider list follows redesign baseline: `openai`, `google`, `openrouter` (conditionally registered by API key availability)
 
 ---
 
 ## 8. Settings Types (`lib/types/settings.types.ts`)
 
+> Renamed from `UserSettings` → `SettingsState`. Flattened per redesign — model selection is separate from settings.
+
 ```typescript
-export type UserSettings = {
-  sampling: {
-    temperature: number
-    topP: number
-    maxOutputTokens: number
-  }
+export interface SettingsState {
+  temperature: number
+  topP: number
+  maxOutputTokens: number
   systemPrompt: string
   enableReasoning: boolean
-  reasoningBudget: number
-  streamArtifacts: boolean
-  autoScroll: boolean
-  selectedModelId: string
 }
 ```
 
@@ -279,20 +278,20 @@ export type ArtifactDataPart =
   | { type: 'artifact-codeDelta'; content: string }
   | { type: 'artifact-sheetDelta'; content: string }
   | { type: 'artifact-imageDelta'; content: string }
-  | { type: 'artifact-suggestion'; content: SuggestionData }
-
-export type ChatDataPart =
+  | { type: 'artifact-suggestion'; content: ArtifactSuggestion }
   | { type: 'chat-title'; content: string }
 
-export type DataPart = ArtifactDataPart | ChatDataPart
+// Consolidated: ChatDataPart merged into ArtifactDataPart
+export type DataPart = ArtifactDataPart
 
-export type SuggestionData = {
+// Renamed from SuggestionData → ArtifactSuggestion
+export type ArtifactSuggestion = {
   originalText: string
   suggestedText: string
   description: string
 }
 
-export type ChatStatus = 'idle' | 'streaming' | 'error' | 'submitted'
+export type ChatStatus = 'idle' | 'submitted' | 'streaming' | 'error' | 'ready'
 ```
 
 **Key changes from old plan:**
@@ -306,21 +305,28 @@ export type ChatStatus = 'idle' | 'streaming' | 'error' | 'submitted'
 
 ## 10. Chat Session Types (in `features/chat/types/chat.types.ts`)
 
+> Intent-based callbacks (not setter-based) per redesign/state-management.md
+
 ```typescript
-import type { UIMessage } from '@ai-sdk/react'
+import type { Message, Attachment } from 'ai'
 
 // ── ChatSessionContext value (replaces old ChatContext) ──
-export type ChatSessionValue = {
+export interface ChatSessionValue {
   chatId: string
-  messages: UIMessage[]
-  status: ChatStatus
-  isLoading: boolean
-  append: (message: UIMessage) => void
-  stop: () => void
-  reload: () => void
-  setMessages: (messages: UIMessage[]) => void
-  selectedModelId: string
+  chatModel: string
   isReadonly: boolean
+  messages: Message[]
+  status: ChatStatus             // 'idle' | 'submitted' | 'streaming' | 'error' | 'ready'
+  input: string
+  setInput: (input: string) => void
+  attachments: Attachment[]
+  setAttachments: (attachments: Attachment[]) => void
+  sendMessage: (content: string, attachments?: Attachment[]) => void
+  stop: () => void
+  appendMessage: (message: Message) => void
+  editMessage: (id: string, content: string) => void
+  error: Error | null
+  clearError: () => void
 }
 ```
 
@@ -353,6 +359,27 @@ export const ERROR_STATUS_MAP: Record<ErrorCode, number> = {
   CACHE_ERROR: 500,
   CONFLICT: 409,
   BAD_REQUEST: 400,
+}
+```
+
+### AppError class (`lib/errors/app-error.ts`)
+
+```typescript
+import type { NextResponse } from 'next/server'
+
+export class AppError extends Error {
+  code: ErrorCode
+  statusCode: number
+  details?: Record<string, unknown>
+
+  static notFound(message?: string): AppError
+  static unauthorized(message?: string): AppError
+  static forbidden(message?: string): AppError
+  static badRequest(message?: string): AppError
+  static rateLimited(message?: string): AppError
+  static internal(message?: string): AppError
+
+  toResponse(): NextResponse
 }
 ```
 

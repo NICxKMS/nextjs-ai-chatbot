@@ -84,7 +84,7 @@ P0 Scaffold
 
 ### Critical Decisions
 
-**Auth before Chat, not after.** The existing app's dual auth system (Supabase + guest JWT) affects every data access path. The `DataContext.isGuest` flag determines cache-only vs cache+DB reads. Building chat without this produces code that must be rewritten.
+**Auth before Chat, not after.** The dual auth system (Supabase + guest JWT) affects authorization, capability gating, and rate limiting across every data path. Building chat without auth primitives produces code that must be rewritten.
 
 **Artifacts after Chat, not in parallel.** Artifacts depend on the handler registry (`lib/ai/artifact-handlers.ts`) and chat-owned tools (`createArtifact`, `updateArtifact`). The StreamBridge processes stream deltas into the artifact store. Building them simultaneously creates circular dependencies during development.
 
@@ -190,7 +190,7 @@ Every phase completes with:
 
 ### Dual-Path Testing Mandate
 
-Integration tests must include both guest and authenticated user paths. Every feature that has different behavior for guest vs. authenticated users must be tested in both modes. This applies to all data access paths (cache-only for guests, cache+DB for authenticated), `proxy.ts` routing, session resolution in `getAppSession()`, and UI-level feature gating (e.g., guest cannot vote). Failure to test both paths is a phase gate blocker.
+Integration tests must include both guest and authenticated user paths. Every feature that has different behavior for guest vs. authenticated users must be tested in both modes. This applies to authorization checks, `proxy.ts` routing, session resolution in `getAppSession()`, and UI-level feature gating (e.g., guest cannot vote). Failure to test both paths is a phase gate blocker.
 
 ### Integration Checkpoints
 

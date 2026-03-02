@@ -237,13 +237,12 @@ User submits login form at `/login`.
    a. supabase.auth.signInWithPassword({ email, password })
    b. On success: returns session with access_token
 
-3. CLIENT → SERVER: Token Exchange
-   a. POST /api/auth/exchange { accessToken }
-      - jwtVerify(token, SUPABASE_JWT_SECRET)
-      - audience: "authenticated", issuer: "{SUPABASE_URL}/auth/v1"
-      - Extract: sub (userId), email from payload
+3. CLIENT → SERVER: Login Server Action
+   a. AuthForm submits to `login` Server Action (`useActionState`)
+      - Validate credentials
+      - Supabase signInWithPassword
       - Set cookie: sb_token (httpOnly, secure, sameSite=lax, 7d maxAge)
-      - Return { user: { id, email } }
+      - Return ActionResult / redirect
 
 4. CLIENT: Post-Login
    a. SessionProvider detects auth state change (Supabase listener)
@@ -268,17 +267,15 @@ First visit with no auth cookies.
 
 ```
 1. DETECTION
-   Root layout: getAppSession() returns null → no session prop
-   SessionProvider: receives session=null → triggers guest bootstrap
+   Request enters edge `proxy.ts`
+   If no valid auth cookies, proxy mints/rotates guest token before app render
 
-2. CLIENT: SessionProvider Effect
-   a. Detects no session on mount
-   b. POST /api/auth/guest
-      - guestId = "guest:{crypto.randomUUID()}"
-      - Sign JWT: { sub: guestId, iat, exp: +1h }, HS256, GUEST_JWT_SECRET
-      - Set cookie: guest_token (httpOnly, secure, sameSite=lax, 7d maxAge)
-      - Return { user: { id: guestId, type: "guest" } }
-   c. setSession(guestSession)
+2. EDGE: proxy.ts Guest Bootstrap
+   a. On request with no valid auth cookies, proxy mints guest identity
+   b. guestId = "guest:{crypto.randomUUID()}"
+   c. Sign JWT: { sub: guestId, iat, exp: +1h }, HS256, GUEST_JWT_SECRET
+   d. Set cookie: guest_token (httpOnly, secure, sameSite=lax, 7d maxAge)
+   e. getAppSession() resolves guest session for server components/actions
 
 3. GUEST TOKEN ROTATION (on every request)
    a. proxy.ts reads guest_token cookie
@@ -292,8 +289,10 @@ First visit with no auth cookies.
    - Chat: functional (messages stored in DB, artifacts in DB)
    - Voting: disabled (guests cannot vote)
    - Suggestion persistence: disabled (in-session only)
-   - Daily limit: configured rate (20/day typical)
+   - Abuse-prevention limits: configured per-surface rate limits
 ```
+
+> **Clarification:** Guests have full DB persistence. There is no cache-only mode for guests. The old plan's cache-only approach was superseded by the redesign which gives guests full DB access with rate-limited usage.
 
 ---
 
@@ -316,15 +315,17 @@ Chat layout mounts or user paginates sidebar.
 
 2. CLIENT: SidebarHistoryClient Hydration
    a. useSWRInfinite(key, fetcher, { fallbackData: [{ chats: initialChats, hasMore }] })
-      - key: index => `/api/history?limit=20&offset=${index * 20}`
+      - key: index => index === 0
+          ? `/api/history?limit=20`
+          : `/api/history?limit=20&cursor=${previousPageData?.nextCursor}`
       - Uses server data as initial fallback (no client fetch on first render)
    b. usePendingChats() → merge optimistic entries on top of server data
 
 3. CLIENT: Pagination (infinite scroll)
    a. Scroll sentinel triggers setSize(size + 1)
-   b. GET /api/history?limit=20&offset={page*20}
+   b. GET /api/history?limit=20&cursor={nextCursor}
       - Server: auth, rate limit, cursor pagination
-      - Response: { chats, hasMore }
+      - Response: { chats, nextCursor?, hasMore }
    c. SWR appends page data
 
 4. RENDER

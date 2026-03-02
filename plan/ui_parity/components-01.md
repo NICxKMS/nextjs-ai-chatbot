@@ -114,7 +114,7 @@
 | **Props** | `initialSession: AppSession | null`, `children` |
 | **Context Value** | `session`, `status: "loading" | "authenticated" | "unauthenticated"`, `isNewSession`, `setSession`, `clearNewSessionFlag` |
 | **State** | `session`, `isNewSession`, `bootstrapAttempted` |
-| **Effects** | Guest bootstrap via `/api/auth/guest` (POST), Supabase auth state change listener |
+| **Effects** | Guest bootstrap via `proxy.ts` + `getAppSession()` resolution, Supabase auth state change listener |
 | **Exports** | `SessionProvider` *(redesign: renamed from AuthProvider)*, `useSession` hook *(redesign: renamed from useAuth)* |
 
 ---

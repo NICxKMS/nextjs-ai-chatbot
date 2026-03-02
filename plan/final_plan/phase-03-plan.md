@@ -44,7 +44,7 @@ Implement the complete chat experience — AI integration, settings (`useSyncExt
 | P3-T22 | Create chat server actions | IMPL | `features/chat/actions/delete-chat.ts`, `delete-all-chats.ts`, `delete-trailing-messages.ts` (each calls `updateTag`) | P1-T06, P1-T03 | M |
 | P3-T23 | Create chat API route | IMPL | `app/api/chat/route.ts` (`createUIMessageStream`, `streamText`, tools, `onFinish` with `revalidateTag`) | P3-T13, P3-T02 | L |
 | P3-T24 | Create chat layout (SERVER) | INTEG | `app/(chat)/layout.tsx` (SERVER: SidebarProvider, Suspense→SidebarSkeleton stub, PendingChatsProvider stub, NoticeHandler) | P3-T14, P0-T11 | M |
-| P3-T25 | Create chat pages | IMPL | `app/(chat)/page.tsx` (new chat), `app/(chat)/chat/[id]/page.tsx` (existing: `Promise.all`, `use cache`) | P3-T21, P3-T10 | M |
+| P3-T25 | Create chat pages | IMPL | `app/(chat)/page.tsx` (new chat; reads `?q=` query parameter and auto-submits via `useChatSession.sendMessage()` if present), `app/(chat)/chat/[id]/page.tsx` (existing: `Promise.all`, `use cache`) | P3-T21, P3-T10 | M |
 | P3-T26 | Create chat error boundary | IMPL | `app/(chat)/error.tsx` | P0-T08 | S |
 | P3-T27 | Verification gate G03 | VERIFY | — | P3-T01..T26 | S |
 
@@ -113,6 +113,8 @@ ChatShell (~60 lines)             # Creates ChatSessionContext.Provider
 - [ ] Chat tools: `createArtifact`, `updateArtifact` (not createDocument/updateDocument)
 - [ ] ArtifactHandler registry in `lib/ai/artifact-handlers.ts` (dependency inversion)
 - [ ] Chat pages use `'use cache'` + `cacheTag` for fetching
+- [ ] Cross-tab settings synchronization works via `StorageEvent` listener in `useSyncExternalStore` subscribe function (P3-T06)
+- [ ] New chat page reads `?q=` query parameter and auto-submits if present (P3-T25)
 - [ ] `pnpm typecheck && pnpm lint` pass
 
 **Verification:** `pnpm typecheck && pnpm lint && pnpm format`
@@ -125,9 +127,9 @@ ChatShell (~60 lines)             # Creates ChatSessionContext.Provider
 |------|-------------|------|
 | SEAM-006 | Chat request pipeline (client → server → SSE) | P3-T11, P3-T21, P3-T23 |
 | SEAM-007 | ChatStreamProvider pipeline (server → provider → StreamBridge → artifactStore) | P3-T10, P3-T20 |
-| SEAM-008 | Chat completion execution (model + tools + settings) | P3-T02, P3-T11 |
-| SEAM-015 | Settings pipeline (localStorage → useSyncExternalStore → hook) | P3-T06, P3-T07 |
-| SEAM-028 | Client error handling (onError, toast) | P3-T09, P3-T26 |
+| SEAM-008 | Chat Completion Execution (streamText + tools + settings) | P3-T02, P3-T23 |
+| SEAM-015 | Settings pipeline (localStorage → useSyncExternalStore → hook) | P3-T06, P3-T07, P3-T21 |
+| SEAM-028 | Client Error Handling (useChat.onError → toast) | P3-T21, P3-T26 |
 | SEAM-029 | Provider scoping (ChatStreamProvider at page level) | P3-T24, P3-T25 |
-| SEAM-031 | ChatSessionContext scope (component level, inside ChatShell) | P3-T08, P3-T21 |
+| SEAM-031 | URL State Management (history.replaceState + NoticeHandler) | P3-T21, P3-T25 |
 | SEAM-038 | Message edit + regenerate flow | P3-T16, P3-T22 |

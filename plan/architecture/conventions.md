@@ -16,7 +16,8 @@ nextjs-ai-chatbot/
 │   ├── (auth)/
 │   │   ├── login/page.tsx
 │   │   ├── register/page.tsx
-│   │   └── layout.tsx
+│   │   ├── layout.tsx
+│   │   └── error.tsx
 │   ├── (chat)/
 │   │   ├── page.tsx                  # New chat
 │   │   ├── chat/[id]/page.tsx        # Existing chat
@@ -37,7 +38,8 @@ nextjs-ai-chatbot/
 │   ├── chat/
 │   │   ├── actions/                  # Server actions
 │   │   │   ├── delete-chat.ts
-│   │   │   └── delete-all-chats.ts
+│   │   │   ├── delete-all-chats.ts
+│   │   │   └── delete-trailing-messages.ts
 │   │   ├── components/               # Chat UI components
 │   │   │   ├── chat-shell.tsx            # ~60 lines, composes chat UI
 │   │   │   ├── chat-header.tsx
@@ -52,15 +54,15 @@ nextjs-ai-chatbot/
 │   │   │   ├── multimodal-input.tsx
 │   │   │   ├── submit-button.tsx
 │   │   │   ├── greeting.tsx
-│   │   │   └── suggested-actions.tsx
+│   │   │   ├── suggested-actions.tsx
+│   │   │   └── preview-attachment.tsx
 │   │   ├── hooks/
 │   │   │   ├── use-chat-session.ts
 │   │   │   ├── use-chat-side-effects.ts
 │   │   │   ├── use-chat-session-context.ts
 │   │   │   └── use-scroll-to-bottom.ts
 │   │   ├── schemas/
-│   │   │   ├── chat.schema.ts
-│   │   │   └── message.schema.ts
+│   │   │   └── chat.schema.ts
 │   │   └── lib/
 │   │       ├── chat-callbacks.ts
 │   │       ├── process-stream-deltas.ts
@@ -165,6 +167,11 @@ nextjs-ai-chatbot/
 │           └── model.types.ts
 │
 ├── components/                       # Truly shared UI ONLY
+│   ├── theme-provider.tsx            # next-themes ThemeProvider wrapper
+│   ├── sidebar-toggle.tsx            # Sidebar open/close toggle
+│   ├── icons.tsx                     # Shared icon components
+│   ├── toaster.tsx                   # Toast notification provider
+│   ├── weather.tsx                   # Weather widget component (used by getWeather tool)
 │   └── ui/                           # shadcn/ui base components
 │       ├── button.tsx
 │       ├── input.tsx
@@ -172,6 +179,9 @@ nextjs-ai-chatbot/
 │       ├── sidebar.tsx
 │       ├── skeleton.tsx
 │       └── ...
+│
+│   > Note: `components/ai-elements/` is treated as legacy reference material in this plan.
+│   > It is not a redesign-mandated baseline directory.
 │
 ├── lib/                              # Cross-cutting infrastructure
 │   ├── data/                         # Shared data access (function-based)
@@ -194,7 +204,11 @@ nextjs-ai-chatbot/
 │   │   ├── registry.ts               # AI provider registry (NO vercel-gateway)
 │   │   ├── artifact-handlers.ts       # Handler registry: register/get pattern
 │   │   ├── models.ts                  # Model definitions
-│   │   └── prompts.ts                # System prompts
+│   │   ├── prompts.ts                # System prompts
+│   │   ├── provider.ts               # myProvider factory with extractReasoningMiddleware
+│   │   ├── provider-options.ts        # Per-provider options configuration
+│   │   ├── tools.ts                   # getEnabledTools, tool definitions
+│   │   └── title.ts                   # Title generation utility
 │   ├── auth/
 │   │   └── session.ts                # getAppSession() infrastructure
 │   ├── errors/
@@ -202,17 +216,23 @@ nextjs-ai-chatbot/
 │   │   └── codes.ts                   # Error code registry (NO activate_gateway)
 │   ├── types/
 │   │   ├── artifact-handler.types.ts  # ArtifactHandler, ArtifactStreamWriter
-│   │   ├── pending-chats.types.ts     # PendingChatOperations
+│   │   ├── artifact.types.ts          # ArtifactKind, UIArtifact
 │   │   ├── data-context.types.ts      # DataContext (userId, isGuest)
+│   │   ├── model.types.ts             # ModelMetadata, ProviderId
+│   │   ├── pending-chats.types.ts     # PendingChatOperations
+│   │   ├── settings.types.ts          # SettingsState
 │   │   └── result.types.ts            # ActionResult<T> for Server Actions
 │   ├── utils/
 │   │   ├── cn.ts                      # clsx + twMerge
-│   │   └── format.ts                  # Date/string formatting
+│   │   ├── format.ts                  # Date/string formatting
+│   │   └── generate-uuid.ts           # UUID generation utility
 │   └── hooks/                        # ONLY truly generic hooks (2-3 max)
 │       ├── use-mobile.ts
 │       └── use-debounce.ts
 │
 ├── proxy.ts                          # Next.js 16 proxy (was middleware.ts): auth guard + rate limiting
+├── scripts/
+│   └── check-imports.mjs             # Import boundary enforcement CI script
 ├── tests/
 │   ├── setup.ts
 │   ├── mocks/
@@ -254,9 +274,26 @@ nextjs-ai-chatbot/
 | Types | `.types.ts` | `artifact.types.ts` |
 | Test | `.test.ts` / `.test.tsx` | `stream-chat.test.ts` |
 | E2E test | `.spec.ts` | `chat.spec.ts` |
+| Mock file | `.mock.ts` | `session.mock.ts` |
+| Fixture file | `.fixture.ts` | `chat.fixture.ts` |
 
 **Note**: The spec used `.action.ts` suffix for server actions. We drop this — the `actions/`
 directory already communicates intent. Extra suffixes add noise.
+
+### Error Code Structured Naming
+
+Error codes follow the `category:scope:detail` pattern:
+
+```typescript
+// Examples:
+'auth:session:expired'      // Auth category, session scope, expired detail
+'validation:chat:empty'     // Validation category, chat scope, empty detail
+'ai:stream:timeout'         // AI category, stream scope, timeout detail
+'data:chat:not-found'       // Data category, chat scope, not-found detail
+```
+
+Categories: `auth`, `validation`, `ai`, `data`, `rate-limit`, `system`.
+This enables structured error handling and consistent error reporting across features.
 
 ---
 
@@ -272,6 +309,39 @@ directory already communicates intent. Extra suffixes add noise.
 ```
 
 All imports use `@/` prefix. No relative imports crossing feature boundaries.
+
+### Import Ordering
+
+Imports within a file must follow this order (enforced by convention):
+
+1. **External packages** — `react`, `next/cache`, `ai`, `drizzle-orm`
+2. **`lib/`** — `@/lib/db`, `@/lib/errors`, `@/lib/utils`
+3. **`components/`** — `@/components/ui/button`
+4. **`features/`** — `@/features/auth/lib/session`
+5. **Relative imports** — `./message`, `../hooks/use-chat-session`
+
+Separate each group with a blank line.
+
+### `import type` Enforcement
+
+Use `import type` for type-only imports. This ensures types are erased at compile time
+and prevents unintended side effects:
+
+```typescript
+import type { Chat } from '@/lib/types'
+import type { UIArtifact } from '@/features/artifacts/types/artifact.types'
+```
+
+### `import 'server-only'` Pattern
+
+Server-only modules (data access, session resolution, cache infrastructure) must include
+the `server-only` import guard at the top of the file:
+
+```typescript
+import 'server-only'
+```
+
+This prevents accidental inclusion in client bundles.
 
 ### Layer Rules
 
@@ -307,6 +377,19 @@ import { artifactSchema } from '@/features/artifacts/schemas/artifact.schema'
 import { Chat } from '@/features/chat/components/chat'
 ```
 
+### Declared Cross-Feature Import Exception: StreamBridge → artifactStore
+
+`StreamBridge` (in `features/chat/components/stream-bridge.tsx`) imports from
+`features/artifacts/lib/artifact-store.ts` to dispatch stream deltas to the artifact
+store. This is a **declared exception** to the cross-feature component boundary rule.
+The import is limited to the store's `dispatch` function and is the only place where
+the chat feature directly writes to artifact state.
+
+```typescript
+// features/chat/components/stream-bridge.tsx — ALLOWED (declared exception)
+import { dispatch } from '@/features/artifacts/lib/artifact-store'
+```
+
 ---
 
 ## 4. File Placement Decision Tree
@@ -316,10 +399,6 @@ START: Where does this code belong?
 
 Is it a Next.js routing file (page, layout, route, error, loading)?
 ├── YES → app/[route-group]/
-└── NO ↓
-
-Is it a read-only AI primitive from external source?
-├── YES → components/ai-elements/ (NEVER MODIFY)
 └── NO ↓
 
 Does it belong to a specific feature (chat, artifacts, auth, sidebar, settings, voting, models)?
@@ -365,7 +444,7 @@ Is it error handling infrastructure?
 └── NO ↓
 
 Is it API route utility (guards, validation)?
-├── YES → lib/api/
+├── YES → Inline in route handler (no separate `lib/api/` directory)
 └── NO ↓
 
 Is it a shared type (Drizzle model types, API types)?
@@ -424,3 +503,12 @@ module or add it to the most closely related existing feature.
 | Components | User interactions, rendering | Component test with Testing Library |
 | Streaming | SSE data parts, state updates | Integration test |
 | Full flows | Chat → message → artifact | E2E with Playwright |
+
+### Test File Naming Conventions
+
+- Unit/component tests: colocated next to source as `<source-name>.test.ts(x)`
+- Integration tests: `tests/integration/<feature>-<flow>.test.ts`
+- E2E tests: `tests/e2e/<feature>.spec.ts`
+- Test mocks: `tests/mocks/<module>.mock.ts`
+- Test fixtures: `tests/fixtures/<entity>.fixture.ts`
+- Setup files: `tests/setup.ts` (global), `tests/mocks/setup-*.ts` (per-concern)

@@ -3,7 +3,7 @@
 # Feature-to-Task Traceability Matrix
 
 > Maps every feature from behavioral extraction to its implementing tasks.
-> 19 features tracked (credit/usage alert removed per redesign).
+> 20 features tracked (credit/usage alert removed per redesign).
 > Task IDs: P0-T01 through P7-T13. "artifact" naming throughout.
 > ChatStreamProvider (not DataStreamProvider), StreamBridge (not DataStreamHandler),
 > SessionProvider (not AuthProvider), PendingChatsProvider (not OptimisticChatsProvider).
@@ -14,9 +14,9 @@
 
 | # | Feature | Phase Tasks | Key Files | Integration Tasks |
 |---|---------|-------------|-----------|-------------------|
-| 1 | Chat messaging (send, receive, stream) | P3-T01, T02, T05, T08, T09, T10, T11, T12, T14, T15, T16, T17, T18, T19, T20, T21, T23, T25 | features/chat/\*, app/api/chat/, app/(chat)/ | P3-T21 (ChatShell), P3-T23 (API route), P3-T25 (pages) |
-| 2 | Auth (login, register, guest) | P1-T05, P2-T01..T09 | features/auth/\*, lib/auth/, app/(auth)/ | P2-T08 (wire layout) |
-| 3 | Chat history / sidebar | P5-T01..T12 | features/sidebar/\*, app/api/history/ | P5-T08, P5-T11 |
+| 1 | Chat messaging (send, receive, stream) | P3-T01, T02, T05, T08, T09, T10, T11, T12, T15, T17, T18, T19, T20, T21, T23, T25 | features/chat/\*, app/api/chat/, app/(chat)/ | P3-T21 (ChatShell), P3-T23 (API route), P3-T25 (pages) |
+| 2 | Auth (login, register, guest) | P1-T05, P2-T01..T08 | features/auth/\*, lib/auth/, app/(auth)/ | P2-T08 (wire layout) |
+| 3 | Chat history / sidebar | P5-T01..T11 | features/sidebar/\*, app/api/history/ | P5-T08, P5-T11 |
 | 4 | Artifacts (code, text, image, sheet) | P4-T01..T11, T14..T17 | features/artifacts/\*, features/chat/lib/tools/, app/api/artifact/ | P4-T06, P4-T17 |
 | 5 | Artifact versioning | P4-T12, T15 | features/artifacts/components/version-footer.tsx, app/api/artifact/ | P4-T17 |
 | 6 | Artifact suggestions | P4-T16 | features/chat/lib/tools/request-suggestions.ts, features/artifacts/components/editors/text-editor.tsx | P4-T16 |
@@ -31,10 +31,11 @@
 | 15 | Suggested actions | P3-T14 | features/chat/components/suggested-actions.tsx | — (via P3-T21 ChatShell) |
 | 16 | Chat streaming (ChatStreamProvider/StreamBridge) | P3-T10, P3-T20 | features/chat/components/chat-stream-provider.tsx, stream-bridge.tsx | P3-T21, P4-T17 |
 | 17 | Error handling (boundaries) | P0-T13, P0-T08, P3-T26, P4-T13, P7-T01, T02 | app/global-error.tsx, app/(chat)/error.tsx, lib/errors/, artifact-error-boundary.tsx | P7-T01, P7-T02 |
-| 18 | Reconnection / resilience | P3-T11 (partial), P3-T21 (partial), P7-T03 (partial) | features/chat/hooks/use-chat-session.ts (AbortSignal), chat-shell.tsx (onError) | — (see uncovered-features.md) |
+| 18 | Reconnection / resilience | P3-T11, P3-T21, P7-T03 | features/chat/hooks/use-chat-session.ts (AbortSignal), chat-shell.tsx (onError), accessibility/offline UX handling | P7-T03 |
 | 19 | Theme switching | P0-T12, P5-T06 | components/theme-provider.tsx, features/sidebar/components/sidebar-user-nav.tsx | P5-T06 |
+| 20 | Import boundary enforcement | P0-T17, P7-T09 | scripts/check-imports.mjs | P7-T09 |
 
-> **Note:** Feature #20 (Health check) renumbered to standalone. Credit/usage alert UI feature removed per redesign — no credit/gateway/quota system exists.
+> **Note:** Health check (P6-T13) tracked as standalone entry below. Credit/usage alert UI feature removed per redesign — no credit/gateway/quota system exists.
 
 ---
 
@@ -71,7 +72,7 @@
 | P2-T03 | Guest bootstrap | JWT creation, token rotation |
 | P2-T04 | Auth actions | Login, register, logout Server Actions |
 | P2-T05 | Auth form | Client form with `useActionState` |
-| P2-T06 | SessionProvider (NOT AuthProvider) | Session context, guest bootstrap effect |
+| P2-T06 | SessionProvider (NOT AuthProvider) | Session context + auth state sync (guest bootstrap lives in proxy.ts) |
 | P2-T07 | Auth layout + pages | `/login`, `/register`, layout |
 | P2-T08 | Wire root layout | SessionProvider in layout |
 
@@ -110,6 +111,19 @@
 | P4-T15 | Artifact API route | POST: save edits, `revalidateTag('artifact:{id}', 'max')` |
 | P4-T17 | Wire into ChatShell | Conditionally render `ArtifactPanel` + wire `StreamBridge` → `artifactStore` |
 
+### Feature 20: Import Boundary Enforcement
+
+| Task | Title | Role |
+|------|-------|------|
+| P0-T17 | Create import boundary script | `scripts/check-imports.mjs` — validates cross-feature imports |
+| P7-T09 | Verify import boundaries | Run script — zero violations |
+
+### Standalone: Health Check
+
+| Task | Title | Role |
+|------|-------|------|
+| P6-T13 | Health check endpoint | `/api/health` — basic uptime/readiness check |
+
 ---
 
 ## Coverage Summary
@@ -133,7 +147,14 @@
 | Suggested actions | 1 | P3 | ✅ Full |
 | Chat streaming (ChatStreamProvider/StreamBridge) | 2 | P3 | ✅ Full |
 | Error handling | 6 | P0, P3, P4, P7 | ✅ Full |
-| Reconnection / resilience | 3 (partial) | P3, P7 | ⚠️ Partial |
+| Reconnection / resilience | 3 | P3, P7 | ✅ Full |
 | Theme switching | 2 | P0, P5 | ✅ Full |
+| Import boundary enforcement | 2 | P0, P7 | ✅ Full |
 
-**18/19 features fully covered. 1 feature (reconnection) partially covered. Credit/usage alert removed.**
+**Standalone Entries**
+
+| Feature | Task(s) | Phase | Status |
+|---------|---------|-------|--------|
+| Health check | P6-T13 | P6 | ✅ Full |
+
+**20/20 features fully covered. Health check tracked as standalone. Credit/usage alert removed.**

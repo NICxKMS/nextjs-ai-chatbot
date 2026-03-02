@@ -399,6 +399,14 @@ Settings state managed via `settingsStore` module-level store + `localStorage`:
 
 > **Replaced:** SettingsProvider React Context.
 
+> **Settings fields scope (redesign clarification):**
+> Active settings: `{ temperature, topP, maxOutputTokens, systemPrompt, enableReasoning }`
+> Old plan fields intentionally removed or relocated:
+> - `streamArtifacts`: Removed — artifacts always stream
+> - `autoScroll`: Retained via `useScrollToBottom` hook, not a user-facing setting
+> - `reasoningBudget`: Removed — reasoning controlled by `enableReasoning` boolean
+> - `selectedModelId`: Stored in cookie (`chat-model`), not in settings store
+
 ### Optimistic Pattern (PendingChatsProvider)
 
 Chat list uses optimistic updates with dedup:

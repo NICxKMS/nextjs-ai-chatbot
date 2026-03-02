@@ -23,10 +23,10 @@ Implement complete authentication — session resolution, login/register/logout,
 | P2-T01 | Create session resolution | IMPL | `lib/auth/session.ts` (`getAppSession()`: cookies → session) | P1-T05 | M |
 | P2-T02 | Create auth types + schemas | IMPL | `features/auth/types/auth.types.ts`, `features/auth/schemas/auth.schema.ts` | P0-T05 | S |
 | P2-T03 | Create guest bootstrap | IMPL | `features/auth/lib/guest.ts` (JWT creation, token rotation), `features/auth/lib/session.ts` | P2-T01 | M |
-| P2-T04 | Create auth actions | IMPL | `features/auth/actions/login.ts`, `features/auth/actions/register.ts`, `features/auth/actions/logout.ts` | P2-T01, P2-T02 | M |
+| P2-T04 | Create auth actions | IMPL | `features/auth/actions/login.ts`, `features/auth/actions/register.ts`, `features/auth/actions/logout.ts` | P2-T01, P2-T02, P2-T03 | M |
 | P2-T05 | Create auth form | IMPL | `features/auth/components/auth-form.tsx` (`mode` prop, `useActionState`) | P2-T04 | L |
-| P2-T06 | Create SessionProvider | IMPL | `features/auth/components/session-provider.tsx` (session context, guest bootstrap effect) | P2-T03 | M |
-| P2-T07 | Create auth layout + pages | IMPL | `app/(auth)/layout.tsx` (SERVER), `app/(auth)/login/page.tsx`, `app/(auth)/register/page.tsx`, `app/(auth)/error.tsx` | P2-T05 | M |
+| P2-T06 | Create SessionProvider | IMPL | `features/auth/components/session-provider.tsx` (session context + auth state sync; guest bootstrap in `proxy.ts`) | P2-T03 | M |
+| P2-T07 | Create auth layout + pages | IMPL | `app/(auth)/layout.tsx` (SERVER), `app/(auth)/login/page.tsx`, `app/(auth)/register/page.tsx`, `app/(auth)/error.tsx` | P2-T05, P2-T06 | M |
 | P2-T08 | Wire root layout with auth | INTEG | Update `app/layout.tsx` to use `SessionProvider(session)` | P2-T06 | M |
 | P2-T09 | Verification gate G02 | VERIFY | — | P2-T01..T08 | S |
 

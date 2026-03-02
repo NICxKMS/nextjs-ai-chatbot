@@ -1,4 +1,4 @@
-# Phase P02 — Auth Vertical
+# Phase P2 — Auth Vertical
 
 > **Updated per redesign audit (2026-03-01)**
 
@@ -6,9 +6,9 @@
 > guest auth, SessionProvider, proxy integration, and auth pages.
 > Server Actions for login/register/logout (NOT API routes). SessionProvider (NOT AuthProvider).
 >
-> **Entry state**: P01 complete — data layer, cache, revalidation, AI providers ready.
+> **Entry state**: P1 complete — data layer, cache, revalidation, AI providers ready.
 > **Exit state**: Users can log in, register, and use the app as guests. Session persists across requests.
-> **Est. duration**: ~1.5 days
+> **Est. duration**: ~2.75 days
 > **Tasks**: 9
 > **Files created**: ~14
 
@@ -18,15 +18,15 @@
 
 | ID | Title | Type | Complexity | Files |
 |----|-------|------|------------|-------|
-| P02-T01 | Create session resolution | IMPLEMENTATION | M | 1 |
-| P02-T02 | Create auth types + schemas | IMPLEMENTATION | S | 1 |
-| P02-T03 | Create guest bootstrap | IMPLEMENTATION | M | 2 |
-| P02-T04 | Create auth actions (login/register/logout) | IMPLEMENTATION | M | 3 |
-| P02-T05 | Create auth form component | IMPLEMENTATION | L | 1 |
-| P02-T06 | Create SessionProvider | IMPLEMENTATION | L | 1 |
-| P02-T07 | Create auth layout + pages | IMPLEMENTATION | M | 3 |
-| P02-T08 | Wire root layout + proxy | INTEGRATION | M | 2 |
-| P02-T09 | Verification gate G02 | VERIFICATION | S | 0 |
+| P2-T01 | Create session resolution | IMPL | M | 1 |
+| P2-T02 | Create auth types + schemas | IMPL | S | 1 |
+| P2-T03 | Create guest bootstrap | IMPL | M | 2 |
+| P2-T04 | Create auth actions (login/register/logout) | IMPL | M | 3 |
+| P2-T05 | Create auth form component | IMPL | L | 1 |
+| P2-T06 | Create SessionProvider | IMPL | L | 1 |
+| P2-T07 | Create auth layout + pages | IMPL | M | 3 |
+| P2-T08 | Wire root layout + proxy | INTEG | M | 2 |
+| P2-T09 | Verification gate G02 | VERIFY | S | 0 |
 
 ---
 
@@ -34,11 +34,11 @@
 
 | Seam | Description | Task |
 |------|-------------|------|
-| SEAM-001 | SessionProvider state sync | P02-T06 |
-| SEAM-002 | Token exchange flow | P02-T03 |
-| SEAM-003 | Guest auth bootstrap | P02-T03 |
-| SEAM-004 | Proxy guest rotation | P02-T08 |
-| SEAM-005 | Session resolution pipeline | P02-T01 |
+| SEAM-001 | SessionProvider state sync | P2-T06 |
+| SEAM-002 | Auth action flow | P2-T04 |
+| SEAM-003 | Guest auth bootstrap | P2-T03 |
+| SEAM-004 | Proxy guest rotation | P2-T08 |
+| SEAM-005 | Session resolution pipeline | P2-T01 |
 
 ---
 
@@ -46,10 +46,10 @@
 
 ---
 
-### TASK: [ID: P02-T01]
+### TASK: [ID: P2-T01]
 Title: Create session resolution function
 Phase: 2 — Auth Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: auth-system.md (session resolution pipeline: check Supabase session, fall back to guest JWT, resolve userId)
 Architecture ref: architecture/patterns.md (session resolution); SEAM-005 (session resolution pipeline)
@@ -59,13 +59,13 @@ Action: Create **lib/auth/session.ts** (NOT features/auth/lib/session.ts, NOT li
 Output files:
 - lib/auth/session.ts
 
-Inputs: @supabase/ssr (Supabase client), lib/data/user.ts (P01-T05), lib/types/ (AppSession from P00-T05)
+Inputs: @supabase/ssr (Supabase client), lib/data/user.ts (P1-T05), lib/types/ (AppSession from P0-T05)
 Outputs: getAppSession consumed by all server actions, API routes, and layouts that need auth
 
 AI layer handling: NEW
 
-Dependencies: P01-T05, P01-T14
-Dependents: P02-T03, P02-T04, P02-T06, P02-T08, P03-T09, P03-T20
+Dependencies: P1-T05
+Dependents: P2-T03, P2-T04, P2-T06, P2-T08, P3-T09, P3-T20
 
 Success criteria:
 - getAppSession returns AppSession with userId for valid Supabase session
@@ -79,10 +79,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P02-T02]
+### TASK: [ID: P2-T02]
 Title: Create auth validation schemas
 Phase: 2 — Auth Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: auth-system.md (login/register form validation)
 Architecture ref: conventions.md (Zod schemas with Schema suffix); AGENTS.md (input validation via Zod)
@@ -93,12 +93,12 @@ Output files:
 - features/auth/schemas/auth.schema.ts
 
 Inputs: zod package
-Outputs: Auth schemas consumed by auth form (P02-T06) and auth actions (P02-T04)
+Outputs: Auth schemas consumed by auth form (P2-T06) and auth actions (P2-T04)
 
 AI layer handling: NEW
 
-Dependencies: P00-T18
-Dependents: P02-T04, P02-T05
+Dependencies: P0-T05
+Dependents: P2-T04, P2-T05
 
 Success criteria:
 - loginSchema validates email format and password length
@@ -110,69 +110,66 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P02-T03]
+### TASK: [ID: P2-T03]
 Title: Create guest bootstrap
 Phase: 2 — Auth Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
-Behavior ref: auth-system.md (guest user creation, JWT minting, guest-to-auth migration)
-Architecture ref: SEAM-002 (guest token lifecycle); architecture/patterns.md (server actions); redesign/architecture.md (guest identity)
+Behavior ref: auth-system.md (guest user creation, JWT minting, rotation)
+Architecture ref: SEAM-003 (guest token lifecycle); ../../plan-archives/redesign/architecture.md (guest identity)
 
-Action: Create 2 files. (1) features/auth/lib/guest.ts — Export functions: mintGuestToken(userId): string (creates JWT with guest userId, 24h expiry), verifyGuestToken(token): {userId: string} | null (validates and decodes JWT), rotateGuestToken(token): string (refreshes expiring token with same userId). Uses jose library for JWT operations. (2) features/auth/actions/exchange.ts — "use server" action exchangeGuestToAuth(guestUserId: string, authUserId: string): Promise<void>. Migrates guest data: update chats where userId=guestUserId, update **artifacts** (NOT documents) where userId=guestUserId, invalidate caches for both user IDs, delete guest user record.
+Action: Create 2 files. (1) features/auth/lib/guest.ts — Export functions: mintGuestToken(userId): string (creates JWT with guest userId, 24h expiry), verifyGuestToken(token): {userId: string} | null (validates and decodes JWT), rotateGuestToken(token): string (refreshes expiring token with same userId). Uses jose library for JWT operations. (2) features/auth/lib/session.ts — Auth feature helpers that normalize guest/supabase session payloads for SessionProvider and server actions.
 
 Output files:
 - features/auth/lib/guest.ts
-- features/auth/actions/exchange.ts
+- features/auth/lib/session.ts
 
-Inputs: lib/auth/session.ts (P02-T01), lib/data/chat.ts (P01-T06), lib/data/artifact.ts (P01-T08)
-Outputs: Guest bootstrap consumed by proxy (P02-T08) for token rotation, exchange consumed by login/register (P02-T04)
+Inputs: lib/auth/session.ts (P2-T01), features/auth/schemas/auth.schema.ts (P2-T02)
+Outputs: Guest bootstrap consumed by proxy (P2-T08) and SessionProvider (P2-T06)
 
 AI layer handling: NEW
 
-Dependencies: P02-T01, P01-T06, P01-T08
-Dependents: P02-T04, P02-T08
+Dependencies: P2-T01
+Dependents: P2-T04, P2-T08
 
 Success criteria:
 - mintGuestToken creates valid JWT with 24h expiry
 - verifyGuestToken returns null for expired/invalid tokens (no throw)
 - rotateGuestToken preserves userId with new expiry
-- exchangeGuestToAuth migrates **artifacts** (NOT documents)
-- Cache invalidated for both user IDs
-- Guest user record deleted after migration
+- Helper session transforms are typed and reusable from auth feature modules
 - pnpm typecheck passes
 
 Complexity: M
 
 ---
 
-### TASK: [ID: P02-T04]
+### TASK: [ID: P2-T04]
 Title: Create auth actions (login/register/logout)
 Phase: 2 — Auth Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: auth-system.md (login, register, logout flows)
 Architecture ref: conventions.md (server actions — verb-first camelCase); DEV-015 (no .action.ts suffix)
 
-Action: Create 3 server action files. (1) features/auth/actions/login.ts — "use server" action login(formData: FormData): ActionResult. Validates with loginSchema, calls supabase.auth.signInWithPassword(). On success: check for guest session, if exists call exchangeGuestToAuth(), set session cookie, redirect to "/". On failure: return {error: message}. (2) features/auth/actions/register.ts — "use server" action register(formData: FormData): ActionResult. Validates with registerSchema, calls supabase.auth.signUp(), creates user record via createUser(), handles guest exchange, sets session cookie, redirects to "/". (3) features/auth/actions/logout.ts — "use server" action logout(): void. Calls supabase.auth.signOut(), clears session cookie, mints new guest JWT so user returns to guest state, redirects to "/". All use redirect() from next/navigation on success.
+Action: Create 3 server action files. (1) features/auth/actions/login.ts — "use server" action login(formData: FormData): ActionResult. Validates with loginSchema, calls supabase.auth.signInWithPassword(), sets session cookie, redirects to "/". On failure: return {error: message}. (2) features/auth/actions/register.ts — "use server" action register(formData: FormData): ActionResult. Validates with registerSchema, calls supabase.auth.signUp(), creates user record via createUser(), sets session cookie when applicable, redirects appropriately. (3) features/auth/actions/logout.ts — "use server" action logout(): void. Calls supabase.auth.signOut(), clears session cookie, redirects to "/login". All use redirect() from next/navigation on success.
 
 Output files:
 - features/auth/actions/login.ts
 - features/auth/actions/register.ts
 - features/auth/actions/logout.ts
 
-Inputs: features/auth/schemas/auth.schema.ts (P02-T02), lib/auth/session.ts (P02-T01), features/auth/actions/exchange.ts (P02-T03), features/auth/lib/guest.ts (P02-T03), lib/data/user.ts (P01-T05)
-Outputs: Auth actions consumed by auth form (P02-T05), sidebar user nav (P05), SessionProvider (P02-T06)
+Inputs: features/auth/schemas/auth.schema.ts (P2-T02), lib/auth/session.ts (P2-T01), features/auth/lib/guest.ts (P2-T03), lib/data/user.ts (P1-T05)
+Outputs: Auth actions consumed by auth form (P2-T05), sidebar user nav (P5), SessionProvider (P2-T06)
 
 AI layer handling: NEW
 
-Dependencies: P02-T01, P02-T02, P02-T03, P01-T05
-Dependents: P02-T05, P02-T06
+Dependencies: P2-T01, P2-T02, P2-T03
+Dependents: P2-T05, P2-T06
 
 Success criteria:
 - login validates input with loginSchema before Supabase call
 - register creates both Supabase user and DB user record
-- logout mints new guest token (user returns to guest state)
-- All handle guest-to-auth exchange when guest session exists
+- logout clears cookie + Supabase session and redirects
 - All redirect on success, return {error} on failure (not throw)
 - pnpm typecheck passes
 
@@ -180,10 +177,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P02-T05]
+### TASK: [ID: P2-T05]
 Title: Create auth form component
 Phase: 2 — Auth Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: auth-system.md (login/register UI); features.md (AuthForm component behavior)
 Architecture ref: ADR-001 (feature collocation — component in features/auth/); DEV-004 (auth form in feature dir, not components/)
@@ -193,13 +190,13 @@ Action: Create features/auth/components/auth-form.tsx — "use client" component
 Output files:
 - features/auth/components/auth-form.tsx
 
-Inputs: features/auth/schemas/auth.schema.ts (P02-T02), features/auth/actions/login.ts + register.ts (P02-T04), components/ui/ (P00-T11)
-Outputs: AuthForm consumed by login page and register page (P02-T07)
+Inputs: features/auth/schemas/auth.schema.ts (P2-T02), features/auth/actions/login.ts + register.ts (P2-T04), components/ui/ (P0-T11)
+Outputs: AuthForm consumed by login page and register page (P2-T07)
 
 AI layer handling: NEW
 
-Dependencies: P02-T02, P02-T04
-Dependents: P02-T07
+Dependencies: P2-T02, P2-T04
+Dependents: P2-T07
 
 Success criteria:
 - "use client" directive present
@@ -214,26 +211,26 @@ Complexity: L
 
 ---
 
-### TASK: [ID: P02-T06]
+### TASK: [ID: P2-T06]
 Title: Create SessionProvider
 Phase: 2 — Auth Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: auth-system.md (auth state broadcasting); state-management.md (SessionProvider context)
-Architecture ref: redesign/state-management.md (SessionProvider replaces AuthProvider); SEAM-001
+Architecture ref: ../../plan-archives/redesign/state-management.md (SessionProvider replaces AuthProvider); SEAM-001
 
 Action: Create features/auth/components/**session-provider.tsx** (NOT auth-provider.tsx) — "use client" component. Creates React context SessionContext with value {session: AppSession | null, isLoading: boolean, isGuest: boolean}. **Exported as SessionProvider (NOT AuthProvider)**. Provider receives initial session from server (passed as prop from layout). Listens for Supabase auth state changes (onAuthStateChange) and updates context. Exports **useSession()** hook for consuming auth state (NOT useAuthContext). On auth change: refreshes server session, updates context. Handles guest-to-auth transition seamlessly.
 
 Output files:
 - features/auth/components/session-provider.tsx
 
-Inputs: lib/auth/session.ts (P02-T01), lib/types/ (AppSession from P00-T05)
-Outputs: **SessionProvider** and **useSession** consumed by root layout (P02-T08), chat layout (P03-T21)
+Inputs: lib/auth/session.ts (P2-T01), lib/types/ (AppSession from P0-T05)
+Outputs: **SessionProvider** and **useSession** consumed by root layout (P2-T08), chat layout (P3-T21)
 
 AI layer handling: NEW
 
-Dependencies: P02-T01
-Dependents: P02-T08, P03-T21
+Dependencies: P2-T03
+Dependents: P2-T08, P3-T21
 
 Success criteria:
 - SessionContext provides session, isLoading, isGuest
@@ -248,13 +245,13 @@ Complexity: L
 
 ---
 
-### TASK: [ID: P02-T07]
+### TASK: [ID: P2-T07]
 Title: Create auth layout + pages
 Phase: 2 — Auth Vertical
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: auth-system.md (login page, register page); features.md (auth routes)
-Architecture ref: redesign/directory-structure.md (app/(auth)/ route group); conventions.md (page components)
+Architecture ref: ../../plan-archives/redesign/directory-structure.md (app/(auth)/ route group); conventions.md (page components)
 
 Action: Create 4 files. (1) app/(auth)/layout.tsx — Server component layout for auth pages. Centered card layout. Redirects authenticated users to "/" (check session via getAppSession()). (2) app/(auth)/login/page.tsx — Renders AuthForm with mode="login" and login server action. Sets metadata title. (3) app/(auth)/register/page.tsx — Renders AuthForm with mode="register" and register server action. Sets metadata title. (4) app/(auth)/error.tsx — Error boundary for auth routes. Displays user-friendly error message with retry/home links.
 
@@ -264,13 +261,13 @@ Output files:
 - app/(auth)/register/page.tsx
 - app/(auth)/error.tsx
 
-Inputs: features/auth/components/auth-form.tsx (P02-T05), features/auth/actions/ (P02-T04), lib/auth/session.ts (P02-T01)
-Outputs: Auth pages consumed by proxy route guards (P02-T08)
+Inputs: features/auth/components/auth-form.tsx (P2-T05), features/auth/actions/ (P2-T04), lib/auth/session.ts (P2-T01)
+Outputs: Auth pages consumed by proxy route guards (P2-T08)
 
 AI layer handling: NEW
 
-Dependencies: P02-T04, P02-T05
-Dependents: P02-T08
+Dependencies: P2-T05, P2-T06
+Dependents: P2-T08
 
 Success criteria:
 - Auth layout redirects authenticated users to "/"
@@ -284,13 +281,13 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P02-T08]
+### TASK: [ID: P2-T08]
 Title: Wire root layout + proxy
 Phase: 2 — Auth Vertical
-Type: INTEGRATION
+Type: INTEG
 
 Behavior ref: auth-system.md (proxy guest rotation, path guards); state-management.md (provider tree)
-Architecture ref: redesign/architecture.md (server layout, no app-shell.tsx); SEAM-004, SEAM-029
+Architecture ref: ../../plan-archives/redesign/architecture.md (server layout, no app-shell.tsx); SEAM-004, SEAM-029
 
 Action: Two integration steps. (1) Update **proxy.ts** (NOT middleware.ts) to add guest token rotation: if request has no session cookie AND no guest cookie, mint guest token inline and set cookie. If guest cookie is expiring (< 1 hour), refresh. Add path guards: redirect unauthenticated users from protected routes to /login (guest access to chat allowed). (2) Update **app/layout.tsx** (server component) to: call getAppSession(), wrap children with **SessionProvider** (NOT AuthProvider) passing the resolved session. Provider tree becomes: ThemeProvider > SessionProvider > Toaster > children. **No app-shell.tsx** — layout composes providers directly.
 
@@ -298,13 +295,13 @@ Output files:
 - proxy.ts (update)
 - app/layout.tsx (update)
 
-Inputs: lib/auth/session.ts (P02-T01), features/auth/components/session-provider.tsx (P02-T06)
+Inputs: lib/auth/session.ts (P2-T01), features/auth/lib/guest.ts (P2-T03), features/auth/components/session-provider.tsx (P2-T06), app/(auth)/ pages (P2-T07)
 Outputs: Session available to all client components via useSession(); proxy handles guest rotation
 
 AI layer handling: NEW
 
-Dependencies: P02-T01, P02-T06
-Dependents: P02-T09, P03-T21
+Dependencies: P2-T06
+Dependents: P2-T09, P3-T21
 
 Success criteria:
 - **proxy.ts** handles guest token rotation (NOT middleware.ts)
@@ -318,10 +315,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P02-T09]
+### TASK: [ID: P2-T09]
 Title: Verification gate G02
 Phase: 2 — Auth Vertical
-Type: VERIFICATION
+Type: VERIFY
 
 Behavior ref: auth-system.md (complete auth flow verification)
 Architecture ref: AGENTS.md (post-implementation validation); strategy/phase-order.md (gate G02)
@@ -330,13 +327,13 @@ Action: Run complete validation: (1) pnpm typecheck passes, (2) pnpm lint passes
 
 Output files: none (validation only)
 
-Inputs: all P02-T01 through P02-T08 outputs
-Outputs: Gate G02 passed — P03 can begin
+Inputs: all P2-T01 through P2-T08 outputs
+Outputs: Gate G02 passed — P3 can begin
 
 AI layer handling: N/A
 
-Dependencies: P02-T01 through P02-T08
-Dependents: P03-T01 (start of next phase)
+Dependencies: P2-T01 through P2-T08
+Dependents: P3-T01 (start of next phase)
 
 Success criteria:
 - pnpm typecheck exits 0

@@ -166,7 +166,7 @@
 
 **Flow:**
 1. Supabase `signInWithPassword`
-2. Exchange access token via `/api/auth/exchange`
+2. Submit `login` Server Action (`useActionState`) which sets auth cookie
 3. On success: redirect `/` with router.refresh()
 4. On error: toast notification
 

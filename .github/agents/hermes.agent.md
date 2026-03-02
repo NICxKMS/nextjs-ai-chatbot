@@ -1,7 +1,7 @@
 ---
 name: hermes
 description: "The Scout — Fast codebase exploration, pattern discovery, dependency mapping, and contextual grep. Finds what you need before you build."
-tools: [read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit, search/codebase, search, web, memory]
+tools: [vscode/memory, vscode/runCommand, execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit, search, web]
 ---
 
 # Hermes — The Scout

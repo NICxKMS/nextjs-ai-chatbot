@@ -30,9 +30,6 @@
 | `/api/suggestions` | GET | `ArtifactPanel` (text) | Fetch saved suggestions | Cookie |
 | `/api/files/upload` | POST | `MultimodalInput` | Upload file to Vercel Blob | Cookie |
 | `/api/health` | GET | External monitors | Health check | None |
-| `/api/auth/exchange` | POST | `AuthForm` (login/register) | Exchange Supabase token for cookie | None |
-| `/api/auth/guest` | POST | `SessionProvider` (auto) | Create guest session | None |
-| `/api/auth/logout` | POST | `SidebarUserNav` | Clear session cookie | Cookie |
 
 ### Server Actions (Mutations)
 
@@ -44,6 +41,9 @@
 | `voteOnMessage` | `VoteButtons` | Upvote/downvote message | `updateTag('votes:{chatId}')` |
 | `updateChatVisibility` | `VisibilitySelector` | Toggle public/private | `updateTag('chat:{id}')` + `updateTag('chats:{userId}')` |
 | `renameChat` | `SidebarHistoryItem` dropdown | Rename chat | `updateTag('chats:{userId}')` |
+| `login` | `AuthForm` | Email/password login + cookie set | Router Cache invalidated |
+| `register` | `AuthForm` | Registration + cookie set | Router Cache invalidated |
+| `logout` | `SidebarUserNav` | Clear session cookie, sign out | Router Cache invalidated |
 
 > **Removed:** `PATCH /api/vote` (→ Server Action), `DELETE /api/history` (→ Server Action),
 > `DELETE /api/chat/[id]` (→ Server Action). Mutations use Server Actions with `updateTag`.
@@ -72,7 +72,8 @@
 // Key generator
 function getChatHistoryPaginationKey(index, previousData) {
   if (previousData && !previousData.hasMore) return null;
-  return `/api/history?limit=20&offset=${index * 20}`;
+  if (index === 0) return '/api/history?limit=20';
+  return `/api/history?limit=20&cursor=${previousData?.nextCursor}`;
 }
 
 // Usage in SidebarHistoryClient
@@ -87,6 +88,8 @@ const { data, size, setSize, mutate } = useSWRInfinite(
 ```
 
 > **Key change:** `fallbackData` populated from server-rendered `SidebarShell` — no waterfall on initial load.
+
+> **SWR configuration note:** SWR is still used for sidebar history pagination (`useSWRInfinite`) and artifact version history (`useSWR` on-demand). Configuration is applied at point-of-use rather than via a global `SWRConfig` provider. There is no global `dedupingInterval` or `revalidateOnFocus` override — each SWR consumer configures its own options.
 
 ---
 
@@ -197,10 +200,10 @@ async function handleFileChange(files: FileList) {
 
 | Cookie | Set By | Validated By | TTL | Attributes |
 |--------|--------|-------------|-----|------------|
-| `sb_token` | `POST /api/auth/exchange` | `getAppSession()` | 7 days | httpOnly, secure, sameSite=lax, path=/ |
-| `guest_token` | `POST /api/auth/guest` (or proxy.ts) | `getAppSession()` | 7 days (cookie), 1h (JWT) | httpOnly, secure, sameSite=lax, path=/ |
+| `sb_token` | `login` / `register` Server Actions | `getAppSession()` | 7 days | httpOnly, secure, sameSite=lax, path=/ |
+| `guest_token` | `proxy.ts` guest bootstrap/rotation | `getAppSession()` | 7 days (cookie), 1h (JWT) | httpOnly, secure, sameSite=lax, path=/ |
 | `chat-model` | Client JS (`document.cookie`) | Server page components | Session | path=/ |
-| `sidebar_state` | Client (SidebarProvider) | Chat layout server component | Session | path=/ |
+| `sidebar:state` | Client (SidebarProvider) | Chat layout server component | Session | path=/ |
 
 ### Session Resolution Order
 
@@ -228,26 +231,25 @@ Every request (proxy.ts):
 
 ```
 Login:
-  1. supabase.auth.signInWithPassword({ email, password })
-  2. POST /api/auth/exchange { accessToken }
-  3. Server: jwtVerify → Set-Cookie sb_token → Return user
-  4. SessionProvider detects auth change (Supabase listener)
-  5. router.push('/') + router.refresh()
+  1. AuthForm submits to `login` Server Action (`useActionState`)
+  2. Server Action validates input + calls Supabase sign-in
+  3. Server Action sets `sb_token` cookie
+  4. redirect('/') + router cache invalidation
 
 Register:
-  1. supabase.auth.signUp({ email, password })
-  2. If session returned: same exchange flow
-  3. If no session (email confirm): redirect to /login
+  1. AuthForm submits to `register` Server Action (`useActionState`)
+  2. Server Action validates input + calls Supabase sign-up
+  3. On success: set `sb_token` cookie or redirect to /login when email confirmation is required
 
 Logout:
-  1. POST /api/auth/logout → delete sb_token cookie
-  2. Client: supabase.auth.signOut()
-  3. router.push('/')
+  1. Client calls logout() Server Action
+  2. Server Action: supabase.auth.signOut() + delete sb_token cookie
+  3. Server Action: redirect('/login')
 
 Guest Bootstrap:
-  1. SessionProvider detects no initialSession on mount
-  2. POST /api/auth/guest → sign JWT → Set-Cookie guest_token → Return session
-  3. setSession(guestSession)
+  1. Request enters `proxy.ts`
+  2. If no valid auth cookies: proxy mints/rotates guest JWT and sets `guest_token`
+  3. `getAppSession()` resolves guest session for server components and actions
 ```
 
 ---

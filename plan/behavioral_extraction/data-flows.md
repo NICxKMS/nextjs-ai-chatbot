@@ -12,18 +12,13 @@
 | `Chat` | `id` (uuid) | createdAt, updatedAt, title, userId (FK→User), visibility (enum), lastContext (jsonb) | `chat_user_created_idx(userId, createdAt)` |
 | `Message_v2` | `id` (uuid) | chatId (FK→Chat), role (enum), parts (jsonb), attachments (jsonb), createdAt | `message_chat_created_idx(chatId, createdAt)`, `message_chat_created_role_idx(chatId, createdAt, role)` |
 | `Vote_v2` | composite(chatId, messageId, userId) | isUpvoted (boolean) | — |
-| `Document` | composite(id, createdAt) | title, content, kind (enum), userId (FK→User), chatId (FK→Chat), updatedAt | `document_user_idx(userId)`, `document_chat_idx(chatId)` |
-
-> *The `Document` DB table retains its name at the schema level for migration compatibility, but all application-layer references use "Artifact" naming — `ArtifactKind`, `getArtifactById()`, `saveArtifactVersion()`. The `document_kind` enum values remain `text | code | image | sheet`.*
-
-| `Suggestion` | `id` (uuid) | documentId, documentCreatedAt, originalText, suggestedText, description, isResolved, userId | `suggestion_doc_idx(documentId)` |
+| `Artifact` | composite(id, createdAt) | title, content, kind (enum), userId (FK→User), chatId (FK→Chat), updatedAt | `artifact_user_idx(userId)`, `artifact_chat_idx(chatId)` |
+| `Suggestion` | `id` (uuid) | artifactId, artifactCreatedAt, originalText, suggestedText, description, isResolved, userId | `suggestion_artifact_idx(artifactId)` |
 
 ### Enums
 - `visibility`: `public` | `private`
 - `role`: `user` | `assistant` | `system`
-- `document_kind`: `text` | `code` | `image` | `sheet`
-
-> *Application layer uses `ArtifactKind` type alias for `document_kind` enum.*
+- `artifact_kind`: `text` | `code` | `image` | `sheet`
 
 ### Versioning Strategy
 Artifacts use composite PK `(id, createdAt)` — each save creates a new row with same `id` but different `createdAt`. Versions are ordered chronologically. The latest version is `artifacts.at(-1)`.
@@ -39,29 +34,26 @@ Route/Action → Guards (auth, rate limit) → Data Layer → Cache Layer → DB
 
 ### Data Layer (`lib/data/`)
 - `base.ts` — `DataContext` type, `createContext()`, `isGuest()`
-- `chat.ts` — `chatData` object with: get, getWithMessages, list, updateTitle, updateVisibility, delete, deleteAll
+- `chat.ts` — plain functions: `getChatById`, `getChatWithMessages`, `getChatsByUserId`, `updateChatTitle`, `updateVisibility`, `deleteChatById`, `deleteAllChatsByUserId`
 - `chat-operations.ts` — `saveChat()`, `updateChatTitle()` (higher-level orchestration)
-- `artifact.ts` — `artifactData` object with: get, getAll, save, getSuggestions
+- `artifact.ts` — plain functions: `getArtifactById`, `getArtifactVersions`, `saveArtifactVersion`, `getSuggestionsByArtifactId`
 
 > *Every mutation in the data layer calls `revalidateTag`/`updateTag` for Next.js cache invalidation. `'use cache'` + `cacheTag` replace Redis-based caching for most reads.*
 
-### Cache-First Strategy
+### Server Cache Strategy
 
-> *Cache layer shifts to Next.js `'use cache'` + `cacheTag` for reads, with `revalidateTag`/`updateTag` after mutations. Redis retained only for guest-only data, rate limiting, and daily quotas. The cache-first read pattern below remains behavioral truth for the old app.*
-
-All data access follows this pattern:
-1. **Check cache** (Redis) — both guest and auth users
-2. **Cache hit** → return cached data
-3. **Cache miss + guest** → return `null` (NO database call)
-4. **Cache miss + auth** → query database, warm cache in background, return
+All data access follows redesign semantics:
+1. Reads are server-side via `'use cache'` + `cacheTag`
+2. Writes persist to DB and trigger `updateTag` (Server Actions) or `revalidateTag(tag, 'max')` (Route Handlers)
+3. No guest-only cache mode: guest and authenticated users both persist chat/artifact data to DB
 
 ### Guest vs Authenticated Flow
 | Operation | Guest | Authenticated |
 |-----------|-------|---------------|
-| Read chat | Cache only → null if miss | Cache first → DB fallback |
-| Write chat | Cache only | DB first → cache update |
-| List chats | Cache ZSET + batch MGET | DB with pagination |
-| Delete chat | Cache delete only | DB delete + cache delete |
+| Read chat | Server fetch with `'use cache'` + ownership/visibility rules | Server fetch with `'use cache'` + ownership checks |
+| Write chat | Persist to DB + cache revalidation | Persist to DB + cache revalidation |
+| List chats | DB-backed list with cache tags | DB-backed list with cache tags |
+| Delete chat | Allowed by ownership + DB delete | Allowed by ownership + DB delete |
 
 ---
 
@@ -79,7 +71,6 @@ All data access follows this pattern:
 | `chat:{chatId}:{userId}:msgs` | Sorted Set | Members = JSON messages, Scores = timestamps |
 | `user:{userId}:chats` | Sorted Set | Members = `{chatId}`, Scores = timestamps |
 | `artifact:{artifactId}:{userId}` | String (JSON) | `CachedArtifact` — id, userId, chatId, versions[] |
-| `quota:{userId}:messages` | String | Message count for daily quota |
 
 ### Performance Characteristics
 - Message append: O(log N) via ZADD
@@ -92,7 +83,7 @@ All data access follows this pattern:
 - Threshold: 5 consecutive failures
 - Reset timeout: 30 seconds
 - When open: cache operations skipped, falls through to DB for auth users
-- Guest users: cache is only source, returns null when circuit open
+- Guest users also fall through to DB-backed reads/writes (cache outage degrades performance, not availability)
 
 ### TTL Strategy
 - Guest data: 7-day TTL applied via pipeline
@@ -110,7 +101,6 @@ Client                    Server                        Cache              DB
   ├──POST /api/chat────────>│                             │                 │
   │                         ├──getAppSession()            │                 │
   │                         ├──RateLimiters.chat()───────>│ (Redis)         │
-  │                         ├──getUserMessageCount()─────>│ (Redis)         │
   │                         ├──chatData.getWithMessages()>│ (Redis first)   │
   │                         │                             ├─cache miss──────>│ (DB fallback)
   │                         │                             │<─────result──────│
@@ -124,7 +114,6 @@ Client                    Server                        Cache              DB
   │                         │  │  │                       │                 │
   │                         │  ├──onFinish:               │                 │
   │                         │  │  ├──saveChat()──────────>│ (cache)─────────>│ (DB)
-  │                         │  │  ├──incrementQuota()────>│ (Redis)         │
   │                         │  │  └──updateTitle()───────>│ (cache)─────────>│ (DB)
 ```
 
@@ -135,10 +124,9 @@ Client                    Server                        Cache              DB
 ```
 1. getAppSession() → Supabase JWT or Guest JWT
 2. createContext(session) → DataContext { userId, isGuest }
-3. chatData.getWithMessages(id, ctx)
-   a. Redis: GET meta + ZRANGE msgs (single roundtrip)
-   b. Miss + auth: DB SELECT chat + messages, warm cache
-   c. Miss + guest: return null → redirect
+3. getChatWithMessages(id, ctx)
+  a. Server cache-tagged read path (`'use cache'` + `cacheTag`)
+  b. DB SELECT chat + messages (guest/auth use same persistence model)
 4. Verify visibility + ownership
 5. convertToUIMessages(messagesFromDb) → UIMessage[]
 6. getVotesByChatIdAndUserId (DB, only for auth users with messages)
@@ -159,8 +147,7 @@ AI Tool (createArtifact/updateArtifact)
   │   ├──streamObject/streamText (AI SDK)
   │   ├──Stream deltas to dataStream
   │   └──saveArtifactVersion():
-  │       ├──Guest: appendArtifactVersionToCache (Redis only)
-  │       └──Auth: DB INSERT + revalidateTag('artifact:{id}')
+  │       └──DB INSERT + revalidateTag('artifact:{id}')
   │
   └──Client processes via StreamBridge:
       ├──processStreamDelta() → artifactStore (useSyncExternalStore)
@@ -182,22 +169,19 @@ Authenticated:
   4. Response cached: private, max-age=0, s-maxage=10, stale-while-revalidate=30
 ```
 
-## Flow: Token Exchange (Auth)
+## Flow: Auth Server Actions
 
-> *Token exchange consolidated to Server Action `exchangeTokenAction()`. No separate `/api/auth/exchange` route. `proxy.ts` handles guest session creation.*
+> *Auth mutations use Server Actions (`login`, `register`, `logout`). Guest bootstrap/rotation is handled in `proxy.ts`.*
 
 ```
-Client                    Supabase                Server (/api/auth/exchange)
-  │                         │                         │
-  ├──signInWithPassword()──>│                         │
-  │<──session + accessToken─│                         │
-  ├──POST /api/auth/exchange { accessToken }─────────>│
-  │                         │                         ├──jwtVerify(token, SUPABASE_JWT_SECRET)
-  │                         │                         │  audience: "authenticated"
-  │                         │                         │  issuer: "{SUPABASE_URL}/auth/v1"
-  │                         │                         ├──Set httpOnly cookie
-  │<────────────────────────────{ user }──────────────│
-  ├──router.push("/")
+Client (AuthForm)          Supabase                 Server Action (login/register)
+  │                           │                               │
+  ├──submit form─────────────>│                               │
+  │                           ├──signIn/signUp───────────────>│
+  │                           │<──────── result ──────────────│
+  │                           │                               ├──Set-Cookie sb_token
+  │<───────────────────────────────────────────────────────────│
+  ├──redirect("/") + router refresh
 ```
 
 ---
@@ -233,6 +217,6 @@ Client                    Supabase                Server (/api/auth/exchange)
 | Save artifact (user edit) | `POST /api/artifact` | Debounced save → new version row | `revalidateTag('artifact:{id}', 'max')` | Local editor state |
 | Vote on message | Server Action | `voteOnMessage()` | `updateTag('votes:{chatId}')` | `useOptimistic` |
 | Login / Register | Server Action | `useActionState` | `cookies.set()` invalidates Router Cache | Form return value |
-| Logout | Server Action | `logoutAction()` | `cookies.delete()` invalidates Router Cache | Redirect to `/login` |
+| Logout | Server Action | `logout()` | `cookies.delete()` invalidates Router Cache | Redirect to `/login` |
 | Delete trailing messages | Server Action | `deleteTrailingMessages()` | `updateTag('chat:{id}')` | `setMessages` via `useChat` |
 ```

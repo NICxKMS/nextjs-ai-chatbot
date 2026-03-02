@@ -99,7 +99,7 @@
 lib/data/
 ├── chat.ts       # getChatById, createChat, deleteChatById, getChatsByUserId, ...
 ├── message.ts    # getMessagesByChatId, createMessage, ...
-├── document.ts   # getDocumentById, saveDocumentVersion, ...
+├── artifact.ts   # getArtifactById, saveArtifactVersion, ...
 ├── user.ts       # getUserById, createUser, ...
 ├── vote.ts       # upsertVote, getVotesByChatId, ...
 └── context.ts    # DataContext type, createDataContext()
@@ -107,7 +107,7 @@ lib/data/
 
 **Reason**:
 1. The app has ~15 specific data operations, not generic CRUD. A `findMany(options)` never matches actual usage.
-2. The guest/auth branching (cache-only vs cache+DB) doesn't fit into a generic `findById()` — every read needs `DataContext`.
+2. Guest/auth branching for authorization/capability checks still does not fit cleanly into generic `findById()` abstractions — every read needs `DataContext`.
 3. Abstract class with generics adds ~350 lines of abstraction for no runtime benefit.
 4. Function-based modules are trivially testable (mock the function) vs class instances (instantiate with mocked dependencies).
 5. The existing app already uses this pattern successfully (`chatData.get()`, `documentData.save()`).
@@ -328,7 +328,7 @@ Do NOT build: canvas, citations, workflow, queue, checkpoint wrappers.
 
 **Reason**: The existing application uses "document" to refer to rich content artifacts (code, text, sheet, image), which conflicts with both the DOM `document` object and browser `Document` concept. "Artifact" is clearer, avoids naming conflicts, and better describes the concept of AI-generated content. The rename was identified in the redesign audit as universally beneficial.
 
-**Trade-offs**: Any future reference to the old plan must mentally translate "document" → "artifact". All 36+ identifiers change. See `redesign/cleanup-inventory.md` §2 for the exhaustive rename inventory.
+**Trade-offs**: Any future reference to the old plan must mentally translate "document" → "artifact". All 36+ identifiers change. See `../../plan-archives/redesign/cleanup-inventory.md` §2 for the exhaustive rename inventory.
 
 ---
 

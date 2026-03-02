@@ -157,6 +157,8 @@ export function processStreamDelta(
     case 'artifact-sheetDelta':
     case 'artifact-imageDelta':
       return { artifact: { ...current, content: delta.content } }
+    case 'artifact-suggestion':
+      return { artifact: { ...current, suggestions: [...(current.suggestions ?? []), delta.content] } }
     default:
       return { artifact: current }
   }

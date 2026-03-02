@@ -15,6 +15,8 @@
 
 **Resolution:** Handled within P7 polish tasks. Chat component uses `useChat` built-in SSE lifecycle management. `navigator.onLine` monitoring + offline toast added during P7-T03 (accessibility + keyboard nav). Submit button disabled when offline.
 
+> **Redesign note:** Original resolution was P7-T15 (`useConnectionStatus` hook with exponential backoff). Per redesign, SSE reconnection is handled natively by `useChat` + error boundaries. Offline detection (`navigator.onLine` monitoring + offline toast) is included in P7-T03 accessibility task.
+
 ---
 
 ### 2. URL Query Auto-Send — **RESOLVED**
@@ -25,7 +27,7 @@
 
 ### 3. Credit/Usage Alert UI — **REMOVED**
 
-**Resolution:** The redesign eliminates all credit/gateway/quota logic (see `redesign/cleanup-inventory.md` §1). There is no `data-usage` stream part, no `AppUsage` type, no credit depletion `AlertDialog`. Rate limiting for abuse prevention (50 req/min) uses standard HTTP 429 responses, not a credit system.
+**Resolution:** The redesign eliminates all credit/gateway/quota logic (see `../../plan-archives/redesign/cleanup-inventory.md` §1). There is no `data-usage` stream part, no `AppUsage` type, no credit depletion `AlertDialog`. Rate limiting for abuse prevention (50 req/min) uses standard HTTP 429 responses, not a credit system.
 
 ---
 

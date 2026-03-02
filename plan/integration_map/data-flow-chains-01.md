@@ -60,7 +60,7 @@ User types message in MultimodalInput on home page and clicks send.
 
 6. SERVER: onFinish callback
    a. saveMessages(chatId, messages) → DB
-   b. Generate title: generateText({ model: 'google:gemini-2.0-flash-lite', messages })
+   b. Generate title: generateText({ model: TITLE_MODEL, messages })
    c. updateChatTitle(chatId, title)
    d. ChatStream.writeData({ type: 'chat-title', content: title })
    e. revalidateTag('chat:{chatId}', 'max')
@@ -176,7 +176,7 @@ User clicks delete in SidebarHistoryItem dropdown.
 
 ### Error Recovery
 - If server action fails: toast notification, but optimistic removal already happened
-- On next full fetch (SWR revalidation), list reconciles with server state
+- On next full history refresh cycle, list reconciles with server state
 
 ---
 

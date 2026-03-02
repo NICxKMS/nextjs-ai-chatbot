@@ -25,7 +25,7 @@ Implement the server-rendered sidebar with client pagination: SidebarShell as a 
 | P5-T02 | Create PendingChatsProvider | IMPL | `features/sidebar/hooks/use-pending-chats.ts` (context: `add`, `remove`, `updateTitle`, `markConfirmed`) | P0-T07 | L |
 | P5-T03 | Create useSidebarHistory hook | IMPL | `features/sidebar/hooks/use-sidebar-history.ts` (`useSWRInfinite` wrapper) | P5-T01 | M |
 | P5-T04 | Create SidebarHistoryItem | IMPL | `features/sidebar/components/sidebar-history-item.tsx` (link + rename + delete dropdown) | P5-T01 | M |
-| P5-T05 | Create SidebarHistoryClient | IMPL | `features/sidebar/components/sidebar-history-client.tsx` (initial data from server + SWR pagination + optimistic merge) | P5-T02, P5-T03, P5-T04 | L |
+| P5-T05 | Create SidebarHistoryClient | IMPL | `features/sidebar/components/sidebar-history-client.tsx` (initial data from server + SWR pagination + optimistic merge). Note: Virtualization (GroupedVirtuoso from old plan) is deferred. Initial implementation uses native scrolling with SWR infinite pagination. Virtualization can be added in a future optimization pass if chat history performance becomes an issue. | P5-T02, P5-T03, P5-T04 | L |
 | P5-T06 | Create SidebarUserNav | IMPL | `features/sidebar/components/sidebar-user-nav.tsx` (avatar, theme toggle, logout) | P2-T04 | M |
 | P5-T07 | Create SidebarSkeleton | IMPL | `features/sidebar/components/sidebar-skeleton.tsx` (PPR fallback, SERVER) | P0-T11 | S |
 | P5-T08 | Create SidebarShell (SERVER) | IMPL | `features/sidebar/components/sidebar-shell.tsx` (async, `'use cache'` + `cacheTag('chats:{userId}')`, renders structure) | P1-T06, P5-T05, P5-T06 | L |
@@ -92,7 +92,7 @@ Implement the server-rendered sidebar with client pagination: SidebarShell as a 
 
 | Seam | Description | Task |
 |------|-------------|------|
-| SEAM-013 | Optimistic chat creation (PendingChatsProvider) | P5-T02, P5-T11 |
+| SEAM-013 | Optimistic chat creation (PendingChatsProvider) | P5-T02, P5-T05 |
 | SEAM-014 | Title sync (single-channel stream → PendingChats) | P5-T02, P5-T05 |
 | SEAM-020 | Sidebar history pagination (server initial + SWR pagination) | P5-T05, P5-T10 |
 | SEAM-030 | Theme system (toggle in user nav) | P5-T06 |

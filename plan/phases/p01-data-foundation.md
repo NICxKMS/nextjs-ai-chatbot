@@ -1,11 +1,11 @@
-# Phase P01 — Data Foundation
+# Phase P1 — Data Foundation
 
 > **Updated per redesign audit (2026-03-01)**
 
 > Data layer phase. Creates the database migration infrastructure, cache layer,
 > all data access functions, AI provider foundation, and test fixtures.
 >
-> **Entry state**: P00 complete — project scaffolded, types/errors/utils defined, Drizzle schema ready.
+> **Entry state**: P0 complete — project scaffolded, types/errors/utils defined, Drizzle schema ready.
 > **Exit state**: All data functions importable and type-correct, cache wired, AI providers registered.
 > **Est. duration**: ~2 days
 > **Tasks**: 14
@@ -17,20 +17,20 @@
 
 | ID | Title | Type | Complexity | Files |
 |----|-------|------|------------|-------|
-| P01-T01 | Create DB migration infra | IMPLEMENTATION | M | 2 |
-| P01-T02 | Create cache client + keys | IMPLEMENTATION | M | 2 |
-| P01-T03 | Create revalidation utilities | IMPLEMENTATION | M | 1 |
-| P01-T04 | Create cache-through helper | IMPLEMENTATION | S | 1 |
-| P01-T05 | Create user data access | IMPLEMENTATION | S | 1 |
-| P01-T06 | Create chat data access | IMPLEMENTATION | L | 1 |
-| P01-T07 | Create message data access | IMPLEMENTATION | M | 1 |
-| P01-T08 | Create artifact data access | IMPLEMENTATION | L | 1 |
-| P01-T09 | Create vote data access | IMPLEMENTATION | S | 1 |
-| P01-T10 | Create suggestion data access | IMPLEMENTATION | S | 1 |
-| P01-T11 | Create AI provider registry | IMPLEMENTATION | M | 1 |
-| P01-T12 | Create AI provider wrapper | IMPLEMENTATION | M | 1 |
-| P01-T13 | Create test fixtures | IMPLEMENTATION | M | 4 |
-| P01-T14 | Verification gate G01 | VERIFICATION | S | 0 |
+| P1-T01 | Create DB migration infra | IMPL | M | 2 |
+| P1-T02 | Create cache client + keys | IMPL | M | 2 |
+| P1-T03 | Create revalidation utilities | IMPL | M | 1 |
+| P1-T04 | Create cache-through helper | IMPL | S | 1 |
+| P1-T05 | Create user data access | IMPL | S | 1 |
+| P1-T06 | Create chat data access | IMPL | L | 1 |
+| P1-T07 | Create message data access | IMPL | M | 1 |
+| P1-T08 | Create artifact data access | IMPL | L | 1 |
+| P1-T09 | Create vote data access | IMPL | S | 1 |
+| P1-T10 | Create suggestion data access | IMPL | S | 1 |
+| P1-T11 | Create AI provider registry | IMPL | M | 2 |
+| P1-T12 | Create AI provider wrapper | IMPL | M | 1 |
+| P1-T13 | Create test fixtures | IMPL | M | 4 |
+| P1-T14 | Verification gate G01 | VERIFY | S | 0 |
 
 ---
 
@@ -38,10 +38,11 @@
 
 | Seam | Description | Task |
 |------|-------------|------|
-| SEAM-023 | Data context assembly | P01-T05 |
-| SEAM-024 | Chat data + cache invalidation | P01-T06 (partial) |
-| SEAM-025 | Artifact data + versioning | P01-T08 (partial) |
-| SEAM-026 | Message persistence + ordering | P01-T07 (partial) |
+| SEAM-017 | AI Provider Registry (model discovery + registration) | P1-T11, P1-T12 |
+| SEAM-023 | Data context assembly | P1-T05 |
+| SEAM-024 | Chat data + cache invalidation | P1-T06 (partial) |
+| SEAM-025 | Artifact data + versioning | P1-T08 (partial) |
+| SEAM-026 | Message persistence + ordering | P1-T07 (partial) |
 
 ---
 
@@ -49,27 +50,27 @@
 
 ---
 
-### TASK: [ID: P01-T01]
+### TASK: [ID: P1-T01]
 Title: Create DB migration infrastructure
 Phase: 1 — Data Foundation
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: data-flows.md (schema migration process)
 Architecture ref: scaffold/base-config.md (db:generate, db:migrate, db:push scripts)
 
-Action: Create lib/db/migrate.ts — Migration runner using drizzle-kit/migrate that reads from lib/db/migrations/ directory. Create drizzle.config.ts at project root with schema path, migrations directory, and database URL from env. Verify pnpm db:generate creates migration SQL from schema.ts and pnpm db:push applies schema directly (for dev). The migrations/ directory stores generated SQL files. Note: lib/db/client.ts and lib/db/schema.ts already created in P00-T04.
+Action: Create lib/db/migrate.ts — Migration runner using drizzle-kit/migrate that reads from lib/db/migrations/ directory. Create drizzle.config.ts at project root with schema path, migrations directory, and database URL from env. Verify pnpm db:generate creates migration SQL from schema.ts and pnpm db:push applies schema directly (for dev). The migrations/ directory stores generated SQL files. Note: lib/db/client.ts and lib/db/schema.ts already created in P0-T04.
 
 Output files:
 - lib/db/migrate.ts
 - drizzle.config.ts
 
-Inputs: lib/db/schema.ts (P00-T04), lib/db/client.ts (P00-T04)
+Inputs: lib/db/schema.ts (P0-T04), lib/db/client.ts (P0-T04)
 Outputs: Migration infrastructure for database setup; consumed by deployment pipeline
 
 AI layer handling: NEW
 
-Dependencies: P00-T04, P00-T18
-Dependents: P01-T14
+Dependencies: P0-T04, P0-T18
+Dependents: P1-T14
 
 Success criteria:
 - drizzle.config.ts points to lib/db/schema.ts and lib/db/migrations/
@@ -82,10 +83,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P01-T02]
+### TASK: [ID: P1-T02]
 Title: Create cache client and key definitions
 Phase: 1 — Data Foundation
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: data-flows.md (Redis/KV caching strategy, key patterns)
 Architecture ref: architecture/patterns.md (cache-aside pattern); architecture/decisions.md (ADR-007: Redis + use cache)
@@ -97,12 +98,12 @@ Output files:
 - lib/cache/keys.ts
 
 Inputs: data-flows.md (cache key patterns), @vercel/kv package
-Outputs: Cache client consumed by P01-T03 (revalidation), P01-T04 (withCache), and data functions (P01-T05 through P01-T09)
+Outputs: Cache client consumed by P1-T03 (revalidation), P1-T04 (withCache), and data functions (P1-T05 through P1-T09)
 
 AI layer handling: NEW
 
-Dependencies: P00-T18
-Dependents: P01-T03, P01-T04, P01-T05, P01-T06, P01-T07, P01-T08, P01-T09
+Dependencies: P0-T18
+Dependents: P1-T03, P1-T04
 
 Success criteria:
 - Cache client gracefully handles missing env vars (returns null, no throw)
@@ -115,26 +116,26 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P01-T03]
+### TASK: [ID: P1-T03]
 Title: Create revalidation utilities
 Phase: 1 — Data Foundation
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: data-flows.md (cache invalidation after mutations)
-Architecture ref: redesign/architecture.md (revalidateTag/updateTag after every mutation)
+Architecture ref: ../../plan-archives/redesign/architecture.md (revalidateTag/updateTag after every mutation)
 
 Action: Create lib/cache/revalidate.ts — Export revalidateEntity(type, id) that calls revalidateTag() for Next.js cache tags. Export updateTag(type, id, data) for optimistic tag updates. Types: 'chat' | 'artifact' | 'messages' | 'votes'. Export convenience functions: invalidateChat(chatId), refreshChat(chatId), etc. **Uses revalidateTag/updateTag pattern per redesign (NOT manual cache key invalidation alone)**.
 
 Output files:
 - lib/cache/revalidate.ts
 
-Inputs: lib/cache/client.ts (P01-T02), lib/cache/keys.ts (P01-T02)
+Inputs: lib/cache/client.ts (P1-T02), lib/cache/keys.ts (P1-T02)
 Outputs: Revalidation utilities consumed by all Server Actions and route handlers performing mutations
 
 AI layer handling: NEW
 
-Dependencies: P01-T02
-Dependents: P01-T05, P01-T06, P01-T07, P01-T08, P01-T09
+Dependencies: P1-T02
+Dependents: P1-T06, P1-T07, P1-T08
 
 Success criteria:
 - revalidateEntity calls revalidateTag for the correct entity type
@@ -147,10 +148,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P01-T04]
+### TASK: [ID: P1-T04]
 Title: Create cache-through helper
 Phase: 1 — Data Foundation
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: data-flows.md (cache-aside pattern implementation)
 Architecture ref: architecture/patterns.md (cache-aside with withCache helper)
@@ -160,13 +161,13 @@ Action: Create lib/cache/with-cache.ts — Generic withCache<T>(key, fetcher, tt
 Output files:
 - lib/cache/with-cache.ts
 
-Inputs: lib/cache/client.ts (P01-T02), lib/cache/keys.ts (P01-T02)
-Outputs: Cache-through helper consumed by data access functions (P01-T05 through P01-T09)
+Inputs: lib/cache/client.ts (P1-T02), lib/cache/keys.ts (P1-T02)
+Outputs: Cache-through helper consumed by data access functions (P1-T05 through P1-T09)
 
 AI layer handling: NEW
 
-Dependencies: P01-T02
-Dependents: P01-T05, P01-T06, P01-T07, P01-T08, P01-T09
+Dependencies: P1-T02
+Dependents: P1-T06, P1-T07, P1-T08
 
 Success criteria:
 - withCache returns cached value on hit, fetcher value on miss
@@ -178,10 +179,10 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P01-T05]
+### TASK: [ID: P1-T05]
 Title: Create user data access functions
 Phase: 1 — Data Foundation
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: data-flows.md (user CRUD operations); auth-system.md (user lookup for login/register)
 Architecture ref: ADR-002 (function-based data access); DEV-005 (plain functions, no class)
@@ -191,13 +192,13 @@ Action: Create lib/data/user.ts — Export functions: getUserByEmail(email): Use
 Output files:
 - lib/data/user.ts
 
-Inputs: lib/db/ (P01-T01), lib/types/models.types.ts (User, NewUser from P00-T05), lib/errors/ (P00-T08)
-Outputs: User data functions consumed by auth actions (P02-T03, P02-T04)
+Inputs: lib/db/ (P1-T01), lib/types/models.types.ts (User, NewUser from P0-T05), lib/errors/ (P0-T08)
+Outputs: User data functions consumed by auth actions (P2-T03, P2-T04)
 
 AI layer handling: NEW
 
-Dependencies: P00-T04, P00-T08
-Dependents: P02-T03, P02-T04
+Dependencies: P0-T04, P0-T05, P0-T08
+Dependents: P2-T03, P2-T04
 
 Success criteria:
 - All 4 functions exported with correct return types
@@ -210,10 +211,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P01-T06]
+### TASK: [ID: P1-T06]
 Title: Create chat data access functions
 Phase: 1 — Data Foundation
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: data-flows.md (chat CRUD, visibility, history pagination); features.md (chat history, rename, delete)
 Architecture ref: ADR-002 (function-based data access); SEAM-024 (chat data + cache invalidation)
@@ -223,13 +224,13 @@ Action: Create lib/data/chat.ts — Export functions: getChatById(chatId, userId
 Output files:
 - lib/data/chat.ts
 
-Inputs: lib/db/ (P00-T04), lib/cache/ (P01-T03, P01-T04), lib/types/ (P00-T05), lib/errors/ (P00-T08)
-Outputs: Chat data functions consumed by chat actions (P03-T09, P03-T10), sidebar (P05), API routes
+Inputs: lib/db/ (P0-T04), lib/cache/ (P1-T03, P1-T04), lib/types/ (P0-T05), lib/errors/ (P0-T08)
+Outputs: Chat data functions consumed by chat actions (P3-T09, P3-T10), sidebar (P5), API routes
 
 AI layer handling: NEW
 
-Dependencies: P00-T04, P01-T03, P01-T04
-Dependents: P03-T09, P03-T10, P05 (sidebar)
+Dependencies: P0-T04, P0-T05, P0-T08, P1-T03, P1-T04
+Dependents: P3-T09, P3-T10, P5 (sidebar)
 
 Success criteria:
 - getChatById uses withCache with chatMeta key
@@ -242,10 +243,10 @@ Complexity: L
 
 ---
 
-### TASK: [ID: P01-T07]
+### TASK: [ID: P1-T07]
 Title: Create message data access functions
 Phase: 1 — Data Foundation
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: data-flows.md (message persistence, ordering by createdAt); features.md (message display, edit, delete trailing)
 Architecture ref: ADR-002 (function-based data access); SEAM-026 (message persistence + ordering)
@@ -255,13 +256,13 @@ Action: Create lib/data/message.ts — Export functions: getMessagesByChatId(cha
 Output files:
 - lib/data/message.ts
 
-Inputs: lib/db/ (P00-T04), lib/cache/ (P01-T03, P01-T04), lib/types/ (P00-T05)
-Outputs: Message data functions consumed by chat streaming (P03-T09), message actions (P03-T10)
+Inputs: lib/db/ (P0-T04), lib/cache/ (P1-T03, P1-T04), lib/types/ (P0-T05)
+Outputs: Message data functions consumed by chat streaming (P3-T09), message actions (P3-T10)
 
 AI layer handling: NEW
 
-Dependencies: P00-T04, P01-T03, P01-T04
-Dependents: P03-T09, P03-T10
+Dependencies: P0-T04, P0-T05, P1-T03, P1-T04
+Dependents: P3-T09, P3-T10
 
 Success criteria:
 - getMessagesByChatId returns messages ordered by createdAt ASC
@@ -274,26 +275,26 @@ Complexity: L
 
 ---
 
-### TASK: [ID: P01-T08]
+### TASK: [ID: P1-T08]
 Title: Create artifact data access functions
 Phase: 1 — Data Foundation
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: data-flows.md (artifact versioning via composite PK); features.md (artifact CRUD)
-Architecture ref: redesign/architecture.md (artifact naming); SEAM-025 (artifact data + versioning)
+Architecture ref: ../../plan-archives/redesign/architecture.md (artifact naming); SEAM-025 (artifact data + versioning)
 
 Action: Create **lib/data/artifact.ts** (NOT lib/data/document.ts) — Export functions: getArtifactById(artifactId, userId): Artifact | null (latest version — highest createdAt for given id), getArtifactVersions(artifactId, userId): Artifact[] (all versions ordered by createdAt DESC), createArtifact(data: {id, title, content, kind: ArtifactKind, userId, chatId}): Artifact (insert new version), updateArtifactContent(artifactId, userId, content): Artifact (creates new version row with new createdAt), deleteArtifactById(artifactId, userId): void (delete all versions). Artifacts use composite PK (id + createdAt) for versioning. Use cache with **artifact-* cache tags** via revalidateEntity('artifact', id).
 
 Output files:
 - lib/data/artifact.ts
 
-Inputs: lib/db/ (P00-T04), lib/cache/ (P01-T03, P01-T04), lib/types/artifact.types.ts (P00-T06)
-Outputs: Artifact data functions consumed by artifact actions (P04), artifact tools (P03)
+Inputs: lib/db/ (P0-T04), lib/cache/ (P1-T03, P1-T04), lib/types/artifact.types.ts (P0-T06)
+Outputs: Artifact data functions consumed by artifact actions (P4), artifact tools (P3)
 
 AI layer handling: NEW
 
-Dependencies: P00-T04, P01-T03, P01-T04
-Dependents: P04 (artifacts phase)
+Dependencies: P0-T04, P0-T05, P0-T06, P1-T03, P1-T04
+Dependents: P4 (artifacts phase)
 
 Success criteria:
 - **File is lib/data/artifact.ts** (NOT document.ts)
@@ -308,10 +309,10 @@ Complexity: L
 
 ---
 
-### TASK: [ID: P01-T09]
+### TASK: [ID: P1-T09]
 Title: Create vote data access functions
 Phase: 1 — Data Foundation
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: data-flows.md (vote upsert); features.md (message voting)
 Architecture ref: ADR-002 (function-based data access)
@@ -321,13 +322,13 @@ Action: Create lib/data/vote.ts — Export functions: getVotesByChatId(chatId, u
 Output files:
 - lib/data/vote.ts
 
-Inputs: lib/db/ (P01-T01), lib/types/ (P00-T05)
-Outputs: Vote data functions consumed by voting actions (P06)
+Inputs: lib/db/ (P1-T01), lib/types/ (P0-T05)
+Outputs: Vote data functions consumed by voting actions (P6)
 
 AI layer handling: NEW
 
-Dependencies: P00-T04
-Dependents: P06 (voting phase)
+Dependencies: P0-T04, P0-T05
+Dependents: P6 (voting phase)
 
 Success criteria:
 - upsertVote uses ON CONFLICT DO UPDATE on composite PK
@@ -339,10 +340,10 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P01-T10]
+### TASK: [ID: P1-T10]
 Title: Create suggestion data access functions
 Phase: 1 — Data Foundation
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: data-flows.md (suggestion persistence); features.md (inline suggestions)
 Architecture ref: ADR-002 (function-based data access)
@@ -352,13 +353,13 @@ Action: Create lib/data/suggestion.ts — Export functions: getSuggestionsByArti
 Output files:
 - lib/data/suggestion.ts
 
-Inputs: lib/db/ (P00-T04), lib/types/ (P00-T05)
-Outputs: Suggestion data functions consumed by suggestion actions (P06)
+Inputs: lib/db/ (P0-T04), lib/types/ (P0-T05)
+Outputs: Suggestion data functions consumed by suggestion actions (P6)
 
 AI layer handling: NEW
 
-Dependencies: P00-T04
-Dependents: P06 (enhancements phase)
+Dependencies: P0-T04, P0-T05
+Dependents: P6 (enhancements phase)
 
 Success criteria:
 - getSuggestionsByArtifactId filters by **artifactId** (NOT documentId)
@@ -370,27 +371,26 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P01-T11]
+### TASK: [ID: P1-T11]
 Title: Create AI provider registry
 Phase: 1 — Data Foundation
-Type: IMPLEMENTATION
+Type: IMPL
 
-Behavior ref: ai-sdk-usage.md (6 AI providers, model selection)
-Architecture ref: redesign/ai-integration.md (provider registry)
+Behavior ref: ai-sdk-usage.md (provider registry baseline + model resolution)
+Architecture ref: ../../plan-archives/redesign/ai-integration.md (provider registry)
 
-Action: Create 2 files. (1) lib/ai/registry.ts — Registry mapping ProviderId to AI SDK provider instances. Import @ai-sdk/openai, @ai-sdk/anthropic, @ai-sdk/google, @ai-sdk/mistral, @ai-sdk/groq, @ai-sdk/xai. Export getProvider(providerId: ProviderId) that returns the correct provider instance. Export getModel(modelId: string) that parses "provider:model" format and returns the LanguageModel. (2) lib/ai/models.ts — Export MODEL_LIST: ModelMetadata[] with all supported models, capabilities, and default selections. Export getModelMetadata(modelId) and DEFAULT_CHAT_MODEL.
+Action: Create `lib/ai/registry.ts` — Provider registry mapping ProviderId to AI SDK provider instances. Baseline providers are conditional `google`, `openai`, and `openrouter` only. OpenRouter uses `createOpenAI({ apiKey: OPENROUTER_API_KEY, baseURL: 'https://openrouter.ai/api/v1' })`. Export registry/model resolver utilities consumed by provider wrapper and chat features.
 
 Output files:
 - lib/ai/registry.ts
-- lib/ai/models.ts
 
-Inputs: lib/types/model.types.ts (P00-T05), AI SDK packages
-Outputs: AI provider registry consumed by chat route (P03), model selector (P06)
+Inputs: lib/types/model.types.ts (P0-T05), AI SDK packages
+Outputs: AI provider registry consumed by chat route (P3), model selector (P6)
 
 AI layer handling: NEW
 
-Dependencies: P00-T05, P00-T18
-Dependents: P01-T12, P03-T01, P06-T05
+Dependencies: P0-T05, P0-T18
+Dependents: P1-T12, P3-T01
 
 Success criteria:
 - getProvider returns correct AI SDK provider for each ProviderId
@@ -403,26 +403,26 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P01-T12]
+### TASK: [ID: P1-T12]
 Title: Create AI provider wrapper
 Phase: 1 — Data Foundation
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: ai-sdk-usage.md (streaming, tool calling, message conversion)
-Architecture ref: redesign/ai-integration.md (customModel wrapper)
+Architecture ref: ../../plan-archives/redesign/ai-integration.md (customModel wrapper)
 
-Action: Create lib/ai/provider.ts — Export customModel(modelId: string) wrapper that uses getModel() from P01-T11 and applies standard middleware: usage tracking, error wrapping (AI errors → AppError.aiError), request/response logging in development. The wrapper preserves the LanguageModel interface so it's a drop-in replacement for direct model calls. This is the only place AI SDK models are instantiated for chat.
+Action: Create lib/ai/provider.ts — Export customModel(modelId: string) wrapper that uses getModel() from P1-T11 and applies standard middleware: usage tracking, error wrapping (AI errors → AppError.aiError), request/response logging in development. The wrapper preserves the LanguageModel interface so it's a drop-in replacement for direct model calls. This is the only place AI SDK models are instantiated for chat.
 
 Output files:
 - lib/ai/provider.ts
 
-Inputs: lib/ai/registry.ts (P01-T11), lib/errors/ (P00-T08)
-Outputs: customModel wrapper consumed by chat route (P03-T01)
+Inputs: lib/ai/registry.ts (P1-T11), lib/errors/ (P0-T08)
+Outputs: customModel wrapper consumed by chat route (P3-T01)
 
 AI layer handling: NEW
 
-Dependencies: P01-T11
-Dependents: P03-T01
+Dependencies: P0-T08, P1-T11
+Dependents: P3-T01
 
 Success criteria:
 - customModel("openai:gpt-4o") returns a valid LanguageModel
@@ -434,13 +434,13 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P01-T13]
+### TASK: [ID: P1-T13]
 Title: Create test fixtures
 Phase: 1 — Data Foundation
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: N/A (test infrastructure)
-Architecture ref: redesign/architecture.md (testing); redesign/directory-structure.md (tests/)
+Architecture ref: ../../plan-archives/redesign/architecture.md (testing); ../../plan-archives/redesign/directory-structure.md (tests/)
 
 Action: Create 4 test fixture files. (1) tests/fixtures/chat.ts — Factory createMockChat(overrides?) returning Chat entity with defaults. createMockMessage(overrides?) for messages. (2) tests/fixtures/artifact.ts — createMockArtifact(overrides?) factory returning Artifact entity (NOT Document). (3) tests/fixtures/user.ts — createMockUser(overrides?), createMockSession(overrides?): AppSession. (4) tests/fixtures/vote.ts — createMockVote(overrides?) factory returning Vote entity. All factories return properly typed objects matching the real schema types.
 
@@ -450,13 +450,13 @@ Output files:
 - tests/fixtures/user.ts
 - tests/fixtures/vote.ts
 
-Inputs: lib/db/schema.ts (P00-T04), lib/types/ (P00-T05, P00-T06)
+Inputs: lib/db/schema.ts (P0-T04), lib/types/ (P0-T05, P0-T06)
 Outputs: Test fixtures consumed by all unit tests in subsequent phases
 
 AI layer handling: NEW
 
-Dependencies: P00-T04, P00-T05, P00-T06, P00-T16
-Dependents: P02-T09, P03-T27
+Dependencies: P0-T04, P0-T05, P0-T06, P0-T16
+Dependents: P2-T09, P3-T27
 
 Success criteria:
 - createMockChat() returns typed Chat entity
@@ -469,10 +469,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P01-T14]
+### TASK: [ID: P1-T14]
 Title: Verification gate G01
 Phase: 1 — Data Foundation
-Type: VERIFICATION
+Type: VERIFY
 
 Behavior ref: N/A
 Architecture ref: AGENTS.md (post-implementation validation); strategy/phase-order.md (gate G01)
@@ -481,13 +481,13 @@ Action: Run complete validation: (1) pnpm typecheck passes, (2) pnpm lint passes
 
 Output files: none (validation only)
 
-Inputs: all P01-T01 through P01-T13 outputs
-Outputs: Gate G01 passed — P02 can begin
+Inputs: all P1-T01 through P1-T13 outputs
+Outputs: Gate G01 passed — P2 can begin
 
 AI layer handling: N/A
 
-Dependencies: P01-T01 through P01-T13
-Dependents: P02-T01 (start of next phase)
+Dependencies: P1-T01 through P1-T13
+Dependents: P2-T01 (start of next phase)
 
 Success criteria:
 - pnpm typecheck exits 0

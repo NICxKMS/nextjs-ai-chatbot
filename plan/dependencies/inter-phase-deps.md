@@ -18,7 +18,7 @@ P0 ──→ P1 ──→ P2 ──→ P3 ──→ P4 ──→ P5 ──→ P6
        P0   P0,P1  P0-P2  P0-P3  P0-P4  P0-P5   P0-P6
 ```
 
-Each phase has a **gate task** (final task) that must pass `pnpm format && pnpm typecheck && pnpm lint` before the next phase begins.
+Each phase has a **gate task** (final task) that must pass `pnpm format && pnpm typecheck && pnpm lint` before any dependent phase begins.
 
 ---
 
@@ -309,7 +309,7 @@ Shows which phases each phase depends on (direct dependencies only):
 | P6 | ✅ | ✅ | ✅ | ✅ | — | ✅ | — |
 | P7 | ✅ | — | — | ✅ | ✅ | ✅ | ✅ |
 
-Every phase depends on P00 (scaffold). P07 does NOT depend on P01/P02 directly — it only needs their outputs through later phases.
+Every phase depends on P0 (scaffold). P7 does NOT depend on P1/P2 directly — it only needs their outputs through later phases.
 
 ---
 

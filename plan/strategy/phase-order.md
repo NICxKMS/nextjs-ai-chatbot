@@ -68,9 +68,10 @@ P6 (Enhancements)  →  14 tasks, ~17 files
 P7 (Polish)        →  13 tasks, ~20 files
 ```
 
-**The critical path runs through: P0 → P1 → P2 → P3 → P4 → P6 → P7**
+**With parallelization (P4∥P5):** critical path is P0→P1→P2→P3→P4→P6→P7, ~18.75d.
+**Without parallelization:** P0→P1→P2→P3→P4→P5→P6→P7, ~23d.
 
-P5 (Sidebar) is off the critical path when parallelized with P4.
+P5 (Sidebar) is off the critical path when P4 and P5 are parallelized, since P5 depends only on P3 (not P4). The sequential worst case is documented in `dependencies/critical-path.md`.
 
 ---
 
@@ -127,7 +128,7 @@ Health           ──── independent
 
 ## 6. Checkpoint Gates
 
-Each phase must pass its gate before the next begins:
+Each phase must pass its gate before any **dependent** phase begins:
 
 | Gate | Required Checks | Blocks |
 |------|-----------------|--------|
@@ -190,8 +191,8 @@ Merge into `main` only after gate passes.
 
 ### Solo Developer
 
-Execute strictly sequentially: P0 → P1 → P2 → P3 → P4 → P5 → P6 → P7.
-No parallelism. Each phase is a single focused sprint.
+Default order is P0 → P1 → P2 → P3 → P4 → P5 → P6 → P7.
+Parallelization is allowed where dependency graph permits (notably P4 and P5 after P3).
 
 ### Two Developers
 
@@ -232,7 +233,7 @@ P4, P5, and P6 sub-tasks distribute across developers after the critical path (P
 
 ---
 
-## 10. Time Estimates by Complexity
+## 11. Time Estimates by Complexity
 
 | Phase | Complexity | Primary Risk | Time Estimate |
 |-------|-----------|-------------|---------------|

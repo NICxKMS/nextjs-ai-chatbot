@@ -34,7 +34,7 @@ Implement the complete artifact system: `useSyncExternalStore`-based artifact st
 | P4-T11 | Create artifact panel | IMPL | `features/artifacts/components/artifact-panel.tsx` (main container, kind-specific editor switch) | P4-T07..T10, P4-T03 | L |
 | P4-T12 | Create artifact support components | IMPL | `features/artifacts/components/artifact-actions.tsx`, `artifact-close-button.tsx` (`useArtifactSelector`), `version-footer.tsx` | P4-T03 | M |
 | P4-T13 | Create artifact error boundary | IMPL | `features/artifacts/components/artifact-error-boundary.tsx` | P0-T08 | S |
-| P4-T14 | Create artifact preview | IMPL | `features/artifacts/components/artifact-preview.tsx` (inline in messages, uses `useArtifactSelector`) | P4-T03 | M |
+| P4-T14 | Create artifact preview + diff view | IMPL | `features/artifacts/components/artifact-preview.tsx` (inline in messages, uses `useArtifactSelector`), `features/artifacts/components/artifact-diff-view.tsx` (diff between artifact versions) | P4-T03 | M |
 | P4-T15 | Create artifact API route | IMPL | `app/api/artifact/route.ts` (POST: save user edits, `revalidateTag('artifact:{id}', 'max')`) | P1-T08, P1-T03 | M |
 | P4-T16 | Create suggestions API route | IMPL | `app/api/suggestions/route.ts` (GET: suggestions by `artifactId`) | P1-T10 | M |
 | P4-T17 | Wire artifact panel into ChatShell | INTEG | Update `features/chat/components/chat-shell.tsx` to conditionally render `ArtifactPanel` + wire `StreamBridge` → `artifactStore` | P4-T11, P3-T20 | M |
@@ -101,7 +101,7 @@ Implement the complete artifact system: `useSyncExternalStore`-based artifact st
 |------|-------------|------|
 | SEAM-009 | `createArtifact` tool → handler registry → artifact handlers | P4-T04, P4-T06 |
 | SEAM-010 | `updateArtifact` tool → handler registry → artifact handlers | P4-T04, P4-T06 |
-| SEAM-011 | `requestSuggestions` tool → text editor | P4-T07 |
+| SEAM-011 | `requestSuggestions` tool → text editor | P4-T07, P4-T16 |
 | SEAM-012 | Artifact stream → StreamBridge → `artifactStore` → artifact panel | P4-T11, P4-T17 |
 | SEAM-021 | Artifact version fetch | P4-T15 |
 | SEAM-025 | Artifact data operations (full) | P4-T15 |
@@ -109,6 +109,6 @@ Implement the complete artifact system: `useSyncExternalStore`-based artifact st
 | SEAM-033 | Code editor (CodeMirror + Pyodide) | P4-T08 |
 | SEAM-034 | Sheet editor (react-data-grid + PapaParse) | P4-T09 |
 | SEAM-035 | Image editor | P4-T10 |
-| SEAM-037 | Pyodide script loading | P4-T17 |
+| SEAM-037 | Pyodide script loading | P4-T08, P4-T17 |
 | SEAM-039 | Version navigation + restore | P4-T12 |
 | SEAM-040 | Inline artifact preview → artifact panel | P4-T14 |

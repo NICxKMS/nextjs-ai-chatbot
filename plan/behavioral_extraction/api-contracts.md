@@ -4,11 +4,11 @@
 
 ## Route Inventory
 
-All routes are under `app/(chat)/api/` or `app/api/`.
+All route handlers follow `app/api/**/route.ts`.
 
 **Route Handlers** (retained): `POST /api/chat`, `GET /api/history`, `GET/POST /api/artifact`, `GET /api/suggestions`, `POST /api/files/upload`, `GET /api/health`.
 
-**Server Actions** (mutations): `deleteChat`, `deleteAllChats`, `voteOnMessage`, `updateChatVisibility`, `deleteTrailingMessages`, `loginAction`, `registerAction`, `logoutAction`, `exchangeTokenAction`.
+**Server Actions** (mutations): `deleteChat`, `deleteAllChats`, `voteOnMessage`, `updateChatVisibility`, `deleteTrailingMessages`, `login`, `register`, `logout`.
 
 ### `ActionResult<T>` Return Type
 
@@ -75,16 +75,13 @@ SSE stream (`Content-Type: text/event-stream`). Uses Vercel AI SDK `UIMessageStr
 1. Parse body with Zod schema
 2. `getAppSession()` → user session
 3. Resolve model from registry; check model exists
-4. If guest: verify Redis is available
-5. Rate limit check (50 req/min per user)
-6. Daily quota check (20 guest / 100 auth)
-7. If existing chat: verify ownership + no model mismatch warning
-8. Build system prompt, configure tools, stream response
+4. Rate limit check (50 req/min per user)
+5. If existing chat: verify ownership + no model mismatch warning
+6. Build system prompt, configure tools, stream response
 
 ### Side Effects
-- Creates chat record (DB + cache) if new; `revalidateTag('chats:{userId}')`
+- Creates chat record (DB + cache) if new; `revalidateTag('chats:{userId}', 'max')`
 - Creates message records (user message saved before streaming, assistant after)
-- Increments daily message quota counter
 - Updates chat title (async) via `chat-title` stream part (single-channel)
 - Updates chat `lastContext` with usage data
 
@@ -94,7 +91,6 @@ SSE stream (`Content-Type: text/event-stream`). Uses Vercel AI SDK `UIMessageStr
 | Invalid body | `bad_request:api:invalid_request_body` | 400 |
 | Not authenticated | `unauthorized:chat:auth_required` | 401 |
 | Invalid model | `bad_request:api:invalid_model_id` | 400 |
-| Guest without Redis | `bad_request:api:guest_requires_cache` | 400 |
 | Rate limited | `rate_limit:chat:*` | 429 |
 | Chat owner mismatch | `forbidden:chat:owner_mismatch` | 403 |
 
@@ -118,7 +114,7 @@ Path param: `id` (UUID)
 ### Side Effects
 - Deletes chat from DB
 - Removes from cache (meta + messages + user's ZSET entry)
-- `revalidateTag('chats:{userId}')`
+- `revalidateTag('chats:{userId}', 'max')`
 
 ### Response
 `204 No Content` on success
@@ -175,7 +171,7 @@ Required. Rate limited (strict: 10/min).
 ### Side Effects
 - Deletes all chats for user from DB
 - Clears all cache entries (per-chat meta + messages + user ZSET)
-- `revalidateTag('chats:{userId}')` *(cache invalidation)*
+- `revalidateTag('chats:{userId}', 'max')` *(cache invalidation)*
 
 ---
 
@@ -219,7 +215,7 @@ Body:
 ### Side Effects
 - Creates new artifact version row (same `id`, new `createdAt`)
 - Updates cache
-- `revalidateTag('artifact:{id}')`
+- `revalidateTag('artifact:{id}', 'max')`
 
 ---
 
@@ -234,7 +230,7 @@ Body:
 | `timestamp` | string (ISO 8601) | Yes |
 
 ### Side Effects
-Deletes specific version from DB and cache. `revalidateTag('artifact:{id}')`.
+Deletes specific version from DB and cache. `revalidateTag('artifact:{id}', 'max')`.
 
 ---
 
@@ -352,32 +348,12 @@ None (public endpoint, skips edge rate limiting).
 
 ---
 
-## ~~POST `/api/auth/exchange`~~ → Server Action `exchangeTokenAction()`
+## Auth Mutations via Server Actions
 
-> *Replaced by Server Action. Same validation logic, but returns `ActionResult<{ user }>` and sets cookie server-side. `proxy.ts` handles guest session creation.*
+Authentication uses Server Actions (`login`, `register`, `logout`) rather than `/api/auth/*` routes.
 
-### Auth
-None (this *creates* the session).
-
-### Request
-```typescript
-{
-  accessToken: string;  // Supabase JWT
-}
-```
-
-### Response
-```typescript
-{ user: { id: string; email: string } }
-```
-
-### Side Effects
-- Validates JWT (SUPABASE_JWT_SECRET, audience=authenticated, issuer)
-- Sets `sb_token` httpOnly cookie (7-day TTL, secure, sameSite=lax)
-- Returns user data from JWT claims
-
-### Errors
-| Error | Code | Status |
-|-------|------|--------|
-| Missing token | `unauthorized:auth:token_missing` | 401 |
-| Invalid JWT | `unauthorized:auth:invalid_token` | 401 |
+### Common Behavior
+- Inputs validated with Zod schemas
+- Supabase auth APIs invoked server-side
+- Session cookies (`sb_token`) set/deleted with secure attributes
+- Returns `ActionResult<T>` (never throws expected validation/auth failures)

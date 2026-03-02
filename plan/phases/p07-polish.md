@@ -1,13 +1,13 @@
-# Phase P07 — Polish & Production
+# Phase P7 — Polish & Production
 
 > **Updated per redesign audit (2026-03-01)**
 
 > Production-readiness phase. Error boundaries, loading states, accessibility, responsive design,
 > instrumentation, testing, import boundary enforcement, and naming/terminology verification.
 >
-> **Entry state**: P06 complete — all features work: auth, chat, artifacts, sidebar, voting, models, upload, visibility.
+> **Entry state**: P6 complete — all features work: auth, chat, artifacts, sidebar, voting, models, upload, visibility.
 > **Exit state**: App is production-ready with proper error handling, accessibility, responsive design, verified naming, and passing build.
-> **Est. duration**: ~2 days
+> **Est. duration**: ~1.25 days
 > **Tasks**: 13
 > **Files created/modified**: ~20
 
@@ -17,19 +17,19 @@
 
 | ID | Title | Type | Complexity | Files |
 |----|-------|------|------------|-------|
-| P07-T01 | Finalize error boundaries | IMPLEMENTATION | M | 3 |
-| P07-T02 | Finalize artifact error boundary | IMPLEMENTATION | S | 1 |
-| P07-T03 | Add accessibility + keyboard nav | IMPLEMENTATION | M | ~8 |
-| P07-T04 | Verify responsive design | VERIFICATION | M | ~5 |
-| P07-T05 | Finalize instrumentation | IMPLEMENTATION | M | 2 |
-| P07-T06 | Create E2E test specs | IMPLEMENTATION | L | 4 |
-| P07-T07 | Create integration tests | IMPLEMENTATION | L | 4 |
-| P07-T08 | Create stream test utility | IMPLEMENTATION | M | 3 |
-| P07-T09 | Verify import boundaries | VERIFICATION | S | 0 |
-| P07-T10 | Verify "artifact" naming | VERIFICATION | S | 0 |
-| P07-T11 | Verify no credit/gateway logic | VERIFICATION | S | 0 |
-| P07-T12 | Full build verification | VERIFICATION | M | 0 |
-| P07-T13 | Verification gate G07 (final) | VERIFICATION | S | 0 |
+| P7-T01 | Finalize error boundaries | IMPL | M | 3 |
+| P7-T02 | Finalize artifact error boundary | IMPL | S | 1 |
+| P7-T03 | Add accessibility + keyboard nav | IMPL | M | ~8 |
+| P7-T04 | Verify responsive design | VERIFY | M | ~5 |
+| P7-T05 | Finalize instrumentation | IMPL | M | 2 |
+| P7-T06 | Create E2E test specs | IMPL | L | 4 |
+| P7-T07 | Create integration tests | IMPL | L | 4 |
+| P7-T08 | Create stream test utility | IMPL | M | 3 |
+| P7-T09 | Verify import boundaries | VERIFY | S | 0 |
+| P7-T10 | Verify "artifact" naming | VERIFY | S | 0 |
+| P7-T11 | Verify no credit/gateway logic | VERIFY | S | 0 |
+| P7-T12 | Full build verification | VERIFY | M | 0 |
+| P7-T13 | Verification gate G07 (final) | VERIFY | S | 0 |
 
 ---
 
@@ -37,7 +37,7 @@
 
 | Seam | Description | Task |
 |------|-------------|------|
-| SEAM-027 | Error boundaries (all 3 levels) | P07-T01, P07-T02 |
+| SEAM-027 | Error boundaries (all 3 levels) | P7-T01, P7-T02 |
 
 ---
 
@@ -45,10 +45,10 @@
 
 ---
 
-### TASK: [ID: P07-T01]
+### TASK: [ID: P7-T01]
 Title: Finalize error boundaries
 Phase: 7 — Polish & Production
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: edge-cases.md (error boundaries at 3 levels)
 Architecture ref: SEAM-027 (error boundaries — root, chat route, artifact); redesign (polish all 3)
@@ -65,8 +65,8 @@ Outputs: Error boundaries at all 3 levels
 
 AI layer handling: NEW
 
-Dependencies: P03-T26, P02-T07
-Dependents: P07-T13
+Dependencies: P0-T13, P3-T26, P2-T07
+Dependents: P7-T13
 
 Success criteria:
 - Global error renders standalone html/body
@@ -81,26 +81,26 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P07-T02]
+### TASK: [ID: P7-T02]
 Title: Finalize artifact error boundary
 Phase: 7 — Polish & Production
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: artifacts-system.md (editor crash boundary)
 Architecture ref: SEAM-027 (error boundaries — artifact level)
 
-Action: Verify and finalize features/artifacts/components/artifact-error-boundary.tsx (created in P04-T13). Ensure: class component with getDerivedStateFromError + componentDidCatch. Fallback UI: "Failed to render artifact" message + error code + "Retry" button. The boundary wraps only the editor content area — panel chrome (close button, actions, version footer) remains functional. Error logging present.
+Action: Verify and finalize features/artifacts/components/artifact-error-boundary.tsx (created in P4-T13). Ensure: class component with getDerivedStateFromError + componentDidCatch. Fallback UI: "Failed to render artifact" message + error code + "Retry" button. The boundary wraps only the editor content area — panel chrome (close button, actions, version footer) remains functional. Error logging present.
 
 Output files:
 - features/artifacts/components/artifact-error-boundary.tsx (verify/modify)
 
-Inputs: features/artifacts/components/artifact-error-boundary.tsx (P04-T13)
+Inputs: features/artifacts/components/artifact-error-boundary.tsx (P4-T13)
 Outputs: Artifact error boundary prevents editor crashes from breaking the app
 
 AI layer handling: NEW
 
-Dependencies: P04-T13
-Dependents: P07-T13
+Dependencies: P4-T13
+Dependents: P7-T13
 
 Success criteria:
 - Class component with getDerivedStateFromError
@@ -114,10 +114,10 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P07-T03]
+### TASK: [ID: P7-T03]
 Title: Add accessibility attributes and keyboard navigation
 Phase: 7 — Polish & Production
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: accessibility.md (ARIA attributes, roles, labels, states, live regions, keyboard patterns)
 Architecture ref: interactions.md (keyboard shortcuts)
@@ -132,8 +132,8 @@ Outputs: Components have correct ARIA attributes and keyboard navigation
 
 AI layer handling: NEW
 
-Dependencies: P06-T14 (all features built)
-Dependents: P07-T13
+Dependencies: P6-T14 (all features built)
+Dependents: P7-T13
 
 Success criteria:
 - All interactive elements have aria-label or accessible name
@@ -151,10 +151,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P07-T04]
+### TASK: [ID: P7-T04]
 Title: Verify responsive design
 Phase: 7 — Polish & Production
-Type: VERIFICATION
+Type: VERIFY
 
 Behavior ref: accessibility.md (mobile vs desktop layout differences)
 Architecture ref: interactions.md (mobile behavior per component)
@@ -169,8 +169,8 @@ Outputs: Responsive design verified across breakpoints
 
 AI layer handling: N/A
 
-Dependencies: P06-T14
-Dependents: P07-T13
+Dependencies: P6-T14
+Dependents: P7-T13
 
 Success criteria:
 - App usable at 320px width (mobile)
@@ -185,10 +185,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P07-T05]
+### TASK: [ID: P7-T05]
 Title: Finalize instrumentation
 Phase: 7 — Polish & Production
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: N/A (observability infrastructure)
 Architecture ref: scaffold/base-config.md (instrumentation hooks)
@@ -199,13 +199,13 @@ Output files:
 - instrumentation.ts (finalize)
 - instrumentation-client.ts (finalize)
 
-Inputs: instrumentation.ts (P00-T15 stub)
+Inputs: instrumentation.ts (P0-T15 stub)
 Outputs: Instrumentation hooks active for production monitoring
 
 AI layer handling: NEW
 
-Dependencies: P00-T15
-Dependents: P07-T13
+Dependencies: P0-T15
+Dependents: P7-T13
 
 Success criteria:
 - instrumentation.ts register() runs without error
@@ -218,10 +218,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P07-T06]
+### TASK: [ID: P7-T06]
 Title: Create E2E test specs
 Phase: 7 — Polish & Production
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: features.md (all user flows)
 Architecture ref: AGENTS.md (pnpm test:e2e)
@@ -239,8 +239,8 @@ Outputs: E2E test suite runnable via pnpm test:e2e
 
 AI layer handling: NEW
 
-Dependencies: P06-T14 (all features built)
-Dependents: P07-T12, P07-T13
+Dependencies: P6-T14 (all features built)
+Dependents: P7-T12, P7-T13
 
 Success criteria:
 - Auth spec: login, register, guest, logout tests
@@ -254,10 +254,10 @@ Complexity: L
 
 ---
 
-### TASK: [ID: P07-T07]
+### TASK: [ID: P7-T07]
 Title: Create integration tests
 Phase: 7 — Polish & Production
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: features.md (feature integration)
 Architecture ref: AGENTS.md (pnpm test:unit)
@@ -270,13 +270,13 @@ Output files:
 - tests/integration/auth-flow.test.ts
 - tests/integration/sidebar-flow.test.ts
 
-Inputs: tests/fixtures/ (P01-T13), tests/mocks/ (P00-T16)
+Inputs: tests/fixtures/ (P1-T13), tests/mocks/ (P0-T16)
 Outputs: Integration test suite
 
 AI layer handling: NEW
 
-Dependencies: P06-T14
-Dependents: P07-T12, P07-T13
+Dependencies: P6-T14, P7-T08, P1-T13, P0-T16
+Dependents: P7-T12, P7-T13
 
 Success criteria:
 - Tests cover core flows for each feature area
@@ -288,10 +288,10 @@ Complexity: L
 
 ---
 
-### TASK: [ID: P07-T08]
+### TASK: [ID: P7-T08]
 Title: Create stream test utility
 Phase: 7 — Polish & Production
-Type: IMPLEMENTATION
+Type: IMPL
 
 Behavior ref: testing infrastructure
 Architecture ref: conventions.md (test utilities)
@@ -303,13 +303,13 @@ Output files:
 - tests/mocks/ai.ts
 - tests/mocks/fetch.ts
 
-Inputs: tests/setup.ts (P00-T16)
-Outputs: Stream test utilities consumed by integration tests (P07-T07)
+Inputs: tests/setup.ts (P0-T16)
+Outputs: Stream test utilities consumed by integration tests (P7-T07)
 
 AI layer handling: NEW
 
-Dependencies: P00-T16
-Dependents: P07-T07
+Dependencies: P0-T16
+Dependents: P7-T07
 
 Success criteria:
 - collectStreamEvents works with artifact stream parts
@@ -321,10 +321,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P07-T09]
+### TASK: [ID: P7-T09]
 Title: Verify import boundaries
 Phase: 7 — Polish & Production
-Type: VERIFICATION
+Type: VERIFY
 
 Behavior ref: N/A (architectural enforcement)
 Architecture ref: conventions.md (layer rules); redesign (scripts/check-imports.mjs created in P0-T17, verified here)
@@ -333,13 +333,13 @@ Action: Run `scripts/check-imports.mjs` and verify zero violations. The script (
 
 Output files: none (verification only, fix files if violations found)
 
-Inputs: scripts/check-imports.mjs (P00-T17), all project files
+Inputs: scripts/check-imports.mjs (P0-T17), all project files
 Outputs: Import boundaries verified — zero violations
 
 AI layer handling: N/A
 
-Dependencies: P00-T17, P06-T14
-Dependents: P07-T13
+Dependencies: P0-T17, P6-T14
+Dependents: P7-T13
 
 Success criteria:
 - `node scripts/check-imports.mjs` exits 0
@@ -350,10 +350,10 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P07-T10]
+### TASK: [ID: P7-T10]
 Title: Verify "artifact" naming throughout codebase
 Phase: 7 — Polish & Production
-Type: VERIFICATION
+Type: VERIFY
 
 Behavior ref: redesign (artifact naming throughout)
 Architecture ref: redesign (zero "document" in code identifiers)
@@ -367,8 +367,8 @@ Outputs: Naming consistency verified
 
 AI layer handling: N/A
 
-Dependencies: all phases
-Dependents: P07-T13
+Dependencies: P6-T14
+Dependents: P7-T13
 
 Success criteria:
 - Zero "documentId" in code (use artifactId)
@@ -390,10 +390,10 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P07-T11]
+### TASK: [ID: P7-T11]
 Title: Verify no credit/gateway logic
 Phase: 7 — Polish & Production
-Type: VERIFICATION
+Type: VERIFY
 
 Behavior ref: redesign (no credit/gateway/quota terminology)
 Architecture ref: redesign (zero credit/gateway across entire codebase)
@@ -407,8 +407,8 @@ Outputs: No credit/gateway logic exists
 
 AI layer handling: N/A
 
-Dependencies: all phases
-Dependents: P07-T13
+Dependencies: P6-T14
+Dependents: P7-T13
 
 Success criteria:
 - Zero occurrences of credit/gateway/quota/entitlement/AppUsage/activate_gateway/vercel-gateway
@@ -419,10 +419,10 @@ Complexity: S
 
 ---
 
-### TASK: [ID: P07-T12]
+### TASK: [ID: P7-T12]
 Title: Full build verification
 Phase: 7 — Polish & Production
-Type: VERIFICATION
+Type: VERIFY
 
 Behavior ref: N/A
 Architecture ref: AGENTS.md (pnpm build as final verification); redesign (proxy.ts verification)
@@ -436,8 +436,8 @@ Outputs: Build passes — production ready
 
 AI layer handling: N/A
 
-Dependencies: P07-T01 through P07-T11
-Dependents: P07-T13
+Dependencies: P7-T01 through P7-T11
+Dependents: P7-T13
 
 Success criteria:
 - `pnpm format` exits 0
@@ -453,10 +453,10 @@ Complexity: M
 
 ---
 
-### TASK: [ID: P07-T13]
+### TASK: [ID: P7-T13]
 Title: Verification gate G07 (final)
 Phase: 7 — Polish & Production
-Type: VERIFICATION
+Type: VERIFY
 
 Behavior ref: All behavioral extraction documents
 Architecture ref: AGENTS.md (final validation); redesign (complete exit criteria)
@@ -465,12 +465,12 @@ Action: Final gate — verify all exit criteria. Checklist: (1) All 3 error boun
 
 Output files: none (validation only)
 
-Inputs: All P07-T01 through P07-T12 outputs
+Inputs: All P7-T01 through P7-T12 outputs
 Outputs: Gate G07 passed — rebuild complete, production-ready
 
 AI layer handling: N/A
 
-Dependencies: P07-T01 through P07-T12
+Dependencies: P7-T01 through P7-T12
 Dependents: None — this is the final task
 
 Verification commands:

@@ -8,7 +8,7 @@
 
 Full rebuild of a Next.js AI chatbot (`ai-assistant`). Old app preserved at `oldapp/` for behavioral reference. Building from scratch in project root.
 
-**Stack:** Next.js 16 · React 19 · TypeScript strict · Drizzle ORM · Supabase · Tailwind v4 · Vercel AI SDK 4.x · Biome · pnpm
+**Stack:** Next.js 16 · React 19 · TypeScript strict · Drizzle ORM · Supabase · Tailwind v4 · Vercel AI SDK 5.x · Biome · pnpm
 **Scale:** 8 phases · 125 tasks · ~210 files
 **Decision hierarchy:** Correctness → Architecture → Consistency → Performance → Speed
 **Reuse hierarchy:** Reuse → Extend → Refactor → Create

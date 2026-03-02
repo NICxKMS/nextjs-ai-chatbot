@@ -30,26 +30,26 @@
 |-------|--------|
 | **Description** | Root session provider injects auth state into all features |
 | **Components** | `features/auth/components/session-provider.tsx` → All feature components |
-| **Data Exchanged** | `AppSession { user: { id, type, email? } }`, guest bootstrap effect, Supabase auth listener |
-| **Task Needed** | Build `SessionProvider` with context, session state, guest bootstrap effect, Supabase auth listener. Wire into root layout (server-fetched session passed as prop). |
+| **Data Exchanged** | `AppSession { user: { id, type, email? } }`, session state sync, Supabase auth listener |
+| **Task Needed** | Build `SessionProvider` with context, session state, and Supabase auth listener. Guest bootstrap/rotation is handled in `proxy.ts`. Wire provider into root layout (server-fetched session passed as prop). |
 
-### SEAM-002: Auth Exchange (Login/Register)
+### SEAM-002: Auth Actions (Login/Register)
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Client-side Supabase auth → server-side cookie session |
-| **Components** | `features/auth/components/auth-form.tsx` → `POST /api/auth/exchange` → Cookie `sb_token` |
-| **Data Exchanged** | `{ accessToken: string }` → `{ user: { id, email } }` + Set-Cookie |
-| **Task Needed** | Build exchange route handler: jwtVerify with SUPABASE_JWT_SECRET, set httpOnly cookie (7d), return user. AuthForm uses `useActionState` for form handling. |
+| **Description** | Auth form submits to Server Actions that create cookie-backed session |
+| **Components** | `features/auth/components/auth-form.tsx` → `features/auth/actions/login.ts` / `register.ts` → Cookie `sb_token` |
+| **Data Exchanged** | `FormData(email,password,...)` → `ActionResult` + Set-Cookie |
+| **Task Needed** | Build login/register Server Actions: validate input, call Supabase auth APIs, set `sb_token` httpOnly cookie (7d), redirect/return action result. |
 
 ### SEAM-003: Guest Bootstrap
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Auto-create guest session when no auth cookies present |
-| **Components** | `SessionProvider` (client detect) → `POST /api/auth/guest` → Cookie `guest_token` |
-| **Data Exchanged** | `void` → `{ user: { id: "guest:{uuid}", type: "guest" } }` + Set-Cookie |
-| **Task Needed** | Build guest route handler: generate guest:{uuid}, sign HS256 JWT (1h exp), set httpOnly cookie (7d). SessionProvider must POST on mount when no initialSession. |
+| **Description** | Auto-create guest session at edge when no auth cookies are present |
+| **Components** | `proxy.ts` → Cookie `guest_token` → `lib/auth/session.ts#getAppSession()` |
+| **Data Exchanged** | `Request cookies` → `{ user: { id: "guest:{uuid}", type: "guest" } }` + Set-Cookie |
+| **Task Needed** | In `proxy.ts`, mint guest JWT (HS256, short exp) when missing and rotate near expiry; `getAppSession()` resolves guest session from cookie for server components/actions. |
 
 ### SEAM-004: Guest Token Rotation
 
@@ -237,7 +237,7 @@
 |-------|--------|
 | **Description** | Server-rendered initial data + client SWR pagination for chat history |
 | **Components** | `features/sidebar/components/sidebar-shell.tsx` (SERVER, 'use cache') → `SidebarHistoryClient` (CLIENT, useSWRInfinite) → `GET /api/history` → `lib/data/chat` |
-| **Data Exchanged** | Server: chats via `'use cache'` + `cacheTag('chats:{userId}')`. Client pagination: `?limit=20&offset={page*20}`. Response: `{ chats: Chat[], hasMore: boolean }`. |
+| **Data Exchanged** | Server: chats via `'use cache'` + `cacheTag('chats:{userId}')`. Client pagination: `?limit=20&cursor={nextCursor}`. Response: `{ chats: Chat[], nextCursor?: string, hasMore: boolean }`. |
 | **Task Needed** | Build SidebarShell server component with 'use cache'. Build SidebarHistoryClient with useSWRInfinite (fallbackData from server). Build history route handler. Build date grouping logic. Wire delete and visibility actions. |
 
 ---
@@ -278,7 +278,7 @@
 |-------|--------|
 | **Description** | AppSession gates all data access for guest vs auth paths |
 | **Components** | `lib/auth/session.ts` getAppSession() → All `lib/data/` functions |
-| **Data Exchanged** | `AppSession` → `{ userId, isGuest }` branching. Guest: cache-only. Auth: DB with cache. |
+| **Data Exchanged** | `AppSession` → `{ userId, isGuest }` branching for authorization + feature gating. Both guest and auth paths use DB persistence with cache-tagged reads. |
 | **Task Needed** | All lib/data/ functions accept session context for guest/auth branching. |
 
 ### SEAM-024: Chat Data Operations

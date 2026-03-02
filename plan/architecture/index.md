@@ -22,7 +22,7 @@
 - [Deviations from spec](../deviations/index.md) — Every deviation logged with justification
 - [Behavioral extraction](../behavioral_extraction/index.md) — What the app actually does today
 - [Architecture v6 spec](../../.ouroboros/specs/refactor-migration/architecture-v6-final.md) — Original spec
-- [Redesign documents](../../redesign/index.md) — Authoritative redesign decisions and patterns
+- [Redesign documents](../../plan-archives/redesign/index.md) — Authoritative redesign decisions and patterns
 
 ## Guiding Principles
 
@@ -30,7 +30,7 @@
 2. **Streaming-first data flow** — SSE via route handler, never poll; single-channel delivery for side data (titles, suggestions)
 3. **Feature collocation is non-negotiable** — all feature code lives in `features/[name]/`
 4. **Simplify aggressively** — no unnecessary abstraction layers
-5. **Align with Next.js 16** — Server Components, Server Functions, `use cache`, PPR, `proxy.ts`
+5. **Align with Next.js 16** — Server Components, Server Actions, `use cache`, PPR, `proxy.ts`
 6. **Preserve behavioral parity** — everything the oldapp does, the new app must do
 7. **Evidence-based** — every recommendation grounded in actual codebase analysis
 8. **Single responsibility components** — ChatShell ~60 lines, StreamBridge ~20 lines — each component does one thing
@@ -40,3 +40,7 @@
 12. **Provider scope minimization** — providers wrap only the components that consume them
 13. **Resilient streaming** — await title before closing stream, save partial responses on abort, clean client-side abort on navigation
 14. **No dead code** — no credit/gateway/quota logic, no unused infrastructure
+15. **Clean feature boundaries** — each feature module is self-contained with clear public API
+16. **Import boundary enforcement** — cross-feature imports restricted to types and schemas only; validated by `scripts/check-imports.mjs`
+17. **Error boundary hierarchy** — per-feature error boundaries (artifact panel gets its own) plus route-level `error.tsx` for page-level recovery
+18. **Testable by design** — pure functions, injectable dependencies, colocated tests, mockable data layer

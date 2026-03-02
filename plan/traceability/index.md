@@ -11,16 +11,16 @@
 
 | File | Description | Coverage |
 |------|-------------|----------|
-| [feature-to-task.md](feature-to-task.md) | Maps all 19 features to implementing tasks | 18/19 full, 1 partial |
+| [feature-to-task.md](feature-to-task.md) | Maps all 20 features to implementing tasks | 20/20 full |
 | [uncovered-features.md](uncovered-features.md) | Features/interactions without full task coverage | 3 gaps resolved, 1 removed |
 | [seam-to-task.md](seam-to-task.md) | Maps all 40 seams to implementing tasks | 40/40 (100%) |
 
 ## Summary Statistics
 
-- **Features tracked:** 19 (credit/usage alert removed per redesign)
+- **Features tracked:** 20 (credit/usage alert removed per redesign)
 - **Seams tracked:** 40
 - **Total tasks:** 125 across 8 phases (P0–P7)
-- **Feature coverage:** 95% full, 5% partial
+- **Feature coverage:** 100% full
 - **Seam coverage:** 100%
 
 ## Key Naming (Redesign)
@@ -38,6 +38,6 @@
 
 - Features source: `plan/behavioral_extraction/features.md`
 - Interactions source: `plan/ui_parity/interactions.md`
-- Phase definitions: `redesign/phase-plan.md`
-- Cleanup inventory: `redesign/cleanup-inventory.md`
+- Phase definitions: `../../plan-archives/redesign/phase-plan.md`
+- Cleanup inventory: `../../plan-archives/redesign/cleanup-inventory.md`
 - Dependency graph: `plan/dependencies/graph.md`

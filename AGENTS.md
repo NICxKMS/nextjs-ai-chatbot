@@ -16,8 +16,6 @@ Before working on any Next.js-related code:
 2. Search relevant docs before relying on memory
 3. Verify API signatures against current docs
 
-Regenerate the docs index: `npx @next/codemod agents-md --output AGENTS.md`
-
 ---
 
 ## Commands
@@ -40,8 +38,6 @@ pnpm test:e2e      # E2E tests
 ---
 
 ## Architectural Improvement Policy
-
-> The refactor-migration spec (`.ouroboros/specs/refactor-migration/`) is a **starting point, not a ceiling**.
 
 - Proactively identify opportunities to improve upon current patterns, data flows, module boundaries, and conventions and all other things.
 - When a demonstrably better design exists — simpler, more maintainable, more performant, or better aligned with Next.js App Router + Vercel AI SDK best practices — **use it**.

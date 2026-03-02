@@ -10,7 +10,7 @@ Real-time AI chat interface with multi-model support, streaming responses, and m
 ### Entry Points
 - `/` → `app/(chat)/page.tsx` (new chat)
 - `/chat/[id]` → `app/(chat)/chat/[id]/page.tsx` (existing chat)
-- `POST /api/chat` → `app/(chat)/api/chat/route.ts` (send message)
+- `POST /api/chat` → `app/api/chat/route.ts` (send message)
 
 ### User Flow
 1. User lands on `/` → new chat page renders with empty `<ChatShell>` component (redesign: replaces monolithic `<Chat>`)
@@ -19,7 +19,7 @@ Real-time AI chat interface with multi-model support, streaming responses, and m
 4. User types message in `<MultimodalInput>`, optionally attaches files
 5. On submit: `window.history.replaceState` to `/chat/{chatId}`, `sendMessage()` called
 6. `useChat` hook sends POST to `/api/chat` with `{ id, message, selectedChatModel, selectedVisibilityType, settings }`
-7. Server validates body via Zod (`postRequestBodySchema`), checks auth, rate limits, daily quota
+7. Server validates body via Zod (`postRequestBodySchema`), checks auth, and enforces rate limits
 8. `createUIMessageStream` created; inside `execute()`:
    - Title generation starts in parallel for new chats (non-blocking)
    - `executeChatCompletion()` called with `streamText` from AI SDK
@@ -30,7 +30,7 @@ Real-time AI chat interface with multi-model support, streaming responses, and m
 ### Data Requirements
 - **Reads**: Chat (by ID), Messages (by chatId), Votes (by chatId+userId), User session
 - **Writes**: Chat (create/update), Messages (create), Vote (upsert)
-- **Cache**: Redis for chat+messages (denormalized), quota counters
+- **Cache**: Next.js cache tags (`'use cache'` + `cacheTag`) with Redis-backed rate limiting
 
 ### AI Interactions
 - `streamText` with selected model via `myProvider.languageModel()`
@@ -42,8 +42,7 @@ Real-time AI chat interface with multi-model support, streaming responses, and m
 
 ### Edge Cases
 - Model not in registry → `bad_request:api:invalid_model_id`
-- Guest without Redis → `bad_request:api:guest_requires_cache`
-- Daily limit exceeded → rate limit check (daily limits retained for abuse prevention only)
+- Rate limit exceeded → `429 Too Many Requests`
 - Chat owned by different user → `forbidden:chat:owner_mismatch`
 - AI completion timeout (55s) → AbortSignal fires
 - Title generation failure → Falls back to first 80 chars of message
@@ -58,27 +57,27 @@ Dual auth system: Supabase (email/password) for registered users, JWT-based gues
 ### Entry Points
 - `/login` → `app/(auth)/login/page.tsx`
 - `/register` → `app/(auth)/register/page.tsx`
-- Server Actions: `loginAction`, `registerAction`, `logoutAction`
+- Server Actions: `login`, `register`, `logout`
 - `proxy.ts` (guest session creation at edge)
 
 ### User Flow — Guest
 1. First visit → `proxy.ts` detects no Supabase or guest token
 2. Creates JWT with `guest:{uuid}` subject, HS256, 1-hour expiry
 3. Sets `guest_token` cookie (7-day TTL, httpOnly, secure, sameSite=lax)
-4. Middleware rotates token when <30 min remaining
+4. `proxy.ts` rotates token when <30 min remaining
 
 ### User Flow — Register
 1. User fills email/password on `/register`
 2. Client-side `supabase.auth.signUp()` called
 3. If email confirmation required → redirect to `/login` with success message
-4. If session returned → POST to `/api/auth/exchange` with `accessToken`
-5. Server validates JWT against `SUPABASE_JWT_SECRET`, sets httpOnly cookie
+4. Form submits to `register` Server Action (`useActionState`)
+5. Server Action sets auth cookie and redirects (or redirects to `/login` for confirmation-required flows)
 
 ### User Flow — Login
 1. User fills email/password on `/login`
 2. Client-side `supabase.auth.signInWithPassword()` called
-3. POST to `/api/auth/exchange` with `accessToken`
-4. Server validates, sets cookie, redirects to `/`
+3. Form submits to `login` Server Action (`useActionState`)
+4. Server Action sets auth cookie and redirects to `/`
 
 ### Data Requirements
 - **Supabase JWT**: Validated with `SUPABASE_JWT_SECRET`, audience=`authenticated`, issuer=`{SUPABASE_URL}/auth/v1`
@@ -107,8 +106,8 @@ Paginated list of user's chats in sidebar with optimistic updates.
 6. Delete all: Server Action `deleteAllChats()` + `updateTag('chats:{userId}')`
 
 ### Data Requirements
-- **Guest**: Cache ZSET → batch MGET for chat metadata
-- **Auth**: DB query with pagination (`startingAfter`/`endingBefore` cursors)
+- DB query with pagination (`startingAfter`/`endingBefore` cursors) for both guest and authenticated sessions
+- Server-side cache tags for fast repeat reads
 - Limit clamped: min 1, max 100, default 10
 
 ---
@@ -148,7 +147,7 @@ Side-panel UI for creating/editing content: text artifacts, code (Python), sprea
 | image | (no server handler) | ImageEditor | N/A | `artifact-imageDelta` |
 
 ### Data Requirements
-- **Table**: `Artifact` (composite PK: `id` + `createdAt` for versioning; DB table `Document` retained for migration)
+- **Table**: `Artifact` (composite PK: `id` + `createdAt` for versioning)
 - **Reads**: All versions by artifact ID (`getArtifactVersions`)
 - **Writes**: New version per save (`saveArtifactVersion`)
 - **Cache**: `cacheTag('artifact:{id}')` with `revalidateTag` on mutations

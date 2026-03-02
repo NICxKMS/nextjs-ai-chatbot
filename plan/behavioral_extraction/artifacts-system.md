@@ -6,7 +6,7 @@
 
 Artifacts are AI-generated content displayed in a side panel alongside the chat. Four types supported: **text**, **code**, **sheet**, and **image**. Each has a server handler (AI generation) and client component (rendering/editing).
 
-> *All "document" naming replaced with "artifact" at the application layer. The DB table remains `Document` for migration compatibility.*
+> *All "document" naming is replaced with "artifact" in schema and application layers.*
 
 ---
 
@@ -133,12 +133,12 @@ function getArtifactHandler(kind: ArtifactKind): ArtifactHandler {
       const result = await handler.generate({ id, title, dataStream, session });
 
       // Persist to DB/cache
-      await artifactData.save({ id, title, kind, content: result, userId, chatId });
+      await saveArtifactVersion({ id, title, kind, content: result, userId, chatId });
       dataStream.writeData({ type: "artifact-finish", content: null });
       return { id, title, kind, content: "An artifact was created..." };
     },
     update: async ({ id, description, dataStream, session }) => {
-      const artifact = await artifactData.get(id, ctx);
+      const artifact = await getArtifactById(id, ctx);
       const latestVersion = artifact.versions.at(-1);
       dataStream.writeData({ type: "artifact-clear", content: null });
 
@@ -146,7 +146,7 @@ function getArtifactHandler(kind: ArtifactKind): ArtifactHandler {
         artifact: latestVersion, description, dataStream, session
       });
 
-      await artifactData.save({ id, title: latestVersion.title, kind, content: result, userId });
+      await saveArtifactVersion({ id, title: latestVersion.title, kind, content: result, userId });
       dataStream.writeData({ type: "artifact-finish", content: null });
       return { id, title, kind, content: "The artifact has been updated..." };
     }
@@ -159,7 +159,7 @@ function getArtifactHandler(kind: ArtifactKind): ArtifactHandler {
 ## Versioning
 
 ### Storage Model
-Artifacts use composite PK: `(id, createdAt)`. Each save creates a new row (DB table `Document` retained for migration compatibility, application layer uses artifact naming):
+Artifacts use composite PK: `(id, createdAt)`. Each save creates a new row:
 ```
 id="abc123", createdAt="2025-01-01T00:00:00Z", content="v1"
 id="abc123", createdAt="2025-01-01T00:05:00Z", content="v2"

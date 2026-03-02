@@ -115,7 +115,7 @@ Create the project skeleton — config, shared types, error handling, utilities,
 
 ### 18 Tasks (P0-T01 through P0-T18)
 
-See `redesign/phase-plan.md` for complete task table with IDs, types, files, dependencies, and complexity ratings.
+See `../../plan-archives/redesign/phase-plan.md` for complete task table with IDs, types, files, dependencies, and complexity ratings.
 
 ---
 
@@ -181,7 +181,7 @@ Create the database migration infrastructure, cache layer, all data access funct
 
 ### 14 Tasks (P1-T01 through P1-T14)
 
-See `redesign/phase-plan.md` for complete task table.
+See `../../plan-archives/redesign/phase-plan.md` for complete task table.
 
 ---
 
@@ -198,13 +198,13 @@ Implement complete authentication — session resolution, login/register/logout,
 **Auth feature (`features/auth/`):**
 - `features/auth/types/auth.types.ts` — AppSession, User, GuestToken types
 - `features/auth/schemas/auth.schema.ts` — Login/register Zod schemas
-- `features/auth/lib/session.ts` — `getAppSession()`: checks sb_token → guest_token → null
+- `lib/auth/session.ts` — `getAppSession()`: checks sb_token → guest_token → null
 - `features/auth/lib/guest.ts` — Guest bootstrap: JWT creation, token rotation
 - `features/auth/actions/login.ts` — Server Action: email/password login → cookie set → redirect
 - `features/auth/actions/register.ts` — Server Action: registration → cookie set → redirect
 - `features/auth/actions/logout.ts` — Server Action: cookie delete → redirect to /login
 - `features/auth/components/auth-form.tsx` — Consolidated form with `mode` prop, `useActionState`
-- `features/auth/components/session-provider.tsx` — Session context provider + guest bootstrap effect (NOT auth-provider.tsx)
+- `features/auth/components/session-provider.tsx` — Session context provider + auth state sync (guest bootstrap handled by `proxy.ts`) (NOT auth-provider.tsx)
 
 **Auth pages (`app/(auth)/`):**
 - `app/(auth)/layout.tsx` — Auth layout (SERVER): centered card container
@@ -238,7 +238,7 @@ Implement complete authentication — session resolution, login/register/logout,
 
 ### 9 Tasks (P2-T01 through P2-T09)
 
-See `redesign/phase-plan.md` for complete task table.
+See `../../plan-archives/redesign/phase-plan.md` for complete task table.
 
 ---
 
@@ -328,7 +328,7 @@ Build the complete chat experience — AI integration, settings, streaming, mess
 
 ### 27 Tasks (P3-T01 through P3-T27)
 
-See `redesign/phase-plan.md` for complete task table.
+See `../../plan-archives/redesign/phase-plan.md` for complete task table.
 
 ---
 
@@ -403,7 +403,7 @@ Build the artifact system: `useSyncExternalStore` store, handler implementations
 
 ### 18 Tasks (P4-T01 through P4-T18)
 
-See `redesign/phase-plan.md` for complete task table.
+See `../../plan-archives/redesign/phase-plan.md` for complete task table.
 
 ---
 
@@ -460,7 +460,7 @@ Implement the server-rendered sidebar with client pagination, PendingChatsProvid
 
 ### 12 Tasks (P5-T01 through P5-T12)
 
-See `redesign/phase-plan.md` for complete task table.
+See `../../plan-archives/redesign/phase-plan.md` for complete task table.
 
 ---
 
@@ -531,7 +531,7 @@ Build all secondary features that augment the core experience: voting, model sel
 
 ### 14 Tasks (P6-T01 through P6-T14)
 
-See `redesign/phase-plan.md` for complete task table.
+See `../../plan-archives/redesign/phase-plan.md` for complete task table.
 
 ---
 
@@ -610,7 +610,7 @@ Production-readiness: error boundaries, accessibility, responsive design, instru
 
 ### 13 Tasks (P7-T01 through P7-T13)
 
-See `redesign/phase-plan.md` for complete task table.
+See `../../plan-archives/redesign/phase-plan.md` for complete task table.
 
 ---
 

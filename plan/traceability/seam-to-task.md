@@ -18,7 +18,7 @@
 | SEAM-001 | SessionProvider Injection (NOT AuthProvider) | P2-T06, P2-T08 | P2 |
 | SEAM-002 | Auth Actions (Login/Register Server Actions) | P2-T03, P2-T04 | P2 |
 | SEAM-003 | Guest Bootstrap (via proxy.ts) | P2-T03 | P2 |
-| SEAM-004 | Guest Token Rotation (proxy.ts at edge) | P0-T14 | P0 |
+| SEAM-004 | Guest Token Rotation (proxy.ts at edge) | P2-T08 | P2 |
 | SEAM-005 | Session Resolution (`getAppSession()`) | P2-T01 | P2 |
 
 ## Chat Streaming Seams
@@ -35,7 +35,7 @@
 |---------|-------------|------------|-------|
 | SEAM-009 | createArtifact Tool → ArtifactHandler (NOT createDocument) | P3-T13, P4-T04, P4-T06 | P3, P4 |
 | SEAM-010 | updateArtifact Tool → ArtifactHandler (NOT updateDocument) | P3-T13, P4-T04, P4-T06 | P3, P4 |
-| SEAM-011 | requestSuggestions Tool → Editor | P4-T16 | P4 |
+| SEAM-011 | requestSuggestions Tool → Editor | P4-T07, P4-T16 | P4 |
 | SEAM-012 | Artifact Stream → Panel (StreamBridge → artifactStore) | P3-T20, P4-T11, P4-T17 | P3, P4 |
 
 ## Chat ↔ Sidebar Seams
@@ -43,13 +43,13 @@
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
 | SEAM-013 | Pending Chat Creation (PendingChatsProvider, NOT OptimisticChats) | P5-T02, P5-T05 | P5 |
-| SEAM-014 | Title Sync (single channel: `chat-title` stream → PendingChats.updateTitle, NO polling) | P5-T02 | P5 |
+| SEAM-014 | Title Sync (single channel: `chat-title` stream → PendingChats.updateTitle, NO polling) | P5-T02, P5-T05 | P5 |
 
 ## Settings ↔ Chat Seams
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-015 | Settings Pipeline (useSyncExternalStore + localStorage, NO SettingsProvider) | P3-T06, P3-T21 | P3 |
+| SEAM-015 | Settings Pipeline (useSyncExternalStore + localStorage, NO SettingsProvider) | P3-T06, P3-T07, P3-T21 | P3 |
 
 ## Model Selection Seams
 
@@ -92,7 +92,7 @@
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-023 | Data Context (Session → Branching) | P0-T05 | P0 |
+| SEAM-023 | Data Context (Session → Branching) | P1-T05 | P1 |
 | SEAM-024 | Chat Data Operations | P1-T06 | P1 |
 | SEAM-025 | Artifact Data Operations (NOT Document) | P1-T08, P4-T15 | P1, P4 |
 | SEAM-026 | Message Persistence | P1-T07, P3-T23, P3-T22 | P1, P3 |
@@ -102,7 +102,7 @@
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
 | SEAM-027 | Error Boundaries (3 levels) | P7-T01, P7-T02 | P7 |
-| SEAM-028 | Client Error Handling (onError → ChatShell, NO gateway credit detection) | P3-T21, P3-T26 | P3 |
+| SEAM-028 | Client Error Handling (useChat.onError → toast, NO gateway credit detection) | P3-T21, P3-T26 | P3 |
 
 ## UI Infrastructure Seams
 
@@ -110,7 +110,7 @@
 |---------|-------------|------------|-------|
 | SEAM-029 | Provider Tree Assembly (max 7 levels, scoped, NOT 9+ nested) | P0-T13, P2-T08, P3-T24, P5-T11 | P0, P2, P3, P5 |
 | SEAM-030 | Theme System | P0-T12, P5-T06 | P0, P5 |
-| SEAM-031 | URL State Management (ChatShell + chat pages) | P3-T21, P3-T25 | P3 |
+| SEAM-031 | URL State Management (history.replaceState + NoticeHandler) | P3-T21, P3-T25 | P3 |
 
 ## Artifact Editor Seams
 
@@ -125,9 +125,9 @@
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-036 | Rate Limiting Pipeline (proxy.ts + route handlers, NO credit/quota) | P0-T14, P6-T13 | P0, P6 |
-| SEAM-037 | Pyodide Script Loading | P4-T08 | P4 |
-| SEAM-038 | Message Edit + Regenerate | P3-T16, P3-T15 | P3 |
+| SEAM-036 | Rate Limiting Pipeline (proxy.ts + route handlers, NO credit/quota) | P6-T09, P6-T13 | P6 |
+| SEAM-037 | Pyodide Script Loading | P4-T08, P4-T17 | P4 |
+| SEAM-038 | Message Edit + Regenerate | P3-T16, P3-T22 | P3 |
 | SEAM-039 | Version Navigation + Restore | P4-T12 | P4 |
 | SEAM-040 | Inline Artifact Preview → Panel (NOT Document Preview) | P4-T14 | P4 |
 

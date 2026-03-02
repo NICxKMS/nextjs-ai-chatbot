@@ -32,19 +32,21 @@
 | Directory | Contents |
 |-----------|----------|
 | `architecture/` | decisions.md, conventions.md, improvements.md, patterns.md, spec-analysis.md |
-| `behavioral_extraction/` | features.md, interactions.md, edge-cases.md |
-| `dependencies/` | critical-path.md, dependency-graph.md |
+| `behavioral_extraction/` | features.md, api-contracts.md, data-flows.md, edge-cases.md |
+| `dependencies/` | critical-path.md, graph.md |
 | `deviations/` | deviations-01.md, index.md |
-| `integration_map/` | seam-inventory.md, data-flow.md |
+| `integration_map/` | seam-inventory.md, data-flow-chains-01.md, data-flow-chains-02.md |
 | `phases/` | p00-scaffold.md through p07-polish.md, index.md |
-| `scaffold/` | directory-structure.md |
+| `scaffold/` | base-config.md, directory-structure.md, shared-types.md |
 | `strategy/` | approach.md, phase-order.md, vertical-slices.md |
 | `traceability/` | feature-to-task.md, seam-to-task.md, uncovered-features.md |
-| `ui_parity/` | ai-elements-manifest.md |
+| `ui_parity/` | accessibility.md, components-01.md, components-02.md, interactions.md, screens.md |
 
 ---
 
-## Redesign Documents (in `/redesign/`)
+## Redesign Documents (in `../../plan-archives/redesign/`)
+
+Full source index: [`../../plan-archives/redesign/index.md`](../../plan-archives/redesign/index.md)
 
 | File | Contents |
 |------|----------|

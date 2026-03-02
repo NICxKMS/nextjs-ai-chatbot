@@ -72,7 +72,7 @@ app/
 │
 ├── (chat)/
 │   ├── layout.tsx                    # Chat layout (SERVER): sidebar + PendingChatsProvider
-│   ├── loading.tsx                   # Loading skeleton while chat data loads (SERVER)
+│   ├── loading.tsx                   # Loading skeleton while chat data loads (SERVER) (post-redesign addition: route-level loading state)
 │   ├── error.tsx                     # Chat route error boundary
 │   ├── page.tsx                      # New chat page (SERVER): generates UUID, renders ChatShell
 │   └── chat/
@@ -216,9 +216,8 @@ features/auth/
 ├── actions/
 │   ├── login.ts                      # Server Action: email/password login → cookie set → redirect
 │   ├── register.ts                   # Server Action: registration → cookie set → redirect
-│   └── logout.ts                     # Server Action: cookie delete → redirect to /login
+│   ├── logout.ts                     # Server Action: cookie delete → redirect to /login
 ├── lib/
-│   ├── session.ts                    # getAppSession(): resolve session from cookies (server-only)
 │   └── guest.ts                      # Guest bootstrap: JWT creation, token rotation
 ├── schemas/
 │   └── auth.schema.ts               # Login/register input validation (Zod)
@@ -228,8 +227,8 @@ features/auth/
 
 **Key changes from old plan:**
 - `auth-provider.tsx` → `session-provider.tsx` (SessionProvider, not AuthProvider)
-- `exchange.ts` action removed (login handles cookie set directly)
-- `session.ts` moved to `lib/` (was flat in the feature)
+- `/api/auth/*` REST routes removed — auth mutations use Server Actions (`login`, `register`, `logout`)
+- Session management lives in `lib/auth/session.ts` (shared infrastructure, not feature-scoped)
 - New: `guest.ts`, `auth.types.ts`
 - Auth routes (`/api/auth/*`) removed — Server Actions handle all auth mutations
 
@@ -265,7 +264,7 @@ features/sidebar/
 features/voting/
 ├── components/
 │   ├── vote-buttons.tsx              # Upvote/downvote with useOptimistic ('use client')
-│   └── vote-resolver.tsx             # Resolves deferred vote promises via React 19 use() ('use client')
+│   └── vote-resolver.tsx             # (post-redesign addition) Resolves deferred vote promises via React 19 use() ('use client')
 ├── hooks/
 │   └── use-votes.ts                  # Votes state (server-seeded + optimistic)
 ├── actions/
@@ -333,7 +332,7 @@ Only components used by 2+ features or genuinely app-wide.
 
 ```
 components/
-├── ai-elements/                       # Read-only AI primitives — NEVER MODIFY
+├── ai-elements/                       # Optional legacy reference primitives from oldapp (NOT redesign-required baseline)
 │   ├── artifact.tsx                   # (128 LOC) Artifact compound component
 │   ├── canvas.tsx                     # (20 LOC) Graph canvas
 │   ├── chain-of-thought.tsx           # (211 LOC) CoT display
@@ -457,7 +456,7 @@ lib/
 │   └── codes.ts                      # Error code registry (NO activate_gateway, NO credit codes)
 │
 ├── types/
-│   ├── api.types.ts                  # PaginatedResult<T>, PaginationParams, ErrorResponse, HealthResponse
+│   ├── api.types.ts                  # (post-redesign addition) PaginatedResult<T>, PaginationParams, ErrorResponse, HealthResponse
 │   ├── artifact.types.ts             # UIArtifact, ArtifactKind (re-exported from features scope)
 │   ├── artifact-handler.types.ts     # ArtifactHandler, ArtifactStreamWriter, Create/UpdateArtifactParams
 │   ├── pending-chats.types.ts        # PendingChat, PendingChatOperations
@@ -564,7 +563,7 @@ public/
 | **features/models/** | 4 | Model selection: component, catalog, types |
 | **features/visibility/** | 4 | Visibility toggle: component, action, types |
 | **features/settings/** | 4 | User settings: component, hook, types |
-| **components/ai-elements/** | 31 | Read-only AI primitives (copied) |
+| **components/ai-elements/** | optional | Legacy reference primitives (excluded from redesign baseline) |
 | **components/ui/** | 32 | shadcn/ui base components |
 | **components/** (root) | 5 | Theme, icons, sidebar toggle, weather, toaster |
 | **lib/ai/** | 8 | AI registry, provider, models, prompts, handlers, tools, title |

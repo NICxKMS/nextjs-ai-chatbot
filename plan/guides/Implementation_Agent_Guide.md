@@ -106,7 +106,7 @@ Domain code in `features/<domain>/`. Only truly shared code in `lib/` or `compon
 |---------|------|
 | Server Actions | Client-called: return `ActionResult<T>`. RH-delegated: may throw `AppError`. (See `patterns.md` § 2) |
 | Route Handlers | Use `AppError.toResponse()` for error responses |
-| Mutations | SAs call `invalidate*()` wrappers. RHs use `updateTag()`. (See `patterns.md` § 9) |
+| Mutations | SAs call `invalidate*()` wrappers (`updateTag`). RHs call `refresh*()` wrappers (`revalidateTag(tag, 'max')`). (See `patterns.md` § 9) |
 | Artifact state | `useSyncExternalStore` with selector — NOT SWR |
 | Settings | `useSettings()` hook — NO SettingsProvider |
 | ChatShell | ~60 lines target (≤80 hard limit) thin orchestrator |

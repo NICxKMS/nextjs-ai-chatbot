@@ -20,7 +20,7 @@ Create the database migration infrastructure, cache layer with revalidation util
 
 | ID | Title | Type | Files Created | Dependencies | Complexity |
 |---|---|---|---|---|---|
-| P1-T01 | Create DB migration infra | IMPL | `lib/db/migrate.ts`, `drizzle.config.ts` | P0-T04 | M |
+| P1-T01 | Create DB migration infra | IMPL | `lib/db/migrate.ts`, `drizzle.config.ts` | P0-T04, P0-T18 | M |
 | P1-T02 | Create cache client + keys | IMPL | `lib/cache/client.ts` (Upstash Redis), `lib/cache/keys.ts` | P0-T01 | M |
 | P1-T03 | Create revalidation utilities | IMPL | `lib/cache/revalidate.ts` (`invalidateChat`/`updateTag`, `refreshChat`/`revalidateTag`, etc.) | P1-T02 | M |
 | P1-T04 | Create cache-through helper | IMPL | `lib/cache/with-cache.ts` | P1-T02 | S |

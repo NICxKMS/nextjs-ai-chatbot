@@ -64,7 +64,7 @@
 | Contract | Provider | Consumer | Data Shape |
 |----------|----------|----------|------------|
 | Vote state | Server (initial via VoteResolver) | `VoteButtons` component | `Vote[]` |
-| Vote mutation | `voteOnMessage()` Server Action | `VoteButtons` | `{ chatId, messageId, type }` → `ActionResult<{ messageId }>` |
+| Vote mutation | `voteOnMessage()` Server Action | `VoteButtons` | `{ chatId, messageId, type }` → `ActionResult<{ messageId, type }>` |
 | Chat ownership | Chat props `isReadonly` | Vote button visibility | `boolean` |
 
 > **Replaced:** SWR `PATCH /api/vote` → Server Action + `useOptimistic` (React 19).
@@ -87,6 +87,15 @@
 |----------|----------|----------|------------|
 | Session | `SessionProvider` context | `useChatSession`, API routes | `AppSession` |
 | Guest state | `useSession().user.type` | Vote visibility, history behavior | `"authenticated" | "guest"` |
+
+### features/chat/ → features/visibility/
+
+**Direction:** Visibility selector renders in chat header
+
+| Contract | Provider | Consumer | Data Shape |
+|----------|----------|----------|------------|
+| Visibility toggle | `VisibilitySelector` component | `ChatHeader` | `'public' \| 'private'` |
+| Visibility mutation | `updateChatVisibility()` Server Action | `VisibilitySelector` | `ActionResult<void>` |
 
 ---
 
@@ -144,7 +153,29 @@
 | lib/ Module | Functions Used | Purpose |
 |-------------|----------------|---------|
 | (none) | — | Leaf feature — no lib imports |
+### features/models/ → lib/
 
+| lib/ Module | Functions Used | Purpose |
+|-------------|----------------|----------|
+| `lib/ai/registry` | `getAvailableModels()` | Model discovery |
+| `lib/ai/models` | Model catalog definitions | Model metadata |
+
+**Exports (public surface):**
+- `ModelSelector` — component (grouped by provider, cookie + localStorage persistence)
+- `getAvailableModels()` — function (server, `use cache`)
+- `getDefaultModel()` — function (returns first model from catalog)
+
+### features/visibility/ → lib/
+
+| lib/ Module | Functions Used | Purpose |
+|-------------|----------------|----------|
+| `lib/data/chat` | `updateChatVisibility()` | DB mutation |
+| `lib/cache/revalidate` | `invalidateChat()`, `invalidateChatList()` | Cache invalidation |
+| `lib/auth/session` | `getAppSession()` | Ownership check |
+
+**Exports (public surface):**
+- `VisibilitySelector` — component
+- `updateChatVisibility` — Server Action
 ---
 
 ## 3. Component → Hook → Action → Data Chains
@@ -227,7 +258,7 @@ SidebarShell (SERVER component)
     → getChatsByUserId(userId, { limit: 21 })
   → SidebarHistoryClient (initialChats, initialHasMore)
     → useSWRInfinite(key, fetcher, { fallbackData })
-      → GET /api/history?limit=20&offset={page*20} (route handler)
+      → GET /api/history?limit=20&cursor={nextCursor} (route handler)
         → auth, rate limit
         → getChatsByUserId with cursor pagination
     → usePendingChats() — merge optimistic entries
@@ -237,18 +268,16 @@ SidebarShell (SERVER component)
 
 ## 4. API Route → Action → Repository Chain
 
-| Route | Handler | Guards | Data Layer | Revalidation |
-|-------|---------|--------|------------|--------------|
-| `POST /api/chat` | Route Handler | auth, rate limit | `createChat`, `saveMessages`, `updateChatTitle` | `revalidateTag('chat:{id}', 'max')`, `revalidateTag('chats:{userId}', 'max')` |
-| `GET /api/history` | Route Handler | auth, rate limit | `getChatsByUserId` | — |
-| `GET /api/artifact` | Route Handler | auth, ownership | `getArtifactById` (all versions) | — |
-| `POST /api/artifact` | Route Handler | auth, rate limit | `saveArtifactVersion` | `revalidateTag('artifact:{id}', 'max')` |
-| `DELETE /api/artifact` | Route Handler | auth, non-guest, ownership | `deleteArtifactVersion` | `revalidateTag('artifact:{id}', 'max')` |
-| `GET /api/suggestions` | Route Handler | auth | `getSuggestionsByArtifactId` | — |
-| `POST /api/files/upload` | Route Handler | auth, upload rate limit | Vercel Blob `put()` | — |
-| `POST /api/auth/exchange` | Route Handler | none | JWT verify + cookie set | — |
-| `POST /api/auth/guest` | Route Handler | none | JWT sign + cookie set | — |
-| `GET /api/health` | Route Handler | none | DB ping | — |
+| Route | Handler | Guards | Data Layer | Revalidation | Response Type |
+|-------|---------|--------|------------|--------------|---------------|
+| `POST /api/chat` | Route Handler | auth, rate limit | `createChat`, `saveMessages`, `updateChatTitle` | `revalidateTag('chat:{id}', 'max')`, `revalidateTag('chats:{userId}', 'max')` | `ReadableStream` (SSE) |
+| `GET /api/history` | Route Handler | auth, rate limit | `getChatsByUserId` | — | `PaginatedResult<Chat>` |
+| `GET /api/artifact` | Route Handler | auth, ownership | `getArtifactById` (all versions) | — | `{ artifact: Artifact, versions: Version[] }` |
+| `POST /api/artifact` | Route Handler | auth, rate limit | `saveArtifactVersion` | `revalidateTag('artifact:{id}', 'max')` | `{ artifact: Artifact }` |
+| `DELETE /api/artifact` | Route Handler | auth, non-guest, ownership | `deleteArtifactVersion` | `revalidateTag('artifact:{id}', 'max')` | `{ success: true }` |
+| `GET /api/suggestions` | Route Handler | auth | `getSuggestionsByArtifactId` | — | `{ suggestions: ArtifactSuggestion[] }` |
+| `POST /api/files/upload` | Route Handler | auth, upload rate limit | Vercel Blob `put()` | — | `{ url: string, pathname: string }` |
+| `GET /api/health` | Route Handler | none | DB ping | — | `HealthResponse` |
 
 **Server Actions (mutations):**
 
@@ -304,30 +333,58 @@ SidebarShell (SERVER component)
 ### `deleteTrailingMessages({ id, chatId })`
 - **Input:** `{ id: string, chatId: string }` (Zod validated)
 - **Output:** `ActionResult`
-- **Side effects:** Deletes messages after the specified ID from DB, `updateTag('chat:{chatId}')`
+- **Side effects:** Deletes messages after the specified ID from DB, `invalidateChat(chatId)`
 
 ### `updateChatVisibility({ chatId, visibility })`
 - **Input:** `{ chatId: string, visibility: 'public' | 'private' }` (Zod validated)
 - **Output:** `ActionResult`
-- **Side effects:** Updates visibility in DB, `updateTag('chat:{chatId}')` + `updateTag('chats:{userId}')`
+- **Side effects:** Updates visibility in DB, `invalidateChat(chatId)` + `invalidateChatList(userId)`
 - **Auth:** Requires authenticated user, ownership verified
 
 ### `deleteChat({ chatId })`
 - **Input:** `{ chatId: string }` (Zod validated)
 - **Output:** `ActionResult`
-- **Side effects:** Deletes chat from DB, `updateTag('chats:{userId}')`
+- **Side effects:** Deletes chat from DB, `invalidateChatList(userId)`
 - **Auth:** Requires ownership
 
 ### `voteOnMessage({ chatId, messageId, type })`
 - **Input:** `{ chatId: string, messageId: string, type: 'up' | 'down' }` (Zod validated)
-- **Output:** `ActionResult<{ messageId: string }>`
-- **Side effects:** Upsert vote in DB, `updateTag('votes:{chatId}')`
+- **Output:** `ActionResult<{ messageId: string, type: 'up' | 'down' }>`
+- **Side effects:** Upsert vote in DB, `invalidateVotes(chatId)`
 - **Auth:** Requires non-guest
 
 ### `renameChat({ chatId, title })`
 - **Input:** `{ chatId: string, title: string }` (Zod validated)
 - **Output:** `ActionResult`
-- **Side effects:** Updates title in DB, `updateTag('chats:{userId}')`
+- **Side effects:** Updates title in DB, `invalidateChatList(userId)`
+- **Auth:** Requires ownership
+
+### `deleteAllChats()`
+- **Input:** None
+- **Output:** `ActionResult<void>`
+- **Side effects:** Deletes all chats and associated messages for current user, `invalidateChatList(userId)`
+- **Auth:** Requires authenticated user
+
+### `login(prevState, formData)`
+- **Input:** `FormData` — Zod `loginSchema` (email: string, password: string min 6)
+- **Output:** `ActionResult<void>`
+- **Side effects:** Validates credentials via Supabase, sets `sb_token` cookie, redirects to `/`
+- **Auth:** None (public)
+- **Error cases:** `auth:credentials:invalid`, `auth:session:exchange_failed`
+
+### `register(prevState, formData)`
+- **Input:** `FormData` — Zod `registerSchema` (email: string, password: string min 6)
+- **Output:** `ActionResult<void>`
+- **Side effects:** Creates user via Supabase, migrates guest data if applicable, sets `sb_token` cookie, redirects to `/`
+- **Auth:** None (public)
+- **Error cases:** `auth:registration:failed`, `auth:registration:email_exists`
+
+### `logout()`
+- **Input:** None
+- **Output:** `ActionResult<void>`
+- **Side effects:** Signs out via Supabase, clears `sb_token` and `guest_token` cookies, redirects to `/login`
+- **Auth:** Requires authenticated user
+- **Error cases:** None (best-effort)
 
 ---
 
@@ -442,6 +499,17 @@ type ModelMetadata = {
 ```
 **Produced by:** `getAvailableModels()` (lib/ai/models, `use cache`)
 **Consumed by:** `ModelSelector`, `ChatShell` (props), chat route (model resolution)
+
+### `DataContext`
+```typescript
+type DataContext = {
+  userId: string;
+  isGuest: boolean;
+};
+```
+**Type-only** (no runtime factory). Used for typing data access function parameters.
+**Defined in:** `lib/types/data-context.types.ts`
+**Consumed by:** `lib/data/` functions for guest/auth branching
 
 ### `DataPart` (Stream Parts)
 ```typescript

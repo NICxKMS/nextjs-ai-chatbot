@@ -32,20 +32,10 @@ export async function getChatById(
   id: string,
   ctx: DataContext
 ): Promise<Chat | null> {
-  // 1. Check cache
-  const cached = await cache.get<Chat>(cacheKeys.chat(id))
-  if (cached) return cached
-
-  // 2. Guest: cache-only, no DB fallback
-  if (ctx.isGuest) return null
-
-  // 3. Auth: DB fallback + cache warming
-  const chat = await db.query.chats.findFirst({
-    where: eq(chats.id, id),
-  })
-  if (chat) {
-    await cache.set(cacheKeys.chat(id), chat, { ex: 3600 })
-  }
+  // Server cache-tagged read pattern
+  // 1. Resolve ownership/visibility via session context
+  // 2. Read from DB under 'use cache' + cacheTag
+  const chat = await db.query.chats.findFirst({ where: eq(chats.id, id) })
   return chat ?? null
 }
 
@@ -116,8 +106,8 @@ export async function withCache<T>(
 
 - ✅ One file per entity in `lib/data/`
 - ✅ Every read function receives `DataContext`
-- ✅ Guest users: cache-only, return null on miss
-- ✅ Auth users: cache-first, DB fallback, warm cache
+- ✅ Guest and auth users both use DB persistence
+- ✅ Reads use `'use cache'` + `cacheTag`; writes revalidate tags
 - ✅ Write functions: DB first, then cache update/invalidate
 - ❌ No abstract classes or generics
 - ❌ No direct DB access from actions (go through `lib/data/`)
@@ -184,15 +174,15 @@ export type ActionResult<T = void> =
 // features/chat/actions/delete-chat.ts
 'use server'
 
-import { revalidateTag } from 'next/cache'
+import { updateTag } from 'next/cache'
 
 export async function deleteChat(chatId: string): Promise<ActionResult> {
   const session = await getAppSession()
   if (!session) return { success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }
 
   await deleteChatById(chatId, session.user.id)
-  revalidateTag(`chat:${chatId}`)
-  revalidateTag(`chats:${session.user.id}`)
+  updateTag(`chat:${chatId}`)
+  updateTag(`chats:${session.user.id}`)
   return { success: true, data: undefined }
 }
 ```
@@ -460,7 +450,7 @@ export async function streamChatAction(body: ChatRequestBody) {
       dataStream.merge(result.toUIMessageStream({ sendReasoning: true }))
     },
     onFinish: async () => {
-      // Persist: save messages, increment quota, update title
+      // Persist: save messages, update title
       await saveChat(chatId, messages, ctx)
     },
   })
@@ -648,34 +638,89 @@ export async function getModelCatalog() {
 Keep `use cache` data fresh after mutations. Every mutation must pair with tag
 invalidation.
 
-### Template
+### Primitives: `updateTag` vs `revalidateTag`
+
+| Primitive | Used In | Behavior |
+|-----------|---------|----------|
+| `updateTag(tag)` | **Server Actions** | Immediate invalidation — user sees own writes; cached data expires instantly so the next request fetches fresh |
+| `revalidateTag(tag, 'max')` | **Route Handlers** | Cooperative freshness — stale-while-revalidate semantics; serves stale then refreshes in background |
+
+Server Actions use `updateTag` because the user expects immediate freshness after a
+mutation (e.g., deleting a chat should immediately remove it from the sidebar — read-your-own-writes). Route
+Handlers use `revalidateTag(tag, 'max')` because they serve concurrent requests and stale-while-revalidate
+provides better latency.
+
+### Mutation → Tag → Primitive Matrix
+
+| Mutation | Tags Invalidated | Caller | Primitive |
+|----------|-----------------|--------|-----------|
+| `deleteChat(chatId)` | `chat:{chatId}`, `chats:{userId}` | Server Action | `updateTag` |
+| `deleteAllChats(userId)` | `chats:{userId}` | Server Action | `updateTag` |
+| `renameChat(chatId, title)` | `chat:{chatId}`, `chats:{userId}` | Server Action | `updateTag` |
+| `updateVisibility(chatId)` | `chat:{chatId}` | Server Action | `updateTag` |
+| `voteOnMessage(chatId)` | `votes:{chatId}` | Server Action | `updateTag` |
+| `saveArtifactVersion(artifactId)` | `artifact:{artifactId}` | Route Handler | `revalidateTag` |
+| `streamChat(chatId)` | `chat:{chatId}`, `chats:{userId}` | Route Handler | `revalidateTag` |
+| `deleteTrailingMessages(chatId)` | `chat:{chatId}` | Server Action | `updateTag` |
+
+### Template — Server Action Invalidation Functions
 
 ```typescript
 // lib/cache/revalidate.ts
-import { revalidateTag } from 'next/cache'
+import { updateTag } from 'next/cache'
 
-// Server Action revalidation (push invalidation)
+// --- Server Action invalidation (immediate, read-your-own-writes) ---
+
 export function invalidateChat(chatId: string, userId: string) {
-  revalidateTag(`chat:${chatId}`)
-  revalidateTag(`chats:${userId}`)
+  updateTag(`chat:${chatId}`)
+  updateTag(`chats:${userId}`)
+}
+
+export function invalidateChatList(userId: string) {
+  updateTag(`chats:${userId}`)
 }
 
 export function invalidateArtifact(artifactId: string) {
-  revalidateTag(`artifact:${artifactId}`)
+  updateTag(`artifact:${artifactId}`)
 }
 
 export function invalidateVotes(chatId: string) {
-  revalidateTag(`votes:${chatId}`)
+  updateTag(`votes:${chatId}`)
+}
+```
+
+### Template — Route Handler Revalidation Functions
+
+```typescript
+// lib/cache/revalidate.ts (continued)
+import { revalidateTag } from 'next/cache'
+
+// --- Route Handler revalidation (cooperative freshness, stale-while-revalidate) ---
+
+export function refreshChat(chatId: string, userId: string) {
+  revalidateTag(`chat:${chatId}`, 'max')
+  revalidateTag(`chats:${userId}`, 'max')
+}
+
+export function refreshChatList(userId: string) {
+  revalidateTag(`chats:${userId}`, 'max')
+}
+
+export function refreshArtifact(artifactId: string) {
+  revalidateTag(`artifact:${artifactId}`, 'max')
 }
 ```
 
 ### Rules
 
 - ✅ Every Server Action mutation calls the appropriate `invalidate*` function
-- ✅ Route Handlers use `updateTag` for cooperative freshness
+- ✅ Every Route Handler mutation calls the appropriate `refresh*` function
 - ✅ Tag names follow `entity:{id}` convention
+- ✅ Use `updateTag` in Server Actions (immediate invalidation, read-your-own-writes)
+- ✅ Use `revalidateTag(tag, 'max')` in Route Handlers (cooperative freshness, stale-while-revalidate)
 - ❌ Never skip revalidation after a mutation
 - ❌ Never use generic tags like `'all'` or `'data'`
+- ❌ Never mix primitives — no `revalidateTag` in Server Actions, no `updateTag` in Route Handlers
 
 ---
 
@@ -723,4 +768,4 @@ Minimal provider tree. Each provider wraps only the components that consume it.
 - ✅ PendingChatsProvider at (chat) layout level
 - ✅ ChatStreamProvider at page level (per-chat)
 - ✅ No SettingsProvider (direct import)
-- ❌ ThemeProvider NOT at app level — let next-themes handle it
+- ✅ ThemeProvider at root layout level (global theming concern)
