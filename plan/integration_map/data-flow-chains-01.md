@@ -50,21 +50,22 @@ User types message in MultimodalInput on home page and clicks send.
       - System prompt: composeSystemPrompt({ model, systemPrompt? })
       - Apply settings: temperature, topP, maxOutputTokens, providerOptions
 
-5. SERVER: streamText execution
-   a. myProvider.languageModel(modelId) → model instance
-   b. Model generates tokens → text-delta parts
-   c. smoothStream transform (optional)
-   d. Reasoning tokens → reasoning parts (if enabled)
-   e. Tool calls → tool-call part + execute → tool-result part
-   f. If createArtifact/updateArtifact tool: see Chain 5/6
+5. SERVER: streamText execution (inside execute)
+   a. titlePromise = generateTitle(userMessage.content) — kicked off early, runs in parallel with streaming
+   b. myProvider.languageModel(modelId) → model instance
+   c. Model generates tokens → text-delta parts
+   d. smoothStream transform (optional)
+   e. Reasoning tokens → reasoning parts (if enabled)
+   f. Tool calls → tool-call part + execute → tool-result part
+   g. If createArtifact/updateArtifact tool: see Chain 5/6
+   h. After streaming completes: const title = await titlePromise
+   i. ChatStream.writeData({ type: 'chat-title', content: title }) — sent BEFORE stream close
 
-6. SERVER: onFinish callback
+6. SERVER: onFinish callback (persistence + revalidation only)
    a. saveMessages(chatId, messages) → DB
-   b. Generate title: generateText({ model: TITLE_MODEL, messages })
-   c. updateChatTitle(chatId, title)
-   d. ChatStream.writeData({ type: 'chat-title', content: title })
-   e. revalidateTag('chat:{chatId}', 'max')
-   f. revalidateTag('chats:{userId}', 'max')
+   b. updateChatTitle(chatId, title)
+   c. revalidateTag('chat:{chatId}', 'max')
+   d. revalidateTag('chats:{userId}', 'max')
 
 7. CLIENT: useChat receives SSE
    a. text-delta → append to assistant message (automatic)

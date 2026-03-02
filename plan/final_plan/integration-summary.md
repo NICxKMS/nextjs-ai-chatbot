@@ -159,8 +159,8 @@ All seams resolved across 8 phases using redesign patterns.
     <ThemeProvider>
       <SessionProvider session={serverSession}>
         {children}
-        <Toaster />
       </SessionProvider>
+      <Toaster />
     </ThemeProvider>
   </body>
 </html>
@@ -169,22 +169,24 @@ All seams resolved across 8 phases using redesign patterns.
 ### Chat Layout (`app/(chat)/layout.tsx`) — SERVER
 
 ```
-<SidebarProvider>
-  <PendingChatsProvider>
+<PendingChatsProvider>
+  <SidebarProvider>
     <Suspense fallback={<SidebarSkeleton />}>
       <SidebarShell />     <!-- SERVER: 'use cache' + cacheTag -->
     </Suspense>
     <SidebarInset>
       {children}            <!-- Chat pages render here -->
     </SidebarInset>
-  </PendingChatsProvider>
-</SidebarProvider>
+  </SidebarProvider>
+</PendingChatsProvider>
 ```
 
 ### Chat Page (`app/(chat)/chat/[id]/page.tsx`)
 
 ```
 <ChatStreamProvider>        <!-- Split context: StateCtx + DispatchCtx, RAF batching -->
+  <StreamBridge />          <!-- Thin bridge ~20 lines → processStreamDelta → artifactStore -->
+  <VoteResolver votesPromise={votesPromise} />   <!-- React 19 use() -->
   <ChatShell                <!-- ~60 lines, creates ChatSessionContext.Provider -->
     chatId={id}
     initialMessages={messages}
@@ -192,10 +194,8 @@ All seams resolved across 8 phases using redesign patterns.
     <ChatHeader />
     <Messages />
     <MultimodalInput />
-    <StreamBridge />        <!-- Thin bridge ~20 lines → processStreamDelta → artifactStore -->
     <ArtifactPanel />       <!-- useSyncExternalStore subscription -->
   </ChatShell>
-  <VoteResolver votesPromise={votesPromise} />   <!-- React 19 use() -->
 </ChatStreamProvider>
 ```
 

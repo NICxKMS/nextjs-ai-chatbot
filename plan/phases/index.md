@@ -102,6 +102,8 @@ P7-T01 ──────────────┐
        └─ P7-T13 ────┘ (verification gate G07 — FINAL)
 ```
 
+> Note: The diagram is a simplified gate sequence. Per `strategy/phase-order.md`, P4 and P5 work can overlap after P3 (P5 can begin once P3 layout scaffolding is available).
+
 ---
 
 ## Seam Coverage (P0–P7)

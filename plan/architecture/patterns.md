@@ -26,7 +26,7 @@ import { chats } from '@/lib/db/schema'
 import { cache } from '@/lib/cache'
 import { cacheKeys } from '@/lib/cache/keys'
 import type { Chat } from '@/lib/types'
-import type { DataContext } from '@/lib/data/context'
+import type { DataContext } from '@/lib/types/data-context.types'
 
 export async function getChatById(
   id: string,
@@ -65,13 +65,11 @@ export async function deleteChatById(
 ### DataContext
 
 ```typescript
-// lib/data/context.ts
+// lib/types/data-context.types.ts
 export type DataContext = {
   userId: string
   isGuest: boolean
 }
-
-// Also exported from lib/types/data-context.types.ts for cross-feature use
 ```
 
 ### withCache Helper
@@ -127,8 +125,8 @@ auth, orchestration, and error handling.
 // features/chat/actions/save-message.ts
 'use server'
 
-import { getAppSession } from '@/features/auth/lib/session'
-import { createDataContext } from '@/lib/data/context'
+import { getAppSession } from '@/lib/auth/session'
+import type { DataContext } from '@/lib/types/data-context.types'
 import { createMessage } from '@/lib/data/message'
 import { sendMessageSchema } from '@/features/chat/schemas/message.schema'
 import { AppError } from '@/lib/errors'
@@ -147,7 +145,7 @@ export async function saveMessageAction(input: unknown) {
   }
 
   // 3. Authorize (ownership check)
-  const ctx = createDataContext(session)
+  const ctx: DataContext = { userId: session.user.id, isGuest: false }
   const chat = await getChatById(parsed.data.chatId, ctx)
   if (!chat) throw AppError.notFound('Chat')
   if (chat.userId !== session.user.id) throw AppError.forbidden('Not chat owner')
@@ -176,9 +174,9 @@ export type ActionResult<T = void> =
 
 import { updateTag } from 'next/cache'
 
-export async function deleteChat(chatId: string): Promise<ActionResult> {
+export async function deleteChat({ chatId }: { chatId: string }): Promise<ActionResult> {
   const session = await getAppSession()
-  if (!session) return { success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }
+  if (!session) return { success: false, error: { code: 'unauthorized:chat:auth_required', message: 'Unauthorized' } }
 
   await deleteChatById(chatId, session.user.id)
   updateTag(`chat:${chatId}`)
@@ -231,18 +229,22 @@ export async function POST(request: Request) {
 
 ```typescript
 // app/api/history/route.ts
-import { getAppSession } from '@/features/auth/lib/session'
+import { getAppSession } from '@/lib/auth/session'
 import { getChatsByUserId } from '@/lib/data/chat'
-import { createDataContext } from '@/lib/data/context'
+import type { DataContext } from '@/lib/types/data-context.types'
 
 export async function GET(request: Request) {
   const session = await getAppSession()
   if (!session) return AppError.unauthorized().toResponse()
   const url = new URL(request.url)
-  const limit = Math.min(Number(url.searchParams.get('limit') ?? 10), 100)
-  const ctx = createDataContext(session)
-  const chats = await getChatsByUserId(ctx.userId, { limit: limit + 1 })
-  return Response.json({ chats: chats.slice(0, limit), hasMore: chats.length > limit })
+  const limit = Math.min(Number(url.searchParams.get('limit') ?? 20), 100)
+  const cursor = url.searchParams.get('cursor') ?? undefined
+  const ctx: DataContext = { userId: session.user.id, isGuest: false }
+  const chats = await getChatsByUserId(ctx.userId, { limit: limit + 1, cursor })
+  const hasMore = chats.length > limit
+  const page = chats.slice(0, limit)
+  const nextCursor = hasMore ? page[page.length - 1]?.id : undefined
+  return Response.json({ chats: page, hasMore, nextCursor })
 }
 ```
 
@@ -380,9 +382,14 @@ For complex components with internal state sharing:
 ```typescript
 // lib/errors/app-error.ts
 type ErrorCode =
-  | 'UNAUTHORIZED' | 'FORBIDDEN' | 'NOT_FOUND'
-  | 'VALIDATION' | 'RATE_LIMITED' | 'AI_ERROR'
-  | 'DATABASE_ERROR' | 'CACHE_ERROR'
+  | 'bad_request:api:invalid_request_body'
+  | 'unauthorized:chat:auth_required'
+  | 'forbidden:chat:owner_mismatch'
+  | 'not_found:chat:not_found'
+  | 'rate_limit:chat:too_many_requests'
+  | 'ai_error:provider:failed'
+  | 'internal_error:database:query_failed'
+  | 'internal_error:cache:operation_failed'
 
 export class AppError extends Error {
   // constructor(code, message, statusCode = 500, details?)
@@ -418,23 +425,22 @@ export class AppError extends Error {
 // features/chat/actions/stream-chat.ts
 import { streamText } from 'ai'
 import { createUIMessageStream } from 'ai'
-import { myProvider } from '@/lib/ai/providers'
+import { myProvider } from '@/lib/ai/provider'
+import type { DataContext } from '@/lib/types/data-context.types'
 
 export async function streamChatAction(body: ChatRequestBody) {
   const session = await getAppSession()
   if (!session) throw AppError.unauthorized()
 
-  const ctx = createDataContext(session)
+  const ctx: DataContext = { userId: session.user.id, isGuest: false }
   const validated = chatRequestSchema.parse(body)
 
   return createUIMessageStream({
     execute: async (dataStream) => {
-      // Title generation (parallel, non-blocking)
-      if (isNewChat) {
-        generateTitle(validated.message).then(title => {
-          dataStream.writeData({ type: 'chat-title', content: title })
-        })
-      }
+      // Title generation — start early, await before close
+      const titlePromise = isNewChat
+        ? generateTitle(validated.message)
+        : null
 
       // Main chat completion
       const result = streamText({
@@ -448,9 +454,15 @@ export async function streamChatAction(body: ChatRequestBody) {
 
       result.consumeStream()
       dataStream.merge(result.toUIMessageStream({ sendReasoning: true }))
+
+      // Await title before stream closes — ensures client receives it
+      if (titlePromise) {
+        const title = await titlePromise
+        dataStream.writeData({ type: 'chat-title', content: title })
+      }
     },
     onFinish: async () => {
-      // Persist: save messages, update title
+      // Persist messages and revalidate cache
       await saveChat(chatId, messages, ctx)
     },
   })
@@ -654,10 +666,10 @@ provides better latency.
 
 | Mutation | Tags Invalidated | Caller | Primitive |
 |----------|-----------------|--------|-----------|
-| `deleteChat(chatId)` | `chat:{chatId}`, `chats:{userId}` | Server Action | `updateTag` |
+| `deleteChat({ chatId })` | `chats:{userId}` | Server Action | `updateTag` |
 | `deleteAllChats(userId)` | `chats:{userId}` | Server Action | `updateTag` |
-| `renameChat(chatId, title)` | `chat:{chatId}`, `chats:{userId}` | Server Action | `updateTag` |
-| `updateVisibility(chatId)` | `chat:{chatId}` | Server Action | `updateTag` |
+| `renameChat({ chatId, title })` | `chats:{userId}` | Server Action | `updateTag` |
+| `updateChatVisibility({ chatId, visibility })` | `chat:{chatId}`, `chats:{userId}` | Server Action | `updateTag` |
 | `voteOnMessage(chatId)` | `votes:{chatId}` | Server Action | `updateTag` |
 | `saveArtifactVersion(artifactId)` | `artifact:{artifactId}` | Route Handler | `revalidateTag` |
 | `streamChat(chatId)` | `chat:{chatId}`, `chats:{userId}` | Route Handler | `revalidateTag` |

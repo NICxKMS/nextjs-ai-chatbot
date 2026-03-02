@@ -145,26 +145,16 @@ const ratelimit = new Ratelimit({
 });
 ```
 
-**Skip paths:** `/api/health`
-
 **Identifier:** User ID from session (guest or auth), falls back to IP.
 
-### Application Rate Limiting (`rate-limit.ts`)
-Server-side rate limiting with multiple algorithms.
+### Route/Action Rate Limiting (inline checks)
+Server-side limits are enforced inline in Route Handlers and Server Actions for sensitive surfaces.
 
 ```typescript
-// Available algorithms
-TokenBucket(maxTokens, refillRate, refillIntervalMs)
-SlidingWindow(maxRequests, windowMs)
-FixedWindow(maxRequests, windowMs)
-
-// Pre-configured limiters
-RateLimiters = {
-  standard: SlidingWindow(100, 60_000),   // 100/min
-  strict: SlidingWindow(10, 60_000),      // 10/min
-  chat: SlidingWindow(50, 60_000),        // 50/min
-  upload: FixedWindow(10, 3_600_000),     // 10/hour
-};
+// Canonical limits
+chat: 50/min
+standard: 100/min
+upload: 10/hour
 ```
 
 All backed by Redis. Key format: `rl:{type}:{userId}`.
@@ -178,9 +168,14 @@ All backed by Redis. Key format: `rl:{type}:{userId}`.
 ### Common Pattern
 ```typescript
 // Server Action pattern
-async function deleteChat(chatId: string): Promise<ActionResult<void>> {
+async function deleteChat({ chatId }: { chatId: string }): Promise<ActionResult<void>> {
   const session = await getAppSession();
-  if (!session) return { error: 'unauthorized' };
+  if (!session) {
+    return {
+      success: false,
+      error: { code: 'unauthorized:chat:auth_required', message: 'Unauthorized' },
+    };
+  }
   // ... proceed with session.user
 }
 
@@ -194,13 +189,15 @@ export async function POST(request: Request) {
 }
 ```
 
-### Auth Guards (`lib/api/guards.ts`)
+### Auth Guards (inline helpers)
 ```typescript
 requireAuth(session)         // Throws if no session
 requireNonGuest(session)     // Throws if guest user
 requireChatOwner(chat, userId) // Throws if not chat owner
 requireMessageInChat(messageId, chatId) // Throws if message not in chat
 ```
+
+> These checks are applied directly inside Route Handlers/Server Actions (no dedicated `lib/api/guards.ts` module in redesign).
 
 ---
 

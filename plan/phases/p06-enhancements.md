@@ -5,7 +5,7 @@
 > Enhancement phase. Implements all secondary features that augment the core experience:
 > voting (Server Action + useOptimistic), model selection, visibility toggle, file upload, weather UI, health check.
 >
-> **Entry state**: P5 complete — chat, artifacts, sidebar all work. Full navigation functional.
+> **Entry state**: P4 + P5 complete — artifacts and sidebar/navigation are both available for enhancement wiring.
 > **Exit state**: All enhancement features work — voting, model selection, upload, visibility, weather, health.
 > **Est. duration**: ~1.75 days
 > **Tasks**: 14
@@ -469,12 +469,12 @@ Action: Create app/api/health/route.ts — GET handler (no auth required). Check
 Output files:
 - app/api/health/route.ts
 
-Inputs: lib/db/client.ts (P1-T01), lib/cache/client.ts (P1-T02)
+Inputs: lib/db/client.ts, lib/cache/client.ts (P1-T02)
 Outputs: Health check endpoint for monitoring
 
 AI layer handling: NEW
 
-Dependencies: P1-T01, P1-T02
+Dependencies: P1-T02
 Dependents: P6-T14
 
 Success criteria:

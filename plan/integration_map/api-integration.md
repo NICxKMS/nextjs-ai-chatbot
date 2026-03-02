@@ -26,7 +26,6 @@
 | `/api/history` | GET | `SidebarHistoryClient` (useSWRInfinite) | Paginated chat list | Cookie |
 | `/api/artifact` | GET | `ArtifactPreview`, `ArtifactPanel` | Fetch artifact versions | Cookie |
 | `/api/artifact` | POST | `ArtifactPanel` (debounced save) | Save user-edited artifact version | Cookie |
-| `/api/artifact` | DELETE | `VersionFooter` (restore) | Delete later versions | Cookie |
 | `/api/suggestions` | GET | `ArtifactPanel` (text) | Fetch saved suggestions | Cookie |
 | `/api/files/upload` | POST | `MultimodalInput` | Upload file to Vercel Blob | Cookie |
 | `/api/health` | GET | External monitors | Health check | None |
@@ -36,7 +35,7 @@
 | Action | Client Caller | Purpose | Revalidation |
 |--------|---------------|---------|--------------|
 | `deleteChat` | `SidebarHistoryItem` dropdown | Delete single chat | `updateTag('chats:{userId}')` |
-| `deleteAllChats` | `AppSidebar` dropdown | Delete all chats | `updateTag('chats:{userId}')` |
+| `deleteAllChats` | `SidebarShell` header action | Delete all chats | `updateTag('chats:{userId}')` |
 | `deleteTrailingMessages` | `MessageEditor` | Delete messages after edit point | `updateTag('chat:{id}')` |
 | `voteOnMessage` | `VoteButtons` | Upvote/downvote message | `updateTag('votes:{chatId}')` |
 | `updateChatVisibility` | `VisibilitySelector` | Toggle public/private | `updateTag('chat:{id}')` + `updateTag('chats:{userId}')` |
@@ -56,7 +55,7 @@
 
 | Key Pattern | Data Type | Fetcher | Component |
 |-------------|-----------|---------|-----------|
-| History pagination | `{ chats, hasMore }` | `fetch(url).json()` | `SidebarHistoryClient` |
+| History pagination | `{ chats, hasMore, nextCursor? }` | `fetch(url).json()` | `SidebarHistoryClient` |
 | `"/api/artifact?id={id}"` | `Artifact[]` | `fetch(url).json()` | `ArtifactPreview`, `ArtifactPanel` |
 
 > **Removed SWR keys:**
@@ -296,7 +295,7 @@ if (!result.success) toast.error(result.error.message);
 { error: { code: "rate_limit:chat:daily_limit_exceeded", message: "...", status: 429 } }
 
 // Server Action errors (ActionResult):
-{ success: false, error: { code: "UNAUTHORIZED", message: "Login required" } }
+{ success: false, error: { code: "unauthorized:chat:auth_required", message: "Login required" } }
 
 // Client: toast.error(parsed.message) for both patterns
 ```

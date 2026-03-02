@@ -19,11 +19,11 @@
 | ID | Title | Type | Complexity | Files |
 |----|-------|------|------------|-------|
 | P2-T01 | Create session resolution | IMPL | M | 1 |
-| P2-T02 | Create auth types + schemas | IMPL | S | 1 |
-| P2-T03 | Create guest bootstrap | IMPL | M | 2 |
+| P2-T02 | Create auth types + schemas | IMPL | S | 2 |
+| P2-T03 | Create guest bootstrap | IMPL | M | 1 |
 | P2-T04 | Create auth actions (login/register/logout) | IMPL | M | 3 |
 | P2-T05 | Create auth form component | IMPL | L | 1 |
-| P2-T06 | Create SessionProvider | IMPL | L | 1 |
+| P2-T06 | Create SessionProvider | IMPL | M | 1 |
 | P2-T07 | Create auth layout + pages | IMPL | M | 3 |
 | P2-T08 | Wire root layout + proxy | INTEG | M | 2 |
 | P2-T09 | Verification gate G02 | VERIFY | S | 0 |
@@ -51,10 +51,10 @@ Title: Create session resolution function
 Phase: 2 — Auth Vertical
 Type: IMPL
 
-Behavior ref: auth-system.md (session resolution pipeline: check Supabase session, fall back to guest JWT, resolve userId)
+Behavior ref: auth-system.md (session resolution pipeline: check Supabase session, fall back to guest JWT, resolve AppSession.user)
 Architecture ref: architecture/patterns.md (session resolution); SEAM-005 (session resolution pipeline)
 
-Action: Create **lib/auth/session.ts** (NOT features/auth/lib/session.ts, NOT lib/auth/config.ts) — Export getAppSession(cookieStore): Promise<AppSession> function. Resolution pipeline: (1) Read Supabase session token from cookies, verify with supabase.auth.getUser(). (2) If no Supabase session, read guest token from cookies, verify with verifyGuestToken(). (3) Return AppSession with {userId, email?, isGuest, supabaseToken?}. (4) If neither token exists, return null session (not logged in). This is the single source of truth for "who is the current user" used by all server actions and API routes.
+Action: Create **lib/auth/session.ts** (NOT features/auth/lib/session.ts, NOT lib/auth/config.ts) — Export getAppSession(cookieStore): Promise<AppSession> function. Resolution pipeline: (1) Read Supabase session token from cookies, verify with supabase.auth.getUser(). (2) If no Supabase session, read guest token from cookies, verify with verifyGuestToken(). (3) Return `AppSession` with normalized shape `{ user: { id, type, email? }, supabaseToken? }`. (4) If neither token exists, return null session (not logged in). This is the single source of truth for "who is the current user" used by all server actions and API routes.
 
 Output files:
 - lib/auth/session.ts
@@ -64,12 +64,12 @@ Outputs: getAppSession consumed by all server actions, API routes, and layouts t
 
 AI layer handling: NEW
 
-Dependencies: P1-T05
+Dependencies: P1-T05, P1-T14
 Dependents: P2-T03, P2-T04, P2-T06, P2-T08, P3-T09, P3-T20
 
 Success criteria:
-- getAppSession returns AppSession with userId for valid Supabase session
-- getAppSession returns AppSession with userId and isGuest:true for valid guest JWT
+- getAppSession returns AppSession with `user.id` + `user.type='authenticated'` for valid Supabase session
+- getAppSession returns AppSession with `user.id` + `user.type='guest'` for valid guest JWT
 - getAppSession returns null when no valid tokens found
 - Never throws — returns null on invalid tokens
 - **File is lib/auth/session.ts** (NOT features/auth/lib/session.ts)
@@ -80,16 +80,17 @@ Complexity: M
 ---
 
 ### TASK: [ID: P2-T02]
-Title: Create auth validation schemas
+Title: Create auth types + schemas
 Phase: 2 — Auth Vertical
 Type: IMPL
 
 Behavior ref: auth-system.md (login/register form validation)
 Architecture ref: conventions.md (Zod schemas with Schema suffix); AGENTS.md (input validation via Zod)
 
-Action: Create features/auth/schemas/auth.schema.ts — Export loginSchema (Zod object: email string().email(), password string().min(6).max(100)), registerSchema (extends login with name string().min(1).max(100) optional), guestTokenSchema (Zod object: token string()), and type inferences LoginInput, RegisterInput using z.infer. These schemas are used for both client-side form validation and server-side action validation.
+Action: Create 2 files. (1) `features/auth/types/auth.types.ts` — shared auth payload/session helper types used by auth forms/actions. (2) `features/auth/schemas/auth.schema.ts` — export loginSchema (email string().email(), password string().min(6).max(100)), registerSchema (extends login with optional name), guestTokenSchema (token string), and inferred LoginInput/RegisterInput types via z.infer. These schemas are used for both client-side form validation and server-side action validation.
 
 Output files:
+- features/auth/types/auth.types.ts
 - features/auth/schemas/auth.schema.ts
 
 Inputs: zod package
@@ -118,14 +119,13 @@ Type: IMPL
 Behavior ref: auth-system.md (guest user creation, JWT minting, rotation)
 Architecture ref: SEAM-003 (guest token lifecycle); ../../plan-archives/redesign/architecture.md (guest identity)
 
-Action: Create 2 files. (1) features/auth/lib/guest.ts — Export functions: mintGuestToken(userId): string (creates JWT with guest userId, 24h expiry), verifyGuestToken(token): {userId: string} | null (validates and decodes JWT), rotateGuestToken(token): string (refreshes expiring token with same userId). Uses jose library for JWT operations. (2) features/auth/lib/session.ts — Auth feature helpers that normalize guest/supabase session payloads for SessionProvider and server actions.
+Action: Create `features/auth/lib/guest.ts` — Export functions: mintGuestToken(userId): string (creates JWT with guest userId, 24h expiry), verifyGuestToken(token): {userId: string} | null (validates and decodes JWT), rotateGuestToken(token): string (refreshes expiring token with same userId). Uses jose library for JWT operations.
 
 Output files:
 - features/auth/lib/guest.ts
-- features/auth/lib/session.ts
 
 Inputs: lib/auth/session.ts (P2-T01), features/auth/schemas/auth.schema.ts (P2-T02)
-Outputs: Guest bootstrap consumed by proxy (P2-T08) and SessionProvider (P2-T06)
+Outputs: Guest bootstrap consumed by proxy (`proxy.ts`) and session resolution flow (`lib/auth/session.ts`)
 
 AI layer handling: NEW
 
@@ -136,7 +136,6 @@ Success criteria:
 - mintGuestToken creates valid JWT with 24h expiry
 - verifyGuestToken returns null for expired/invalid tokens (no throw)
 - rotateGuestToken preserves userId with new expiry
-- Helper session transforms are typed and reusable from auth feature modules
 - pnpm typecheck passes
 
 Complexity: M
@@ -151,19 +150,19 @@ Type: IMPL
 Behavior ref: auth-system.md (login, register, logout flows)
 Architecture ref: conventions.md (server actions — verb-first camelCase); DEV-015 (no .action.ts suffix)
 
-Action: Create 3 server action files. (1) features/auth/actions/login.ts — "use server" action login(formData: FormData): ActionResult. Validates with loginSchema, calls supabase.auth.signInWithPassword(), sets session cookie, redirects to "/". On failure: return {error: message}. (2) features/auth/actions/register.ts — "use server" action register(formData: FormData): ActionResult. Validates with registerSchema, calls supabase.auth.signUp(), creates user record via createUser(), sets session cookie when applicable, redirects appropriately. (3) features/auth/actions/logout.ts — "use server" action logout(): void. Calls supabase.auth.signOut(), clears session cookie, redirects to "/login". All use redirect() from next/navigation on success.
+Action: Create 3 server action files. (1) features/auth/actions/login.ts — "use server" action `login(prevState, formData): ActionResult<void>`. Validates with loginSchema, calls `supabase.auth.signInWithPassword()` server-side, sets session cookie, redirects to "/". On failure: return ActionResult error. (2) features/auth/actions/register.ts — "use server" action `register(prevState, formData): ActionResult<void>`. Validates with registerSchema, calls `supabase.auth.signUp()` server-side, creates user record via createUser(), sets session cookie when applicable, redirects appropriately. (3) features/auth/actions/logout.ts — "use server" action `logout(): ActionResult<void>`. Calls `supabase.auth.signOut()`, clears session cookie, redirects to "/login".
 
 Output files:
 - features/auth/actions/login.ts
 - features/auth/actions/register.ts
 - features/auth/actions/logout.ts
 
-Inputs: features/auth/schemas/auth.schema.ts (P2-T02), lib/auth/session.ts (P2-T01), features/auth/lib/guest.ts (P2-T03), lib/data/user.ts (P1-T05)
+Inputs: features/auth/schemas/auth.schema.ts (P2-T02), lib/auth/session.ts (P2-T01), lib/data/user.ts (P1-T05)
 Outputs: Auth actions consumed by auth form (P2-T05), sidebar user nav (P5), SessionProvider (P2-T06)
 
 AI layer handling: NEW
 
-Dependencies: P2-T01, P2-T02, P2-T03
+Dependencies: P2-T01, P2-T02
 Dependents: P2-T05, P2-T06
 
 Success criteria:
@@ -195,7 +194,7 @@ Outputs: AuthForm consumed by login page and register page (P2-T07)
 
 AI layer handling: NEW
 
-Dependencies: P2-T02, P2-T04
+Dependencies: P2-T04
 Dependents: P2-T07
 
 Success criteria:
@@ -261,7 +260,7 @@ Output files:
 - app/(auth)/register/page.tsx
 - app/(auth)/error.tsx
 
-Inputs: features/auth/components/auth-form.tsx (P2-T05), features/auth/actions/ (P2-T04), lib/auth/session.ts (P2-T01)
+Inputs: features/auth/components/auth-form.tsx (P2-T05), features/auth/actions/ (P2-T04), lib/auth/session.ts (P2-T01), features/auth/components/session-provider.tsx (P2-T06)
 Outputs: Auth pages consumed by proxy route guards (P2-T08)
 
 AI layer handling: NEW
@@ -289,14 +288,13 @@ Type: INTEG
 Behavior ref: auth-system.md (proxy guest rotation, path guards); state-management.md (provider tree)
 Architecture ref: ../../plan-archives/redesign/architecture.md (server layout, no app-shell.tsx); SEAM-004, SEAM-029
 
-Action: Two integration steps. (1) Update **proxy.ts** (NOT middleware.ts) to add guest token rotation: if request has no session cookie AND no guest cookie, mint guest token inline and set cookie. If guest cookie is expiring (< 1 hour), refresh. Add path guards: redirect unauthenticated users from protected routes to /login (guest access to chat allowed). (2) Update **app/layout.tsx** (server component) to: call getAppSession(), wrap children with **SessionProvider** (NOT AuthProvider) passing the resolved session. Provider tree becomes: ThemeProvider > SessionProvider > Toaster > children. **No app-shell.tsx** — layout composes providers directly.
+Action: Update **app/layout.tsx** (server component) to: call getAppSession(), wrap children with **SessionProvider** (NOT AuthProvider) passing the resolved session. Provider tree becomes: ThemeProvider > SessionProvider > Toaster > children. **No app-shell.tsx** — layout composes providers directly. Proxy auth/guest behavior is already established in P0-T14.
 
 Output files:
-- proxy.ts (update)
 - app/layout.tsx (update)
 
-Inputs: lib/auth/session.ts (P2-T01), features/auth/lib/guest.ts (P2-T03), features/auth/components/session-provider.tsx (P2-T06), app/(auth)/ pages (P2-T07)
-Outputs: Session available to all client components via useSession(); proxy handles guest rotation
+Inputs: lib/auth/session.ts (P2-T01), features/auth/components/session-provider.tsx (P2-T06), app/(auth)/ pages (P2-T07)
+Outputs: Session available to all client components via useSession()
 
 AI layer handling: NEW
 
@@ -304,7 +302,6 @@ Dependencies: P2-T06
 Dependents: P2-T09, P3-T21
 
 Success criteria:
-- **proxy.ts** handles guest token rotation (NOT middleware.ts)
 - Root layout calls getAppSession() server-side
 - Root layout wraps children in **SessionProvider** (NOT AuthProvider)
 - **No app-shell.tsx import** — providers composed directly in layout

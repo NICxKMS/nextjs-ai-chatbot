@@ -53,7 +53,7 @@ export function createArtifactTool({ session, ChatStream, chatId }) {
       const content = await handler.create({ id, title, kind, ChatStream, session, chatId })
 
       // Persist
-      await saveArtifactVersion({ id, title, kind, content, userId: session.userId, chatId })
+      await saveArtifactVersion({ id, title, kind, content, userId: session.user.id, chatId })
       ChatStream.writeData({ type: 'artifact-finish', content: '' })
 
       return { id, title, kind, content: `Created artifact: "${title}"` }
@@ -353,7 +353,7 @@ lib/types/
   ├── model.types.ts           # ModelMetadata, DEFAULT_CHAT_MODEL, etc.
   ├── artifact.types.ts        # UIArtifact, ArtifactKind
   ├── artifact-handler.types.ts # ArtifactHandler, ArtifactStreamWriter
-  └── settings.types.ts        # UserSettings
+  └── settings.types.ts        # SettingsState
 
 features/chat/
   ├── lib/tools/

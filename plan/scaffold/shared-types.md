@@ -101,7 +101,8 @@ export type DataContext = {
 Cross-feature artifact type contract.
 
 ```typescript
-export type ArtifactKind = 'text' | 'code' | 'image' | 'sheet'
+import type { ArtifactKind } from './models.types' // Re-exported, not redefined
+export type { ArtifactKind } from './models.types'
 
 // Per redesign, only two states needed — artifact errors are handled
 // at the component level via error boundaries.
@@ -216,7 +217,7 @@ export type ReasoningType =
   | 'deepseek-thinking'
   | 'internal-thinking'
 
-// ── Model metadata (aligned with redesign/contracts.md) ──
+// ── Model metadata (aligned with ../../plan-archives/redesign/architecture.md) ──
 // Note: ProviderId union kept above for type checking but not referenced in ModelMetadata
 export interface ModelMetadata {
   id: string                           // full model ID (e.g. "openai:gpt-4o")
@@ -305,10 +306,11 @@ export type ChatStatus = 'idle' | 'submitted' | 'streaming' | 'error' | 'ready'
 
 ## 10. Chat Session Types (in `features/chat/types/chat.types.ts`)
 
-> Intent-based callbacks (not setter-based) per redesign/state-management.md
+> Intent-based callbacks (not setter-based) per ../../plan-archives/redesign/state-management.md
 
 ```typescript
 import type { Message, Attachment } from 'ai'
+import type { Dispatch, SetStateAction } from 'react'
 
 // ── ChatSessionContext value (replaces old ChatContext) ──
 export interface ChatSessionValue {
@@ -320,11 +322,11 @@ export interface ChatSessionValue {
   input: string
   setInput: (input: string) => void
   attachments: Attachment[]
-  setAttachments: (attachments: Attachment[]) => void
-  sendMessage: (content: string, attachments?: Attachment[]) => void
+  setAttachments: Dispatch<SetStateAction<Attachment[]>>
+  sendMessage: (event?: { preventDefault?: () => void }) => void
   stop: () => void
   appendMessage: (message: Message) => void
-  editMessage: (id: string, content: string) => void
+  editMessage: (id: string, content: string) => Promise<void>
   error: Error | null
   clearError: () => void
 }
@@ -334,31 +336,33 @@ export interface ChatSessionValue {
 
 ## 11. Error Types (`lib/errors/codes.ts`)
 
+> Error codes follow `type:surface:reason` naming per `architecture/conventions.md`.
+
 ```typescript
 export type ErrorCode =
-  | 'UNAUTHORIZED'
-  | 'FORBIDDEN'
-  | 'NOT_FOUND'
-  | 'VALIDATION'
-  | 'RATE_LIMITED'
-  | 'AI_ERROR'
-  | 'DATABASE_ERROR'
-  | 'CACHE_ERROR'
-  | 'CONFLICT'
-  | 'BAD_REQUEST'
+  | 'bad_request:api:invalid_request_body'
+  | 'bad_request:api:invalid_model_id'
+  | 'unauthorized:chat:auth_required'
+  | 'forbidden:chat:owner_mismatch'
+  | 'not_found:chat:not_found'
+  | 'rate_limit:chat:too_many_requests'
+  | 'rate_limit:chat:daily_limit_exceeded'
+  | 'ai_error:provider:failed'
+  | 'internal_error:database:query_failed'
+  | 'internal_error:cache:operation_failed'
 
 // Maps error codes to HTTP status
 export const ERROR_STATUS_MAP: Record<ErrorCode, number> = {
-  UNAUTHORIZED: 401,
-  FORBIDDEN: 403,
-  NOT_FOUND: 404,
-  VALIDATION: 422,
-  RATE_LIMITED: 429,
-  AI_ERROR: 502,
-  DATABASE_ERROR: 500,
-  CACHE_ERROR: 500,
-  CONFLICT: 409,
-  BAD_REQUEST: 400,
+  'bad_request:api:invalid_request_body': 400,
+  'bad_request:api:invalid_model_id': 400,
+  'unauthorized:chat:auth_required': 401,
+  'forbidden:chat:owner_mismatch': 403,
+  'not_found:chat:not_found': 404,
+  'rate_limit:chat:too_many_requests': 429,
+  'rate_limit:chat:daily_limit_exceeded': 429,
+  'ai_error:provider:failed': 502,
+  'internal_error:database:query_failed': 500,
+  'internal_error:cache:operation_failed': 500,
 }
 ```
 
@@ -372,18 +376,18 @@ export class AppError extends Error {
   statusCode: number
   details?: Record<string, unknown>
 
-  static notFound(message?: string): AppError
-  static unauthorized(message?: string): AppError
-  static forbidden(message?: string): AppError
-  static badRequest(message?: string): AppError
-  static rateLimited(message?: string): AppError
-  static internal(message?: string): AppError
+  static notFound(message?: string): AppError      // → 'not_found:chat:not_found'
+  static unauthorized(message?: string): AppError   // → 'unauthorized:chat:auth_required'
+  static forbidden(message?: string): AppError      // → 'forbidden:chat:owner_mismatch'
+  static badRequest(message?: string): AppError     // → 'input:request:malformed'
+  static rateLimited(message?: string): AppError    // → 'system:rate:limited'
+  static internal(message?: string): AppError       // → 'system:database:error'
 
   toResponse(): NextResponse
 }
 ```
 
-**Key change from old plan:** No `activate_gateway` or credit-related error codes.
+**Key change from old plan:** No `activate_gateway` or credit-related error codes. Error codes use `category:scope:detail` naming convention.
 
 ---
 
@@ -436,7 +440,7 @@ Types must be created in this order (each depends on the previous):
 6. lib/types/artifact-handler.types.ts ← Imports ArtifactKind
 7. lib/types/pending-chats.types.ts ← PendingChat (no dependencies)
 8. lib/types/model.types.ts       ← ModelMetadata, ProviderId
-9. lib/types/settings.types.ts    ← UserSettings (no dependencies)
+9. lib/types/settings.types.ts    ← SettingsState (no dependencies)
 10. lib/errors/codes.ts           ← ErrorCode string literal union
 11. lib/errors/app-error.ts       ← Imports ErrorCode
 12. lib/cache/keys.ts             ← String templates (no type dependencies)
@@ -472,7 +476,13 @@ Used by route handlers (`app/api/`) and data access functions (`lib/data/`).
 ```typescript
 // lib/types/api.types.ts
 export interface PaginatedResult<T> {
-  data: T[]
+  items: T[]
+  hasMore: boolean
+  nextCursor?: string
+}
+
+export interface HistoryResponse<T> {
+  chats: T[]
   hasMore: boolean
   nextCursor?: string
 }
@@ -489,14 +499,25 @@ export interface ErrorResponse {
 }
 
 export interface HealthResponse {
-  status: 'ok' | 'degraded' | 'down'
+  status: 'healthy' | 'degraded' | 'unhealthy'
   timestamp: string
-  services: Record<string, 'ok' | 'error'>
+  checks: {
+    database: {
+      status: 'healthy' | 'unhealthy'
+      latencyMs: number
+      error?: string
+    }
+    cache: {
+      status: 'healthy' | 'unhealthy'
+      latencyMs: number
+      error?: string
+    }
+  }
 }
 ```
 
 **Usage:**
-- `PaginatedResult<Chat>` returned by `GET /api/history`
+- `HistoryResponse<Chat>` returned by `GET /api/history`
 - `PaginationParams` accepted by `getChatsByUserId()` in `lib/data/chat.ts`
 - `ErrorResponse` returned by all API error responses
 - `HealthResponse` returned by `GET /api/health`

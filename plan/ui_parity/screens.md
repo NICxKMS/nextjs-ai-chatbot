@@ -31,7 +31,7 @@
 
 > *(redesign: `<AppShell>` wrapper removed — providers placed directly in layout. `<SWRConfig>` removed from root — configured at point of use. `<TooltipProvider>` moved to point of consumption. `<Suspense>` + `<AppShellFallback>` no longer needed.)*
 
-**Loading Fallback (`AppShellFallback`):**
+**Loading UI** *(redesign: `AppShellFallback` removed — no longer needed since providers are inlined in layout):*
 - Full-viewport centered spinner
 - `h-dvh w-full bg-background`
 - Animated border spinner + "Loading..." text
@@ -52,7 +52,7 @@
 **Type:** Server Component (async)
 
 **Server-side data fetched:**
-- `cookies()` → `sidebar_state` for initial sidebar open/closed
+- `cookies()` → `sidebar:state` for initial sidebar open/closed
 - Session via `getAppSession()`
 
 **Provider Stack (outer → inner):**
@@ -60,7 +60,7 @@
 2. `<Script src="pyodide.js" strategy="lazyOnload" />` — Python runtime for code artifacts
 3. `<PendingChatsProvider>` *(redesign: renamed from OptimisticChatsProvider)* — pending sidebar chat entries
 4. `<SidebarProvider defaultOpen={sidebarOpen}>`
-5. `<Suspense fallback={<SidebarSkeleton />}>` → `<SidebarShell session={...} />` *(redesign: server component, renamed from AppSidebar)*
+5. `<Suspense fallback={<SidebarSkeleton />}>` → `<SidebarShell />` *(redesign: server component, renamed from AppSidebar)*
 6. `<SidebarInset>` → `{children}`
 
 **Notice Handling** *(via NoticeHandler client island):*
@@ -103,7 +103,7 @@
 - **After first message:** URL changes to `/chat/{id}` via `history.replaceState`
 
 **Auth Variants:**
-- Guest: Full chat functionality, limited history
+- Guest: Full chat functionality with DB-backed history scoped to guest session
 - Authenticated: Full chat + persistent history + voting
 
 ---
@@ -151,7 +151,7 @@
 
 ## Screen: Login (`/login`)
 
-**Type:** Client Component (`"use client"`)
+**Type:** Server Component
 
 **Layout:**
 - `h-dvh w-screen bg-background`
@@ -159,14 +159,14 @@
 - Heading: "Sign In"
 - Subtext: "Use your email and password to sign in"
 
-**Form:**
-- `<AuthForm>` component with email + password fields
+**Renders:**
+- `<AuthForm>` (client component with `useActionState`) with `action={login}` server action
 - `<SubmitButton>` with loading spinner
 - Link to `/register`
 
 **Flow:**
 1. Supabase `signInWithPassword`
-2. Submit `login` Server Action (`useActionState`) which sets auth cookie
+2. `AuthForm` uses `useActionState` to invoke `login` Server Action
 3. On success: redirect `/` with router.refresh()
 4. On error: toast notification
 
@@ -178,12 +178,12 @@
 
 ## Screen: Register (`/register`)
 
-**Type:** Client Component (`"use client"`)
+**Type:** Server Component
 
 **Layout:** Same as login with different heading/CTA
 
-**Form:**
-- Same `<AuthForm>` structure
+**Renders:**
+- `<AuthForm>` (client component with `useActionState`) with `action={register}` server action
 - `<SubmitButton>` label: "Sign Up"
 - Link to `/login`
 

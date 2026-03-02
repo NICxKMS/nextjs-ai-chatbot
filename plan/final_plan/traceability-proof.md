@@ -68,7 +68,7 @@ All gaps from original plan are resolved. Redesign-specific resolutions:
 | UI Infrastructure | SEAM-029..031 | 3 | 6 | ✅ |
 | Artifact Editors | SEAM-032..035 | 4 | 4 | ✅ |
 | Miscellaneous | SEAM-036..040 | 5 | 6 | ✅ |
-| **Total** | **SEAM-001..040** | **40** | **~66 task refs** | **✅ 100%** |
+| **Total** | **SEAM-001..040** | **40** | **65 task refs** | **✅ 100%** |
 
 ---
 

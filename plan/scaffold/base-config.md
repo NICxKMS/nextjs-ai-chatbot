@@ -201,7 +201,7 @@ GUEST_JWT_SECRET=...
 # ── AI Providers (at least one required) ──
 # AI_GATEWAY_API_KEY — REMOVED (no credit/gateway system)
 OPENAI_API_KEY=               # OpenAI direct
-GEMINI_API_KEY=               # Google Gemini direct
+GOOGLE_GENERATIVE_AI_API_KEY=  # Google Gemini direct
 OPENROUTER_API_KEY=           # OpenRouter proxy
 
 # ── Storage ──

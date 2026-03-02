@@ -110,8 +110,7 @@ nextjs-ai-chatbot/
 │   │   │   ├── auth-form.tsx
 │   │   │   └── session-provider.tsx    # SessionProvider (was AuthProvider)
 │   │   ├── lib/
-│   │   │   ├── session.ts             # getAppSession()
-│   │   │   └── guest.ts               # Guest bootstrap, token rotation
+│   │   │   └── guest.ts               # Guest helpers (token mint/verify/rotate)
 │   │   ├── schemas/
 │   │   │   └── auth.schema.ts
 │   │   └── types/
@@ -232,7 +231,7 @@ nextjs-ai-chatbot/
 │
 ├── proxy.ts                          # Next.js 16 proxy (was middleware.ts): auth guard + rate limiting
 ├── scripts/
-│   └── check-imports.mjs             # Import boundary enforcement CI script
+│   └── check-imports.mjs             # Import boundary enforcement CI script (see §3 allowlist)
 ├── tests/
 │   ├── setup.ts
 │   ├── mocks/
@@ -252,7 +251,7 @@ nextjs-ai-chatbot/
 | Components | `PascalCase` | `ChatShell`, `ArtifactPanel`, `ModelSelector` |
 | Hooks | `camelCase` with `use` prefix | `useChatSession`, `useArtifact`, `useScrollToBottom` |
 | Functions | `camelCase` | `getChatById`, `getArtifactById`, `formatDate` |
-| Server Actions | `camelCase` verb-first | `deleteChat`, `voteOnMessage`, `updateVisibility` |
+| Server Actions | `camelCase` verb-first | `deleteChat`, `voteOnMessage`, `updateChatVisibility` |
 | Constants | `SCREAMING_SNAKE_CASE` | `MAX_RETRIES`, `DEFAULT_CHAT_MODEL` |
 | Types/Interfaces | `PascalCase` | `ChatSessionValue`, `UIArtifact`, `ArtifactKind` |
 | Zod schemas | `camelCase` with `Schema` suffix | `chatSchema`, `loginSchema`, `artifactSchema` |
@@ -262,6 +261,7 @@ nextjs-ai-chatbot/
 | Data stream parts | `artifact-` or `chat-` prefix | `'artifact-textDelta'`, `'chat-title'` |
 | Revalidation fns | verb-entity | `invalidateChat()` (SA), `refreshChat()` (RH) |
 | Cache keys | `camelCase` factory | `cacheKeys.chat(id)` |
+| CSS classes | Tailwind utility classes; avoid bespoke global class systems | `className="flex gap-2 md:hidden"` |
 
 ### File Suffixes
 
@@ -269,7 +269,7 @@ nextjs-ai-chatbot/
 |------|--------|---------|
 | Component | `.tsx` | `chat-shell.tsx` |
 | Server action | `.ts` | `stream-chat.ts` |
-| Hook | `.ts` with `use-` prefix | `use-messages.ts` |
+| Hook | `.ts` with `use-` prefix | `use-chat-session.ts` |
 | Schema | `.schema.ts` | `chat.schema.ts` |
 | Types | `.types.ts` | `artifact.types.ts` |
 | Test | `.test.ts` / `.test.tsx` | `stream-chat.test.ts` |
@@ -282,18 +282,18 @@ directory already communicates intent. Extra suffixes add noise.
 
 ### Error Code Structured Naming
 
-Error codes follow the `category:scope:detail` pattern:
+Error codes follow the `type:surface:reason` pattern:
 
 ```typescript
 // Examples:
-'auth:session:expired'      // Auth category, session scope, expired detail
-'validation:chat:empty'     // Validation category, chat scope, empty detail
-'ai:stream:timeout'         // AI category, stream scope, timeout detail
-'data:chat:not-found'       // Data category, chat scope, not-found detail
+'bad_request:api:invalid_model_id'
+'unauthorized:chat:auth_required'
+'forbidden:chat:owner_mismatch'
+'rate_limit:chat:too_many_requests'
 ```
 
-Categories: `auth`, `validation`, `ai`, `data`, `rate-limit`, `system`.
-This enables structured error handling and consistent error reporting across features.
+Core `type` values: `bad_request`, `unauthorized`, `forbidden`, `not_found`, `rate_limit`, `ai_error`, `internal_error`.
+This keeps API and Server Action error contracts consistent across features.
 
 ---
 
@@ -317,7 +317,7 @@ Imports within a file must follow this order (enforced by convention):
 1. **External packages** — `react`, `next/cache`, `ai`, `drizzle-orm`
 2. **`lib/`** — `@/lib/db`, `@/lib/errors`, `@/lib/utils`
 3. **`components/`** — `@/components/ui/button`
-4. **`features/`** — `@/features/auth/lib/session`
+4. **`features/`** — `@/features/chat/hooks/use-chat-session`
 5. **Relative imports** — `./message`, `../hooks/use-chat-session`
 
 Separate each group with a blank line.
@@ -329,7 +329,7 @@ and prevents unintended side effects:
 
 ```typescript
 import type { Chat } from '@/lib/types'
-import type { UIArtifact } from '@/features/artifacts/types/artifact.types'
+import type { UIArtifact } from '@/lib/types/artifact.types'
 ```
 
 ### `import 'server-only'` Pattern
@@ -377,18 +377,24 @@ import { artifactSchema } from '@/features/artifacts/schemas/artifact.schema'
 import { Chat } from '@/features/chat/components/chat'
 ```
 
-### Declared Cross-Feature Import Exception: StreamBridge → artifactStore
+### Cross-Feature Import Exceptions
 
-`StreamBridge` (in `features/chat/components/stream-bridge.tsx`) imports from
-`features/artifacts/lib/artifact-store.ts` to dispatch stream deltas to the artifact
-store. This is a **declared exception** to the cross-feature component boundary rule.
-The import is limited to the store's `dispatch` function and is the only place where
-the chat feature directly writes to artifact state.
+The following cross-feature implementation imports are intentionally allowed beyond the `lib/types/*` contract layer:
 
-```typescript
-// features/chat/components/stream-bridge.tsx — ALLOWED (declared exception)
-import { dispatch } from '@/features/artifacts/lib/artifact-store'
-```
+| Import | From | To | Rationale |
+|--------|------|----|-----------|
+| `artifactStore` | `features/artifacts/lib/artifact-store.ts` | `features/chat/components/stream-bridge.tsx` | Single mediation point for stream→artifact state |
+| `useSettings()` | `features/settings/hooks/use-settings.ts` | `features/chat/hooks/use-chat-session.ts` | Settings affect chat behavior (temperature, reasoning) |
+| `VoteButtons` | `features/voting/components/vote-buttons.tsx` | `features/chat/components/message.tsx` | UI composition — voting is per-message |
+| `VisibilitySelector` | `features/visibility/components/visibility-selector.tsx` | `features/chat/components/chat-header.tsx` | UI composition — visibility is per-chat |
+| `ModelSelector` | `features/models/components/model-selector.tsx` | `features/chat/components/chat-header.tsx` | UI composition — model selection is per-chat |
+
+All other cross-feature imports must go through shared types in `lib/types/*`.
+
+> **`scripts/check-imports.mjs` reconciliation:** The CI import-boundary script must
+> include an allowlist that matches every row in the table above. When adding or
+> removing a cross-feature exception, update both this table and the allowlist in
+> `scripts/check-imports.mjs` to keep them in sync.
 
 ---
 
@@ -400,6 +406,10 @@ START: Where does this code belong?
 Is it a Next.js routing file (page, layout, route, error, loading)?
 ├── YES → app/[route-group]/
 └── NO ↓
+
+Is it a React component that needs browser-only capabilities?
+├── NO → Keep as SERVER component by default
+└── YES (state/effects/events/browser APIs/context hooks) → add `'use client'`
 
 Does it belong to a specific feature (chat, artifacts, auth, sidebar, settings, voting, models)?
 ├── YES → features/[feature-name]/

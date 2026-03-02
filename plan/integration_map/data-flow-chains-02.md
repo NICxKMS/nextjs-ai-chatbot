@@ -194,16 +194,16 @@ New chat's first message completes streaming.
 ### Flow
 
 ```
-1. SERVER: Inside onFinish callback (POST /api/chat route handler)
-   a. generateTitle(userMessage.content):
+1. SERVER: Inside execute function (POST /api/chat route handler)
+   a. titlePromise = generateTitle(userMessage.content) — kicked off early in execute:
       - generateText({ model: TITLE_MODEL, prompt: content.slice(0, 500) })
       - Fallback: content.slice(0, 80) on error
    b. Title generation runs in parallel with main AI streaming
-   c. Title is AWAITED before stream close — guaranteed delivery:
+   c. Before stream close: title is AWAITED and streamed — guaranteed delivery:
       const title = await titlePromise
       ChatStream.writeData({ type: 'chat-title', content: title })
 
-2. SERVER: Post-stream persistence
+2. SERVER: onFinish callback (persistence + revalidation only)
    a. updateChatTitle(chatId, title) → DB
    b. revalidateTag('chats:{userId}', 'max') → sidebar cache refresh
 

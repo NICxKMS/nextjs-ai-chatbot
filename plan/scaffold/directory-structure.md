@@ -83,7 +83,7 @@ app/
     ├── chat/
     │   └── route.ts                  # POST: AI chat streaming (SSE via createUIMessageStream)
     ├── artifact/
-    │   └── route.ts                  # POST: save artifact version (user edits)
+    │   └── route.ts                  # GET: artifact versions, POST: save/restore artifact version
     ├── files/
     │   └── upload/
     │       └── route.ts              # POST: file upload (Vercel Blob)
@@ -212,7 +212,7 @@ features/artifacts/
 features/auth/
 ├── components/
 │   ├── auth-form.tsx                 # Consolidated login/register form (mode prop, 'use client')
-│   └── session-provider.tsx          # Session context provider + guest bootstrap ('use client')
+│   └── session-provider.tsx          # Session context provider + auth state sync ('use client')
 ├── actions/
 │   ├── login.ts                      # Server Action: email/password login → cookie set → redirect
 │   ├── register.ts                   # Server Action: registration → cookie set → redirect
@@ -317,7 +317,7 @@ features/settings/
 ├── hooks/
 │   └── use-settings.ts              # useSyncExternalStore + localStorage pub/sub
 └── types/
-    └── settings.types.ts             # UserSettings, SettingsState
+    └── settings.types.ts             # SettingsState
 ```
 
 **Key changes from old plan:**
@@ -457,12 +457,12 @@ lib/
 │
 ├── types/
 │   ├── api.types.ts                  # (post-redesign addition) PaginatedResult<T>, PaginationParams, ErrorResponse, HealthResponse
-│   ├── artifact.types.ts             # UIArtifact, ArtifactKind (re-exported from features scope)
+│   ├── artifact.types.ts             # UIArtifact, ArtifactKind (canonical shared artifact types)
 │   ├── artifact-handler.types.ts     # ArtifactHandler, ArtifactStreamWriter, Create/UpdateArtifactParams
 │   ├── pending-chats.types.ts        # PendingChat, PendingChatOperations
 │   ├── data-context.types.ts         # DataContext (userId, isGuest)
 │   ├── model.types.ts                # ModelMetadata, DEFAULT_CHAT_MODEL, TITLE_MODEL, ARTIFACT_MODEL
-│   ├── settings.types.ts             # UserSettings type
+│   ├── settings.types.ts             # SettingsState type
 │   └── result.types.ts              # ActionResult<T> for Server Actions
 │
 ├── utils/

@@ -3,7 +3,7 @@
 > **Updated per redesign audit (2026-03-01)**
 
 > Location: `oldapp/components/elements/` → Rebuild: `components/ai-elements/`
-> These are read-only UI primitives. They must be copied verbatim (checksum-verified) into the rebuild.
+> These are reference UI primitives. They are optional/conditional carry-forward items under redesign (not mandatory verbatim copies).
 
 ---
 
@@ -318,10 +318,10 @@
 | `nanoid` | prompt-input |
 | `use-stick-to-bottom` | conversation |
 
-## Checksum Task Reference
+## Carry-Forward Reference
 
-Each file must pass bit-exact checksum comparison. The rebuild task should:
-1. Copy each file from `oldapp/components/elements/` to `components/ai-elements/`
-2. Update import paths (`@/components/ui/` → same, `@/lib/utils/` → same or new path)
-3. Generate SHA-256 checksum of source (post-import-rewrite)
-4. Verify no logic changes between old and new
+If an ai-elements primitive is adopted, it should be reviewed and integrated intentionally:
+1. Evaluate whether the primitive is required by redesign scope
+2. Port/adapt with current architecture and naming conventions
+3. Validate accessibility and dependency fit
+4. Prefer minimal adoption over blanket verbatim copying

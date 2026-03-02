@@ -31,7 +31,7 @@ Polish the application for production: finalize error boundaries at all levels, 
 | P7-T08 | Create stream test utility | IMPL | `tests/utils/stream.ts` (`collectStreamEvents`), `tests/mocks/ai.ts`, `tests/mocks/fetch.ts` | P0-T16 | M |
 | P7-T09 | Verify import boundaries | VERIFY | Run `scripts/check-imports.mjs` — zero violations | P0-T17 | S |
 | P7-T10 | Verify "artifact" naming | VERIFY | `grep -r "document"` in code — zero results (excl. `.next-docs`, `oldapp`, `node_modules`, `plan`, `redesign`) | all phases | S |
-| P7-T11 | Verify no credit/gateway logic | VERIFY | `grep -rE "credit\|gateway\|quota\|entitlement\|AppUsage\|activate_gateway"` — zero results | all phases | S |
+| P7-T11 | Verify no credit/gateway logic | VERIFY | `grep -rE "credit\|gateway\|quota\|entitlement\|AppUsage\|activate_gateway\|data-usage"` — zero results | all phases | S |
 | P7-T12 | Full build verification | VERIFY | `pnpm build` — clean production build | all phases | M |
 | P7-T13 | Verification gate G07 (final) | VERIFY | — | P7-T01..T12 | S |
 
@@ -65,7 +65,7 @@ Polish the application for production: finalize error boundaries at all levels, 
 - [ ] All error boundaries render standalone with recovery actions
 - [ ] `scripts/check-imports.mjs` reports zero violations
 - [ ] Zero occurrences of "document" in code identifiers (excl. docs/oldapp)
-- [ ] Zero occurrences of credit/gateway/quota terminology
+- [ ] Zero occurrences of credit/gateway/quota/data-usage terminology
 - [ ] `proxy.ts` exists (not `middleware.ts`)
 - [ ] `pnpm format && pnpm typecheck && pnpm lint` all pass
 - [ ] `pnpm build` succeeds cleanly
@@ -90,7 +90,7 @@ pnpm test:e2e
 - Keyboard: Enter submits, Shift+Enter newline, Escape cancels edit
 - Mobile layout works at 320px (sidebar overlay, full-screen artifacts)
 - `pnpm format && pnpm typecheck && pnpm lint && pnpm build` all exit 0
-- Import boundary script passes — zero cross-feature imports
+- Import boundary script passes — zero **unauthorized** cross-feature imports (allowlist exceptions only)
 - Artifact naming grep: zero "document" in code
 - Credit/gateway grep: zero forbidden terms
 - All CSS animations respect `prefers-reduced-motion: reduce` media query

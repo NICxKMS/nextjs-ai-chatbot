@@ -18,10 +18,11 @@ P0-T01 → T09 → T11 → T12 → T13 → T18
   → P1-T02 → T04 → T06 → T14
     → P2-T01 → T03 → T04 → T05 → T09
       → P3-T05 → T08 → T09 → T11 → T21 → T25 → T27
-        → P4-T01 → T02 → T07 → T11 → T17 → T18
-          → P5-T02 → T05 → T08 → T11 → T12
-            → P6-T01 → T02 → T03 → T14
-              → P7-T03 → T12 → T13
+        ├─→ P4-T01 → T02 → T07 → T11 → T17 → T18
+        └─→ P5-T02 → T05 → T08 → T11 → T12
+              (P6 starts when G04 + G05 are both complete)
+              → P6-T01 → T02 → T03 → T14
+                → P7-T03 → T12 → T13
 ```
 
 ---
@@ -86,7 +87,7 @@ P0-T01 → T09 → T11 → T12 → T13 → T18
 | Metric | Value |
 |--------|-------|
 | **Critical path length** | ~40 steps (~30 tasks + gate overhead) |
-| **Estimated duration** | **~23 working days** |
+| **Estimated duration** | **~22–23 working days** (depending on P4/P5 overlap efficiency) |
 | **Tasks on critical path** | ~30 / 125 (24%) |
 | **Longest phase on path** | P4 Artifacts (~4.25d) + P5 Sidebar (~4.25d) |
 | **Shortest phase on path** | P7 Polish (1.25d) |
@@ -106,7 +107,7 @@ Tasks where delays have maximum downstream impact:
 | P3-T21 | ChatShell orchestrator | Required by P3-T25, P4-T17, P5-T11 | 2 phases impacted |
 | P4-T02 | Artifact store (useSyncExternalStore) | All editors + panel depend on it | P4 stalls |
 | P4-T11 | Artifact panel | All editors converge here → blocks T17 | P4 stalls |
-| P4-T17 | Wire artifacts into ChatShell | Last integration task before P4 gate | P5 delayed |
+| P4-T17 | Wire artifacts into ChatShell | Last integration task before P4 gate | P6 start delayed (awaits G04+G05) |
 
 ---
 

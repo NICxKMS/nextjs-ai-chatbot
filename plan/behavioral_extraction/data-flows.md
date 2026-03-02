@@ -33,8 +33,8 @@ Route/Action → Guards (auth, rate limit) → Data Layer → Cache Layer → DB
 ```
 
 ### Data Layer (`lib/data/`)
-- `base.ts` — `DataContext` type, `createContext()`, `isGuest()`
-- `chat.ts` — plain functions: `getChatById`, `getChatWithMessages`, `getChatsByUserId`, `updateChatTitle`, `updateVisibility`, `deleteChatById`, `deleteAllChatsByUserId`
+- `lib/types/data-context.types.ts` — `DataContext` type (type-only; no runtime factory)
+- `chat.ts` — plain functions: `getChatById`, `getChatWithMessages`, `getChatsByUserId`, `updateChatTitle`, `updateChatVisibility`, `deleteChatById`, `deleteAllChatsByUserId`
 - `chat-operations.ts` — `saveChat()`, `updateChatTitle()` (higher-level orchestration)
 - `artifact.ts` — plain functions: `getArtifactById`, `getArtifactVersions`, `saveArtifactVersion`, `getSuggestionsByArtifactId`
 
@@ -123,7 +123,7 @@ Client                    Server                        Cache              DB
 
 ```
 1. getAppSession() → Supabase JWT or Guest JWT
-2. createContext(session) → DataContext { userId, isGuest }
+2. Build DataContext object from session → `{ userId, isGuest }`
 3. getChatWithMessages(id, ctx)
   a. Server cache-tagged read path (`'use cache'` + `cacheTag`)
   b. DB SELECT chat + messages (guest/auth use same persistence model)
@@ -157,16 +157,12 @@ AI Tool (createArtifact/updateArtifact)
 ## Flow: Chat History Pagination
 
 ```
-Guest:
-  1. getUserChatsFromCache(userId, limit, offset) → ZREVRANGE on user:{userId}:chats
-  2. Batch MGET on chat:{chatId}:{userId}:meta for each result
-  3. Convert to Chat objects, slice for hasMore
-
-Authenticated:
+Guest + Authenticated (same DB-backed flow):
   1. DB SELECT from Chat WHERE userId = ? ORDER BY createdAt DESC
-  2. Cursor-based: starting_after/ending_before for prev/next pages
+  2. Cursor-based pagination (`cursor`, `limit`) for next pages
   3. Extended limit (limit+1) to detect hasMore
-  4. Response cached: private, max-age=0, s-maxage=10, stale-while-revalidate=30
+  4. Response shape: { chats, hasMore, nextCursor? }
+  5. SidebarShell provides first page server-side; SWR infinite fetches subsequent pages
 ```
 
 ## Flow: Auth Server Actions

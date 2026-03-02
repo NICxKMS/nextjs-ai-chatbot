@@ -282,7 +282,7 @@ The v6 spec uses Redis exclusively for caching. Next.js 16 introduces `use cache
 
 ### Decision
 
-**Use both.** Redis for user-specific, real-time data. `use cache` for shared, slowly-changing data.
+**Use both.** Redis for rate limiting/operational caches. `use cache` + `cacheTag` for primary read paths (including chat and history queries).
 
 ### Boundary
 
@@ -291,11 +291,11 @@ The v6 spec uses Redis exclusively for caching. Next.js 16 introduces `use cache
 
 | Pattern | Redis | `use cache` |
 |---------|-------|-------------|
-| Chat messages | ✅ | — |
-| Chat metadata | ✅ | — |
-| Artifact versions | ✅ | — |
+| Chat messages | optional hot-path cache | ✅ |
+| Chat metadata/history | optional hot-path cache | ✅ |
+| Artifact versions | optional hot-path cache | ✅ |
 | Rate limit state | ✅ | — |
-| Guest data | ✅ (only source) | — |
+| Guest data | — | ✅ (same DB-backed model as auth) |
 | Model catalog | — | ✅ |
 | Token pricing catalog | — | ✅ (already used) |
 | Static prompts | — | ✅ or compile-time |
@@ -319,18 +319,20 @@ without the corresponding tag invalidation.
 
 ---
 
-## ADR-008: Rate Limiting — Edge-Only with Config
+## ADR-008: Rate Limiting — Edge + Route Defense-in-Depth
 
 ### Context
 
-The v6 spec (§6, Decision 3) prescribes edge-only rate limiting in proxy with
-per-route configuration. The existing app has both edge AND application-level rate limiting.
+The redesign keeps `proxy.ts` as the fast edge gate while retaining per-surface
+rate checks inside Route Handlers/Server Actions for sensitive endpoints.
 
 ### Decision
 
-**Keep edge-only rate limiting** per the spec. The per-route config approach is clean.
-Application-level rate limiters in the existing app (chat: 50/min, standard: 100/min,
-strict: 10/min, upload: 10/hour) can be expressed as proxy route configs.
+**Use defense-in-depth rate limiting**:
+- Lightweight, fast checks in `proxy.ts` (edge)
+- Route/Server-Action checks for sensitive surfaces (chat, upload, auth mutations)
+
+This matches redesign guidance: keep edge logic fast, and keep full validation close to mutation/data boundaries.
 
 ### Caveat for Next.js 16
 
@@ -465,9 +467,9 @@ Children access chat state via `useChatSessionContext()` instead of prop drillin
 
 ### Components
 
-- `ChatShell`: Calls useChat, provides context, renders Messages + MultimodalInput + StreamBridge
+- `ChatShell`: Calls useChat, provides context, renders Messages + MultimodalInput + ArtifactPanel
 - `ChatSessionContext`: Holds messages, status, append, reload, stop, setMessages
-- `StreamBridge`: Thin component (~20 lines) that calls `processStreamDelta()` pure function
+- `StreamBridge`: Thin sibling component (~20 lines) that calls `processStreamDelta()` pure function
 - `VoteResolver`: Uses `use()` to resolve deferred vote promise, hydrates SWR
 
 ### Confidence: 90%
@@ -491,7 +493,7 @@ too complex.
 ```typescript
 type ActionResult<T = void> =
   | { success: true; data: T }
-  | { success: false; error: string; code?: string }
+  | { success: false; error: { code: string; message: string } }
 ```
 
 This is simpler than `Result<T, E>` and works naturally with `useActionState`.
@@ -519,9 +521,8 @@ mutations don't properly invalidate tags.
 
 ```typescript
 // In a Server Action (immediate invalidation, read-your-own-writes):
-export async function deleteChat(chatId: string): Promise<ActionResult> {
+export async function deleteChat({ chatId }: { chatId: string }): Promise<ActionResult> {
   // ... delete logic ...
-  updateTag(`chat:${chatId}`)
   updateTag(`chats:${userId}`)
   return { success: true, data: undefined }
 }

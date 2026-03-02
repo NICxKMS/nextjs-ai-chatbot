@@ -144,11 +144,11 @@ Providers must be scoped correctly: ThemeProvider + SessionProvider at root layo
 
 No monolithic `ChatLayoutClient` with a deep provider stack. Providers are siblings where possible.
 
-### Risk 3: ai-elements Import Path Breakage
+### Risk 3: Legacy Reference Drift (Optional ai-elements)
 
-The 31 ai-elements files import from `@/components/ui/` and `@/lib/utils/`. If these paths change, all 31 files break.
+The optional `components/ai-elements/` reference set may diverge from current shared UI/util import paths over time.
 
-**Mitigation**: Phase 0 copies ai-elements AND ensures `@/components/ui/` and `@/lib/utils/` exist at the expected paths. The paths MUST match the import expectations in ai-elements files.
+**Mitigation**: Keep ai-elements out of critical path; ensure canonical imports for active implementation paths use `@/components/ui/*` and direct `@/lib/utils/*` modules. Validate only if ai-elements are explicitly adopted.
 
 ### Risk 4: Database Schema Mismatch
 
@@ -158,9 +158,9 @@ The new schema must exactly match the existing production database.
 
 ### Risk 5: Guest/Auth Data Fork
 
-Every data operation forks on `DataContext.isGuest`. Missing this in any path causes either guest failures or auth performance degradation.
+Data operations must consistently apply auth-aware checks (`DataContext`, ownership/visibility rules) without diverging persistence semantics between guest/auth users.
 
-**Mitigation**: Phase 1 establishes the pattern with `DataContext` and `withCache`. Phase 3 implements the first full example (chat data). Every subsequent data function copies this pattern.
+**Mitigation**: Phase 1 establishes shared auth-aware data patterns (`DataContext`, cache-tagged reads, revalidation). Phase 3 implements the first full chat example; subsequent data modules follow the same guard + persistence model.
 
 ### Risk 6: Feature Boundary Violations
 

@@ -8,7 +8,7 @@ All route handlers follow `app/api/**/route.ts`.
 
 **Route Handlers** (retained): `POST /api/chat`, `GET /api/history`, `GET/POST /api/artifact`, `GET /api/suggestions`, `POST /api/files/upload`, `GET /api/health`.
 
-**Server Actions** (mutations): `deleteChat`, `deleteAllChats`, `voteOnMessage`, `updateChatVisibility`, `deleteTrailingMessages`, `login`, `register`, `logout`.
+**Server Actions** (mutations): `deleteChat`, `deleteAllChats`, `renameChat`, `voteOnMessage`, `updateChatVisibility`, `deleteTrailingMessages`, `login`, `register`, `logout`.
 
 ### `ActionResult<T>` Return Type
 
@@ -60,11 +60,9 @@ Required (guest or authenticated). Rate limited.
     };
     systemPrompt?: string;
     enableReasoning?: boolean;
-    reasoningBudget?: number;
-    streamArtifacts?: boolean;
-    autoScroll?: boolean;
-    selectedModelId?: string;
   };
+  // Settings limited to: temperature, topP, maxOutputTokens, systemPrompt, enableReasoning.
+  // Model selection via `chat-model` cookie.
 }
 ```
 
@@ -83,7 +81,7 @@ SSE stream (`Content-Type: text/event-stream`). Uses Vercel AI SDK `UIMessageStr
 - Creates chat record (DB + cache) if new; `revalidateTag('chats:{userId}', 'max')`
 - Creates message records (user message saved before streaming, assistant after)
 - Updates chat title (async) via `chat-title` stream part (single-channel)
-- Updates chat `lastContext` with usage data
+- Updates chat `lastContext` with model context (e.g. `modelId`)
 
 ### Error Responses
 | Error | Code | Status |
@@ -96,15 +94,15 @@ SSE stream (`Content-Type: text/event-stream`). Uses Vercel AI SDK `UIMessageStr
 
 ---
 
-## ~~DELETE `/api/chat/[id]`~~ → Server Action `deleteChat(chatId)`
+## ~~DELETE `/api/chat/[id]`~~ → Server Action `deleteChat({ chatId })`
 
 > *Replaced by Server Action `deleteChat()`. Enables `updateTag('chats:{userId}')` + `useOptimistic` pattern. Returns `ActionResult<void>`.*
 
 ### Auth
 Required, non-guest.
 
-### Request
-Path param: `id` (UUID)
+### Input
+`{ chatId: string }` (UUID, Zod validated)
 
 ### Validation
 1. Auth check (non-guest)
@@ -114,10 +112,10 @@ Path param: `id` (UUID)
 ### Side Effects
 - Deletes chat from DB
 - Removes from cache (meta + messages + user's ZSET entry)
-- `revalidateTag('chats:{userId}', 'max')`
+- `updateTag('chats:{userId}')`
 
 ### Response
-`204 No Content` on success
+`ActionResult<void>` on success/failure envelope
 
 ### Errors
 | Error | Code | Status |
@@ -126,6 +124,8 @@ Path param: `id` (UUID)
 | Invalid ID | `bad_request:chat:invalid_id` | 400 |
 | Not found | `not_found:chat:not_found` | 404 |
 | Not owner | `forbidden:chat:owner_mismatch` | 403 |
+
+> **Current behavior (post-redesign):** `deleteChat` and `deleteAllChats` are Server Actions returning `ActionResult<void>`. They call `updateTag('chats:{userId}')` for immediate invalidation (not `revalidateTag`). See `architecture/patterns.md` revalidation matrix.
 
 ---
 
@@ -137,14 +137,14 @@ Required (guest or authenticated).
 ### Query Parameters
 | Param | Type | Default | Constraints |
 |-------|------|---------|-------------|
-| `limit` | number | 10 | 1–100 |
-| `starting_after` | string | — | UUID cursor |
-| `ending_before` | string | — | UUID cursor |
+| `limit` | number | 20 | 1–100 |
+| `cursor` | string | — | Opaque pagination cursor |
 
 ### Response Shape
 ```typescript
 {
   chats: Chat[];    // Array of chat objects (id, title, visibility, createdAt, etc.)
+  nextCursor?: string;
   hasMore: boolean; // Whether more pages exist
 }
 ```
@@ -153,8 +153,8 @@ Required (guest or authenticated).
 `Cache-Control: private, max-age=0, s-maxage=10, stale-while-revalidate=30`
 
 ### Behavior
-- **Guest**: Reads from cache ZSET, batch MGET for metadata
-- **Auth**: DB query with cursor pagination, ordered by `createdAt DESC`
+- DB query with cursor pagination, ordered by `createdAt DESC`
+- Guest/auth flows share persistence model; auth context governs filtering/ownership
 
 ---
 
@@ -166,12 +166,14 @@ Required (guest or authenticated).
 Required. Rate limited (strict: 10/min).
 
 ### Response
-`204 No Content`
+`ActionResult<void>`
 
 ### Side Effects
 - Deletes all chats for user from DB
 - Clears all cache entries (per-chat meta + messages + user ZSET)
-- `revalidateTag('chats:{userId}', 'max')` *(cache invalidation)*
+- `updateTag('chats:{userId}')` *(cache invalidation)*
+
+> **Current behavior (post-redesign):** `deleteChat` and `deleteAllChats` are Server Actions returning `ActionResult<void>`. They call `updateTag('chats:{userId}')` for immediate invalidation (not `revalidateTag`). See `architecture/patterns.md` revalidation matrix.
 
 ---
 
@@ -187,12 +189,11 @@ Required.
 
 ### Response
 ```typescript
-Artifact[]  // Array of artifact versions, ordered by createdAt
-// Each: { id, createdAt, title, content, kind, userId, chatId }
+Artifact[]  // ordered by createdAt
 ```
 
 ### Behavior
-Cache-first. Artifact versions returned as array (latest = last element).
+Cache-first. Artifact versions returned as array ordered by `createdAt DESC` (latest = first element).
 
 ---
 
@@ -219,18 +220,21 @@ Body:
 
 ---
 
-## ~~DELETE `/api/document`~~ → managed via artifact version history
+## ~~DELETE `/api/document`~~ → handled by `POST /api/artifact` restore mode
 
-> *Version deletion may be handled by Server Action `deleteArtifactVersion()` instead of Route Handler. Same validation: auth required, non-guest.*
+> *User-triggered version restore is modeled through `POST /api/artifact` with restore payload (`{ id, timestamp, mode: "restore" }`) rather than a DELETE route.*
 
-### Query Parameters
-| Param | Type | Required |
-|-------|------|----------|
-| `id` | string (UUID) | Yes |
-| `timestamp` | string (ISO 8601) | Yes |
+### Restore Payload
+```typescript
+{
+  id: string;          // artifact id
+  timestamp: string;   // ISO 8601 restore target
+  mode: "restore";
+}
+```
 
 ### Side Effects
-Deletes specific version from DB and cache. `revalidateTag('artifact:{id}', 'max')`.
+Truncates newer versions after the restore timestamp and revalidates `artifact:{id}`.
 
 ---
 
@@ -252,11 +256,10 @@ Required, non-guest only.
 
 ### Response
 ```typescript
-{
-  success: true;
+ActionResult<{
   messageId: string;
   type: "up" | "down";
-}
+}>
 ```
 
 ### Validation Steps
@@ -315,7 +318,7 @@ Required. Rate limited (upload: 10/hour).
 ## GET `/api/health` — Health Check
 
 ### Auth
-None (public endpoint, skips edge rate limiting).
+None (public endpoint; proxy applies standard abuse-prevention rate limiting).
 
 ### Response
 ```typescript
@@ -332,10 +335,6 @@ None (public endpoint, skips edge rate limiting).
       status: "healthy" | "unhealthy";
       latencyMs: number;
       error?: string;
-    };
-    environment: {
-      status: "healthy" | "unhealthy";
-      missing?: string[];
     };
   };
 }

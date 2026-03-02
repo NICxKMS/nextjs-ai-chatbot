@@ -68,15 +68,15 @@ Dual auth system: Supabase (email/password) for registered users, JWT-based gues
 
 ### User Flow — Register
 1. User fills email/password on `/register`
-2. Client-side `supabase.auth.signUp()` called
-3. If email confirmation required → redirect to `/login` with success message
-4. Form submits to `register` Server Action (`useActionState`)
-5. Server Action sets auth cookie and redirects (or redirects to `/login` for confirmation-required flows)
+2. Form submits to `register` Server Action (`useActionState`)
+3. Server Action validates input + calls Supabase sign-up server-side
+4. If email confirmation required → redirect to `/login` with success message
+5. Otherwise set auth cookie and redirect to `/`
 
 ### User Flow — Login
 1. User fills email/password on `/login`
-2. Client-side `supabase.auth.signInWithPassword()` called
-3. Form submits to `login` Server Action (`useActionState`)
+2. Form submits to `login` Server Action (`useActionState`)
+3. Server Action validates input + calls Supabase sign-in server-side
 4. Server Action sets auth cookie and redirects to `/`
 
 ### Data Requirements
@@ -98,8 +98,8 @@ Paginated list of user's chats in sidebar with optimistic updates.
 - `usePendingChats` hook (PendingChatsProvider)
 
 ### User Flow
-1. Sidebar fetches `GET /api/history?limit=10`
-2. Server returns `{ chats, hasMore }` with cursor-based pagination
+1. Sidebar fetches `GET /api/history?limit=20`
+2. Server returns `{ chats, hasMore, nextCursor? }` with cursor-based pagination
 3. New chats appear immediately via `PendingChats.add()` (optimistic, client-only)
 4. When server confirms, optimistic entry replaced by real data
 5. Title updates stream via `chat-title` data part → `PendingChats.updateTitle()` (single-channel)
@@ -108,7 +108,7 @@ Paginated list of user's chats in sidebar with optimistic updates.
 ### Data Requirements
 - DB query with pagination (`startingAfter`/`endingBefore` cursors) for both guest and authenticated sessions
 - Server-side cache tags for fast repeat reads
-- Limit clamped: min 1, max 100, default 10
+- Limit clamped: min 1, max 100, default 20
 
 ---
 
@@ -200,8 +200,7 @@ Users can switch between available AI models.
 
 ### Entry Points
 - `<ModelSelector>` / `<PromptInputModelSelect>` in input area
-- Cookie `chat-model` persists selection
-- `settings.selectedModelId` in localStorage
+- Cookie `chat-model` persists selection + localStorage directly (not via SettingsState)
 
 ### User Flow
 1. User opens model dropdown in input area
@@ -284,9 +283,8 @@ User-configurable chat settings stored in localStorage.
 - `sampling.maxOutputTokens` (256-1,000,000)
 - `systemPrompt` (max 8192 chars)
 - `enableReasoning` (boolean)
-- `streamArtifacts` (boolean)
-- `autoScroll` (boolean)
-- `selectedModelId` (string)
+
+> **Note:** Model selection, artifact streaming, and auto-scroll are handled outside SettingsState.
 
 ---
 
@@ -301,5 +299,4 @@ System health monitoring endpoint.
 ### Checks
 1. **Database**: `SELECT 1` with latency measurement (>1000ms = degraded)
 2. **Cache (Redis)**: `PING` with latency
-3. **Environment**: Required env vars present (`DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`)
-4. Returns overall status: `healthy | degraded | unhealthy`
+3. Returns overall status: `healthy | degraded | unhealthy`

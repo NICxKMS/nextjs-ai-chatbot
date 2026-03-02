@@ -41,6 +41,6 @@
 13. **Resilient streaming** — await title before closing stream, save partial responses on abort, clean client-side abort on navigation
 14. **No dead code** — no credit/gateway/quota logic, no unused infrastructure
 15. **Clean feature boundaries** — each feature module is self-contained with clear public API
-16. **Import boundary enforcement** — cross-feature imports restricted to types and schemas only; validated by `scripts/check-imports.mjs`
+16. **Import boundary enforcement** — cross-feature imports are allowlist-only (types/schemas + explicit documented exceptions); validated by `scripts/check-imports.mjs`
 17. **Error boundary hierarchy** — per-feature error boundaries (artifact panel gets its own) plus route-level `error.tsx` for page-level recovery
 18. **Testable by design** — pure functions, injectable dependencies, colocated tests, mockable data layer

@@ -30,6 +30,14 @@
 > - ~~AppShell wrapper~~ — root layout is a SERVER component, not a Suspense wrapper
 > - ~~SettingsProvider~~ — replaced by `useSyncExternalStore` module store (no provider needed)
 
+### Server/Client Component Summary (Redesign Baseline)
+
+| Type | Count |
+|------|-------|
+| Server Components | 10 |
+| Client Components | 32 |
+| **Total** | **42** |
+
 ### Chat Route Group (`(chat)/`)
 
 ```
@@ -55,7 +63,7 @@ app/(chat)/layout.tsx                              SERVER (async)
             │ Source: shadcn/ui sidebar primitive
             │
             ├── Suspense fallback={<SidebarSkeleton />}
-            │     └── SidebarShell(session)        SERVER (async)
+            │     └── SidebarShell()               SERVER (async)
             │           Uses: 'use cache' + cacheTag('chats:{userId}')
             │           Fetches: Chat history (first 20)
             │           ├── SidebarHistoryClient   'use client'
@@ -308,7 +316,7 @@ ArtifactCloseButton.onClick()
 
 ```
 MessageEditor.send()
-  → deleteTrailingMessages(messageId, chatId) — Server Action → updateTag('chat:{id}')
+  → deleteTrailingMessages({ id: messageId, chatId }) — Server Action → updateTag('chat:{id}')
   → useChatSessionContext().editMessage(messageId, newContent)
     → Encapsulates: truncate messages + regenerate
 ```

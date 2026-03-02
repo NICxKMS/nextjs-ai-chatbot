@@ -12,7 +12,7 @@
 
 Rebuild the Next.js AI chatbot from scratch using Next.js 16, React 19, TypeScript, Drizzle ORM, Supabase, Tailwind v4, Vercel AI SDK, and Biome. The rebuild achieves 100% feature parity while applying significant architectural improvements identified in the redesign audit. The architecture follows server-first principles: server layouts with client islands, thin orchestrator components (ChatShell ~60 lines), `useSyncExternalStore` for artifact state, and `revalidateTag`/`updateTag` after every mutation.
 
-**Stack:** Next.js 16 · React 19 · TypeScript strict · Drizzle ORM · Supabase · Tailwind v4 · Vercel AI SDK 4.x · Biome · pnpm
+**Stack:** Next.js 16 · React 19 · TypeScript strict · Drizzle ORM · Supabase · Tailwind v4 · Vercel AI SDK 5.x · Biome · pnpm
 
 **Target:** 8 phases, 125 tasks, ~210 files.
 
@@ -92,7 +92,7 @@ Full details: `deviations/deviations-01.md`
 | Server-first rendering | Layouts are server components; client islands for interactivity only |
 | ChatShell decomposition | ~60-line thin orchestrator; business logic in hooks + pure functions |
 | Artifact state | `useSyncExternalStore` with selector for surgical re-renders |
-| Cache revalidation | `updateTag` (SAs) / `revalidateTag` (RHs) after every mutation — no stale data |
+| Cache revalidation | `updateTag` (SAs) / `revalidateTag` (RHs) after every mutation — immediate or cooperative cache freshness |
 | Streaming architecture | ChatStreamProvider with split contexts + RAF batching; StreamBridge ~20 lines |
 | Feature isolation | Three-layer architecture with CI-enforced import boundaries |
 | Naming consistency | "artifact" everywhere — zero "document" in code identifiers |

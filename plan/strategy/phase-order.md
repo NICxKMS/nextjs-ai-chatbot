@@ -237,8 +237,8 @@ P4, P5, and P6 sub-tasks distribute across developers after the critical path (P
 
 | Phase | Complexity | Primary Risk | Time Estimate |
 |-------|-----------|-------------|---------------|
-| P0 | Low | ai-elements import paths | 1 day |
-| P1 | Medium | Guest/auth data branching pattern | 2 days |
+| P0 | Low | proxy/auth edge setup + baseline config correctness | 1 day |
+| P1 | Medium | data/cache/revalidation foundation alignment | 2 days |
 | P2 | Medium | JWT validation + cookie security | 1.5 days |
 | P3 | **High** | ChatShell decomposition + StreamBridge + handler registry pipeline | 4 days |
 | P4 | **High** | useSyncExternalStore store + 4 editor types + handler registration | 3 days |

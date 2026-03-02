@@ -10,7 +10,7 @@
 
 Implement all enhancement features that augment the core experience: message voting via Server Actions + `useOptimistic` (NOT `PATCH /api/vote`), VoteResolver with React 19 `use()` for promise-based hydration, model selector with cookie + localStorage persistence, visibility toggle as its own feature module with Server Action + `updateTag`, file upload to Vercel Blob, weather display component, and health check endpoint.
 
-**Entry state:** P5 complete — chat, artifacts, sidebar all work; full navigation functional
+**Entry state:** P4 + P5 complete — artifacts and sidebar/navigation are both available for enhancement wiring
 **Exit state:** All enhancement features work — voting, model selection, visibility, file upload, weather, health check
 **Est. duration:** ~3 days
 **Tasks:** 14

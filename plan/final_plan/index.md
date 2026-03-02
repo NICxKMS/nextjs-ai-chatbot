@@ -27,7 +27,14 @@
 
 ---
 
-## Source Documents (in `/plan/`)
+## Supplemental Verification & Memory Docs
+
+- [../verification-redesign-coverage.md](../verification-redesign-coverage.md) — redesign-port verification findings and gap notes
+- [../memory/DESIGN.md](../memory/DESIGN.md) — memory system design rationale
+
+---
+
+## Selected Source Documents (in `/plan/`)
 
 | Directory | Contents |
 |-----------|----------|

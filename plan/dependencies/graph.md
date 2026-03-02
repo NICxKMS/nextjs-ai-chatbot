@@ -65,8 +65,8 @@ After T01 completes, 5 independent tracks can run in parallel:
 ## Phase P1 — Data Foundation (14 tasks)
 
 ```
-P0-T18 ──→ P1-T01 (DB migration)
-          ──→ P1-T02 (cache client + keys) → P1-T03, P1-T04
+P0-T04 ──→ P1-T01 (DB migration)
+P0-T18 ──→ P1-T02 (cache client + keys) → P1-T03, P1-T04
           ──→ P1-T05 (user data)
           ──→ P1-T11 (AI provider registry)
 
@@ -80,7 +80,7 @@ ALL P1 tasks ──────→ P1-T14 (gate G01)
 
 | Task | Depends On | Critical Path |
 |------|-----------|:---:|
-| P1-T01 | P0-T04, P0-T18 | |
+| P1-T01 | P0-T04 | |
 | **P1-T02** | P0-T01, P0-T18 | ✅ |
 | P1-T03 | T02 | |
 | **P1-T04** | T02 | ✅ |
@@ -259,7 +259,7 @@ Two main tracks run in parallel:
 ## Phase P5 — Sidebar & Navigation (12 tasks)
 
 ```
-P4-T18 ──→ P5-T01 (sidebar types)
+P3-T24 ──→ P5-T01 (sidebar types)
           ──→ P5-T02 (PendingChatsProvider — NOT OptimisticChatsProvider)
           ──→ T03 (useSidebarHistory)
           ──→ T04 (SidebarHistoryItem)
@@ -292,7 +292,7 @@ ALL P5 ──→ T12 (gate G05)
 
 ### P5 Parallelization
 
-After P4-T18:
+After P3-T24:
 1. **History track:** T01 → T03, T04 → T05 → T08 (critical)
 2. **PendingChats:** T02 (feeds T05 and T11)
 3. **User nav:** T06 (independent)
@@ -304,7 +304,7 @@ After P4-T18:
 ## Phase P6 — Enhancements (14 tasks)
 
 ```
-P5-T12 ──→ P6-T01 → T02 → T03 (voting chain + VoteResolver)
+P4-T18 + P5-T12 ──→ P6-T01 → T02 → T03 (voting chain + VoteResolver)
           ──→ T04 → T05 (ModelSelector chain)
           ──→ T06 → T07 → T08 (visibility chain)
           ──→ T09 → T10 → T11 (upload chain)
@@ -317,7 +317,7 @@ ALL P6 ──→ T14 (gate G06)
 
 | Task | Depends On | Critical Path |
 |------|-----------|:---:|
-| **P6-T01** | P1-T09 | ✅ |
+| **P6-T01** | P4-T18, P5-T12, P1-T09 | ✅ |
 | **P6-T02** | T01 | ✅ |
 | **P6-T03** | T02, P3-T15, P3-T25 | ✅ |
 | P6-T04 | P3-T01 | |

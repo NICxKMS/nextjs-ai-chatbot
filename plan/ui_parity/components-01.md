@@ -4,9 +4,11 @@
 
 > Every component in `oldapp/components/`, mapped with props, hierarchy, state, events, and rebuild location.
 
+> ⚠️ **Scope note (redesign precedence):** This file is a parity/reference inventory. Authoritative implementation targets are `scaffold/directory-structure.md`, `phases/*.md`, and `final_plan/phase-*.md`. Entries for removed files (e.g., `app-sidebar.tsx`, `artifact-messages.tsx`, `console.tsx`, `create-artifact.tsx`, `diffview.tsx`) are historical and **not** rebuild targets unless explicitly reintroduced.
+
 ---
 
-## app-sidebar.tsx → `features/sidebar/components/app-sidebar.tsx`
+## app-sidebar.tsx → *(historical, removed in redesign; replaced by `features/sidebar/components/sidebar-shell.tsx` + client subcomponents)*
 
 > *Redesign: Parent changes from `chat-layout-client.tsx` to `SidebarShell` (server wrapper). Delete All uses Server Action `deleteAllChats()` instead of `fetch("/api/history", DELETE)`. `useAuth` → `useSession`.*
 
@@ -79,7 +81,7 @@
 
 ---
 
-## artifact-messages.tsx → `features/artifacts/components/artifact-messages.tsx`
+## artifact-messages.tsx → *(historical, removed in redesign)*
 
 | Field | Detail |
 |-------|--------|
@@ -96,10 +98,11 @@
 
 | Field | Detail |
 |-------|--------|
-| **Type** | Server Component (no `"use client"`) |
+| **Type** | Client (`"use client"`) — uses `useActionState` |
 | **Props** | `action`, `children`, `defaultEmail?` |
-| **Parents** | Login page, Register page |
+| **Parents** | Login page (server component), Register page (server component) |
 | **Children** | `Form` (next/form), `Label`, `Input` (email + password), `{children}` |
+| **Hooks** | `useActionState` (react) |
 | **Notes** | Email field: autoComplete="email", autoFocus, required; Password: required, type="password" |
 
 ---
@@ -111,8 +114,8 @@
 | Field | Detail |
 |-------|--------|
 | **Type** | Client (`"use client"`) • Context Provider |
-| **Props** | `initialSession: AppSession | null`, `children` |
-| **Context Value** | `session`, `status: "loading" | "authenticated" | "unauthenticated"`, `isNewSession`, `setSession`, `clearNewSessionFlag` |
+| **Props** | `session: AppSession | null`, `children` |
+| **Context Value** | `session`, `isLoading`, `isGuest` |
 | **State** | `session`, `isNewSession`, `bootstrapAttempted` |
 | **Effects** | Guest bootstrap via `proxy.ts` + `getAppSession()` resolution, Supabase auth state change listener |
 | **Exports** | `SessionProvider` *(redesign: renamed from AuthProvider)*, `useSession` hook *(redesign: renamed from useAuth)* |
@@ -126,11 +129,11 @@
 | Field | Detail |
 |-------|--------|
 | **Type** | Client (`"use client"`) |
-| **Props** | `id`, `initialMessages`, `initialChatModel`, `initialVisibilityType`, `isReadonly`, `initialLastContext?`, `availableModels?`, `initialVotes?` |
+| **Props** | `id`, `initialMessages`, `initialChatModel`, `isReadonly`, `availableModels` |
 | **Parents** | Home page, Chat/[id] page |
 | **Children** | `ChatHeader`, `Messages`, `MultimodalInput`, `ArtifactPanel` (dynamic) *(redesign: no AlertDialog credit card)* |
 | **State** | `input`, `currentModelId`, `attachments`, `hasAppendedQuery` *(redesign: `usage`, `showCreditCardAlert` removed)* |
-| **Hooks** | `useChat` (AI SDK), `useChatVisibility`, `useChatStream` *(redesign: renamed from useDataStream)*, `useSettings` *(redesign: useSyncExternalStore, no SettingsProvider)*, `useSession` *(redesign: renamed from useAuth)*, `usePendingChats` *(redesign: renamed from useOptimisticChats)*, `useArtifact`, `useArtifactSelector`, `useSearchParams` |
+| **Hooks** | `useChat` (AI SDK), `useChatStream` *(redesign: renamed from useDataStream)*, `useSettings` *(redesign: useSyncExternalStore, no SettingsProvider)*, `useSession` *(redesign: renamed from useAuth)*, `usePendingChats` *(redesign: renamed from useOptimisticChats)*, `useArtifact`, `useArtifactSelector`, `useSearchParams` |
 | **Key behaviors** | Adaptive throttle (50/100/150ms by connection), optimistic chat creation on first message, title via `chat-title` stream part *(redesign: single-channel)*, URL query auto-send, model persistence to localStorage |
 | **Transport** | `DefaultChatTransport` with custom `prepareSendMessagesRequest` adding model/visibility/settings |
 | **onData handlers** | `chat-title` (updates pending title) *(redesign: `data-usage` removed, `data-chat-title` → `chat-title`)* |
@@ -165,7 +168,7 @@
 
 ---
 
-## console.tsx → `features/artifacts/components/console.tsx`
+## console.tsx → *(historical, removed in redesign)*
 
 | Field | Detail |
 |-------|--------|
@@ -178,7 +181,7 @@
 
 ---
 
-## create-artifact.tsx → `features/artifacts/components/create-artifact.tsx`
+## create-artifact.tsx → *(historical, removed in redesign)*
 
 | Field | Detail |
 |-------|--------|
@@ -195,7 +198,7 @@
 | Field | Detail |
 |-------|--------|
 | **Type** | Client (`"use client"`) — renders `null` |
-| **Props** | None |
+| **Props** | `id: string` |
 | **Parents** | Home page, Chat/[id] page (sibling to `ChatShell`) *(redesign: renamed from Chat)* |
 | **Hooks** | `useChatStream` *(redesign: renamed from useDataStream)*, `useArtifact` *(redesign: now useSyncExternalStore-based)* |
 | **Effects** | Processes stream deltas via `processStreamDelta()` → updates `artifactStore` (id, title, kind, clear, finish) + artifact-specific `onStreamPart` |
@@ -215,7 +218,7 @@
 
 ---
 
-## diffview.tsx → `features/artifacts/components/diffview.tsx`
+## diffview.tsx → *(historical, removed/deferred in redesign)*
 
 | Field | Detail |
 |-------|--------|
@@ -280,7 +283,7 @@
 
 ---
 
-## icons.tsx → `components/ui/icons.tsx` (shared)
+## icons.tsx → `components/icons.tsx` (shared)
 
 | Field | Detail |
 |-------|--------|
@@ -378,7 +381,7 @@
 
 ---
 
-## model-selector.tsx → `features/chat/components/model-selector.tsx`
+## model-selector.tsx → `features/models/components/model-selector.tsx`
 
 | Field | Detail |
 |-------|--------|

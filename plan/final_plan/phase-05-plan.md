@@ -10,7 +10,8 @@
 
 Implement the server-rendered sidebar with client pagination: SidebarShell as a SERVER component with `'use cache'` + `cacheTag`, PendingChatsProvider for optimistic chat operations, SidebarHistoryClient with `useSWRInfinite` for pagination only (not initial load), single-channel title delivery via `PendingChats.updateTitle()`, user navigation, chat switching, and history API route.
 
-**Entry state:** P4 complete — chat + artifacts work end-to-end, layout has sidebar stub
+**Entry state:** P3 complete — chat core works end-to-end, layout has sidebar stub
+**Sequencing note:** P4 and P5 execute in parallel; P6 entry requires both G04 and G05.
 **Exit state:** Full sidebar navigation works — server-rendered initial load, chat switching, history pagination, creation, deletion, title syncing via single channel
 **Est. duration:** ~2 days
 **Tasks:** 12
@@ -31,7 +32,7 @@ Implement the server-rendered sidebar with client pagination: SidebarShell as a 
 | P5-T08 | Create SidebarShell (SERVER) | IMPL | `features/sidebar/components/sidebar-shell.tsx` (async, `'use cache'` + `cacheTag('chats:{userId}')`, renders structure) | P1-T06, P5-T05, P5-T06 | L |
 | P5-T09 | Create rename chat action | IMPL | `features/sidebar/actions/rename-chat.ts` (Server Action + `updateTag`) | P1-T06, P1-T03 | S |
 | P5-T10 | Create history API route | IMPL | `app/api/history/route.ts` (GET: cursor-based paginated chat history) | P1-T06 | M |
-| P5-T11 | Wire sidebar into chat layout | INTEG | Update `app/(chat)/layout.tsx`: replace stub with `SidebarProvider` → `Suspense` → `SidebarShell`, `PendingChatsProvider` | P5-T08, P5-T02 | L |
+| P5-T11 | Wire sidebar into chat layout | INTEG | Update `app/(chat)/layout.tsx`: replace stub with `PendingChatsProvider` → `SidebarProvider` → `Suspense` → `SidebarShell` | P5-T08, P5-T02 | L |
 | P5-T12 | Verification gate G05 | VERIFY | — | P5-T01..T11 | S |
 
 ---
@@ -55,7 +56,7 @@ Implement the server-rendered sidebar with client pagination: SidebarShell as a 
 
 | State | Condition |
 |-------|-----------|
-| Entry | P4 gate passed; chat + artifacts functional; layout has sidebar stub |
+| Entry | P3 gate passed; chat core functional; layout has sidebar stub |
 | Exit | Sidebar loads chat history with server-rendered initial page; chat switching works; pending entries appear instantly; title syncs from single-channel stream; delete removes chats and redirects if active |
 
 ---

@@ -114,7 +114,7 @@ SSE Stream → useChat.onData → ChatStreamProvider (DispatchCtx)
 
 ```typescript
 'use client'
-import { useChatStream } from '@/features/chat/hooks/use-data-stream'
+import { useChatStream } from '@/features/chat/components/chat-stream-provider'
 import { processStreamDelta } from '@/features/chat/lib/process-stream-deltas'
 import { artifactStore } from '@/features/artifacts/lib/artifact-store'
 
@@ -184,13 +184,9 @@ POST /api/chat → route handler
   ├── import '@/features/artifacts/handlers'   // Side-effect: registers all handlers
   │
   ├── Tools registered with streamText():
-  │     tools: getEnabledTools(modelId, { session, ChatStream, chatId })
-  │       → {
-  │           getWeather,                          // Static tool definition
-  │           createArtifact({ session, ChatStream, chatId }),  // Factory
-  │           updateArtifact({ session, ChatStream }),          // Factory
-  │           requestSuggestions({ session, ChatStream }),      // Factory
-  │         }
+  │     tools: getEnabledTools(modelId)
+  │       ? buildTools({ session, ChatStream, chatId })
+  │       : undefined
   │
   ├── Tool enablement based on model capabilities:
   │     → supportsToolCalling: false → NO tools (reasoning-only, gemma)
@@ -278,7 +274,7 @@ export function composeSystemPrompt({
   settings,
   hasTools,
 }: {
-  settings: UserSettings
+  settings: SettingsState
   hasTools: boolean
 }): string {
   const parts: string[] = [BASE_PROMPT]
@@ -333,7 +329,7 @@ lib/ai/registry.ts → createProviderRegistry(baseProviders)
   │
   ├── Conditionally initialized based on env vars:
   │     ├── openai: OPENAI_API_KEY
-  │     ├── google: GEMINI_API_KEY
+  │     ├── google: GOOGLE_GENERATIVE_AI_API_KEY
   │     ├── openrouter: OPENROUTER_API_KEY
   │     └── (others based on available keys)
   │
@@ -363,7 +359,7 @@ export const myProvider = {
 ### Per-Provider Options (lib/ai/provider-options.ts)
 
 ```typescript
-export function getProviderOptions(modelId: string, settings: UserSettings) {
+export function getProviderOptions(modelId: string, settings: SettingsState) {
   const opts: Record<string, unknown> = {}
   if (settings.enableReasoning) {
     if (modelId.startsWith('google:'))
@@ -406,7 +402,9 @@ const stream = createUIMessageStream({
       model: myProvider.languageModel(modelId),
       system: composeSystemPrompt({ settings, hasTools }),
       messages: convertToModelMessages(uiMessages),
-      tools: getEnabledTools(modelId, { session, ChatStream, chatId }),
+      tools: getEnabledTools(modelId)
+        ? buildTools({ session, ChatStream, chatId })
+        : undefined,
       stopWhen: stepCountIs(5),
       abortSignal: AbortSignal.timeout(55_000),
       experimental_transform: smoothStream({ delayInMs: 2, chunking: "word" }),

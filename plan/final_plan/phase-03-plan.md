@@ -43,7 +43,7 @@ Implement the complete chat experience — AI integration, settings (`useSyncExt
 | P3-T21 | Create ChatShell orchestrator | INTEG | `features/chat/components/chat-shell.tsx` (~60 lines, creates `ChatSessionContext.Provider`) | P3-T11, P3-T12, P3-T17, P3-T18, P3-T19 | L |
 | P3-T22 | Create chat server actions | IMPL | `features/chat/actions/delete-chat.ts`, `delete-all-chats.ts`, `delete-trailing-messages.ts` (each calls `updateTag`) | P1-T06, P1-T03 | M |
 | P3-T23 | Create chat API route | IMPL | `app/api/chat/route.ts` (`createUIMessageStream`, `streamText`, tools, `onFinish` with `revalidateTag`) | P3-T13, P3-T02 | L |
-| P3-T24 | Create chat layout (SERVER) | INTEG | `app/(chat)/layout.tsx` (SERVER: SidebarProvider, Suspense→SidebarSkeleton stub, PendingChatsProvider stub, NoticeHandler) | P3-T14, P0-T11 | M |
+| P3-T24 | Create chat layout (SERVER) | INTEG | `app/(chat)/layout.tsx` (SERVER: PendingChatsProvider stub, SidebarProvider, Suspense→SidebarSkeleton stub, NoticeHandler) | P3-T14, P0-T11 | M |
 | P3-T25 | Create chat pages | IMPL | `app/(chat)/page.tsx` (new chat; reads `?q=` query parameter and auto-submits via `useChatSession.sendMessage()` if present), `app/(chat)/chat/[id]/page.tsx` (existing: `Promise.all`, `use cache`) | P3-T21, P3-T10 | M |
 | P3-T26 | Create chat error boundary | IMPL | `app/(chat)/error.tsx` | P0-T08 | S |
 | P3-T27 | Verification gate G03 | VERIFY | — | P3-T01..T26 | S |
@@ -77,16 +77,18 @@ Implement the complete chat experience — AI integration, settings (`useSyncExt
 The old 524-line God Component is replaced by a thin orchestrator pattern:
 
 ```
-ChatShell (~60 lines)             # Creates ChatSessionContext.Provider
-├── useChatSession() (~120 lines)    # useChat config + callbacks (hook)
-├── useChatSideEffects() (~40 lines) # Navigation effects (hook)
-├── chat-callbacks.ts              # Pure functions: onData, onError, onFinish
-├── process-stream-deltas.ts       # Pure function: delta → artifact update
-├── ChatHeader                     # Reads ChatSessionContext
-├── Messages                       # Reads ChatSessionContext (3 own props max)
-├── MultimodalInput                # Reads ChatSessionContext (2 own props max)
-├── StreamBridge                   # ~20 lines, processStreamDelta → artifactStore
-└── ArtifactPanel                  # Reads ChatSessionContext (2 own props max)
+Chat page composition
+├── ChatShell (~60 lines)             # Creates ChatSessionContext.Provider
+│   ├── useChatSession() (~120 lines)    # useChat config + callbacks (hook)
+│   ├── useChatSideEffects() (~40 lines) # Navigation effects (hook)
+│   ├── chat-callbacks.ts              # Pure functions: onData, onError, onFinish
+│   ├── process-stream-deltas.ts       # Pure function: delta → artifact update
+│   ├── ChatHeader                     # Reads ChatSessionContext
+│   ├── Messages                       # Reads ChatSessionContext (3 own props max)
+│   ├── MultimodalInput                # Reads ChatSessionContext (2 own props max)
+│   └── ArtifactPanel                  # Reads ChatSessionContext (2 own props max)
+├── StreamBridge                       # ~20 lines, processStreamDelta → artifactStore (sibling)
+└── VoteResolver                       # Deferred vote hydration (sibling)
 ```
 
 ---

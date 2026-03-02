@@ -135,7 +135,7 @@ export async function withCache<T>(
 The data layer must handle the dual guest/auth pattern. Each function receives a context:
 
 ```typescript
-// lib/data/context.ts
+// lib/types/data-context.types.ts
 type DataContext = {
   userId: string
   isGuest: boolean
@@ -291,7 +291,7 @@ Does the endpoint return an SSE stream?
 
 Is it called from a <form> or client component?
 ├── YES → Server Action ('use server' function)
-│         Examples: saveChat, updateVisibility, login, register, vote
+│         Examples: saveChat, updateChatVisibility, login, register, vote
 └── NO: ↓
 
 Is it a REST endpoint for external/programmatic access?
@@ -314,7 +314,7 @@ export default function ChatLayout({ children }) {
   return (
     <div className="flex">
       <Suspense fallback={<SidebarSkeleton />}>
-        <AppSidebar />  {/* dynamic: needs auth */}
+        <SidebarShell />  {/* server wrapper + auth-aware data fetch */}
       </Suspense>
       {children}
     </div>
@@ -342,9 +342,14 @@ Keep AppError but use string literal codes (not enum):
 ```typescript
 // lib/errors/app-error.ts
 type ErrorCode =
-  | 'UNAUTHORIZED' | 'FORBIDDEN' | 'NOT_FOUND'
-  | 'VALIDATION' | 'RATE_LIMITED' | 'AI_ERROR'
-  | 'DATABASE_ERROR' | 'CACHE_ERROR'
+  | 'bad_request:api:invalid_request_body'
+  | 'unauthorized:chat:auth_required'
+  | 'forbidden:chat:owner_mismatch'
+  | 'not_found:chat:not_found'
+  | 'rate_limit:chat:too_many_requests'
+  | 'ai_error:provider:failed'
+  | 'internal_error:database:query_failed'
+  | 'internal_error:cache:operation_failed'
 
 export class AppError extends Error {
   constructor(
@@ -367,7 +372,7 @@ For Server Actions, use `ActionResult<T>` return type instead of thrown errors:
 ```typescript
 type ActionResult<T = void> =
   | { success: true; data: T }
-  | { success: false; error: string; code?: string }
+  | { success: false; error: { code: string; message: string } }
 ```
 
 ---

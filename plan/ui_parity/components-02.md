@@ -4,6 +4,8 @@
 
 > Continuation of component mapping. See components-01.md for A–M.
 
+> ⚠️ **Scope note (redesign precedence):** This file includes oldapp parity inventory details. Canonical implementation targets are defined in `scaffold/directory-structure.md` and phase/final plan docs. Removed items are historical references only.
+
 ---
 
 ## preview-attachment.tsx → `features/chat/components/preview-attachment.tsx`
@@ -19,7 +21,7 @@
 
 ---
 
-## settings/settings-sheet.tsx → `features/settings/components/settings-sheet.tsx`
+## settings/settings-sheet.tsx → `features/settings/components/settings-panel.tsx`
 
 | Field | Detail |
 |-------|--------|
@@ -57,7 +59,7 @@
 |-------|--------|
 | **Type** | Client (`"use client"`) |
 | **Props** | `user: { email?: string | null }` |
-| **Parents** | `AppSidebar` → `SidebarContent` |
+| **Parents** | `SidebarShell` client history region |
 | **Children** | `GroupedVirtuoso` (react-virtuoso), `ChatItem` items, `AlertDialog` (delete confirm) |
 | **State** | SWR infinite pagination (20/page), `showDeleteDialog`, `chatToDelete` |
 | **Grouping** | Today, Yesterday, Last 7 days, Last 30 days, Older — with pre-calculated date boundaries |
@@ -89,7 +91,7 @@
 |-------|--------|
 | **Type** | Server-compatible (pure render) |
 | **Props** | None |
-| **Parents** | `SidebarShell` (Suspense fallback) *(redesign: renamed from ChatLayoutClient)*, AppSidebar dynamic loading |
+| **Parents** | `SidebarShell` (Suspense fallback) *(redesign: server-rendered sidebar shell; no AppSidebar dynamic wrapper)* |
 | **Layout** | Matches exact Sidebar structure: `hidden md:block`, `w-64`, fixed inset-y-0 |
 | **Skeleton bars** | 5 items with widths [44%, 32%, 28%, 64%, 52%], staggered animation delay (50ms increments) |
 | **Sections** | Header (title + button), Content (Today label + items), Footer (avatar + name) |
@@ -115,7 +117,7 @@
 |-------|--------|
 | **Type** | Client (`"use client"`) |
 | **Props** | `user: { email?: string | null }` |
-| **Parents** | `AppSidebar` → `SidebarFooter` |
+| **Parents** | `SidebarShell` user-nav region |
 | **Children** | `SidebarMenu` → `SidebarMenuItem` → `DropdownMenu` |
 | **State** | `mounted: boolean` (hydration guard) |
 | **Hooks** | `useSession` *(redesign: renamed from useAuth)*, `useTheme` |
@@ -126,7 +128,7 @@
 
 ---
 
-## submit-button.tsx → `features/auth/components/submit-button.tsx`
+## submit-button.tsx → `features/chat/components/submit-button.tsx`
 
 | Field | Detail |
 |-------|--------|
@@ -179,13 +181,13 @@
 
 ---
 
-## theme-provider.tsx → `components/shared/theme-provider.tsx`
+## theme-provider.tsx → `components/theme-provider.tsx`
 
 | Field | Detail |
 |-------|--------|
 | **Type** | Client (`"use client"`) |
 | **Props** | `ThemeProviderProps` (next-themes) |
-| **Parents** | Root `AppShell` |
+| **Parents** | Root server layout (`app/layout.tsx`) |
 | **Children** | `NextThemesProvider` passthrough |
 
 ---
@@ -202,7 +204,7 @@
 
 ---
 
-## toolbar.tsx → `features/artifacts/components/toolbar.tsx`
+## toolbar.tsx → *(historical, removed in redesign)*
 
 | Field | Detail |
 |-------|--------|
@@ -227,13 +229,13 @@
 | **Parents** | `ArtifactPanel` (when not current version) *(redesign: renamed from Artifact)* |
 | **Children** | "Restore this version" `Button`, "Back to latest" `Button` |
 | **State** | `isMutating: boolean` |
-| **Restore API** | DELETE `/api/artifact?id={id}&timestamp={ts}` *(redesign: renamed from /api/document)* with optimistic mutation |
+| **Restore API** | POST `/api/artifact` with `{ id, timestamp, mode: "restore" }` *(redesign contract)* |
 | **Animation** | `motion.div` slide-up from bottom (spring stiffness 140, damping 20) |
 | **Layout** | `absolute bottom-0 z-50 w-full border-t bg-background p-4` |
 
 ---
 
-## visibility-selector.tsx → `features/chat/components/visibility-selector.tsx`
+## visibility-selector.tsx → `features/visibility/components/visibility-selector.tsx`
 
 | Field | Detail |
 |-------|--------|
@@ -241,13 +243,13 @@
 | **Props** | `chatId`, `selectedVisibilityType`, `className?` |
 | **Parents** | `ChatHeader` |
 | **Children** | `DropdownMenu` → Private (LockIcon) / Public (GlobeIcon) with checkmarks |
-| **Hooks** | `useChatVisibility` |
+| **Hooks** | `useOptimistic` + `updateChatVisibility` Server Action |
 | **Responsive** | `hidden md:flex` on trigger button (desktop only) |
 | **Exported type** | `VisibilityType = "private" | "public"` |
 
 ---
 
-## weather.tsx → `features/chat/components/weather.tsx`
+## weather.tsx → `components/weather.tsx`
 
 | Field | Detail |
 |-------|--------|
@@ -267,8 +269,8 @@
 | Hook | File | Rebuild Location |
 |------|------|------------------|
 | `useArtifact` | `hooks/use-artifact.ts` | `features/artifacts/hooks/use-artifact.ts` *(redesign: useSyncExternalStore)* |
-| `useArtifactSelector` | `hooks/use-artifact.ts` | `features/artifacts/hooks/use-artifact.ts` |
-| `useChatVisibility` | `hooks/use-chat-visibility.ts` | `features/chat/hooks/use-chat-visibility.ts` |
+| `useArtifactSelector` | `hooks/use-artifact.ts` | `features/artifacts/hooks/use-artifact-selector.ts` |
+| `useChatVisibility` | `hooks/use-chat-visibility.ts` | `features/visibility/components/visibility-selector.tsx` + `updateChatVisibility` Server Action |
 | ~~`useMessages`~~ | ~~`hooks/use-messages.tsx`~~ | *(redesign: removed — `ChatSessionContext` provides messages)* |
 | `useIsMobile` | `hooks/use-mobile.ts` | `hooks/use-mobile.ts` (shared) |
 | `usePendingChats` | `hooks/use-pending-chats.tsx` | `features/sidebar/hooks/use-pending-chats.tsx` *(redesign: renamed from useOptimisticChats)* |

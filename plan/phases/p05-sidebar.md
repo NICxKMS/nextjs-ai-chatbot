@@ -5,7 +5,8 @@
 > Sidebar phase. Implements the complete sidebar experience: server-rendered shell with
 > client pagination, pending chat operations, chat history, user navigation, and chat switching.
 >
-> **Entry state**: P4 complete — chat + artifacts work, messages stream, artifacts created.
+> **Entry state**: P3 complete — chat core works, messages stream, layout has sidebar stub.
+> **Sequencing note**: P5 starts after P3 (no hard P4 dependency). P4 and P5 proceed in parallel; P6 begins when both G04 and G05 pass.
 > **Exit state**: Full sidebar navigation works — chat switching, history loading, creation, deletion, rename.
 > **Est. duration**: ~4.25 days
 > **Tasks**: 12
@@ -361,7 +362,7 @@ Type: IMPL
 Behavior ref: features.md (GET paginated history); api-contracts.md
 Architecture ref: SEAM-020 (sidebar history pagination)
 
-Action: Create app/api/history/route.ts — GET handler: auth check, rate limit, parse pagination params (limit clamped 1-100 default 20, offset). Chats ordered by createdAt descending. Return {chats, hasMore}. Error handling via AppError.toResponse().
+Action: Create app/api/history/route.ts — GET handler: auth check, rate limit, parse pagination params (limit clamped 1-100 default 20, cursor). Chats ordered by createdAt descending. Return { chats, hasMore, nextCursor? }. Error handling via AppError.toResponse().
 
 Output files:
 - app/api/history/route.ts
@@ -376,7 +377,7 @@ Dependents: P5-T05, P5-T12
 
 Success criteria:
 - GET returns paginated chat list with hasMore flag
-- Pagination: limit clamped 1-100, offset-based
+- Pagination: limit clamped 1-100, cursor-based
 - Auth check present
 - Error handling present
 - pnpm typecheck passes
@@ -393,7 +394,7 @@ Type: INTEG
 Behavior ref: screens.md (chat layout with sidebar)
 Architecture ref: SEAM-029 (provider tree); redesign (PendingChatsProvider wraps both sidebar + content, chat layout is SERVER component)
 
-Action: Update app/(chat)/layout.tsx — Wire the complete sidebar infrastructure into the SERVER layout: (1) Add PendingChatsProvider wrapping both sidebar AND content, (2) Add SidebarProvider (from shadcn/ui) with defaultOpen based on sidebar_state cookie, (3) Add Suspense boundary with SidebarSkeleton fallback wrapping SidebarShell (SERVER component, NOT dynamic import with ssr:false), (4) Wrap main content area in SidebarInset. Chat layout remains a SERVER component (no 'use client' on layout). PendingChatsProvider is placed here so it covers both sidebar and chat content areas.
+Action: Update app/(chat)/layout.tsx — Wire the complete sidebar infrastructure into the SERVER layout: (1) Add PendingChatsProvider wrapping both sidebar AND content, (2) Add SidebarProvider (from shadcn/ui) with defaultOpen based on `sidebar:state` cookie, (3) Add Suspense boundary with SidebarSkeleton fallback wrapping SidebarShell (SERVER component, NOT dynamic import with ssr:false), (4) Wrap main content area in SidebarInset. Chat layout remains a SERVER component (no 'use client' on layout). PendingChatsProvider is placed here so it covers both sidebar and chat content areas.
 
 Output files:
 - app/(chat)/layout.tsx (modify)
@@ -410,7 +411,7 @@ Success criteria:
 - SidebarShell rendered as SERVER component with Suspense fallback (NOT ssr:false dynamic import)
 - SidebarSkeleton shows during Suspense loading
 - PendingChatsProvider wraps both sidebar AND chat content
-- SidebarProvider initialized with sidebar_state cookie value
+- SidebarProvider initialized with `sidebar:state` cookie value
 - SidebarInset wraps main content
 - Chat layout is a SERVER component (no 'use client' on layout)
 - Mobile: sidebar as overlay sheet
@@ -433,7 +434,7 @@ Action: Run complete validation: (1) pnpm typecheck passes, (2) pnpm lint passes
 Output files: none (validation only)
 
 Inputs: all P5-T01 through P5-T11 outputs
-Outputs: Gate G05 passed — P6 (enhancements) can begin
+Outputs: Gate G05 passed — sidebar prerequisites for P6 satisfied (P6 starts when G04 + G05 are both complete)
 
 AI layer handling: N/A
 

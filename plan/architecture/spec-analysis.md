@@ -26,7 +26,7 @@ where route handlers are thin orchestrators.
 
 **Verdict**: Keep. Clean separation that makes routes testable and scannable.
 
-### 1.3 Edge-Only Rate Limiting (§6, Decision 3)
+### 1.3 Edge + Route Rate Limiting (§6, Decision 3)
 
 Centralizing rate limiting in `proxy.ts` (was `middleware.ts` — Next.js 16 rename) with
 per-route config is the right call. The config-driven approach with wildcard matching is
@@ -35,7 +35,7 @@ clean. Upstash Redis at the edge is the standard pattern for Vercel deployments.
 > **Updated per redesign audit (2026-03-01)**: `middleware.ts` replaced by `proxy.ts`
 > per Next.js 16. Same responsibilities. See ADR-010.
 
-**Verdict**: Keep the edge-only approach. The config structure is solid.
+**Verdict**: Keep defense-in-depth. Use lightweight edge gating in `proxy.ts` plus route/action limits on sensitive surfaces.
 
 ### 1.4 Standardized Error Handling (§10)
 
@@ -171,7 +171,7 @@ data access APIs (`getChatById()`, `saveArtifactVersion()`) which keep boundarie
 5. Testing requires mocking class instances vs simple function stubs
 
 The behavioral extraction (data-flows.md) shows the actual data access patterns:
-- Chat: get, getWithMessages, list, updateTitle, updateVisibility, delete, deleteAll
+- Chat: get, getWithMessages, list, updateTitle, updateChatVisibility, delete, deleteAll
 - Artifact: get, getAll, save, getSuggestions
 - Messages: save, getByChat (via sorted set)
 - Votes: upsert, getByChat
@@ -245,7 +245,7 @@ Rust-style `Result<T, E>` with `ok()`, `err()`, `unwrap()` helpers. This pattern
 The spec's own code examples use `throw AppError.notFound()` — i.e., the Result type
 contradicts the error throwing pattern used everywhere else.
 
-**Verdict**: REJECT. Use thrown errors + AppError consistently. See DEV-008.
+**Verdict**: REJECT `Result<T, E>` wrappers. Use `ActionResult<T>` for Server Actions and native thrown `AppError` in Route Handlers.
 
 ### 3.5 Mandatory Barrel Files (§22)
 
@@ -323,7 +323,7 @@ From behavioral extraction: the chat streaming endpoint MUST be a route handler 
 But visibility toggle, voting, and CRUD mutations can be Server Actions called directly
 from client components.
 
-**Missing**: Clear decision tree for Server Action vs Route Handler.
+**Status**: Decision tree captured in redesign and reflected in active architecture/contracts docs.
 
 ### 4.4 Data Stream Architecture Detail — ADDRESSED
 
@@ -416,7 +416,7 @@ but singleton patterns may not work on edge as expected).
 |------|---------|------------|
 | Feature module structure | ✅ Keep | 95% |
 | Slim routes | ✅ Keep | 95% |
-| Edge-only rate limiting (proxy.ts) | ✅ Keep | 90% |
+| Edge + route defense-in-depth rate limiting | ✅ Keep | 90% |
 | Error handling (AppError + ActionResult) | ✅ Keep, simplify | 90% |
 | Auth consolidation | ✅ Keep, colocate | 90% |
 | AI two-layer concept | ✅ Keep concept | 85% |

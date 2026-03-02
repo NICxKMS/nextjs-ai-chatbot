@@ -23,7 +23,7 @@
 | `requestSuggestions` tool | `features/chat/lib/tools/request-suggestions.ts` | `features/artifacts/handlers/` | `{ artifactId: string }` |
 | Artifact data stream events | Artifact handlers (server) | `StreamBridge` → `artifactStore` (client) | `artifact-id`, `artifact-title`, `artifact-kind`, `artifact-clear`, `artifact-*Delta`, `artifact-finish` |
 
-**Import boundary:** Chat tools import `getArtifactHandler()` from `lib/ai/artifact-handlers.ts` (registry). No direct cross-feature component imports. Artifact handlers register themselves via side-effect import in route handler.
+**Import boundary:** Chat tools import `getArtifactHandler()` from `lib/ai/artifact-handlers.ts` (registry). Cross-feature component imports are allowlist-only (see `architecture/conventions.md`). Artifact handlers register themselves via side-effect import in route handler.
 
 ### features/chat/ → features/sidebar/
 
@@ -271,13 +271,12 @@ SidebarShell (SERVER component)
 | Route | Handler | Guards | Data Layer | Revalidation | Response Type |
 |-------|---------|--------|------------|--------------|---------------|
 | `POST /api/chat` | Route Handler | auth, rate limit | `createChat`, `saveMessages`, `updateChatTitle` | `revalidateTag('chat:{id}', 'max')`, `revalidateTag('chats:{userId}', 'max')` | `ReadableStream` (SSE) |
-| `GET /api/history` | Route Handler | auth, rate limit | `getChatsByUserId` | — | `PaginatedResult<Chat>` |
-| `GET /api/artifact` | Route Handler | auth, ownership | `getArtifactById` (all versions) | — | `{ artifact: Artifact, versions: Version[] }` |
+| `GET /api/history` | Route Handler | auth, rate limit | `getChatsByUserId` | — | `HistoryResponse<Chat>` |
+| `GET /api/artifact` | Route Handler | auth, ownership | `getArtifactVersions` | — | `Artifact[]` |
 | `POST /api/artifact` | Route Handler | auth, rate limit | `saveArtifactVersion` | `revalidateTag('artifact:{id}', 'max')` | `{ artifact: Artifact }` |
-| `DELETE /api/artifact` | Route Handler | auth, non-guest, ownership | `deleteArtifactVersion` | `revalidateTag('artifact:{id}', 'max')` | `{ success: true }` |
 | `GET /api/suggestions` | Route Handler | auth | `getSuggestionsByArtifactId` | — | `{ suggestions: ArtifactSuggestion[] }` |
 | `POST /api/files/upload` | Route Handler | auth, upload rate limit | Vercel Blob `put()` | — | `{ url: string, pathname: string }` |
-| `GET /api/health` | Route Handler | none | DB ping | — | `HealthResponse` |
+| `GET /api/health` | Route Handler | none | DB + Redis ping | — | `HealthResponse` |
 
 **Server Actions (mutations):**
 
@@ -370,7 +369,7 @@ SidebarShell (SERVER component)
 - **Output:** `ActionResult<void>`
 - **Side effects:** Validates credentials via Supabase, sets `sb_token` cookie, redirects to `/`
 - **Auth:** None (public)
-- **Error cases:** `auth:credentials:invalid`, `auth:session:exchange_failed`
+- **Error cases:** `bad_request:auth:invalid_credentials`, `internal_error:auth:session_write_failed`
 
 ### `register(prevState, formData)`
 - **Input:** `FormData` — Zod `registerSchema` (email: string, password: string min 6)
@@ -486,7 +485,8 @@ type ActionResult<T = void> =
 ```typescript
 type ModelMetadata = {
   id: string;                     // "provider:model-name"
-  name: string;
+  label: string;
+  description?: string;
   provider: string;
   providerModelId: string;
   modalities: { input: string[]; output: string[] };
@@ -517,8 +517,8 @@ type ArtifactDataPart =
   | { type: 'artifact-id'; content: string }
   | { type: 'artifact-title'; content: string }
   | { type: 'artifact-kind'; content: ArtifactKind }
-  | { type: 'artifact-clear'; content: string }
-  | { type: 'artifact-finish'; content: string }
+  | { type: 'artifact-clear'; content: '' }
+  | { type: 'artifact-finish'; content: '' }
   | { type: 'artifact-textDelta'; content: string }
   | { type: 'artifact-codeDelta'; content: string }
   | { type: 'artifact-sheetDelta'; content: string }

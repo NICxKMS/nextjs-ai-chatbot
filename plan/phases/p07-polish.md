@@ -329,7 +329,7 @@ Type: VERIFY
 Behavior ref: N/A (architectural enforcement)
 Architecture ref: conventions.md (layer rules); redesign (scripts/check-imports.mjs created in P0-T17, verified here)
 
-Action: Run `scripts/check-imports.mjs` and verify zero violations. The script (created in P0-T17) validates import layer boundaries: (1) app/ → features/, components/, lib/ only. (2) features/ → lib/, components/, other features. (3) components/ → lib/, other components/. (4) lib/ → other lib/ only. (5) No direct DB/cache imports from features/ or app/. Fix any violations found.
+Action: Run `scripts/check-imports.mjs` and verify zero violations. The script (created in P0-T17) validates import layer boundaries: (1) app/ → features/, components/, lib/ only. (2) features/ → lib/, components/, and **allowlisted** cross-feature imports only. (3) components/ → lib/, other components/. (4) lib/ → other lib/ only. (5) No direct DB/cache imports from features/ or app/. Fix any violations found.
 
 Output files: none (verification only, fix files if violations found)
 

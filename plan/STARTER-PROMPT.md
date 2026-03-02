@@ -91,7 +91,7 @@ When documents conflict, this hierarchy wins:
 
 ## 7. Session Protocol
 
-> **This is the single canonical session protocol.** Other files reference it but do not duplicate it.
+> **Primary implementation session protocol.** Supporting memory/design docs provide complementary context and rationale.
 
 ### Session Start
 

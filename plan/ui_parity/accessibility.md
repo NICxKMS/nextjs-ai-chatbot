@@ -4,6 +4,8 @@
 
 > Every ARIA attribute, keyboard pattern, focus management, and screen reader consideration found in oldapp.
 
+> ⚠️ **Scope note:** This is a parity audit reference, not a mandatory rebuild contract. Accessibility entries tied to removed redesign components (e.g., legacy console/toolbar artifacts) are historical unless explicitly reintroduced.
+
 ---
 
 ## 1. ARIA Attributes
@@ -29,7 +31,7 @@
 
 | Attribute | Component | Detail |
 |-----------|-----------|--------|
-| `aria-pressed` | `settings-sheet.tsx` (SettingToggle) | Toggle buttons for settings (reasoning, stream artifacts, auto-scroll) |
+| `aria-pressed` | `settings-panel.tsx` (SettingToggle) | Toggle buttons for settings (reasoning, stream artifacts, auto-scroll) |
 | `aria-pressed` | `message-actions.tsx` | Vote buttons (upvote/downvote) on messages |
 | `aria-disabled` | `submit-button.tsx` | Auth form submit when pending/successful |
 | `aria-busy` | `sidebar-skeleton.tsx` | Skeleton loading sections |
@@ -52,7 +54,7 @@
 |-----|----------|-----------|
 | `Enter` | Submit chat message (when not composing) | `multimodal-input.tsx` |
 | `Shift+Enter` | Newline in chat input | `multimodal-input.tsx` |
-| `Escape` | Close settings sheet | `settings-sheet.tsx` |
+| `Escape` | Close settings sheet | `settings-panel.tsx` |
 | `Escape` | Close dropdown menus | All `DropdownMenu` usages |
 | `Escape` | Cancel message editing | `message-editor.tsx` |
 
@@ -98,7 +100,7 @@
 | `<main>` | `SidebarInset` (implicit main content area) |
 | `<form>` | `auth-form.tsx`, used in login/register |
 | `<label>` + `<input>` | `auth-form.tsx` (email/password with htmlFor) |
-| `<label>` + `<input>` | `settings-sheet.tsx` (sampling parameters) |
+| `<label>` + `<input>` | `settings-panel.tsx` (sampling parameters) |
 | Heading hierarchy | Login/Register pages: h3 title, p description |
 
 ### Content Descriptions

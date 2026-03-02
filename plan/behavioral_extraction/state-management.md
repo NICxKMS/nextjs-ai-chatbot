@@ -21,7 +21,7 @@ The app uses a layered state management approach combining React context, `useSy
 | Artifact state | `artifactStore` | `useSyncExternalStore` | Client | Global (module-level) | ~10-20/sec during streaming |
 | Settings | `settingsStore` | `useSyncExternalStore` + localStorage | Client | Global (module-level) | Per user action (rare) |
 | Optimistic chats | `PendingChatsProvider` | React Context | Client | Chat layout | Per chat create/delete |
-| Data stream | `ChatStreamProvider` | React Context (split) | Client | Chat page | ~10-20/sec during streaming |
+| Stream data parts | `ChatStreamProvider` | React Context (split) | Client | Chat page | ~10-20/sec during streaming |
 | Votes | `useOptimistic` | React 19 optimistic | Client | Per-message | Per vote action (rare) |
 | Visibility | Server-fetched + `useOptimistic` | React 19 optimistic | Client | Per-chat | Per toggle action (rare) |
 | Auth session | `SessionProvider` | React Context | Client | Entire app | On login/logout |
@@ -114,14 +114,20 @@ const setVisibilityType = (type) => {
 Context-based provider for sidebar chat list (PendingChatsProvider).
 
 ```typescript
-type PendingChat = Chat & { isPending?: boolean };
+type PendingChat = {
+  id: string;
+  title: string;
+  createdAt: Date;
+  isOptimistic: boolean;
+  visibility: 'public' | 'private';
+};
 
 // PendingChatsProvider wraps both sidebar + content area
 // Uses Set<string> internally for O(1) dedup by chat ID
 // Operations:
 PendingChats.add(chat)         // Add unconfirmed chat to list head
 PendingChats.remove(chatId)    // Remove (on delete)
-PendingChats.confirm(chatId)   // Replace pending with real data
+PendingChats.markConfirmed(chatId)   // Replace pending with real data
 PendingChats.updateTitle(chatId, title) // Modify title
 ```
 
@@ -181,23 +187,35 @@ const ChatStreamDispatchContext = createContext<ChatStreamDispatch>();
 
 > **RAF batching:** High-frequency SSE deltas (~200/sec) are coalesced to ~60 React updates/sec using `requestAnimationFrame` batching. Incoming deltas are buffered and flushed once per animation frame, preventing React from being overwhelmed during fast streaming.
 
-State:
+State — **DataPart[] buffer only** (no artifact state):
 ```typescript
 type ChatStreamState = {
-  artifact: ArtifactState;
-  // ... derived from StreamBridge processing
+  stream: DataPart[];        // Raw buffered stream data parts
+  connectionState: "idle" | "connected" | "error";  // Stream connection metadata
 };
 ```
 
-Dispatch exposes mutation functions without causing consumer re-renders.
+> **Important: ChatStreamProvider does NOT own artifact state.** It is a thin DataPart[] buffer. Artifact UI state lives in `artifactStore` (module-level, `useSyncExternalStore`). The `StreamBridge` component reads from ChatStreamProvider and writes to `artifactStore` — it is the one-way relay between the two.
+>
+> ```
+> ChatStreamProvider (DataPart[] buffer) → StreamBridge (thin relay) → artifactStore (artifact UI state)
+> ```
+
+Dispatch exposes stream-buffer mutation functions (append, clear) without causing consumer re-renders.
 
 ### `PendingChatsProvider`
 Wraps sidebar + chat area. Provides `usePendingChats()` context.
 
 ### `SessionProvider`
-Provides Supabase browser client and session state:
+Provides authentication session state:
 ```typescript
-const { supabase, session, user, isGuest } = useSession();
+// useSession() returns AppSession | null
+type AppSession = {
+  user: { id: string; type: 'authenticated' | 'guest'; email?: string };
+  supabaseToken?: string;
+};
+
+const session = useSession(); // AppSession | null
 ```
 
 ### `ThemeProvider` (`next-themes`)
@@ -215,20 +233,16 @@ Settings are stored in localStorage, not on the server. The store uses a pub/sub
 > *SettingsProvider removed. Any component imports `useSettings()` directly from the module-level store. No wrapping provider needed.*
 
 ```typescript
-type SettingsState = {
-  selectedModelId: string;
-  sampling: {
-    temperature: number;     // 0–2
-    topP: number;            // 0–1
-    maxOutputTokens: number; // 256–1,000,000
-  };
-  systemPrompt: string;      // max 8192 chars
+interface SettingsState {
+  temperature: number;
+  topP: number;
+  maxOutputTokens: number;
+  systemPrompt: string;
   enableReasoning: boolean;
-  reasoningBudget: number;
-  streamArtifacts: boolean;
-  autoScroll: boolean;
-};
+}
 ```
+
+> **Note:** Model selection is via cookie (`chat-model`) + localStorage, NOT in SettingsState.
 
 **Key pattern:**
 ```typescript
@@ -252,7 +266,7 @@ Settings are passed in the chat request body and used server-side for temperatur
 
 ### Model Selection
 - Persisted in `cookie: chat-model` (server-readable for SSR)
-- Also in localStorage via `settings.selectedModelId`
+- Also in localStorage directly (not via SettingsState)
 
 ### Visibility
 - Managed via `useOptimistic` (React 19). Server-fetched initial value, optimistic toggle via Server Action.

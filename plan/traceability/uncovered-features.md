@@ -15,7 +15,7 @@
 
 **Resolution:** Handled within P7 polish tasks. Chat component uses `useChat` built-in SSE lifecycle management. `navigator.onLine` monitoring + offline toast added during P7-T03 (accessibility + keyboard nav). Submit button disabled when offline.
 
-> **Redesign note:** Original resolution was P7-T15 (`useConnectionStatus` hook with exponential backoff). Per redesign, SSE reconnection is handled natively by `useChat` + error boundaries. Offline detection (`navigator.onLine` monitoring + offline toast) is included in P7-T03 accessibility task.
+> **Redesign note:** Original resolution was P7-T15 (pre-redesign task ID, now merged into P7-T03; `useConnectionStatus` hook with exponential backoff). Per redesign, SSE reconnection is handled natively by `useChat` + error boundaries. Offline detection (`navigator.onLine` monitoring + offline toast) is included in P7-T03 accessibility task.
 
 ---
 
@@ -33,7 +33,7 @@
 
 ### 4. AutoScroll Setting Wire — **RESOLVED**
 
-**Resolution:** P3-T17 (messages list) success criteria extended. `autoScroll` setting from `useSyncExternalStore`-backed settings store controls FAB behavior and `followOutput` mode; `atBottomThreshold=100`; `followOutput="smooth"` when autoScroll is on, disabled when off. Note: SettingsProvider is removed — settings use `useSyncExternalStore` + localStorage directly (P3-T06).
+**Resolution:** P3-T17 (messages list) success criteria extended. Auto-scroll handled by `useScrollToBottom` hook. Not a user-facing setting — behavior is automatic during streaming, with manual override via scroll position detection. `atBottomThreshold=100`; `followOutput="smooth"`. Scroll-to-bottom FAB appears when not at bottom.
 
 ---
 
@@ -46,4 +46,4 @@
 | Credit/usage alert UI | — | **REMOVED** (no credit system) | — |
 | AutoScroll setting wire | Low | Extended | P3-T17 |
 
-**Overall traceability: 19/19 features fully covered (100%). Credit/usage alert removed per redesign. All remaining gaps resolved.**
+**Overall traceability: 20 tracked features (19 active + 1 removed) with all active features fully covered. Credit/usage alert removed per redesign. All remaining gaps resolved.**

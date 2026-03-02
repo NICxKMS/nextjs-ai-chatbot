@@ -41,16 +41,12 @@ Create the project skeleton — config, shared types, error handling, utilities,
 - `lib/types/artifact-handler.types.ts` — ArtifactHandler, ArtifactStreamWriter interfaces
 - `lib/types/pending-chats.types.ts` — PendingChat, PendingChatOperations
 - `lib/types/model.types.ts` — ModelMetadata, ProviderId (NO vercel-gateway), constants
-- `lib/types/settings.types.ts` — UserSettings type
+- `lib/types/settings.types.ts` — SettingsState type
 - `lib/errors/codes.ts` — ErrorCode union (NO activate_gateway, NO credit codes)
 - `lib/errors/app-error.ts` — AppError class with static factories + toResponse()
 - `lib/utils/cn.ts` — clsx + twMerge
 - `lib/utils/format.ts` — Date/string formatting
 - `lib/utils/generate-uuid.ts` — UUID generation
-
-**AI elements (copy):**
-- Copy all 31 files from `oldapp/components/elements/` → `components/ai-elements/`
-- Verify import paths match `@/components/ui/` and `@/lib/utils/`
 
 **shadcn/ui components (copy):**
 - Copy all UI primitives from `oldapp/components/ui/` → `components/ui/` (~32 files including sidebar.tsx)
@@ -84,7 +80,6 @@ Create the project skeleton — config, shared types, error handling, utilities,
 |-----------|-------|-----------|
 | Root config | 7 | package.json, next.config.ts, tsconfig.json, biome.json, postcss, vercel.json, .env.example |
 | `app/` | 3 | layout.tsx, globals.css, global-error.tsx |
-| `components/ai-elements/` | 31 | All 31 read-only primitives |
 | `components/ui/` | ~32 | All shadcn/ui base components |
 | `components/` | 4 | theme-provider.tsx, icons.tsx, sidebar-toggle.tsx, toaster.tsx |
 | `lib/types/` | 7 | models.types.ts, result.types.ts, data-context.types.ts, artifact.types.ts, artifact-handler.types.ts, pending-chats.types.ts, model.types.ts, settings.types.ts |
@@ -106,11 +101,9 @@ Create the project skeleton — config, shared types, error handling, utilities,
 - [ ] `proxy.ts` exports `proxy()` function + `config.matcher`
 - [ ] DB schema uses `Artifact` table (NOT `Document`)
 - [ ] `lib/errors/codes.ts` has zero credit/gateway codes
-- [ ] All ai-elements files exist at `@/components/ai-elements/`
 - [ ] All shadcn/ui files exist at `@/components/ui/`
 - [ ] `@/lib/types/artifact.types` exports UIArtifact, ArtifactKind
 - [ ] `@/lib/types/result.types` exports ActionResult<T>
-- [ ] Import `@/components/ai-elements/message` resolves without errors
 - [ ] Directory structure matches scaffold/directory-structure.md
 
 ### 18 Tasks (P0-T01 through P0-T18)
@@ -122,7 +115,7 @@ See `../../plan-archives/redesign/phase-plan.md` for complete task table with ID
 ## Phase 1 — Data Foundation (Blocking)
 
 ### Entry State
-Scaffold complete. Types, config, proxy, and ai-elements available.
+Scaffold complete. Types, config, proxy, and shared UI primitives available.
 
 ### Objective
 Create the database migration infrastructure, cache layer, all data access functions, revalidation utilities, and AI provider foundation. After this phase, any feature can call data functions and invalidate caches.
@@ -232,7 +225,7 @@ Implement complete authentication — session resolution, login/register/logout,
 - [ ] Register form submits → registration → cookie set → redirect
 - [ ] Auth actions return `ActionResult<T>` (never throw)
 - [ ] Root layout passes server-fetched session to `SessionProvider`
-- [ ] `proxy.ts` redirects unauthenticated users to `/login`
+- [ ] `proxy.ts` protects auth-only routes and bootstraps guest sessions on guest-capable routes
 - [ ] Auth pages render correctly (login, register)
 - [ ] `pnpm typecheck` and `pnpm lint` pass
 
@@ -285,7 +278,7 @@ Build the complete chat experience — AI integration, settings, streaming, mess
 
 **Chat routes:**
 - `app/api/chat/route.ts` — POST: `createUIMessageStream`, `streamText`, tools, `onFinish` with title AWAITED server-side + revalidation
-- `app/(chat)/layout.tsx` — SERVER: SidebarProvider, Suspense → SidebarSkeleton stub, PendingChatsProvider stub, NoticeHandler
+- `app/(chat)/layout.tsx` — SERVER: PendingChatsProvider stub, SidebarProvider, Suspense → SidebarSkeleton stub, NoticeHandler
 - `app/(chat)/page.tsx` — New chat: generates UUID, renders ChatStreamProvider → ChatShell
 - `app/(chat)/chat/[id]/page.tsx` — Existing chat: `Promise.all([chat, votes])`, `'use cache'` + `cacheTag`, renders ChatStreamProvider → ChatShell
 - `app/(chat)/error.tsx` — Chat error boundary
@@ -322,7 +315,7 @@ Build the complete chat experience — AI integration, settings, streaming, mess
 - [ ] New chat page renders with greeting + suggested actions
 - [ ] User can type a message, submit, and see streaming response
 - [ ] URL updates to `/chat/{id}` on first message
-- [ ] Messages persist to DB (auth) or cache (guest)
+- [ ] Messages persist to DB for both guest and authenticated sessions
 - [ ] Settings (temperature, system prompt) affect AI responses
 - [ ] `pnpm typecheck && pnpm lint && pnpm format` pass
 
@@ -366,7 +359,7 @@ Build the artifact system: `useSyncExternalStore` store, handler implementations
   - `version-footer.tsx` — Version navigation (prev/next)
 
 **Routes:**
-- `app/api/artifact/route.ts` — POST: save artifact version, `revalidateTag('artifact:{id}', 'max')`
+- `app/api/artifact/route.ts` — GET: artifact versions; POST: save/restore artifact version, `revalidateTag('artifact:{id}', 'max')`
 - `app/api/suggestions/route.ts` — GET: suggestions by artifactId
 
 **Data layer:**
@@ -429,10 +422,10 @@ Implement the server-rendered sidebar with client pagination, PendingChatsProvid
 - `features/sidebar/actions/rename-chat.ts` — Server Action: rename chat title + `updateTag`
 
 **Route:**
-- `app/api/history/route.ts` — GET: cursor-based paginated chat history (guest/auth branching)
+- `app/api/history/route.ts` — GET: cursor-based paginated chat history with auth-aware filtering
 
 **Wiring updates:**
-- `app/(chat)/layout.tsx` — Replace stubs with `SidebarProvider` → `Suspense` → `SidebarShell`, `PendingChatsProvider`
+- `app/(chat)/layout.tsx` — Replace stubs with `PendingChatsProvider` → `SidebarProvider` → `Suspense` → `SidebarShell`
 - Title sync: single channel via `chat-title` stream part → `useChatSession.onData` → `PendingChats.updateTitle()` (NO polling, NO window events)
 
 ### Files Created/Modified (~12)
@@ -519,7 +512,7 @@ Build all secondary features that augment the core experience: voting, model sel
 ### Exit Criteria
 
 - [ ] **Voting**: Server Action + `useOptimistic` (NOT `PATCH /api/vote`) — thumbs up/down works
-- [ ] **Voting**: Guest cannot vote (returns `ActionResult` with `FORBIDDEN`)
+- [ ] **Voting**: Guest cannot vote (returns `ActionResult` with `forbidden:vote:guest_not_allowed`)
 - [ ] **Models**: Selection persists to cookie (server-readable) + localStorage
 - [ ] **Visibility**: Server Action + `updateTag` on both `chat:{id}` and `chats:{userId}` tags
 - [ ] **Upload**: File uploads to Vercel Blob, preview renders thumbnail
@@ -577,7 +570,7 @@ Production-readiness: error boundaries, accessibility, responsive design, instru
 **Verification gates:**
 - `scripts/check-imports.mjs` — zero import boundary violations
 - `grep -r "document"` in code — zero results (excluding .next-docs, oldapp, node_modules)
-- `grep -rE "credit|gateway|quota|entitlement|AppUsage|activate_gateway"` — zero results
+- `grep -rE "credit|gateway|quota|entitlement|AppUsage|activate_gateway|data-usage"` — zero results
 - `proxy.ts` exists (not `middleware.ts`)
 - `pnpm format && pnpm typecheck && pnpm lint` — all pass
 - `pnpm build` — clean production build

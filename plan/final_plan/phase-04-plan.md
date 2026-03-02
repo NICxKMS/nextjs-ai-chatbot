@@ -2,13 +2,13 @@
 
 # Phase 4 — Artifacts Vertical
 
-> Artifact system: `useSyncExternalStore` store, handler registry with side-effect registration, editors (text/code/sheet/image), artifact panel, versioning, diff view, API routes.
+> Artifact system: `useSyncExternalStore` store, handler registry with side-effect registration, editors (text/code/sheet/image), artifact panel, versioning, API routes.
 
 ---
 
 ## Objective
 
-Implement the complete artifact system: `useSyncExternalStore`-based artifact store with selector hooks, handler implementations registered via side-effect imports, all four editors (TipTap text, CodeMirror code, react-data-grid sheet, image display), artifact panel with animations, supporting components (actions, close, error boundary, version footer), artifact preview + diff view, artifact API routes with `revalidateTag`, and wire everything into the ChatShell.
+Implement the complete artifact system: `useSyncExternalStore`-based artifact store with selector hooks, handler implementations registered via side-effect imports, all four editors (TipTap text, CodeMirror code, react-data-grid sheet, image display), artifact panel with animations, supporting components (actions, close, error boundary, version footer), artifact preview, artifact API routes with `revalidateTag`, and wire everything into the ChatShell.
 
 **Entry state:** P3 complete — chat streams, StreamBridge processes deltas, handler registry exists in `lib/ai/artifact-handlers.ts`, tool stubs call registry
 **Exit state:** AI creates/updates text, code, sheet artifacts; editors render and are editable; versions tracked; suggestions work; `useArtifactSelector` enables granular subscriptions
@@ -34,8 +34,8 @@ Implement the complete artifact system: `useSyncExternalStore`-based artifact st
 | P4-T11 | Create artifact panel | IMPL | `features/artifacts/components/artifact-panel.tsx` (main container, kind-specific editor switch) | P4-T07..T10, P4-T03 | L |
 | P4-T12 | Create artifact support components | IMPL | `features/artifacts/components/artifact-actions.tsx`, `artifact-close-button.tsx` (`useArtifactSelector`), `version-footer.tsx` | P4-T03 | M |
 | P4-T13 | Create artifact error boundary | IMPL | `features/artifacts/components/artifact-error-boundary.tsx` | P0-T08 | S |
-| P4-T14 | Create artifact preview + diff view | IMPL | `features/artifacts/components/artifact-preview.tsx` (inline in messages, uses `useArtifactSelector`), `features/artifacts/components/artifact-diff-view.tsx` (diff between artifact versions) | P4-T03 | M |
-| P4-T15 | Create artifact API route | IMPL | `app/api/artifact/route.ts` (POST: save user edits, `revalidateTag('artifact:{id}', 'max')`) | P1-T08, P1-T03 | M |
+| P4-T14 | Create artifact preview | IMPL | `features/artifacts/components/artifact-preview.tsx` (inline in messages, uses `useArtifactSelector`) | P4-T03 | M |
+| P4-T15 | Create artifact API route | IMPL | `app/api/artifact/route.ts` (GET: versions, POST: save/restore modes, `revalidateTag('artifact:{id}', 'max')`) | P1-T08, P1-T03 | M |
 | P4-T16 | Create suggestions API route | IMPL | `app/api/suggestions/route.ts` (GET: suggestions by `artifactId`) | P1-T10 | M |
 | P4-T17 | Wire artifact panel into ChatShell | INTEG | Update `features/chat/components/chat-shell.tsx` to conditionally render `ArtifactPanel` + wire `StreamBridge` → `artifactStore` | P4-T11, P3-T20 | M |
 | P4-T18 | Verification gate G04 | VERIFY | — | P4-T01..T17 | S |
@@ -90,7 +90,6 @@ Implement the complete artifact system: `useSyncExternalStore`-based artifact st
 - Code editor runs Python via Pyodide, shows console output
 - Sheet editor parses CSV and renders grid
 - Version navigation (prev/next) and restore work
-- Diff view shows changes between versions
 - StreamBridge → `processStreamDelta()` → `artifactStore.setState()` → panel re-renders
 
 ---

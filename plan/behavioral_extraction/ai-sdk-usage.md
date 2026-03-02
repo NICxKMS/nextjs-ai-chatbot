@@ -16,7 +16,9 @@ Built with `createProviderRegistry(baseProviders)` from AI SDK. Providers are re
 | Provider ID | Package | Env Var(s) | Notes |
 |-------------|---------|------------|-------|
 | `openai` | `@ai-sdk/openai` | `OPENAI_API_KEY` | GPT-4o, GPT-4.1, o3 |
-| `google` | `@ai-sdk/google` | `GEMINI_API_KEY` | Gemini 2.5/3.0, Gemma 3 |
+| `google` | `@ai-sdk/google` | `GOOGLE_GENERATIVE_AI_API_KEY` | Gemini 2.5/3.0, Gemma 3 |
+
+> **Environment variable:** `GOOGLE_GENERATIVE_AI_API_KEY` (used by Vercel AI SDK Google provider). The old name `GEMINI_API_KEY` may appear in legacy references but the redesign standardizes on `GOOGLE_GENERATIVE_AI_API_KEY`.
 | `openrouter` | `@ai-sdk/openai` (OpenRouter baseURL) | `OPENROUTER_API_KEY` | Multi-provider proxy |
 
 > *Registry follows redesign baseline providers only: `google`, `openai`, `openrouter`.*
@@ -32,19 +34,22 @@ Built with `createProviderRegistry(baseProviders)` from AI SDK. Providers are re
 
 ### Model Types (`ModelMetadata`)
 ```typescript
-type ModelMetadata = {
-  id: string;                    // e.g., "google:gemini-2.5-flash"
-  providerId: ProviderId;        // e.g., "google"
-  modelId: string;               // e.g., "gemini-2.5-flash" (provider-specific)
-  name: string;                  // Human-readable name
-  capabilities: ModelCapability[];
-  modalities: ModelModality[];
-  reasoningType?: ReasoningType;
-  thinkingBudget?: number;
-  source: "curated" | "discovered";
-  isCurated: boolean;
-};
+interface ModelMetadata {
+  id: string;                           // full model ID (e.g. "openai:gpt-4o")
+  provider: string;                     // was providerId: ProviderId
+  providerModelId: string;              // was modelId
+  label: string;                        // was name
+  description?: string;
+  supportsToolCalling: boolean;         // was capabilities array
+  supportsReasoning: boolean;           // was capabilities array
+  modalities: { input: string[]; output: string[] };
+  contextWindow: number;
+  maxOutputTokens: number;
+  source: 'static' | 'dynamic';        // was 'curated' | 'discovered'
+}
 ```
+
+> **Redesign note:** `providerId` → `provider`, `modelId` → `providerModelId`, `name` → `label`. The `capabilities` array was replaced by explicit boolean flags (`supportsToolCalling`, `supportsReasoning`). `isCurated` removed; use `source === 'static'` instead. `reasoningType` and `thinkingBudget` are no longer part of `ModelMetadata` — reasoning config is resolved at call time via provider options.
 
 ### Capabilities
 `chat`, `reasoning`, `vision`, `audio`, `multimodal`, `code`, `tooling`, `memory`, `image-generation`, `video-generation`
@@ -66,6 +71,8 @@ Reasoning models are wrapped with `extractReasoningMiddleware({ tagName })` from
 | Chat | `google:gemma-3-4b-it` | — |
 | Title generation | `google:gemma-3-4b-it` | — |
 | Artifact creation | `google:gemini-2.5-flash-lite` | DEFAULT_CHAT_MODEL |
+
+> **Note:** If using preview models, the full ID may be `google:gemini-2.5-flash-lite-preview-06-17`. The plan uses the stable alias `google:gemini-2.5-flash-lite`.
 | Reasoning | `google:gemini-2.5-flash` | — |
 
 ### Model Discovery
@@ -146,7 +153,7 @@ const { text: title } = await generateText({
 
 ### Artifact Content Generation
 
-> *Handler registry pattern — each `ArtifactKind` maps to an `ArtifactHandler` with `.create()` and `.update()` methods. Handlers live in `lib/ai/artifact-handlers/`.*
+> *Handler registry pattern — each `ArtifactKind` maps to an `ArtifactHandler` with `.create()` and `.update()` methods. Registry lives in `lib/ai/artifact-handlers.ts`; handlers are implemented in `features/artifacts/handlers/` and registered there.*
 
 **Text**: `streamText` → `artifact-textDelta` (accumulated)
 **Code**: `streamObject` with `z.object({ code: z.string() })` → `artifact-codeDelta` (replaced)

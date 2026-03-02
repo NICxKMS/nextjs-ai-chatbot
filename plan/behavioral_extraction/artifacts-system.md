@@ -114,7 +114,7 @@ AI Tool Call (createArtifact/updateArtifact)
 
 ## Artifact Handler Registry
 
-`lib/ai/artifact-handlers/registry.ts` exports `getArtifactHandler`:
+`lib/ai/artifact-handlers.ts` exports `getArtifactHandler`:
 
 > *Handler registry pattern — each `ArtifactKind` maps to an `ArtifactHandler` with `.create()` and `.update()` methods.*
 
@@ -187,7 +187,7 @@ type CachedArtifact = {
   }>;
 };
 ```
-Entire version history stored in single cache key. New versions appended to array.
+Entire version history stored in single cache key. Version arrays are maintained in `createdAt DESC` order (newest first).
 
 ---
 

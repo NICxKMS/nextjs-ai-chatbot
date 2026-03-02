@@ -109,7 +109,7 @@ Type: IMPL
 Behavior ref: ai-sdk-usage.md (system prompt with artifacts instructions, date context, tool descriptions)
 Architecture ref: ../../plan-archives/redesign/ai-integration.md (prompt management, provider-specific options)
 
-Action: Create 2 files. (1) lib/ai/prompts.ts — Export composeSystemPrompt(context?: {artifacts?: boolean}): string that assembles the system prompt. Include: base assistant identity, current date/time, available tools description, artifacts instructions (conditionally included). Copy prompt content from oldapp/lib/ai/prompts.ts. The prompt must describe tools as **createArtifact/updateArtifact** and artifact kinds (text, code, image, sheet). **No createDocument/updateDocument references.** (2) lib/ai/provider-options.ts — Export getProviderOptions(modelId: string) for provider-specific settings (e.g., thinking budget for Claude).
+Action: Create 2 files. (1) lib/ai/prompts.ts — Export `composeSystemPrompt({ settings, hasTools }): string` that assembles the system prompt. Include: base assistant identity, current date/time, available tools description, and artifacts instructions (conditionally included when tools enabled). Copy prompt content from oldapp/lib/ai/prompts.ts as baseline. The prompt must describe tools as **createArtifact/updateArtifact** and artifact kinds (text, code, image, sheet). **No createDocument/updateDocument references.** (2) lib/ai/provider-options.ts — Export `getProviderOptions(modelId: string, settings: SettingsState)` for provider-specific options (e.g., reasoning budgets).
 
 Output files:
 - lib/ai/prompts.ts
@@ -232,21 +232,21 @@ Type: IMPL
 Behavior ref: features.md (settings: model selection, default model persistence)
 Architecture ref: ../../plan-archives/redesign/state-management.md (**NO SettingsProvider** — useSettings() imported directly)
 
-Action: Create 2 files. (1) features/settings/types/settings.types.ts — ChatSettings type with selectedModel (string, defaults to DEFAULT_CHAT_MODEL), temperature (number), maxTokens (number). DEFAULT_SETTINGS constant. (2) features/settings/hooks/use-settings.ts — "use client" hook **useSettings()** backed by **useSyncExternalStore** + localStorage. Module-level store (not context-based). Returns {settings, updateSettings, resetSettings}. **NO SettingsProvider context** — useSettings() is imported directly where needed. SSR-safe via getServerSnapshot returning DEFAULT_SETTINGS.
+Action: Create 2 files. (1) features/settings/types/settings.types.ts — SettingsState type with `temperature`, `topP`, `maxOutputTokens`, `systemPrompt`, `enableReasoning`. Export DEFAULT_SETTINGS constant (no selectedModel field). (2) features/settings/hooks/use-settings.ts — "use client" hook **useSettings()** backed by **useSyncExternalStore** + localStorage. Module-level store (not context-based). Returns {settings, updateSettings, resetSettings}. **NO SettingsProvider context** — useSettings() is imported directly where needed. SSR-safe via getServerSnapshot returning DEFAULT_SETTINGS.
 
 Output files:
 - features/settings/types/settings.types.ts
 - features/settings/hooks/use-settings.ts
 
 Inputs: lib/types/model.types.ts (DEFAULT_CHAT_MODEL from P0-T05), lib/types/settings.types.ts (P0-T07)
-Outputs: ChatSettings type and useSettings hook consumed by useChatSession (P3-T11), settings panel (P3-T07)
+Outputs: SettingsState type and useSettings hook consumed by useChatSession (P3-T11), settings panel (P3-T07)
 
 Dependencies: P0-T07
 Dependents: P3-T07, P3-T11
 
 Success criteria:
-- ChatSettings type includes selectedModel, temperature, maxTokens
-- DEFAULT_SETTINGS uses DEFAULT_CHAT_MODEL
+- SettingsState includes temperature, topP, maxOutputTokens, systemPrompt, enableReasoning
+- DEFAULT_SETTINGS does not include model selection (handled separately by model selector)
 - **useSettings() uses useSyncExternalStore** (NOT useState + useEffect, NOT context-based SettingsProvider)
 - Module-level store — no provider wrapping needed
 - SSR-safe via getServerSnapshot
@@ -748,7 +748,7 @@ Type: IMPL
 Behavior ref: features.md (chat deletion, message operations)
 Architecture ref: ../../plan-archives/redesign/data-flow.md (server actions for mutations); SEAM-038 (message edit flow)
 
-Action: Create 3 files. (1) features/chat/actions/delete-chat.ts — "use server" action deleteChat(chatId): deletes chat and all messages, calls **updateTag** for cache invalidation. (2) features/chat/actions/delete-all-chats.ts — "use server" action deleteAllChats(): deletes all chats for current user, calls **updateTag**. (3) features/chat/actions/delete-trailing-messages.ts — "use server" action deleteTrailingMessages(chatId, messageId): deletes the specified message and all subsequent messages (by createdAt), calls **updateTag**. Used by message edit flow. All actions validate session via getAppSession(), use Zod schemas for input validation, return ActionResult<T> (never throw).
+Action: Create 3 files. (1) features/chat/actions/delete-chat.ts — "use server" action `deleteChat({ chatId })`: deletes chat and all messages, calls **updateTag** for cache invalidation. (2) features/chat/actions/delete-all-chats.ts — "use server" action `deleteAllChats()`: deletes all chats for current user, calls **updateTag**. (3) features/chat/actions/delete-trailing-messages.ts — "use server" action `deleteTrailingMessages({ id, chatId })`: deletes the specified message and all subsequent messages (by createdAt), calls **updateTag**. Used by message edit flow. All actions validate session via getAppSession(), use Zod schemas for input validation, return ActionResult<T> (never throw).
 
 Output files:
 - features/chat/actions/delete-chat.ts
@@ -816,20 +816,19 @@ Type: INTEG
 Behavior ref: features.md (chat layout with sidebar, providers)
 Architecture ref: SEAM-029 (provider tree — SERVER layout + client islands); ../../plan-archives/redesign/component-architecture.md (server layout)
 
-Action: Create app/(chat)/layout.tsx — **SERVER layout** (no "use client" directive). Fetches session via getAppSession(). If not authenticated and not guest, redirect to /login. Renders: (1) NoticeHandler (P3-T14) — client island for URL notice params, (2) Script for pyodide (lazy), (3) PendingChatsProvider (stub — completed in P5-T02), (4) SidebarProvider(defaultOpen from cookie), (5) Suspense → SidebarSkeleton stub (completed in P5-T07), (6) SidebarInset → {children}. **No ChatStreamProvider here** — ChatStreamProvider is page-scoped (P3-T25). **No separate chat-layout-client.tsx** — client islands render inside this server layout.
+Action: Create app/(chat)/layout.tsx — **SERVER layout** (no "use client" directive). Renders: (1) NoticeHandler (P3-T14) — client island for URL notice params, (2) Script for pyodide (lazy), (3) PendingChatsProvider (stub — completed in P5-T02), (4) SidebarProvider(defaultOpen from cookie), (5) Suspense → SidebarSkeleton stub (completed in P5-T07), (6) SidebarInset → {children}. **No ChatStreamProvider here** — ChatStreamProvider is page-scoped (P3-T25). **No separate chat-layout-client.tsx** — client islands render inside this server layout.
 
 Output files:
 - app/(chat)/layout.tsx
 
-Inputs: lib/auth/session.ts (P2-T01), features/chat/components/notice-handler.tsx (P3-T14), components/ui/sidebar.tsx (P0-T11)
+Inputs: features/chat/components/notice-handler.tsx (P3-T14), components/ui/sidebar.tsx (P0-T11)
 Outputs: Chat layout consumed by chat pages (P3-T25)
 
-Dependencies: P2-T01, P3-T14, P0-T11
+Dependencies: P3-T14, P0-T11
 Dependents: P3-T25, P5 (sidebar wiring)
 
 Success criteria:
 - Layout is a **SERVER component** (no "use client" directive)
-- Redirects unauthenticated non-guest users to /login
 - Includes **NoticeHandler** client island (prevents layout contamination)
 - **PendingChatsProvider** stub wraps content (completed in P5)
 - SidebarProvider reads defaultOpen from cookies
@@ -917,10 +916,10 @@ Action: Run complete validation. **Tooling**: (1) pnpm typecheck passes, (2) pnp
 Output files: none (validation only)
 
 Inputs: all P3-T01 through P3-T26 outputs
-Outputs: Gate G03 passed — P4 (artifacts) can begin
+Outputs: Gate G03 passed — P4 (artifacts) and P5 (sidebar setup) prerequisites satisfied
 
 Dependencies: P3-T01 through P3-T26
-Dependents: P4-T01
+Dependents: P4-T01, P5-T01
 
 Success criteria:
 - pnpm typecheck exits 0

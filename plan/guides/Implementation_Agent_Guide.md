@@ -94,7 +94,7 @@ Every component is a Server Component by default. Only add `'use client'` when t
 
 ### Three-Layer Imports
 
-`app/` → `features/` → `lib/` + `components/`. Never import from another feature's components or actions. Exception: features may import other features' **types and schemas**. Enforced by `scripts/check-imports.mjs` (created in P0-T17).
+`app/` → `features/` → `lib/` + `components/`. Cross-feature imports are allowlist-only: shared **types/schemas** plus explicitly documented composition exceptions (see `architecture/conventions.md`). Enforced by `scripts/check-imports.mjs` (created in P0-T17).
 
 ### Feature Collocation
 

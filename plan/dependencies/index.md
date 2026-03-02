@@ -22,7 +22,7 @@
 | Total tasks | 125 |
 | Phases | 8 (P0–P7) |
 | Critical path tasks | ~30 (24%) |
-| Estimated duration | ~23 working days |
+| Estimated duration | ~22–23 working days (with P4/P5 overlap) |
 | Longest phase | P3 Chat Core (27 tasks, ~6d on critical path) |
 | Max parallelism | P3 (8+ concurrent tracks) |
 | Bottleneck tasks | 8 identified |

@@ -278,7 +278,7 @@
 |-------|--------|
 | **Description** | AppSession gates all data access for guest vs auth paths |
 | **Components** | `lib/auth/session.ts` getAppSession() → All `lib/data/` functions |
-| **Data Exchanged** | `AppSession` → `{ userId, isGuest }` branching for authorization + feature gating. Both guest and auth paths use DB persistence with cache-tagged reads. |
+| **Data Exchanged** | `AppSession` → `{ user: { id, type } }` branching for authorization + feature gating. Both guest and auth paths use DB persistence with cache-tagged reads. |
 | **Task Needed** | All lib/data/ functions accept session context for guest/auth branching. |
 
 ### SEAM-024: Chat Data Operations
@@ -287,7 +287,7 @@
 |-------|--------|
 | **Description** | Chat CRUD operations via lib/data/chat with cache-through pattern |
 | **Components** | `lib/data/chat.ts` → `lib/db/` (Drizzle) + cache via `'use cache'` + `cacheTag` |
-| **Data Exchanged** | `Chat`, `ChatWithMessages`. Operations: get, getWithMessages, list, create, updateTitle, updateVisibility, delete, deleteAll. |
+| **Data Exchanged** | `Chat`, `ChatWithMessages`. Operations: get, getWithMessages, list, create, updateTitle, updateChatVisibility, delete, deleteAll. |
 | **Task Needed** | Build all chat data functions. 'use cache' + cacheTag for reads. updateTag/revalidateTag for writes. |
 
 ### SEAM-025: Artifact Data Operations
@@ -372,7 +372,7 @@
 | Field | Detail |
 |-------|--------|
 | **Description** | TipTap rich-text editor renders and edits text artifact content |
-| **Components** | `features/artifacts/components/text-editor.tsx` → TipTap (StarterKit, Markdown, Mathematics, Tables, SuggestionsExtension) |
+| **Components** | `features/artifacts/components/editors/text-editor.tsx` → TipTap (StarterKit, Markdown, Mathematics, Tables, SuggestionsExtension) |
 | **Data Exchanged** | Content from artifactStore via useArtifact(). During streaming: content set without save emission. During idle: content changes emit debounced save. |
 | **Task Needed** | Build TextEditor with TipTap configuration. Build SuggestionsExtension for inline suggestion decorations. Handle streaming vs idle modes. Wire debounced save to artifact API. |
 
@@ -381,16 +381,16 @@
 | Field | Detail |
 |-------|--------|
 | **Description** | CodeMirror editor renders Python code, Pyodide executes it client-side |
-| **Components** | `features/artifacts/components/code-editor.tsx` (CodeMirror), `features/artifacts/components/console.tsx` (output), Pyodide |
-| **Data Exchanged** | Content from artifactStore. Console: consoleOutputs[] (stdout, stderr, images). Pyodide: code string → execution results. |
-| **Task Needed** | Build CodeEditor with lazy-loaded CodeMirror (Python lang, one-dark theme). Build Console component. Wire Pyodide execution (loaded via Script in chat layout). |
+| **Components** | `features/artifacts/components/editors/code-editor.tsx` (CodeMirror + inline output), Pyodide |
+| **Data Exchanged** | Content from artifactStore. Execution output (stdout/stderr/images) is handled inside the code editor surface. Pyodide: code string → execution results. |
+| **Task Needed** | Build CodeEditor with lazy-loaded CodeMirror (Python lang, one-dark theme). Wire Pyodide execution (loaded via Script in chat layout). |
 
 ### SEAM-034: Sheet Editor (react-data-grid + PapaParse)
 
 | Field | Detail |
 |-------|--------|
 | **Description** | Spreadsheet editor parses CSV and renders editable grid |
-| **Components** | `features/artifacts/components/sheet-editor.tsx` → PapaParse (CSV ↔ rows/columns), react-data-grid |
+| **Components** | `features/artifacts/components/editors/sheet-editor.tsx` → PapaParse (CSV ↔ rows/columns), react-data-grid |
 | **Data Exchanged** | Content from artifactStore (CSV string). Internal: parsed rows + columns for grid. |
 | **Task Needed** | Build SheetEditor with PapaParse CSV parsing and react-data-grid rendering. Handle empty cells padding. Wire cell editing to CSV re-serialization and save. |
 
@@ -399,7 +399,7 @@
 | Field | Detail |
 |-------|--------|
 | **Description** | Image display for base64/URL images from code execution |
-| **Components** | `features/artifacts/components/image-editor.tsx` |
+| **Components** | `features/artifacts/components/editors/image-editor.tsx` |
 | **Data Exchanged** | Content from artifactStore (base64 data URL or URL). |
 | **Task Needed** | Build ImageEditor component. Handle streaming state (loader). No AI server handler needed (images created via Pyodide). |
 
@@ -412,9 +412,9 @@
 | Field | Detail |
 |-------|--------|
 | **Description** | Application rate limiting with per-route configuration |
-| **Components** | `proxy.ts` (edge rate limit) → Per-route app rate limiters (via lib/api/guards) |
+| **Components** | `proxy.ts` (lightweight edge rate limit) → inline per-route checks in Route Handlers/Server Actions |
 | **Data Exchanged** | User ID → rate limit check result (allowed, retryAfter). |
-| **Task Needed** | Build proxy.ts with rate limiter. Build per-route rate limit configs. |
+| **Task Needed** | Build proxy.ts with lightweight edge limiter. Add inline per-route limits for sensitive surfaces (chat, upload, auth mutations). |
 
 > **Changed:** `middleware.ts` → `proxy.ts` (Next.js 16).
 
@@ -425,7 +425,7 @@
 | **Description** | Python runtime loaded lazily for code artifact execution |
 | **Components** | `Script src="pyodide.js" strategy="lazyOnload"` in chat layout (SERVER) → Code editor execution → Console output |
 | **Data Exchanged** | Pyodide global → code execution → stdout/stderr/matplotlib images |
-| **Task Needed** | Wire Script tag in chat layout. Build Pyodide execution handler in code editor. Capture stdout/stderr and matplotlib images. Display in Console component. |
+| **Task Needed** | Wire Script tag in chat layout. Build Pyodide execution handler in code editor. Capture stdout/stderr and matplotlib images for inline display in the code editor surface. |
 
 ### SEAM-038: Message Edit + Regenerate
 
@@ -441,9 +441,9 @@
 | Field | Detail |
 |-------|--------|
 | **Description** | Navigate artifact versions and restore older versions |
-| **Components** | `features/artifacts/components/version-footer.tsx` → `features/artifacts/components/artifact-panel.tsx` (version state) → `DELETE /api/artifact?id=&timestamp=` |
-| **Data Exchanged** | `currentVersionIndex` (local state). Restore: DELETE removes later versions. SWR mutation truncates version array. |
-| **Task Needed** | Build VersionFooter (prev/next/restore/latest buttons). Build version navigation logic in ArtifactPanel (currentVersionIndex state). Build artifact DELETE route for version restore. |
+| **Components** | `features/artifacts/components/version-footer.tsx` → `features/artifacts/components/artifact-panel.tsx` (version state) → `POST /api/artifact` (restore mode) |
+| **Data Exchanged** | `currentVersionIndex` (local state). Restore request includes `{ id, timestamp, mode: "restore" }` to truncate later versions and revalidate artifact cache. |
+| **Task Needed** | Build VersionFooter (prev/next/restore/latest buttons). Build version navigation logic in ArtifactPanel (currentVersionIndex state). Implement restore mode in artifact POST handler. |
 
 ### SEAM-040: Inline Artifact Preview → Artifact Panel
 

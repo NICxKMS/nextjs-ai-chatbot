@@ -83,7 +83,7 @@
 1. `VersionFooter` shown when viewing non-current version
 2. Navigation: left/right buttons in artifact header
 3. `handleVersionChange("prev" | "next" | "toggle" | "latest")`
-4. "Restore this version" → DELETE `/api/artifact?id={}&timestamp={ts}` *(redesign: renamed from /api/document)* (deletes later versions)
+4. "Restore this version" → POST `/api/artifact` restore mode (`{ id, timestamp, mode: "restore" }`) (deletes later versions)
 5. "Back to latest" → jump to most recent version
 
 ### Close Flow
@@ -96,7 +96,7 @@
 ## 3. Sidebar Navigation
 
 ### Structure
-- `SidebarShell` → `AppSidebar` with header (brand + new chat), content (history), footer (user nav) *(redesign: SidebarShell is the server wrapper; AppSidebar is the client inner component)*
+- `SidebarShell` (server wrapper) + client children (`SidebarHistoryClient`, `SidebarUserNav`) for interactive regions
 - History: native grouped sections (Today/Yesterday/Last 7/30/Older); virtualization is optional follow-up optimization
 
 ### Chat List
@@ -109,7 +109,7 @@
 ### Actions on Chat Items
 - Click → navigate to `/chat/{id}`
 - Dropdown menu:
-  - **Share** → submenu: Private/Public radio (`saveChatVisibility` server action)
+   - **Rename** → inline/server-action rename flow
   - **Delete** → confirm dialog → Server Action `deleteChat()` + optimistic removal + redirect if active *(redesign: replaces DELETE `/api/history/{id}` + SWR)*
 
 ### Delete All
@@ -168,8 +168,8 @@
 
 1. `VisibilitySelector` in `ChatHeader` (desktop only: `hidden md:flex`)
 2. `DropdownMenu` with Private (lock icon) / Public (globe icon)
-3. Selection → `setChatVisibilityType(type)` from `useChatVisibility`
-4. API call: `saveChatVisibility` server action PATCHING the chat
+3. Selection applies optimistic UI state via `useOptimistic`
+4. Mutation call: `updateChatVisibility` Server Action updates DB + cache tags
 5. Local state updated optimistically
 6. Reflected in sidebar item dropdown (Share submenu with radio options)
 
@@ -316,7 +316,7 @@
 3. Scroll-to-bottom FAB (floating action button) when not at bottom
 4. `Button` with `ArrowDownIcon`, `animate-bounce`, positioned bottom-right of messages
 5. Click → `scrollToBottom("smooth")`
-6. `autoScroll` setting toggle (from `useSettings`) controls FAB behavior *(redesign: replaces useSettingsSnapshot — useSyncExternalStore)*
+6. Auto-scroll behavior handled by `useScrollToBottom` hook (not a user-facing setting)
 
 ---
 
@@ -334,9 +334,9 @@
 
 1. App detects no session on load
 2. `proxy.ts` mints/rotates `guest_token`; `SessionProvider` consumes resolved session *(redesign: renamed from AuthProvider)*
-3. Guest gets limited functionality (no persistent history list)
+3. Guest session supports DB-backed chat history within ownership rules
 4. Guest sidebar shows login CTA
-5. `isNewSession` flag skips SWR history fetch to avoid unnecessary 401s
+5. History uses the same API contract (auth via guest session)
 
 ---
 

@@ -13,9 +13,10 @@
 ## Overview
 
 ```
-P0 ──→ P1 ──→ P2 ──→ P3 ──→ P4 ──→ P5 ──→ P6 ──→ P7
-        ↑      ↑      ↑↑     ↑↑     ↑↑↑    ↑↑↑↑   ↑↑↑↑↑
-       P0   P0,P1  P0-P2  P0-P3  P0-P4  P0-P5   P0-P6
+P0 ──→ P1 ──→ P2 ──→ P3 ──┬→ P4 ──┬→ P6 ──→ P7
+                            └→ P5 ──┘
+        ↑      ↑      ↑↑     ↑↑     ↑↑     ↑↑↑↑   ↑↑↑↑↑
+       P0   P0,P1  P0-P2  P0-P3  P0-P3   P0-P5   P0-P6
 ```
 
 Each phase has a **gate task** (final task) that must pass `pnpm format && pnpm typecheck && pnpm lint` before any dependent phase begins.
@@ -62,14 +63,14 @@ Each phase has a **gate task** (final task) that must pass `pnpm format && pnpm 
 | P1 Task | Export | Consumed By |
 |---------|--------|-------------|
 | P1-T05 | `lib/data/user.ts` (getUserByEmail, createUser) | P2-T04 (auth actions: login/register) |
-| P1-T06 | `lib/data/chat.ts` (getChatById, getChatsByUserId, etc.) | P2-T03 (guest bootstrap migrates chats) |
+| P1-T06 | `lib/data/chat.ts` (getChatById, getChatsByUserId, etc.) | P3/P5 chat and sidebar data flows |
 | P1-T14 | Gate G01 — all P1 passes | P2 entry condition |
 
 ### Entry State for P2
 
 - Data layer fully operational
 - User CRUD operations work
-- Chat data operations work (needed for guest bootstrap)
+- Chat data operations work
 - `proxy.ts` available for auth guard integration
 
 ### Exit State of P2
@@ -89,7 +90,6 @@ Each phase has a **gate task** (final task) that must pass `pnpm format && pnpm 
 | P2 Task | Export | Consumed By |
 |---------|--------|-------------|
 | P2-T01 | `lib/auth/session.ts` (`getAppSession()`) | P3-T23 (chat API route auth), P3-T22 (server actions) |
-| P2-T06 | `features/auth/components/session-provider.tsx` (SessionProvider) | P3-T24 (chat layout uses provider tree) |
 | P2-T09 | Gate G02 — all P2 passes | P3 entry condition |
 
 ### Exports from P1 (still needed)
@@ -175,13 +175,7 @@ Each phase has a **gate task** (final task) that must pass `pnpm format && pnpm 
 
 ---
 
-## P4 → P5: Artifacts Vertical → Sidebar & Navigation
-
-### Exports from P4
-
-| P4 Task | Export | Consumed By |
-|---------|--------|-------------|
-| P4-T18 | Gate G04 — all P4 passes | P5 entry condition |
+## P3 → P5 (parallel with P4): Chat Core → Sidebar & Navigation
 
 ### Exports from P3 (still needed)
 
@@ -194,12 +188,13 @@ Each phase has a **gate task** (final task) that must pass `pnpm format && pnpm 
 
 | P2 Task | Export | Consumed By |
 |---------|--------|-------------|
-| P2-T06 | SessionProvider (NOT AuthProvider) | P5-T06 (user nav shows auth state) |
+| P2-T04 | logout Server Action | P5-T06 (user nav logout action) |
 | P2-T01 | `getAppSession()` | P5-T10 (history API auth) |
 
 ### Entry State for P5
 
-- Chat + Artifacts fully functional
+- Chat core functional (P3 gate passed)
+- Artifacts may proceed in parallel (P4 is not a hard prerequisite for P5)
 - SessionProvider in tree
 - Chat data/message data operations available
 
@@ -220,7 +215,7 @@ Each phase has a **gate task** (final task) that must pass `pnpm format && pnpm 
 
 | P5 Task | Export | Consumed By |
 |---------|--------|-------------|
-| P5-T12 | Gate G05 — all P5 passes | P6 entry condition |
+| P5-T12 | Gate G05 — all P5 passes | P6 entry prerequisite (requires G04 + G05) |
 
 ### Cross-Phase Dependencies for P6
 
@@ -305,8 +300,8 @@ Shows which phases each phase depends on (direct dependencies only):
 | P2 | ✅ | ✅ | — | — | — | — | — |
 | P3 | ✅ | ✅ | ✅ | — | — | — | — |
 | P4 | ✅ | ✅ | — | ✅ | — | — | — |
-| P5 | ✅ | ✅ | ✅ | ✅ | ✅ | — | — |
-| P6 | ✅ | ✅ | ✅ | ✅ | — | ✅ | — |
+| P5 | ✅ | ✅ | ✅ | ✅ | — | — | — |
+| P6 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
 | P7 | ✅ | — | — | ✅ | ✅ | ✅ | ✅ |
 
 Every phase depends on P0 (scaffold). P7 does NOT depend on P1/P2 directly — it only needs their outputs through later phases.

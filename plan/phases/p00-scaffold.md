@@ -84,7 +84,7 @@ Type: SCAFFOLD
 Behavior ref: N/A — infrastructure
 Architecture ref: scaffold/base-config.md (postcss, vercel.json, env)
 
-Action: Create postcss.config.mjs with @tailwindcss/postcss plugin (Tailwind v4 — no tailwind.config.ts needed). Create vercel.json with minimal {"framework": "nextjs"}. Create .env.example with all environment variable placeholders documented: DATABASE_URL, CACHE_KV_REST_API_URL/TOKEN, SUPABASE_URL/ANON_KEY/JWT_SECRET, GUEST_JWT_SECRET, baseline AI provider keys (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`), BLOB_READ_WRITE_TOKEN. Each variable has a comment indicating required vs optional.
+Action: Create postcss.config.mjs with @tailwindcss/postcss plugin (Tailwind v4 — no tailwind.config.ts needed). Create vercel.json with minimal {"framework": "nextjs"}. Create .env.example with all environment variable placeholders documented: DATABASE_URL, CACHE_KV_REST_API_URL/TOKEN, SUPABASE_URL/ANON_KEY/JWT_SECRET, GUEST_JWT_SECRET, baseline AI provider keys (`OPENAI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `OPENROUTER_API_KEY`), BLOB_READ_WRITE_TOKEN. Each variable has a comment indicating required vs optional.
 
 Output files:
 - postcss.config.mjs
@@ -181,25 +181,27 @@ Type: IMPL
 Behavior ref: ai-sdk-usage.md (model types); data-flows.md (entity types)
 Architecture ref: ../../plan-archives/redesign/architecture.md (type system); ../../plan-archives/redesign/directory-structure.md (lib/types/)
 
-Action: Create 3 type files. (1) lib/types/result.types.ts — ActionResult<T> type for Server Actions and data access layer, success/failure discriminated union. (2) lib/types/data-context.types.ts — DataContext type for server-to-client data passing. (3) lib/types/model.types.ts — ProviderId (`openai` | `google` | `openrouter`), ModelCapability, ModelModality, ReasoningType, ModelMetadata, DEFAULT_CHAT_MODEL / TITLE_MODEL / ARTIFACT_MODEL constants.
+Action: Create 4 type files. (1) lib/types/result.types.ts — ActionResult<T> type for Server Actions and data access layer, success/failure discriminated union. (2) lib/types/data-context.types.ts — DataContext type for server-to-client data passing. (3) lib/types/model.types.ts — ProviderId (`openai` | `google` | `openrouter`), ModelCapability, ModelModality, ReasoningType, ModelMetadata, DEFAULT_CHAT_MODEL / TITLE_MODEL / ARTIFACT_MODEL constants. (4) lib/types/models.types.ts — Drizzle InferSelectModel / InferInsertModel types for all 6 tables (User, Chat, Message, Artifact, Vote, Suggestion + insert variants), enum types, and composite types (ChatWithMessages, ArtifactWithVersions).
 
 Output files:
 - lib/types/result.types.ts
 - lib/types/data-context.types.ts
 - lib/types/model.types.ts
+- lib/types/models.types.ts
 
 Inputs: scaffold/shared-types.md (type contracts)
 Outputs: Core types consumed by all subsequent phases
 
 AI layer handling: NEW
 
-Dependencies: P0-T01
+Dependencies: P0-T01, P0-T04
 Dependents: P0-T06, P0-T07, P1-T05, P1-T06, P1-T07, P1-T08, P1-T09, P1-T10, P1-T11, P1-T13, P2-T01, P3-T05
 
 Success criteria:
 - ActionResult<T> is a discriminated union with success/failure variants
 - DataContext type compiles against schema entity types
 - ModelMetadata exports all required model fields
+- models.types.ts exports Drizzle-inferred select/insert types for all 6 tables
 - pnpm typecheck passes
 
 Complexity: M
@@ -246,7 +248,7 @@ Type: IMPL
 Behavior ref: state-management.md (pending chats, settings)
 Architecture ref: ../../plan-archives/redesign/state-management.md (client state types)
 
-Action: Create 2 type files. (1) lib/types/pending-chats.types.ts — PendingChat type, PendingChatsState interface for PendingChatsProvider (replaces old OptimisticChatsProvider). (2) lib/types/settings.types.ts — ChatSettings type (model selection, system prompt). Note: SettingsProvider is removed; useSettings() reads from cookies/localStorage directly.
+Action: Create 2 type files. (1) lib/types/pending-chats.types.ts — PendingChat type, PendingChatsState interface for PendingChatsProvider (replaces old OptimisticChatsProvider). (2) lib/types/settings.types.ts — SettingsState type (`temperature`, `topP`, `maxOutputTokens`, `systemPrompt`, `enableReasoning`). Model selection is handled separately via model cookie/localStorage, not settings state.
 
 Output files:
 - lib/types/pending-chats.types.ts
@@ -262,7 +264,7 @@ Dependents: P3-T04, P5-T02
 
 Success criteria:
 - PendingChat type maps chat ID to optimistic title
-- ChatSettings type includes model and system prompt fields
+- SettingsState type includes temperature/topP/maxOutputTokens/systemPrompt/enableReasoning
 - No SettingsProvider type (removed per redesign)
 - pnpm typecheck passes
 
@@ -475,13 +477,13 @@ Type: IMPL
 Behavior ref: auth-system.md (request interception)
 Architecture ref: ../../plan-archives/redesign/architecture.md (proxy.ts replaces middleware.ts)
 
-Action: Create proxy.ts at project root (**NOT middleware.ts** — Next.js 16 uses proxy.ts). Initial implementation: skip static assets and /api/health, set x-device-type header based on user-agent regex (mobile detection). Include commented placeholders for guest token rotation (P2). Export config.matcher excluding _next/static, _next/image, favicon.ico, images/. This is a minimal shell that grows in P2. **No edge rate limiting** (handled differently in redesign).
+Action: Create proxy.ts at project root (**NOT middleware.ts** — Next.js 16 uses proxy.ts). Implement request interception for auth/session bootstrap: skip static assets and /api/health, set x-device-type header from user-agent, enforce auth redirects for protected routes, mint/rotate guest token when auth cookies are absent/expiring, and apply edge rate limiting policies. Export config.matcher excluding _next/static, _next/image, favicon.ico, images/.
 
 Output files:
 - proxy.ts
 
 Inputs: ../../plan-archives/redesign/architecture.md
-Outputs: Proxy shell extended in P2-T08 (auth wiring)
+Outputs: Proxy auth/session + guard behavior available for P2+ feature wiring
 
 AI layer handling: NEW
 
@@ -491,8 +493,9 @@ Dependents: P2-T08
 Success criteria:
 - **proxy.ts** exists at project root (NOT middleware.ts)
 - Device detection header set on responses
-- Auth section is commented placeholder
-- File under 50 lines
+- Protected-route auth guard behavior implemented
+- Guest token bootstrap/rotation behavior implemented
+- Rate-limit checks wired for protected APIs
 
 Complexity: M
 
@@ -570,7 +573,7 @@ Type: IMPL
 Behavior ref: N/A (build-time enforcement)
 Architecture ref: ../../plan-archives/redesign/architecture.md (import boundaries); ../../plan-archives/redesign/domain-boundaries.md
 
-Action: Create scripts/check-imports.mjs — a Node.js script that enforces import boundary rules at build time. Rules: (1) features/ cannot import from other features/ (only from lib/ or components/). (2) lib/ cannot import from features/. (3) components/ cannot import from features/. The script scans all .ts/.tsx files and reports violations. Intended to be run as part of CI/CD or `pnpm lint`. Configured in biome.json or as a standalone check.
+Action: Create scripts/check-imports.mjs — a Node.js script that enforces import boundary rules at build time. Rules: (1) features/ cannot import from other features/**except explicit allowlisted exceptions** (documented in `architecture/conventions.md`). (2) lib/ cannot import from features/. (3) components/ cannot import from features/. The script scans all .ts/.tsx files and reports violations. Intended to be run as part of CI/CD or `pnpm lint`. Configured in biome.json or as a standalone check.
 
 Output files:
 - scripts/check-imports.mjs
@@ -585,7 +588,7 @@ Dependents: P7-T10
 
 Success criteria:
 - scripts/check-imports.mjs runs without errors on empty project
-- Correctly detects cross-feature imports as violations
+- Correctly detects **unauthorized** cross-feature imports as violations (allowlist exceptions permitted)
 - Exits with code 0 when no violations found
 - Exits with code 1 when violations found
 - Can be invoked via `node scripts/check-imports.mjs`

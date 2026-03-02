@@ -102,7 +102,7 @@ lib/data/
 ├── artifact.ts   # getArtifactById, saveArtifactVersion, ...
 ├── user.ts       # getUserById, createUser, ...
 ├── vote.ts       # upsertVote, getVotesByChatId, ...
-└── context.ts    # DataContext type, createDataContext()
+    # Note: DataContext type defined in `lib/types/data-context.types.ts` (no factory function needed)
 ```
 
 **Reason**:
@@ -152,6 +152,8 @@ export function track(event: string, properties?: Record<string, unknown>) { ...
 - Data stream: Split state/dispatch context
 - Theme: `next-themes` (already a dependency)
 
+> **Post-redesign correction:** The SWR-as-state patterns described here (artifact state via SWR synthetic key, visibility via SWR optimistic mutate) were superseded by the redesign. Current plan uses: artifact state → `useSyncExternalStore` via `artifactStore` (see `state-management.md`); visibility → `useOptimistic` + Server Action `updateChatVisibility` with `updateTag`. SWR is restricted to genuine data-fetching (sidebar history, suggestions, artifact versions).
+
 **Reason**: The existing app manages all state without any external state management library. Every identified state need is already solved. Jotai's `atomWithStorage` saves ~5 lines over `useSyncExternalStore`, which doesn't justify adding a dependency. The split context pattern already prevents re-render cascades. AGENTS.md Reuse Hierarchy says: "Always prefer existing solutions over writing new code."
 
 **Trade-offs**: No centralized state debugging tools (Jotai DevTools). The trade is acceptable because state is distributed by design (each feature owns its state).
@@ -166,16 +168,16 @@ export function track(event: string, properties?: Record<string, unknown>) { ...
 
 **Spec says**: Rust-style `Result<T, E>` with `ok()`, `err()`, `isOk()`, `unwrap()` helpers. (§14 Pattern 2)
 
-**We do instead**: Standard TypeScript error handling with thrown `AppError` instances.
+**We do instead**: `ActionResult<T>` for Server Actions, plus native thrown `AppError` for Route Handlers.
 
 **Reason**:
 1. Not idiomatic in the TypeScript/Next.js ecosystem
-2. Fights against try/catch which is how JavaScript handles errors
+2. Adds wrapper overhead where `ActionResult<T>` already provides explicit mutation failure modeling
 3. The spec's own code examples use `throw AppError.notFound()` — contradicting Result usage
-4. Doesn't compose with React error boundaries or Next.js `error.tsx`
-5. Every consumer must pattern-match on `result.ok`, adding boilerplate everywhere
+4. Route Handlers already compose naturally with React/Next.js error boundaries via thrown `AppError`
+5. Every consumer would pattern-match on `result.ok`, adding boilerplate everywhere
 
-**Trade-offs**: Thrown errors are less explicit in function signatures (no return type showing possible failure). This is mitigated by consistent `AppError` usage documented in conventions.
+**Trade-offs**: Mixed model requires discipline (ActionResult for Server Actions, thrown errors for Route Handlers), but this mirrors actual runtime constraints and keeps client mutation flows explicit.
 
 ---
 
@@ -222,7 +224,7 @@ export function track(event: string, properties?: Record<string, unknown>) { ...
 
 **Spec says**: `ErrorCode` enum with `UNAUTHORIZED`, `FORBIDDEN`, etc. (§10)
 
-**We do instead**: String literal union type: `type ErrorCode = 'UNAUTHORIZED' | 'FORBIDDEN' | ...`
+**We do instead**: Structured string literal union type (e.g., `type ErrorCode = 'unauthorized:chat:auth_required' | 'bad_request:api:invalid_request_body' | ...`).
 
 **Reason**: TypeScript enums are not tree-shakeable (they emit runtime JavaScript objects). String literal unions provide identical type safety with zero runtime cost. This is the modern TypeScript best practice.
 
@@ -257,12 +259,12 @@ export function track(event: string, properties?: Record<string, unknown>) { ...
 **Spec says**: Nothing about Next.js 16 `use cache` directive. All caching is Redis-based. (§5, §14 Pattern 6)
 
 **We do instead**: Dual caching strategy:
-- Redis for user-specific, real-time data (chats, messages, documents, quotas)
-- `use cache` + `cacheTag` for shared, slowly-changing data (model catalog, token pricing, static config)
+- Redis for operational concerns (rate limits, hot-path operational cache, token pricing snapshots)
+- `use cache` + `cacheTag` for primary server read paths (chat/history/artifact reads, model catalog, static config)
 
 **Reason**: Next.js 16 Cache Components is a framework feature designed for exactly this use case. The existing app already uses `"use cache"` for `getTokenLensCatalog()`. Extending this to model catalog and similar data leverages the framework instead of implementing custom logic.
 
-**Trade-offs**: Two caching systems to understand. The boundary is clear: user-specific → Redis, shared → `use cache`.
+**Trade-offs**: Two caching systems to understand. The boundary is operational cache/rate limit concerns (Redis) vs framework-tagged read caching (`use cache`).
 
 ---
 

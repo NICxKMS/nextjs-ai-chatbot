@@ -70,7 +70,7 @@ Type: IMPL
 Behavior ref: artifacts-system.md (ArtifactKind, UIArtifact, ArtifactHandler)
 Architecture ref: conventions.md (feature types collocation, Zod schemas with Schema suffix); scaffold/directory-structure.md (features/artifacts/types/, features/artifacts/schemas/)
 
-Action: Create 2 files. (1) features/artifacts/types/artifact.types.ts — Define all artifact-related types: ArtifactKind literal union ("text" | "code" | "image" | "sheet"), UIArtifact (artifactId, title, kind, content, isVisible, status: "idle" | "streaming", boundingBox?), ArtifactHandler interface (kind, onCreateArtifact, onUpdateArtifact), ArtifactActionContext, ArtifactToolbarItem. Export initialArtifactData constant (empty UIArtifact with all defaults). (2) features/artifacts/schemas/artifact.schema.ts — Define Zod schemas: createArtifactSchema (title: string, kind: ArtifactKind enum), updateArtifactSchema (id: string uuid, description: string), getArtifactSchema (id: string uuid), deleteArtifactVersionSchema (id: string uuid, timestamp: string datetime), suggestionResponseSchema (suggestions: array of {originalText, suggestedText, description} max 5). Export inferred TypeScript types for each schema.
+Action: Create 2 files. (1) features/artifacts/types/artifact.types.ts — Define feature-local artifact view helpers (e.g., `ArtifactActionContext`, `ArtifactToolbarItem`, `initialArtifactData`) while importing shared core types (`ArtifactKind`, `UIArtifact`, `ArtifactHandler`) from `@/lib/types/artifact.types` and `@/lib/types/artifact-handler.types`. (2) features/artifacts/schemas/artifact.schema.ts — Define Zod schemas: createArtifactSchema (title: string, kind: ArtifactKind enum), updateArtifactSchema (id: string uuid, description: string), getArtifactSchema (id: string uuid), deleteArtifactVersionSchema (id: string uuid, timestamp: string datetime), suggestionResponseSchema (suggestions: array of {originalText, suggestedText, description} max 5). Export inferred TypeScript types for each schema.
 
 Output files:
 - features/artifacts/types/artifact.types.ts
@@ -455,7 +455,7 @@ Type: IMPL
 Behavior ref: artifacts-system.md (actions, close button, version footer)
 Architecture ref: SEAM-039 (version navigation + restore); redesign (useArtifactSelector)
 
-Action: Create 3 files. (1) features/artifacts/components/artifact-actions.tsx — Memo component. Renders per-kind action buttons. Each action receives ArtifactActionContext and renders as Button + Tooltip. Uses `useArtifactSelector` for state access. (2) features/artifacts/components/artifact-close-button.tsx — Memo component (always skips re-render). On click: calls resetArtifact() from store or hides if streaming. Uses `useArtifactSelector`. (3) features/artifacts/components/version-footer.tsx — Version navigation. Shows "Version {n} of {total}" with prev/next/restore/latest buttons. handleVersionChange("prev"|"next"|"toggle"|"latest"). Restore: DELETE /api/artifact?id={artifactId}&timestamp={ts} removes later versions. Uses motion for mount animation.
+Action: Create 3 files. (1) features/artifacts/components/artifact-actions.tsx — Memo component. Renders per-kind action buttons. Each action receives ArtifactActionContext and renders as Button + Tooltip. Uses `useArtifactSelector` for state access. (2) features/artifacts/components/artifact-close-button.tsx — Memo component (always skips re-render). On click: calls resetArtifact() from store or hides if streaming. Uses `useArtifactSelector`. (3) features/artifacts/components/version-footer.tsx — Version navigation. Shows "Version {n} of {total}" with prev/next/restore/latest buttons. handleVersionChange("prev"|"next"|"toggle"|"latest"). Restore uses `POST /api/artifact` restore mode payload (`{ id, timestamp, mode: "restore" }`) to remove later versions. Uses motion for mount animation.
 
 Output files:
 - features/artifacts/components/artifact-actions.tsx
@@ -555,10 +555,10 @@ Title: Create artifact API route
 Phase: 4 — Artifacts Vertical
 Type: IMPL
 
-Behavior ref: api-contracts.md (GET/POST/DELETE /api/artifact)
+Behavior ref: api-contracts.md (GET/POST /api/artifact)
 Architecture ref: SEAM-021 (artifact version fetch); SEAM-025 (artifact data full); redesign (revalidateTag on save)
 
-Action: Create app/api/artifact/route.ts — GET: fetch all versions of an artifact by id query param, auth + ownership check. POST: save a new artifact version (from manual client-side edits), calls `revalidateTag('artifact:{id}', 'max')` after save. DELETE: delete versions after a specific timestamp (for version restore). All operations use lib/data/artifact.ts functions. Auth checks, Zod validation, and error handling included.
+Action: Create app/api/artifact/route.ts — GET: fetch all versions of an artifact by id query param, auth + ownership check. POST: handle both save and restore modes. Save mode persists a new artifact version (from manual client-side edits) and calls `revalidateTag('artifact:{id}', 'max')`. Restore mode accepts `{ id, timestamp, mode: "restore" }` and truncates later versions, then revalidates the artifact tag. All operations use lib/data/artifact.ts functions. Auth checks, Zod validation, and error handling included.
 
 Output files:
 - app/api/artifact/route.ts
@@ -574,7 +574,7 @@ Dependents: P4-T11, P4-T14, P4-T18
 Success criteria:
 - GET /api/artifact?id= returns artifact versions array
 - POST /api/artifact saves new version + calls revalidateTag('artifact:{id}', 'max')
-- DELETE /api/artifact?id=&timestamp= removes versions after timestamp
+- POST /api/artifact in restore mode removes versions after timestamp
 - Auth + ownership checks on all operations
 - Uses artifactId (NOT documentId) throughout
 - Error responses use AppError.toResponse()
@@ -625,7 +625,7 @@ Type: INTEG
 Behavior ref: state-management.md (StreamBridge → artifactStore → panel)
 Architecture ref: SEAM-012 (artifact stream → panel); SEAM-037 (Pyodide script); redesign (ChatShell orchestrator, StreamBridge → artifactStore)
 
-Action: Update 2 files. (1) features/chat/components/chat-shell.tsx — Conditionally render ArtifactPanel when artifact is visible. ArtifactPanel loaded via dynamic import for code splitting. Visibility controlled by `useArtifactSelector(a => a.isVisible)`. (2) Wire StreamBridge to push artifact stream parts (artifact-textDelta, artifact-codeDelta, artifact-sheetDelta, artifact-imageDelta) into the artifactStore via `setState()`. StreamBridge is a thin bridge (~20 lines) that calls `processStreamDelta()` → `artifactStore.setState()`. ChatStreamProvider wraps both chat and artifact contexts.
+Action: Update 2 files. (1) features/chat/components/chat-shell.tsx — Conditionally render ArtifactPanel when artifact is visible. ArtifactPanel loaded via dynamic import for code splitting. Visibility controlled by `useArtifactSelector(a => a.isVisible)`. (2) Wire StreamBridge to push artifact stream parts (artifact-textDelta, artifact-codeDelta, artifact-sheetDelta, artifact-imageDelta) into the artifactStore via `setState()`. StreamBridge is a thin bridge (~20 lines) that calls `processStreamDelta()` → `artifactStore.setState()`. ChatStreamProvider carries stream-state only (artifact state remains in `artifactStore`, not provider context).
 
 Output files:
 - features/chat/components/chat-shell.tsx (modify)
@@ -643,7 +643,7 @@ Success criteria:
 - ArtifactPanel renders when artifact.isVisible is true (via useArtifactSelector)
 - StreamBridge processes all artifact-* delta types into artifactStore
 - Code splitting: ArtifactPanel loaded via dynamic import
-- ChatStreamProvider wraps both chat and artifact contexts
+- ChatStreamProvider remains stream-state only; artifact state lives in artifactStore
 - StreamBridge is thin (~20 lines) — logic in processStreamDelta()
 - pnpm typecheck passes
 
@@ -664,12 +664,12 @@ Action: Run complete validation: (1) pnpm typecheck passes, (2) pnpm lint passes
 Output files: none (validation only)
 
 Inputs: all P4-T01 through P4-T17 outputs
-Outputs: Gate G04 passed — P5 (sidebar) can begin
+Outputs: Gate G04 passed — artifacts vertical complete; P5 may continue in parallel with P4 completion per phase-order strategy
 
 AI layer handling: N/A
 
 Dependencies: P4-T01 through P4-T17
-Dependents: P5-T01 (start of next phase)
+Dependents: P6 (enhancements phase dependency)
 
 Success criteria:
 - pnpm typecheck exits 0

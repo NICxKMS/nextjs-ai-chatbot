@@ -124,7 +124,7 @@ Type: IMPL
 Behavior ref: data-flows.md (cache invalidation after mutations)
 Architecture ref: ../../plan-archives/redesign/architecture.md (revalidateTag/updateTag after every mutation)
 
-Action: Create lib/cache/revalidate.ts — Export revalidateEntity(type, id) that calls revalidateTag() for Next.js cache tags. Export updateTag(type, id, data) for optimistic tag updates. Types: 'chat' | 'artifact' | 'messages' | 'votes'. Export convenience functions: invalidateChat(chatId), refreshChat(chatId), etc. **Uses revalidateTag/updateTag pattern per redesign (NOT manual cache key invalidation alone)**.
+Action: Create lib/cache/revalidate.ts — Export explicit helper wrappers (no overloaded generic primitives). Server Action helpers (`invalidateChat`, `invalidateChatList`, `invalidateVotes`, etc.) call `updateTag(tag)` for immediate consistency. Route Handler helpers (`refreshChat`, `refreshChatList`, `refreshArtifact`, etc.) call `revalidateTag(tag, 'max')` for stale-while-revalidate behavior. **Uses revalidateTag/updateTag split per redesign (NOT manual cache key invalidation alone)**.
 
 Output files:
 - lib/cache/revalidate.ts
@@ -138,8 +138,9 @@ Dependencies: P1-T02
 Dependents: P1-T06, P1-T07, P1-T08
 
 Success criteria:
-- revalidateEntity calls revalidateTag for the correct entity type
-- updateTag provides optimistic cache updates
+- Exports explicit wrapper functions (no overloaded primitive wrappers): `invalidate*` for Server Actions, `refresh*` for Route Handlers
+- `invalidate*` wrappers call `updateTag(tag)`
+- `refresh*` wrappers call `revalidateTag(tag, 'max')`
 - **Entity types include 'artifact' (NOT 'document')**
 - Exports both `invalidate*` (SA) and `refresh*` (RH) functions per redesign
 - pnpm typecheck passes
@@ -219,21 +220,23 @@ Type: IMPL
 Behavior ref: data-flows.md (chat CRUD, visibility, history pagination); features.md (chat history, rename, delete)
 Architecture ref: ADR-002 (function-based data access); SEAM-024 (chat data + cache invalidation)
 
-Action: Create lib/data/chat.ts — Export functions: getChatById(chatId, userId): Chat | null (with cache via withCache), getChatsByUserId(userId, params?: PaginationParams): PaginatedResult<Chat> (with cache), createChat(data: {id, userId, title, visibility?}): Chat, updateChatTitle(chatId, userId, title): void (+ invalidate cache), updateChatVisibility(chatId, userId, visibility): void (+ invalidate cache), deleteChat(chatId, userId): void (+ invalidate chat + messages caches). All functions enforce userId ownership check. Use cache keys from lib/cache/keys.ts. Invalidate relevant cache entries on mutations.
+Action: Create lib/data/chat.ts — Export functions: getChatById(chatId, userId): Chat | null (with cache via withCache), getChatsByUserId(userId, params?: PaginationParams): { chats: Chat[]; hasMore: boolean; nextCursor?: string } (with cache), getChatWithMessages(chatId, userId): { chat: Chat; messages: Message[] } | null (single query co-fetch of chat + messages, with cache tagged chat:{id}), createChat(data: {id, userId, title, visibility?}): Chat, updateChatTitle(chatId, userId, title): void (+ invalidate cache), updateChatVisibility(chatId, userId, visibility): void (+ invalidate cache), deleteChat(chatId, userId): void (+ invalidate chat + messages caches), deleteAllChats(userId): void (delete all chats + messages for user, invalidate all relevant caches). All functions enforce userId ownership check. Use cache keys from lib/cache/keys.ts. Invalidate relevant cache entries on mutations.
 
 Output files:
 - lib/data/chat.ts
 
 Inputs: lib/db/ (P0-T04), lib/cache/ (P1-T03, P1-T04), lib/types/ (P0-T05), lib/errors/ (P0-T08)
-Outputs: Chat data functions consumed by chat actions (P3-T09, P3-T10), sidebar (P5), API routes
+Outputs: Chat data functions consumed by chat actions (P3-T09, P3-T10), chat server actions (P3-T22), chat page, sidebar (P5), API routes
 
 AI layer handling: NEW
 
 Dependencies: P0-T04, P0-T05, P0-T08, P1-T03, P1-T04
-Dependents: P3-T09, P3-T10, P5 (sidebar)
+Dependents: P3-T09, P3-T10, P3-T22, P5 (sidebar)
 
 Success criteria:
 - getChatById uses withCache with chatMeta key
+- getChatWithMessages co-fetches chat + messages in a single query, cached with chat:{id} tag
+- deleteAllChats removes all chats + messages for a user and invalidates all relevant caches
 - All mutation functions invalidate relevant cache entries
 - Ownership check: functions verify userId matches chat.userId
 - PaginatedResult returned for list queries with cursor/limit
@@ -283,7 +286,7 @@ Type: IMPL
 Behavior ref: data-flows.md (artifact versioning via composite PK); features.md (artifact CRUD)
 Architecture ref: ../../plan-archives/redesign/architecture.md (artifact naming); SEAM-025 (artifact data + versioning)
 
-Action: Create **lib/data/artifact.ts** (NOT lib/data/document.ts) — Export functions: getArtifactById(artifactId, userId): Artifact | null (latest version — highest createdAt for given id), getArtifactVersions(artifactId, userId): Artifact[] (all versions ordered by createdAt DESC), createArtifact(data: {id, title, content, kind: ArtifactKind, userId, chatId}): Artifact (insert new version), updateArtifactContent(artifactId, userId, content): Artifact (creates new version row with new createdAt), deleteArtifactById(artifactId, userId): void (delete all versions). Artifacts use composite PK (id + createdAt) for versioning. Use cache with **artifact-* cache tags** via revalidateEntity('artifact', id).
+Action: Create **lib/data/artifact.ts** (NOT lib/data/document.ts) — Export functions: getArtifactById(artifactId, userId): Artifact | null (latest version — highest createdAt for given id), getArtifactVersions(artifactId, userId): Artifact[] (all versions ordered by createdAt DESC), saveArtifactVersion(data: {id, title, content, kind: ArtifactKind, userId, chatId}): Artifact (insert new version row), deleteArtifactVersion(artifactId, userId, createdAt): void (delete a specific version or versions after restore timestamp, per caller mode). Artifacts use composite PK (id + createdAt) for versioning. Use cache with **artifact-* cache tags** via explicit helpers (`invalidateArtifact*`/`refreshArtifact*`) from `lib/cache/revalidate.ts`.
 
 Output files:
 - lib/data/artifact.ts
@@ -299,7 +302,8 @@ Dependents: P4 (artifacts phase)
 Success criteria:
 - **File is lib/data/artifact.ts** (NOT document.ts)
 - getArtifactById returns latest version (MAX createdAt for id)
-- createArtifact inserts new row (not update — versioning via new rows)
+- saveArtifactVersion inserts new row (versioning via new rows)
+- deleteArtifactVersion supports version-targeted deletion by timestamp
 - Uses **ArtifactKind** type (NOT DocumentKind)
 - Cache tags use **artifact-*** pattern (NOT document-*)
 - Composite PK (id + createdAt) maintained correctly
@@ -477,7 +481,7 @@ Type: VERIFY
 Behavior ref: N/A
 Architecture ref: AGENTS.md (post-implementation validation); strategy/phase-order.md (gate G01)
 
-Action: Run complete validation: (1) pnpm typecheck passes, (2) pnpm lint passes, (3) pnpm format passes. Verify: import { db } from "@/lib/db/client" resolves, import { withCache } from "@/lib/cache/with-cache" resolves, import { revalidateEntity } from "@/lib/cache/revalidate" resolves, import { getChatById } from "@/lib/data/chat" resolves with correct return type, import { getArtifactById } from "@/lib/data/artifact" resolves (NOT document), import { getSuggestionsByArtifactId } from "@/lib/data/suggestion" resolves, import { getProvider, getModel } from "@/lib/ai/registry" resolves, import { customModel } from "@/lib/ai/provider" resolves. Verify **no lib/data/document.ts exists**. Verify **no credit/quota data functions exist**.
+Action: Run complete validation: (1) pnpm typecheck passes, (2) pnpm lint passes, (3) pnpm format passes. Verify: import { db } from "@/lib/db/client" resolves, import { withCache } from "@/lib/cache/with-cache" resolves, import { invalidateChat, refreshChat } from "@/lib/cache/revalidate" resolves, import { getChatById } from "@/lib/data/chat" resolves with correct return type, import { getArtifactById } from "@/lib/data/artifact" resolves (NOT document), import { getSuggestionsByArtifactId } from "@/lib/data/suggestion" resolves, import { getProvider, getModel } from "@/lib/ai/registry" resolves, import { customModel } from "@/lib/ai/provider" resolves. Verify **no lib/data/document.ts exists**. Verify **no credit/quota data functions exist**.
 
 Output files: none (validation only)
 
