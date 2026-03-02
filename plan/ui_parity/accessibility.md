@@ -234,8 +234,9 @@ Found throughout for test automation:
 ### Viewport Control
 
 - `maximumScale: 1` in root layout viewport config — disables pinch-zoom
-- **Concern:** This is an accessibility anti-pattern. Users who need to zoom are blocked.
-- **Recommendation:** Remove `maximumScale: 1` in rebuild unless required for specific input behavior
+- **Concern:** This is a **WCAG 2.1 AA anti-pattern** (SC 1.4.4 Resize Text). Users who need to zoom are blocked. Setting `maximumScale: 1` or `user-scalable=no` prevents users from resizing text up to 200%, which is a Level AA requirement. In a ground-up rebuild, this restriction only appears if explicitly copied from `oldapp/app/layout.tsx` — it should **not** be carried forward.
+- **Recommendation:** Do NOT set `maximumScale: 1` in the rebuild. P7-T03 or P7-T04 should verify the viewport config does not restrict zoom.
+<!-- Audit: PO-3 (Wave 2/4) — Added explicit WCAG 2.1 AA SC 1.4.4 reference. maximumScale: 1 should not be copied from oldapp. -->
 
 ---
 

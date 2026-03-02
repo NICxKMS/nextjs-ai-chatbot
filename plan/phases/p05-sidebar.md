@@ -9,7 +9,7 @@
 > **Sequencing note**: P5 starts after P3 (no hard P4 dependency). P4 and P5 proceed in parallel; P6 begins when both G04 and G05 pass.
 > **Exit state**: Full sidebar navigation works — chat switching, history loading, creation, deletion, rename.
 > **Est. duration**: ~4.25 days
-> **Tasks**: 12
+> **Tasks**: 13
 > **Files created**: ~12
 
 ---
@@ -30,6 +30,7 @@
 | P5-T10 | Create history API route | IMPL | M | 1 |
 | P5-T11 | Wire sidebar into chat layout | INTEG | L | 1 |
 | P5-T12 | Verification gate G05 | VERIFY | S | 0 |
+| P5-T13 | Delete All Chats UI | IMPL | S | 0 (modifies P5-T05 output) |
 
 ---
 
@@ -56,7 +57,7 @@ Type: IMPL
 Behavior ref: state-management.md (pending chats types)
 Architecture ref: conventions.md (feature types collocation); redesign (features/sidebar/types/)
 
-Action: Create features/sidebar/types/sidebar.types.ts — Define sidebar-related types: PendingChat (Chat + isPending flag), SidebarHistoryGroup, PendingChatsContextValue (add, remove, updateTitle, markConfirmed operations). Export all types for consumption by sidebar components.
+Action: Create features/sidebar/types/sidebar.types.ts — Define sidebar-related types that build on the canonical `PendingChat` and `PendingChatOperations` from `lib/types/pending-chats.types.ts`: SidebarHistoryGroup and PendingChatsContextValue (add, remove, updateTitle, markConfirmed operations). Do not redefine the PendingChat shape here; rely on the shared `PendingChat` type with its `isOptimistic` flag. Export all types for consumption by sidebar components.
 
 Output files:
 - features/sidebar/types/sidebar.types.ts
@@ -70,7 +71,7 @@ Dependencies: P0-T07
 Dependents: P5-T02, P5-T03, P5-T04, P5-T05
 
 Success criteria:
-- PendingChat type includes isPending flag
+- PendingChatsContextValue is expressed in terms of the shared PendingChat type (with `isOptimistic` flag) from `lib/types/pending-chats.types.ts`
 - PendingChatsContextValue defines add, remove, updateTitle, markConfirmed
 - All types exported
 - pnpm typecheck passes
@@ -87,10 +88,11 @@ Type: IMPL
 Behavior ref: state-management.md (pending chats: Set-based dedup, explicit lifecycle operations); redesign (PendingChatsProvider, NOT OptimisticChatsProvider)
 Architecture ref: conventions.md (feature hooks collocation); redesign (use-pending-chats.ts)
 
-Action: Create features/sidebar/hooks/use-pending-chats.ts — "use client" context provider + hook. PendingChatsProvider wraps both sidebar AND content (placed in chat layout). Internal state: array of PendingChat, Set<string> for O(1) dedup by chat ID. Operations: add(chat) — add unconfirmed chat to list head (dedup by ID), remove(chatId) — remove by ID (used on delete), updateTitle(chatId, title) — update title in-place (used for streaming title via single-channel delivery), markConfirmed(chatId) — clear pending flag when server-confirmed. No timer-based cleanup. Export PendingChatsProvider and usePendingChats hook. Title flows via single channel: `chat-title` stream event → `PendingChats.updateTitle()` — NO window.dispatchEvent, NO polling.
+Action: Create lib/providers/pending-chats-provider.tsx — "use client" context provider + hook. PendingChatsProvider wraps both sidebar AND content (placed in chat layout). Internal state: array of PendingChat, Set<string> for O(1) dedup by chat ID. Operations: add(chat) — add unconfirmed chat to list head (dedup by ID), remove(chatId) — remove by ID (used on delete), updateTitle(chatId, title) — update title in-place (used for streaming title via single-channel delivery), markConfirmed(chatId) — clear pending flag when server-confirmed. No timer-based cleanup. Export PendingChatsProvider and usePendingChats hook. Title flows via single channel: `chat-title` stream event → `PendingChats.updateTitle()` — NO window.dispatchEvent, NO polling.
+<!-- AUDIT(CR-1, Wave 4): Provider relocated from `features/sidebar/hooks/use-pending-chats.ts` to `lib/providers/pending-chats-provider.tsx` — cross-feature communication primitive (chat writes, sidebar reads), not sidebar-internal. Implementation and API are identical; only file location changes. -->
 
 Output files:
-- features/sidebar/hooks/use-pending-chats.ts
+- lib/providers/pending-chats-provider.tsx
 
 Inputs: features/sidebar/types/sidebar.types.ts (P5-T01)
 Outputs: Pending chats context consumed by SidebarHistoryClient (P5-T05), ChatShell (P5-T11)
@@ -101,16 +103,16 @@ Dependencies: P0-T07
 Dependents: P5-T05, P5-T11, P5-T12
 
 Success criteria:
-- add() adds entry with isPending=true
+- add() adds entry with `isOptimistic: true` on the shared PendingChat type
 - Duplicate IDs are ignored (Set-based dedup)
 - remove() removes by ID
 - updateTitle() updates title in-place (single-channel title delivery)
-- markConfirmed() removes pending flag
+- markConfirmed() clears the optimistic flag
 - Pending entries are managed via explicit `remove` / `markConfirmed` operations (no timer cleanup)
 - Context provides stable dispatch functions (no re-render cascading)
 - NO window.dispatchEvent, NO polling for title sync
 - Named PendingChatsProvider (NOT OptimisticChatsProvider)
-- File named use-pending-chats.ts (NOT use-optimistic-chats.ts)
+- File located at lib/providers/pending-chats-provider.tsx (NOT features/sidebar/hooks/use-pending-chats.ts)
 - pnpm typecheck passes
 
 Complexity: L
@@ -195,7 +197,7 @@ Action: Create features/sidebar/components/sidebar-history-client.tsx — "use c
 Output files:
 - features/sidebar/components/sidebar-history-client.tsx
 
-Inputs: features/sidebar/hooks/use-pending-chats.ts (P5-T02), features/sidebar/hooks/use-sidebar-history.ts (P5-T03), features/sidebar/components/sidebar-history-item.tsx (P5-T04), components/ui/ (P0-T11)
+Inputs: lib/providers/pending-chats-provider.tsx (P5-T02), features/sidebar/hooks/use-sidebar-history.ts (P5-T03), features/sidebar/components/sidebar-history-item.tsx (P5-T04), components/ui/ (P0-T11)
 Outputs: SidebarHistoryClient consumed by SidebarShell (P5-T08)
 
 AI layer handling: NEW
@@ -228,7 +230,8 @@ Type: IMPL
 Behavior ref: components-02.md (sidebar-user-nav.tsx: theme toggle, login/logout, avatar)
 Architecture ref: SEAM-030 (theme system — toggle in user nav)
 
-Action: Create features/sidebar/components/sidebar-user-nav.tsx — "use client" component. Props: user: {email?: string | null}. Renders inside SidebarFooter: SidebarMenu → SidebarMenuItem → DropdownMenu. Hydration guard (mounted state, shows skeleton until mounted AND auth resolved). Menu items: theme toggle (dark ↔ light via useTheme from next-themes), separator, auth action (Login link for unauthenticated, "Sign out" for authenticated). Logout flow: sign out → clear caches → redirect /. Avatar: avatar.vercel.sh/{seed} (24×24). Loading state: skeleton avatar + pulsing text + spinner.
+Action: Create features/sidebar/components/sidebar-user-nav.tsx — "use client" component. Props: user: {email?: string | null}. Renders inside SidebarFooter: SidebarMenu → SidebarMenuItem → DropdownMenu. Hydration guard (mounted state, shows skeleton until mounted AND auth resolved). Menu items: theme toggle (dark ↔ light via useTheme from next-themes), separator, auth action (Login link for unauthenticated, "Sign out" for authenticated). Logout flow: sign out → clear caches → redirect /login. Avatar: avatar.vercel.sh/{seed} (24×24). Loading state: skeleton avatar + pulsing text + spinner.
+<!-- AUDIT(SB-W2, Wave 4): Logout redirect corrected from `/` to `/login` per Wave 3 reconciliation. -->
 
 Output files:
 - features/sidebar/components/sidebar-user-nav.tsx
@@ -244,7 +247,7 @@ Dependents: P5-T08
 Success criteria:
 - Theme toggle switches between dark and light
 - Login link shown for unauthenticated users
-- Sign out clears session and redirects to /
+- Sign out clears session and redirects to /login
 - Hydration guard prevents mismatch
 - Avatar renders from vercel.sh
 - Loading state shows skeleton
@@ -399,7 +402,7 @@ Action: Update app/(chat)/layout.tsx — Wire the complete sidebar infrastructur
 Output files:
 - app/(chat)/layout.tsx (modify)
 
-Inputs: features/sidebar/components/sidebar-shell.tsx (P5-T08), features/sidebar/components/sidebar-skeleton.tsx (P5-T07), features/sidebar/hooks/use-pending-chats.ts (P5-T02)
+Inputs: features/sidebar/components/sidebar-shell.tsx (P5-T08), features/sidebar/components/sidebar-skeleton.tsx (P5-T07), lib/providers/pending-chats-provider.tsx (P5-T02)
 Outputs: Complete sidebar rendered in chat layout
 
 AI layer handling: NEW
@@ -438,7 +441,7 @@ Outputs: Gate G05 passed — sidebar prerequisites for P6 satisfied (P6 starts w
 
 AI layer handling: N/A
 
-Dependencies: P5-T01 through P5-T11
+Dependencies: P5-T01 through P5-T11, P5-T13
 Dependents: P6-T01 (start of next phase)
 
 Success criteria:
@@ -448,7 +451,8 @@ Success criteria:
 - `SidebarShell` is a SERVER component with `'use cache'` + `cacheTag`
 - Initial 20 chats fetched server-side (no client waterfall)
 - `SidebarHistoryClient` uses `useSWRInfinite` only for pagination (not initial load)
-- `PendingChatsProvider` provides `add`, `remove`, `updateTitle` operations
+- `PendingChatsProvider` provides `add`, `remove`, `updateTitle`, `markConfirmed` operations
+<!-- AUDIT(SB-W5, Wave 4): Added `markConfirmed` to verification gate success criteria — was defined in P5-T01/T02 but missing from gate. -->
 - Title flows via single channel: `chat-title` stream → `PendingChats.updateTitle()` (no polling, no window events)
 - `SidebarSkeleton` renders as Suspense fallback (SERVER component)
 - Chat layout is a SERVER component (no `'use client'` on layout)
@@ -457,7 +461,44 @@ Success criteria:
 - Pending chat creation works on first message
 - Chat navigation works (click → load)
 - Delete works
+- Delete All Chats: AlertDialog confirmation → calls `deleteAllChats` → redirects to `/` → sidebar clears
+<!-- AUDIT(SB-W1/SC-8, Wave 4): Added Delete All Chats verification to gate. -->
 - Theme toggle works
 - Mobile sidebar overlay works
+
+Complexity: S
+
+---
+
+### TASK: [ID: P5-T13]
+Title: Delete All Chats UI
+Phase: 5 — Sidebar & Navigation Vertical
+Type: IMPL
+<!-- AUDIT(SB-W1/SC-8, Wave 4): New task — `deleteAllChats` Server Action (P3-T22) had no corresponding UI trigger. AlertDialog confirmation added to sidebar header area. -->
+
+Behavior ref: features.md (delete all chats); interactions.md (destructive confirmation pattern)
+Architecture ref: conventions.md (Server Actions for mutations); P3-T22 (deleteAllChats action)
+
+Action: Add Delete All Chats UI to the sidebar header area within SidebarHistoryClient (P5-T05 output file). Scope: (1) Add a "Delete All" button (destructive style, trash icon) in the sidebar header area alongside the new-chat button, (2) Wire AlertDialog confirmation dialog ("Delete all chats? This action cannot be undone."), (3) On confirm: call `deleteAllChats` Server Action from P3-T22, (4) On success: clear pending chats via `PendingChats.remove()` for all entries, redirect to `/` via `router.push('/')`, (5) Show toast on error. ~30-50 lines added to sidebar-history-client.tsx.
+
+Output files:
+- features/sidebar/components/sidebar-history-client.tsx (modify — add delete-all button + AlertDialog)
+
+Inputs: features/chat/actions/delete-all-chats.ts (P3-T22), lib/providers/pending-chats-provider.tsx (P5-T02), components/ui/alert-dialog.tsx (P0-T11)
+Outputs: Delete All Chats UI reachable from sidebar
+
+AI layer handling: N/A
+
+Dependencies: P5-T05, P3-T22, P0-T11
+Dependents: P5-T12
+
+Success criteria:
+- "Delete All" button visible in sidebar header area
+- AlertDialog confirmation shown before deletion
+- Calls `deleteAllChats` Server Action on confirm
+- Redirects to `/` on success
+- Pending chats cleared on success
+- Toast shown on error
+- pnpm typecheck passes
 
 Complexity: S

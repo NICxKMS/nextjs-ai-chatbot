@@ -13,9 +13,11 @@
 
 ### 1. Reconnection / Resilience — **RESOLVED**
 
-**Resolution:** Handled within P7 polish tasks. Chat component uses `useChat` built-in SSE lifecycle management. `navigator.onLine` monitoring + offline toast added during P7-T03 (accessibility + keyboard nav). Submit button disabled when offline.
+**Resolution:** SSE reconnection is handled natively by `useChat` built-in SSE lifecycle management + error boundaries. No explicit `navigator.onLine` monitoring or offline toast is required — the Vercel AI SDK's `useChat` hook manages SSE reconnection internally, and route-level error boundaries (P7-T01) handle unrecoverable failures.
 
-> **Redesign note:** Original resolution was P7-T15 (pre-redesign task ID, now merged into P7-T03; `useConnectionStatus` hook with exponential backoff). Per redesign, SSE reconnection is handled natively by `useChat` + error boundaries. Offline detection (`navigator.onLine` monitoring + offline toast) is included in P7-T03 accessibility task.
+> **Redesign note:** Original resolution was P7-T15 (pre-redesign task ID). Per redesign, SSE reconnection is handled natively by `useChat` + error boundaries. Connection resilience (`navigator.onLine` monitoring, offline toast, disabled submit) is **not** included in any task — the redesign does not mandate it, and `useChat` + error boundaries provide sufficient coverage.
+>
+> <!-- Audit: PO-1 (Wave 2/4) — Removed false claim that P7-T03 includes navigator.onLine monitoring + offline toast. P7-T03 covers ARIA, keyboard nav, and prefers-reduced-motion only. Aligned with final_plan/phase-07-plan.md which says "Removed as standalone task — SSE reconnection handled natively by useChat + error boundary." -->
 
 ---
 
@@ -41,7 +43,7 @@
 
 | Gap | Severity | Resolution | Task |
 |-----|----------|------------|------|
-| Reconnection / resilience | Medium | Resolved in polish | P7-T03 |
+| Reconnection / resilience | Medium | Resolved via `useChat` + error boundaries | Native (useChat) |
 | URL query auto-send | Low | Extended | P3-T25 |
 | Credit/usage alert UI | — | **REMOVED** (no credit system) | — |
 | AutoScroll setting wire | Low | Extended | P3-T17 |

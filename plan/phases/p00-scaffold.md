@@ -32,7 +32,7 @@
 | P0-T13 | Create root layout + global error | IMPL | M | 2 |
 | P0-T14 | Create proxy.ts (Next.js 16) | IMPL | M | 1 |
 | P0-T15 | Create instrumentation stubs | SCAFFOLD | S | 2 |
-| P0-T16 | Create test infrastructure | SCAFFOLD | M | 3 |
+| P0-T16 | Create test infrastructure | SCAFFOLD | M | 4 |
 | P0-T17 | Create import boundary script | IMPL | S | 1 |
 | P0-T18 | Verification gate G00 | VERIFY | S | 0 |
 
@@ -90,6 +90,8 @@ Output files:
 - postcss.config.mjs
 - vercel.json
 - .env.example
+- .gitignore
+<!-- audit: SC-V1 -->
 
 Inputs: scaffold/base-config.md
 Outputs: PostCSS config consumed by Tailwind v4; env template for all phases
@@ -181,7 +183,7 @@ Type: IMPL
 Behavior ref: ai-sdk-usage.md (model types); data-flows.md (entity types)
 Architecture ref: ../../plan-archives/redesign/architecture.md (type system); ../../plan-archives/redesign/directory-structure.md (lib/types/)
 
-Action: Create 4 type files. (1) lib/types/result.types.ts — ActionResult<T> type for Server Actions and data access layer, success/failure discriminated union. (2) lib/types/data-context.types.ts — DataContext type for server-to-client data passing. (3) lib/types/model.types.ts — ProviderId (`openai` | `google` | `openrouter`), ModelCapability, ModelModality, ReasoningType, ModelMetadata, DEFAULT_CHAT_MODEL / TITLE_MODEL / ARTIFACT_MODEL constants. (4) lib/types/models.types.ts — Drizzle InferSelectModel / InferInsertModel types for all 6 tables (User, Chat, Message, Artifact, Vote, Suggestion + insert variants), enum types, and composite types (ChatWithMessages, ArtifactWithVersions).
+Action: Create 4 type files. (1) lib/types/result.types.ts — ActionResult<T> type for Server Actions and data access layer, success/failure discriminated union. (2) lib/types/data-context.types.ts — DataContext type for server-to-client data passing. (3) lib/types/model.types.ts — ProviderId (`openai` | `google` | `openrouter`), ModelMetadata, DEFAULT_CHAT_MODEL / TITLE_MODEL / ARTIFACT_MODEL constants. <!-- audit: MO-3 — removed obsolete ModelCapability, ModelModality, ReasoningType --> (4) lib/types/models.types.ts — Drizzle InferSelectModel / InferInsertModel types for all 6 tables (User, Chat, Message, Artifact, Vote, Suggestion + insert variants), enum types, and composite types (ChatWithMessages, ArtifactWithVersions).
 
 Output files:
 - lib/types/result.types.ts
@@ -216,7 +218,7 @@ Type: IMPL
 Behavior ref: features.md (artifact system)
 Architecture ref: ../../plan-archives/redesign/architecture.md (artifact types); ../../plan-archives/redesign/component-architecture.md (handler registry)
 
-Action: Create 2 type files. (1) lib/types/artifact.types.ts — ArtifactKind literal union (text/code/image/sheet), ArtifactMetadata, ArtifactVersion, Artifact (replaces old Document type). (2) lib/types/artifact-handler.types.ts — ArtifactHandler interface defining onStreamPart, onFinish, validate methods. Used by handler registry in P4.
+Action: Create 2 type files. (1) lib/types/artifact.types.ts — ArtifactKind literal union (text/code/image/sheet), ArtifactMetadata, ArtifactVersion, Artifact (replaces old Document type). (2) lib/types/artifact-handler.types.ts — ArtifactHandler interface defining create(params) and update(params) methods per redesign naming-conventions. Used by handler registry in P4. <!-- audit: SC-V2, SC-1, DA-1 -->
 
 Output files:
 - lib/types/artifact.types.ts
@@ -232,7 +234,7 @@ Dependents: P1-T08, P1-T13, P3-T05, P4-T01 through P4-T05
 
 Success criteria:
 - ArtifactKind is a string literal union (NOT DocumentKind)
-- ArtifactHandler interface defines onStreamPart, onFinish, validate
+- ArtifactHandler interface defines create(params) and update(params) <!-- audit: SC-V2, SC-1, DA-1 -->
 - No references to "document" in type names or artifact context
 - pnpm typecheck passes
 
@@ -280,7 +282,7 @@ Type: IMPL
 Behavior ref: edge-cases.md (error handling strategy)
 Architecture ref: ../../plan-archives/redesign/architecture.md (AppError, error codes); DEV-011 (string literal error codes)
 
-Action: Create 2 files. (1) lib/errors/app-error.ts — AppError class extending Error with static factory methods: AppError.unauthorized(), AppError.notFound(), AppError.validation(), AppError.databaseError(), AppError.aiError(), AppError.rateLimited(). Each factory returns typed error with string literal code, HTTP status, and optional details. (2) lib/errors/codes.ts — String literal error code constants. **No ACTIVATE_GATEWAY, no credit/quota error codes** (removed per redesign).
+Action: Create 2 files. (1) lib/errors/app-error.ts — AppError class extending Error with static factory methods: AppError.unauthorized(), AppError.notFound(), AppError.forbidden(), AppError.badRequest(), AppError.rateLimited(), AppError.internal(). Each factory returns typed error with string literal code, HTTP status, and optional details. (2) lib/errors/codes.ts — ErrorCode union type and ERROR_STATUS_MAP. **No ACTIVATE_GATEWAY, no credit/quota error codes** (removed per redesign). <!-- audit: SC-V6 -->
 
 Output files:
 - lib/errors/app-error.ts
@@ -295,8 +297,8 @@ Dependencies: P0-T01
 Dependents: P1-T05, P1-T06, P1-T12, P2-T01
 
 Success criteria:
-- AppError has factory methods for all error types (unauthorized, notFound, validation, databaseError, aiError, rateLimited)
-- Error codes are string literals (not numeric)
+- AppError has factory methods for all error types (unauthorized, notFound, forbidden, badRequest, rateLimited, internal) <!-- audit: SC-V6 -->
+- Error codes are string literals (ErrorCode union type, not numeric)
 - **No ACTIVATE_GATEWAY or credit/quota error codes**
 - AppError.unauthorized() returns 401, AppError.notFound() returns 404
 - pnpm typecheck passes
@@ -477,7 +479,7 @@ Type: IMPL
 Behavior ref: auth-system.md (request interception)
 Architecture ref: ../../plan-archives/redesign/architecture.md (proxy.ts replaces middleware.ts)
 
-Action: Create proxy.ts at project root (**NOT middleware.ts** — Next.js 16 uses proxy.ts). Implement request interception for auth/session bootstrap: skip static assets and /api/health, set x-device-type header from user-agent, enforce auth redirects for protected routes, mint/rotate guest token when auth cookies are absent/expiring, and apply edge rate limiting policies. Export config.matcher excluding _next/static, _next/image, favicon.ico, images/.
+Action: Create proxy.ts skeleton at project root (**NOT middleware.ts** — Next.js 16 uses proxy.ts). Phase 0 scope: skip static assets and /api/health, set x-device-type header from user-agent. Include commented placeholders for auth guard, guest token rotation, and rate limiting (all wired in P2-T08). Auth guard is NOT implemented in Phase 0 — only device detection. Export config.matcher excluding _next/static, _next/image, favicon.ico, images/. <!-- audit: SC-V5 -->
 
 Output files:
 - proxy.ts
@@ -493,9 +495,8 @@ Dependents: P2-T08
 Success criteria:
 - **proxy.ts** exists at project root (NOT middleware.ts)
 - Device detection header set on responses
-- Protected-route auth guard behavior implemented
-- Guest token bootstrap/rotation behavior implemented
-- Rate-limit checks wired for protected APIs
+- Auth guard, guest token rotation, and rate limiting present as commented placeholders only (wired in P2-T08) <!-- audit: SC-V5 -->
+- Export config.matcher excludes static assets
 
 Complexity: M
 
@@ -540,12 +541,14 @@ Type: SCAFFOLD
 Behavior ref: N/A (test infrastructure)
 Architecture ref: ../../plan-archives/redesign/architecture.md (testing); ../../plan-archives/redesign/directory-structure.md (tests/)
 
-Action: Create 3 files. (1) tests/setup.ts — Vitest global setup file with environment variable mocking (DATABASE_URL, etc. set to test values), import @testing-library/jest-dom for DOM matchers. (2) tests/mocks/auth.ts — Mock session resolution function for auth testing. (3) tests/mocks/db.ts — Mock Drizzle client for data access testing. These files are referenced in vitest.config.ts.
+Action: Create 4 files. (1) tests/setup.ts — Vitest global setup file with environment variable mocking (DATABASE_URL, etc. set to test values), import @testing-library/jest-dom for DOM matchers. (2) tests/mocks/auth.ts — Mock session resolution function for auth testing. (3) tests/mocks/db.ts — Mock Drizzle client for data access testing. (4) tests/mocks/cache.ts — Mock cache client for cache layer testing. These files are referenced in vitest.config.ts. <!-- audit: SC-V3 -->
 
 Output files:
 - tests/setup.ts
 - tests/mocks/auth.ts
 - tests/mocks/db.ts
+- tests/mocks/cache.ts
+<!-- audit: SC-V3 -->
 
 Inputs: ../../plan-archives/redesign/architecture.md
 Outputs: Test setup consumed by all unit and integration tests

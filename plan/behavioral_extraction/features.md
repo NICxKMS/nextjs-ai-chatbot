@@ -207,7 +207,7 @@ Users can switch between available AI models.
 ### User Flow
 1. User opens model dropdown in input area
 2. Available models from `listChatModels()` displayed (curated + discovered)
-3. Selection persisted to localStorage via `useSettings`
+3. Selection persisted via `chat-model` cookie + localStorage (independent of `useSettings`)
 4. New chats use localStorage value; existing chats use `chat.lastContext.modelId`
 
 ---
@@ -280,11 +280,13 @@ User-configurable chat settings stored in localStorage.
 - Settings sent with chat requests
 
 ### Configurable Options
-- `sampling.temperature` (0-2)
-- `sampling.topP` (0-1)
-- `sampling.maxOutputTokens` (256-1,000,000)
+- `temperature` (0-2)
+- `topP` (0-1)
+- `maxOutputTokens` (256-1,000,000)
 - `systemPrompt` (max 8192 chars)
 - `enableReasoning` (boolean)
+
+<!-- AUDIT: SE-8 — Fixed nested sampling.x notation to flat SettingsState field names (temperature, topP, maxOutputTokens) per redesign -->
 
 > **Note:** Model selection, artifact streaming, and auto-scroll are handled outside SettingsState.
 

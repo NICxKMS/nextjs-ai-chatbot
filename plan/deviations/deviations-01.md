@@ -342,7 +342,7 @@ Do NOT build: canvas, citations, workflow, queue, checkpoint wrappers.
 
 **Spec says**: `SettingsProvider` wraps the app and manages user settings via a React context provider, possibly backed by Jotai atoms. (§12, §19)
 
-**We do instead**: No `SettingsProvider` exists. Settings (sampling parameters, system prompt, auto-scroll) use `useSyncExternalStore` + `localStorage` directly via a `useSettings()` hook:
+**We do instead**: No `SettingsProvider` exists. Settings (sampling parameters and system prompt) use `useSyncExternalStore` + `localStorage` directly via a `useSettings()` hook, while auto-scroll behavior is handled by the `useScrollToBottom` hook (not as part of SettingsState):
 ```typescript
 // features/settings/hooks/use-settings.ts
 export function useSettings() {
@@ -467,3 +467,43 @@ import './image-handler';
 **Reason**: Certain UI composition points are naturally cross-feature (e.g., chat surface embedding visibility/model selectors and voting controls). Keeping them explicit/allowlisted is clearer and safer than ad-hoc exceptions in implementation.
 
 **Trade-offs**: Slightly broader exception surface than baseline redesign guidance; mitigated by a centralized allowlist + CI enforcement and explicit documentation.
+
+---
+
+## DEV-024: DataContext Removal (Reconciliation)
+
+<!-- audit: HC-3 — DataContext removal documented as reconciliation deviation -->
+
+**ID**: DEV-024
+**Area**: data
+**Severity**: MAJOR
+
+**Plan originally said**: `DataContext` type (`{userId, isGuest}`) parameter on all read functions per ADR-002, `patterns.md` §1, and `improvements.md` §2. Guest-vs-auth branching embedded in the data layer via `DataContext.isGuest`.
+
+**We do instead**: DataContext removed from all read function signatures. Functions use bare-ID parameters: `getChatById(id: string)`. Auth/ownership checks happen at the action/page level, not the data level.
+
+**Reason**: The redesign's unified DB persistence for guests eliminates the guest-vs-auth branching that ADR-002 originally argued for. Redesign `data-flow.md` §2/§7 consistently uses bare-ID signatures (e.g., `getCachedChat(chatId: string)`). Threading DataContext through every data function adds parameter noise with no architectural benefit under the redesign's model. ADR-002 is now marked as superseded.
+
+**Trade-offs**: None. This is a simplification — fewer parameters, less indirection, same functionality. The `data-context.types.ts` file in `lib/types/` may be retained for reference but is no longer consumed by data functions.
+
+**Reconciliation**: HC-3 (Wave 3 cross-unit reconciliation). ADR-002 marked as superseded.
+
+---
+
+## DEV-025: `features/auth/lib/session.ts` Removed
+
+<!-- audit: AU-V2 — session.ts removal documented as deviation -->
+
+**ID**: DEV-025
+**Area**: auth
+**Severity**: MEDIUM
+
+**Redesign says**: `features/auth/lib/session.ts` appears in `directory-structure.md` as part of the auth feature module.
+
+**We do instead**: `getAppSession()` lives exclusively in `lib/auth/session.ts` (infrastructure layer). No `features/auth/lib/session.ts` file exists.
+
+**Reason**: Session resolution is cross-cutting infrastructure consumed by every feature and every page/layout. Placing it in `features/auth/lib/` would violate the import hierarchy (features should not be imported by `lib/` or by other features' core paths). The redesign contains the file in both `lib/auth/` and `features/auth/lib/` locations — this is a self-contradiction. `lib/auth/session.ts` is the canonical location per `conventions.md` §1 and actual usage patterns throughout the plan.
+
+**Trade-offs**: None. The redesign's inclusion of `session.ts` in both locations was contradictory; resolving to `lib/auth/` aligns with the cross-cutting nature of session resolution.
+
+**Reconciliation**: AU-V2 (Wave 2 auth audit). Dropped without documented deviation; now documented.

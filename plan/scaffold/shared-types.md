@@ -185,6 +185,8 @@ export type PendingChatOperations = {
 
 ## 7. Model Types (`lib/types/model.types.ts`)
 
+<!-- audit: MO-3 (removed ModelCapability, ModelModality, ReasoningType), DA-3/MO-4 (label→name) -->
+
 Model metadata and provider config.
 
 ```typescript
@@ -195,35 +197,15 @@ export type ProviderId =
   | 'openrouter'
 
 // ── Model capabilities ──
-export type ModelCapability =
-  | 'chat'
-  | 'reasoning'
-  | 'vision'
-  | 'audio'
-  | 'multimodal'
-  | 'code'
-  | 'tooling'
-  | 'memory'
-  | 'image-generation'
-  | 'video-generation'
-
-export type ModelModality = 'text' | 'image' | 'audio' | 'video'
-
-// ── Reasoning ──
-export type ReasoningType =
-  | 'openai-thinking'
-  | 'anthropic-thinking'
-  | 'gemini-thinking'
-  | 'deepseek-thinking'
-  | 'internal-thinking'
+// NOTE: ModelCapability, ModelModality, and ReasoningType removed per audit MO-3.
+// Replaced by flat boolean flags (supportsToolCalling, supportsReasoning) on ModelMetadata.
 
 // ── Model metadata (aligned with ../../plan-archives/redesign/architecture.md) ──
-// Note: ProviderId union kept above for type checking but not referenced in ModelMetadata
 export interface ModelMetadata {
   id: string                           // full model ID (e.g. "openai:gpt-4o")
   provider: string                     // was providerId: ProviderId
   providerModelId: string              // was modelId
-  label: string                        // was name
+  name: string                         // canonical per redesign (was label)
   description?: string
   supportsToolCalling: boolean         // was capabilities array
   supportsReasoning: boolean           // was capabilities array

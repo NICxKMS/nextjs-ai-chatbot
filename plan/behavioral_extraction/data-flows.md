@@ -33,10 +33,14 @@ Route/Action → Guards (auth, rate limit) → Data Layer → Cache Layer → DB
 ```
 
 ### Data Layer (`lib/data/`)
-- `lib/types/data-context.types.ts` — `DataContext` type (type-only; no runtime factory)
 - `chat.ts` — plain functions: `getChatById`, `getChatWithMessages`, `getChatsByUserId`, `updateChatTitle`, `updateChatVisibility`, `deleteChatById`, `deleteAllChatsByUserId`
-- `chat-operations.ts` — `saveChat()`, `updateChatTitle()` (higher-level orchestration)
-- `artifact.ts` — plain functions: `getArtifactById`, `getArtifactVersions`, `saveArtifactVersion`, `getSuggestionsByArtifactId`
+- `message.ts` — plain functions: `getMessagesByChatId`, `saveMessages`, `deleteMessagesByIdAfter`, `deleteMessagesByChatId`
+- `artifact.ts` — plain functions: `getArtifactById`, `getArtifactVersions`, `saveArtifactVersion` <!-- audit: DF-AP6 — getSuggestionsByArtifactId moved to suggestion.ts -->
+- `suggestion.ts` — plain functions: `getSuggestionsByArtifactId`, `saveSuggestions`, `deleteSuggestionsByArtifactId` <!-- audit: DF-AP6 -->
+- `vote.ts` — plain functions: `getVotesByChatId`, `upsertVote`, `deleteVotesByChatId`
+- `user.ts` — plain functions: `getUserByEmail`, `getUserById`, `createUser`, `updateUserLastLogin`
+
+> **Note (DF-AP5, 2026-03-02):** `chat-operations.ts` was a legacy ghost and has been removed. Redesign calls `saveMessages()` (from `message.ts`) and `updateChatTitle()` (from `chat.ts`) directly in `onFinish` — no orchestration layer. <!-- audit: DF-AP5 -->
 
 > *Every mutation in the data layer calls `revalidateTag`/`updateTag` for Next.js cache invalidation. `'use cache'` + `cacheTag` replace Redis-based caching for most reads.*
 
@@ -123,14 +127,13 @@ Client                    Server                        Cache              DB
 
 ```
 1. getAppSession() → Supabase JWT or Guest JWT
-2. Build DataContext object from session → `{ userId, isGuest }`
-3. getChatWithMessages(id, ctx)
+2. getChatWithMessages(id) <!-- audit: HC-3 — bare-ID signature per redesign, no DataContext -->
   a. Server cache-tagged read path (`'use cache'` + `cacheTag`)
   b. DB SELECT chat + messages (guest/auth use same persistence model)
-4. Verify visibility + ownership
-5. convertToUIMessages(messagesFromDb) → UIMessage[]
-6. getVotesByChatIdAndUserId (DB, only for auth users with messages)
-7. Render <ChatShell> with all data server-side
+3. Verify visibility + ownership (at page/action level, not data level)
+4. convertToUIMessages(messagesFromDb) → UIMessage[]
+5. getVotesByChatIdAndUserId (DB, only for auth users with messages)
+6. Render <ChatShell> with all data server-side
 ```
 
 ## Flow: Save Artifact

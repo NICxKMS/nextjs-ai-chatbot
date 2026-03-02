@@ -490,6 +490,11 @@ Success criteria:
 - `pnpm format && pnpm typecheck && pnpm lint` pass
 - `pnpm build` succeeds
 - E2E tests cover all core flows
+- Non-negotiable constraints #8–#10 verified (defensive, not redesign-mandated):
+  - #8: `grep -r "revalidateTag"` in all Server Action files — every mutation calls `revalidateTag`
+  - #9: `grep -rE "useSWR|SWRConfig"` — zero occurrences (no SWR-as-state-store)
+  - #10: `grep -r "window.dispatchEvent"` — zero occurrences
+  <!-- Audit: PO-4 (Wave 2/4) — Added defensive grep verification for non-negotiable constraints #8-#10. Not redesign-mandated for P7, but provides safety net. -->
 - All redesign naming applied:
   - StreamBridge (NOT DataStreamHandler)
   - ChatStreamProvider (NOT DataStreamProvider)

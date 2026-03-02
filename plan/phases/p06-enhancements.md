@@ -75,7 +75,7 @@ Dependents: P6-T02, P6-T03
 
 Success criteria:
 - voteSchema validates chatId + messageId + type ("up" | "down")
-- voteMessage is a Server Action ("use server") — NOT an API route
+- `voteOnMessage` is a Server Action ("use server") — NOT an API route <!-- audit: VO-6 -->
 - Auth check rejects guests (AppError.forbidden)
 - Chat ownership verified before voting
 - Message membership in chat verified (IDOR protection)
@@ -97,14 +97,14 @@ Type: IMPL
 Behavior ref: features.md (upvote/downvote on assistant messages)
 Architecture ref: redesign (useOptimistic for instant feedback, Server Action for persistence)
 
-Action: Create 2 files. (1) features/voting/hooks/use-votes.ts — "use client" hook useVotes(chatId: string, initialVotes: Vote[]). Uses React 19 `useOptimistic` for instant vote state updates. On vote: optimistically updates local vote state, then calls voteMessage Server Action. On failure: reverts optimistic state + shows toast error. Returns: votes, submitVote(messageId, type). (2) features/voting/components/vote-buttons.tsx — "use client" component. Props: chatId, messageId, isAssistant, isLoading. Renders ThumbsUp and ThumbsDown buttons with aria-pressed state matching current vote. Filled/highlighted icon when active vote exists. Only shown for assistant messages. Voting disabled for guest users (buttons hidden).
+Action: Create 2 files. (1) features/voting/hooks/use-votes.ts — "use client" hook useVotes(chatId: string, initialVotes: Vote[]). Uses React 19 `useOptimistic` for instant vote state updates. On vote: optimistically updates local vote state, then calls `voteOnMessage` Server Action. <!-- audit: VO-6 --> On failure: reverts optimistic state + shows toast error. Returns: votes, submitVote(messageId, type). (2) features/voting/components/vote-buttons.tsx — "use client" component. Props: chatId, messageId, isAssistant, isLoading. Renders ThumbsUp and ThumbsDown buttons with aria-pressed state matching current vote. Filled/highlighted icon when active vote exists. Only shown for assistant messages. Voting disabled for guest users (buttons hidden).
 
 Output files:
 - features/voting/hooks/use-votes.ts
 - features/voting/components/vote-buttons.tsx
 
 Inputs: features/voting/actions/vote.ts (P6-T01), features/voting/types/vote.types.ts (P6-T01)
-Outputs: VoteButtons consumed by message integration (P6-T03)
+Outputs: VoteButtons consumed by message integration (P6-T03) <!-- audit: VO-4 — cross-feature import exception: VoteButtons consumed by chat/message.tsx -->
 
 AI layer handling: NEW
 
@@ -134,10 +134,11 @@ Type: INTEG
 Behavior ref: features.md (voting in message actions)
 Architecture ref: redesign (VoteResolver using React 19 use() for deferred data, NOT VoteHydrator)
 
-Action: Update 2 areas. (1) features/chat/components/message.tsx — Render VoteButtons component for assistant messages. Pass chatId, messageId. (2) app/(chat)/chat/[id]/page.tsx — Add VoteResolver component that uses React 19 `use()` to resolve a deferred vote data promise. The chat page passes a votes promise (from `getVotesByChatId`) to VoteResolver, which resolves it with `use()` and provides the data to VoteButtons via context or props. This avoids blocking the page render for vote data — votes load in parallel and resolve when ready.
+Action: Update 2 areas. (1) features/chat/components/message.tsx — Render VoteButtons component for assistant messages. Pass chatId, messageId. <!-- audit: VO-4 — cross-feature import exception documented --> (2) Create features/voting/components/vote-resolver.tsx <!-- audit: VO-2 --> — VoteResolver component that uses React 19 `use()` to resolve a deferred vote data promise. (3) app/(chat)/chat/[id]/page.tsx — Use `getCachedVotes()` wrapper (`'use cache'` + `cacheTag('votes:{chatId}')` + `cacheLife('seconds')`) <!-- audit: VO-1 --> to create a votes promise. Only fetch votes for non-guest authenticated users <!-- audit: VO-7 -->. Pass unresolved `votesPromise` to VoteResolver (wrapped in Suspense). VoteResolver resolves with `use()` inside Suspense, then renders VoteButtons directly with `initialVotes` as props. NO vote store — props-only seeding. <!-- audit: VO-3 / SC-3 -->
 
 Output files:
 - features/chat/components/message.tsx (modify)
+- features/voting/components/vote-resolver.tsx (new) <!-- audit: VO-2 -->
 - app/(chat)/chat/[id]/page.tsx (modify)
 
 Inputs: features/voting/components/vote-buttons.tsx (P6-T02), features/voting/hooks/use-votes.ts (P6-T02), lib/data/vote.ts (P1-T09)
@@ -150,7 +151,11 @@ Dependents: P6-T14
 
 Success criteria:
 - VoteButtons render on assistant messages
+- VoteResolver lives at `features/voting/components/vote-resolver.tsx` <!-- audit: VO-2 -->
 - VoteResolver uses React 19 `use()` for deferred vote data (NOT VoteHydrator)
+- VoteResolver receives `votesPromise`, resolves with `use()` inside Suspense, then passes `initialVotes` as props to VoteButtons. NO vote store. VoteResolver renders VoteButtons directly <!-- audit: VO-3 / SC-3 -->
+- `getCachedVotes()` wrapper uses `'use cache'` + `cacheTag('votes:{chatId}')` + `cacheLife('seconds')` <!-- audit: VO-1 -->
+- Vote fetch only for non-guest authenticated users <!-- audit: VO-7 -->
 - Vote data loads in parallel with page render (non-blocking)
 - Optimistic updates via useOptimistic
 - Server Action used for persistence (NOT PATCH /api/vote)
@@ -170,7 +175,7 @@ Type: IMPL
 Behavior ref: features.md (model selection UI)
 Architecture ref: SEAM-016 (model catalog → selector → chat); redesign (grouped by provider, cookie + localStorage persistence)
 
-Action: Create features/models/components/model-selector.tsx — "use client" component. Searchable dropdown with filter input, models grouped by provider. Each model shows name, description, provider logo, capabilities badges. Props: selectedModelId, onModelChange, models (ModelMetadata[]). Selection flow: user picks model → onModelChange(newModelId) called → parent persists to cookie (server-readable) + localStorage. Uses `listChatModels` from features/models/lib/models.ts (with `use cache`).
+Action: Create features/models/components/model-selector.tsx — "use client" component. Searchable dropdown with filter input, models grouped by provider. Each model shows name, description, provider logo, capabilities badges. Props: selectedModelId, onModelChange, models (ModelMetadata[]). Selection flow: user picks model → onModelChange(newModelId) called → parent persists to cookie (server-readable) + localStorage. Uses `listChatModels` from features/models/lib/models.ts (with `use cache`). Model list is populated via `discoverModels()` from the provider registry — dynamic discovery, NOT hardcoded list. <!-- audit: MO-1 — discovery belongs primarily in P3-T01; ModelSelector consumes the discovered list via `listChatModels` -->
 
 Output files:
 - features/models/components/model-selector.tsx
@@ -189,6 +194,7 @@ Success criteria:
 - Models grouped by provider with metadata display
 - Persists to cookie (server-readable) + localStorage
 - Capabilities badges displayed
+- `getDefaultModel(session)` utility available for fallback when no cookie/localStorage selection exists <!-- audit: MO-6 — assigned to features/models/lib/models.ts, created in P3-T01 -->
 - pnpm typecheck passes
 
 Complexity: L
@@ -234,7 +240,7 @@ Type: IMPL
 Behavior ref: features.md (chat visibility toggle)
 Architecture ref: redesign (visibility as own feature module with Server Actions + updateTag)
 
-Action: Create 2 files. (1) features/visibility/types/visibility.types.ts — Visibility types: VisibilityType ("public" | "private"), visibility Zod schema. (2) features/visibility/actions/update-visibility.ts — "use server" action updateChatVisibility({chatId, visibility}). Flow: auth check, validate ownership, update visibility in DB via lib/data/chat.ts, call `updateTag` to invalidate chat and chat-list cache tags. Returns ActionResult<void>. Visibility is its own feature module (NOT mixed into chat feature).
+Action: Create 2 files. (1) features/visibility/types/visibility.types.ts — Visibility types: VisibilityType ("public" | "private"), visibility Zod schema. Zod schema fields: `chatId` (z.string().uuid()), `visibility` (z.enum(["public", "private"])). Export inferred `UpdateVisibilityRequest` type. <!-- audit: VI-6 --> (2) features/visibility/actions/update-visibility.ts — "use server" action updateChatVisibility({chatId, visibility}). Flow: auth check, validate ownership, update visibility in DB via lib/data/chat.ts, call `updateTag` to invalidate chat and chat-list cache tags. Returns ActionResult<void>. Visibility is its own feature module (NOT mixed into chat feature).
 
 Output files:
 - features/visibility/types/visibility.types.ts
@@ -284,6 +290,9 @@ Dependents: P6-T08
 Success criteria:
 - Dropdown with Private and Public options
 - Lock icon for private, globe icon for public
+- Each option has a descriptive subtitle (e.g. "Only you can access", "Anyone with the link can access") <!-- audit: VI-4 -->
+- Check icon shown next to the currently selected option <!-- audit: VI-4 -->
+- Trigger button shows chevron indicator <!-- audit: VI-4 -->
 - Uses useOptimistic for instant feedback
 - Calls Server Action for persistence (NOT SWR optimistic + API route)
 - Reverts on failure + toast error
@@ -303,13 +312,13 @@ Type: INTEG
 Behavior ref: interactions.md (visibility toggle in chat)
 Architecture ref: SEAM-022 (visibility toggle in header)
 
-Action: Update app/(chat)/chat/[id]/page.tsx — Render VisibilitySelector component. Pass chatId and initial visibility from server-fetched chat data. Only render when not readonly and on desktop.
+Action: Update features/chat/components/chat-header.tsx — Render VisibilitySelector component in ChatHeader (NOT page.tsx). <!-- audit: VI-1 / SC-6 --> Pass chatId and initialVisibility. Data flow: `initialVisibility` sourced from server-fetched chat data, passed through page → ChatShell → ChatSessionContext → ChatHeader. <!-- audit: VI-2 --> Only render when not readonly and on desktop.
 
 Output files:
-- app/(chat)/chat/[id]/page.tsx (modify)
+- features/chat/components/chat-header.tsx (modify) <!-- audit: VI-1 / SC-6 -->
 
-Inputs: features/visibility/components/visibility-selector.tsx (P6-T07)
-Outputs: Visibility selector functional in chat page
+Inputs: features/visibility/components/visibility-selector.tsx (P6-T07), features/chat/components/chat-header.tsx (P3-T19)
+Outputs: Visibility selector functional in chat header
 
 AI layer handling: NEW
 
@@ -317,7 +326,8 @@ Dependencies: P6-T07, P3-T25
 Dependents: P6-T14
 
 Success criteria:
-- VisibilitySelector rendered for owned chats
+- VisibilitySelector rendered in ChatHeader (NOT page.tsx) <!-- audit: VI-1 / SC-6 -->
+- `initialVisibility` flows from server-fetched chat data → ChatShell → ChatSessionContext → ChatHeader <!-- audit: VI-2 -->
 - Initial visibility from server data
 - Hidden for readonly chats
 - Visibility changes reflected immediately (useOptimistic)

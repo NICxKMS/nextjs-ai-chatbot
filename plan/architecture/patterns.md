@@ -26,15 +26,12 @@ import { chats } from '@/lib/db/schema'
 import { cache } from '@/lib/cache'
 import { cacheKeys } from '@/lib/cache/keys'
 import type { Chat } from '@/lib/types'
-import type { DataContext } from '@/lib/types/data-context.types'
-
 export async function getChatById(
-  id: string,
-  ctx: DataContext
+  id: string
 ): Promise<Chat | null> {
   // Server cache-tagged read pattern
-  // 1. Resolve ownership/visibility via session context
-  // 2. Read from DB under 'use cache' + cacheTag
+  // Read from DB under 'use cache' + cacheTag
+  // Auth/ownership checks happen at the action/page level, not data level
   const chat = await db.query.chats.findFirst({ where: eq(chats.id, id) })
   return chat ?? null
 }
@@ -59,16 +56,6 @@ export async function deleteChatById(
   await db.delete(chats).where(eq(chats.id, id))
   await cache.del(cacheKeys.chat(id))
   await cache.del(cacheKeys.userChats(userId))
-}
-```
-
-### DataContext
-
-```typescript
-// lib/types/data-context.types.ts
-export type DataContext = {
-  userId: string
-  isGuest: boolean
 }
 ```
 
@@ -103,12 +90,15 @@ export async function withCache<T>(
 ### Rules
 
 - ✅ One file per entity in `lib/data/`
-- ✅ Every read function receives `DataContext`
+- ✅ Read functions use bare-ID signatures (no `DataContext` parameter)
+- ✅ Auth/ownership checks happen at action/page level, not data level
 - ✅ Guest and auth users both use DB persistence
 - ✅ Reads use `'use cache'` + `cacheTag`; writes revalidate tags
 - ✅ Write functions: DB first, then cache update/invalidate
 - ❌ No abstract classes or generics
 - ❌ No direct DB access from actions (go through `lib/data/`)
+
+<!-- audit: HC-3 — bare-ID signatures, no DataContext parameter -->
 
 ---
 
@@ -126,7 +116,6 @@ auth, orchestration, and error handling.
 'use server'
 
 import { getAppSession } from '@/lib/auth/session'
-import type { DataContext } from '@/lib/types/data-context.types'
 import { createMessage } from '@/lib/data/message'
 import { sendMessageSchema } from '@/features/chat/schemas/message.schema'
 import { AppError } from '@/lib/errors'
@@ -144,9 +133,8 @@ export async function saveMessageAction(input: unknown) {
     })
   }
 
-  // 3. Authorize (ownership check)
-  const ctx: DataContext = { userId: session.user.id, isGuest: false }
-  const chat = await getChatById(parsed.data.chatId, ctx)
+  // 3. Authorize (ownership check — at action level, not data level)
+  const chat = await getChatById(parsed.data.chatId)
   if (!chat) throw AppError.notFound('Chat')
   if (chat.userId !== session.user.id) throw AppError.forbidden('Not chat owner')
 
@@ -231,7 +219,6 @@ export async function POST(request: Request) {
 // app/api/history/route.ts
 import { getAppSession } from '@/lib/auth/session'
 import { getChatsByUserId } from '@/lib/data/chat'
-import type { DataContext } from '@/lib/types/data-context.types'
 
 export async function GET(request: Request) {
   const session = await getAppSession()
@@ -239,8 +226,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const limit = Math.min(Number(url.searchParams.get('limit') ?? 20), 100)
   const cursor = url.searchParams.get('cursor') ?? undefined
-  const ctx: DataContext = { userId: session.user.id, isGuest: false }
-  const chats = await getChatsByUserId(ctx.userId, { limit: limit + 1, cursor })
+  const chats = await getChatsByUserId(session.user.id, { limit: limit + 1, cursor })
   const hasMore = chats.length > limit
   const page = chats.slice(0, limit)
   const nextCursor = hasMore ? page[page.length - 1]?.id : undefined
@@ -426,13 +412,11 @@ export class AppError extends Error {
 import { streamText } from 'ai'
 import { createUIMessageStream } from 'ai'
 import { myProvider } from '@/lib/ai/provider'
-import type { DataContext } from '@/lib/types/data-context.types'
 
 export async function streamChatAction(body: ChatRequestBody) {
   const session = await getAppSession()
   if (!session) throw AppError.unauthorized()
 
-  const ctx: DataContext = { userId: session.user.id, isGuest: false }
   const validated = chatRequestSchema.parse(body)
 
   return createUIMessageStream({
@@ -465,11 +449,13 @@ export async function streamChatAction(body: ChatRequestBody) {
     },
     onFinish: async () => {
       // Persist messages and revalidate cache
-      await saveChat(chatId, messages, ctx)
+      await saveChat(chatId, messages)
     },
   })
 }
 ```
+
+<!-- audit: HC-3 — removed DataContext (ctx) from saveChat call -->
 
 ### 7.2 ChatStreamProvider / StreamBridge (Split Context)
 
@@ -532,11 +518,11 @@ Client: StreamBridge processes parts → processStreamDelta() → artifact store
 // features/chat/components/chat-shell.tsx (~60 lines)
 'use client'
 
-import { useChat } from '@ai-sdk/react'
 import { ChatSessionContext } from '@/features/chat/hooks/use-chat-session-context'
+import { useChatSession } from '@/features/chat/hooks/use-chat-session'
 
-export function ChatShell({ chatId, initialMessages }: ChatShellProps) {
-  const chatSession = useChat({ id: chatId, initialMessages })
+export function ChatShell(props: ChatShellProps) {
+  const chatSession = useChatSession(props)
   return (
     <ChatSessionContext.Provider value={chatSession}>
       <ChatHeader />
@@ -597,9 +583,15 @@ while the chat page streams — no waterfall. The `<Suspense>` boundary around
 
 ## 8. Caching Patterns
 
-### 8.1 Redis Cache (User-Specific, Real-Time)
+### 8.1 Redis Cache (Operational)
 
-Used for: chat data, messages, artifacts, rate limits.
+> **Updated per Wave 4 reconciliation (HC-2, 2026-03-02):** Redis scope corrected.
+> Primary reads (chat, messages, artifacts, votes) use `'use cache'` + `cacheTag` (see §8.2 and §9).
+> Redis is reserved for rate limiting, session cache, and operational data.
+
+<!-- audit: HC-2 — Redis scope corrected to operational only -->
+
+Used for: rate limits, session cache, operational data.
 
 ```typescript
 // Read pattern
@@ -613,9 +605,11 @@ await cache.set(cacheKeys.chat(id), chat, { ex: 3600 })
 await cache.del(cacheKeys.userChats(userId))
 ```
 
-### 8.2 `use cache` (Server-Rendered, Shared)
+### 8.2 `use cache` (Server-Rendered, Tag-Invalidated)
 
-Used for: model catalog, pricing data, static config.
+<!-- audit: HC-2 — expanded use cache scope to include primary reads -->
+
+Used for: primary read paths (chat, chat history, artifacts, votes), model catalog, pricing data, static config.
 
 ```typescript
 // lib/ai/catalog.ts

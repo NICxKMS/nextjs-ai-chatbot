@@ -40,6 +40,7 @@ Carried over from `oldapp/package.json` with version pins verified:
 
 **Key decisions:**
 - `reactCompiler: true` — React Compiler for automatic memoization
+- `cacheComponents: true` — Enable component-level caching (Next.js 16) <!-- audit: SC-V4 -->
 - No `serverExternalPackages` unless needed by specific dependencies
 
 ---

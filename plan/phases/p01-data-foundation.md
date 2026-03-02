@@ -27,7 +27,7 @@
 | P1-T08 | Create artifact data access | IMPL | L | 1 |
 | P1-T09 | Create vote data access | IMPL | S | 1 |
 | P1-T10 | Create suggestion data access | IMPL | S | 1 |
-| P1-T11 | Create AI provider registry | IMPL | M | 2 |
+| P1-T11 | Create AI provider registry | IMPL | M | 1 |
 | P1-T12 | Create AI provider wrapper | IMPL | M | 1 |
 | P1-T13 | Create test fixtures | IMPL | M | 4 |
 | P1-T14 | Verification gate G01 | VERIFY | S | 0 |
@@ -154,26 +154,26 @@ Title: Create cache-through helper
 Phase: 1 — Data Foundation
 Type: IMPL
 
-Behavior ref: data-flows.md (cache-aside pattern implementation)
-Architecture ref: architecture/patterns.md (cache-aside with withCache helper)
+Behavior ref: data-flows.md (server cache strategy — `'use cache'` + `cacheTag`)
+Architecture ref: architecture/patterns.md (framework caching via `'use cache'`); architecture/decisions.md (ADR-007: `use cache` for primary reads) <!-- audit: HC-2 -->
 
-Action: Create lib/cache/with-cache.ts — Generic withCache<T>(key, fetcher, ttl?) function that checks cache first, on miss calls fetcher(), stores result with TTL, returns result. Handles cache errors gracefully (falls back to fetcher). Export invalidate(key) for cache busting after mutations.
+Action: Create lib/cache/with-cache.ts — Utility helper for `'use cache'` patterns. Provides a `withCache<T>(tag, fetcher, life?)` wrapper that applies `'use cache'` directive, `cacheTag(tag)`, and optional `cacheLife(life)` to a fetcher function. This is a convenience wrapper around Next.js cache directives — **NOT a Redis cache-through layer**. Redis is reserved for rate limiting and operational data only (see P1-T02). Export tag-based invalidation helpers that call `updateTag`/`revalidateTag`.
 
 Output files:
 - lib/cache/with-cache.ts
 
-Inputs: lib/cache/client.ts (P1-T02), lib/cache/keys.ts (P1-T02)
-Outputs: Cache-through helper consumed by data access functions (P1-T05 through P1-T09)
+Inputs: Next.js `'use cache'` directive, `cacheTag`/`cacheLife` from `next/cache`
+Outputs: Cache utility consumed by data access functions (P1-T05 through P1-T09)
 
 AI layer handling: NEW
 
-Dependencies: P1-T02
+Dependencies: P1-T02 (for cache key patterns only)
 Dependents: P1-T06, P1-T07, P1-T08
 
 Success criteria:
-- withCache returns cached value on hit, fetcher value on miss
-- Cache errors do not propagate (fallback to fetcher)
-- invalidate(key) busts the cache entry
+- withCache wraps fetcher with `'use cache'` + `cacheTag` + optional `cacheLife`
+- **Not a Redis cache-through helper** — uses Next.js framework caching
+- Tag-based invalidation via `updateTag`/`revalidateTag` from `next/cache`
 - pnpm typecheck passes
 
 Complexity: S
@@ -234,8 +234,8 @@ Dependencies: P0-T04, P0-T05, P0-T08, P1-T03, P1-T04
 Dependents: P3-T09, P3-T10, P3-T22, P5 (sidebar)
 
 Success criteria:
-- getChatById uses withCache with chatMeta key
-- getChatWithMessages co-fetches chat + messages in a single query, cached with chat:{id} tag
+- getChatById uses `'use cache'` + `cacheTag('chat:{id}')` (via withCache helper or direct directive) <!-- audit: HC-2 -->
+- getChatWithMessages co-fetches chat + messages in a single query, cached with `cacheTag('chat:{id}')`
 - deleteAllChats removes all chats + messages for a user and invalidates all relevant caches
 - All mutation functions invalidate relevant cache entries
 - Ownership check: functions verify userId matches chat.userId
@@ -383,24 +383,26 @@ Type: IMPL
 Behavior ref: ai-sdk-usage.md (provider registry baseline + model resolution)
 Architecture ref: ../../plan-archives/redesign/ai-integration.md (provider registry)
 
-Action: Create `lib/ai/registry.ts` — Provider registry mapping ProviderId to AI SDK provider instances. Baseline providers are conditional `google`, `openai`, and `openrouter` only. OpenRouter uses `createOpenAI({ apiKey: OPENROUTER_API_KEY, baseURL: 'https://openrouter.ai/api/v1' })`. Export registry/model resolver utilities consumed by provider wrapper and chat features.
+Action: Create `lib/ai/registry.ts` — Use `createProviderRegistry()` from AI SDK to build a registry of conditional providers: `google` (always), `openai` (if `OPENAI_API_KEY`), `openrouter` (if `OPENROUTER_API_KEY`, via `createOpenAI` with OpenRouter base URL). Export `registry` as the single entry point for model resolution (`registry.languageModel(modelId)`). **NO custom `getProvider()`/`getModel()` functions.** **NO `MODEL_LIST`** (model catalog is P3-T01 scope). <!-- audit: DF-AP1, DF-AP3, DF-AP4 -->
 
 Output files:
 - lib/ai/registry.ts
 
-Inputs: lib/types/model.types.ts (P0-T05), AI SDK packages
-Outputs: AI provider registry consumed by chat route (P3), model selector (P6)
+Inputs: AI SDK packages (`ai`, `@ai-sdk/openai`, `@ai-sdk/google`)
+Outputs: `registry` consumed by `lib/ai/provider.ts` (P1-T12), model discovery (P3-T01)
 
 AI layer handling: NEW
 
-Dependencies: P0-T05, P0-T18
+Dependencies: P0-T18
 Dependents: P1-T12, P3-T01
 
 Success criteria:
-- getProvider returns correct AI SDK provider for each ProviderId
-- getModel parses "openai:gpt-4o" format and returns LanguageModel
-- MODEL_LIST contains all supported models with metadata
-- No hardcoded model strings outside this module
+- `registry` exported via `createProviderRegistry()` from `ai` package
+- Conditional provider inclusion based on env var presence
+- OpenRouter configured via `createOpenAI({ baseURL: 'https://openrouter.ai/api/v1' })`
+- **No `getProvider()` or `getModel()` custom functions** — use `registry.languageModel(modelId)` directly
+- **No `MODEL_LIST`** — model catalog belongs in P3-T01
+- File count: 1 (`lib/ai/registry.ts` only)
 - pnpm typecheck passes
 
 Complexity: M
@@ -413,25 +415,26 @@ Phase: 1 — Data Foundation
 Type: IMPL
 
 Behavior ref: ai-sdk-usage.md (streaming, tool calling, message conversion)
-Architecture ref: ../../plan-archives/redesign/ai-integration.md (customModel wrapper)
+Architecture ref: ../../plan-archives/redesign/ai-integration.md (myProvider wrapper) <!-- audit: DF-AP7 -->
 
-Action: Create lib/ai/provider.ts — Export customModel(modelId: string) wrapper that uses getModel() from P1-T11 and applies standard middleware: usage tracking, error wrapping (AI errors → AppError.aiError), request/response logging in development. The wrapper preserves the LanguageModel interface so it's a drop-in replacement for direct model calls. This is the only place AI SDK models are instantiated for chat.
+Action: Create `lib/ai/provider.ts` — Use `customProvider()` from AI SDK to export `myProvider`. The provider resolves models via `registry.languageModel(modelId)` (from P1-T11) and applies `extractReasoningMiddleware` with per-model-prefix reasoning tag patterns (e.g., `openai:o` → `{ tagName: 'thinking' }`, `google:gemini-2.5` → `{ tagName: 'thinking' }`, `openrouter:deepseek/deepseek-r1` → `{ tagName: 'think' }`). Uses `wrapLanguageModel()` to apply middleware. **NO usage tracking middleware. NO error wrapping middleware. NO logging middleware.** This is the single entry point for obtaining language models throughout the app. <!-- audit: DF-AP1, DF-AP2 -->
 
 Output files:
 - lib/ai/provider.ts
 
-Inputs: lib/ai/registry.ts (P1-T11), lib/errors/ (P0-T08)
-Outputs: customModel wrapper consumed by chat route (P3-T01)
+Inputs: lib/ai/registry.ts (P1-T11), `ai` package (`customProvider`, `wrapLanguageModel`, `extractReasoningMiddleware`)
+Outputs: `myProvider` consumed by chat route (P3-T01)
 
 AI layer handling: NEW
 
-Dependencies: P0-T08, P1-T11
+Dependencies: P1-T11
 Dependents: P3-T01
 
 Success criteria:
-- customModel("openai:gpt-4o") returns a valid LanguageModel
-- Errors wrapped in AppError.aiError
-- Development logging works
+- `myProvider` exported via `customProvider()` from `ai` package
+- `myProvider.languageModel(modelId)` returns a valid LanguageModel
+- Reasoning middleware applied conditionally per model prefix via `extractReasoningMiddleware`
+- **No usage tracking, no error wrapping, no logging middleware** (only reasoning extraction)
 - pnpm typecheck passes
 
 Complexity: M
@@ -481,7 +484,7 @@ Type: VERIFY
 Behavior ref: N/A
 Architecture ref: AGENTS.md (post-implementation validation); strategy/phase-order.md (gate G01)
 
-Action: Run complete validation: (1) pnpm typecheck passes, (2) pnpm lint passes, (3) pnpm format passes. Verify: import { db } from "@/lib/db/client" resolves, import { withCache } from "@/lib/cache/with-cache" resolves, import { invalidateChat, refreshChat } from "@/lib/cache/revalidate" resolves, import { getChatById } from "@/lib/data/chat" resolves with correct return type, import { getArtifactById } from "@/lib/data/artifact" resolves (NOT document), import { getSuggestionsByArtifactId } from "@/lib/data/suggestion" resolves, import { getProvider, getModel } from "@/lib/ai/registry" resolves, import { customModel } from "@/lib/ai/provider" resolves. Verify **no lib/data/document.ts exists**. Verify **no credit/quota data functions exist**.
+Action: Run complete validation: (1) pnpm typecheck passes, (2) pnpm lint passes, (3) pnpm format passes. Verify: import { db } from "@/lib/db/client" resolves, import { withCache } from "@/lib/cache/with-cache" resolves, import { invalidateChat, refreshChat } from "@/lib/cache/revalidate" resolves, import { getChatById } from "@/lib/data/chat" resolves with correct return type, import { getArtifactById } from "@/lib/data/artifact" resolves (NOT document), import { getSuggestionsByArtifactId } from "@/lib/data/suggestion" resolves, import { registry } from "@/lib/ai/registry" resolves (**no `getProvider`/`getModel`**), import { myProvider } from "@/lib/ai/provider" resolves (**no `customModel`**). Verify **no lib/data/document.ts exists**. Verify **no credit/quota data functions exist**. <!-- audit: DF-AP1, DF-AP3 -->
 
 Output files: none (validation only)
 

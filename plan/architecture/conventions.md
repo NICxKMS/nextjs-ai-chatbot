@@ -257,7 +257,13 @@ nextjs-ai-chatbot/
 | Zod schemas | `camelCase` with `Schema` suffix | `chatSchema`, `loginSchema`, `artifactSchema` |
 | Route handlers | HTTP method exports | `GET`, `POST`, `DELETE` |
 | Data access fns | `camelCase` verb-noun | `getChatById`, `getArtifactById`, `saveArtifactVersion` |
-| Cache tags | `entity:{id}` template | `'chat:{id}'`, `'artifact:{id}'`, `'votes:{chatId}'` |
+| Cache tags | `entity:{id}` template | `'chat:{id}'`, `'chats:{userId}'`, `'artifact:{id}'`, `'votes:{chatId}'`, `'models'` |
+
+> **Updated per Wave 4 reconciliation (CI-5, 2026-03-02):** Added `chats:{userId}` and
+> `models` to cache tag examples for completeness.
+
+<!-- audit: CI-5 — cache tag examples expanded -->
+
 | Data stream parts | `artifact-` or `chat-` prefix | `'artifact-textDelta'`, `'chat-title'` |
 | Revalidation fns | verb-entity | `invalidateChat()` (SA), `refreshChat()` (RH) |
 | Cache keys | `camelCase` factory | `cacheKeys.chat(id)` |
@@ -362,6 +368,24 @@ lib/ ────────→ nothing above
 | `features/X/` | `features/Y/components/` | Feature components are internal |
 | `app/` | `app/` (other routes) | Routes don't cross-import |
 
+### Cross-Feature Communication Ban: No `window.dispatchEvent`
+
+> **Added per Wave 4 reconciliation (CI-4, 2026-03-02):** Elevates redesign non-negotiable
+> constraint #10 to a named convention rule.
+
+<!-- audit: CI-4 — window.dispatchEvent ban codified as named principle -->
+
+**`window.dispatchEvent` is FORBIDDEN for cross-feature communication.** All cross-feature
+data flows must use typed APIs: React Context, props, Server Actions, or the documented
+cross-feature import exceptions above. The `window.dispatchEvent` pattern bypasses type
+safety, is untraceable by static analysis, and creates hidden coupling between features.
+
+Known removed usages (from old codebase):
+- `window.dispatchEvent('chat-title-updated')` — replaced by `PendingChats.updateTitle()` single channel
+- `pollForTitle()` 3×500ms — replaced by server-awaited title before stream close
+
+This ban is enforced by `grep -r "window.dispatchEvent"` in P7-T13's verification checklist.
+
 ### Allowed Cross-Feature Imports
 
 Features may import from other features' **data types and schemas only**:
@@ -379,6 +403,17 @@ import { Chat } from '@/features/chat/components/chat'
 
 ### Cross-Feature Import Exceptions
 
+> **Updated per Wave 4 reconciliation (CR-1/SB-W3, 2026-03-02):** Expanded from 5 to 7
+> exceptions. Added annotation-based override principle. `deleteChat`/`deleteAllChats`
+> and `updateChatVisibility` annotated as consumed by sidebar.
+
+<!-- audit: CR-1 — annotation-based override principle added -->
+<!-- audit: SB-W3, CR-1 — 5 curated boundary exceptions documented -->
+
+**Principle:** Public exports annotated with consumer lists in §1 (directory structure)
+override the FORBIDDEN restrictions in the table above for those named consumers. This
+makes the exception mechanism systematic, not ad-hoc.
+
 The following cross-feature implementation imports are intentionally allowed beyond the `lib/types/*` contract layer:
 
 | Import | From | To | Rationale |
@@ -388,6 +423,8 @@ The following cross-feature implementation imports are intentionally allowed bey
 | `VoteButtons` | `features/voting/components/vote-buttons.tsx` | `features/chat/components/message.tsx` | UI composition — voting is per-message |
 | `VisibilitySelector` | `features/visibility/components/visibility-selector.tsx` | `features/chat/components/chat-header.tsx` | UI composition — visibility is per-chat |
 | `ModelSelector` | `features/models/components/model-selector.tsx` | `features/chat/components/chat-header.tsx` | UI composition — model selection is per-chat |
+| `deleteChat`, `deleteAllChats` | `features/chat/actions/delete-chat.ts`, `delete-all-chats.ts` | `features/sidebar/components/sidebar-history-item.tsx` | Sidebar triggers chat deletion; annotated consumer |
+| `updateChatVisibility` | `features/visibility/actions/update-visibility.ts` | `features/sidebar/components/sidebar-history-item.tsx` | Sidebar triggers visibility change via Share submenu; annotated consumer |
 
 All other cross-feature imports must go through shared types in `lib/types/*`.
 

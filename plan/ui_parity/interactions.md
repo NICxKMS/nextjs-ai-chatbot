@@ -54,7 +54,8 @@
    - `artifact-title` → set artifact title
    - `artifact-kind` → set artifact kind (text/code/image/sheet)
    - `artifact-clear` → clear artifact content
-   - `artifact-textDelta` / `artifact-codeDelta` / `artifact-sheetDelta` / `artifact-imageDelta` → append content
+   - `artifact-textDelta` → append content to current text
+   - `artifact-codeDelta` / `artifact-sheetDelta` / `artifact-imageDelta` → replace current content with full frame
    - `artifact-finish` → mark artifact complete
 3. Artifact panel opens with spring animation
    - `AnimatePresence mode="wait"` with opacity + horizontal slide
@@ -88,7 +89,7 @@
 
 ### Close Flow
 
-1. `ArtifactCloseButton` click → `setArtifact({ ...initialArtifactData })` or hide if streaming
+1. `ArtifactCloseButton` click → set `isVisible: false` on artifact state (pure visibility toggle; content/metadata preserved until chat lifecycle reset)
 2. On mobile: always full-screen, close returns to chat
 
 ---
@@ -231,9 +232,8 @@
 
 #### Behavior Toggles
 - **Enable Reasoning:** `SettingToggle` (aria-pressed)
-- **Stream Artifacts:** `SettingToggle`
-- **Auto-scroll:** `SettingToggle`
 - Toggle visual: pill slider On/Off
+- No dedicated toggles for "Stream Artifacts" or "Auto-scroll" after redesign — artifacts always stream, and auto-scroll is handled by `useScrollToBottom` (see Scroll Behavior), not as a user-facing setting.
 
 ### Reset
 - "Reset to defaults" button in footer

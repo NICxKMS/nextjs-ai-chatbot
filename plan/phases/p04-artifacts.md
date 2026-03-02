@@ -88,7 +88,7 @@ Success criteria:
 - ArtifactKind includes all 4 types
 - UIArtifact includes artifactId (NOT documentId), title, kind, content, isVisible, status
 - initialArtifactData exported with sensible defaults
-- ArtifactHandler interface defines kind, onCreateArtifact, onUpdateArtifact
+- ArtifactHandler interface defines `create(params)` and `update(params)` methods (no `kind` property — kind is the registry Map key) <!-- Wave 4: AR-4 / SC-1 / DA-1 — aligned to redesign naming-conventions.md §2. Was `onCreateArtifact`/`onUpdateArtifact`. -->
 - createArtifactSchema validates title + kind
 - deleteArtifactVersionSchema validates id + timestamp
 - suggestionResponseSchema validates array of max 5 suggestions
@@ -124,6 +124,7 @@ Dependents: P4-T03, P4-T11, P4-T17
 Success criteria:
 - Store uses `useSyncExternalStore` pattern (NOT SWR synthetic key)
 - getSnapshot() returns current UIArtifact
+- getServerSnapshot() returns `INITIAL_ARTIFACT` (SSR-safe fallback for useSyncExternalStore) <!-- Wave 4: AR-5 — useSyncExternalStore requires getServerSnapshot for SSR. -->
 - subscribe() registers listener, returns unsubscribe
 - setState() accepts updater function, notifies subscribers
 - reset() returns to initialArtifactData
@@ -143,7 +144,7 @@ Type: IMPL
 Behavior ref: state-management.md (useArtifact, useArtifactSelector)
 Architecture ref: redesign (re-exports from useSyncExternalStore store)
 
-Action: Create 2 files. (1) features/artifacts/hooks/use-artifact.ts — "use client" hook useArtifact() that wraps `useSyncExternalStore(store.subscribe, store.getSnapshot)`. Exposes: artifact (UIArtifact), setArtifact(updater), resetArtifact(). Thin re-export from artifact-store.ts. (2) features/artifacts/hooks/use-artifact-selector.ts — "use client" hook useArtifactSelector<T>(selector: (artifact: UIArtifact) => T) that subscribes to a derived slice of artifact state. Uses `useSyncExternalStore` with a selector-based getSnapshot that only triggers re-render when the selected value changes. Prevents unnecessary re-renders.
+Action: Create 2 files. (1) features/artifacts/hooks/use-artifact.ts — "use client" hook useArtifact() that wraps `useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot)`. Exposes: artifact (UIArtifact), setArtifact(updater), resetArtifact(). Thin re-export from artifact-store.ts. (2) features/artifacts/hooks/use-artifact-selector.ts — "use client" hook useArtifactSelector<T>(selector: (artifact: UIArtifact) => T) that subscribes to a derived slice of artifact state. Uses `useSyncExternalStore` with a selector-based getSnapshot that only triggers re-render when the selected value changes. Passes `getServerSnapshot` with selector applied to `INITIAL_ARTIFACT` for SSR safety. Prevents unnecessary re-renders. <!-- Wave 4: AR-6 — server snapshot selector added for SSR-safe useArtifactSelector. -->
 
 Output files:
 - features/artifacts/hooks/use-artifact.ts
@@ -178,7 +179,7 @@ Type: IMPL
 Behavior ref: artifacts-system.md (text handler: streamText → artifact-textDelta; code handler: streamObject → artifact-codeDelta)
 Architecture ref: SEAM-009, SEAM-010 (createArtifact/updateArtifact → handlers); redesign (ArtifactHandler type, handler registration)
 
-Action: Create 2 files. (1) features/artifacts/handlers/text-handler.ts — Implements ArtifactHandler for kind "text". onCreateArtifact: calls AI SDK streamText() with artifact model, text-specific system prompt ("write Markdown, no code blocks"), title as user message, streams `artifact-textDelta` parts (APPEND delta). Returns full text content for persistence. onUpdateArtifact: receives existing content + update description, calls streamText() with context, streams `artifact-textDelta` parts. (2) features/artifacts/handlers/code-handler.ts — Implements ArtifactHandler for kind "code". onCreateArtifact: calls AI SDK streamObject() with Zod schema z.object({ code: z.string() }), code-specific system prompt ("self-contained Python, use print(), max 15 lines"), streams `artifact-codeDelta` parts (REPLACE delta). onUpdateArtifact: receives existing code + description, calls streamObject(). Both handlers write standard artifact stream preamble/postamble: artifact-kind, artifact-id, artifact-title, artifact-clear before content, artifact-finish after. Both persist via lib/data/artifact.ts saveArtifactVersion().
+Action: Create 2 files. (1) features/artifacts/handlers/text-handler.ts — Implements ArtifactHandler for kind "text". `create(params)`: calls AI SDK streamText() with artifact model, text-specific system prompt ("write Markdown, no code blocks"), title as user message, streams `artifact-textDelta` parts (APPEND delta). Returns full text content for persistence. `update(params)`: receives existing content + update description, calls streamText() with context, streams `artifact-textDelta` parts. (2) features/artifacts/handlers/code-handler.ts — Implements ArtifactHandler for kind "code". `create(params)`: calls AI SDK streamObject() with Zod schema z.object({ code: z.string() }), code-specific system prompt ("self-contained Python, use print(), max 15 lines"), streams `artifact-codeDelta` parts (REPLACE delta). `update(params)`: receives existing code + description, calls streamObject(). Both handlers write standard artifact stream preamble/postamble: artifact-kind, artifact-id, artifact-title, artifact-clear before content, artifact-finish after. Both persist via lib/data/artifact.ts saveArtifactVersion(). <!-- Wave 4: AR-4 — handler methods named `create`/`update` per redesign. -->
 
 Output files:
 - features/artifacts/handlers/text-handler.ts
@@ -214,7 +215,7 @@ Type: IMPL
 Behavior ref: artifacts-system.md (sheet handler: streamObject → artifact-sheetDelta; image: no AI generation)
 Architecture ref: SEAM-034, SEAM-035; redesign (ArtifactHandler type)
 
-Action: Create 2 files. (1) features/artifacts/handlers/sheet-handler.ts — Implements ArtifactHandler for kind "sheet". onCreateArtifact: calls AI SDK streamObject() with Zod schema z.object({ csv: z.string() }), sheet-specific system prompt ("generate CSV with headers"), streams `artifact-sheetDelta` parts (REPLACE delta). onUpdateArtifact: receives existing CSV + description, calls streamObject(). Writes standard artifact stream preamble/postamble. Persists via saveArtifactVersion(). (2) features/artifacts/handlers/image-handler.ts — Minimal handler for kind "image". Image artifacts are NOT created via AI generation — they are created by code execution (Pyodide matplotlib output). onCreateArtifact saves provided content (base64 data URL). onUpdateArtifact is a no-op returning existing content. Exists for type completeness and version persistence only.
+Action: Create 2 files. (1) features/artifacts/handlers/sheet-handler.ts — Implements ArtifactHandler for kind "sheet". `create(params)`: calls AI SDK streamObject() with Zod schema z.object({ csv: z.string() }), sheet-specific system prompt ("generate CSV with headers"), streams `artifact-sheetDelta` parts (REPLACE delta). `update(params)`: receives existing CSV + description, calls streamObject(). Writes standard artifact stream preamble/postamble. Persists via saveArtifactVersion(). (2) features/artifacts/handlers/image-handler.ts — Minimal handler for kind "image". Image artifacts are NOT created via AI generation — they are created by code execution (Pyodide matplotlib output). `create(params)` saves provided content (base64 data URL). `update(params)` is a no-op returning existing content. Exists for type completeness and version persistence only. <!-- Wave 4: AR-4 — handler methods named `create`/`update` per redesign. -->
 
 Output files:
 - features/artifacts/handlers/sheet-handler.ts
@@ -232,7 +233,7 @@ Success criteria:
 - Sheet handler streams `artifact-sheetDelta` parts (REPLACE)
 - Sheet handler uses streamObject with z.object({ csv: z.string() })
 - Image handler saves content without AI generation
-- Image handler onUpdateArtifact returns existing content (no-op)
+- Image handler `update(params)` returns existing content (no-op) <!-- Wave 4: AR-4 — was `onUpdateArtifact`. -->
 - Both write standard artifact stream preamble/postamble
 - Zero "document" identifiers
 - pnpm typecheck passes
@@ -249,7 +250,7 @@ Type: IMPL
 Behavior ref: artifacts-system.md (handler registration pattern)
 Architecture ref: redesign (side-effect: registers all handlers into lib/ai/artifact-handlers.ts on import)
 
-Action: Create features/artifacts/handlers/index.ts — Side-effect module that imports all 4 handlers (text, code, sheet, image) and registers them into the handler registry at `lib/ai/artifact-handlers.ts` via `registerArtifactHandler()`. This file is imported by the chat API route to ensure all handlers are available before tool execution. The registration happens at module evaluation time (side-effect import pattern). This enables dependency inversion: tools depend on the registry interface, handlers register themselves. The registry uses `getArtifactHandler(kind)` for lookup.
+Action: Create features/artifacts/handlers/index.ts — Side-effect module that imports all 4 handlers (text, code, sheet, image) and registers them into the handler registry at `lib/ai/artifact-handlers.ts` via `registerArtifactHandler()`. This file is imported by the chat API route to ensure all handlers are available before tool execution. The registration happens at module evaluation time (side-effect import pattern). This enables dependency inversion: tools depend on the registry interface, handlers register themselves. The registry uses `getArtifactHandler(kind)` for lookup. Note: all 4 handlers are registered (text, code, sheet, image) for update/persistence support; the `createArtifact` tool's kind enum exposes only 3 kinds (text, code, sheet) since image artifacts are created via code execution, not AI generation. <!-- Wave 4: AR-7 — clarified 4-handler registration vs 3-kind tool enum. -->
 
 Output files:
 - features/artifacts/handlers/index.ts
@@ -418,7 +419,7 @@ Type: IMPL
 Behavior ref: artifacts-system.md (panel layout, visibility logic, AnimatePresence)
 Architecture ref: SEAM-012 (artifact stream → panel); redesign (ArtifactPanel naming)
 
-Action: Create features/artifacts/components/artifact-panel.tsx — "use client" memo component. The main artifact panel overlay. Layout: fixed overlay z-50 h-dvh w-dvw. Desktop: 400px ArtifactMessages sidebar + remaining for editor content. Mobile: full-screen (no message sidebar). AnimatePresence for open/close with spring animation. Internal state: mode ("edit" | "diff"), artifact (fetched versions), currentVersionIndex, isContentDirty, isToolbarVisible. Routes to correct editor by artifact.kind: text → TextEditor, code → CodeEditor, sheet → SheetEditor, image → ImageEditor. Includes: ArtifactCloseButton, ArtifactActions, VersionFooter, Toolbar, ArtifactErrorBoundary wrapping editor content. Uses `useArtifactSelector` for visibility-driven rendering.
+Action: Create features/artifacts/components/artifact-panel.tsx — "use client" memo component. The main artifact panel overlay. Layout: fixed overlay z-50 h-dvh w-dvw. Full-width editor content on all screen sizes (no separate message sidebar). AnimatePresence for open/close with spring animation. Internal state: mode ("edit"), artifact (fetched versions), currentVersionIndex, isContentDirty. Routes to correct editor by artifact.kind: text → TextEditor, code → CodeEditor, sheet → SheetEditor, image → ImageEditor. Includes: ArtifactCloseButton, ArtifactActions, VersionFooter, ArtifactErrorBoundary wrapping editor content. Uses `useArtifactSelector` for visibility-driven rendering. Version data fetched via SWR (`useSWR`) keyed on artifact ID for client-side caching and revalidation. <!-- Wave 4: AR-1 (CRITICAL) removed ArtifactMessages sidebar — redesign explicitly removed the 400px message sidebar. AR-2 removed standalone Toolbar — consolidated into ArtifactActions (P4-T12). AR-3 removed vestigial `isToolbarVisible` state. AR-8 removed dead "diff" mode — not implemented this phase; deferred to post-MVP. AR-9 specified SWR as version-fetching mechanism. -->
 
 Output files:
 - features/artifacts/components/artifact-panel.tsx
@@ -434,13 +435,15 @@ Dependents: P4-T17
 Success criteria:
 - Panel renders as fixed overlay when artifact.isVisible is true
 - Routes to correct editor based on artifact.kind
-- Desktop layout: 400px message sidebar + editor area
-- Mobile layout: full-screen editor only
+- Full-width editor content, no ArtifactMessages sidebar <!-- Wave 4: AR-1 -->
 - AnimatePresence open/close animation
 - Version navigation tracks currentVersionIndex
-- Artifact versions fetched for version data
+- Artifact versions fetched via SWR (`useSWR`) keyed on artifact ID <!-- Wave 4: AR-9 -->
 - ArtifactErrorBoundary wraps editor content
-- Uses useArtifactSelector (not SWR) for state
+- Uses useArtifactSelector (not SWR) for artifact state; SWR used only for version data fetching
+- No standalone Toolbar component — actions consolidated into ArtifactActions <!-- Wave 4: AR-2 -->
+- No `isToolbarVisible` internal state <!-- Wave 4: AR-3 -->
+- Mode state is `"edit"` only (diff deferred to post-MVP) <!-- Wave 4: AR-8 -->
 - pnpm typecheck passes
 
 Complexity: L
@@ -455,7 +458,7 @@ Type: IMPL
 Behavior ref: artifacts-system.md (actions, close button, version footer)
 Architecture ref: SEAM-039 (version navigation + restore); redesign (useArtifactSelector)
 
-Action: Create 3 files. (1) features/artifacts/components/artifact-actions.tsx — Memo component. Renders per-kind action buttons. Each action receives ArtifactActionContext and renders as Button + Tooltip. Uses `useArtifactSelector` for state access. (2) features/artifacts/components/artifact-close-button.tsx — Memo component (always skips re-render). On click: calls resetArtifact() from store or hides if streaming. Uses `useArtifactSelector`. (3) features/artifacts/components/version-footer.tsx — Version navigation. Shows "Version {n} of {total}" with prev/next/restore/latest buttons. handleVersionChange("prev"|"next"|"toggle"|"latest"). Restore uses `POST /api/artifact` restore mode payload (`{ id, timestamp, mode: "restore" }`) to remove later versions. Uses motion for mount animation.
+Action: Create 3 files. (1) features/artifacts/components/artifact-actions.tsx — Memo component. Renders per-kind action buttons. Each action receives ArtifactActionContext and renders as Button + Tooltip. Uses `useArtifactSelector` for state access. (2) features/artifacts/components/artifact-close-button.tsx — Memo component (always skips re-render). On click: sets `isVisible: false` on artifact state via store (pure visibility toggle; reset handled by chat lifecycle events per state-management/streaming specs). Uses `useArtifactSelector`. (3) features/artifacts/components/version-footer.tsx — Version navigation. Shows "Version {n} of {total}" with prev/next/restore/latest buttons. handleVersionChange("prev"|"next"|"toggle"|"latest"). Restore uses `POST /api/artifact` restore mode payload (`{ id, timestamp, mode: "restore" }`) to remove later versions. Uses motion for mount animation.
 
 Output files:
 - features/artifacts/components/artifact-actions.tsx
@@ -472,7 +475,7 @@ Dependents: P4-T11
 
 Success criteria:
 - ArtifactActions renders correct buttons for each artifact kind
-- ArtifactCloseButton resets or hides artifact state
+- ArtifactCloseButton toggles artifact panel visibility only (sets `isVisible: false` on close; reset handled by chat lifecycle events per state-management/streaming specs)
 - VersionFooter shows version info with navigation buttons
 - Restore deletes later versions via API using artifactId (NOT documentId)
 - All components use useArtifactSelector for state
@@ -625,7 +628,7 @@ Type: INTEG
 Behavior ref: state-management.md (StreamBridge → artifactStore → panel)
 Architecture ref: SEAM-012 (artifact stream → panel); SEAM-037 (Pyodide script); redesign (ChatShell orchestrator, StreamBridge → artifactStore)
 
-Action: Update 2 files. (1) features/chat/components/chat-shell.tsx — Conditionally render ArtifactPanel when artifact is visible. ArtifactPanel loaded via dynamic import for code splitting. Visibility controlled by `useArtifactSelector(a => a.isVisible)`. (2) Wire StreamBridge to push artifact stream parts (artifact-textDelta, artifact-codeDelta, artifact-sheetDelta, artifact-imageDelta) into the artifactStore via `setState()`. StreamBridge is a thin bridge (~20 lines) that calls `processStreamDelta()` → `artifactStore.setState()`. ChatStreamProvider carries stream-state only (artifact state remains in `artifactStore`, not provider context).
+Action: Update 2 files. (1) features/chat/components/chat-shell.tsx — Conditionally render ArtifactPanel when artifact is visible. ArtifactPanel loaded via dynamic import for code splitting. Visibility controlled by `useArtifactSelector(a => a.isVisible)`. (2) Wire StreamBridge's `onArtifactDelta` callback (output interface from P3-T20) to `artifactStore.setState()`. This is the task that connects StreamBridge's typed callback to the real artifact store — P3-T20 only defines the callback interface with a no-op default; P4-T17 provides the real implementation. StreamBridge is a thin bridge (~20 lines) that calls `processStreamDelta()` → `artifactStore.setState()`. ChatStreamProvider carries stream-state only (artifact state remains in `artifactStore`, not provider context). <!-- Wave 4: SC-4 — clarified that P4-T17 (not P3-T20) wires `onArtifactDelta` to `artifactStore.setState`. Removes overlap with P3-T20 which only outputs deltas via typed callback. -->
 
 Output files:
 - features/chat/components/chat-shell.tsx (modify)
@@ -641,6 +644,7 @@ Dependents: P4-T18
 
 Success criteria:
 - ArtifactPanel renders when artifact.isVisible is true (via useArtifactSelector)
+- P4-T17 wires StreamBridge's `onArtifactDelta` callback to `artifactStore.setState` — this is where the cross-phase connection happens <!-- Wave 4: SC-4 -->
 - StreamBridge processes all artifact-* delta types into artifactStore
 - Code splitting: ArtifactPanel loaded via dynamic import
 - ChatStreamProvider remains stream-state only; artifact state lives in artifactStore

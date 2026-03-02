@@ -89,7 +89,7 @@ import { cache } from '@/lib/cache'
 import { cacheKeys } from '@/lib/cache/keys'
 import type { Chat, NewChat } from '@/lib/types'
 
-export async function getChatById(id: string, userId: string): Promise<Chat | null> {
+export async function getChatById(id: string): Promise<Chat | null> {
   const cached = await cache.get<Chat>(cacheKeys.chat(id))
   if (cached) return cached
 
@@ -132,21 +132,21 @@ export async function withCache<T>(
 
 ### Guest/Auth Branching
 
-The data layer must handle the dual guest/auth pattern. Each function receives a context:
+> **Updated per Wave 4 reconciliation (HC-3, 2026-03-02):** DataContext removed from
+> data function signatures per redesign `data-flow.md` §2/§7. Auth/ownership checks
+> happen at the action/page level, not the data level. Redesign's unified DB persistence
+> for guests eliminates guest-vs-auth branching in data functions.
+
+<!-- audit: HC-3 — DataContext removed, bare-ID signatures -->
+
+Guest and authenticated users both persist to DB. Auth/ownership checks happen at the
+action or page level before calling data functions:
 
 ```typescript
-// lib/types/data-context.types.ts
-type DataContext = {
-  userId: string
-  isGuest: boolean
-}
-
-// In data functions:
-export async function getChatById(id: string, ctx: DataContext): Promise<Chat | null> {
-  const cached = await cache.get<Chat>(cacheKeys.chat(id))
-  if (cached) return cached
-  // Guest and auth paths both fall through to DB-backed persistence
-}
+// In Server Action (action level):
+const session = await getAppSession()
+const chat = await getChatById(id)  // bare ID — no DataContext
+if (chat.userId !== session.user.id) throw AppError.forbidden('Not owner')
 ```
 
 ### Why This Is Better
@@ -155,7 +155,7 @@ export async function getChatById(id: string, ctx: DataContext): Promise<Chat | 
 2. **No inheritance** — flat, composable functions
 3. **Testable** — mock the function directly, no class instantiation
 4. **Matches actual usage** — the behavioral extraction shows specific operations, not CRUD
-5. **Guest branching** — naturally embedded in each function
+5. **Simplified signatures** — bare IDs, no DataContext parameter threading
 6. **~60% less code** — no interfaces, abstract classes, or generic type parameters
 
 ---
@@ -273,10 +273,18 @@ framework-managed caching with tag-based invalidation. Use it for server-rendere
 | Model catalog | `use cache` + `cacheTag('models')` — rarely changes |
 | System prompts | `use cache` + `cacheTag('prompts')` — config-level |
 | Token pricing catalog | `use cache` + `cacheTag('tokenlens')` — already uses it |
-| Chat page data | Redis — guest/auth branching, real-time |
-| Chat history list | Redis — frequently updated, optimistic |
-| Artifact versions | Redis — streaming updates, version append |
+| Chat page data | `use cache` + `cacheTag('chat:{id}')` — DB-backed, tag-invalidated |
+| Chat history list | `use cache` + `cacheTag('chats:{userId}')` — tag-invalidated on mutation |
+| Artifact versions | `use cache` + `cacheTag('artifact:{id}')` — tag-invalidated on save |
+| Vote data | `use cache` + `cacheTag('votes:{chatId}')` — tag-invalidated on vote |
+| Rate limit state | Redis — operational, real-time counters |
 | Settings defaults | Compile-time constants — no cache needed |
+
+> **Updated per Wave 4 reconciliation (HC-2, 2026-03-02):** Chat, history, artifact, and vote
+> data moved from Redis to `use cache` column per redesign `data-flow.md` §1 and ADR-007.
+> Redis reserved for rate limits, session cache, and operational data.
+
+<!-- audit: HC-2 — cache system assignment corrected per redesign -->
 
 Rule: Use `use cache` for data that is **request-independent** and **changes infrequently**.
 Use Redis for data that is **user-specific** or **real-time**.
@@ -435,7 +443,12 @@ non-negotiable convention — `lib/cache/revalidate.ts` provides the utilities.
 The existing `Chat` god component (~200 lines) is split into:
 - `ChatShell` (~60 lines) — calls `useChat`, provides `ChatSessionContext`, renders children
 - `StreamBridge` (~20 lines) — thin component calling `processStreamDelta()` pure function
-- `VoteResolver` — uses `use()` to resolve deferred vote promise, hydrates SWR
+- `VoteResolver` — uses `use()` to resolve deferred vote promise, passes `initialVotes` to VoteButtons which use `useOptimistic`
+
+> **Updated per Wave 4 reconciliation (DA-5/CI-3, 2026-03-02):** "hydrates SWR" replaced
+> with "passes `initialVotes` to VoteButtons which use `useOptimistic`" per SC-3 resolution.
+
+<!-- audit: CI-3, DA-5 — VoteResolver description corrected from SWR to useOptimistic -->
 
 ### 10.3 Provider Naming Alignment
 

@@ -48,6 +48,14 @@ infrastructure lives outside features.
 
 ## ADR-002: Function-Based Data Access Over Repository Pattern
 
+> **SUPERSEDED (Wave 4 reconciliation, HC-3, 2026-03-02):** The DataContext parameter
+> pattern recommended here has been removed. Redesign's unified DB persistence for guests
+> eliminates guest-vs-auth branching in data functions. Read functions now use bare-ID
+> signatures: `getChatById(id: string)`. Auth/ownership checks happen at the action/page
+> level, not the data level. See `patterns.md` §1 for updated templates.
+
+<!-- audit: HC-3 — ADR-002 superseded, DataContext removed -->
+
 ### Context
 
 The v6 spec (§5) prescribes a full Repository pattern: `IReadRepository<T>`,
@@ -83,7 +91,8 @@ The function-based approach for the same operations: ~200 lines total, with no a
 layer to understand.
 
 The critical insight: the guest/auth branching logic makes a generic `findById()` method
-impractical. Every read operation must know about `DataContext`.
+impractical. ~~Every read operation must know about `DataContext`.~~ **(Superseded: redesign
+eliminates DataContext; bare-ID signatures are sufficient. Auth checks at action level.)**
 
 ### Tradeoffs
 
@@ -252,7 +261,7 @@ preserves this approach.
 ### Key Patterns to Preserve
 
 1. `getAppSession()` resolves session from cookies (Supabase JWT → Guest JWT → null)
-2. `DataContext.isGuest` gates authorization/capabilities while data persistence remains DB-backed
+2. `DataContext.isGuest` ~~gates authorization/capabilities while data persistence remains DB-backed~~ **(Superseded: DataContext removed; guest/auth distinction handled at action level)** <!-- audit: HC-3 -->
 3. Token rotation in proxy for guest sessions (<30 min remaining)
 4. Auth Server Actions (`login`, `register`, `logout`) manage cookie lifecycle
 
@@ -470,7 +479,12 @@ Children access chat state via `useChatSessionContext()` instead of prop drillin
 - `ChatShell`: Calls useChat, provides context, renders Messages + MultimodalInput + ArtifactPanel
 - `ChatSessionContext`: Holds messages, status, append, reload, stop, setMessages
 - `StreamBridge`: Thin sibling component (~20 lines) that calls `processStreamDelta()` pure function
-- `VoteResolver`: Uses `use()` to resolve deferred vote promise, hydrates SWR
+- `VoteResolver`: Uses `use()` to resolve deferred vote promise, passes `initialVotes` to VoteButtons which use `useOptimistic`
+
+> **Updated per Wave 4 reconciliation (CI-3/DA-5, 2026-03-02):** "hydrates SWR" replaced
+> with "passes `initialVotes` to VoteButtons which use `useOptimistic`" per SC-3 resolution.
+
+<!-- audit: CI-3, DA-5 — VoteResolver description corrected from SWR to useOptimistic -->
 
 ### Confidence: 90%
 

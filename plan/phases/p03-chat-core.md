@@ -200,7 +200,9 @@ Type: IMPL
 Behavior ref: api-contracts.md (POST /api/chat request body schema)
 Architecture ref: AGENTS.md (input validation via Zod); ../../plan-archives/redesign/streaming-architecture.md (ArtifactDataPart types)
 
-Action: Create 2 files. (1) features/chat/types/chat.types.ts — ChatSessionValue type (from ChatSessionContext), ArtifactDataPart union type covering all artifact-* stream part types (artifact-id, artifact-title, artifact-kind, artifact-clear, artifact-finish, artifact-textDelta, artifact-codeDelta, artifact-sheetDelta, artifact-imageDelta, artifact-suggestion, chat-title). Export DataPart = ArtifactDataPart. ArtifactSuggestion interface. (2) features/chat/schemas/chat.schema.ts — chatRequestSchema (Zod: id string uuid, message object, selectedChatModel string), messageSchema, editMessageSchema, deleteMessagesSchema.
+Action: Create 2 files. (1) features/chat/types/chat.types.ts — ChatSessionValue type (from ChatSessionContext), ArtifactDataPart union type covering all artifact-* stream part types (artifact-id, artifact-title, artifact-kind, artifact-clear, artifact-finish, artifact-textDelta, artifact-codeDelta, artifact-sheetDelta, artifact-imageDelta, artifact-suggestion, chat-title). Export DataPart = ArtifactDataPart. ArtifactSuggestion interface. (2) features/chat/schemas/chat.schema.ts — chatRequestSchema (Zod: id string uuid, message object, selectedChatModel string, selectedVisibilityType string, settings object — **all 5 fields**), messageSchema, editMessageSchema, deleteMessagesSchema.
+
+<!-- AUDIT: CH-W4 — chatRequestSchema field list expanded from 3 to all 5 fields (id, message, selectedChatModel, selectedVisibilityType, settings) per api-contracts.md and useChat transport config -->
 
 Output files:
 - features/chat/types/chat.types.ts
@@ -232,14 +234,14 @@ Type: IMPL
 Behavior ref: features.md (settings: model selection, default model persistence)
 Architecture ref: ../../plan-archives/redesign/state-management.md (**NO SettingsProvider** — useSettings() imported directly)
 
-Action: Create 2 files. (1) features/settings/types/settings.types.ts — SettingsState type with `temperature`, `topP`, `maxOutputTokens`, `systemPrompt`, `enableReasoning`. Export DEFAULT_SETTINGS constant (no selectedModel field). (2) features/settings/hooks/use-settings.ts — "use client" hook **useSettings()** backed by **useSyncExternalStore** + localStorage. Module-level store (not context-based). Returns {settings, updateSettings, resetSettings}. **NO SettingsProvider context** — useSettings() is imported directly where needed. SSR-safe via getServerSnapshot returning DEFAULT_SETTINGS.
+Action: Create 2 files. (1) features/settings/types/settings.types.ts — SettingsState type with `temperature`, `topP`, `maxOutputTokens`, `systemPrompt`, `enableReasoning`. Export DEFAULT_SETTINGS constant (no selectedModel field). (2) features/settings/hooks/use-settings.ts — "use client" module-level store backed by **useSyncExternalStore** + localStorage. Exports **TWO hooks**: **useSettings()** (read-only, returns `SettingsState` snapshot) and **useSettingsSetter()** (write-only, returns `{ updateSettings, resetSettings }`). Also exports **settingsStore** for direct access by non-React code. **NO SettingsProvider context** — hooks are imported directly where needed. SSR-safe via getServerSnapshot returning DEFAULT_SETTINGS. Includes **cross-tab sync** via `window.addEventListener('storage', ...)` to keep settings in sync across browser tabs.
 
 Output files:
 - features/settings/types/settings.types.ts
 - features/settings/hooks/use-settings.ts
 
 Inputs: lib/types/model.types.ts (DEFAULT_CHAT_MODEL from P0-T05), lib/types/settings.types.ts (P0-T07)
-Outputs: SettingsState type and useSettings hook consumed by useChatSession (P3-T11), settings panel (P3-T07)
+Outputs: SettingsState type, useSettings/useSettingsSetter hooks, and settingsStore consumed by useChatSession (P3-T11), settings panel (P3-T07)
 
 Dependencies: P0-T07
 Dependents: P3-T07, P3-T11
@@ -247,11 +249,18 @@ Dependents: P3-T07, P3-T11
 Success criteria:
 - SettingsState includes temperature, topP, maxOutputTokens, systemPrompt, enableReasoning
 - DEFAULT_SETTINGS does not include model selection (handled separately by model selector)
-- **useSettings() uses useSyncExternalStore** (NOT useState + useEffect, NOT context-based SettingsProvider)
+- **TWO hooks exported**: `useSettings()` (read-only snapshot) + `useSettingsSetter()` (write: updateSettings, resetSettings)
+- Both hooks use **useSyncExternalStore** (NOT useState + useEffect, NOT context-based SettingsProvider)
+- **settingsStore** exported as public API for non-React consumers
 - Module-level store — no provider wrapping needed
 - SSR-safe via getServerSnapshot
+- **Cross-tab sync** via `window.addEventListener('storage', ...)` — settings changes in one tab propagate to others
 - Settings persist across page reloads via localStorage
 - pnpm typecheck passes
+
+<!-- AUDIT: SE-1 — Two-hook split (useSettings read + useSettingsSetter write) per redesign state-management.md -->
+<!-- AUDIT: SE-2 — settingsStore added as public export for non-React consumers -->
+<!-- AUDIT: SE-3 — Cross-tab sync via StorageEvent listener added -->
 
 Complexity: M
 
@@ -265,22 +274,27 @@ Type: IMPL
 Behavior ref: features.md (settings UI: model selection, temperature, max tokens)
 Architecture ref: ../../plan-archives/redesign/state-management.md (settings panel as sheet UI)
 
-Action: Create features/settings/components/settings-panel.tsx — "use client" sheet UI for editing chat settings (model, temperature, max tokens). Consumes **useSettings()** directly (NOT from a SettingsProvider context). Uses shadcn/ui Sheet, Slider, Select components.
+Action: Create features/settings/components/settings-panel.tsx — "use client" sheet UI for editing chat settings (temperature, max tokens, system prompt, reasoning toggle). Consumes **useSettings()** for reading and **useSettingsSetter()** for writing (NOT from a SettingsProvider context). Uses shadcn/ui Sheet, Slider, Input components. **Does NOT include model selector** — model selection belongs in ChatHeader via P6-T04/T05 ModelSelector.
 
 Output files:
 - features/settings/components/settings-panel.tsx
 
 Inputs: features/settings/hooks/use-settings.ts (P3-T06), components/ui/ (P0-T11)
-Outputs: Settings panel consumed by chat header or ChatShell (P3-T21)
+Outputs: Settings panel consumed by chat header (P3-T19)
 
 Dependencies: P3-T06
-Dependents: P3-T21
+Dependents: P3-T19
 
 Success criteria:
 - Renders as a Sheet overlay
-- Reads/writes settings via **useSettings()** (NOT SettingsProvider context)
-- Includes model selector, temperature slider, max tokens input
+- Reads settings via **useSettings()** (read-only hook)
+- Writes settings via **useSettingsSetter()** (write-only hook)
+- **Does NOT include model selector** — model selection is via cookie + localStorage in ChatHeader (P6-T04/T05)
+- Includes temperature slider, max tokens input, system prompt textarea, reasoning toggle
 - pnpm typecheck passes
+
+<!-- AUDIT: HC-1 — Removed model selector from SettingsPanel per redesign state-management.md §2: "Model selection is via cookie + localStorage, NOT in SettingsState." ModelSelector belongs in features/models/ (P6-T04) wired into ChatHeader (P6-T05). -->
+<!-- AUDIT: SE-1 — Updated to use two-hook split: useSettings() (read) + useSettingsSetter() (write) per redesign. -->
 
 Complexity: M
 
@@ -411,8 +425,11 @@ Success criteria:
 - onFinish clears ChatStream (setChatStream([]))
 - onError parses error and shows toast
 - Intent-based sendMessage wraps: validation, attachment processing, handleSubmit
+- **If new chat (no existing messages), calls `PendingChats.add({ id, title: input.slice(0, 50) })` before `handleSubmit`**
 - ~120 lines (substantial but focused — NOT a God Component)
 - pnpm typecheck passes
+
+<!-- AUDIT: SC-5 — PendingChats.add() call on first message assigned to useChatSession sendMessage flow -->
 
 Complexity: L
 
@@ -651,23 +668,28 @@ Type: IMPL
 Behavior ref: features.md (chat header with model info, sidebar toggle)
 Architecture ref: ../../plan-archives/redesign/component-architecture.md (ChatHeader reads from ChatSessionContext)
 
-Action: Create features/chat/components/chat-header.tsx — "use client" chat header (~40 lines). Reads chatModel and status from **ChatSessionContext** (NOT props). Renders: sidebar toggle via useSidebar, model label, new chat navigation button. Model selector placeholder (functional ModelSelector wired in P6). Visibility selector placeholder (wired in P6).
+Action: Create features/chat/components/chat-header.tsx — "use client" chat header (~40 lines). Reads chatModel and status from **ChatSessionContext** (NOT props). Renders: sidebar toggle via useSidebar, model label, new chat navigation button. Model selector placeholder (functional ModelSelector wired in P6-T05). Visibility selector placeholder slot — will receive `initialVisibility` from ChatShell for P6-T08's VisibilitySelector. **Settings trigger button** (gear icon) that opens SettingsPanel sheet.
 
 Output files:
 - features/chat/components/chat-header.tsx
 
-Inputs: components/sidebar-toggle.tsx (P0-T12), components/ui/ (P0-T11), features/chat/hooks/use-chat-session-context.ts (P3-T08)
+Inputs: components/sidebar-toggle.tsx (P0-T12), components/ui/ (P0-T11), features/chat/hooks/use-chat-session-context.ts (P3-T08), features/settings/components/settings-panel.tsx (P3-T07)
 Outputs: ChatHeader consumed by ChatShell (P3-T21)
 
-Dependencies: P3-T08
+Dependencies: P3-T07, P3-T08
 Dependents: P3-T21
 
 Success criteria:
 - ChatHeader reads from **ChatSessionContext** (NOT props — zero prop drilling)
 - Renders sidebar toggle and model label
 - Includes new chat navigation button
+- **Renders settings trigger button that opens SettingsPanel sheet**
+- Includes **visibility selector placeholder slot** — receives `initialVisibility` for P6-T08
 - ~40 lines
 - pnpm typecheck passes
+
+<!-- AUDIT: SC-7 + SE-5 — Settings trigger button added to ChatHeader (resolves unreachable SettingsPanel) -->
+<!-- AUDIT: SC-6 — Visibility selector placeholder with initialVisibility slot for P6-T08 -->
 
 Complexity: M
 
@@ -681,26 +703,31 @@ Type: IMPL
 Behavior ref: state-management.md (stream event dispatching)
 Architecture ref: SEAM-031 (URL State Management); ../../plan-archives/redesign/streaming-architecture.md (thin bridge + pure function)
 
-Action: Create features/chat/components/**stream-bridge.tsx** (NOT data-stream-handler.tsx) — "use client" thin bridge component, **~20 lines**. Renders null (renderless). Consumes useChatStream() from ChatStreamProvider (reads ChatStream data parts). Processes unprocessed deltas via **processStreamDelta()** pure function (P3-T09). Writes resulting artifact state to **artifactStore.setState()**. Tracks last processed index via useRef to avoid reprocessing. Resets on chat ID change. Cross-feature import of artifactStore is an intentional documented exception (public API of artifacts feature).
+Action: Create features/chat/components/**stream-bridge.tsx** (NOT data-stream-handler.tsx) — "use client" thin bridge component, **~20 lines**. Renders null (renderless). Consumes useChatStream() from ChatStreamProvider (reads ChatStream data parts). Processes unprocessed deltas via **processStreamDelta()** pure function (P3-T09). Accepts an **`onArtifactDelta` callback prop** `(artifact: UIArtifact) => void` to output processed artifact state. **Does NOT import from `features/artifacts/`** — the real `artifactStore.setState` wiring happens in P4-T17. In P3 the callback can be a no-op or stub. Tracks last processed index via useRef to avoid reprocessing. Resets on chat ID change.
 
 Output files:
 - features/chat/components/stream-bridge.tsx
 
 Inputs: features/chat/components/chat-stream-provider.tsx (P3-T10), features/chat/lib/process-stream-deltas.ts (P3-T09)
-Outputs: StreamBridge consumed by chat pages (P3-T25)
+Outputs: StreamBridge consumed by chat pages (P3-T25); real artifact wiring deferred to P4-T17
 
 Dependencies: P3-T09, P3-T10
-Dependents: P3-T25
+Dependents: P3-T25, P4-T17
 
 Success criteria:
 - File is **stream-bridge.tsx** (NOT data-stream-handler.tsx)
 - Component name is **StreamBridge** (NOT DataStreamHandler)
 - **~20 lines** — thin bridge, logic in processStreamDelta
-- Bridges useChatStream() → processStreamDelta() → artifactStore.setState()
+- Accepts **`onArtifactDelta` callback prop** — typed `(artifact: UIArtifact) => void`
+- Bridges useChatStream() → processStreamDelta() → **onArtifactDelta callback** (NOT direct artifactStore import)
+- **Does NOT import from `features/artifacts/`** — cross-phase dependency deferred to P4-T17
 - Tracks lastProcessedRef to avoid reprocessing deltas
 - Resets processing index on chat ID change
 - Renderless (returns null)
+- P3-T27 typecheck passes with no-op callback
 - pnpm typecheck passes
+
+<!-- AUDIT: SC-4 — StreamBridge uses onArtifactDelta callback prop instead of importing artifactStore directly. Real wiring deferred to P4-T17, preserving phase boundaries. -->
 
 Complexity: S
 
@@ -714,7 +741,10 @@ Type: INTEG
 Behavior ref: state-management.md (ChatShell as thin orchestrator)
 Architecture ref: SEAM-028 (Client Error Handling); SEAM-031 (URL State Management); SEAM-015 (settings); ../../plan-archives/redesign/component-architecture.md (ChatShell ~60 lines)
 
-Action: Create features/chat/components/**chat-shell.tsx** (NOT chat.tsx as God Component) — "use client" component, **~60 lines**. Thin orchestrator that: (1) Accepts props: id, initialMessages, initialChatModel, isReadonly, availableModels. (2) Calls **useChatSession({id, initialMessages, initialChatModel, isReadonly})** to get composed ChatSessionValue. (3) Calls **useChatSideEffects({id, status, messages})** for URL update, abort cleanup, artifact reset. (4) Provides **ChatSessionContext.Provider value={chatSession}**. (5) Renders ChatHeader, Messages, MultimodalInput as children — they read state from ChatSessionContext (zero props drilling). (6) Conditionally renders ArtifactPanel when artifact.isVisible (ArtifactPanel wired in P4-T17). **No direct useChat/useSettings calls** — all composition in useChatSession hook. **No SettingsProvider wrapping.** **No credit/gateway logic.**
+Action: Create features/chat/components/**chat-shell.tsx** (NOT chat.tsx as God Component) — "use client" component, **~60 lines**. Thin orchestrator that: (1) Accepts props: id, initialMessages, initialChatModel, isReadonly, availableModels, initialVisibility. (2) Calls **useChatSession({id, initialMessages, initialChatModel, isReadonly})** to get composed ChatSessionValue. (3) Calls **useChatSideEffects({id, status, messages})** for URL update, abort cleanup, artifact reset. (4) Provides **ChatSessionContext.Provider value={chatSession}**. (5) Renders ChatHeader, Messages, MultimodalInput as children — they read state from ChatSessionContext (zero prop drilling to children). (6) Conditionally renders ArtifactPanel when artifact.isVisible (ArtifactPanel wired in P4-T17). **No direct useChat/useSettings calls** — all composition in useChatSession hook. **No SettingsProvider wrapping.** **No credit/gateway logic.**
+
+<!-- AUDIT: SC-6 — Added initialVisibility to ChatShell props for P6-T08 VisibilitySelector wiring -->
+<!-- AUDIT: CH-W6 — Clarified "zero prop drilling to children" (ChatShell itself accepts props from page) -->
 
 Output files:
 - features/chat/components/chat-shell.tsx
@@ -731,10 +761,14 @@ Success criteria:
 - Uses **useChatSession** hook (NOT inline useChat + useSettings)
 - Calls **useChatSideEffects** for side-effect management
 - Provides **ChatSessionContext.Provider** to children
-- Children get state from **ChatSessionContext** (NOT prop drilling — zero props to ChatHeader, Messages, MultimodalInput)
+- Children get state from **ChatSessionContext** (NOT prop drilling — zero prop drilling to ChatHeader, Messages, MultimodalInput; ChatShell itself accepts props from page)
+- Recognizes **initialVisibility** prop (passed through to ChatSessionContext for P6-T08 VisibilitySelector)
 - **No SettingsProvider** wrapping
 - **No credit/gateway** logic
 - pnpm typecheck passes
+
+<!-- AUDIT: CH-W6 — Clarified that "zero props" refers to children (ChatHeader/Messages/MultimodalInput), not ChatShell itself which accepts props from page -->
+<!-- AUDIT: SC-6 — Added initialVisibility to recognized props -->
 
 Complexity: L
 

@@ -17,14 +17,14 @@ AI Tool Call (createArtifact/updateArtifact)
   │
   ├── lib/ai/tools/create-artifact.ts
   │   └── artifactHandler.create(params)
-  │       ├── lib/ai/artifact-handlers/{kind}.ts
+  │       ├── features/artifacts/handlers/{kind}-handler.ts  <!-- Wave 4: AR-10 — corrected path per redesign directory-structure.md -->
   │       └── lib/data/artifact.ts
   │
   ├── Data Stream (SSE)
   │   └── artifact-id, artifact-title, artifact-kind, artifact-clear, content-deltas, artifact-finish
   │
   ├── components/stream-bridge.tsx
-  │   └── lib/stores/artifact-store.ts               (useSyncExternalStore)
+  │   └── features/artifacts/lib/artifact-store.ts   (useSyncExternalStore store)
   │
   └── components/artifact-panel.tsx
       └── artifacts/{kind}/client.tsx                (type-specific editor)
@@ -37,7 +37,7 @@ AI Tool Call (createArtifact/updateArtifact)
 
 ### Text (`artifacts/text/`)
 
-**Server** (`lib/ai/artifact-handlers/text.ts`):
+**Server** (`features/artifacts/handlers/text-handler.ts`): <!-- Wave 4: AR-10 -->
 - Uses `streamText()` from AI SDK
 - Model: `artifact-model` (resolves to Gemini 2.5 Flash Lite by default)
 - System prompt: `textPrompt` — write Markdown, no code blocks
@@ -59,7 +59,7 @@ AI Tool Call (createArtifact/updateArtifact)
 
 ### Code (`artifacts/code/`)
 
-**Server** (`lib/ai/artifact-handlers/code.ts`):
+**Server** (`features/artifacts/handlers/code-handler.ts`): <!-- Wave 4: AR-10 -->
 - Uses `streamObject()` from AI SDK with structured output
 - Schema: `z.object({ code: z.string() })`
 - Model: `artifact-model`
@@ -82,7 +82,7 @@ AI Tool Call (createArtifact/updateArtifact)
 
 ### Sheet (`artifacts/sheet/`)
 
-**Server** (`lib/ai/artifact-handlers/sheet.ts`):
+**Server** (`features/artifacts/handlers/sheet-handler.ts`): <!-- Wave 4: AR-10 -->
 - Uses `streamObject()` from AI SDK with structured output
 - Schema: `z.object({ csv: z.string() })`
 - Model: `artifact-model`

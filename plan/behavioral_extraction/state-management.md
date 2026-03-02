@@ -35,33 +35,39 @@ The app uses a layered state management approach combining React context, `useSy
 ## Hooks
 
 ### `useChat` (from `@ai-sdk/react`)
-Core chat hook. Configured in `<ChatShell>` component (thin orchestrator ~60 lines).
+Core chat hook. Configured inside the `useChatSession` hook; `ChatShell` calls `useChatSession` and never calls `useChat` directly.
 
 ```typescript
-const { messages, setMessages, handleSubmit, append, status, stop, reload, ... } = useChat({
+const chatReturn = useChat({
   id: chatId,
   api: "/api/chat",
-  body: { id, selectedChatModel, selectedVisibilityType, settings },
+
+  transport: new DefaultChatTransport({
+    api: "/api/chat",
+    prepareSendMessagesRequest: ({ id, messages }) => ({
+      id: chatId,
+      message: messages.at(-1),            // Only the latest message
+      selectedChatModel,
+      selectedVisibilityType,
+      settings,
+    }),
+  }),
+
   initialMessages,
   experimental_throttle: adaptiveThrottle,  // 50-150ms based on network speed
   generateId: () => generateUUID(),
   maxSteps: 5,
-  fetch: customFetchWithSignal,
   sendExtraMessageFields: true,
-  experimental_prepareRequestBody: (options) => ({
-    id, message: options.messages.at(-1),
-    selectedChatModel, selectedVisibilityType, settings
-  }),
-  onData: (data) => { /* process chat-title parts */ },
-  onFinish: (message) => { /* handle completion, update pending chats */ },
-  onError: (error) => { /* parse ChatSDKError from response, show toast */ },
+
+  onData: (data) => { /* route chat-title + artifact-* parts */ },
+  onFinish: () => { /* clear ChatStream between messages */ },
+  onError: (error) => { /* parse stream error from response, show toast */ },
 });
 ```
 
 **Key behaviors:**
-- `experimental_prepareRequestBody` sends only the latest message (not full history)
+- `prepareSendMessagesRequest` (via `DefaultChatTransport`) sends only the latest message (not full history)
 - `experimental_throttle` adapts to `navigator.connection.effectiveType`
-- Custom `fetch` wraps `AbortController` for cancellation
 - `messages` starts with server-fetched `initialMessages`
 
 **Abort cleanup lifecycle:**
@@ -190,8 +196,7 @@ const ChatStreamDispatchContext = createContext<ChatStreamDispatch>();
 State — **DataPart[] buffer only** (no artifact state):
 ```typescript
 type ChatStreamState = {
-  stream: DataPart[];        // Raw buffered stream data parts
-  connectionState: "idle" | "connected" | "error";  // Stream connection metadata
+  ChatStream: DataPart[];        // Raw buffered stream data parts
 };
 ```
 
@@ -245,12 +250,14 @@ interface SettingsState {
 
 **Key pattern:**
 ```typescript
-// Read only current snapshot (static value, no re-renders on change)
-const settings = useSettingsSnapshot();
+// Read-only snapshot (subscribes to changes, re-renders on update)
+const settings = useSettings();
 
-// Read with re-renders on change + get setter
-const { settings, setPartialSettings } = useSettings();
+// Write-only setter (no subscription to state changes)
+const { updateSettings, resetSettings } = useSettingsSetter();
 ```
+
+<!-- AUDIT: SE-7 — Fixed stale API names: useSettingsSnapshot → useSettings, setPartialSettings → useSettingsSetter per redesign two-hook split -->
 
 Settings are passed in the chat request body and used server-side for temperature, topP, maxOutputTokens, system prompt, and reasoning config.
 

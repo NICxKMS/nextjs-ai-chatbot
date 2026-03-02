@@ -116,22 +116,44 @@ SSE Stream → useChat.onData → ChatStreamProvider (DispatchCtx)
 'use client'
 import { useChatStream } from '@/features/chat/components/chat-stream-provider'
 import { processStreamDelta } from '@/features/chat/lib/process-stream-deltas'
-import { artifactStore } from '@/features/artifacts/lib/artifact-store'
 
-export function StreamBridge({ id }: { id: string }) {
+interface StreamBridgeProps {
+  id: string
+  onArtifactDelta?: (artifact: UIArtifact) => void
+}
+
+export function StreamBridge({ id, onArtifactDelta }: StreamBridgeProps) {
   const { ChatStream } = useChatStream()
+  const lastProcessedRef = useRef(0)
 
   useEffect(() => {
     if (!ChatStream.length) return
-    const latest = ChatStream[ChatStream.length - 1]
-    const current = artifactStore.getSnapshot()
-    const { artifact } = processStreamDelta(latest, current)
-    artifactStore.setState(artifact)
-  }, [ChatStream])
+    // Process ALL unprocessed deltas, not just the latest
+    let current = onArtifactDelta ? artifactSnapshotRef.current : undefined
+    for (let i = lastProcessedRef.current; i < ChatStream.length; i++) {
+      const delta = ChatStream[i]
+      if (current !== undefined) {
+        const { artifact } = processStreamDelta(delta, current)
+        current = artifact
+      }
+    }
+    lastProcessedRef.current = ChatStream.length
+    if (current !== undefined && onArtifactDelta) {
+      onArtifactDelta(current)
+    }
+  }, [ChatStream, onArtifactDelta])
+
+  // Reset on chat ID change
+  useEffect(() => {
+    lastProcessedRef.current = 0
+  }, [id])
 
   return null
 }
 ```
+
+<!-- AUDIT: CH-W1 — StreamBridge now loops over all unprocessed deltas with lastProcessedRef instead of only processing ChatStream[ChatStream.length - 1] -->
+<!-- AUDIT: SC-4 — StreamBridge accepts onArtifactDelta callback prop instead of directly importing artifactStore. Real wiring in P4-T17. -->
 
 ### processStreamDelta — Pure Function (Testable)
 
@@ -167,10 +189,12 @@ export function processStreamDelta(
 
 ### Cross-Feature Import
 
-`StreamBridge` (in `features/chat/`) imports `artifactStore` from `features/artifacts/lib/artifact-store.ts`.
-This is the **one intentional exception** to "no cross-feature implementation imports."
-The store is a module-level object with a stable API — it's the declared public API of
-the artifacts feature for state updates. Import is ONE-directional: chat → artifacts store.
+`StreamBridge` (in `features/chat/`) accepts an **`onArtifactDelta` callback prop** to output processed artifact state.
+The real `artifactStore.setState` wiring happens in P4-T17 when the callback is connected.
+This preserves phase boundaries: P3 defines the bridge interface, P4 connects it to the artifact store.
+Import direction is ONE-directional when wired: chat → artifacts store (via callback).
+
+<!-- AUDIT: SC-4 — Cross-feature import removed from StreamBridge. Callback pattern replaces direct artifactStore import. -->
 
 ---
 

@@ -12,6 +12,8 @@
 > **Tasks**: 9
 > **Files created**: ~14
 
+> **Deferred (AU-V8):** Guest-to-auth data migration (migrating guest chats/artifacts to authenticated user on login/register) is **not implemented in P2**. Redesign `auth-system.md` says "Guest data may be migrated during authenticated transitions" (non-committal). This plan explicitly defers migration to post-MVP scope. Guest data remains under the guest user ID after authentication. If migration is later committed, it will be assigned to a future phase task.
+
 ---
 
 ## Task Summary
@@ -54,7 +56,7 @@ Type: IMPL
 Behavior ref: auth-system.md (session resolution pipeline: check Supabase session, fall back to guest JWT, resolve AppSession.user)
 Architecture ref: architecture/patterns.md (session resolution); SEAM-005 (session resolution pipeline)
 
-Action: Create **lib/auth/session.ts** (NOT features/auth/lib/session.ts, NOT lib/auth/config.ts) — Export getAppSession(cookieStore): Promise<AppSession> function. Resolution pipeline: (1) Read Supabase session token from cookies, verify with supabase.auth.getUser(). (2) If no Supabase session, read guest token from cookies, verify with verifyGuestToken(). (3) Return `AppSession` with normalized shape `{ user: { id, type, email? } }`. (4) If neither token exists, return null session (not logged in). This is the single source of truth for "who is the current user" used by all server actions and API routes.
+Action: Create **lib/auth/session.ts** (NOT features/auth/lib/session.ts, NOT lib/auth/config.ts) — Export getAppSession(): Promise<AppSession> function. Calls `cookies()` internally; wrapped in `React.cache` for request-scoped memoization (no cookieStore parameter — parameterless design enables React.cache deduplication across concurrent callers within a single request). Resolution pipeline: (1) Read Supabase session token from cookies, verify with supabase.auth.getUser(). (2) If no Supabase session, read guest token from cookies, verify with verifyGuestToken(). (3) Return `AppSession` with normalized shape `{ user: { id, type, email? } }`. (4) If neither token exists, return null session (not logged in). This is the single source of truth for "who is the current user" used by all server actions and API routes.
 
 Output files:
 - lib/auth/session.ts
@@ -74,6 +76,8 @@ Success criteria:
 - Never throws — returns null on invalid tokens
 - **File is lib/auth/session.ts** (NOT features/auth/lib/session.ts)
 - pnpm typecheck passes
+
+> **Deviation (AU-V2):** Redesign `directory-structure.md` and `phase-plan.md` P2-T03 list `features/auth/lib/session.ts` as an output file containing `getAppSession()`. However, redesign `domain-boundaries.md` shows features/auth *importing* `getAppSession()` from `lib/auth/session`, not owning it. The redesign is internally inconsistent on this point. This plan resolves the ambiguity by placing `getAppSession()` exclusively in `lib/auth/session.ts` (infrastructure layer), which is the correct location per the import direction rule. `features/auth/lib/session.ts` is intentionally omitted.
 
 Complexity: M
 
@@ -150,7 +154,7 @@ Type: IMPL
 Behavior ref: auth-system.md (login, register, logout flows)
 Architecture ref: conventions.md (server actions — verb-first camelCase); DEV-015 (no .action.ts suffix)
 
-Action: Create 3 server action files. (1) features/auth/actions/login.ts — "use server" action `login(prevState, formData): ActionResult<void>`. Validates with loginSchema, calls `supabase.auth.signInWithPassword()` server-side, sets session cookie, redirects to "/". On failure: return ActionResult error. (2) features/auth/actions/register.ts — "use server" action `register(prevState, formData): ActionResult<void>`. Validates with registerSchema, calls `supabase.auth.signUp()` server-side, creates user record via createUser(), sets session cookie when applicable, redirects appropriately. (3) features/auth/actions/logout.ts — "use server" action `logout(): ActionResult<void>`. Calls `supabase.auth.signOut()`, clears session cookie, redirects to "/login".
+Action: Create 3 server action files. (1) features/auth/actions/login.ts — "use server" action `login(prevState, formData): ActionResult<void>`. Validates with loginSchema, calls `supabase.auth.signInWithPassword()` server-side, sets session cookie, redirects to "/". On failure: return ActionResult error. (2) features/auth/actions/register.ts — "use server" action `register(prevState, formData): ActionResult<void>`. Validates with registerSchema, calls `supabase.auth.signUp()` server-side, creates user record via createUser(), sets session cookie when applicable, redirects appropriately. (3) features/auth/actions/logout.ts — "use server" action `logout(): ActionResult<void>`. Calls `supabase.auth.signOut()`, clears session cookie, redirects to "/login". **Post-logout flow:** user arrives at /login with no tokens (no sb_token, no guest_token). On next navigation to a protected route, proxy.ts auto-creates a guest token (per auth-system.md §Auto-Creation). Logout does NOT re-mint a guest token inline — guest re-bootstrap is deferred to the proxy on next request.
 
 Output files:
 - features/auth/actions/login.ts
@@ -218,7 +222,7 @@ Type: IMPL
 Behavior ref: auth-system.md (auth state broadcasting); state-management.md (SessionProvider context)
 Architecture ref: ../../plan-archives/redesign/state-management.md (SessionProvider replaces AuthProvider); SEAM-001
 
-Action: Create features/auth/components/**session-provider.tsx** (NOT auth-provider.tsx) — "use client" component. Creates React context SessionContext with value {session: AppSession | null, isLoading: boolean, isGuest: boolean}. **Exported as SessionProvider (NOT AuthProvider)**. Provider receives initial session from server (passed as prop from layout). Listens for Supabase auth state changes (onAuthStateChange) and updates context. Exports **useSession()** hook for consuming auth state (NOT useAuthContext). On auth change: refreshes server session, updates context. Handles guest-to-auth transition seamlessly.
+Action: Create features/auth/components/**session-provider.tsx** (NOT auth-provider.tsx) — "use client" component. Creates React context SessionContext with value {session: AppSession | null, isLoading: boolean, isGuest: boolean}. **Exported as SessionProvider (NOT AuthProvider)**. Provider receives initial session from server (passed as prop from layout). Listens for Supabase auth state changes (onAuthStateChange) — on state change, calls `router.refresh()` to revalidate server components (handles cross-tab login, token refresh) and updates context. Exports **useSession()** hook for consuming auth state (NOT useAuthContext). On auth change: refreshes server session, updates context. **Guest bootstrap effect:** accepts initial session prop (which may be a guest session resolved by proxy), derives `isGuest` state from `session.user.type`, and detects guest→authenticated transitions via `onAuthStateChange` (when a guest user completes login/register, Supabase fires a SIGNED_IN event — the provider updates session and `isGuest` accordingly). If no Supabase session and no guest_token cookie exist, the proxy layer (not this component) handles guest creation — SessionProvider simply reflects whatever session the server resolved.
 
 Output files:
 - features/auth/components/session-provider.tsx
@@ -237,10 +241,12 @@ Success criteria:
 - Component file is **session-provider.tsx** (NOT auth-provider.tsx)
 - Provider name is **SessionProvider** (NOT AuthProvider)
 - Listens to Supabase onAuthStateChange
+- Calls `router.refresh()` in `onAuthStateChange` handler to revalidate server components on cross-tab login / token refresh
+- Guest bootstrap effect: accepts initial session prop (may be guest), derives `isGuest`, detects guest→auth transitions via `onAuthStateChange`
 - Initial session passed as prop from server component
 - pnpm typecheck passes
 
-Complexity: L
+Complexity: M
 
 ---
 
@@ -288,7 +294,7 @@ Type: INTEG
 Behavior ref: auth-system.md (proxy guest rotation, path guards); state-management.md (provider tree)
 Architecture ref: ../../plan-archives/redesign/architecture.md (server layout, no app-shell.tsx); SEAM-004, SEAM-029
 
-Action: Update **app/layout.tsx** (server component) to: call getAppSession(), wrap children with **SessionProvider** (NOT AuthProvider) passing the resolved session. Provider tree becomes: ThemeProvider > SessionProvider > Toaster > children. **No app-shell.tsx** — layout composes providers directly. Proxy auth/guest behavior is already established in P0-T14.
+Action: Update **app/layout.tsx** (server component) to: call getAppSession(), wrap children with **SessionProvider** (NOT AuthProvider) passing the resolved session. Provider tree becomes: ThemeProvider > SessionProvider > children, with Toaster as a body-level sibling (NOT nested inside providers). **No app-shell.tsx** — layout composes providers directly. Proxy auth/guest behavior is already established in P0-T14.
 
 Output files:
 - app/layout.tsx (update)
@@ -344,3 +350,20 @@ Success criteria:
 - **proxy.ts** handles guest rotation (NOT middleware.ts)
 
 Complexity: S
+
+---
+
+## Audit Trail
+
+> Applied Wave 4 corrections per `audit-reports/wave2/auth.md` and `audit-reports/wave3/reconciliation-report.md` (2026-03-02).
+
+| Finding | Severity | Change | Location |
+|---------|----------|--------|----------|
+| AU-V1 / SC-2 | HIGH | Fixed `getAppSession()` to parameterless signature; added `cookies()` + `React.cache` notes | P2-T01 Action |
+| AU-V2 | MEDIUM | Added deviation note documenting intentional omission of `features/auth/lib/session.ts` | P2-T01 (after success criteria) |
+| AU-V3 | MEDIUM | Added `router.refresh()` requirement for `onAuthStateChange` handler | P2-T06 Action + Success criteria |
+| AU-V4 | MEDIUM | Defined "guest bootstrap effect" concretely (accept session prop, derive isGuest, detect transitions) | P2-T06 Action + Success criteria |
+| AU-V5 | LOW | Fixed P2-T06 complexity from L to M (matches summary table and redesign) | P2-T06 Complexity |
+| AU-V6 | LOW | Fixed Toaster placement to "body-level sibling" (not nested inside providers) | P2-T08 Action |
+| AU-V7 | MEDIUM | Documented post-logout flow: proxy auto-creates guest on next protected-route access | P2-T04 Action |
+| AU-V8 | MEDIUM | Added explicit deferral note for guest-to-auth data migration (post-MVP) | Document header |
