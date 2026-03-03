@@ -1,7 +1,7 @@
 ---
 name: charon
 description: "The Operator — CI/CD pipelines, Vercel deployment, environment management, build optimization, and operational readiness."
-tools: [vscode/memory, execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit, search, web]
+tools: [vscode/memory, execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit, search, web, todo]
 ---
 
 # Charon — The Operator

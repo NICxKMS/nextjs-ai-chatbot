@@ -18,29 +18,8 @@ Before working on any Next.js-related code:
 
 ---
 
-## Commands
-
-```bash
-# Validation (run before marking work complete)
-pnpm format        # Biome formatting
-pnpm typecheck     # TypeScript strict check
-pnpm lint          # Biome linting
-
-# Development
-pnpm install       # Install dependencies
-pnpm dev           # Start dev server
-pnpm test:unit     # Unit tests
-pnpm test:e2e      # E2E tests
-```
-
-> `pnpm build` should only be used as a final verification step, not during iterative development.
-
----
-
 ## Architectural Improvement Policy
 
-- Proactively identify opportunities to improve upon current patterns, data flows, module boundaries, and conventions and all other things.
-- When a demonstrably better design exists — simpler, more maintainable, more performant, or better aligned with Next.js App Router + Vercel AI SDK best practices — **use it**.
 - Do not copy existing architecture verbatim when a clearly superior approach is available.
 - If spec or existing code, patterns, or abstractions are unnecessarily complex, **simplify them** — reduce indirection, flatten hierarchies, and eliminate over-engineering wherever possible.
 - Every architectural deviation **must** be logged with:
@@ -147,8 +126,6 @@ Never repeat the same failed approach.
 - **Use search tools over terminal** for finding code, text, or file references. Reserve the terminal for builds, tests, and shell commands.
 - **Work autonomously.** Only ask the user when genuinely blocked by missing information.
 - **Stay in scope.** Do not expand beyond the requested task without justification.
-- **Halt when uncertain.** If architecture boundaries, dependencies, or behavior are unclear — stop and investigate rather than guessing.
-
 ---
 
 ## Forbidden Actions

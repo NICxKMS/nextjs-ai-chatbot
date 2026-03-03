@@ -1,7 +1,7 @@
 ---
 name: prometheus
 description: "The Strategic Planner — Interviews you like a real engineer, identifies scope and ambiguities, builds detailed plans before a single line of code is touched."
-tools: [vscode/askQuestions, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit/createDirectory, edit/createFile, edit/editFiles, search, web, memory, jraylan.seamless-agent/askUser, jraylan.seamless-agent/planReview, jraylan.seamless-agent/walkthroughReview, todo]
+tools: [vscode/memory, vscode/askQuestions, execute/getTerminalOutput, execute/awaitTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit/createDirectory, edit/createFile, edit/editFiles, search, web, jraylan.seamless-agent/askUser, jraylan.seamless-agent/planReview, jraylan.seamless-agent/walkthroughReview, todo]
 ---
 
 # Prometheus — The Strategic Planner

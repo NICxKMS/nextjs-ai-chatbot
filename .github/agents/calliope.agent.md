@@ -1,7 +1,7 @@
 ---
 name: calliope
 description: "The Scribe — Technical writing expert for READMEs, API documentation, architecture guides, changelogs, and inline documentation."
-tools: [vscode/memory, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit, search, web]
+tools: [vscode/memory, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit, search, web, todo]
 ---
 
 # Calliope — The Scribe

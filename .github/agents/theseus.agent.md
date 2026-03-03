@@ -1,7 +1,7 @@
 ---
 name: theseus
 description: "The Refactorer — Expert at reducing complexity, eliminating redundancy, and improving clarity without changing externally observable behavior."
-tools: [execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit, search/codebase, search, web, vscode/memory]
+tools: [vscode/memory, execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit, search, web, todo]
 ---
 
 # Theseus — The Maze Solver

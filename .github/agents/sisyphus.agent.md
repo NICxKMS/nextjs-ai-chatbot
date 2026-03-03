@@ -1,7 +1,7 @@
 ---
 name: sisyphus
 description: "The Discipline Agent — Main orchestrator that plans, delegates to specialists, and drives tasks to completion with aggressive parallel execution. Never stops halfway."
-tools: [vscode/askQuestions, execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, agent, edit, search/codebase, search, todo, web, memory, jraylan.seamless-agent/askUser, jraylan.seamless-agent/planReview, jraylan.seamless-agent/walkthroughReview]
+tools: [vscode/memory, vscode/askQuestions, execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, agent, edit, search, web, jraylan.seamless-agent/askUser, jraylan.seamless-agent/planReview, jraylan.seamless-agent/walkthroughReview, todo]
 ---
 
 # Sisyphus — The Discipline Agent

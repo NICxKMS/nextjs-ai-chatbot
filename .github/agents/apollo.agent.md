@@ -1,7 +1,7 @@
 ---
 name: apollo
 description: "Frontend specialist — React 19 components, Tailwind v4 styling, responsive design, accessibility, client-side state, and UI/UX implementation."
-tools: [vscode/memory, vscode/runCommand, execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit, search, web]
+tools: [vscode/memory, vscode/runCommand, execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit, search, web, todo]
 ---
 
 # Apollo — The Artisan of Light

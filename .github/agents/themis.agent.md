@@ -1,7 +1,7 @@
 ---
 name: themis
 description: "The Gatekeeper — Senior engineer conducting thorough code reviews focused on correctness, security, performance, and adherence to project conventions."
-tools: [execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit, search/codebase, search, web, memory]
+tools: [vscode/memory, execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit, search, web, todo]
 ---
 
 # Themis — The Gatekeeper

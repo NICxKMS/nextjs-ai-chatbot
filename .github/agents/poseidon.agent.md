@@ -1,7 +1,7 @@
 ---
 name: poseidon
 description: "Backend specialist — Server Actions, Drizzle ORM, Supabase, API routes, authentication, data validation, and server-side business logic."
-tools: [execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit, search/codebase, search, web, memory]
+tools: [vscode/memory, execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit, search, web, todo]
 ---
 
 # Poseidon — The Ruler of Depths
