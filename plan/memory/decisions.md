@@ -23,3 +23,18 @@ last_updated: "2026-03-03"
 ### D005 — Simplified UUID Generation (P0-T09)
 - Single `crypto.randomUUID()` call (dropped oldapp's 3-tier fallback)
 - All target runtimes (Node 20+, modern browsers) support it natively
+
+### D006 — Revalidation Split: updateTag vs revalidateTag (P1-T03)
+- Server Actions use `updateTag(tag)` for immediate consistency (read-your-own-writes)
+- Route Handlers use `revalidateTag(tag, "max")` for stale-while-revalidate
+- Named as `invalidate*` / `refresh*` for semantic clarity
+
+### D007 — withCache Directive Constraint (P1-T04)
+- `'use cache'` cannot be placed inside a generic wrapper (fetcher not serializable)
+- `withCache<T>` handles `cacheTag` + `cacheLife` + fetcher invocation; caller declares `'use cache'` at their function scope
+- Documented deviation from spec's idealized wrapper design
+
+### D008 — AI Provider via fallbackProvider (P1-T12)
+- `customProvider()` takes static `Record<string, LanguageModel>` for `languageModels`, not a callback
+- Used `fallbackProvider` parameter with a `ProviderV2`-conformant object for dynamic model resolution + conditional reasoning middleware
+- Canonical AI SDK pattern for dynamic providers
