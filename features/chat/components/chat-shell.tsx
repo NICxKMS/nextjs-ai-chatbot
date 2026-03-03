@@ -1,8 +1,10 @@
 "use client"
 
 import type { UIMessage } from "ai"
+import dynamic from "next/dynamic"
 import { useCallback } from "react"
 
+import { artifactStore } from "@/features/artifacts/lib/artifact-store"
 import { ChatHeader } from "@/features/chat/components/chat-header"
 import { Messages } from "@/features/chat/components/messages"
 import { MultimodalInput } from "@/features/chat/components/multimodal-input"
@@ -11,7 +13,20 @@ import { useChatSession } from "@/features/chat/hooks/use-chat-session"
 import { ChatSessionContext } from "@/features/chat/hooks/use-chat-session-context"
 import { useChatSideEffects } from "@/features/chat/hooks/use-chat-side-effects"
 import type { VisibilityType } from "@/features/chat/types/chat.types"
+import type { UIArtifact } from "@/lib/types/artifact.types"
 import type { ModelMetadata } from "@/lib/types/model.types"
+
+// ── Lazy-loaded artifact panel ───────────────────────────────
+// ArtifactPanel is heavy (editors, animations) — only loaded when
+// the artifact store signals visibility. Code-split via dynamic import.
+
+const ArtifactPanel = dynamic(
+	() =>
+		import("@/features/artifacts/components/artifact-panel").then((m) => ({
+			default: m.ArtifactPanel,
+		})),
+	{ ssr: false },
+)
 
 // ── Props ────────────────────────────────────────────────────
 
@@ -51,12 +66,13 @@ export function ChatShell({
 		id,
 		status: session.status,
 		messages: session.messages,
-		// P4 wires real artifactStore.reset here
+		onChatChange: artifactStore.reset,
 	})
 
-	// Noop until P4 wires real artifact store handler
-	const handleArtifactDelta = useCallback(() => {
-		/* P4-T17 wires artifactStore.setState here */
+	// StreamBridge passes fully-resolved UIArtifact from processStreamDelta.
+	// Replace the store state wholesale — StreamBridge already accumulated deltas.
+	const handleArtifactDelta = useCallback((artifact: UIArtifact) => {
+		artifactStore.setState(() => artifact)
 	}, [])
 
 	return (
@@ -65,6 +81,7 @@ export function ChatShell({
 			<Messages />
 			{!isReadonly && <MultimodalInput />}
 			<StreamBridge chatId={id} onArtifactDelta={handleArtifactDelta} />
+			<ArtifactPanel />
 		</ChatSessionContext.Provider>
 	)
 }

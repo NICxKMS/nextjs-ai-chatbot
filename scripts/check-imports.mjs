@@ -29,6 +29,8 @@ function fileURLDirname(url) {
 // ─── Allowlist: explicit cross-feature import exceptions ────────────────────
 const ALLOWLIST = new Set([
 	"features/chat/components/stream-bridge.tsx -> features/artifacts/lib/artifact-store.ts",
+	"features/chat/components/chat-shell.tsx -> features/artifacts/lib/artifact-store.ts",
+	"features/chat/components/chat-shell.tsx -> features/artifacts/components/artifact-panel.tsx",
 	"features/chat/hooks/use-chat-session.ts -> features/settings/hooks/use-settings.ts",
 	"features/chat/components/message.tsx -> features/voting/components/vote-buttons.tsx",
 	"features/chat/components/chat-header.tsx -> features/visibility/components/visibility-selector.tsx",

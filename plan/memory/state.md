@@ -1,9 +1,9 @@
 ---
-phase: P3
-phase_name: "Chat Core"
+phase: P6
+phase_name: "Enhancements Phase"
 active_task: null
-next_task: P4-T01
-session: 3
+next_task: P6-T01
+session: 4
 
 blockers: []
 
@@ -76,14 +76,45 @@ progress:
   P3-T21: done/pass
   P3-T25: done/pass
   P3-T27: done/pass
+  P4-T01: done/pass
+  P4-T02: done/pass
+  P4-T04: done/pass
+  P4-T05: done/pass
+  P4-T06: done/pass
+  P4-T07: done/pass
+  P4-T08: done/pass
+  P4-T09: done/pass
+  P4-T10: done/pass
+  P4-T13: done/pass
+  P4-T15: done/pass
+  P4-T16: done/pass
+  P5-T01: done/pass
+  P5-T02: done/pass
+  P5-T03: done/pass
+  P5-T04: done/pass
+  P5-T06: done/pass
+  P5-T07: done/pass
+  P5-T09: done/pass
+  P5-T10: done/pass
+  P4-T03: done/pass
+  P4-T12: done/pass
+  P4-T14: done/pass
+  P4-T11: done/pass
+  P4-T17: done/pass
+  P4-T18: done/pass
+  P5-T05: done/pass
+  P5-T08: done/pass
+  P5-T13: done/pass
+  P5-T11: done/pass
+  P5-T12: done/pass
 
 phases:
   P0: { total: 18, done: 18, status: done }
   P1: { total: 14, done: 14, status: done }
   P2: { total: 9,  done: 9, status: done }
   P3: { total: 27, done: 27, status: done }
-  P4: { total: 18, done: 0, status: pending }
-  P5: { total: 12, done: 0, status: pending }
+  P4: { total: 18, done: 18, status: done }
+  P5: { total: 13, done: 13, status: done }
   P6: { total: 14, done: 0, status: pending }
   P7: { total: 13, done: 0, status: pending }
 

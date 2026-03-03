@@ -22,6 +22,13 @@ export type ArtifactSuggestion = {
 
 // ── Client-side artifact representation ──────────────────────
 
+export type BoundingBox = {
+	top: number
+	left: number
+	width: number
+	height: number
+}
+
 export type UIArtifact = {
 	artifactId: string
 	title: string
@@ -30,4 +37,5 @@ export type UIArtifact = {
 	isVisible: boolean
 	status: ArtifactStatus
 	suggestions?: ArtifactSuggestion[]
+	boundingBox?: BoundingBox
 }

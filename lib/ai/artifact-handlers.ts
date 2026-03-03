@@ -1,3 +1,4 @@
+import { AppError } from "@/lib/errors/app-error"
 import type { ArtifactKind } from "@/lib/types/artifact.types"
 import type { ArtifactHandler } from "@/lib/types/artifact-handler.types"
 
@@ -42,7 +43,10 @@ export function registerArtifactHandler(kind: ArtifactKind, handler: ArtifactHan
 export function getArtifactHandler(kind: ArtifactKind): ArtifactHandler {
 	const handler = handlers.get(kind)
 	if (!handler) {
-		throw new Error(`No artifact handler registered for kind "${kind}"`)
+		throw AppError.notFound(
+			"not_found:artifact:artifact_not_found",
+			`No artifact handler registered for kind "${kind}"`,
+		)
 	}
 	return handler
 }
