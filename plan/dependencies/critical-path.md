@@ -2,7 +2,7 @@
 
 # Critical Path Analysis
 
-> The longest sequential chain through the 125-task plan.
+> The longest sequential chain through the 126-task plan. <!-- C2-W4: IC-05/06 fix -->
 > Determines minimum calendar time to completion.
 > Task IDs: P0-T01 through P7-T13. "artifact" naming throughout. No credit/gateway logic.
 > proxy.ts (not middleware.ts). ChatShell + ChatSessionContext. useSyncExternalStore for artifact state.
@@ -88,7 +88,7 @@ P0-T01 → T09 → T11 → T12 → T13 → T18
 |--------|-------|
 | **Critical path length** | ~40 steps (~30 tasks + gate overhead) |
 | **Estimated duration** | **~22–23 working days** (depending on P4/P5 overlap efficiency) |
-| **Tasks on critical path** | ~30 / 125 (24%) |
+| **Tasks on critical path** | ~30 / 126 (24%) | <!-- C2-W4: IC-05/06 fix -->
 | **Longest phase on path** | P4 Artifacts (~4.25d) + P5 Sidebar (~4.25d) |
 | **Shortest phase on path** | P7 Polish (1.25d) |
 

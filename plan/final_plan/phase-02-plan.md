@@ -73,8 +73,8 @@ Implement complete authentication — session resolution, login/register/logout,
 
 | Seam | Description | Task |
 |------|-------------|------|
-| SEAM-001 | Supabase session ↔ app session | P2-T01 |
-| SEAM-002 | Guest bootstrap + token rotation | P2-T03 |
-| SEAM-003 | Guest ↔ authenticated user transition | P2-T03, P2-T04 |
-| SEAM-004 | SessionProvider ↔ server session sync | P2-T06, P2-T08 |
-| SEAM-005 | proxy.ts auth redirect logic | P0-T14 (wired), P2-T01 (session) |
+| SEAM-001 | Session Provider Injection | P2-T06 |
+| SEAM-002 | Auth Actions (Login/Register) | P2-T04 |
+| SEAM-003 | Guest Bootstrap | P2-T03 |
+| SEAM-004 | Guest Token Rotation | P2-T08 |
+| SEAM-005 | Session Resolution | P2-T01 |

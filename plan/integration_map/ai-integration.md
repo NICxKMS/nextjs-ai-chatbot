@@ -105,6 +105,8 @@ SSE Stream → useChat.onData → ChatStreamProvider (DispatchCtx)
                                     ↓
                               processStreamDelta() (PURE FUNCTION)
                                     ↓
+                              onArtifactDelta(artifact) (callback, wired P4-T17)
+                                    ↓
                               artifactStore.setState() (useSyncExternalStore)
                                     ↓
                               Subscriber components re-render (selector-based)
@@ -207,14 +209,20 @@ POST /api/chat → route handler
   │
   ├── import '@/features/artifacts/handlers'   // Side-effect: registers all handlers
   │
+  ├── Model metadata lookup:
+  │     const modelMetadata = getModelById(modelId)
+  │     const hasTools = modelMetadata?.supportsToolCalling ?? false
+  │
   ├── Tools registered with streamText():
-  │     tools: getEnabledTools(modelId)
+  │     tools: hasTools
   │       ? buildTools({ session, ChatStream, chatId })
   │       : undefined
   │
   ├── Tool enablement based on model capabilities:
   │     → supportsToolCalling: false → NO tools (reasoning-only, gemma)
   │     → supportsToolCalling: true → ALL 4 tools
+
+  <!-- AUDIT: Wave4-CONF-007/W2-MO-01 — getEnabledTools(modelId) replaced with getModelById() lookup + modelMetadata.supportsToolCalling boolean check per P3-T03. -->
   │
   └── maxSteps: 5 (max tool call round-trips)
 ```
@@ -297,9 +305,11 @@ Input: { artifactId: string }
 export function composeSystemPrompt({
   settings,
   hasTools,
+  supportsReasoning,
 }: {
   settings: SettingsState
-  hasTools: boolean
+  hasTools: boolean            // derived from ModelMetadata.supportsToolCalling
+  supportsReasoning: boolean   // ModelMetadata.supportsReasoning for selected model
 }): string {
   const parts: string[] = [BASE_PROMPT]
 
@@ -314,7 +324,7 @@ export function composeSystemPrompt({
   }
 
   // Reasoning hint (when enabled + model supports it)
-  if (settings.enableReasoning) {
+  if (settings.enableReasoning && supportsReasoning) {
     parts.push(REASONING_PROMPT)
   }
 
@@ -328,8 +338,8 @@ export function composeSystemPrompt({
 |--------|--------|---------|
 | `BASE_PROMPT` | `lib/ai/prompts.ts` | "You are a helpful assistant. Today's date is {date}." |
 | `settings.systemPrompt` | User settings (localStorage → request body) | User-defined custom instructions |
-| `ARTIFACTS_PROMPT` | `lib/ai/prompts.ts` | Instructions for createArtifact/updateArtifact usage (>10 lines threshold, kinds, etc.) |
-| `REASONING_PROMPT` | `lib/ai/prompts.ts` | "Think step-by-step before responding." |
+| `ARTIFACTS_PROMPT` | `lib/ai/prompts.ts` | Instructions for createArtifact/updateArtifact usage (>10 lines threshold, kinds, etc.). Included only when `hasTools === true` (i.e., `ModelMetadata.supportsToolCalling === true`). |
+| `REASONING_PROMPT` | `lib/ai/prompts.ts` | "Think step-by-step before responding." Included only when `settings.enableReasoning && ModelMetadata.supportsReasoning` for the selected model. |
 
 ### Artifact Prompt Details
 
@@ -418,18 +428,24 @@ import '@/features/artifacts/handlers'  // Side-effect: register handlers
 
 const stream = createUIMessageStream({
   execute: async ({ writer: ChatStream }) => {
-    // Title generation (parallel)
+    // Title generation (parallel, internally uses AbortSignal.timeout(5_000))
     const titlePromise = generateTitle(userMessage.content)
+
+    // Model metadata lookup
+    // AUDIT: Wave4-CONF-007/W2-MO-01 — getEnabledTools(modelId) replaced with modelMetadata.supportsToolCalling.
+    // AUDIT: Wave4-CONF-006/W2-MO-02 — composeSystemPrompt now includes supportsReasoning (3-param canonical form per integration map §4).
+    const modelMetadata = getModelById(modelId) // from lib/ai/models.ts
+    const hasTools = modelMetadata?.supportsToolCalling ?? false
 
     // Chat completion
     const result = streamText({
       model: myProvider.languageModel(modelId),
-      system: composeSystemPrompt({ settings, hasTools }),
+      system: composeSystemPrompt({ settings, hasTools, supportsReasoning: modelMetadata?.supportsReasoning ?? false }),
       messages: convertToModelMessages(uiMessages),
-      tools: getEnabledTools(modelId)
+      tools: hasTools
         ? buildTools({ session, ChatStream, chatId })
         : undefined,
-      stopWhen: stepCountIs(5),
+      maxSteps: 5, // AMB-6: Standardized on maxSteps (available in AI SDK v4+v5). If future SDK requires stopWhen: stepCountIs(5), swap at implementation time.
       abortSignal: AbortSignal.timeout(55_000),
       experimental_transform: smoothStream({ delayInMs: 2, chunking: "word" }),
       temperature, topP, maxOutputTokens,
@@ -460,6 +476,8 @@ return new Response(stream.pipeThrough(new JsonToSseTransformStream()))
 
 ### smoothStream Transform
 
+<!-- AMB-5 Resolution: Flat delayInMs: 2 adopted for all providers. Redesign was internally contradictory (ai-integration.md §5 prescribed conditional 2/5ms, streaming-architecture.md §4 prescribed flat 2ms). Flat 2ms selected as intentional simplification — the difference is imperceptible (3ms) and avoids provider-specific branching. -->
+
 ```typescript
 experimental_transform: smoothStream({
   delayInMs: 2,         // 2ms between chunks — typewriter effect
@@ -472,7 +490,7 @@ experimental_transform: smoothStream({
 ```
 1. Client POST /api/chat
 2. Server creates UIMessageStream
-3. Title generation starts (async, parallel)
+3. Title generation starts (async, parallel, AbortSignal.timeout(5_000))
 4. streamText() begins → tokens flow
 5. Tool calls may interrupt → execute tool → resume
 6. Title AWAITED before stream close → chat-title written
@@ -554,12 +572,12 @@ This breaks the direct chat→artifacts dependency. The registry sits in `lib/ai
 lib/ai/
   ├── registry.ts              # createProviderRegistry (conditional providers)
   ├── provider.ts              # myProvider (reasoning middleware wrapper)
-  ├── models.ts                # getAvailableModels() with 'use cache'
+  ├── models.ts                # STATIC_MODELS, discoverModels(), getModelById()
   ├── prompts.ts               # composeSystemPrompt()
   ├── provider-options.ts      # getProviderOptions() per-provider config
   ├── artifact-handlers.ts     # Handler registry (register/get)
   ├── tools.ts                 # getEnabledTools() model-based tool gating
-  └── title.ts                 # generateTitle()
+  └── title.ts                 # generateTitle() — wraps generateText with AbortSignal.timeout(5_000); falls back to first 80 chars on timeout/error
 
 lib/types/
   ├── model.types.ts           # ModelMetadata, DEFAULT_CHAT_MODEL

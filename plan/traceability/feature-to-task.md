@@ -26,7 +26,7 @@
 | 10 | Chat visibility | P6-T06, T07, T08 | features/visibility/\* | P6-T08 |
 | 11 | Settings (sampling, system prompt) | P3-T06, P3-T07 | features/settings/hooks/use-settings.ts, features/settings/components/settings-panel.tsx | — (via P3-T06 useSyncExternalStore) |
 | 12 | Weather tool | P3-T13, P6-T12 | features/chat/lib/tools/weather.ts, components/weather.tsx | — (via P3-T23) |
-| 13 | Title generation | P3-T23, P5-T02 | app/api/chat/route.ts (onFinish awaits title), features/sidebar/hooks/use-pending-chats.ts | P5-T02 (PendingChats.updateTitle) |
+| 13 | Title generation | P3-T23, P5-T02 | app/api/chat/route.ts (onFinish awaits title), lib/providers/pending-chats-provider.tsx | P5-T02 (PendingChats.updateTitle) |
 | 14 | Message actions (copy, edit, delete) | P3-T16, P3-T15 | features/chat/components/message-actions.tsx, message-editor.tsx | P3-T16 |
 | 15 | Suggested actions | P3-T14 | features/chat/components/suggested-actions.tsx | — (via P3-T21 ChatShell) |
 | 16 | Chat streaming (ChatStreamProvider/StreamBridge) | P3-T10, P3-T20 | features/chat/components/chat-stream-provider.tsx, stream-bridge.tsx | P3-T21, P4-T17 |

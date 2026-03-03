@@ -35,7 +35,8 @@ All seams resolved across 8 phases using redesign patterns.
 | SEAM-009 | `createArtifact` tool → handler registry | P4 | P4-T04, P4-T06 | ✅ |
 | SEAM-010 | `updateArtifact` tool → handler registry | P4 | P4-T04, P4-T06 | ✅ |
 | SEAM-011 | `requestSuggestions` tool → text editor | P4 | P4-T07 | ✅ |
-| SEAM-012 | Artifact stream → StreamBridge → `artifactStore` → panel | P4 | P4-T11, P4-T17 | ✅ |
+<!-- wave4-cleanup: artifactStore → onArtifactDelta callback per DEV-027, P3-T20 -->
+| SEAM-012 | Artifact stream → StreamBridge → `onArtifactDelta` callback → panel | P4 | P4-T11, P4-T17 | ✅ |
 
 ### Chat ↔ Sidebar (2)
 
@@ -91,7 +92,8 @@ All seams resolved across 8 phases using redesign patterns.
 
 | Seam | Description | Phase | Tasks | Status |
 |------|-------------|-------|-------|--------|
-| SEAM-023 | Data Context (Session→Branching) | P1 | P1-T05 | ✅ |
+| SEAM-023 | Session → Data Access | P1 | P1-T05 | ✅ |
+<!-- audit: W4-CONF-017 — title aligned with seam-inventory.md per DEV-024 -->
 | SEAM-024 | Chat Data Operations | P1 | P1-T06 | ✅ |
 | SEAM-025 | Artifact Data Operations | P1, P4 | P1-T08, P4-T15 | ✅ |
 | SEAM-026 | Message Persistence | P1, P3 | P1-T07, P3-T23 | ✅ |
@@ -142,8 +144,10 @@ All seams resolved across 8 phases using redesign patterns.
 | Settings → AI completion | `useSyncExternalStore` + localStorage → request body → `streamText` config | JSON in request.body | P3 |
 | Vote → DB | Client → Server Action → Drizzle → `updateTag` | `useOptimistic` + Server Action | P6 |
 | File → Blob → Message | FormData → POST /api/files/upload → Vercel Blob → message parts | Upload then attach | P6 |
-| Session → DataContext | Cookie → `getAppSession()` → data functions | Server-side per-request | P1, P2 |
-| Artifact content → Panel | `artifact-*` stream parts → ChatStreamProvider → StreamBridge → `processStreamDelta()` → `artifactStore.setState()` → `useSyncExternalStore` → editor | Stream + external store | P3, P4 |
+| Session → Data Functions | Cookie → `getAppSession()` → data functions (bare-ID signatures) | Server-side per-request | P1, P2 |
+<!-- audit: W4-CONF-017 — DataContext removed per DEV-024 -->
+<!-- wave4-cleanup: artifactStore.setState() → onArtifactDelta callback per DEV-027, P3-T20 -->
+| Artifact content → Panel | `artifact-*` stream parts → ChatStreamProvider → StreamBridge → `processStreamDelta()` → `onArtifactDelta` callback (wired to `artifactStore.setState()` by P4-T17) → `useSyncExternalStore` → editor | Stream + external store | P3, P4 |
 | Visibility → DB | Client → `useOptimistic` → Server Action → Drizzle → `updateTag` | Optimistic SA | P6 |
 | History → Sidebar | Server: `'use cache'` initial load; Client: `useSWRInfinite` pagination | Server render + cursor pagination | P5 |
 
@@ -185,19 +189,24 @@ All seams resolved across 8 phases using redesign patterns.
 
 ```
 <ChatStreamProvider>        <!-- Split context: StateCtx + DispatchCtx, RAF batching -->
-  <StreamBridge />          <!-- Thin bridge ~20 lines → processStreamDelta → artifactStore -->
-  <VoteResolver votesPromise={votesPromise} />   <!-- React 19 use() -->
-  <ChatShell                <!-- ~60 lines, creates ChatSessionContext.Provider -->
-    chatId={id}
-    initialMessages={messages}
-  >
-    <ChatHeader />
-    <Messages />
-    <MultimodalInput />
-    <ArtifactPanel />       <!-- useSyncExternalStore subscription -->
-  </ChatShell>
+  <VotesProvider>            <!-- empty context initially; VoteResolver hydrates -->
+    <ChatShell              <!-- ~60 lines, creates ChatSessionContext.Provider -->
+      chatId={id}
+      initialMessages={messages}
+    >
+      <ChatHeader />
+      <Messages />
+      <MultimodalInput />
+      <ArtifactPanel />       <!-- useSyncExternalStore subscription -->
+    </ChatShell>
+    <StreamBridge />          <!-- Thin bridge ~20 lines → processStreamDelta → onArtifactDelta callback (DEV-027) --><!-- wave4-cleanup -->
+    <Suspense>
+      <VoteResolver votesPromise={votesPromise} />   <!-- React 19 use() → hydrates VotesProvider -->
+    </Suspense>
+  </VotesProvider>
 </ChatStreamProvider>
 ```
+<!-- Wave 4-VOTING: CONF-020 fix — added VotesProvider wrapping + Suspense to match patterns.md §7.5 canonical structure -->
 
 ---
 

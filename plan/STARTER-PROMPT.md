@@ -9,7 +9,7 @@
 Full rebuild of a Next.js AI chatbot (`ai-assistant`). Old app preserved at `oldapp/` for behavioral reference. Building from scratch in project root.
 
 **Stack:** Next.js 16 · React 19 · TypeScript strict · Drizzle ORM · Supabase · Tailwind v4 · Vercel AI SDK 5.x · Biome · pnpm
-**Scale:** 8 phases · 125 tasks · ~210 files
+**Scale:** 8 phases · 126 tasks · ~210 files <!-- C2-W4: IC-05/06 fix -->
 **Decision hierarchy:** Correctness → Architecture → Consistency → Performance → Speed
 **Reuse hierarchy:** Reuse → Extend → Refactor → Create
 
@@ -28,6 +28,7 @@ When documents conflict, this hierarchy wins:
 | Redesign decisions | `plan-archives/redesign/` folder (13 authoritative docs) |
 
 > **Rule:** Specific documents override general summaries. Phase specs > guides > this file.
+> **Conflict Resolution:** In case of any conflict between plan documents and the redesign directory (`plan-archives/redesign/`), **the redesign directory takes precedence**. The 13 redesign docs are the authoritative source of architectural truth.
 
 ---
 

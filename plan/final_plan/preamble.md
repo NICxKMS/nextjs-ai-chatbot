@@ -14,7 +14,7 @@ Rebuild the Next.js AI chatbot from scratch using Next.js 16, React 19, TypeScri
 
 **Stack:** Next.js 16 · React 19 · TypeScript strict · Drizzle ORM · Supabase · Tailwind v4 · Vercel AI SDK 5.x · Biome · pnpm
 
-**Target:** 8 phases, 125 tasks, ~210 files.
+**Target:** 8 phases, 126 tasks, ~210 files. <!-- C2-W4: IC-05/06 fix -->
 
 **Decision hierarchy:** Correctness → Architecture → Consistency → Performance → Speed
 **Reuse hierarchy:** Reuse → Extend → Refactor → Create
@@ -69,7 +69,7 @@ Rebuild the Next.js AI chatbot from scratch using Next.js 16, React 19, TypeScri
 | ID | Spec Prescribed | Actual | Why Better |
 |----|----------------|--------|------------|
 | DEV-001 | `src/` directory | Root-level `app/`, `features/`, `lib/` | Matches Next.js convention; avoids unnecessary nesting |
-| DEV-002 | AI wrappers in `lib/ai/` | Wrappers colocated in `features/*/lib/` | Keeps domain logic with its consumers |
+| DEV-002 | AI wrappers in global `components/ai/`; ai-elements bulk-copied | Primitives copied on-demand to `components/ai-elements/`; wrappers colocated in `features/*/components/` | Primitives reused as-is (not reimplemented); wrappers stay with consumers; YAGNI for unused elements |
 | DEV-003 | Blanket `lib/hooks/` | Hooks colocated in `features/*/hooks/` | Only truly shared hooks in `lib/hooks/`; domain hooks stay with their feature |
 | DEV-004 | Auth form in `components/` | Auth form in `features/auth/components/` | Feature collocation consistency |
 | DEV-005 | Repository classes | Plain exported functions (`getChat()`, `saveMessage()`) | Drizzle is already the abstraction; no class wrapper needed |

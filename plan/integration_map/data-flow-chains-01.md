@@ -46,8 +46,8 @@ User types message in MultimodalInput on home page and clicks send.
    e. createChat({ id: chatId, userId, title: 'New Chat', visibility: 'private' })
    f. createUIMessageStream():
       - Merge streamText result into UIMessageStream
-      - Configure tools: getEnabledTools(modelId)
-      - System prompt: composeSystemPrompt({ model, systemPrompt? })
+      - Configure tools: getEnabledTools(getModelById(modelId))
+      - System prompt: composeSystemPrompt({ settings, hasTools, supportsReasoning })
       - Apply settings: temperature, topP, maxOutputTokens, providerOptions
 
 5. SERVER: streamText execution (inside execute)
@@ -77,7 +77,7 @@ User types message in MultimodalInput on home page and clicks send.
 8. CLIENT: ChatStreamProvider → StreamBridge (if artifact parts)
    a. ChatStreamProvider StateCtx update (RAF batched)
    b. StreamBridge useEffect reads new parts
-   c. processStreamDelta(part) → artifactStore.setState()
+   c. processStreamDelta(part) → onArtifactDelta(artifact)
    d. ArtifactPanel re-renders via useArtifact() subscription
 ```
 
@@ -103,7 +103,7 @@ User navigates to `/chat/[id]` via sidebar link or direct URL.
    b. Parallel fetch:
       - getChatWithMessages(chatId) → chat + messages
         - 'use cache' + cacheTag('chat:{chatId}')
-      - getVotesByChatId(chatId) → votesPromise (NOT awaited)
+      - getCachedVotes(chatId, session.user.id) → votesPromise (NOT awaited) <!-- wave4: CONF-039 — fixed function name + added userId param per data-flows.md §getCachedVotes -->
       - getAvailableModels() → models
         - 'use cache' + cacheTag('models')
    c. Access control:
@@ -238,9 +238,9 @@ AI model decides to use `createArtifact` tool during response generation.
    a. AI model emits tool-call: createArtifact({ title, kind })
    b. Tool execute function runs:
       - Generate artifactId = generateUUID()
+      - ChatStream.writeData({ type: 'artifact-kind', content: kind })
       - ChatStream.writeData({ type: 'artifact-id', content: artifactId })
       - ChatStream.writeData({ type: 'artifact-title', content: title })
-      - ChatStream.writeData({ type: 'artifact-kind', content: kind })
       - ChatStream.writeData({ type: 'artifact-clear', content: '' })
       - getArtifactHandler(kind) → handler
       - content = await handler.create({ id: artifactId, title, kind, ChatStream, session, chatId })
@@ -260,9 +260,9 @@ AI model decides to use `createArtifact` tool during response generation.
 
 4. CLIENT: StreamBridge → artifactStore
    a. processStreamDelta(part) for each buffered part:
+      - artifact-kind → setState({ kind })
       - artifact-id → setState({ artifactId })
       - artifact-title → setState({ title })
-      - artifact-kind → setState({ kind })
       - artifact-clear → setState({ content: '', status: 'streaming' })
       - artifact-textDelta → setState(prev => ({ content: prev.content + delta }))
       - artifact-finish → setState({ status: 'idle' })
@@ -337,7 +337,7 @@ User opens settings panel and changes a value.
 
 4. SERVER: Route handler reads settings
    a. Extract: temperature, topP, maxOutputTokens, systemPrompt, enableReasoning
-   b. composeSystemPrompt({ model, systemPrompt? }) — custom system prompt support
+   b. composeSystemPrompt({ settings, hasTools, supportsReasoning }) — settings-driven prompt composition
    c. streamText({ temperature, topP, maxTokens: maxOutputTokens, ... })
    d. providerOptions: enableReasoning → per-provider reasoning config
 

@@ -125,7 +125,8 @@ User picks model from dropdown.
 
 ```
 1. USER ACTION
-   ModelSelector (in MultimodalInput toolbar) → onModelChange(newModelId)
+   ModelSelector (in ChatHeader) → onModelChange(newModelId)
+   <!-- audit: SOFT-011 — corrected placement per P6-T05 redesign (was MultimodalInput toolbar) -->
 
 2. CLIENT: State Update
    a. Cookie: document.cookie = "chat-model={modelId}" (server-readable)
@@ -135,7 +136,7 @@ User picks model from dropdown.
    a. prepareSendMessagesRequest includes selectedChatModel = newModelId
    b. Server: validate modelId against registry
    c. Server: myProvider.languageModel(modelId) resolves model instance
-   d. Server: getEnabledTools(modelId) → tool set based on capabilities
+   d. Server: getModelById(modelId) → ModelMetadata → tool set based on capabilities
 
 4. CAPABILITY EFFECTS
    a. supportsToolCalling: true → createArtifact, updateArtifact, requestSuggestions, getWeather

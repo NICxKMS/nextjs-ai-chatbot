@@ -9,7 +9,7 @@
 > **Exit state**: AI can create/update text, code, sheet artifacts; users can edit them; versions tracked; suggestion flow works.
 > **Est. duration**: ~4.25 days
 > **Tasks**: 18
-> **Files created**: ~28
+> **Files created**: ~29
 
 ---
 
@@ -28,7 +28,7 @@
 | P4-T09 | Create sheet editor | IMPL | L | 1 |
 | P4-T10 | Create image editor | IMPL | S | 1 |
 | P4-T11 | Create artifact panel | IMPL | L | 1 |
-| P4-T12 | Create artifact support components | IMPL | M | 3 |
+| P4-T12 | Create artifact support components | IMPL | M | 4 |
 | P4-T13 | Create artifact error boundary | IMPL | S | 1 |
 | P4-T14 | Create artifact preview | IMPL | M | 1 |
 | P4-T15 | Create artifact API route | IMPL | M | 1 |
@@ -70,7 +70,7 @@ Type: IMPL
 Behavior ref: artifacts-system.md (ArtifactKind, UIArtifact, ArtifactHandler)
 Architecture ref: conventions.md (feature types collocation, Zod schemas with Schema suffix); scaffold/directory-structure.md (features/artifacts/types/, features/artifacts/schemas/)
 
-Action: Create 2 files. (1) features/artifacts/types/artifact.types.ts — Define feature-local artifact view helpers (e.g., `ArtifactActionContext`, `ArtifactToolbarItem`, `initialArtifactData`) while importing shared core types (`ArtifactKind`, `UIArtifact`, `ArtifactHandler`) from `@/lib/types/artifact.types` and `@/lib/types/artifact-handler.types`. (2) features/artifacts/schemas/artifact.schema.ts — Define Zod schemas: createArtifactSchema (title: string, kind: ArtifactKind enum), updateArtifactSchema (id: string uuid, description: string), getArtifactSchema (id: string uuid), deleteArtifactVersionSchema (id: string uuid, timestamp: string datetime), suggestionResponseSchema (suggestions: array of {originalText, suggestedText, description} max 5). Export inferred TypeScript types for each schema.
+Action: Create 2 files. (1) features/artifacts/types/artifact.types.ts — Define feature-local artifact view helpers (e.g., `ArtifactActionContext`, `ArtifactToolbarItem`, `initialArtifactData`) while importing shared core types (`ArtifactKind`, `UIArtifact`, `ArtifactHandler`) from `@/lib/types/artifact.types` and `@/lib/types/artifact-handler.types`. (2) features/artifacts/schemas/artifact.schema.ts — Define Zod schemas: createArtifactSchema (title: string, kind: "text" | "code" | "sheet"), updateArtifactSchema (id: string uuid, description: string), getArtifactSchema (id: string uuid), deleteArtifactVersionSchema (id: string uuid, timestamp: string datetime), suggestionResponseSchema (suggestions: array of {originalText, suggestedText, description} max 5). Export inferred TypeScript types for each schema. <!-- C2-W4: C2-A1 fix -->
 
 Output files:
 - features/artifacts/types/artifact.types.ts
@@ -89,7 +89,7 @@ Success criteria:
 - UIArtifact includes artifactId (NOT documentId), title, kind, content, isVisible, status
 - initialArtifactData exported with sensible defaults
 - ArtifactHandler interface defines `create(params)` and `update(params)` methods (no `kind` property — kind is the registry Map key) <!-- Wave 4: AR-4 / SC-1 / DA-1 — aligned to redesign naming-conventions.md §2. Was `onCreateArtifact`/`onUpdateArtifact`. -->
-- createArtifactSchema validates title + kind
+- createArtifactSchema validates title + kind (`kind` constrained to `"text" | "code" | "sheet"`; image creation stays in separate flow) <!-- C2-W4: C2-A1 fix -->
 - deleteArtifactVersionSchema validates id + timestamp
 - suggestionResponseSchema validates array of max 5 suggestions
 - All schemas export inferred types
@@ -179,7 +179,7 @@ Type: IMPL
 Behavior ref: artifacts-system.md (text handler: streamText → artifact-textDelta; code handler: streamObject → artifact-codeDelta)
 Architecture ref: SEAM-009, SEAM-010 (createArtifact/updateArtifact → handlers); redesign (ArtifactHandler type, handler registration)
 
-Action: Create 2 files. (1) features/artifacts/handlers/text-handler.ts — Implements ArtifactHandler for kind "text". `create(params)`: calls AI SDK streamText() with artifact model, text-specific system prompt ("write Markdown, no code blocks"), title as user message, streams `artifact-textDelta` parts (APPEND delta). Returns full text content for persistence. `update(params)`: receives existing content + update description, calls streamText() with context, streams `artifact-textDelta` parts. (2) features/artifacts/handlers/code-handler.ts — Implements ArtifactHandler for kind "code". `create(params)`: calls AI SDK streamObject() with Zod schema z.object({ code: z.string() }), code-specific system prompt ("self-contained Python, use print(), max 15 lines"), streams `artifact-codeDelta` parts (REPLACE delta). `update(params)`: receives existing code + description, calls streamObject(). Both handlers write standard artifact stream preamble/postamble: artifact-kind, artifact-id, artifact-title, artifact-clear before content, artifact-finish after. Both persist via lib/data/artifact.ts saveArtifactVersion(). <!-- Wave 4: AR-4 — handler methods named `create`/`update` per redesign. -->
+Action: Create 2 files. (1) features/artifacts/handlers/text-handler.ts — Implements ArtifactHandler for kind "text". `create(params)`: calls AI SDK streamText() with artifact model, text-specific system prompt ("write Markdown, no code blocks"), title as user message, streams `artifact-textDelta` parts (APPEND delta). Returns full text content for persistence. `update(params)`: receives existing content + update description, calls streamText() with context, streams `artifact-textDelta` parts. (2) features/artifacts/handlers/code-handler.ts — Implements ArtifactHandler for kind "code". `create(params)`: calls AI SDK streamObject() with Zod schema z.object({ code: z.string() }), code-specific system prompt ("self-contained Python, use print(), max 15 lines"), streams `artifact-codeDelta` parts (REPLACE delta). `update(params)`: receives existing code + description, calls streamObject(). Handlers stream content deltas only and return the full content string. Lifecycle (preamble, persistence, postamble) is owned by the calling tool per domain-boundaries.md §3. <!-- Wave 4: AR-4 — handler methods named `create`/`update` per redesign. --> <!-- Wave 4: CONF-003 — preamble/postamble/persistence removed from handlers. Tool owns lifecycle. -->
 
 Output files:
 - features/artifacts/handlers/text-handler.ts
@@ -196,9 +196,9 @@ Dependents: P4-T06
 Success criteria:
 - Text handler streams `artifact-textDelta` parts (APPEND, not replacement)
 - Code handler streams `artifact-codeDelta` parts (REPLACE, not appending)
-- Both write artifact stream preamble (artifact-kind, artifact-id, artifact-title, artifact-clear)
-- Both write artifact-finish postamble
-- Both persist via saveArtifactVersion()
+- Handlers stream content deltas ONLY — no preamble/postamble/persistence (tool owns lifecycle per domain-boundaries.md §3) <!-- Wave 4: CONF-003 -->
+- Text handler returns full content string for persistence by calling tool
+- Code handler returns full content string for persistence by calling tool
 - Code handler uses streamObject with z.object({ code: z.string() })
 - Zero "document" identifiers
 - pnpm typecheck passes
@@ -215,7 +215,7 @@ Type: IMPL
 Behavior ref: artifacts-system.md (sheet handler: streamObject → artifact-sheetDelta; image: no AI generation)
 Architecture ref: SEAM-034, SEAM-035; redesign (ArtifactHandler type)
 
-Action: Create 2 files. (1) features/artifacts/handlers/sheet-handler.ts — Implements ArtifactHandler for kind "sheet". `create(params)`: calls AI SDK streamObject() with Zod schema z.object({ csv: z.string() }), sheet-specific system prompt ("generate CSV with headers"), streams `artifact-sheetDelta` parts (REPLACE delta). `update(params)`: receives existing CSV + description, calls streamObject(). Writes standard artifact stream preamble/postamble. Persists via saveArtifactVersion(). (2) features/artifacts/handlers/image-handler.ts — Minimal handler for kind "image". Image artifacts are NOT created via AI generation — they are created by code execution (Pyodide matplotlib output). `create(params)` saves provided content (base64 data URL). `update(params)` is a no-op returning existing content. Exists for type completeness and version persistence only. <!-- Wave 4: AR-4 — handler methods named `create`/`update` per redesign. -->
+Action: Create 2 files. (1) features/artifacts/handlers/sheet-handler.ts — Implements ArtifactHandler for kind "sheet". `create(params)`: calls AI SDK streamObject() with Zod schema z.object({ csv: z.string() }), sheet-specific system prompt ("generate CSV with headers"), streams `artifact-sheetDelta` parts (REPLACE delta). `update(params)`: receives existing CSV + description, calls streamObject(). Sheet handler streams content deltas only and returns the full content string. Lifecycle (preamble, persistence, postamble) is owned by the calling tool per domain-boundaries.md §3. <!-- Wave 4: CONF-003 --> (2) features/artifacts/handlers/image-handler.ts — Minimal handler for kind "image". Image artifacts are NOT created via AI generation — they are created by code execution (Pyodide matplotlib output). `create(params)` saves provided content (base64 data URL). `update(params)` is a no-op returning existing content. Exists for type completeness and version persistence only. <!-- Wave 4: AR-4 — handler methods named `create`/`update` per redesign. -->
 
 Output files:
 - features/artifacts/handlers/sheet-handler.ts
@@ -234,7 +234,8 @@ Success criteria:
 - Sheet handler uses streamObject with z.object({ csv: z.string() })
 - Image handler saves content without AI generation
 - Image handler `update(params)` returns existing content (no-op) <!-- Wave 4: AR-4 — was `onUpdateArtifact`. -->
-- Both write standard artifact stream preamble/postamble
+- Handlers stream content deltas ONLY — no preamble/postamble/persistence (tool owns lifecycle per domain-boundaries.md §3) <!-- Wave 4: CONF-003 -->
+- Sheet handler returns full content string for persistence by calling tool
 - Zero "document" identifiers
 - pnpm typecheck passes
 
@@ -317,6 +318,9 @@ Type: IMPL
 Behavior ref: artifacts-system.md (CodeMirror + Pyodide execution)
 Architecture ref: SEAM-033 (CodeMirror + Pyodide)
 
+> **AI Element Copy**: Copy `oldapp/components/elements/code-block.tsx` → `components/ai-elements/code-block.tsx` (182 LOC, 4 exports — code block with syntax highlighting).
+> Wrapper imports from `@/components/ai-elements/code-block`.
+
 Action: Create features/artifacts/components/editors/code-editor.tsx — "use client" memo component. Props: content (Python code), onSaveContent, status, isCurrentVersion, currentVersionIndex, suggestions[]. Uses CodeMirror with lazy-loaded modules (@codemirror/state, @codemirror/view, @codemirror/lang-python, @codemirror/theme-one-dark). Module cache singleton pattern to prevent re-initialization. Streaming content updates via EditorView.dispatch. Run button triggers Pyodide execution: captures stdout/stderr and matplotlib images, outputs to Console component. Read-only when viewing non-current version. Pyodide accessed from global window object (loaded via Script tag in chat layout). Includes integrated console component with resizable panel (role="slider", aria-label="Resize console", keyboard arrows ±10px).
 
 Output files:
@@ -386,6 +390,9 @@ Type: IMPL
 Behavior ref: artifacts-system.md (image display from base64/URL)
 Architecture ref: SEAM-035 (image editor)
 
+> **AI Element Copy**: Copy `oldapp/components/elements/image.tsx` → `components/ai-elements/image.tsx` (107 LOC, 2 exports — image component).
+> Wrapper imports from `@/components/ai-elements/image`.
+
 Action: Create features/artifacts/components/editors/image-editor.tsx — "use client" component. Props: content (base64 data URL or URL string), title, status, isCurrentVersion, isInline? (for artifact preview). Renders image via next/image or native img element. Handles streaming state (show loader/placeholder). Handles inline vs full display modes (isInline: constrained size; full: fills available space). No AI server handler — images come from Pyodide execution (matplotlib output).
 
 Output files:
@@ -418,6 +425,9 @@ Type: IMPL
 
 Behavior ref: artifacts-system.md (panel layout, visibility logic, AnimatePresence)
 Architecture ref: SEAM-012 (artifact stream → panel); redesign (ArtifactPanel naming)
+
+> **AI Element Copy**: Copy `oldapp/components/elements/artifact.tsx` → `components/ai-elements/artifact.tsx` (128 LOC, 16 exports — artifact, header, close, title, description, actions, content).
+> Wrapper imports from `@/components/ai-elements/artifact`.
 
 Action: Create features/artifacts/components/artifact-panel.tsx — "use client" memo component. The main artifact panel overlay. Layout: fixed overlay z-50 h-dvh w-dvw. Full-width editor content on all screen sizes (no separate message sidebar). AnimatePresence for open/close with spring animation. Internal state: mode ("edit"), artifact (fetched versions), currentVersionIndex, isContentDirty. Routes to correct editor by artifact.kind: text → TextEditor, code → CodeEditor, sheet → SheetEditor, image → ImageEditor. Includes: ArtifactCloseButton, ArtifactActions, VersionFooter, ArtifactErrorBoundary wrapping editor content. Uses `useArtifactSelector` for visibility-driven rendering. Version data fetched via SWR (`useSWR`) keyed on artifact ID for client-side caching and revalidation. <!-- Wave 4: AR-1 (CRITICAL) removed ArtifactMessages sidebar — redesign explicitly removed the 400px message sidebar. AR-2 removed standalone Toolbar — consolidated into ArtifactActions (P4-T12). AR-3 removed vestigial `isToolbarVisible` state. AR-8 removed dead "diff" mode — not implemented this phase; deferred to post-MVP. AR-9 specified SWR as version-fetching mechanism. -->
 
@@ -458,12 +468,13 @@ Type: IMPL
 Behavior ref: artifacts-system.md (actions, close button, version footer)
 Architecture ref: SEAM-039 (version navigation + restore); redesign (useArtifactSelector)
 
-Action: Create 3 files. (1) features/artifacts/components/artifact-actions.tsx — Memo component. Renders per-kind action buttons. Each action receives ArtifactActionContext and renders as Button + Tooltip. Uses `useArtifactSelector` for state access. (2) features/artifacts/components/artifact-close-button.tsx — Memo component (always skips re-render). On click: sets `isVisible: false` on artifact state via store (pure visibility toggle; reset handled by chat lifecycle events per state-management/streaming specs). Uses `useArtifactSelector`. (3) features/artifacts/components/version-footer.tsx — Version navigation. Shows "Version {n} of {total}" with prev/next/restore/latest buttons. handleVersionChange("prev"|"next"|"toggle"|"latest"). Restore uses `POST /api/artifact` restore mode payload (`{ id, timestamp, mode: "restore" }`) to remove later versions. Uses motion for mount animation.
+Action: Create 4 files. (1) features/artifacts/components/artifact-actions.tsx — Memo component. Renders per-kind action buttons. Each action receives ArtifactActionContext and renders as Button + Tooltip. Uses `useArtifactSelector` for state access. (2) features/artifacts/components/artifact-close-button.tsx — Memo component (always skips re-render). On click: sets `isVisible: false` on artifact state via store (pure visibility toggle; reset handled by chat lifecycle events per state-management/streaming specs). Uses `useArtifactSelector`. (3) features/artifacts/components/version-footer.tsx — Version navigation. Shows "Version {n} of {total}" with prev/next/restore/latest buttons. handleVersionChange("prev"|"next"|"toggle"|"latest"). Restore uses `POST /api/artifact` restore mode payload (`{ id, timestamp, mode: "restore" }`) to remove later versions. Uses motion for mount animation. (4) features/artifacts/components/artifact-tool-result.tsx — Memo component. Renders tool call result cards for artifact creation/update in the message stream. Exports `ArtifactToolResult` (memo) and `ArtifactToolCall`. Shows clickable card ("Created artifact: {title}") with artifact kind icon and mini preview via ArtifactPreview. On click opens full artifact panel. Consumed by message.tsx for tool invocation rendering. <!-- Wave 4: CONF-010 — missing component added per W2-AO-1. -->
 
 Output files:
 - features/artifacts/components/artifact-actions.tsx
 - features/artifacts/components/artifact-close-button.tsx
 - features/artifacts/components/version-footer.tsx
+- features/artifacts/components/artifact-tool-result.tsx
 
 Inputs: features/artifacts/types/artifact.types.ts (P4-T01), features/artifacts/hooks/ (P4-T03), components/ui/ (P0-T11)
 Outputs: Supporting components consumed by artifact panel (P4-T11)
@@ -478,6 +489,8 @@ Success criteria:
 - ArtifactCloseButton toggles artifact panel visibility only (sets `isVisible: false` on close; reset handled by chat lifecycle events per state-management/streaming specs)
 - VersionFooter shows version info with navigation buttons
 - Restore deletes later versions via API using artifactId (NOT documentId)
+- ArtifactToolResult renders tool call result cards for artifact creation/update in message stream <!-- Wave 4: CONF-010 -->
+- ArtifactToolResult wraps ArtifactPreview for inline preview <!-- Wave 4: CONF-010 -->
 - All components use useArtifactSelector for state
 - pnpm typecheck passes
 
@@ -558,10 +571,10 @@ Title: Create artifact API route
 Phase: 4 — Artifacts Vertical
 Type: IMPL
 
-Behavior ref: api-contracts.md (GET/POST /api/artifact)
+Behavior ref: api-contracts.md (GET + POST /api/artifact) <!-- W4-CYCLE1: CONFLICT-006 fix — GET added for version reads per seam-inventory.md, contracts.md, final_plan/phase-04-plan.md, redesign data-flow.md. Previous CONF-023 (POST-only) overridden. -->
 Architecture ref: SEAM-021 (artifact version fetch); SEAM-025 (artifact data full); redesign (revalidateTag on save)
 
-Action: Create app/api/artifact/route.ts — GET: fetch all versions of an artifact by id query param, auth + ownership check. POST: handle both save and restore modes. Save mode persists a new artifact version (from manual client-side edits) and calls `revalidateTag('artifact:{id}', 'max')`. Restore mode accepts `{ id, timestamp, mode: "restore" }` and truncates later versions, then revalidates the artifact tag. All operations use lib/data/artifact.ts functions. Auth checks, Zod validation, and error handling included.
+Action: Create app/api/artifact/route.ts — GET + POST exports. **GET**: return all versions of an artifact by id (query param `?id=`), auth + ownership check. Enables SWR GET dedup pattern for version reads. **POST**: two modes via `mode` field in request body: (1) `save` mode: persist a new artifact version (from manual client-side edits) and call `revalidateTag('artifact:{id}', 'max')`. (2) `restore` mode: accept `{ id, timestamp, mode: "restore" }` and truncate later versions, then revalidate the artifact tag. All operations use lib/data/artifact.ts functions. Auth checks, Zod validation, and error handling included. <!-- W4-CYCLE1: CONFLICT-006 fix — GET added for version reads. POST retains save/restore modes. Previous CONF-023 (POST-only) overridden by 4 authoritative sources requiring GET. -->
 
 Output files:
 - app/api/artifact/route.ts
@@ -575,9 +588,9 @@ Dependencies: P4-T01, P2-T01, P1-T08, P1-T03, P0-T08
 Dependents: P4-T11, P4-T14, P4-T18
 
 Success criteria:
-- GET /api/artifact?id= returns artifact versions array
-- POST /api/artifact saves new version + calls revalidateTag('artifact:{id}', 'max')
-- POST /api/artifact in restore mode removes versions after timestamp
+- GET /api/artifact?id= returns artifact versions array (enables SWR GET dedup) <!-- W4-CYCLE1: CONFLICT-006 fix -->
+- POST /api/artifact in save mode (`mode: "save"`) saves new version + calls revalidateTag('artifact:{id}', 'max') + returns `{ artifact: Artifact }` <!-- C2-W4: C2X-003 fix -->
+- POST /api/artifact in restore mode accepts `{ id, timestamp, mode: "restore" }`, removes versions after timestamp, and returns `{ success: true }` <!-- C2-W4: C2-A4 fix -->
 - Auth + ownership checks on all operations
 - Uses artifactId (NOT documentId) throughout
 - Error responses use AppError.toResponse()
@@ -687,7 +700,7 @@ Success criteria:
 - Artifact API route calls `revalidateTag('artifact:{id}', 'max')` on save
 - Suggestions API uses `artifactId` parameter (NOT documentId)
 - All files/types use "artifact" naming (zero "document")
-- createArtifact tool creates artifacts for all 4 kinds
+- createArtifact tool creates artifacts for 3 kinds (`text`, `code`, `sheet`); image generation is a separate flow <!-- C2-W4: C2-A1 fix -->
 - updateArtifact tool updates existing artifacts
 - Version navigation works (prev/next/restore)
 - Artifact panel opens/closes with animation

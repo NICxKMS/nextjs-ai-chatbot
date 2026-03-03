@@ -78,7 +78,9 @@ Type: IMPL
 Behavior ref: ai-sdk-usage.md (model listing, provider resolution)
 Architecture ref: ../../plan-archives/redesign/ai-integration.md (model catalog)
 
-Action: Create 3 files. (1) lib/ai/models.ts — Model definitions: chatModels array with id, name, provider, description for each available model. Export model lookup utilities. (2) features/models/lib/models.ts — Export listChatModels() with `use cache` directive for Next.js 16 caching. Export getAvailableModels() for server components. (3) features/models/types/model.types.ts — ChatModel type, ModelProvider type.
+Action: Create 3 files. (1) lib/ai/models.ts — **STATIC_MODELS** array with entries conforming to `ModelMetadata` (defined in P0-T05's `lib/types/model.types.ts`). All 11 canonical fields per model (id, name, provider, providerModelId, modalities, contextWindow, maxOutputTokens, supportsToolCalling, supportsReasoning, source, and optional description). Export `discoverModels()` function (calls OpenRouter `/models` API with 5s timeout, returns `ModelMetadata[]`). Export model lookup utilities (e.g., `getModelById`). (2) features/models/lib/models.ts — Export **`getAvailableModels()`** with `'use cache'` + `cacheTag('models')` + `cacheLife('hours')`. Merges static + dynamic (discovered) models with deduplication. This is the single public API for obtaining the model catalog. Export **`getDefaultModel(session): string`** — reads model preference from cookie, validates against available models, falls back to `DEFAULT_CHAT_MODEL`. (3) features/models/types/model.types.ts — Re-export **ModelMetadata** from `lib/types/model.types.ts` (P0-T05); define **ModelProvider** type if needed for feature-internal use.
+
+<!-- AUDIT: MO-W4 — ChatModel renamed to ModelMetadata per C1 (wave3 models-chat-ai-conflicts.md). Field list replaced with canonical P0-T05 reference per C2. listChatModels() removed per C4 — getAvailableModels() is sole public name. getDefaultModel(session) added per C3. discoverModels() added per C5. name (not label) confirmed per C8. -->
 
 Output files:
 - lib/ai/models.ts
@@ -86,15 +88,18 @@ Output files:
 - features/models/types/model.types.ts
 
 Inputs: lib/ai/registry.ts (P1-T11), lib/ai/provider.ts (P1-T12)
-Outputs: Model catalog consumed by system prompts (P3-T02), chat header (P3-T19), chat pages (P3-T25)
+Outputs: Model catalog consumed by system prompts (P3-T02), chat header (P3-T19), chat pages (P3-T25). `getDefaultModel(session)` consumed by chat pages (P3-T25)
 
 Dependencies: P1-T12
 Dependents: P3-T02, P3-T19, P3-T25
 
 Success criteria:
-- chatModels array includes models from all registered providers
-- listChatModels uses `use cache` for Next.js 16
-- getAvailableModels returns typed ChatModel[]
+- STATIC_MODELS array includes models from all registered providers, each entry conforming to full `ModelMetadata` type (including `supportsToolCalling` and `supportsReasoning`)
+- `getAvailableModels()` uses `'use cache'` + `cacheTag('models')` + `cacheLife('hours')` for Next.js 16
+- `getAvailableModels()` returns typed `ModelMetadata[]` (merging static + discovered models)
+- `discoverModels()` returns models from OpenRouter API when `OPENROUTER_API_KEY` is set (5s timeout)
+- `getDefaultModel(session)` returns a valid model ID from the catalog (cookie → validation → fallback)
+- Field name is `name` (NOT `label`) per redesign spec `ai-integration.md` §2
 - pnpm typecheck passes
 
 Complexity: M
@@ -109,7 +114,7 @@ Type: IMPL
 Behavior ref: ai-sdk-usage.md (system prompt with artifacts instructions, date context, tool descriptions)
 Architecture ref: ../../plan-archives/redesign/ai-integration.md (prompt management, provider-specific options)
 
-Action: Create 2 files. (1) lib/ai/prompts.ts — Export `composeSystemPrompt({ settings, hasTools }): string` that assembles the system prompt. Include: base assistant identity, current date/time, available tools description, and artifacts instructions (conditionally included when tools enabled). Copy prompt content from oldapp/lib/ai/prompts.ts as baseline. The prompt must describe tools as **createArtifact/updateArtifact** and artifact kinds (text, code, image, sheet). **No createDocument/updateDocument references.** (2) lib/ai/provider-options.ts — Export `getProviderOptions(modelId: string, settings: SettingsState)` for provider-specific options (e.g., reasoning budgets).
+Action: Create 2 files. (1) lib/ai/prompts.ts — Export `composeSystemPrompt({ settings, hasTools, supportsReasoning }): string` that assembles the system prompt. Include: base assistant identity, current date/time, available tools description, and artifacts instructions (conditionally included when tools enabled). Copy prompt content from oldapp/lib/ai/prompts.ts as baseline. The prompt must describe tools as **createArtifact/updateArtifact** and artifact kinds (text, code, sheet). <!-- C2-W4: SSA-11 fix --> **No createDocument/updateDocument references.** (2) lib/ai/provider-options.ts — Export `getProviderOptions(modelId: string, settings: SettingsState)` for provider-specific options (e.g., reasoning budgets).
 
 Output files:
 - lib/ai/prompts.ts
@@ -140,7 +145,7 @@ Type: IMPL
 Behavior ref: ai-sdk-usage.md (tool selection per model, title generation)
 Architecture ref: ../../plan-archives/redesign/ai-integration.md (tool enablement, title flow)
 
-Action: Create 2 files. (1) lib/ai/tools.ts — Export getEnabledTools(modelId: string) that returns the subset of tools available for a given model (some models don't support tool calling). (2) lib/ai/title.ts — Export generateTitle(message: string): Promise<string> that uses a lightweight model call to generate a short chat title from the first user message. Title is **awaited server-side** before stream close (no polling).
+Action: Create 2 files. (1) lib/ai/tools.ts — Export getEnabledTools(model: ModelMetadata) that returns the subset of tools available for a given model. Tool gating uses `model.supportsToolCalling` boolean (metadata-driven), NOT prefix-matching against a hardcoded model ID list. (2) lib/ai/title.ts — Export generateTitle(message: string): Promise<string> that uses a lightweight model call to generate a short chat title from the first user message. Title is **awaited server-side** before stream close (no polling).
 
 Output files:
 - lib/ai/tools.ts
@@ -153,9 +158,10 @@ Dependencies: P1-T12
 Dependents: P3-T23
 
 Success criteria:
-- getEnabledTools returns correct tool subset per model
+- getEnabledTools accepts ModelMetadata and uses `supportsToolCalling` boolean for gating (not prefix-matching)
 - generateTitle returns a short string from first message
 - Title generation uses a lightweight model (not the full chat model)
+- generateTitle() wraps generateText with AbortSignal.timeout(5000) to prevent indefinite hangs blocking stream close and message persistence
 - pnpm typecheck passes
 
 Complexity: S
@@ -215,8 +221,20 @@ Dependencies: P0-T06
 Dependents: P3-T08, P3-T09, P3-T10, P3-T22, P3-T23
 
 Success criteria:
-- ChatSessionValue type contains messages, status, input, setInput, sendMessage, stop, chatId, chatModel, isReadonly, error, clearError
-- ArtifactDataPart covers all 11 artifact-* and chat-title part types
+- ChatSessionValue type contains all 18 canonical fields: chatId, chatModel, isReadonly, messages, status, input, setInput, attachments, setAttachments, sendMessage, stop, appendMessage, editMessage, error, clearError, **visibility, setVisibility** (CV-01 Option A), **availableModels** (MO-W4-C6)
+- ArtifactDataPart covers all 10 artifact-*, chat-title, and error part types (12 union members total)
+
+<!-- wave4-cleanup: Updated from 11 to 12 members to include error variant, reconciled with contracts.md §7. See sync-reports/wave4/cleanup-datapart.md -->
+
+<!-- AUDIT: W4-VI-01 — visibility and setVisibility added to ChatSessionValue success criteria proactively.
+     Traceability: wave2/visibility.md W2-VI-1, wave3/chat-visibility-conflicts.md CV-01/CV-03.
+     Justification: prepareSendMessagesRequest requires selectedVisibilityType (1 of 5 chatRequestSchema fields);
+     useChatSession must read visibility at composition time; ChatSessionContext is the only available state path.
+     Deviation: redesign state-management.md §5 places visibility outside ChatSessionContext.
+     Resolved per CV-01 Option A: visibility mirrors chatModel pattern (server-fetched per-chat metadata in context). -->
+<!-- SYNC: Wave 4-CHAT — CONF-002 resolution. P3-T05 field list expanded from subset (13 fields)
+     to full canonical 18-field shape. Previously omitted attachments, setAttachments, appendMessage,
+     editMessage, availableModels. -->
 - chatRequestSchema validates POST /api/chat body shape
 - All schemas export inferred TypeScript types
 - **Uses artifactId (NOT documentId) throughout**
@@ -234,10 +252,11 @@ Type: IMPL
 Behavior ref: features.md (settings: model selection, default model persistence)
 Architecture ref: ../../plan-archives/redesign/state-management.md (**NO SettingsProvider** — useSettings() imported directly)
 
-Action: Create 2 files. (1) features/settings/types/settings.types.ts — SettingsState type with `temperature`, `topP`, `maxOutputTokens`, `systemPrompt`, `enableReasoning`. Export DEFAULT_SETTINGS constant (no selectedModel field). (2) features/settings/hooks/use-settings.ts — "use client" module-level store backed by **useSyncExternalStore** + localStorage. Exports **TWO hooks**: **useSettings()** (read-only, returns `SettingsState` snapshot) and **useSettingsSetter()** (write-only, returns `{ updateSettings, resetSettings }`). Also exports **settingsStore** for direct access by non-React code. **NO SettingsProvider context** — hooks are imported directly where needed. SSR-safe via getServerSnapshot returning DEFAULT_SETTINGS. Includes **cross-tab sync** via `window.addEventListener('storage', ...)` to keep settings in sync across browser tabs.
+Action: Create 3 files. (1) features/settings/types/settings.types.ts — Re-exports `SettingsState` from `@/lib/types/settings.types` (canonical definition in P0-T07, NOT a redefinition). Exports `DEFAULT_SETTINGS` constant (no selectedModel field). (2) features/settings/schemas/settings.schema.ts — Zod validation schema `settingsSchema` with field-level range validation: temperature 0–2, topP 0–1, maxOutputTokens 256–1,000,000 (int), systemPrompt max 8192 chars, enableReasoning boolean. Exports `settingsSchema`. (3) features/settings/hooks/use-settings.ts — "use client" module-level store backed by **useSyncExternalStore** + localStorage. Exports **TWO hooks**: **useSettings()** (read-only, returns `SettingsState` snapshot) and **useSettingsSetter()** (write-only, returns `{ updateSettings, resetSettings }`). `updateSettings` validates via `settingsSchema.partial().safeParse()` before writing. Also exports **settingsStore** for direct access by non-React code. **NO SettingsProvider context** — hooks are imported directly where needed. SSR-safe via getServerSnapshot returning DEFAULT_SETTINGS. Includes **cross-tab sync** via `window.addEventListener('storage', ...)` to keep settings in sync across browser tabs.
 
 Output files:
 - features/settings/types/settings.types.ts
+- features/settings/schemas/settings.schema.ts
 - features/settings/hooks/use-settings.ts
 
 Inputs: lib/types/model.types.ts (DEFAULT_CHAT_MODEL from P0-T05), lib/types/settings.types.ts (P0-T07)
@@ -247,9 +266,12 @@ Dependencies: P0-T07
 Dependents: P3-T07, P3-T11
 
 Success criteria:
-- SettingsState includes temperature, topP, maxOutputTokens, systemPrompt, enableReasoning
+- `features/settings/types/settings.types.ts` **re-exports** `SettingsState` from `@/lib/types/settings.types` (P0-T07 canonical), does NOT redefine it
+- DEFAULT_SETTINGS constant defined here with values: `{ temperature: 0.7, topP: 1, maxOutputTokens: 4096, systemPrompt: '', enableReasoning: false }`
 - DEFAULT_SETTINGS does not include model selection (handled separately by model selector)
+- `settingsSchema` Zod schema exported from `features/settings/schemas/settings.schema.ts` with field-level validation (temperature 0–2, topP 0–1, maxOutputTokens 256–1M int, systemPrompt max 8192 chars, enableReasoning boolean)
 - **TWO hooks exported**: `useSettings()` (read-only snapshot) + `useSettingsSetter()` (write: updateSettings, resetSettings)
+- `updateSettings()` validates input via `settingsSchema.partial().safeParse()` before writing to store
 - Both hooks use **useSyncExternalStore** (NOT useState + useEffect, NOT context-based SettingsProvider)
 - **settingsStore** exported as public API for non-React consumers
 - Module-level store — no provider wrapping needed
@@ -261,6 +283,9 @@ Success criteria:
 <!-- AUDIT: SE-1 — Two-hook split (useSettings read + useSettingsSetter write) per redesign state-management.md -->
 <!-- AUDIT: SE-2 — settingsStore added as public export for non-React consumers -->
 <!-- AUDIT: SE-3 — Cross-tab sync via StorageEvent listener added -->
+<!-- WAVE4: W2 GAP-SET-01/C-02 — SettingsState re-exported from P0-T07 canonical, not redefined -->
+<!-- WAVE4: W2 OMIT-SET-01/C-03 — Added settingsSchema Zod validation per AGENTS.md mandate -->
+<!-- WAVE4: W2 GAP-SET-02 — Added explicit DEFAULT_SETTINGS values from redesign code sketch -->
 
 Complexity: M
 
@@ -290,11 +315,12 @@ Success criteria:
 - Reads settings via **useSettings()** (read-only hook)
 - Writes settings via **useSettingsSetter()** (write-only hook)
 - **Does NOT include model selector** — model selection is via cookie + localStorage in ChatHeader (P6-T04/T05)
-- Includes temperature slider, max tokens input, system prompt textarea, reasoning toggle
+- Includes temperature slider, topP slider (0–1), max tokens input, system prompt textarea, reasoning toggle
 - pnpm typecheck passes
 
 <!-- AUDIT: HC-1 — Removed model selector from SettingsPanel per redesign state-management.md §2: "Model selection is via cookie + localStorage, NOT in SettingsState." ModelSelector belongs in features/models/ (P6-T04) wired into ChatHeader (P6-T05). -->
 <!-- AUDIT: SE-1 — Updated to use two-hook split: useSettings() (read) + useSettingsSetter() (write) per redesign. -->
+<!-- AUDIT: SET-W4-01 — Added topP slider (0–1) to success criteria. topP is a first-class SettingsState field (shared-types.md §8) with Zod validation in P3-T06 (settingsSchema validates topP 0–1). Omission was a documentation gap (CONF-040, AP-01). -->
 
 Complexity: M
 
@@ -308,7 +334,11 @@ Type: IMPL
 Behavior ref: state-management.md (chat session context)
 Architecture ref: ../../plan-archives/redesign/component-architecture.md (ChatSessionContext replaces old ChatContext); ../../plan-archives/redesign/state-management.md
 
-Action: Create features/chat/hooks/use-chat-session-context.ts — "use client". Defines **ChatSessionContext** (NOT ChatContext) with createContext. Exports **ChatSessionValue** type containing all composed chat state: messages, status, input, setInput, attachments, setAttachments, sendMessage, stop, appendMessage, chatId, chatModel, isReadonly, error, clearError. Exports **useChatSessionContext()** hook (NOT useChatContext). Intent-based callbacks (sendMessage, stop) instead of raw setter props. This context is provided by ChatShell (P3-T21) and consumed by Messages, MultimodalInput, ChatHeader.
+Action: Create features/chat/hooks/use-chat-session-context.ts — "use client". Defines **ChatSessionContext** (NOT ChatContext) with createContext. Exports **ChatSessionValue** type containing all composed chat state (18 canonical fields): chatId, chatModel, isReadonly, messages, status, input, setInput, attachments, setAttachments, sendMessage, stop, appendMessage, editMessage, error, clearError, **visibility, setVisibility** (CV-01 Option A), **availableModels** (`ModelMetadata[]`). Exports **useChatSessionContext()** hook (NOT useChatContext). Intent-based callbacks (sendMessage, stop) instead of raw setter props. This context is provided by ChatShell (P3-T21) and consumed by Messages, MultimodalInput, ChatHeader.
+
+<!-- AUDIT: MO-W4-C6 — availableModels added to ChatSessionValue per wave3 C6 (prop-threading gap). Static per page load, no re-render cost. Enables ChatHeader to access models for ModelSelector (P6-T05) without prop drilling. -->
+<!-- SYNC: Wave 4-CHAT — CONF-002 resolution. Action field list expanded to canonical 18-field shape.
+     Added editMessage, visibility, setVisibility to match contracts.md §7 and behavioral_extraction. -->
 
 Output files:
 - features/chat/hooks/use-chat-session-context.ts
@@ -324,7 +354,14 @@ Success criteria:
 - Value type is **ChatSessionValue** (NOT ChatContextValue)
 - Hook name is **useChatSessionContext** (NOT useChatContext)
 - Uses intent-based callbacks: sendMessage, stop (NOT raw setters)
+- **`availableModels`** field present in `ChatSessionValue` (`ModelMetadata[]`, static per page load)
+- **`editMessage`** field present in `ChatSessionValue` (`(messageId: string, newContent: string) => Promise<void>`)
+- **`visibility`** + **`setVisibility`** fields present in `ChatSessionValue` (CV-01 Option A, DEV-031)
+- All 18 canonical fields present (see contracts.md §7 for authoritative list)
 - pnpm typecheck passes
+
+<!-- SYNC: Wave 4-CHAT — CONF-002 resolution. Added editMessage, visibility, setVisibility
+     to P3-T08 success criteria. Previously listed 15 fields; canonical shape is 18. -->
 
 Complexity: S
 
@@ -338,7 +375,7 @@ Type: IMPL
 Behavior ref: state-management.md (side-effect extraction, stream delta processing)
 Architecture ref: ../../plan-archives/redesign/streaming-architecture.md (processStreamDelta pure function, chat-callbacks for side-effect extraction)
 
-Action: Create 2 files. (1) features/chat/lib/chat-callbacks.ts — Export pure callback factory functions that extract side-effects from the chat orchestrator. createOnMessageCallback(chatId, saveMessage), createOnTitleCallback(chatId, updateTitle), createOnErrorCallback(chatId). These callbacks are injected into useChatSession (P3-T11) rather than being inline, making the orchestrator testable. (2) features/chat/lib/process-stream-deltas.ts — Export **processStreamDelta(delta: DataPart, current: UIArtifact): { artifact: UIArtifact }** pure function. Handles all artifact-* data part types: artifact-id (set artifactId + status=streaming + isVisible=true), artifact-title, artifact-kind, artifact-clear (reset content), artifact-finish (status=idle), artifact-textDelta (APPEND), artifact-codeDelta/sheetDelta/imageDelta (REPLACE). Pure function — no React state, no side effects, fully testable.
+Action: Create 2 files. (1) features/chat/lib/chat-callbacks.ts — Export pure callback factory functions that extract side-effects from the chat orchestrator. createOnMessageCallback(chatId, saveMessage), createOnTitleCallback(chatId, updateTitle), createOnErrorCallback(chatId). These callbacks are injected into useChatSession (P3-T11) rather than being inline, making the orchestrator testable. (2) features/chat/lib/process-stream-deltas.ts — Export **processStreamDelta(delta: DataPart, current: UIArtifact): { artifact: UIArtifact }** pure function. Handles all artifact-* data part types: artifact-id (set artifactId + status=streaming + isVisible=true), artifact-title, artifact-kind, artifact-clear (reset content + reset suggestions to []), artifact-finish (status=idle), artifact-textDelta (APPEND), artifact-codeDelta/sheetDelta/imageDelta (REPLACE), artifact-suggestion (APPEND to suggestions array). Pure function — no React state, no side effects, fully testable. <!-- SYNC: Wave 4 — CONF-015 fix. Added artifact-suggestion case (APPEND accumulation) and artifact-clear suggestions reset per W2-AO-5/IC-03 reconciliation. -->
 
 Output files:
 - features/chat/lib/chat-callbacks.ts
@@ -357,7 +394,8 @@ Success criteria:
 - Handles all artifact-* data part types correctly
 - artifact-textDelta uses APPEND accumulation
 - artifact-codeDelta/sheetDelta/imageDelta use REPLACE accumulation
-- artifact-clear resets content, artifact-finish sets status=idle
+- artifact-clear resets content and suggestions to [], artifact-finish sets status=idle; StreamBridge resets `lastProcessedRef` on `artifact-clear` before consuming subsequent turn deltas <!-- C2-W4: PAO2-CHAT-002 fix -->
+- artifact-suggestion appends to suggestions array (APPEND accumulation)
 - Testable without React
 - pnpm typecheck passes
 
@@ -405,7 +443,11 @@ Type: IMPL
 Behavior ref: state-management.md (chat session composition)
 Architecture ref: ../../plan-archives/redesign/state-management.md (useChatSession creates ChatSessionValue); ../../plan-archives/redesign/component-architecture.md (ChatShell)
 
-Action: Create features/chat/hooks/use-chat-session.ts — "use client" hook **useChatSession(params: {id, initialMessages, initialChatModel, isReadonly})** (~120 lines). Composes all chat-related state and returns a **ChatSessionValue**. Internally: (1) Calls useChat with api="/api/chat", DefaultChatTransport with prepareSendMessagesRequest, initialMessages, experimental_throttle (adaptive), maxSteps: 5, generateId. (2) Calls useSettings() directly (NOT from SettingsProvider). (3) Wires onData callback to route artifact-* parts to ChatStreamDispatch and chat-title to PendingChats.updateTitle(). (4) Wires onFinish to clear ChatStream. (5) Wires onError to toast. (6) Returns intent-based ChatSessionValue: {messages, status, input, setInput, attachments, setAttachments, sendMessage, stop, appendMessage, chatId, chatModel, isReadonly, error, clearError}. This hook creates the value for ChatSessionContext.Provider in ChatShell.
+Action: Create features/chat/hooks/use-chat-session.ts — "use client" hook **useChatSession(params: {id, initialMessages, initialChatModel, isReadonly, initialVisibility, availableModels})** (~120 lines). Composes all chat-related state and returns a **ChatSessionValue** (18 fields). Internally: (1) Calls useChat with api="/api/chat", DefaultChatTransport with prepareSendMessagesRequest, initialMessages, experimental_throttle (adaptive), maxSteps: 5, generateId. (2) Calls useSettings() directly (NOT from SettingsProvider). (3) Wires onData callback to route artifact-* parts to ChatStreamDispatch and chat-title to PendingChats.updateTitle(). (4) Wires onFinish to clear ChatStream. (5) Wires onError to toast. (6) Returns intent-based ChatSessionValue: {chatId, chatModel, isReadonly, messages, status, input, setInput, attachments, setAttachments, sendMessage, stop, appendMessage, editMessage, error, clearError, visibility, setVisibility, availableModels}. This hook creates the value for ChatSessionContext.Provider in ChatShell.
+
+<!-- SYNC: Wave 4-CHAT — CONF-002 resolution. Returns list expanded from 14 to 18 canonical fields.
+     Added: editMessage (always present in redesign SM §5), visibility + setVisibility (CV-01 Option A),
+     availableModels (MO-W4-C6). Params updated to accept initialVisibility + availableModels. -->
 
 Output files:
 - features/chat/hooks/use-chat-session.ts
@@ -418,7 +460,10 @@ Dependents: P3-T21
 
 Success criteria:
 - Hook name is **useChatSession** (NOT useChatContext or useChatHandler)
-- Returns composed **ChatSessionValue** including all chat state
+- Returns composed **ChatSessionValue** including all 18 canonical fields
+- Returns **editMessage** callback: `(messageId: string, newContent: string) => Promise<void>`
+- Returns **visibility** + **setVisibility** (CV-01 Option A, seeded from `initialVisibility` param)
+- Returns **availableModels** (passed through from params, static per page load)
 - Calls useChat with correct api, id, initialMessages, DefaultChatTransport
 - Includes **useSettings()** directly (NOT from SettingsProvider context)
 - onData routes artifact-* parts to **useChatStreamDispatch** and chat-title to **PendingChats.updateTitle()**
@@ -430,6 +475,8 @@ Success criteria:
 - pnpm typecheck passes
 
 <!-- AUDIT: SC-5 — PendingChats.add() call on first message assigned to useChatSession sendMessage flow -->
+<!-- SYNC: Wave 4-CHAT — CONF-002 resolution. Added editMessage, visibility, setVisibility,
+     availableModels to success criteria. Matches canonical 18-field ChatSessionValue. -->
 
 Complexity: L
 
@@ -474,7 +521,7 @@ Type: IMPL
 Behavior ref: ai-sdk-usage.md (tool definitions for weather, artifact creation/update, suggestions)
 Architecture ref: ../../plan-archives/redesign/ai-integration.md (artifact tools, handler registry dispatch)
 
-Action: Create 4 tool files. (1) features/chat/lib/tools/weather.ts — Full getWeather tool: Zod schema (latitude, longitude), execute calls Open-Meteo API, returns {temperature, weather}. (2) features/chat/lib/tools/**create-artifact.ts** — STUB: tool definition with schema (title, kind: ArtifactKind). Execute writes artifact-id, artifact-kind, artifact-title, artifact-clear data parts, calls getArtifactHandler(kind) from registry, streams content deltas, writes artifact-finish. Returns "Artifact creation not yet available" until P4 completes handlers. (3) features/chat/lib/tools/**update-artifact.ts** — STUB: tool definition with schema (**artifactId**, description). (4) features/chat/lib/tools/request-suggestions.ts — STUB: tool definition with schema (**artifactId** NOT documentId). Export all tools as a toolsMap object.
+Action: Create 4 tool files. (1) features/chat/lib/tools/weather.ts — Full getWeather tool: Zod schema (latitude, longitude), execute calls Open-Meteo API, returns {temperature, weather}. (2) features/chat/lib/tools/**create-artifact.ts** — STUB: tool definition with schema (title, kind: ArtifactKind). Execute writes artifact-id, artifact-kind, artifact-title, artifact-clear data parts, calls getArtifactHandler(kind) from registry, streams content deltas, writes artifact-finish. Returns "Artifact creation not yet available" until P4 completes handlers. (3) features/chat/lib/tools/**update-artifact.ts** — STUB: tool definition with schema (**id**, description). (4) features/chat/lib/tools/request-suggestions.ts — Full implementation of requestSuggestions tool (NOT a stub). Zod schema: z.object({ artifactId: z.string() }). Execute: (a) calls `getArtifactById(artifactId)` to fetch latest artifact version, (b) calls `streamObject()` with artifact-model and suggestion schema (z.array of {originalText, suggestedText, description}, max 5) using artifact content as context, (c) streams each suggestion as `artifact-suggestion` data part via `ChatStream.writeData({ type: 'artifact-suggestion', content: suggestion })`, (d) for authenticated users calls `saveSuggestion()` to persist each suggestion. Returns "Suggestions generated." Dependencies: `getArtifactById` (lib/data/artifact.ts), `streamObject` (AI SDK), `ChatStream` (ArtifactStreamWriter param), `saveSuggestion` (lib/data/suggestion.ts). <!-- Wave 4: CONF-011 — expanded from stub to full implementation per domain-boundaries.md §3 + W2-AO-4. --> Export all tools as a toolsMap object.
 
 Output files:
 - features/chat/lib/tools/weather.ts
@@ -482,19 +529,23 @@ Output files:
 - features/chat/lib/tools/update-artifact.ts
 - features/chat/lib/tools/request-suggestions.ts
 
-Inputs: lib/ai/artifact-handlers.ts (P3-T04), lib/data/artifact.ts (P1-T08), zod, Vercel AI SDK (tool helper)
+Inputs: lib/ai/artifact-handlers.ts (P3-T04), lib/data/artifact.ts (P1-T08), lib/data/suggestion.ts (P1-T10), zod, Vercel AI SDK (tool helper, streamObject)
 Outputs: Tools consumed by API route (P3-T23)
 
-Dependencies: P3-T04, P1-T08
+Dependencies: P3-T04, P1-T08, P1-T10
 Dependents: P3-T23
 
 Success criteria:
 - getWeather tool fully functional (calls Open-Meteo API)
 - Tool files named **create-artifact.ts / update-artifact.ts** (NOT create-document / update-document)
-- Schema uses **artifactId** (NOT documentId) and **ArtifactKind** (NOT DocumentKind)
+- updateArtifact schema uses **id** (NOT artifactId) per redesign/integration map/contracts (AI-W1-01)
+- requestSuggestions schema uses **artifactId** (NOT documentId)
+- requestSuggestions is a FULL implementation (not stub): fetches artifact via getArtifactById, calls streamObject with suggestion schema, streams artifact-suggestion data parts via ChatStream.writeData, persists for authenticated users via saveSuggestion <!-- Wave 4: CONF-011 -->
 - createArtifact tool writes artifact-* data parts and dispatches to handler registry
 - All tools have Zod parameter schemas
 - pnpm typecheck passes
+
+> **Guest Artifact Policy (AMB-7):** Guest users CAN create artifacts. Artifacts are persisted to DB under the guest user ID. On session upgrade to authenticated, guest artifacts remain in DB under the original guest user ID (no migration in initial scope). Suggestions endpoint returns empty array for guest users (suggestions not persisted for guests).
 
 Complexity: L
 
@@ -507,6 +558,9 @@ Type: IMPL
 
 Behavior ref: features.md (greeting/empty state, suggested actions, notice handling)
 Architecture ref: ../../plan-archives/redesign/component-architecture.md (NoticeHandler extracted to prevent layout contamination)
+
+> **AI Element Copy**: Copy `oldapp/components/elements/suggestion.tsx` → `components/ai-elements/suggestion.tsx` (56 LOC, 4 exports).
+> Wrapper imports from `@/components/ai-elements/suggestion`.
 
 Action: Create 3 files. (1) features/chat/components/greeting.tsx — Greeting component shown when chat has no messages. Welcome text. (2) features/chat/components/suggested-actions.tsx — "use client" component showing clickable suggestion chips. On click, reads sendMessage from **ChatSessionContext** and submits. (3) features/chat/components/notice-handler.tsx — "use client" renderless component (~15 lines, returns null). Reads ?notice=chat_not_found from URL via useSearchParams → shows toast. **Extracted to prevent chat layout from becoming 'use client'** (CRITICAL-1 fix).
 
@@ -540,6 +594,14 @@ Type: IMPL
 Behavior ref: features.md (message rendering: markdown, code blocks, tool results, reasoning)
 Architecture ref: ../../plan-archives/redesign/component-architecture.md (message rendering, ChatSessionContext consumption)
 
+> **AI Element Copy**: Before implementing, copy the following primitives as-is from `oldapp/components/elements/` → `components/ai-elements/`:
+> - `message.tsx` (394 LOC, 28 exports — message content, response, parts)
+> - `reasoning.tsx` (183 LOC, 7 exports — reasoning trigger, content)
+> Create `components/ai-elements/` directory if it doesn't exist (first copy in project).
+> Wrapper imports from `@/components/ai-elements/message` and `@/components/ai-elements/reasoning`.
+
+> **AI Element Copy**: Copy `oldapp/components/elements/tool.tsx` → `components/ai-elements/tool.tsx` (156 LOC, 10 exports).
+
 Action: Create 2 files. (1) features/chat/components/message.tsx — ChatMessage component that renders a single message. For assistant: renders parts array (text through Markdown, tool-invocation through result components, reasoning through MessageReasoning). For user: renders content with markdown and attachment previews. Reads from **ChatSessionContext** where needed. (2) features/chat/components/message-reasoning.tsx — MessageReasoning component. Collapsible section for chain-of-thought reasoning display.
 
 Output files:
@@ -556,8 +618,14 @@ Success criteria:
 - ChatMessage renders user and assistant messages differently
 - Assistant text parts rendered as Markdown
 - Tool invocations rendered with appropriate result UI
+- **Tool invocations for `createArtifact`/`updateArtifact` tools render via `ArtifactToolResult` component** (from `features/artifacts/components/`) — delegates display to artifact handler registry <!-- wave4-cleanup -->
+- **Tool results without dedicated components (e.g., weather between P3 and P6) render via generic JSON/object display** — functional but unstyled until dedicated UI components are created in P6-T12
 - Reasoning content collapsible
 - pnpm typecheck passes
+
+<!-- SYNC: Wave 4-CHAT — AP-08 resolution. Added generic tool result rendering note.
+     Weather tool is functional from P3 but dedicated Weather UI component deferred to P6-T12.
+     Between P3 and P6, tool results render as formatted data (not raw JSON). -->
 
 Complexity: M
 
@@ -603,6 +671,9 @@ Type: IMPL
 Behavior ref: features.md (message list scrolling, loading states, virtualization)
 Architecture ref: ../../plan-archives/redesign/component-architecture.md (messages list, react-virtuoso)
 
+> **AI Element Copy**: Copy `oldapp/components/elements/conversation.tsx` → `components/ai-elements/conversation.tsx` (92 LOC, 8 exports — conversation scroll, header, messages).
+> Wrapper imports from `@/components/ai-elements/conversation`.
+
 Action: Create features/chat/components/messages.tsx — "use client" component that renders the list of chat messages. Gets state from **ChatSessionContext** (NOT props drilling). Maps over messages array, renders ChatMessage + MessageActions for each. Handles: empty state (shows Greeting + SuggestedActions), loading state, scroll-to-bottom via useScrollToBottom (P3-T12). Shows "scroll to bottom" FAB button when scrolled up. Renders ThinkingIndicator when assistant is generating. Virtualized via react-virtuoso with followOutput for streaming.
 
 Output files:
@@ -634,6 +705,9 @@ Type: IMPL
 
 Behavior ref: features.md (multimodal input: text, file attachments, image paste)
 Architecture ref: ../../plan-archives/redesign/component-architecture.md (MultimodalInput reads from ChatSessionContext)
+
+> **AI Element Copy**: Copy `oldapp/components/elements/prompt-input.tsx` → `components/ai-elements/prompt-input.tsx` (1,275 LOC, 81 exports — prompt input, textarea, toolbar, tools, submit).
+> Wrapper imports from `@/components/ai-elements/prompt-input`.
 
 Action: Create 2 files. (1) features/chat/components/multimodal-input.tsx — "use client" component (~80 lines main + extracted helpers). Auto-resizing textarea. File attachment, drag-and-drop, image paste. Submit on Enter, Shift+Enter for newline. Stop button during generation. Gets submit handler, input, setInput, attachments, setAttachments, stop from **ChatSessionContext** (NOT props). (2) features/chat/components/submit-button.tsx — Send or stop button with loading state.
 
@@ -703,7 +777,7 @@ Type: IMPL
 Behavior ref: state-management.md (stream event dispatching)
 Architecture ref: SEAM-031 (URL State Management); ../../plan-archives/redesign/streaming-architecture.md (thin bridge + pure function)
 
-Action: Create features/chat/components/**stream-bridge.tsx** (NOT data-stream-handler.tsx) — "use client" thin bridge component, **~20 lines**. Renders null (renderless). Consumes useChatStream() from ChatStreamProvider (reads ChatStream data parts). Processes unprocessed deltas via **processStreamDelta()** pure function (P3-T09). Accepts an **`onArtifactDelta` callback prop** `(artifact: UIArtifact) => void` to output processed artifact state. **Does NOT import from `features/artifacts/`** — the real `artifactStore.setState` wiring happens in P4-T17. In P3 the callback can be a no-op or stub. Tracks last processed index via useRef to avoid reprocessing. Resets on chat ID change.
+Action: Create features/chat/components/**stream-bridge.tsx** (NOT data-stream-handler.tsx) — "use client" thin bridge component, **~20 lines**. Renders null (renderless). Consumes useChatStream() from ChatStreamProvider (reads ChatStream data parts). Processes unprocessed deltas via **processStreamDelta()** pure function (P3-T09). Accepts an **`onArtifactDelta` callback prop** `(artifact: UIArtifact) => void` to output processed artifact state. **Does NOT import from `features/artifacts/`** — StreamBridge emits processed deltas only; sink wiring is owner-injected via callback and is composed in P4-T17. <!-- C2-W4: C2X-002 fix --> In P3 the callback can be a no-op or stub. Tracks last processed index via useRef to avoid reprocessing. Resets on chat ID change.
 
 Output files:
 - features/chat/components/stream-bridge.tsx
@@ -720,6 +794,7 @@ Success criteria:
 - **~20 lines** — thin bridge, logic in processStreamDelta
 - Accepts **`onArtifactDelta` callback prop** — typed `(artifact: UIArtifact) => void`
 - Bridges useChatStream() → processStreamDelta() → **onArtifactDelta callback** (NOT direct artifactStore import)
+- Ownership boundary is explicit: StreamBridge emits deltas; owning composition root injects `onArtifactDelta` sink handler <!-- C2-W4: C2X-002 fix -->
 - **Does NOT import from `features/artifacts/`** — cross-phase dependency deferred to P4-T17
 - Tracks lastProcessedRef to avoid reprocessing deltas
 - Resets processing index on chat ID change
@@ -741,7 +816,7 @@ Type: INTEG
 Behavior ref: state-management.md (ChatShell as thin orchestrator)
 Architecture ref: SEAM-028 (Client Error Handling); SEAM-031 (URL State Management); SEAM-015 (settings); ../../plan-archives/redesign/component-architecture.md (ChatShell ~60 lines)
 
-Action: Create features/chat/components/**chat-shell.tsx** (NOT chat.tsx as God Component) — "use client" component, **~60 lines**. Thin orchestrator that: (1) Accepts props: id, initialMessages, initialChatModel, isReadonly, availableModels, initialVisibility. (2) Calls **useChatSession({id, initialMessages, initialChatModel, isReadonly})** to get composed ChatSessionValue. (3) Calls **useChatSideEffects({id, status, messages})** for URL update, abort cleanup, artifact reset. (4) Provides **ChatSessionContext.Provider value={chatSession}**. (5) Renders ChatHeader, Messages, MultimodalInput as children — they read state from ChatSessionContext (zero prop drilling to children). (6) Conditionally renders ArtifactPanel when artifact.isVisible (ArtifactPanel wired in P4-T17). **No direct useChat/useSettings calls** — all composition in useChatSession hook. **No SettingsProvider wrapping.** **No credit/gateway logic.**
+Action: Create features/chat/components/**chat-shell.tsx** (NOT chat.tsx as God Component) — "use client" component, **~60 lines**. Thin orchestrator that: (1) Accepts props: id, initialMessages, initialChatModel, isReadonly, availableModels, initialVisibility. (2) Calls **useChatSession({id, initialMessages, initialChatModel, isReadonly, initialVisibility, availableModels})** to get composed ChatSessionValue. <!-- C2-W4: MC2-CHAT-003 fix --> (3) Calls **useChatSideEffects({id, status, messages})** for URL update, abort cleanup, artifact reset. (4) Provides **ChatSessionContext.Provider value={chatSession}**. (5) Renders ChatHeader, Messages, MultimodalInput as children — they read state from ChatSessionContext (zero prop drilling to children). (6) Conditionally renders ArtifactPanel when artifact.isVisible (ArtifactPanel wired in P4-T17). **No direct useChat/useSettings calls** — all composition in useChatSession hook. **No SettingsProvider wrapping.** **No credit/gateway logic.**
 
 <!-- AUDIT: SC-6 — Added initialVisibility to ChatShell props for P6-T08 VisibilitySelector wiring -->
 <!-- AUDIT: CH-W6 — Clarified "zero prop drilling to children" (ChatShell itself accepts props from page) -->
@@ -762,7 +837,7 @@ Success criteria:
 - Calls **useChatSideEffects** for side-effect management
 - Provides **ChatSessionContext.Provider** to children
 - Children get state from **ChatSessionContext** (NOT prop drilling — zero prop drilling to ChatHeader, Messages, MultimodalInput; ChatShell itself accepts props from page)
-- Recognizes **initialVisibility** prop (passed through to ChatSessionContext for P6-T08 VisibilitySelector)
+- Passes **initialVisibility** + **availableModels** into `useChatSession(...)`, threading visibility through `ChatShell → useChatSession → ChatSessionContext` for P6-T08 <!-- C2-W4: MC2-CHAT-003 fix -->
 - **No SettingsProvider** wrapping
 - **No credit/gateway** logic
 - pnpm typecheck passes
@@ -833,6 +908,7 @@ Success criteria:
 - Title **awaited server-side** before stream close (no polling)
 - onFinish persists messages + revalidates cache tags via **refreshChat/refreshChatList**
 - Auth required (returns 401 for unauthenticated)
+- **Rate limit check for authenticated users before processing** <!-- wave4-cleanup -->
 - Input validated against chatRequestSchema
 - **No credit/gateway/quota checks**
 - Handles AbortSignal for cancellation + partial save
@@ -865,6 +941,7 @@ Success criteria:
 - Layout is a **SERVER component** (no "use client" directive)
 - Includes **NoticeHandler** client island (prevents layout contamination)
 - **PendingChatsProvider** stub wraps content (completed in P5)
+- **PendingChatsProvider exported API must match `PendingChatOperations` from P0-T07** (path: `lib/providers/pending-chats-provider.tsx`) <!-- wave4-cleanup -->
 - SidebarProvider reads defaultOpen from cookies
 - **No ChatStreamProvider here** (page-scoped, not layout-scoped)
 - **No chat-layout-client.tsx** file
@@ -882,7 +959,9 @@ Type: IMPL
 Behavior ref: features.md (new chat page, existing chat page with message history)
 Architecture ref: ../../plan-archives/redesign/component-architecture.md (page-level ChatStreamProvider, parallel fetches)
 
-Action: Create 2 pages. (1) app/(chat)/page.tsx — New chat page ("/"). Server component: generates UUID, gets session, gets available models, renders **ChatStreamProvider** > **ChatShell** (empty) + **StreamBridge**. (2) app/(chat)/chat/[id]/page.tsx — Existing chat page. Server component: fetches chat + votes via **Promise.all** (parallel fetches), validates ownership/access, uses **`use cache`** + **cacheTag** for caching, renders **ChatStreamProvider** > **ChatShell**(initialMessages) + **StreamBridge** + Suspense > **VoteResolver**(votesPromise). VoteResolver defers vote hydration without blocking chat render.
+Action: Create 2 pages. (1) app/(chat)/page.tsx — New chat page ("/"). Server component: generates UUID, gets session, gets available models, reads `?q=` / `?query=` search params for auto-submit, renders **ChatStreamProvider** > **ChatShell** (empty) + **StreamBridge**. If `?q=` is present and chat has no messages, auto-submits the query as the first message via `useChatSession.sendMessage()` with `hasAppendedQuery` guard to prevent re-send. (2) app/(chat)/chat/[id]/page.tsx — Existing chat page. Server component: starts `getCachedVotes()` without await (returns promise, runs in parallel), then awaits `getCachedChat()` separately for access control. Validates ownership/access, uses **`use cache`** + **cacheTag** for caching, renders **ChatStreamProvider** > **VotesProvider** > **ChatShell**(initialMessages) + **StreamBridge** + Suspense > **VoteResolver**(votesPromise). VoteResolver resolves the votes promise via `use()` and hydrates VotesProvider context; VoteButtons in message.tsx read from VotesProvider. Chat renders immediately; votes stream in when the promise resolves. <!-- Wave 4: CV-01/PDC-02 fix — Promise.all replaced with deferred pattern per P6-T03 intent -->
+
+> **Schema note (CONF-013):** Existing chat pages access the chat's model via `chat.model` (flat column on Chat table, per redesign code sketches in `component-architecture.md` line 221). The `lastContext` nested object is not carried forward — P0-T04 schema should define a flat `model` column. See `plan-archives/redesign/cleanup-inventory.md` line 47 for context.
 
 Output files:
 - app/(chat)/page.tsx
@@ -891,16 +970,21 @@ Output files:
 Inputs: features/chat/components/chat-shell.tsx (P3-T21), features/chat/components/stream-bridge.tsx (P3-T20), features/chat/components/chat-stream-provider.tsx (P3-T10), lib/data/chat.ts (P1-T06), lib/auth/session.ts (P2-T01)
 Outputs: Chat pages — the main user-facing views
 
-Dependencies: P1-T06, P2-T01, P3-T10, P3-T20, P3-T21
+Dependencies: P1-T06, P2-T01, P3-T01, P3-T10, P3-T20, P3-T21
 Dependents: P3-T27
+
+<!-- AUDIT: MO-W4-C3 — P3-T01 added as dependency per wave3 C3 (asymmetric dependency). Chat pages call getAvailableModels() and getDefaultModel(session) from P3-T01. -->
 
 Success criteria:
 - "/" renders **ChatStreamProvider** > **ChatShell** (empty) + **StreamBridge** for new conversation
-- "/chat/[id]" fetches data with **Promise.all** (parallel, no waterfall)
-- "/chat/[id]" uses **`use cache`** + **cacheTag** for caching
+- Both chat pages pass `initialVisibility` into **ChatShell** to preserve the visibility prop chain (`page → ChatShell → useChatSession → ChatSessionContext`) <!-- C2-W4: MC2-CHAT-003 fix -->
+- **"/" reads `?q=` or `?query=` search params and auto-submits via `useChatSession.sendMessage()` if present, with `hasAppendedQuery` guard preventing re-send** <!-- SYNC: Wave 4-CHAT — DG-02 resolution. Feature already in interactions.md §16, final_plan P3-T25, and traceability/uncovered-features.md §2. Was missing from this file's success criteria. -->
+- "/chat/[id]" starts votes promise in parallel (non-blocking), awaits only chat data — NOT `Promise.all` <!-- Wave 4: CV-01 fix -->
+- "/chat/[id]" uses **`use cache`** + **cacheTag** + **`cacheLife('seconds')`** for caching <!-- wave4: RC-03 — added cacheLife('seconds') per redesign data-flow.md -->
+- "/chat/[id]" reads `chat.model` for initial model (flat column, NOT `chat.lastContext?.modelId`) <!-- SYNC: Wave 4-CHAT — CONF-013 resolution -->
 - 404 returned for non-existent or unauthorized chat
 - **ChatStreamProvider** is page-scoped (placed here, NOT in layout)
-- **VoteResolver** defers vote hydration in Suspense (P6 completes)
+- **VotesProvider** wraps ChatShell + StreamBridge; **VoteResolver** resolves votesPromise inside Suspense and hydrates VotesProvider context (P6 completes). VoteResolver shows Suspense fallback briefly while votes resolve (accepted trade-off per AMB-4 — vote states are non-critical for initial content rendering) <!-- Wave 4: CV-02/CV-03 reconciliation --> <!-- Wave 4-VOTING: CONF-004 fix — VoteHydrator→VoteResolver per P7 gate + Implementation Agent Guide -->
 - Page metadata set correctly
 - pnpm typecheck passes
 

@@ -5,6 +5,9 @@
 > Every deviation from `architecture-v6-final.md` logged with justification.
 > Deviations are tracked by ID (DEV-NNN) and severity.
 > **Redesign additions:** DEV-016 through DEV-022 added for document→artifact rename, SettingsProvider removal, handler registry, ChatShell decomposition, proxy.ts, ChatStreamProvider/StreamBridge, and PendingChatsProvider.
+> **Ambiguity resolutions:** DEV-028 (TooltipProvider root layout), DEV-029 (flat smoothStream delay).
+> **CONF-001 resolution:** DEV-031 (visibility on ChatSessionValue).
+> **SOFT-001/DUPL-001 resolution:** DEV-032 (VotesProvider structural addition). <!-- W4-CYCLE1 -->
 
 ## Severity Levels
 
@@ -18,14 +21,14 @@
 
 | File | IDs | Summary |
 |------|-----|---------|
-| [deviations-01.md](deviations-01.md) | DEV-001 through DEV-022 | All deviations (original + redesign) |
+| [deviations-01.md](deviations-01.md) | DEV-001 through DEV-032 | All deviations (original + redesign + wave 4) | <!-- W4-CYCLE1 -->
 
 ## Summary by Severity
 
 | Severity | Count | Key Items |
 |----------|-------|-----------|
 | MAJOR | 7 | Repository pattern, Jotai, Result type, ApiResponse envelope, SettingsProvider removal, document→artifact rename, ChatShell decomposition |
-| STRUCTURAL | 9 | src/ elimination, AI wrapper collocation, lib/hooks, auth-form, barrel files, services, action suffix, handler registry, proxy.ts |
+| STRUCTURAL | 10 | src/ elimination, AI wrapper collocation, lib/hooks, auth-form, barrel files, services, action suffix, handler registry, proxy.ts, VotesProvider | <!-- W4-CYCLE1 -->
 | MINOR | 6 | Error code enum, ESLint→Biome, use cache gap, aspirational AI wrappers, ChatStreamProvider/StreamBridge rename, PendingChatsProvider rename |
 
 ## Quick Reference
@@ -54,3 +57,7 @@
 | DEV-020 | proxy.ts replaces middleware.ts | STRUCTURAL |
 | DEV-021 | DataStreamProvider/Handler → ChatStreamProvider/StreamBridge | MINOR |
 | DEV-022 | OptimisticChatsProvider → PendingChatsProvider | MINOR |
+| DEV-028 | TooltipProvider at root layout | MINOR |
+| DEV-029 | Flat smoothStream delay (2ms all providers) | MINOR |
+| DEV-031 | Visibility inclusion on ChatSessionValue | MINOR |
+| DEV-032 | VotesProvider structural addition | STRUCTURAL | <!-- W4-CYCLE1 -->

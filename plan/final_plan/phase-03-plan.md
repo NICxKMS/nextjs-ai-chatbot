@@ -20,7 +20,7 @@ Implement the complete chat experience — AI integration, settings (`useSyncExt
 
 | ID | Title | Type | Files Created | Dependencies | Complexity |
 |---|---|---|---|---|---|
-| P3-T01 | Create AI model catalog | IMPL | `lib/ai/models.ts`, `features/models/lib/models.ts` (`listChatModels` with `use cache`), `features/models/types/model.types.ts` | P1-T12 | M |
+| P3-T01 | Create AI model catalog | IMPL | `lib/ai/models.ts`, `features/models/lib/models.ts` (`getAvailableModels` with `use cache`), `features/models/types/model.types.ts` | P1-T12 | M | <!-- wave4-cleanup: CONF-031 -->
 | P3-T02 | Create system prompts + provider options | IMPL | `lib/ai/prompts.ts` (`composeSystemPrompt` — uses "artifact" NOT "document"), `lib/ai/provider-options.ts` | P3-T01 | M |
 | P3-T03 | Create tool enablement + title gen | IMPL | `lib/ai/tools.ts` (`getEnabledTools`), `lib/ai/title.ts` (`generateTitle`) | P1-T12 | S |
 | P3-T04 | Create artifact handler registry | IMPL | `lib/ai/artifact-handlers.ts` (`registerArtifactHandler`, `getArtifactHandler`) | P0-T06 | M |
@@ -39,7 +39,7 @@ Implement the complete chat experience — AI integration, settings (`useSyncExt
 | P3-T17 | Create messages list | IMPL | `features/chat/components/messages.tsx` (virtualized + auto-scroll) | P3-T15, P3-T12 | L |
 | P3-T18 | Create multimodal input | IMPL | `features/chat/components/multimodal-input.tsx`, `features/chat/components/submit-button.tsx` | P3-T08 | L |
 | P3-T19 | Create chat header | IMPL | `features/chat/components/chat-header.tsx` (reads ChatSessionContext, sidebar toggle) | P3-T08 | M |
-| P3-T20 | Create StreamBridge | IMPL | `features/chat/components/stream-bridge.tsx` (thin bridge ~20 lines → `processStreamDelta` → `artifactStore`) | P3-T09, P3-T10 | S |
+| P3-T20 | Create StreamBridge | IMPL | `features/chat/components/stream-bridge.tsx` (thin bridge ~20 lines → `processStreamDelta` → `onArtifactDelta` callback; does NOT import `artifactStore` — wired in P4-T17) | P3-T09, P3-T10 | S | <!-- wave4-cleanup: fixed stale direct-artifactStore description per SC-4 audit / CONF-032 -->
 | P3-T21 | Create ChatShell orchestrator | INTEG | `features/chat/components/chat-shell.tsx` (~60 lines, creates `ChatSessionContext.Provider`) | P3-T11, P3-T12, P3-T17, P3-T18, P3-T19 | L |
 | P3-T22 | Create chat server actions | IMPL | `features/chat/actions/delete-chat.ts`, `delete-all-chats.ts`, `delete-trailing-messages.ts` (each calls `updateTag`) | P1-T06, P1-T03 | M |
 | P3-T23 | Create chat API route | IMPL | `app/api/chat/route.ts` (`createUIMessageStream`, `streamText`, tools, `onFinish` with `revalidateTag`) | P3-T13, P3-T02 | L |
@@ -87,7 +87,7 @@ Chat page composition
 │   ├── Messages                       # Reads ChatSessionContext (3 own props max)
 │   ├── MultimodalInput                # Reads ChatSessionContext (2 own props max)
 │   └── ArtifactPanel                  # Reads ChatSessionContext (2 own props max)
-├── StreamBridge                       # ~20 lines, processStreamDelta → artifactStore (sibling)
+├── StreamBridge                       # ~20 lines, processStreamDelta → onArtifactDelta callback (sibling; wired to artifactStore in P4-T17)
 └── VoteResolver                       # Deferred vote hydration (sibling)
 ```
 

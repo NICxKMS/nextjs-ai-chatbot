@@ -59,7 +59,7 @@ Full source index: [`../../plan-archives/redesign/index.md`](../../plan-archives
 |------|----------|
 | `architecture.md` | Three-layer architecture, directory structure, proxy.ts, request/data flow, caching strategy |
 | `principles.md` | 14 core design principles governing every decision |
-| `phase-plan.md` | Authoritative 125-task execution plan across 8 phases |
+| `phase-plan.md` | Authoritative 126-task execution plan across 8 phases |
 | `component-architecture.md` | ChatShell decomposition, provider scoping, artifact store |
 | `streaming-architecture.md` | ChatStreamProvider, StreamBridge, processStreamDelta |
 | `state-management.md` | useSyncExternalStore, PendingChatsProvider, settings via localStorage |
@@ -74,10 +74,12 @@ Full source index: [`../../plan-archives/redesign/index.md`](../../plan-archives
 | Metric | Value |
 |--------|-------|
 | Total phases | 8 (P0–P7) |
-| Total tasks | 125 |
+| Total tasks | 126 |
 | Estimated files | ~210 |
 | Features covered | 20/20 (100%) |
 | Decision hierarchy | Correctness → Architecture → Consistency → Performance → Speed |
 | Reuse hierarchy | Reuse → Extend → Refactor → Create |
 | Key patterns | Server layouts + client islands, ChatShell + ChatSessionContext, useSyncExternalStore |
 | Naming | "artifact" everywhere (zero "document" in code identifiers) |
+
+<!-- C2-W4: IC-05/06 fix -->

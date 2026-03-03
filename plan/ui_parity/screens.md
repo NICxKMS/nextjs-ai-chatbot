@@ -79,7 +79,7 @@
 
 **Server-side data:**
 - `cookies()` → `chat-model` cookie for persisted model preference
-- `listChatModels()` → available models from registry
+- `getAvailableModels()` → available models from catalog <!-- SYNC: Wave 4-CHAT — LC-01. listChatModels() renamed to getAvailableModels() per P3-T01. -->
 - `generateUUID()` → new chat ID
 
 **Renders:**
@@ -96,7 +96,10 @@
 </ChatStreamProvider>
 ```
 
-> *(redesign: `Chat` → `ChatShell` (~60 lines, thin orchestrator). `DataStreamHandler` → `StreamBridge`. Wrapped in page-level `ChatStreamProvider`. `initialVisibilityType` and `initialVotes` removed from props.)*
+> *(redesign: `Chat` → `ChatShell` (~60 lines, thin orchestrator). `DataStreamHandler` → `StreamBridge`. Wrapped in page-level `ChatStreamProvider`. `initialVotes` removed from props. `initialVisibility` is a ChatShell prop seeded from server and passed to `useChatSession` for ChatSessionContext (CV-01 Option A); `initialVisibilityType` prop renamed to `initialVisibility`.)*
+
+<!-- SYNC: Wave 4-CHAT — LC-07 clarification. initialVisibilityType renamed to initialVisibility.
+     Visibility is now on ChatSessionValue (CV-01 Option A), so ChatShell receives it as a prop. -->
 
 **Visual States:**
 - **Empty state:** Greeting component ("Hello there! How can I help you today?") + SuggestedActions grid (4 items, 2-col on sm+)
@@ -114,10 +117,10 @@
 
 **Server-side data:**
 - Session via `getAppSession()`
-- Chat + messages via `chatData.getWithMessages(id, ctx)` (cache-first)
+- Chat + messages via `getCachedChat(chatId)` (`'use cache'` + `cacheTag('chat:{chatId}')`) <!-- SYNC: Wave 4-CHAT — LC-03. chatData.getWithMessages(id, ctx) replaced with getCachedChat(chatId) per patterns.md §1. -->
 - Votes via `getVotesByChatIdAndUserId` (only if ≥2 messages and non-guest)
-- Available models via `listChatModels()`
-- Chat model from `chat.lastContext?.modelId`
+- Available models via `getAvailableModels()` <!-- SYNC: Wave 4-CHAT — LC-01. listChatModels() renamed. -->
+- Chat model from `chat.model` (flat column, default fallback) <!-- SYNC: Wave 4-CHAT — LC-02/CONF-013. chat.lastContext?.modelId replaced with chat.model per redesign flat column recommendation. -->
 
 **Access Control:**
 - No session → redirect `/`
@@ -127,21 +130,27 @@
 **Renders:**
 ```
 <ChatStreamProvider>
-  <ChatShell
-    id={chat.id}
-    initialMessages={uiMessages}
-    initialChatModel={chat.lastContext?.modelId || DEFAULT}
-    isReadonly={session.user.id !== chat.userId}
-    availableModels={...}
-  />
-  <StreamBridge id={chat.id} />
-  <Suspense>
-    <VoteResolver chatId={chat.id} votesPromise={votesPromise} />
-  </Suspense>
+  <VotesProvider>
+    <ChatShell
+      id={chat.id}
+      initialMessages={uiMessages}
+      initialChatModel={chat.model ?? DEFAULT_CHAT_MODEL}
+      isReadonly={session.user.id !== chat.userId}
+      availableModels={...}
+      initialVisibility={chat.visibility}
+    />
+    <StreamBridge id={chat.id} />
+    <Suspense>
+      <VoteResolver chatId={chat.id} votesPromise={votesPromise} />
+    </Suspense>
+  </VotesProvider>
 </ChatStreamProvider>
 ```
+<!-- Wave 4-VOTING: CONF-020 fix — added VotesProvider wrapping to match patterns.md §7.5 canonical structure -->
+<!-- SYNC: Wave 4-CHAT — LC-02/CONF-013: chat.lastContext?.modelId||DEFAULT → chat.model??DEFAULT_CHAT_MODEL.
+     AP-05: initialVisibility added to ChatShell props (CV-01 Option A). -->
 
-> *(redesign: `Chat` → `ChatShell`. `DataStreamHandler` → `StreamBridge`. `VoteResolver` (redesign: renamed from VoteHydrator) defers vote loading via `<Suspense>`. `initialVisibilityType`, `initialVotes`, `initialLastContext` removed from props.)*
+> *(redesign: `Chat` → `ChatShell`. `DataStreamHandler` → `StreamBridge`. `VoteResolver` defers vote loading via `<Suspense>`, hydrating VotesProvider context. `initialVotes`, `initialLastContext` removed from props. `initialVisibility` added as ChatShell prop for CV-01 Option A.)*
 
 **Loading State (`loading.tsx`):**
 - Centered column: spinning border circle + "Loading conversation..."

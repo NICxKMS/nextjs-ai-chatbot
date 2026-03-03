@@ -3,7 +3,7 @@
 # Traceability Index
 
 > All traceability artifacts for the rebuild plan.
-> Reflects redesign: 125 tasks (P0-T01 through P7-T13). "artifact" naming. No credit/gateway logic.
+> Reflects redesign: 126 tasks (P0-T01 through P7-T13). "artifact" naming. No credit/gateway logic. <!-- C2-W4: IC-05/06 fix -->
 
 ---
 
@@ -19,7 +19,7 @@
 
 - **Features tracked:** 20 (credit/usage alert removed per redesign)
 - **Seams tracked:** 40
-- **Total tasks:** 125 across 8 phases (P0–P7)
+- **Total tasks:** 126 across 8 phases (P0–P7)
 - **Feature coverage:** 100% full
 - **Seam coverage:** 100%
 

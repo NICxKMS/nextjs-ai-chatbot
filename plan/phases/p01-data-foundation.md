@@ -39,7 +39,7 @@
 | Seam | Description | Task |
 |------|-------------|------|
 | SEAM-017 | AI Provider Registry (model discovery + registration) | P1-T11, P1-T12 |
-| SEAM-023 | Data context assembly | P1-T05 |
+| SEAM-023 | Session → Data Access | P1-T05 | <!-- wave4-cleanup: was "Data context assembly" — updated per DEV-024, aligned with seam-inventory.md -->
 | SEAM-024 | Chat data + cache invalidation | P1-T06 (partial) |
 | SEAM-025 | Artifact data + versioning | P1-T08 (partial) |
 | SEAM-026 | Message persistence + ordering | P1-T07 (partial) |
@@ -91,14 +91,14 @@ Type: IMPL
 Behavior ref: data-flows.md (Redis/KV caching strategy, key patterns)
 Architecture ref: architecture/patterns.md (cache-aside pattern); architecture/decisions.md (ADR-007: Redis + use cache)
 
-Action: Create lib/cache/client.ts — Initialize @vercel/kv client using CACHE_KV_REST_API_URL and CACHE_KV_REST_API_TOKEN env vars. Export get<T>(key), set(key, value, ttl?), del(key), mget<T>(keys[]), pipeline operations. Wrap all operations in try/catch returning null on failure (cache-aside: cache miss is not an error). Create lib/cache/keys.ts — Export typed key builder functions: chatMeta(chatId, userId), chatMessages(chatId, userId), userChats(userId), **artifact**(artifactId, userId), tags. Each returns a formatted string key. **Use `artifact-*` cache key prefix (NOT `document-*`)**.
+Action: Create lib/cache/client.ts — Initialize Upstash Redis client (via `@upstash/redis`) using CACHE_KV_REST_API_URL and CACHE_KV_REST_API_TOKEN env vars. Export typed Redis operations for rate limiting and operational data only: `incr(key)`, `expire(key, seconds)`, `get<T>(key)`, `set(key, value, ttl?)`, `del(key)`. Wrap all operations in try/catch returning null on failure (graceful degradation). Create lib/cache/keys.ts — Export two categories of key builders: (1) **Cache tag name builders** for `cacheTag()`/`updateTag()`/`revalidateTag()` string consistency: `chat(chatId)`, `chats(userId)`, `votes(chatId)`, `artifact(artifactId)`, `models()`. These match `shared-types.md` §13 `cacheKeys`. (2) **Rate-limit Redis key builders**: `rateLimit(userId)`, `rateLimitDaily(userId)`. **No Redis cache keys for chat, message, artifact, or vote data reads** — all data caching uses `'use cache'` + `cacheTag` (see P1-T04). **Use `artifact-*` cache key prefix (NOT `document-*`)**. <!-- wave4: XDL-03/MISS-02 — scoped Redis keys to rate limiting + cache tag name builders only -->
 
 Output files:
 - lib/cache/client.ts
 - lib/cache/keys.ts
 
-Inputs: data-flows.md (cache key patterns), @vercel/kv package
-Outputs: Cache client consumed by P1-T03 (revalidation), P1-T04 (withCache), and data functions (P1-T05 through P1-T09)
+Inputs: data-flows.md (cache key patterns), `@upstash/redis` package <!-- wave4: D-05 — @upstash/redis, not @vercel/kv -->
+Outputs: Cache client consumed by P1-T03 (revalidation), P1-T04 (withCache), and rate-limiting middleware. Data functions (P1-T05 through P1-T09) do NOT use Redis for caching — they are pure DB operations cached via `'use cache'` at the page/feature layer.
 
 AI layer handling: NEW
 
@@ -109,6 +109,8 @@ Success criteria:
 - Cache client gracefully handles missing env vars (returns null, no throw)
 - Key builders produce predictable string patterns (artifact-*, NOT document-*)
 - **No quota cache keys** (credit/quota removed per redesign)
+- **No Redis cache keys for chat, message, artifact, or vote data reads** — only rate-limit keys and cache tag name builders <!-- wave4: XDL-03 -->
+- Cache tag name builders match `shared-types.md` §13 `cacheKeys` pattern: `chat(chatId)`, `chats(userId)`, `votes(chatId)`, `artifact(artifactId)`, `models()`
 - All operations are async and return typed results
 - pnpm typecheck passes
 
@@ -139,6 +141,7 @@ Dependents: P1-T06, P1-T07, P1-T08
 
 Success criteria:
 - Exports explicit wrapper functions (no overloaded primitive wrappers): `invalidate*` for Server Actions, `refresh*` for Route Handlers
+- `invalidateChat(chatId)` and `refreshChat(chatId)` take 1 param (chatId only); callers compose with `invalidateChatList`/`refreshChatList` when both tags needed <!-- wave4: RC-02 — 1-param signatures -->
 - `invalidate*` wrappers call `updateTag(tag)`
 - `refresh*` wrappers call `revalidateTag(tag, 'max')`
 - **Entity types include 'artifact' (NOT 'document')**
@@ -163,7 +166,7 @@ Output files:
 - lib/cache/with-cache.ts
 
 Inputs: Next.js `'use cache'` directive, `cacheTag`/`cacheLife` from `next/cache`
-Outputs: Cache utility consumed by data access functions (P1-T05 through P1-T09)
+Outputs: Cache utility consumed by data access functions (P1-T05 through P1-T08; vote reads are cached via a `getCachedVotes(chatId, userId)` helper at the page/helper layer, not inside `lib/data/vote.ts`)
 
 AI layer handling: NEW
 
@@ -220,25 +223,27 @@ Type: IMPL
 Behavior ref: data-flows.md (chat CRUD, visibility, history pagination); features.md (chat history, rename, delete)
 Architecture ref: ADR-002 (function-based data access); SEAM-024 (chat data + cache invalidation)
 
-Action: Create lib/data/chat.ts — Export functions: getChatById(chatId, userId): Chat | null (with cache via withCache), getChatsByUserId(userId, params?: PaginationParams): { chats: Chat[]; hasMore: boolean; nextCursor?: string } (with cache), getChatWithMessages(chatId, userId): { chat: Chat; messages: Message[] } | null (single query co-fetch of chat + messages, with cache tagged chat:{id}), createChat(data: {id, userId, title, visibility?}): Chat, updateChatTitle(chatId, userId, title): void (+ invalidate cache), updateChatVisibility(chatId, userId, visibility): void (+ invalidate cache), deleteChat(chatId, userId): void (+ invalidate chat + messages caches), deleteAllChats(userId): void (delete all chats + messages for user, invalidate all relevant caches). All functions enforce userId ownership check. Use cache keys from lib/cache/keys.ts. Invalidate relevant cache entries on mutations.
+Action: Create lib/data/chat.ts — Export functions: getChatById(chatId): Chat | null (pure DB lookup), getChatsByUserId(userId, params?: PaginationParams): { chats: Chat[]; hasMore: boolean; nextCursor?: string } (pure DB query), getChatWithMessages(chatId): { chat: Chat; messages: Message[] } | null (single query co-fetch of chat + messages, pure DB), createChat(data: {id, userId, title, model?, visibility?}): Chat, updateChatTitle(chatId, title): void, updateChatVisibility(chatId, visibility): void, deleteChat(chatId): void, deleteAllChats(userId): void (delete all chats + messages for user). All functions are pure DB operations — no auth checks, no cache invalidation. Auth/ownership checks happen at the action/page level per `patterns.md` §1 Rules. Caching via `'use cache'` + `cacheTag` happens at the page/feature layer (e.g., `getCachedChat` in the chat page). Revalidation happens at the caller level (Server Actions call `invalidate*`, Route Handlers call `refresh*`). <!-- wave4: XDL-02 — bare-ID signatures, auth at caller level -->
+
+> **Schema note (CONF-013):** The Chat table should include a flat `model` column (text, nullable) to persist the model used per chat, per redesign code sketches. Existing chat pages read `chat.model` for initial model selection. The old `lastContext` nested object is not carried forward. P0-T04 schema should define this column. See `plan-archives/redesign/cleanup-inventory.md` line 47 and `p03-chat-core.md` P3-T25 for downstream consumers. <!-- wave4-cleanup: CONF-013 note added to P1 per wave4/chat.md deferred item -->
 
 Output files:
 - lib/data/chat.ts
 
-Inputs: lib/db/ (P0-T04), lib/cache/ (P1-T03, P1-T04), lib/types/ (P0-T05), lib/errors/ (P0-T08)
+Inputs: lib/db/ (P0-T04), lib/types/ (P0-T05), lib/errors/ (P0-T08) <!-- audit: W4-DF-02 — removed lib/cache/ (P1-T03, P1-T04): pure DB task -->
 Outputs: Chat data functions consumed by chat actions (P3-T09, P3-T10), chat server actions (P3-T22), chat page, sidebar (P5), API routes
 
 AI layer handling: NEW
 
-Dependencies: P0-T04, P0-T05, P0-T08, P1-T03, P1-T04
+Dependencies: P0-T04, P0-T05, P0-T08 <!-- audit: W4-DF-02 — removed P1-T03, P1-T04: pure DB task, no cache/revalidation imports -->
 Dependents: P3-T09, P3-T10, P3-T22, P5 (sidebar)
 
 Success criteria:
-- getChatById uses `'use cache'` + `cacheTag('chat:{id}')` (via withCache helper or direct directive) <!-- audit: HC-2 -->
-- getChatWithMessages co-fetches chat + messages in a single query, cached with `cacheTag('chat:{id}')`
-- deleteAllChats removes all chats + messages for a user and invalidates all relevant caches
-- All mutation functions invalidate relevant cache entries
-- Ownership check: functions verify userId matches chat.userId
+- getChatById is a pure DB lookup — no `'use cache'`, no auth check; caching provided by page-level `getCachedChat` wrapper using `'use cache'` + `cacheTag('chat:{id}')` + `cacheLife('seconds')` <!-- wave4: XDL-02/XDL-05/RC-03 -->
+- getChatWithMessages co-fetches chat + messages in a single query, bare-ID signature `getChatWithMessages(chatId)`
+- deleteAllChats removes all chats + messages for a user
+- All data functions are pure DB operations — no inline cache invalidation or auth checks
+- Auth/ownership checks happen at the caller (page/action), not in data functions <!-- wave4: XDL-02 -->
 - PaginatedResult returned for list queries with cursor/limit
 - pnpm typecheck passes
 
@@ -254,24 +259,24 @@ Type: IMPL
 Behavior ref: data-flows.md (message persistence, ordering by createdAt); features.md (message display, edit, delete trailing)
 Architecture ref: ADR-002 (function-based data access); SEAM-026 (message persistence + ordering)
 
-Action: Create lib/data/message.ts — Export functions: getMessagesByChatId(chatId, userId): Message[] (ordered by createdAt asc, with cache), getMessageById(messageId): Message | null, saveMessages(messages: NewMessage[]): Message[] (batch insert, invalidate messages cache), deleteMessagesByIdAfter(chatId, messageId): void (delete message and all after it by createdAt, invalidate cache), deleteMessagesByChatId(chatId): void (bulk delete for chat deletion, invalidate cache). Messages use the Message_v2 table (parts jsonb, attachments jsonb). Ensure ordering is always by createdAt ASC.
+Action: Create lib/data/message.ts — Export functions: getMessagesByChatId(chatId): Message[] (ordered by createdAt asc, pure DB query), getMessageById(messageId): Message | null, saveMessages(messages: NewMessage[]): Message[] (batch insert), deleteMessagesByIdAfter(chatId, messageId): void (delete message and all after it by createdAt), deleteMessagesByChatId(chatId): void (bulk delete for chat deletion). All functions are pure DB operations — no auth, no cache. Messages use the Message_v2 table (parts jsonb, attachments jsonb). Ensure ordering is always by createdAt ASC. <!-- wave4: XDL-02 — bare-ID signatures, no userId -->
 
 Output files:
 - lib/data/message.ts
 
-Inputs: lib/db/ (P0-T04), lib/cache/ (P1-T03, P1-T04), lib/types/ (P0-T05)
+Inputs: lib/db/ (P0-T04), lib/types/ (P0-T05) <!-- audit: W4-DF-02 — removed lib/cache/ (P1-T03, P1-T04): pure DB task -->
 Outputs: Message data functions consumed by chat streaming (P3-T09), message actions (P3-T10)
 
 AI layer handling: NEW
 
-Dependencies: P0-T04, P0-T05, P1-T03, P1-T04
+Dependencies: P0-T04, P0-T05 <!-- audit: W4-DF-02 — removed P1-T03, P1-T04: pure DB task, no cache/revalidation imports -->
 Dependents: P3-T09, P3-T10
 
 Success criteria:
-- getMessagesByChatId returns messages ordered by createdAt ASC
-- saveMessages does batch insert and invalidates chatMessages cache
+- getMessagesByChatId returns messages ordered by createdAt ASC, bare-ID signature `getMessagesByChatId(chatId)` <!-- wave4: XDL-02 -->
+- saveMessages does batch insert
 - deleteMessagesByIdAfter deletes correct range (>= target message createdAt)
-- Cache invalidation on all mutations
+- All data functions are pure DB operations — no inline cache invalidation
 - pnpm typecheck passes
 
 Complexity: L
@@ -286,17 +291,17 @@ Type: IMPL
 Behavior ref: data-flows.md (artifact versioning via composite PK); features.md (artifact CRUD)
 Architecture ref: ../../plan-archives/redesign/architecture.md (artifact naming); SEAM-025 (artifact data + versioning)
 
-Action: Create **lib/data/artifact.ts** (NOT lib/data/document.ts) — Export functions: getArtifactById(artifactId, userId): Artifact | null (latest version — highest createdAt for given id), getArtifactVersions(artifactId, userId): Artifact[] (all versions ordered by createdAt DESC), saveArtifactVersion(data: {id, title, content, kind: ArtifactKind, userId, chatId}): Artifact (insert new version row), deleteArtifactVersion(artifactId, userId, createdAt): void (delete a specific version or versions after restore timestamp, per caller mode). Artifacts use composite PK (id + createdAt) for versioning. Use cache with **artifact-* cache tags** via explicit helpers (`invalidateArtifact*`/`refreshArtifact*`) from `lib/cache/revalidate.ts`.
+Action: Create **lib/data/artifact.ts** (NOT lib/data/document.ts) — Export functions: getArtifactById(artifactId): Artifact | null (latest version — highest createdAt for given id), getArtifactVersions(artifactId): Artifact[] (all versions ordered by createdAt DESC), saveArtifactVersion(data: {id, title, content, kind: ArtifactKind, userId, chatId}): Artifact (insert new version row), deleteArtifactVersion(artifactId, createdAt): void (delete a specific version or versions after restore timestamp, per caller mode). All functions use bare-ID signatures — no userId parameter for reads. Auth/ownership checks happen at the caller (page/action). Artifacts use composite PK (id + createdAt) for versioning. Revalidation via `invalidateArtifact(artifactId)`/`refreshArtifact(artifactId)` at the caller level. <!-- wave4: XDL-02 — bare-ID signatures -->
 
 Output files:
 - lib/data/artifact.ts
 
-Inputs: lib/db/ (P0-T04), lib/cache/ (P1-T03, P1-T04), lib/types/artifact.types.ts (P0-T06)
+Inputs: lib/db/ (P0-T04), lib/types/artifact.types.ts (P0-T06) <!-- audit: W4-DF-02 — removed lib/cache/ (P1-T03, P1-T04): pure DB task -->
 Outputs: Artifact data functions consumed by artifact actions (P4), artifact tools (P3)
 
 AI layer handling: NEW
 
-Dependencies: P0-T04, P0-T05, P0-T06, P1-T03, P1-T04
+Dependencies: P0-T04, P0-T05, P0-T06 <!-- audit: W4-DF-02 — removed P1-T03, P1-T04: pure DB task, no cache/revalidation imports -->
 Dependents: P4 (artifacts phase)
 
 Success criteria:
@@ -308,6 +313,8 @@ Success criteria:
 - Cache tags use **artifact-*** pattern (NOT document-*)
 - Composite PK (id + createdAt) maintained correctly
 - pnpm typecheck passes
+
+> **Note (AMB-7):** saveArtifactVersion does not differentiate between guest and authenticated users. Both persist artifacts via the same code path. Guest user ID is a valid foreign key in the artifacts table.
 
 Complexity: L
 
@@ -321,7 +328,7 @@ Type: IMPL
 Behavior ref: data-flows.md (vote upsert); features.md (message voting)
 Architecture ref: ADR-002 (function-based data access)
 
-Action: Create lib/data/vote.ts — Export functions: getVotesByChatId(chatId, userId): Vote[] (all votes for a chat by user), upsertVote(data: {chatId, messageId, userId, isUpvoted}): Vote (insert on conflict update — uses composite PK), deleteVotesByChatId(chatId, userId): void (cleanup when chat deleted). Votes use composite PK (chatId + messageId + userId). No cache needed for votes (low-frequency access).
+Action: Create lib/data/vote.ts — Export functions: getVotesByChatId(chatId, userId): Vote[] (all votes for a chat by user), upsertVote(data: {chatId, messageId, userId, isUpvoted}): Vote (insert on conflict update — uses composite PK), deleteVotesByChatId(chatId, userId): void (cleanup when chat deleted). Votes use composite PK (chatId + messageId + userId). This module is DB-only and session-agnostic — it does not import `'use cache'`, `cacheTag`, `cacheLife`, or `getAppSession()`, and it receives only IDs. Chat-page vote caching is provided by a `getCachedVotes(chatId, userId)` helper at the page/feature layer that wraps these functions in `'use cache'` + `cacheTag('votes:{chatId}')` + `cacheLife(...)`; the `voteOnMessage` Server Action invalidates this cache by calling `invalidateVotes(chatId)` → `updateTag('votes:{chatId}')`.
 
 Output files:
 - lib/data/vote.ts
@@ -352,7 +359,7 @@ Type: IMPL
 Behavior ref: data-flows.md (suggestion persistence); features.md (inline suggestions)
 Architecture ref: ADR-002 (function-based data access)
 
-Action: Create lib/data/suggestion.ts — Export functions: getSuggestionsByArtifactId(artifactId, userId): Suggestion[] (all suggestions for an artifact), saveSuggestions(suggestions: NewSuggestion[]): Suggestion[] (batch insert), deleteSuggestionsByArtifactId(artifactId): void (cleanup when artifact deleted). Suggestions are linked to an artifact (via artifactId) and a specific version.
+Action: Create lib/data/suggestion.ts — Export functions: getSuggestionsByArtifactId(artifactId): Suggestion[] (all suggestions for an artifact), saveSuggestions(suggestions: NewSuggestion[]): Suggestion[] (batch insert), deleteSuggestionsByArtifactId(artifactId): void (cleanup when artifact deleted). Suggestions are linked to an artifact (via artifactId) and a specific version. All functions use bare-ID signatures — no userId. Auth via parent artifact/chat ownership at the caller level. <!-- wave4: XDL-02/MISS-04 — bare-ID signatures -->
 
 Output files:
 - lib/data/suggestion.ts
@@ -449,7 +456,7 @@ Type: IMPL
 Behavior ref: N/A (test infrastructure)
 Architecture ref: ../../plan-archives/redesign/architecture.md (testing); ../../plan-archives/redesign/directory-structure.md (tests/)
 
-Action: Create 4 test fixture files. (1) tests/fixtures/chat.ts — Factory createMockChat(overrides?) returning Chat entity with defaults. createMockMessage(overrides?) for messages. (2) tests/fixtures/artifact.ts — createMockArtifact(overrides?) factory returning Artifact entity (NOT Document). (3) tests/fixtures/user.ts — createMockUser(overrides?), createMockSession(overrides?): AppSession. (4) tests/fixtures/vote.ts — createMockVote(overrides?) factory returning Vote entity. All factories return properly typed objects matching the real schema types.
+Action: Create 4 test fixture files. (1) tests/fixtures/chat.ts — Factory createMockChat(overrides?) returning Chat entity with defaults. createMockMessage(overrides?) for messages. (2) tests/fixtures/artifact.ts — createMockArtifact(overrides?) factory returning Artifact entity (NOT Document). (3) tests/fixtures/user.ts — createMockUser(overrides?), createMockSession(overrides?): AppSession. (4) tests/fixtures/vote.ts — createMockVote(overrides?) factory returning Vote entity. All factories return properly typed objects matching the real schema types. Fixture APIs must support multi-user ownership scenarios (e.g., owner and non-owner sessions) via overrides. <!-- C2-W4: C2X-008 fix -->
 
 Output files:
 - tests/fixtures/chat.ts
@@ -469,6 +476,7 @@ Success criteria:
 - createMockChat() returns typed Chat entity
 - createMockArtifact() returns typed **Artifact** entity (NOT Document)
 - createMockSession() returns valid AppSession with test userId
+- Fixtures support multi-user ownership tests (owner vs non-owner session/user pairs) <!-- C2-W4: C2X-008 fix -->
 - All factories properly TypeScript typed
 - pnpm typecheck passes
 

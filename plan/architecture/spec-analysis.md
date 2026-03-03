@@ -124,8 +124,8 @@ by category (chat/, reasoning/, tools/, content/, canvas/, etc.). However:
 With feature collocation, these should live in the feature that uses them.
 
 **Verdict**: REJECT global `components/ai/`. Colocate wrappers in their consuming features.
-`ai-elements/` has been eliminated in the redesign — wrappers are colocated in their
-consuming features; no shared ai-elements directory is needed. See DEV-002.
+`components/ai-elements/` is populated on-demand — when a feature wrapper needs a primitive,
+copy from `oldapp/components/elements/`. Wrappers import from `@/components/ai-elements/`. See DEV-002.
 
 ### 2.3 `lib/hooks/` Shared Hooks (§20)
 
@@ -343,9 +343,10 @@ should have preserved these implementation details.
 
 ### 4.5 Guest/Auth Data Access Branching — ADDRESSED
 
-> **ADDRESSED**: The redesign keeps `DataContext` for auth-aware branching, but both
-> guest and authenticated sessions use DB-backed persistence with cache-tagged reads.
-> Session management is handled by SessionProvider + getAppSession().
+> **ADDRESSED**: The redesign removes `DataContext` from data function signatures; both
+> guest and authenticated sessions use the same DB-backed persistence with cache-tagged reads.
+> Auth/ownership/visibility checks are performed in Server Actions and Route Handlers using
+> `getAppSession()` before calling `lib/data/*` with IDs and simple options only.
 
 The important split is now authorization/capabilities, not “cache-only vs DB”.
 Repository abstractions were still rejected in favor of explicit data functions,
@@ -370,10 +371,10 @@ The spec mentions test file locations (§24) but doesn't address:
 ### 5.1 `components/ai-elements/` Path Discrepancy — RESOLVED
 
 The spec alternates between `src/components/ai-elements/` and `components/ai-elements/`
-in different sections. This is now moot: `ai-elements/` has been eliminated in the
-redesign. Wrappers are colocated in their consuming features (e.g., chat wrappers in
-`features/chat/components/`, artifact wrappers in `features/artifacts/components/`).
-No shared ai-elements directory exists in the new architecture.
+in different sections. Path resolves to `components/ai-elements/` (no `src/` prefix).
+The directory is populated on-demand when feature wrappers need primitives — files are
+copied as-is from `oldapp/components/elements/`. Wrappers are colocated in their consuming
+features (e.g., `features/chat/components/`) and import from `@/components/ai-elements/`.
 
 ### 5.2 `components/ai/` — 31 Wrappers That Don't Exist Yet
 

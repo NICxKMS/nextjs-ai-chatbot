@@ -4,7 +4,7 @@
 
 > Every phase of the rebuild defined with entry state, scope, exit criteria,
 > files touched, and integration verification.
-> 125 tasks across 8 phases. ~210 files. "artifact" naming throughout.
+> 126 tasks across 8 phases. ~210 files. "artifact" naming throughout. <!-- C2-W4: IC-05/06 fix -->
 > ChatShell + ChatSessionContext, proxy.ts, useSyncExternalStore, handler registry.
 
 ---
@@ -36,7 +36,6 @@ Create the project skeleton — config, shared types, error handling, utilities,
 - `lib/db/schema.ts` — Drizzle table definitions (users, chats, messages, votes, **artifacts** (NOT documents), suggestions)
 - `lib/types/models.types.ts` — InferSelectModel / InferInsertModel types (Artifact, NOT Document)
 - `lib/types/result.types.ts` — `ActionResult<T>` for Server Actions
-- `lib/types/data-context.types.ts` — DataContext (userId, isGuest)
 - `lib/types/artifact.types.ts` — UIArtifact, ArtifactKind, ArtifactStatus
 - `lib/types/artifact-handler.types.ts` — ArtifactHandler, ArtifactStreamWriter interfaces
 - `lib/types/pending-chats.types.ts` — PendingChat, PendingChatOperations
@@ -82,7 +81,7 @@ Create the project skeleton — config, shared types, error handling, utilities,
 | `app/` | 3 | layout.tsx, globals.css, global-error.tsx |
 | `components/ui/` | ~32 | All shadcn/ui base components |
 | `components/` | 4 | theme-provider.tsx, icons.tsx, sidebar-toggle.tsx, toaster.tsx |
-| `lib/types/` | 7 | models.types.ts, result.types.ts, data-context.types.ts, artifact.types.ts, artifact-handler.types.ts, pending-chats.types.ts, model.types.ts, settings.types.ts |
+| `lib/types/` | 7 | models.types.ts, result.types.ts, artifact.types.ts, artifact-handler.types.ts, pending-chats.types.ts, model.types.ts, settings.types.ts |
 | `lib/errors/` | 2 | codes.ts, app-error.ts |
 | `lib/utils/` | 3 | cn.ts, format.ts, generate-uuid.ts |
 | `lib/hooks/` | 2 | use-mobile.ts, use-debounce.ts |
@@ -132,7 +131,8 @@ Create the database migration infrastructure, cache layer, all data access funct
 - `lib/cache/client.ts` — Upstash Redis client (HTTP-based, edge-compatible, globalThis singleton)
 - `lib/cache/keys.ts` — Cache key factory (`cacheKeys.chat()`, `.chats()`, `.artifact()`, `.votes()`)
 - `lib/cache/revalidate.ts` — `updateTag`/`revalidateTag` utilities: `invalidateChat()`, `invalidateChatList()`, `refreshChat()`, `refreshArtifact()`, etc.
-- `lib/cache/with-cache.ts` — `withCache<T>(key, ttl, fetcher)` helper with failure tolerance
+- `lib/cache/with-cache.ts` — `withCache<T>(tag, fetcher, life?)` — `'use cache'` directive wrapper with failure tolerance
+<!-- audit: W4-CONF-027 — updated from Redis cache-aside params (key, ttl, fetcher) to 'use cache' wrapper -->
 
 **Data access (`lib/data/`):**
 - `lib/data/user.ts` — `getUserByEmail`, `createUser`
@@ -246,7 +246,7 @@ Build the complete chat experience — AI integration, settings, streaming, mess
 ### Scope
 
 **AI infrastructure (`lib/ai/`):**
-- `lib/ai/models.ts` — `listChatModels()` with `'use cache'` + model catalog
+- `lib/ai/models.ts` — `getAvailableModels()` with `'use cache'` + model catalog <!-- wave4-cleanup: CONF-031 -->
 - `lib/ai/prompts.ts` — `composeSystemPrompt()` with conditional composition ("artifact" not "document")
 - `lib/ai/provider-options.ts` — `getProviderOptions()` per-provider config
 - `lib/ai/tools.ts` — `getEnabledTools()` model-based tool gating
@@ -412,7 +412,7 @@ Implement the server-rendered sidebar with client pagination, PendingChatsProvid
 
 **Sidebar feature (`features/sidebar/`):**
 - `features/sidebar/types/sidebar.types.ts` — SidebarHistoryItem, PendingChat types
-- `features/sidebar/hooks/use-pending-chats.ts` — PendingChatsProvider context: `add`, `remove`, `updateTitle`, `markConfirmed`
+- `lib/providers/pending-chats-provider.tsx` — PendingChatsProvider context: `add`, `remove`, `updateTitle`, `markConfirmed` <!-- wave4-cleanup: CONF-014 -->
 - `features/sidebar/hooks/use-sidebar-history.ts` — `useSWRInfinite` wrapper for cursor-based pagination
 - `features/sidebar/components/sidebar-history-item.tsx` — Single chat item (link + rename + delete dropdown)
 - `features/sidebar/components/sidebar-history-client.tsx` — `'use client'`: initial data from server + SWR pagination + optimistic merge with PendingChatsProvider
@@ -616,7 +616,7 @@ See `../../plan-archives/redesign/phase-plan.md` for complete task table.
 | P2 | Auth Vertical | 9 | ~14 | Session, auth actions, auth UI, proxy wiring |
 | P3 | Chat Core Vertical | 27 | ~42 | AI integration, settings, streaming, ChatShell, messages, input, pages |
 | P4 | Artifacts Vertical | 18 | ~28 | Store, handlers, editors, artifact panel, API routes |
-| P5 | Sidebar & Navigation | 12 | ~12 | Server-rendered sidebar, PendingChatsProvider, history pagination |
+| P5 | Sidebar & Navigation | 13 | ~12 | Server-rendered sidebar, PendingChatsProvider, history pagination | <!-- C2-W4: C2-SB-03 fix -->
 | P6 | Enhancements | 14 | ~17 | Voting, model selector, visibility, file upload, weather |
 | P7 | Polish & Production | 13 | ~20 | Error boundaries, a11y, tests, verification, build |
-| **Total** | | **125** | **~210** | |
+| **Total** | | **126** | **~210** | |

@@ -21,7 +21,7 @@
 | P0-T02 | Create tooling config | SCAFFOLD | S | 4 |
 | P0-T03 | Set up Tailwind v4 CSS | SCAFFOLD | M | 1 |
 | P0-T04 | Create Drizzle schema + client | IMPL | L | 2 |
-| P0-T05 | Define core shared types | IMPL | M | 4 |
+| P0-T05 | Define core shared types | IMPL | M | 4 | <!-- audit: W4-CONF-022 — was "5", corrected to match task detail (4 output files) -->
 | P0-T06 | Define artifact shared types | IMPL | M | 2 |
 | P0-T07 | Define state shared types | IMPL | S | 2 |
 | P0-T08 | Create error handling | IMPL | M | 2 |
@@ -32,9 +32,11 @@
 | P0-T13 | Create root layout + global error | IMPL | M | 2 |
 | P0-T14 | Create proxy.ts (Next.js 16) | IMPL | M | 1 |
 | P0-T15 | Create instrumentation stubs | SCAFFOLD | S | 2 |
-| P0-T16 | Create test infrastructure | SCAFFOLD | M | 4 |
+| P0-T16 | Create test infrastructure | SCAFFOLD | M | 6 | <!-- C2-W4: C2X-008 fix -->
 | P0-T17 | Create import boundary script | IMPL | S | 1 |
 | P0-T18 | Verification gate G00 | VERIFY | S | 0 |
+
+> **AI Elements Policy**: `components/ai-elements/` is NOT created in P0. Primitives are copied on-demand in later phases (P3, P4, P6) when a feature wrapper needs them. See DEV-002, ADR-005.
 
 ---
 
@@ -149,7 +151,7 @@ Type: IMPL
 Behavior ref: data-flows.md (database schema — 6 tables with columns, indexes, enums)
 Architecture ref: ../../plan-archives/redesign/architecture.md (data layer); ../../plan-archives/redesign/directory-structure.md (lib/db/)
 
-Action: Create lib/db/schema.ts defining all 6 Drizzle tables using drizzle-orm/pg-core. Tables: users (uuid PK, email unique, passwordHash, createdAt, lastLogin), chats (uuid PK, userId FK, title, visibility enum, createdAt, updatedAt, lastContext jsonb), messages aliased as Message_v2 (uuid PK, chatId FK, role enum, parts jsonb, attachments jsonb, createdAt), votes aliased as Vote_v2 (composite PK: chatId+messageId+userId, isUpvoted boolean), **artifacts** (composite PK: id+createdAt, title, content text, kind enum, userId FK, chatId FK, updatedAt), suggestions (uuid PK, artifactId, artifactCreatedAt, originalText, suggestedText, description, isResolved boolean, userId FK). Define pgEnum for visibility (public/private), role (user/assistant/system), **artifact_kind** (text/code/image/sheet). Add all indexes. Create lib/db/client.ts with Drizzle client initialization from DATABASE_URL env var.
+Action: Create lib/db/schema.ts defining all 6 Drizzle tables using drizzle-orm/pg-core. Tables: users (uuid PK, email unique, passwordHash, createdAt, lastLogin), chats (uuid PK, userId FK, title, visibility enum, createdAt, updatedAt, model text), messages aliased as Message_v2 (uuid PK, chatId FK, role enum, parts jsonb, attachments jsonb, createdAt), votes aliased as Vote_v2 (composite PK: chatId+messageId+userId, isUpvoted boolean), **artifacts** (composite PK: id+createdAt, title, content text, kind enum, userId FK, chatId FK, updatedAt), suggestions (uuid PK, artifactId, artifactCreatedAt, originalText, suggestedText, description, isResolved boolean, userId FK). Define pgEnum for visibility (public/private), role (user/assistant/system), **artifact_kind** (text/code/image/sheet). Add all indexes. Create lib/db/client.ts with Drizzle client initialization from DATABASE_URL env var. <!-- C2-W4: C2X-004 fix -->
 
 Output files:
 - lib/db/schema.ts
@@ -183,13 +185,13 @@ Type: IMPL
 Behavior ref: ai-sdk-usage.md (model types); data-flows.md (entity types)
 Architecture ref: ../../plan-archives/redesign/architecture.md (type system); ../../plan-archives/redesign/directory-structure.md (lib/types/)
 
-Action: Create 4 type files. (1) lib/types/result.types.ts — ActionResult<T> type for Server Actions and data access layer, success/failure discriminated union. (2) lib/types/data-context.types.ts — DataContext type for server-to-client data passing. (3) lib/types/model.types.ts — ProviderId (`openai` | `google` | `openrouter`), ModelMetadata, DEFAULT_CHAT_MODEL / TITLE_MODEL / ARTIFACT_MODEL constants. <!-- audit: MO-3 — removed obsolete ModelCapability, ModelModality, ReasoningType --> (4) lib/types/models.types.ts — Drizzle InferSelectModel / InferInsertModel types for all 6 tables (User, Chat, Message, Artifact, Vote, Suggestion + insert variants), enum types, and composite types (ChatWithMessages, ArtifactWithVersions).
+Action: Create 4 type files. (1) lib/types/result.types.ts — ActionResult<T> type for Server Actions and data access layer, success/failure discriminated union. (2) lib/types/model.types.ts — ProviderId (`openai` | `google` | `openrouter`), ModelMetadata, DEFAULT_CHAT_MODEL / TITLE_MODEL / ARTIFACT_MODEL constants. <!-- audit: MO-3 — removed obsolete ModelCapability, ModelModality, ReasoningType --> (3) lib/types/models.types.ts — Drizzle InferSelectModel / InferInsertModel types for all 6 tables (User, Chat, Message, Artifact, Vote, Suggestion + insert variants), enum types, and composite types (ChatWithMessages, ArtifactWithVersions). (4) lib/types/api.types.ts — PaginatedResult<T>, HistoryResponse<T>, PaginationParams, ErrorResponse, HealthResponse generic API contracts (see shared-types.md §14). <!-- audit: AMB-2 — data-context.types.ts removed per DEV-024 --> <!-- audit: W4-CONF-022-L3 — models.types.ts and api.types.ts moved from old P00-T08 to P0-T05 for dependency ordering (schema must exist before Drizzle-inferred types) -->
 
 Output files:
 - lib/types/result.types.ts
-- lib/types/data-context.types.ts
 - lib/types/model.types.ts
 - lib/types/models.types.ts
+- lib/types/api.types.ts
 
 Inputs: scaffold/shared-types.md (type contracts)
 Outputs: Core types consumed by all subsequent phases
@@ -201,9 +203,9 @@ Dependents: P0-T06, P0-T07, P1-T05, P1-T06, P1-T07, P1-T08, P1-T09, P1-T10, P1-T
 
 Success criteria:
 - ActionResult<T> is a discriminated union with success/failure variants
-- DataContext type compiles against schema entity types
 - ModelMetadata exports all required model fields
 - models.types.ts exports Drizzle-inferred select/insert types for all 6 tables
+- PaginatedResult, PaginationParams, ErrorResponse, HealthResponse types compile
 - pnpm typecheck passes
 
 Complexity: M
@@ -235,6 +237,8 @@ Dependents: P1-T08, P1-T13, P3-T05, P4-T01 through P4-T05
 Success criteria:
 - ArtifactKind is a string literal union (NOT DocumentKind)
 - ArtifactHandler interface defines create(params) and update(params) <!-- audit: SC-V2, SC-1, DA-1 -->
+- UIArtifact includes `suggestions?: ArtifactSuggestion[]` field (Wave 3 TC-1)
+- ArtifactSuggestion type defined ONLY in `lib/types/artifact.types.ts` (shared — consumed by both artifacts and chat/streaming); `features/chat/types/chat.types.ts` must re-export from this file, not redefine <!-- audit: W4-CONF-026 -->
 - No references to "document" in type names or artifact context
 - pnpm typecheck passes
 
@@ -250,7 +254,7 @@ Type: IMPL
 Behavior ref: state-management.md (pending chats, settings)
 Architecture ref: ../../plan-archives/redesign/state-management.md (client state types)
 
-Action: Create 2 type files. (1) lib/types/pending-chats.types.ts — PendingChat type, PendingChatsState interface for PendingChatsProvider (replaces old OptimisticChatsProvider). (2) lib/types/settings.types.ts — SettingsState type (`temperature`, `topP`, `maxOutputTokens`, `systemPrompt`, `enableReasoning`). Model selection is handled separately via model cookie/localStorage, not settings state.
+Action: Create 2 type files. (1) lib/types/pending-chats.types.ts — PendingChat type, PendingChatsState interface for PendingChatsProvider (replaces old OptimisticChatsProvider). (2) lib/types/settings.types.ts — **Canonical** SettingsState type (`temperature`, `topP`, `maxOutputTokens`, `systemPrompt`, `enableReasoning`). This is the shared contract; P3-T06 re-exports it from `features/settings/types/`. Model selection is handled separately via model cookie/localStorage, not settings state.
 
 Output files:
 - lib/types/pending-chats.types.ts
@@ -267,6 +271,7 @@ Dependents: P3-T04, P5-T02
 Success criteria:
 - PendingChat type maps chat ID to optimistic title
 - SettingsState type includes temperature/topP/maxOutputTokens/systemPrompt/enableReasoning
+- SettingsState is the **canonical shared definition** — P3-T06 re-exports (not redefines) it
 - No SettingsProvider type (removed per redesign)
 - pnpm typecheck passes
 
@@ -466,6 +471,8 @@ Success criteria:
 - **No AppShell import** — providers composed directly in layout
 - global-error.tsx renders standalone html/body with error message and reset button
 - layout.tsx imports globals.css
+- Viewport config does NOT set `maximumScale: 1` or `user-scalable=no` — do NOT carry forward this restriction from oldapp (WCAG 2.1 AA SC 1.4.4)
+<!-- Audit: W4-POLISH-04 (Wave 4) — Preventive constraint at creation time. accessibility.md §8 warns against maximumScale:1; P7-T04 has detective check. See W2 NEW-2, W3-10. -->
 
 Complexity: M
 
@@ -495,6 +502,7 @@ Dependents: P2-T08
 Success criteria:
 - **proxy.ts** exists at project root (NOT middleware.ts)
 - Device detection header set on responses
+- Returns `NextResponse.next({ request: { headers: request.headers } })` so downstream route handlers receive mutated headers (required for CONF-012 guest bootstrap dual-write) <!-- wave4-cleanup -->
 - Auth guard, guest token rotation, and rate limiting present as commented placeholders only (wired in P2-T08) <!-- audit: SC-V5 -->
 - Export config.matcher excludes static assets
 
@@ -541,13 +549,15 @@ Type: SCAFFOLD
 Behavior ref: N/A (test infrastructure)
 Architecture ref: ../../plan-archives/redesign/architecture.md (testing); ../../plan-archives/redesign/directory-structure.md (tests/)
 
-Action: Create 4 files. (1) tests/setup.ts — Vitest global setup file with environment variable mocking (DATABASE_URL, etc. set to test values), import @testing-library/jest-dom for DOM matchers. (2) tests/mocks/auth.ts — Mock session resolution function for auth testing. (3) tests/mocks/db.ts — Mock Drizzle client for data access testing. (4) tests/mocks/cache.ts — Mock cache client for cache layer testing. These files are referenced in vitest.config.ts. <!-- audit: SC-V3 -->
+Action: Create 6 files. (1) vitest.config.ts — Vitest configuration with tests/setup.ts wired as setup file. (2) tests/setup.ts — Vitest global setup file with environment variable mocking (DATABASE_URL, etc. set to test values), import @testing-library/jest-dom for DOM matchers. (3) tests/mocks/auth.ts — Mock session resolution function for auth testing. (4) tests/mocks/db.ts — Mock Drizzle client for data access testing. (5) tests/mocks/cache.ts — Mock cache client for cache layer testing. (6) playwright.config.ts — baseline Playwright config for `pnpm test:e2e`. <!-- audit: SC-V3 --> <!-- C2-W4: C2X-008 fix -->
 
 Output files:
+- vitest.config.ts <!-- W4-CYCLE1: SOFT-013 fix — vitest config required for pnpm test:unit -->
 - tests/setup.ts
 - tests/mocks/auth.ts
 - tests/mocks/db.ts
 - tests/mocks/cache.ts
+- playwright.config.ts                <!-- audit: W4-W3-09 -->
 <!-- audit: SC-V3 -->
 
 Inputs: ../../plan-archives/redesign/architecture.md
@@ -559,6 +569,8 @@ Dependencies: P0-T01
 Dependents: P1-T13
 
 Success criteria:
+- vitest.config.ts exists and references tests/setup.ts as setup file <!-- W4-CYCLE1: SOFT-013 fix -->
+- playwright.config.ts exists and exports valid Playwright config <!-- C2-W4: C2X-008 fix -->
 - tests/setup.ts exists and is valid TypeScript
 - Environment variables mocked for test context
 - Mock auth and db modules export usable stubs
@@ -595,6 +607,35 @@ Success criteria:
 - Exits with code 0 when no violations found
 - Exits with code 1 when violations found
 - Can be invoked via `node scripts/check-imports.mjs`
+
+Implementation specification:
+```
+INPUT:   All .ts/.tsx files under app/, features/, components/, lib/
+         Exclude: node_modules/, .next/, oldapp/, tests/, *.test.ts, *.spec.ts
+
+RULES (from conventions.md §3 + domain-boundaries.md §6):
+  FORBIDDEN:
+    lib/**          → features/**, components/**, app/**
+    components/**   → features/**, app/**
+    features/**     → app/**
+    features/X/**   → features/Y/components/**  (except allowlist)
+    features/X/**   → features/Y/hooks/**       (except allowlist)
+    features/X/**   → features/Y/actions/**     (except allowlist)
+    features/X/**   → features/Y/lib/**         (except allowlist)
+
+  ALLOWLIST (7 entries, from conventions.md §3):
+    1. features/chat/components/stream-bridge.tsx → features/artifacts/lib/artifact-store.ts
+    2. features/chat/hooks/use-chat-session.ts → features/settings/hooks/use-settings.ts
+    3. features/chat/components/message.tsx → features/voting/components/vote-buttons.tsx
+    4. features/chat/components/chat-header.tsx → features/visibility/components/visibility-selector.tsx
+    5. features/chat/components/chat-header.tsx → features/models/components/model-selector.tsx
+    6. features/sidebar/components/sidebar-history-item.tsx → features/chat/actions/delete-chat.ts
+    7. features/sidebar/components/sidebar-history-item.tsx → features/visibility/actions/update-visibility.ts
+
+OUTPUT:  List of violations (file:line → imported path)
+EXIT:    0 if zero violations, 1 otherwise
+INTEGRATION: Invoked by `pnpm lint` (add to package.json scripts)
+```
 
 Complexity: S
 

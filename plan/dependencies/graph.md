@@ -2,7 +2,7 @@
 
 # Task Dependency Graph
 
-> Full dependency graph for all 125 tasks across 8 phases.
+> Full dependency graph for all 126 tasks across 8 phases. <!-- C2-W4: IC-05/06 fix -->
 > Dependencies shown as `→` (depends on). **Bold** = critical path tasks.
 > Task IDs: P0-T01 through P7-T13. "artifact" naming throughout. No credit/gateway logic.
 > proxy.ts (not middleware.ts). ChatShell + ChatSessionContext. useSyncExternalStore for artifact state.

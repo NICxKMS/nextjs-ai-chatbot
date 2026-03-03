@@ -92,7 +92,8 @@
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-023 | Data Context (Session → Branching) | P1-T05 | P1 |
+| SEAM-023 | Session → Data Access | P1-T05 | P1 |
+<!-- audit: W4-CONF-017/C1-9 — title aligned with seam-inventory.md per DEV-024 -->
 | SEAM-024 | Chat Data Operations | P1-T06 | P1 |
 | SEAM-025 | Artifact Data Operations (NOT Document) | P1-T08, P4-T15 | P1, P4 |
 | SEAM-026 | Message Persistence | P1-T07, P3-T23, P3-T22 | P1, P3 |
@@ -101,7 +102,7 @@
 
 | Seam ID | Description | Task ID(s) | Phase |
 |---------|-------------|------------|-------|
-| SEAM-027 | Error Boundaries (3 levels) | P7-T01, P7-T02 | P7 |
+| SEAM-027 | Error Boundaries (4 levels) | P7-T01, P7-T02 | P7 | <!-- C2-W4: SEAM-027 fix -->
 | SEAM-028 | Client Error Handling (useChat.onError → toast, NO gateway credit detection) | P3-T21, P3-T26 | P3 |
 
 ## UI Infrastructure Seams

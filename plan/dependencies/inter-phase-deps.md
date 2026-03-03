@@ -30,7 +30,7 @@ Each phase has a **gate task** (final task) that must pass `pnpm format && pnpm 
 | P0 Task | Export | Consumed By |
 |---------|--------|-------------|
 | P0-T04 | `lib/db/schema.ts` (Drizzle schema, Artifact table — NOT Document) | P1-T01 (DB migration), P1-T05–T10 (data access) |
-| P0-T05 | `lib/types/result.types.ts`, `data-context.types.ts`, `model.types.ts` | P1-T05–T10 (data access), P1-T11 (AI registry) |
+| P0-T05 | `lib/types/result.types.ts`, `model.types.ts`, `api.types.ts` | P1-T05–T10 (data access), P1-T11 (AI registry) |
 | P0-T06 | `lib/types/artifact.types.ts`, `artifact-handler.types.ts` (ArtifactHandler) | P1-T08 (artifact data access) |
 | P0-T08 | `lib/errors/app-error.ts`, `codes.ts` (NO activate_gateway) | P1-T05–T10 (data access) |
 | P0-T14 | `proxy.ts` (auth guard, guest token rotation, rate-limit check) | P2-T01 (session resolution) |
@@ -278,7 +278,7 @@ Each phase has a **gate task** (final task) that must pass `pnpm format && pnpm 
 
 ### Exit State of P7
 
-- Error boundaries at all 3 levels (global, chat, artifact)
+- Error boundaries at all 4 levels (global, chat, auth, artifact) <!-- C2-W4: SEAM-027 fix -->
 - Full a11y compliance (keyboard nav, ARIA, focus management)
 - Responsive design verified (≥320px)
 - `scripts/check-imports.mjs` reports zero violations

@@ -124,7 +124,6 @@ nextjs-ai-chatbot/
 │   │   │   ├── sidebar-user-nav.tsx
 │   │   │   └── sidebar-skeleton.tsx
 │   │   ├── hooks/
-│   │   │   ├── use-pending-chats.ts
 │   │   │   └── use-sidebar-history.ts
 │   │   ├── actions/
 │   │   │   └── rename-chat.ts
@@ -152,6 +151,8 @@ nextjs-ai-chatbot/
 │   ├── visibility/
 │   │   ├── components/
 │   │   │   └── visibility-selector.tsx
+│   │   ├── hooks/
+│   │   │   └── use-chat-visibility.ts
 │   │   ├── actions/
 │   │   │   └── update-visibility.ts
 │   │   └── types/
@@ -171,6 +172,8 @@ nextjs-ai-chatbot/
 │   ├── icons.tsx                     # Shared icon components
 │   ├── toaster.tsx                   # Toast notification provider
 │   ├── weather.tsx                   # Weather widget component (used by getWeather tool)
+│   ├── ai-elements/                  # On-demand copies from oldapp/components/elements/ (read-only)
+│   │   └── ... (populated per-feature)
 │   └── ui/                           # shadcn/ui base components
 │       ├── button.tsx
 │       ├── input.tsx
@@ -179,8 +182,9 @@ nextjs-ai-chatbot/
 │       ├── skeleton.tsx
 │       └── ...
 │
-│   > Note: `components/ai-elements/` is treated as legacy reference material in this plan.
-│   > It is not a redesign-mandated baseline directory.
+│   > Note: `components/ai-elements/` is populated on-demand. When a feature wrapper needs
+│   > a primitive, copy the specific file from `oldapp/components/elements/`. Files are
+│   > read-only and excluded from Biome.
 │
 ├── lib/                              # Cross-cutting infrastructure
 │   ├── data/                         # Shared data access (function-based)
@@ -216,7 +220,6 @@ nextjs-ai-chatbot/
 │   ├── types/
 │   │   ├── artifact-handler.types.ts  # ArtifactHandler, ArtifactStreamWriter
 │   │   ├── artifact.types.ts          # ArtifactKind, UIArtifact
-│   │   ├── data-context.types.ts      # DataContext (userId, isGuest)
 │   │   ├── model.types.ts             # ModelMetadata, ProviderId
 │   │   ├── pending-chats.types.ts     # PendingChatOperations
 │   │   ├── settings.types.ts          # SettingsState
@@ -225,6 +228,8 @@ nextjs-ai-chatbot/
 │   │   ├── cn.ts                      # clsx + twMerge
 │   │   ├── format.ts                  # Date/string formatting
 │   │   └── generate-uuid.ts           # UUID generation utility
+│   ├── providers/                    # Cross-feature context providers
+│   │   └── pending-chats-provider.tsx # PendingChatsProvider (chat writes, sidebar reads)
 │   └── hooks/                        # ONLY truly generic hooks (2-3 max)
 │       ├── use-mobile.ts
 │       └── use-debounce.ts
@@ -274,7 +279,7 @@ nextjs-ai-chatbot/
 | Type | Suffix | Example |
 |------|--------|---------|
 | Component | `.tsx` | `chat-shell.tsx` |
-| Server action | `.ts` | `stream-chat.ts` |
+| Server action | `.ts` | `delete-chat.ts` |
 | Hook | `.ts` with `use-` prefix | `use-chat-session.ts` |
 | Schema | `.schema.ts` | `chat.schema.ts` |
 | Types | `.types.ts` | `artifact.types.ts` |
@@ -283,19 +288,22 @@ nextjs-ai-chatbot/
 | Mock file | `.mock.ts` | `session.mock.ts` |
 | Fixture file | `.fixture.ts` | `chat.fixture.ts` |
 
+<!-- C2-W4: SOFT-010 fix -->
+
 **Note**: The spec used `.action.ts` suffix for server actions. We drop this — the `actions/`
 directory already communicates intent. Extra suffixes add noise.
 
+<!-- C2-W4-FIXUP: ErrorCode drift fix -->
 ### Error Code Structured Naming
 
-Error codes follow the `type:surface:reason` pattern:
+Error codes follow the `type:surface:detail` pattern:
 
 ```typescript
 // Examples:
-'bad_request:api:invalid_model_id'
-'unauthorized:chat:auth_required'
+'bad_request:chat:invalid_model_id'
+'unauthorized:auth:no_session'
 'forbidden:chat:owner_mismatch'
-'rate_limit:chat:too_many_requests'
+'rate_limit:api:too_many_requests'
 ```
 
 Core `type` values: `bad_request`, `unauthorized`, `forbidden`, `not_found`, `rate_limit`, `ai_error`, `internal_error`.
@@ -423,8 +431,11 @@ The following cross-feature implementation imports are intentionally allowed bey
 | `VoteButtons` | `features/voting/components/vote-buttons.tsx` | `features/chat/components/message.tsx` | UI composition — voting is per-message |
 | `VisibilitySelector` | `features/visibility/components/visibility-selector.tsx` | `features/chat/components/chat-header.tsx` | UI composition — visibility is per-chat |
 | `ModelSelector` | `features/models/components/model-selector.tsx` | `features/chat/components/chat-header.tsx` | UI composition — model selection is per-chat |
+| `ArtifactPreview` | `features/artifacts/components/artifact-preview.tsx` | `features/chat/components/message.tsx` | UI composition — inline artifact preview in messages <!-- Wave 4: CONF-035 --> |
+| `ArtifactToolResult` | `features/artifacts/components/artifact-tool-result.tsx` | `features/chat/components/message.tsx` | UI composition — tool call result card for artifacts <!-- Wave 4: CONF-035 --> |
 | `deleteChat`, `deleteAllChats` | `features/chat/actions/delete-chat.ts`, `delete-all-chats.ts` | `features/sidebar/components/sidebar-history-item.tsx` | Sidebar triggers chat deletion; annotated consumer |
 | `updateChatVisibility` | `features/visibility/actions/update-visibility.ts` | `features/sidebar/components/sidebar-history-item.tsx` | Sidebar triggers visibility change via Share submenu; annotated consumer |
+| `useChatVisibility` | `features/visibility/hooks/use-chat-visibility.ts` | `features/sidebar/components/sidebar-history-item.tsx` | Sidebar reads/updates per-chat visibility state; direct hook import per oldapp pattern <!-- W4-CYCLE1: SOFT-007 fix --> |
 
 All other cross-feature imports must go through shared types in `lib/types/*`.
 

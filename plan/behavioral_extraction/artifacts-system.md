@@ -114,45 +114,43 @@ AI Tool Call (createArtifact/updateArtifact)
 
 ## Artifact Handler Registry
 
-`lib/ai/artifact-handlers.ts` exports `getArtifactHandler`:
+<!-- Wave 4: CONF-003 + CONF-009 — Rewritten to match domain-boundaries.md §3.
+     Old factory wrapper pattern removed (preamble/postamble/persistence was in handler wrapper).
+     Now: simple Map lookup. Handler returns content string only. Tool owns lifecycle.
+     Also fixes: W2-MC-2 (factory wrapper), W2-LC-3 (dataStream→ChatStream), W2-MC-5 (null→''), W2-LC-5 (return type). -->
 
-> *Handler registry pattern — each `ArtifactKind` maps to an `ArtifactHandler` with `.create()` and `.update()` methods.*
+`lib/ai/artifact-handlers.ts` — Simple Map-based registry with dependency inversion:
+
+> *Handlers register themselves at module load time. Tools look up handlers via the registry. No wrapper — handlers stream content deltas and return a content string. The calling tool owns lifecycle (preamble, persistence, postamble).*
 
 ```typescript
-function getArtifactHandler(kind: ArtifactKind): ArtifactHandler {
-  // Registry lookup returns handler with:
-  return {
-    kind,
-    create: async ({ title, dataStream, session, chatId }) => {
-      const id = generateUUID();
-      dataStream.writeData({ type: "artifact-kind", content: kind });
-      dataStream.writeData({ type: "artifact-id", content: id });
-      dataStream.writeData({ type: "artifact-title", content: title });
-      dataStream.writeData({ type: "artifact-clear", content: null });
+const handlers = new Map<ArtifactKind, ArtifactHandler>()
 
-      const result = await handler.generate({ id, title, dataStream, session });
+/** Called by features/artifacts/handlers/index.ts at module load */
+export function registerArtifactHandler(
+  kind: ArtifactKind,
+  handler: ArtifactHandler,
+): void {
+  if (handlers.has(kind)) {
+    throw new Error(`Artifact handler already registered for kind: ${kind}`)
+  }
+  handlers.set(kind, handler)
+}
 
-      // Persist to DB/cache
-      await saveArtifactVersion({ id, title, kind, content: result, userId, chatId });
-      dataStream.writeData({ type: "artifact-finish", content: null });
-      return { id, title, kind, content: "An artifact was created..." };
-    },
-    update: async ({ id, description, dataStream, session }) => {
-      const artifact = await getArtifactById(id, ctx);
-      const latestVersion = artifact.versions.at(-1);
-      dataStream.writeData({ type: "artifact-clear", content: null });
-
-      const result = await handler.regenerate({
-        artifact: latestVersion, description, dataStream, session
-      });
-
-      await saveArtifactVersion({ id, title: latestVersion.title, kind, content: result, userId });
-      dataStream.writeData({ type: "artifact-finish", content: null });
-      return { id, title, kind, content: "The artifact has been updated..." };
-    }
-  };
+/** Called by features/chat/lib/tools/ during tool execution */
+export function getArtifactHandler(kind: ArtifactKind): ArtifactHandler {
+  const handler = handlers.get(kind)
+  if (!handler) {
+    throw new Error(`No artifact handler registered for kind: ${kind}`)
+  }
+  return handler
 }
 ```
+
+**Handler contract:** Each `ArtifactHandler` implements `create(params: CreateArtifactParams): Promise<string>` and `update(params: UpdateArtifactParams): Promise<string>`. Params include `ChatStream: ArtifactStreamWriter` for streaming content deltas. Handlers:
+- Stream content deltas via `ChatStream.writeData()` (e.g., `artifact-textDelta`, `artifact-codeDelta`)
+- Return the full content string
+- Do NOT write preamble (`artifact-kind`, `artifact-id`, `artifact-title`, `artifact-clear`), postamble (`artifact-finish`), or persist via `saveArtifactVersion()` — those are the tool's responsibility
 
 ---
 

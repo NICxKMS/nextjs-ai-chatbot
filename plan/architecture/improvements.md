@@ -39,8 +39,8 @@ Each feature owns: `actions/`, `components/`, `hooks/`, `schemas/`, `lib/`, `typ
 
 ### What Stays Shared
 
-> **Updated per redesign audit (2026-03-01)**: ai-elements removed from shared (no longer
-> needed in new architecture). lib/api/ and lib/rate-limit/ consolidated. lib/ai/ now
+> **Updated per redesign audit (2026-03-01)**: ai-elements populated on-demand — copied
+> per-feature from `oldapp/components/elements/` when a wrapper needs a primitive. lib/api/ and lib/rate-limit/ consolidated. lib/ai/ now
 > includes handler registry.
 
 | Location | Content | Reason |
@@ -52,7 +52,8 @@ Each feature owns: `actions/`, `components/`, `hooks/`, `schemas/`, `lib/`, `typ
 | `lib/auth/` | `getAppSession()` infrastructure | Auth infrastructure |
 | `lib/errors/` | AppError class, error codes | Cross-cutting error handling |
 | `lib/data/` | Shared data access functions | Used across multiple features |
-| `lib/types/` | Artifact handler types, pending chats types, data context, ActionResult | Shared type definitions |
+| `lib/types/` | Artifact handler types, pending chats types, ActionResult | Shared type definitions |
+<!-- audit: W4-CONF-017 — data context type removed per DEV-024 -->
 | `lib/utils/` | Generic utilities (cn, formatDate, etc.) | Cross-cutting helpers |
 | `lib/hooks/` | `useMobile()`, `useDebounce()`, `useMediaQuery()` | 2-3 truly generic hooks only |
 
@@ -110,25 +111,25 @@ export async function createChat(data: NewChat): Promise<Chat> {
 }
 ```
 
-### Cache-Through Utility
+### Framework Cache Utility <!-- wave4-cleanup: renamed from "Cache-Through Utility" — describes 'use cache' wrapper, not Redis -->
 
-For the common "check cache, fallback to fetcher, warm cache" pattern:
+For the common "check cache, fallback to fetcher" pattern using Next.js 16 `'use cache'` directive:
 
 ```typescript
 // lib/cache/with-cache.ts
 export async function withCache<T>(
-  key: string,
-  ttl: number,
-  fetcher: () => Promise<T | null>
-): Promise<T | null> {
-  const cached = await cache.get<T>(key)
-  if (cached) return cached
-
-  const result = await fetcher()
-  if (result) await cache.set(key, result, { ex: ttl })
-  return result
+  tag: string,
+  fetcher: () => Promise<T>,
+  life?: Parameters<typeof cacheLife>[0]
+): Promise<T> {
+  'use cache'
+  cacheTag(tag)
+  if (life) cacheLife(life)
+  return fetcher()
 }
 ```
+
+<!-- audit: W4-CONF-027 — withCache updated from Redis cache-aside (key, ttl, fetcher) to 'use cache' directive wrapper (tag, fetcher, life?) per patterns.md §1 and p01-data-foundation.md P1-T04 -->
 
 ### Guest/Auth Branching
 
@@ -221,14 +222,17 @@ Colocate wrappers in the feature that consumes them:
 **Only build wrappers for features that exist.** The spec's canvas/, citations/, workflow/
 categories don't correspond to any current functionality. Don't create dead code.
 
-### `ai-elements/` Stays Global
+### `ai-elements/` — On-Demand Copy from `oldapp/`
 
-> **Updated per redesign audit (2026-03-01)**: The ai-elements external dependency may be
-> removed entirely if the new architecture doesn't require it. If kept, it stays global.
+> **Updated per redesign audit (2026-03-02)**: Hybrid approach — primitives copied on-demand, wrappers colocated.
 
-`components/ai-elements/` remains unchanged — it's an external read-only dependency. The
-`import from '@/components/ai-elements'` pattern is fine because it's infrastructure, not
-feature logic.
+`components/ai-elements/` is populated **on-demand**: when a feature wrapper needs a
+primitive, copy from `oldapp/components/elements/` as-is. No bulk upfront copy.
+
+- Copied files are **read-only** — never modified, excluded from Biome
+- Import pattern: `import { X } from '@/components/ai-elements/[file]'`
+- Wrappers live in their consuming feature (e.g., `features/chat/components/`)
+- Only primitives needed by implemented features are copied (YAGNI)
 
 ---
 
@@ -347,13 +351,15 @@ Keep AppError but use string literal codes (not enum):
 > **Updated per redesign audit (2026-03-01)**: ActionResult<T> adopted for Server Actions.
 > AppError + throw preserved for Route Handlers. No Result<T, E>.
 
+<!-- C2-W4-FIXUP: ErrorCode drift fix -->
+
 ```typescript
 // lib/errors/app-error.ts
 type ErrorCode =
   | 'bad_request:api:invalid_request_body'
   | 'unauthorized:chat:auth_required'
   | 'forbidden:chat:owner_mismatch'
-  | 'not_found:chat:not_found'
+  | 'not_found:chat:chat_not_found'
   | 'rate_limit:chat:too_many_requests'
   | 'ai_error:provider:failed'
   | 'internal_error:database:query_failed'
@@ -443,12 +449,13 @@ non-negotiable convention — `lib/cache/revalidate.ts` provides the utilities.
 The existing `Chat` god component (~200 lines) is split into:
 - `ChatShell` (~60 lines) — calls `useChat`, provides `ChatSessionContext`, renders children
 - `StreamBridge` (~20 lines) — thin component calling `processStreamDelta()` pure function
-- `VoteResolver` — uses `use()` to resolve deferred vote promise, passes `initialVotes` to VoteButtons which use `useOptimistic`
+- `VoteResolver` — uses `use()` to resolve deferred vote promise, hydrates VotesProvider context; VoteButtons reads from VotesProvider via `useVoteForMessage()`
 
 > **Updated per Wave 4 reconciliation (DA-5/CI-3, 2026-03-02):** "hydrates SWR" replaced
-> with "passes `initialVotes` to VoteButtons which use `useOptimistic`" per SC-3 resolution.
+> with VotesProvider context pattern per SC-3/CV-02 resolution.
 
 <!-- audit: CI-3, DA-5 — VoteResolver description corrected from SWR to useOptimistic -->
+<!-- Wave 4-VOTING: C4 fix — updated from pre-CV-02 "passes initialVotes" to VotesProvider context pattern -->
 
 ### 10.3 Provider Naming Alignment
 

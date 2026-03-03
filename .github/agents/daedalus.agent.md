@@ -2,7 +2,6 @@
 name: daedalus
 description: "The Performance Engineer — Bundle analysis, render optimization, query performance, memory profiling, and Core Web Vitals improvement."
 tools: [vscode/memory, vscode/runCommand, execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/problems, read/readFile, read/terminalSelection, read/terminalLastCommand, edit, search, web]
-
 ---
 
 # Daedalus — The Master Engineer

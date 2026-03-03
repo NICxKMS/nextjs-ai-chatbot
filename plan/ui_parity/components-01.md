@@ -6,6 +6,8 @@
 
 > ⚠️ **Scope note (redesign precedence):** This file is a parity/reference inventory. Authoritative implementation targets are `scaffold/directory-structure.md`, `phases/*.md`, and `final_plan/phase-*.md`. Entries for removed files (e.g., `app-sidebar.tsx`, `artifact-messages.tsx`, `console.tsx`, `create-artifact.tsx`, `diffview.tsx`) are historical and **not** rebuild targets unless explicitly reintroduced.
 
+> ⚠️ **Historical/non-prescriptive policy:** When this inventory conflicts with phase tasks, treat this document as historical reference only; phase tasks are canonical. For **ART-AMB-SUGGESTION-FILE** and **ART-AMB-SKELETON-FILE**, inline implementation is canonical unless a phase task explicitly requires a standalone file. <!-- C2-W4: ID fix -->
+
 ---
 
 ## app-sidebar.tsx → *(historical, removed in redesign; replaced by `features/sidebar/components/sidebar-shell.tsx` + client subcomponents)*
@@ -23,6 +25,21 @@
 | **Hooks** | `useRouter`, `useSidebar`, `useSession` *(redesign: renamed from useAuth)* |
 | **Memo** | None |
 | **Notes** | sidebar border-r-0 override; "Assistant" brand text in header |
+
+### SidebarShell — Server Component Spec *(redesign: new component)*
+
+> *The most impactful server component optimization in the redesign (~35KB JS savings). Replaces client-side `AppSidebar` + SWR fetch waterfall with a server-rendered, cached shell.*
+
+| Field | Detail |
+|-------|--------|
+| **Type** | Server Component (async) |
+| **File** | `features/sidebar/components/sidebar-shell.tsx` |
+| **Props** | `session: AppSession` |
+| **Children** | `Sidebar` → `SidebarHeader` (brand + new-chat), `SidebarContent` → `SidebarHistoryClient` (client), `SidebarFooter` → `SidebarUserNav` (client) |
+| **Cache strategy** | `'use cache'` + `cacheTag('chats:{userId}')` + `cacheLife('seconds')` *(see architecture/patterns.md §cache, component-architecture.md lines 120–149)* |
+| **Data fetch** | `getChatsByUserId(session.user.id, { limit: 21 })` — fetches 21, slices to 20, derives `hasMore` flag |
+| **Suspense** | Wrapped in `<Suspense fallback={<SidebarSkeleton />}>` by Chat Layout |
+| **Key benefit** | Eliminates client-side SWR waterfall for initial chat history; sidebar streams when cache resolves |
 
 ---
 
@@ -124,7 +141,7 @@
 
 ## chat.tsx → `features/chat/components/chat-shell.tsx` *(redesign: renamed to ChatShell, thin orchestrator ~60 lines)*
 
-> *Redesign: The monolithic `Chat` component (524 lines) is replaced by `ChatShell` (~60 lines). `ChatShell` provides `ChatSessionContext` (inline provider) exposing messages, setMessages, chatId, selectedModel, visibility, append, reload, stop. Most props come from server-fetched data. `useDataStream` → `useChatStream`. `useOptimisticChats` → `usePendingChats`. `useAuth` → `useSession`. `useSettings` replaces `useSettingsSnapshot`. No credit/usage alert. `data-usage` → removed. `data-chat-title` → `chat-title`. `Artifact` child → `ArtifactPanel`.*
+> *Redesign: The monolithic `Chat` component (524 lines) is replaced by `ChatShell` (~60 lines). `ChatShell` provides `ChatSessionContext` (inline provider) exposing messages, setMessages, chatId, selectedModel, **visibility as a read-only mirror of the chat's `visibility` column**, append, reload, stop. Most props come from server-fetched data. `useDataStream` → `useChatStream`. `useOptimisticChats` → `usePendingChats`. `useAuth` → `useSession`. `useSettings` replaces `useSettingsSnapshot`. No credit/usage alert. `data-usage` → removed. `data-chat-title` → `chat-title`. `Artifact` child → `ArtifactPanel`. Visibility mutations are owned by the visibility feature (`VisibilitySelector` + `updateChatVisibility` + `useOptimistic`), not by `ChatSessionContext`.*
 
 | Field | Detail |
 |-------|--------|
@@ -133,7 +150,7 @@
 | **Parents** | Home page, Chat/[id] page |
 | **Children** | `ChatHeader`, `Messages`, `MultimodalInput`, `ArtifactPanel` (dynamic) *(redesign: no AlertDialog credit card)* |
 | **State** | `input`, `currentModelId`, `attachments`, `hasAppendedQuery` *(redesign: `usage`, `showCreditCardAlert` removed)* |
-| **Hooks** | `useChat` (AI SDK), `useChatStream` *(redesign: renamed from useDataStream)*, `useSettings` *(redesign: useSyncExternalStore, no SettingsProvider)*, `useSession` *(redesign: renamed from useAuth)*, `usePendingChats` *(redesign: renamed from useOptimisticChats)*, `useArtifact`, `useArtifactSelector`, `useSearchParams` |
+| **Hooks** | `useChatSession` *(redesign: composes useChat, useSettings, usePendingChats — see P3-T11)*, `useChatSideEffects` *(redesign: navigation effects — see P3-T12)*, `useChatStream` *(redesign: renamed from useDataStream)*, `useArtifact`, `useArtifactSelector`, `useSearchParams`. *(Note: leaf hooks `useChat`, `useSettings`, `useSession`, `usePendingChats` are consumed internally by `useChatSession`; listed here for parity tracing only.)* |
 | **Key behaviors** | Adaptive throttle (50/100/150ms by connection), optimistic chat creation on first message, title via `chat-title` stream part *(redesign: single-channel)*, URL query auto-send, model persistence to localStorage |
 | **Transport** | `DefaultChatTransport` with custom `prepareSendMessagesRequest` adding model/visibility/settings |
 | **onData handlers** | `chat-title` (updates pending title) *(redesign: `data-usage` removed, `data-chat-title` → `chat-title`)* |
@@ -147,10 +164,11 @@
 | Field | Detail |
 |-------|--------|
 | **Type** | Memo Client Component |
-| **Props** | `chatId`, `selectedVisibilityType`, `isReadonly` |
+| **Props** | `chatId`, `selectedVisibilityType`, `isReadonly` *(redesign: reads from ChatSessionContext, not explicit props — see P3-T08)* |
 | **Parents** | `ChatShell` *(redesign: renamed from Chat)* |
 | **Children** | `SidebarToggle`, `Button` (New Chat), `VisibilitySelector`, `SettingsButton` |
 | **Layout** | `sticky top-0 flex items-center gap-2 bg-background px-2 py-1.5` |
+| **Visibility semantics** | `VisibilitySelector` here is the canonical **chat-level** visibility control; artifacts do not render their own visibility selector and inherit visibility from the parent chat. |
 | **Responsive** | New Chat button visible when sidebar closed or mobile. `order-*` classes for reordering. |
 
 ---
@@ -261,6 +279,8 @@
 ---
 
 ## document-skeleton.tsx → `features/artifacts/components/artifact-skeleton.tsx` *(redesign: renamed)*
+
+> *Implementation-shape note: standalone skeleton file mapping is historical parity reference; inline skeleton behavior is canonical unless a phase task explicitly requires standalone.* <!-- C2-W4: ID fix -->
 
 | Field | Detail |
 |-------|--------|
@@ -402,10 +422,10 @@
 | **Type** | Memo Client Component |
 | **Props** | `chatId`, `input`, `setInput`, `status`, `stop`, `attachments`, `setAttachments`, `messages`, `setMessages`, `sendMessage`, `className?`, `selectedVisibilityType`, `selectedModelId`, `onModelChange?`, `usage?`, `availableModels?` |
 | **Parents** | `ChatShell` *(redesign: renamed from Chat)*, `ArtifactPanel` *(redesign: renamed from Artifact)* (message sidebar) |
-| **Children** | `SuggestedActions` (when empty), `PreviewAttachment` (attachments), `PromptInput` + `PromptInputTextarea` + `PromptInputToolbar` + `PromptInputTools` + `PromptInputSubmit` (AI elements), `Context` (element), `AttachmentsButton`, `ModelSelectorCompact`, `StopButton` |
+| **Children** | `SuggestedActions` (when empty), `PreviewAttachment` (attachments), `PromptInput` + `PromptInputTextarea` + `PromptInputToolbar` + `PromptInputTools` + `PromptInputSubmit` (AI elements), `Context` (element), `AttachmentsButton`, `StopButton` <!-- audit: SOFT-011 — ModelSelector moved to ChatHeader per P6-T05 redesign (was ModelSelectorCompact here in oldapp) --> |
 | **State** | `localStorageInput` (persisted), `uploadQueue` |
 | **File upload** | Hidden file input, max 3 concurrent uploads via `/api/files/upload`, abort on unmount |
 | **Submit flow** | `history.replaceState` to `/chat/{id}`, `sendMessage` with text + file parts, clear attachments + input |
 | **Memo** | Checks `input`, `status`, `attachments`, `selectedVisibilityType`, `selectedModelId` |
-| **Sub-components** | `AttachmentsButton` (memo, disabled for reasoning models), `ModelSelectorCompact` (memo, compact dropdown in toolbar), `StopButton` (memo) |
+| **Sub-components** | `AttachmentsButton` (memo, disabled for reasoning models), `StopButton` (memo) <!-- audit: SOFT-011 — ModelSelector removed from MultimodalInput sub-components; now in ChatHeader per P6-T05 --> |
 | **Lines** | 551 |

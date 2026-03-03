@@ -15,7 +15,135 @@
 
 Carried over from `oldapp/package.json` with version pins verified:
 
+<!-- audit: W4-CONF-005 — Explicit dependency list populated from oldapp/package.json minus 14 removals.
+     Verified: zero gateway/Cloudflare/xAI packages remain. -->
 
+```jsonc
+// ── AI SDK (3 providers: openai, google, openrouter — NO gateway, NO xAI) ──
+"@ai-sdk/google": "^2.0.24",
+"@ai-sdk/openai": "^2.0.54",
+"@ai-sdk/provider": "2.0.0",
+"@ai-sdk/react": "2.0.26",
+"@openrouter/ai-sdk-provider": "^1.2.0",
+"ai": "5.0.26",
+
+// ── CodeMirror (code artifact editor) ──
+"@codemirror/lang-javascript": "^6.2.2",
+"@codemirror/lang-python": "^6.1.6",
+"@codemirror/state": "^6.5.0",
+"@codemirror/theme-one-dark": "^6.1.2",
+"@codemirror/view": "^6.35.3",
+"codemirror": "^6.0.1",
+
+// ── Tiptap (rich text artifact editor) ──
+"@tiptap/core": "^3.9.0",
+"@tiptap/extension-mathematics": "^3.9.0",
+"@tiptap/extension-table": "^3.9.0",
+"@tiptap/extension-table-cell": "^3.9.0",
+"@tiptap/extension-table-header": "^3.9.0",
+"@tiptap/extension-table-row": "^3.9.0",
+"@tiptap/markdown": "^3.9.0",
+"@tiptap/pm": "^3.9.0",
+"@tiptap/react": "^3.9.0",
+"@tiptap/starter-kit": "^3.9.0",
+
+// ── Observability ──
+"@opentelemetry/api": "^1.9.0",
+"@opentelemetry/api-logs": "^0.200.0",
+
+// ── Radix UI (individual + unified — NOT react-icons, NOT react-select) ──
+"@radix-ui/react-use-controllable-state": "^1.2.2",
+"@radix-ui/react-visually-hidden": "^1.1.0",
+"radix-ui": "^1.4.3",
+
+// ── Auth / Supabase ──
+"@supabase/ssr": "^0.7.0",
+"@supabase/supabase-js": "^2.49.1",
+"jose": "^6.1.2",
+
+// ── Cache (Upstash Redis) ──
+"@upstash/ratelimit": "^2.0.7",
+"@upstash/redis": "^1.35.6",
+
+// ── Vercel Platform ──
+"@vercel/analytics": "^1.3.1",
+"@vercel/blob": "^0.24.1",
+"@vercel/functions": "^2.0.0",
+"@vercel/otel": "^2.1.0",
+"@vercel/postgres": "^0.10.0",
+"@vercel/speed-insights": "^1.2.0",
+
+// ── Database ──
+"drizzle-orm": "^0.34.0",
+"postgres": "^3.4.4",
+
+// ── React / Next.js ──
+"next": "^16.1.6",
+"next-themes": "^0.4.6",
+"react": "^19.2.3",
+"react-dom": "^19.2.3",
+"babel-plugin-react-compiler": "^1.0.0",
+
+// ── UI Libraries ──
+"class-variance-authority": "^0.7.1",
+"clsx": "^2.1.1",
+"embla-carousel-react": "^8.6.0",
+"framer-motion": "^11.3.19",
+"geist": "^1.3.1",
+"lucide-react": "^0.446.0",
+"react-data-grid": "^7.0.0-beta.47",
+"react-resizable-panels": "^2.1.7",
+"react-virtuoso": "^4.17.0",
+"sonner": "^1.5.0",
+"tailwind-merge": "^2.5.2",
+"use-stick-to-bottom": "^1.1.1",
+
+// ── Utilities ──
+"date-fns": "^4.1.0",
+"diff-match-patch": "^1.0.5",
+"fast-deep-equal": "^3.1.3",
+"nanoid": "^5.0.8",
+"papaparse": "^5.5.2",
+"swr": "^2.2.5",
+"tokenlens": "^1.3.0",
+"zod": "^3.25.76",
+
+// ── Markdown / Streaming ──
+"rehype-katex": "^7.0.1",
+"remark-math": "^6.0.0",
+"streamdown": "^1.3.0"
+```
+
+**Total: 63 production dependencies** (oldapp had 73; 10 production packages removed below).
+
+### Dependencies (Dev)
+
+<!-- audit: W4-CONF-005 — Dev dependencies from oldapp/package.json minus 4 removals (ultracite, bundle-analyzer, @google/genai, cross-env) -->
+<!-- W4-CYCLE1: SOFT-013 fix — Added vitest + testing-library + coverage deps. Without these, P7 exit criteria (pnpm test:unit) is structurally impossible. -->
+
+```jsonc
+"@biomejs/biome": "^2.4.4",
+"@playwright/test": "^1.57.0",
+"@tailwindcss/postcss": "^4.1.13",
+"@tailwindcss/typography": "^0.5.15",
+"@testing-library/jest-dom": "^6.6.3",       // SOFT-013: testing infrastructure
+"@testing-library/react": "^16.3.0",         // SOFT-013: testing infrastructure
+"@types/d3-scale": "^4.0.8",
+"@types/node": "^22.8.6",
+"@types/papaparse": "^5.3.15",
+"@types/pdf-parse": "^1.1.4",
+"@types/react": "19.2.7",
+"@types/react-dom": "^19.2.3",
+"@vitest/coverage-v8": "^3.2.1",             // SOFT-013: coverage reporter
+"drizzle-kit": "^0.25.0",
+"postcss": "^8",
+"tailwindcss": "^4.1.13",
+"tsx": "^4.19.1",
+"typescript": "^5.6.3",
+"vitest": "^3.2.1"                            // SOFT-013: test runner
+```
+
+**Total: 19 dev dependencies** (was 15; +4 from SOFT-013 testing infrastructure).
 
 ### Removed from Old App
 
@@ -31,16 +159,42 @@ Carried over from `oldapp/package.json` with version pins verified:
 | `usehooks-ts` | Hooks colocated in features, no blanket utility lib |
 | `import-in-the-middle` | OTel-specific, evaluate if still needed |
 | `dotenv` | Next.js handles .env natively |
+| `@ai-sdk/gateway` | No credit/gateway system — cleanup-inventory §1 #8 <!-- audit: W4-SC-03 --> |
+| `ai-gateway-provider` | Not in ProviderId — only openai, google, openrouter <!-- audit: W4-SC-03 --> |
+| `@ai-sdk/xai` | Not in ProviderId <!-- audit: W4-SC-03 --> |
+| `workers-ai-provider` | Not in ProviderId <!-- audit: W4-SC-03 --> |
 
 ---
 
 ## 2. `next.config.ts`
 
+<!-- audit: W4-E10 — Code block added (was missing, only key decisions listed). Content from P0-T01 task description + redesign. -->
 
+```typescript
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  experimental: {
+    reactCompiler: true,
+    cacheComponents: true, // Next.js 16 component-level caching
+    ppr: 'incremental',    // Partial Prerendering
+  },
+  images: {
+    remotePatterns: [
+      {
+        hostname: 'avatar.vercel.sh',
+      },
+    ],
+  },
+}
+
+export default nextConfig
+```
 
 **Key decisions:**
 - `reactCompiler: true` — React Compiler for automatic memoization
 - `cacheComponents: true` — Enable component-level caching (Next.js 16) <!-- audit: SC-V4 -->
+- `ppr: 'incremental'` — Partial Prerendering for streaming + static hybrid
 - No `serverExternalPackages` unless needed by specific dependencies
 
 ---
@@ -95,14 +249,165 @@ Carried over from `oldapp/package.json` with version pins verified:
 ---
 
 ## 4. `biome.json`
-Read Config in node module for latest info, your knowledge is outdated
 
+<!-- audit: W4-CONF-008 — Full biome.json spec added. Was placeholder text only.
+     noDefaultExport override covers all Next.js convention files that require default exports. -->
+
+```json
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.4/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.json", "**/*.mjs",
+      "!!**/node_modules", "!!**/.next", "!!**/dist", "!!**/build",
+      "!!**/drizzle", "!!**/*.min.js", "!!**/pnpm-lock.yaml",
+      "!!**/oldapp", "!!**/plan", "!!**/components/ai-elements"
+    ]
+  },
+  "organizeImports": {
+    "enabled": true
+  },
+  "formatter": {
+    "enabled": true,
+    "formatWithErrors": false,
+    "indentStyle": "tab",
+    "indentWidth": 4,
+    "lineWidth": 100,
+    "lineEnding": "lf"
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "complexity": {
+        "noExtraBooleanCast": "error",
+        "noUselessCatch": "error",
+        "noUselessThisAlias": "error",
+        "noUselessTypeConstraint": "error"
+      },
+      "correctness": {
+        "noConstAssign": "error",
+        "noConstantCondition": "warn",
+        "noEmptyCharacterClassInRegex": "error",
+        "noEmptyPattern": "error",
+        "noGlobalObjectCalls": "error",
+        "noInvalidConstructorSuper": "error",
+        "noInvalidBuiltinInstantiation": "error",
+        "noNonoctalDecimalEscape": "error",
+        "noPrecisionLoss": "error",
+        "noSelfAssign": "error",
+        "noSetterReturn": "error",
+        "noSwitchDeclarations": "error",
+        "noUndeclaredVariables": "error",
+        "noUnreachable": "error",
+        "noUnreachableSuper": "error",
+        "noUnsafeFinally": "error",
+        "noUnsafeOptionalChaining": "error",
+        "noUnusedLabels": "error",
+        "noUnusedVariables": "error",
+        "useIsNan": "error",
+        "useValidForDirection": "error",
+        "useYield": "error"
+      },
+      "suspicious": {
+        "noAsyncPromiseExecutor": "error",
+        "noCatchAssign": "error",
+        "noClassAssign": "error",
+        "noCompareNegZero": "error",
+        "noControlCharactersInRegex": "error",
+        "noDebugger": "error",
+        "noDuplicateCase": "error",
+        "noDuplicateClassMembers": "error",
+        "noDuplicateObjectKeys": "error",
+        "noDuplicateParameters": "error",
+        "noEmptyBlockStatements": "warn",
+        "noExplicitAny": "error",
+        "noFallthroughSwitchClause": "error",
+        "noFunctionAssign": "error",
+        "noGlobalAssign": "error",
+        "noImportAssign": "error",
+        "noMisleadingCharacterClass": "error",
+        "noPrototypeBuiltins": "error",
+        "noRedeclare": "error",
+        "noShadowRestrictedNames": "error",
+        "noUnsafeDeclarationMerging": "error",
+        "noUnsafeNegation": "error",
+        "useGetterReturn": "error"
+      },
+      "style": {
+        "noDefaultExport": "error",
+        "useConst": "error",
+        "useSingleVarDeclarator": "error"
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "jsxQuoteStyle": "double",
+      "quoteProperties": "asNeeded",
+      "trailingCommas": "all",
+      "semicolons": "asNeeded",
+      "arrowParentheses": "always",
+      "bracketSpacing": true,
+      "bracketSameLine": false,
+      "quoteStyle": "double",
+      "attributePosition": "auto"
+    },
+    "globals": ["React"]
+  },
+  "overrides": [
+    {
+      "includes": [
+        "proxy.ts",
+        "**/page.tsx",
+        "**/layout.tsx",
+        "**/route.ts",
+        "**/error.tsx",
+        "**/global-error.tsx",
+        "**/loading.tsx",
+        "**/not-found.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noDefaultExport": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/*.spec.ts",
+        "**/*.spec.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    }
+  ]
+}
+```
 
 **Key decisions:**
-- `noExplicitAny: "error"` — AGENTS.md requirement
-- `components/ai-elements` ignored — read-only, never lint
-- Default export allowed only for Next.js file conventions via override
-- `indentStyle: "tab"` — match existing project convention (verify against oldapp)
+- `noExplicitAny: "error"` — AGENTS.md requirement (oldapp has `"warn"` — must be upgraded)
+- `noDefaultExport: "error"` globally, `"off"` for Next.js convention files (`proxy.ts`, `page.tsx`, `layout.tsx`, `route.ts`, `error.tsx`, `global-error.tsx`, `loading.tsx`, `not-found.tsx`)
+- `components/ai-elements` excluded — read-only legacy reference, never lint
+- `oldapp` and `plan` excluded — not part of rebuild
+- `organizeImports: true` — automatic import sorting
+- `lineWidth: 100` — wider than oldapp's 80 for readability
+- `indentStyle: "tab"` — matches existing project convention
 
 ---
 

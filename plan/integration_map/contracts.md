@@ -18,7 +18,7 @@
 
 | Contract | Provider | Consumer | Data Shape |
 |----------|----------|----------|------------|
-| `createArtifact` tool | `features/chat/lib/tools/create-artifact.ts` | `lib/ai/artifact-handlers.ts` → `features/artifacts/handlers/` | `{ title: string, kind: ArtifactKind }` |
+| `createArtifact` tool | `features/chat/lib/tools/create-artifact.ts` | `lib/ai/artifact-handlers.ts` → `features/artifacts/handlers/` | `{ title: string, kind: "text" | "code" | "sheet" }` | <!-- C2-W4: C2-A1 fix -->
 | `updateArtifact` tool | `features/chat/lib/tools/update-artifact.ts` | `lib/ai/artifact-handlers.ts` → `features/artifacts/handlers/` | `{ id: string, description: string }` |
 | `requestSuggestions` tool | `features/chat/lib/tools/request-suggestions.ts` | `features/artifacts/handlers/` | `{ artifactId: string }` |
 | Artifact data stream events | Artifact handlers (server) | `StreamBridge` → `artifactStore` (client) | `artifact-id`, `artifact-title`, `artifact-kind`, `artifact-clear`, `artifact-*Delta`, `artifact-finish` |
@@ -90,12 +90,17 @@
 
 ### features/chat/ → features/visibility/
 
-**Direction:** Visibility selector renders in chat header
+**Direction:** Visibility selector renders in chat header (per-chat visibility only)
 
 | Contract | Provider | Consumer | Data Shape |
 |----------|----------|----------|------------|
 | Visibility toggle | `VisibilitySelector` component | `ChatHeader` | `'public' \| 'private'` |
 | Visibility mutation | `updateChatVisibility()` Server Action | `VisibilitySelector` | `ActionResult<void>` |
+
+`ChatSessionContext` includes `visibility` (current value) and `setVisibility` (optimistic setter) as full members of `ChatSessionValue` per CV-01 Option A (CONF-001). The visibility feature still owns the persistence mutation (`updateChatVisibility` Server Action via `VisibilitySelector`), but the current value and optimistic setter are exposed through `ChatSessionContext` for composition convenience — `useChatSession.prepareSendMessagesRequest` requires `selectedVisibilityType` at composition time. See DEV-031.
+
+<!-- SYNC: Wave 4-CHAT — CONF-001 resolution. Updated from "may expose read-only" to definitive
+     "includes visibility + setVisibility" per CV-01 Option A. -->
 
 ---
 
@@ -157,13 +162,17 @@
 
 | lib/ Module | Functions Used | Purpose |
 |-------------|----------------|----------|
-| `lib/ai/registry` | `getAvailableModels()` | Model discovery |
-| `lib/ai/models` | Model catalog definitions | Model metadata |
+| `lib/ai/models` | `STATIC_MODELS`, `discoverModels()`, `getModelById()` | Model catalog + discovery |
+| `lib/types/model.types` | `ModelMetadata`, `DEFAULT_CHAT_MODEL` | Type contracts + constants |
+
+<!-- AUDIT: Wave4-CONF-030 — Import table rewritten. features/models/ DEFINES getAvailableModels(), does NOT import it. Correct imports are STATIC_MODELS, discoverModels(), getModelById() from lib/ai/models.ts and type contracts from lib/types/model.types.ts. -->
 
 **Exports (public surface):**
 - `ModelSelector` — component (grouped by provider, cookie + localStorage persistence)
 - `getAvailableModels()` — function (server, `use cache`)
-- `getDefaultModel()` — function (returns first model from catalog)
+- `getDefaultModel(session)` — function (reads model preference from cookie, validates against catalog, falls back to `DEFAULT_CHAT_MODEL`)
+
+<!-- AUDIT: Wave4-CONF-029 — getDefaultModel() description fixed. Was "returns first model from catalog" — actually reads cookie, validates, falls back. Added missing session parameter. -->
 
 ### features/visibility/ → lib/
 
@@ -273,10 +282,14 @@ SidebarShell (SERVER component)
 | `POST /api/chat` | Route Handler | auth, rate limit | `createChat`, `saveMessages`, `updateChatTitle` | `revalidateTag('chat:{id}', 'max')`, `revalidateTag('chats:{userId}', 'max')` | `ReadableStream` (SSE) |
 | `GET /api/history` | Route Handler | auth, rate limit | `getChatsByUserId` | — | `HistoryResponse<Chat>` |
 | `GET /api/artifact` | Route Handler | auth, ownership | `getArtifactVersions` | — | `Artifact[]` |
-| `POST /api/artifact` | Route Handler | auth, rate limit | `saveArtifactVersion` | `revalidateTag('artifact:{id}', 'max')` | `{ artifact: Artifact }` |
+| `POST /api/artifact` | Route Handler | auth, rate limit | `saveArtifactVersion` (`mode: "save"`), `deleteArtifactVersion` (`mode: "restore"`) | `revalidateTag('artifact:{id}', 'max')` | mode-dependent: `{ artifact: Artifact }` (save) / `{ success: true }` (restore) | <!-- C2-W4: C2X-003 + C2-A4 fix -->
 | `GET /api/suggestions` | Route Handler | auth | `getSuggestionsByArtifactId` | — | `{ suggestions: ArtifactSuggestion[] }` |
 | `POST /api/files/upload` | Route Handler | auth, upload rate limit | Vercel Blob `put()` | — | `{ url: string, pathname: string }` |
 | `GET /api/health` | Route Handler | none | DB + Redis ping | — | `HealthResponse` |
+
+`POST /api/artifact` mode contract: <!-- C2-W4: C2-A4 fix -->
+- `mode: "save"` persists a new version and responds with `{ artifact: Artifact }`.
+- `mode: "restore"` expects payload `{ id: string, timestamp: string, mode: "restore" }`, truncates versions newer than `timestamp`, and responds with `{ success: true }`.
 
 **Server Actions (mutations):**
 
@@ -287,7 +300,7 @@ SidebarShell (SERVER component)
 | `deleteTrailingMessages` | auth | `deleteTrailingMessages` | `updateTag('chat:{id}')` |
 | `voteOnMessage` | auth, non-guest | `upsertVote` | `updateTag('votes:{chatId}')` |
 | `updateChatVisibility` | auth, ownership | `updateVisibility` | `updateTag('chat:{id}')` + `updateTag('chats:{userId}')` |
-| `renameChat` | auth, ownership | `updateChatTitle` | `updateTag('chats:{userId}')` |
+| `renameChat` | auth, ownership | `updateChatTitle` | `updateTag('chat:{chatId}')` + `updateTag('chats:{userId}')` | <!-- wave4: CONF-021 — added chat:{chatId} tag per data-flows.md §mutation table -->
 | `login` | none | `cookies.set()` | Router Cache invalidated |
 | `register` | none | `cookies.set()` | Router Cache invalidated |
 | `logout` | auth | `cookies.delete()` | Router Cache invalidated |
@@ -309,8 +322,9 @@ SidebarShell (SERVER component)
 | `artifact-sheetDelta` | `string` | Sheet artifact handler | StreamBridge → artifactStore | **Replace** (`content = delta`) |
 | `artifact-imageDelta` | `string` (base64) | Image handler | StreamBridge → artifactStore | **Replace** (`content = delta`) |
 | `artifact-finish` | `string` (`''`) | Artifact handlers | StreamBridge → artifactStore | status → idle |
-| `artifact-suggestion` | `ArtifactSuggestion` | `requestSuggestions` tool | StreamBridge → suggestions state | Accumulated |
+| `artifact-suggestion` | `ArtifactSuggestion` | `requestSuggestions` tool | StreamBridge → artifactStore.suggestions (accumulated array) | Accumulated |
 | `chat-title` | `string` | Title generation (AWAITED) | `useChat.onData` → `PendingChats.updateTitle()` | Set title |
+| `error` | `string` | Chat stream error handler | `useChat.onError` / toast | User-facing message only (no JSON envelope) |
 
 > **Removed:** `data-usage` (no credit logic), `data-appendMessage` (not needed — useChat manages messages natively).
 
@@ -355,7 +369,7 @@ SidebarShell (SERVER component)
 ### `renameChat({ chatId, title })`
 - **Input:** `{ chatId: string, title: string }` (Zod validated)
 - **Output:** `ActionResult`
-- **Side effects:** Updates title in DB, `invalidateChatList(userId)`
+- **Side effects:** Updates title in DB, `invalidateChat(chatId)` + `invalidateChatList(userId)` <!-- wave4: CONF-021 — added invalidateChat(chatId) per data-flows.md 2-tag pattern -->
 - **Auth:** Requires ownership
 
 ### `deleteAllChats()`
@@ -405,25 +419,41 @@ type AppSession = {
 ### `ChatSessionValue`
 ```typescript
 type ChatSessionValue = {
+  // Identity (3)
   chatId: string;
   chatModel: string;
   isReadonly: boolean;
+  // Messages (2)
   messages: Message[];
   status: 'idle' | 'submitted' | 'streaming' | 'error' | 'ready';
+  // Input (4)
   input: string;
   setInput: (input: string) => void;
   attachments: Attachment[];
   setAttachments: Dispatch<SetStateAction<Attachment[]>>;
+  // Actions (4)
   sendMessage: (event?: { preventDefault?: () => void }) => void;
   stop: () => void;
   appendMessage: (message: Message) => void;
   editMessage: (messageId: string, newContent: string) => Promise<void>;
+  // Error (2)
   error: Error | null;
   clearError: () => void;
+  // Visibility (2) — CV-01 Option A, DEV-031
+  visibility: 'public' | 'private';
+  setVisibility: (visibility: 'public' | 'private') => void;
+  // Models (1) — MO-W4-C6, static per page load
+  availableModels: ModelMetadata[];
 };
 ```
+
+<!-- SYNC: Wave 4-CHAT — CONF-002 resolution. Canonical 18-field ChatSessionValue.
+     15 redesign fields + availableModels (MO-W4-C6) + visibility + setVisibility (CV-01 Option A).
+     Matches behavioral_extraction/state-management.md §useMessages and scaffold/shared-types.md §10. -->
+
 **Produced by:** `useChatSession()` in ChatShell
 **Consumed by:** ChatHeader, Messages, MultimodalInput, ArtifactPanel (via `useChatSessionContext()`)
+**Field count:** 18 (15 redesign + `availableModels` + `visibility` + `setVisibility`)
 
 ### `UIArtifact`
 ```typescript
@@ -434,6 +464,7 @@ type UIArtifact = {
   title: string;
   status: "idle" | "streaming";
   isVisible: boolean;
+  suggestions?: ArtifactSuggestion[];  // Accumulated by processStreamDelta (Wave 3 TC-1)
 };
 ```
 **Produced by:** `artifactStore` (useSyncExternalStore)
@@ -485,7 +516,7 @@ type ActionResult<T = void> =
 ```typescript
 type ModelMetadata = {
   id: string;                     // "provider:model-name"
-  label: string;
+  name: string;                   // canonical display name
   description?: string;
   provider: string;
   providerModelId: string;
@@ -500,16 +531,7 @@ type ModelMetadata = {
 **Produced by:** `getAvailableModels()` (lib/ai/models, `use cache`)
 **Consumed by:** `ModelSelector`, `ChatShell` (props), chat route (model resolution)
 
-### `DataContext`
-```typescript
-type DataContext = {
-  userId: string;
-  isGuest: boolean;
-};
-```
-**Type-only** (no runtime factory). Used for typing data access function parameters.
-**Defined in:** `lib/types/data-context.types.ts`
-**Consumed by:** `lib/data/` functions for guest/auth branching
+> **Canonical source:** This mirrors the `ModelMetadata` definition in `lib/types/model.types.ts` (single source of truth). Docs and feature modules must re-export this shape, not redefine a divergent variant.
 
 ### `DataPart` (Stream Parts)
 ```typescript
@@ -524,7 +546,8 @@ type ArtifactDataPart =
   | { type: 'artifact-sheetDelta'; content: string }
   | { type: 'artifact-imageDelta'; content: string }
   | { type: 'artifact-suggestion'; content: ArtifactSuggestion }
-  | { type: 'chat-title'; content: string };
+  | { type: 'chat-title'; content: string }
+  | { type: 'error'; content: string }; // In-stream chat failure, user-facing text only
 
 type DataPart = ArtifactDataPart;
 ```

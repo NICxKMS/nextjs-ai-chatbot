@@ -3,7 +3,7 @@
 # Dependencies Index
 
 > All dependency analysis artifacts for the rebuild plan.
-> Reflects redesign: 125 tasks across 8 phases. "artifact" naming throughout. No credit/gateway logic.
+> Reflects redesign: 126 tasks across 8 phases. "artifact" naming throughout. No credit/gateway logic. <!-- C2-W4: IC-05/06 fix -->
 
 ---
 
@@ -11,7 +11,7 @@
 
 | File | Description |
 |------|-------------|
-| [graph.md](graph.md) | Full 125-task dependency graph by phase with parallelization |
+| [graph.md](graph.md) | Full 126-task dependency graph by phase with parallelization |
 | [critical-path.md](critical-path.md) | Critical path analysis with redesign task IDs (P0-T01 through P7-T13) |
 | [inter-phase-deps.md](inter-phase-deps.md) | Phase-to-phase dependencies, bridge files, entry/exit states |
 
@@ -19,7 +19,7 @@
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 125 |
+| Total tasks | 126 |
 | Phases | 8 (P0–P7) |
 | Critical path tasks | ~30 (24%) |
 | Estimated duration | ~22–23 working days (with P4/P5 overlap) |

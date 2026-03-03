@@ -18,11 +18,11 @@
 | P2 | [p02-auth.md](p02-auth.md) | 9 | ~14 | Session, auth actions, auth UI, proxy wiring |
 | P3 | [p03-chat-core.md](p03-chat-core.md) | 27 | ~42 | AI integration, settings, streaming, ChatShell, messages, input, pages |
 | P4 | [p04-artifacts.md](p04-artifacts.md) | 18 | ~28 | Store, handlers, editors, artifact panel, API routes |
-| P5 | [p05-sidebar.md](p05-sidebar.md) | 12 | ~12 | Server-rendered sidebar, pending chats, history pagination |
+| P5 | [p05-sidebar.md](p05-sidebar.md) | 13 | ~12 | Server-rendered sidebar, pending chats, history pagination | <!-- W4-CYCLE1: CONFLICT-002 fix — P5-T13 (Delete All Chats) exists -->
 | P6 | [p06-enhancements.md](p06-enhancements.md) | 14 | ~17 | Voting, model selector, visibility, file upload, weather |
 | P7 | [p07-polish.md](p07-polish.md) | 13 | ~20 | Error boundaries, a11y, tests, verification, build |
 
-**Total: 125 tasks across 8 phases (~210 estimated files)**
+**Total: 126 tasks across 8 phases (~210 estimated files)** <!-- W4-CYCLE1: CONFLICT-002 fix — P5-T13 added -->
 
 ---
 
@@ -88,7 +88,7 @@ P4-T01 ──────────────┐
                        │
 P5-T01 ──────────────┐
   (sidebar & nav)     │
-       ├─ P5-T01–T11 │
+       ├─ P5-T01–T11, T13 │ <!-- W4-CYCLE1: CONFLICT-002 fix -->
        └─ P5-T12 ────┘ (verification gate G05)
                        │
 P6-T01 ──────────────┐

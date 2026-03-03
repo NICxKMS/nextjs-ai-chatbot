@@ -3,7 +3,7 @@
 # Execution Approach
 
 > Why vertical slices, how feature collocation affects ordering, and risk mitigation.
-> Updated to reflect redesign decisions: 125 tasks, 8 phases, ~210 files.
+> Updated to reflect redesign decisions: 126 tasks, 8 phases, ~210 files. <!-- C2-W4: IC-05/06 fix -->
 > ChatShell + ChatSessionContext, proxy.ts, useSyncExternalStore, handler registry.
 
 ---
@@ -115,7 +115,8 @@ This avoids building infrastructure speculatively. Every `lib/` file is written 
 
 Data access functions in `lib/data/` are shared across features. The approach:
 
-1. **Phase 1**: Define `DataContext`, `cacheKeys`, cache/revalidation utilities. Create data access files with type stubs.
+1. **Phase 1**: Define `cacheKeys`, cache/revalidation utilities, `withCache()` helper. Create data access files with type stubs.
+<!-- audit: W4-CONF-017 — DataContext removed per DEV-024; bare-ID function signatures -->
 2. **Phase 3**: Implement `chat.ts` and `message.ts` fully (first real consumers).
 3. **Phase 4**: Implement `artifact.ts` fully (NOT document.ts — artifact naming throughout).
 4. **Phase 6**: Implement `vote.ts` fully.
@@ -158,9 +159,11 @@ The new schema must exactly match the existing production database.
 
 ### Risk 5: Guest/Auth Data Fork
 
-Data operations must consistently apply auth-aware checks (`DataContext`, ownership/visibility rules) without diverging persistence semantics between guest/auth users.
+Data operations must consistently apply auth-aware checks (ownership/visibility rules at the action/page level) without diverging persistence semantics between guest/auth users.
+<!-- audit: W4-CONF-017 — DataContext removed per DEV-024; auth checks at action/page level, not data level -->
 
-**Mitigation**: Phase 1 establishes shared auth-aware data patterns (`DataContext`, cache-tagged reads, revalidation). Phase 3 implements the first full chat example; subsequent data modules follow the same guard + persistence model.
+**Mitigation**: Phase 1 establishes shared auth-aware data patterns (bare-ID function signatures, cache-tagged reads, revalidation). Phase 3 implements the first full chat example; subsequent data modules follow the same guard + persistence model.
+<!-- audit: W4-CONF-017 — DataContext removed per DEV-024; bare-ID signatures throughout -->
 
 ### Risk 6: Feature Boundary Violations
 

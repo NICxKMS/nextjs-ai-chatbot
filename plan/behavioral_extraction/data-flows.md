@@ -9,7 +9,7 @@
 | Table | PK | Key Columns | Indexes |
 |-------|-----|-------------|---------|
 | `User` | `id` (uuid) | email, passwordHash, createdAt, lastLogin | email (unique) |
-| `Chat` | `id` (uuid) | createdAt, updatedAt, title, userId (FK→User), visibility (enum), lastContext (jsonb) | `chat_user_created_idx(userId, createdAt)` |
+| `Chat` | `id` (uuid) | createdAt, updatedAt, title, userId (FK→User), visibility (enum), model (text) | `chat_user_created_idx(userId, createdAt)` | <!-- W4-CYCLE1: SOFT-009 fix — replaced lastContext (jsonb) with model (text) per CONF-013 and redesign -->
 | `Message_v2` | `id` (uuid) | chatId (FK→Chat), role (enum), parts (jsonb), attachments (jsonb), createdAt | `message_chat_created_idx(chatId, createdAt)`, `message_chat_created_role_idx(chatId, createdAt, role)` |
 | `Vote_v2` | composite(chatId, messageId, userId) | isUpvoted (boolean) | — |
 | `Artifact` | composite(id, createdAt) | title, content, kind (enum), userId (FK→User), chatId (FK→Chat), updatedAt | `artifact_user_idx(userId)`, `artifact_chat_idx(chatId)` |
@@ -22,6 +22,8 @@
 
 ### Versioning Strategy
 Artifacts use composite PK `(id, createdAt)` — each save creates a new row with same `id` but different `createdAt`. Versions are ordered chronologically. The latest version is `artifacts.at(-1)`.
+
+> **Scope:** `visibility` is a **chat-level** field only. Artifacts do not have their own visibility column; they inherit access rules from their parent chat via `Artifact.chatId`.
 
 ---
 
@@ -37,12 +39,12 @@ Route/Action → Guards (auth, rate limit) → Data Layer → Cache Layer → DB
 - `message.ts` — plain functions: `getMessagesByChatId`, `saveMessages`, `deleteMessagesByIdAfter`, `deleteMessagesByChatId`
 - `artifact.ts` — plain functions: `getArtifactById`, `getArtifactVersions`, `saveArtifactVersion` <!-- audit: DF-AP6 — getSuggestionsByArtifactId moved to suggestion.ts -->
 - `suggestion.ts` — plain functions: `getSuggestionsByArtifactId`, `saveSuggestions`, `deleteSuggestionsByArtifactId` <!-- audit: DF-AP6 -->
-- `vote.ts` — plain functions: `getVotesByChatId`, `upsertVote`, `deleteVotesByChatId`
+- `vote.ts` — DB-only plain functions: `getVotesByChatId`, `upsertVote`, `deleteVotesByChatId`; no `'use cache'`, `cacheTag`, or `cacheLife` directives, and no `getAppSession()` — it receives only IDs and remains session-agnostic.
 - `user.ts` — plain functions: `getUserByEmail`, `getUserById`, `createUser`, `updateUserLastLogin`
 
 > **Note (DF-AP5, 2026-03-02):** `chat-operations.ts` was a legacy ghost and has been removed. Redesign calls `saveMessages()` (from `message.ts`) and `updateChatTitle()` (from `chat.ts`) directly in `onFinish` — no orchestration layer. <!-- audit: DF-AP5 -->
 
-> *Every mutation in the data layer calls `revalidateTag`/`updateTag` for Next.js cache invalidation. `'use cache'` + `cacheTag` replace Redis-based caching for most reads.*
+> *Every mutation's caller (Server Action or Route Handler) calls the appropriate revalidation utility for Next.js cache invalidation. For votes, this happens in the `voteOnMessage` Server Action via `invalidateVotes(chatId)` → `updateTag('votes:{chatId}')` — `lib/data/vote.ts` itself stays DB-only and does not import `next/cache`. `'use cache'` + `cacheTag` + `cacheLife` are the sole read-caching mechanism — Redis is reserved for rate limiting and operational data only.* <!-- wave4: XDL-06a — clarified revalidation lives at caller level, not data layer -->
 
 ### Server Cache Strategy
 
@@ -63,63 +65,55 @@ All data access follows redesign semantics:
 
 ## Cache Layer (`lib/cache/`)
 
-### Redis Client
+### Redis Client (Rate Limiting & Operational Data Only)
+
+> **Updated per Wave 4 (XDL-01, RC-01, 2026-03-02):** Redis is scoped to rate limiting and operational data. All read caching uses `'use cache'` + `cacheTag` + `cacheLife` (Next.js framework caching). No Redis cache-aside for chat, message, artifact, or vote data.
+
 - Provider: Upstash Redis (HTTP-based, stateless, edge-compatible)
 - Singleton via `globalThis` pattern for HMR safety
 - Env vars: `CACHE_KV_REST_API_URL`, `CACHE_KV_REST_API_TOKEN`
+- **Scope:** Rate limiting keys, session cache. NOT for data reads.
 
-### Key Structure
-| Key Pattern | Type | Content |
-|-------------|------|---------|
-| `chat:{chatId}:{userId}:meta` | String (JSON) | `CachedChatMeta` — id, userId, title, visibility, timestamps, lastContext |
-| `chat:{chatId}:{userId}:msgs` | Sorted Set | Members = JSON messages, Scores = timestamps |
-| `user:{userId}:chats` | Sorted Set | Members = `{chatId}`, Scores = timestamps |
-| `artifact:{artifactId}:{userId}` | String (JSON) | `CachedArtifact` — id, userId, chatId, versions[] |
+### Framework Caching (`'use cache'` + `cacheTag` + `cacheLife`)
 
-### Performance Characteristics
-- Message append: O(log N) via ZADD
-- Get all messages: O(N) via ZRANGE
-- Delete after timestamp: O(log N + M) via ZREMRANGEBYSCORE
-- Chat metadata: O(1) via GET/SET
-- Batch reads: MGET for O(1) per key
+All data read caching uses Next.js `'use cache'` directive at the page/component level:
 
-### Circuit Breaker
-- Threshold: 5 consecutive failures
-- Reset timeout: 30 seconds
-- When open: cache operations skipped, falls through to DB for auth users
-- Guest users also fall through to DB-backed reads/writes (cache outage degrades performance, not availability)
+| Cache Tag | Tagged By | `cacheLife` |
+|-----------|-----------|-------------|
+| `chat:{id}` | `getCachedChat()` | `'seconds'` |
+| `chats:{userId}` | `getCachedChats()` | `'seconds'` |
+| `votes:{chatId}` | `getCachedVotes()` | `'seconds'` |
+| `artifact:{id}` | `getCachedArtifact()` | `'seconds'` |
+| `models` | `getAvailableModels()` | `'hours'` |
 
-### TTL Strategy
-- Guest data: 7-day TTL applied via pipeline
-- Auth data: No TTL (persisted to DB, cache is optimization)
+Data functions in `lib/data/` are pure DB operations. `'use cache'` wrappers live at the page/feature layer (e.g., `getCachedChat` in the chat page). Revalidation happens at the caller level (Server Actions call `invalidate*`, Route Handlers call `refresh*`). <!-- wave4: XDL-01 — Redis cache-aside residue removed -->
 
 ---
 
 ## Flow: Send Chat Message
 
-> *`updateTag`/`revalidateTag` called after saveChat, updateChatTitle. Title generated via `chat-title` stream part (single-channel).*
+> *`revalidateTag` called after `saveMessages`, `updateChatTitle` in `onFinish`. Title generated via `chat-title` stream part (single-channel). Revalidation uses `refresh*` helpers (stale-while-revalidate) per Route Handler convention.*
 
 ```
-Client                    Server                        Cache              DB
-  │                         │                             │                 │
-  ├──POST /api/chat────────>│                             │                 │
-  │                         ├──getAppSession()            │                 │
-  │                         ├──RateLimiters.chat()───────>│ (Redis)         │
-  │                         ├──chatData.getWithMessages()>│ (Redis first)   │
-  │                         │                             ├─cache miss──────>│ (DB fallback)
-  │                         │                             │<─────result──────│
-  │                         │                             │<─warm cache──────│
-  │                         │                             │                 │
-  │                         ├──createUIMessageStream()    │                 │
-  │                         │  ├──generateTitleFromUserMessage() (parallel) │
-  │                         │  ├──executeChatCompletion() │                 │
-  │                         │  │  ├──streamText()         │                 │
-  │<───SSE stream───────────│  │  ├──onFinish: usage calc │                 │
-  │                         │  │  │                       │                 │
-  │                         │  ├──onFinish:               │                 │
-  │                         │  │  ├──saveChat()──────────>│ (cache)─────────>│ (DB)
-  │                         │  │  └──updateTitle()───────>│ (cache)─────────>│ (DB)
+Client                    Server                        DB
+  │                         │                            │
+  ├──POST /api/chat────────>│                            │
+  │                         ├──getAppSession()           │
+  │                         ├──RateLimiters.chat()       │  (Redis — rate limit only)
+  │                         ├──getChatWithMessages(id)──>│  (server-cached via 'use cache')
+  │                         │<──────result───────────────│
+  │                         │                            │
+  │                         ├──createUIMessageStream()   │
+  │                         │  ├──streamText()           │
+  │<───SSE stream───────────│  │                         │
+  │                         │  │                         │
+  │                         │  ├──onFinish:              │
+  │                         │  │  ├──saveMessages()─────>│  (DB INSERT)
+  │                         │  │  ├──updateChatTitle()──>│  (DB UPDATE)
+  │                         │  │  ├──refreshChat(chatId) │  (revalidateTag)
+  │                         │  │  └──refreshChatList(uid)│  (revalidateTag)
 ```
+<!-- wave4: XDL-04 — legacy flow diagram replaced with redesign-aligned version -->
 
 ## Flow: Load Chat Page (`/chat/[id]`)
 
@@ -132,7 +126,9 @@ Client                    Server                        Cache              DB
   b. DB SELECT chat + messages (guest/auth use same persistence model)
 3. Verify visibility + ownership (at page/action level, not data level)
 4. convertToUIMessages(messagesFromDb) → UIMessage[]
-5. getVotesByChatIdAndUserId (DB, only for auth users with messages)
+5. `getCachedVotes(chatId, session.user.id)` helper (only for non-guest authenticated users with messages)
+  a. RSC cache wrapper: `'use cache'` + `cacheTag('votes:{chatId}')` + `cacheLife('seconds')`
+  b. Internally calls `lib/data/vote.ts` (DB-only, session-agnostic)
 6. Render <ChatShell> with all data server-side
 ```
 
@@ -148,7 +144,7 @@ AI Tool (createArtifact/updateArtifact)
   │
   ├──artifactHandler.create() / .update():
   │   ├──streamObject/streamText (AI SDK)
-  │   ├──Stream deltas to dataStream
+  │   ├──Stream deltas to ChatStream <!-- wave4-cleanup: CONF-037 dataStream→ChatStream -->
   │   └──saveArtifactVersion():
   │       └──DB INSERT + revalidateTag('artifact:{id}')
   │
@@ -191,11 +187,16 @@ Client (AuthForm)          Supabase                 Server Action (login/registe
 
 | Cache Tag | Tagged By | Invalidated By | Primitive |
 |-----------|-----------|---------------|-----------|
-| `chat:{id}` | `getCachedChat()` via `cacheTag` | delete trailing messages, update visibility | `updateTag` (SA) |
+| `chat:{id}` | `getCachedChat()` via `cacheTag` | delete trailing messages, update visibility, rename chat | `updateTag` (SA) |
 | `chat:{id}` | `getCachedChat()` via `cacheTag` | save messages (onFinish), update title | `revalidateTag(tag, 'max')` (RH) |
-| `chats:{userId}` | `getCachedChats()` via `cacheTag` | delete chat, delete all chats | `updateTag` (SA) |
+| `chats:{userId}` | `getCachedChats()` via `cacheTag` | delete chat, delete all chats, rename chat, update visibility | `updateTag` (SA) |
+
+<!-- AUDIT: W4-VI-03 — "update visibility" added to chats:{userId} SA invalidators.
+     Traceability: wave3/chat-visibility-conflicts.md CV-05.
+     Evidence: mutation table (redesign data-flow.md §3) and code sketch (state-management.md §7) both call
+     updateTag('chats:{userId}') on visibility change. Revalidation matrix was editorially inconsistent. -->
 | `chats:{userId}` | `getCachedChats()` via `cacheTag` | create chat, update title (onFinish) | `revalidateTag(tag, 'max')` (RH) |
-| `votes:{chatId}` | `getCachedVotes()` via `cacheTag` | vote on message | `updateTag` (SA) |
+| `votes:{chatId}` | `getCachedVotes()` via `cacheTag` | `voteOnMessage` Server Action via `invalidateVotes(chatId)` | `updateTag` (SA) |
 | `artifact:{id}` | `getCachedArtifact()` via `cacheTag` | create artifact, update artifact, user save | `revalidateTag(tag, 'max')` (RH) |
 | `models` | `getAvailableModels()` via `cacheTag` | Deploy / admin action | `revalidateTag('models', 'max')` |
 
@@ -214,8 +215,10 @@ Client (AuthForm)          Supabase                 Server Action (login/registe
 | Create artifact (AI tool) | Inside SSE stream | Stream data parts → DB insert | `revalidateTag('artifact:{id}', 'max')` | Artifact store progressive update |
 | Update artifact (AI tool) | Inside SSE stream | Stream data parts → DB insert | `revalidateTag('artifact:{id}', 'max')` | Artifact store progressive update |
 | Save artifact (user edit) | `POST /api/artifact` | Debounced save → new version row | `revalidateTag('artifact:{id}', 'max')` | Local editor state |
-| Vote on message | Server Action | `voteOnMessage()` | `updateTag('votes:{chatId}')` | `useOptimistic` |
+| Vote on message | Server Action | `voteOnMessage()` | `invalidateVotes(chatId)` → `updateTag('votes:{chatId}')` | `useOptimistic` |
 | Login / Register | Server Action | `useActionState` | `cookies.set()` invalidates Router Cache | Form return value |
 | Logout | Server Action | `logout()` | `cookies.delete()` invalidates Router Cache | Redirect to `/login` |
 | Delete trailing messages | Server Action | `deleteTrailingMessages()` | `updateTag('chat:{id}')` | `setMessages` via `useChat` |
+| Rename chat | Server Action | `renameChat()` | `updateTag('chat:{chatId}')` + `updateTag('chats:{userId}')` | Optimistic title update |
 ```
+<!-- wave4: RC-04 — renameChat added with both chat:{id} and chats:{userId} invalidation -->

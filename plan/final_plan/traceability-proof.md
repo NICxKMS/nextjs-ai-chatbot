@@ -2,7 +2,7 @@
 
 # Traceability Proof
 
-> Complete coverage verification: 20 features (20 full), 40 seams, 125 tasks, critical path analysis — updated with redesign task IDs and patterns.
+> Complete coverage verification: 20 features (20 full), 40 seams, 126 tasks, critical path analysis — updated with redesign task IDs and patterns. <!-- C2-W4: IC-05/06 fix -->
 
 ---
 
@@ -81,10 +81,10 @@ All gaps from original plan are resolved. Redesign-specific resolutions:
 | P2 | Auth Vertical | 9 | 5 | ~2.75 days |
 | P3 | Chat Core Vertical | 27 | 8 | ~4 days |
 | P4 | Artifacts Vertical | 18 | 13 | ~4.25 days |
-| P5 | Sidebar & Navigation | 12 | 4 | ~4.25 days |
+| P5 | Sidebar & Navigation | 13 | 4 | ~4.25 days |
 | P6 | Enhancements | 14 | 6 | ~1.75 days |
 | P7 | Polish & Production | 13 | 1 | ~1.25 days |
-| **Total** | | **125** | **40** | **~23 days** |
+| **Total** | | **126** | **40** | **~23 days** |
 
 ---
 

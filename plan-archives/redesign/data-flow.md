@@ -178,7 +178,8 @@ Auth pages (`/login`, `/register`) fetch nothing. Server layout renders a center
 |-----------|-----------|---------------|-----------|
 | `chat:{id}` | `getCachedChat()` via `cacheTag` | delete trailing messages, update visibility | `updateTag` (SA) |
 | `chat:{id}` | `getCachedChat()` via `cacheTag` | save messages (onFinish), update title | `revalidateTag(tag, 'max')` (RH) |
-| `chats:{userId}` | `getCachedChats()` via `cacheTag` | delete chat, delete all chats | `updateTag` (SA) |
+| `chats:{userId}` | `getCachedChats()` via `cacheTag` | delete chat, delete all chats, update visibility | `updateTag` (SA) |
+<!-- AUDIT: W4-VI-03 — "update visibility" added. Traceability: wave3/chat-visibility-conflicts.md CV-05. Mutation table (§3) and code sketch (state-management.md §7) both include this invalidation; matrix was editorially inconsistent. -->
 | `chats:{userId}` | `getCachedChats()` via `cacheTag` | create chat, update title (onFinish) | `revalidateTag(tag, 'max')` (RH) |
 | `votes:{chatId}` | `getCachedVotes()` via `cacheTag` | vote on message | `updateTag` (SA) |
 | `artifact:{id}` | `getCachedArtifact()` via `cacheTag` | create artifact, update artifact, user save | `revalidateTag(tag, 'max')` (RH) |

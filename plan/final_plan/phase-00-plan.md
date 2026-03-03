@@ -24,7 +24,7 @@ Create the project skeleton — config, shared types, error handling, utilities,
 | P0-T02 | Create tooling config | SCAFFOLD | `postcss.config.mjs`, `vercel.json`, `.env.example`, `.gitignore` | P0-T01 | S |
 | P0-T03 | Create Tailwind CSS | SCAFFOLD | `app/globals.css` | P0-T02 | S |
 | P0-T04 | Create Drizzle schema + client | IMPL | `lib/db/schema.ts` (`Artifact` table, NOT `Document`), `lib/db/client.ts` | P0-T01 | L |
-| P0-T05 | Define core shared types | IMPL | `lib/types/result.types.ts`, `lib/types/data-context.types.ts`, `lib/types/model.types.ts` | P0-T01 | M |
+| P0-T05 | Define core shared types | IMPL | `lib/types/result.types.ts`, `lib/types/model.types.ts`, `lib/types/models.types.ts`, `lib/types/api.types.ts` | P0-T01, P0-T04 | M | <!-- audit: W4-CONF-022 — models.types.ts was missing from this table (present in p00-scaffold.md task detail). 4 files total. --> <!-- audit: W4-CONF-007 — P0-T04 added: models.types.ts uses InferSelectModel from Drizzle schema -->
 | P0-T06 | Define artifact shared types | IMPL | `lib/types/artifact.types.ts`, `lib/types/artifact-handler.types.ts` | P0-T05 | M |
 | P0-T07 | Define state shared types | IMPL | `lib/types/pending-chats.types.ts`, `lib/types/settings.types.ts` | P0-T05 | S |
 | P0-T08 | Create error handling | IMPL | `lib/errors/app-error.ts`, `lib/errors/codes.ts` (NO `activate_gateway`) | P0-T05 | M |

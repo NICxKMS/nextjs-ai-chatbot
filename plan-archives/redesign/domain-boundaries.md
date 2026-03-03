@@ -220,6 +220,11 @@ FORBIDDEN:
 | Chat ↔ Artifacts (stream state) | `artifactStore` (module-level store) | `UIArtifact` type |
 | Settings → Chat (config) | `useSettings()` (module-level store) | `SettingsState` type |
 | Voting → Messages (render) | Props from page → VoteButtons | `initialVotes: Vote[]` |
+| Visibility → Chat (UI composition) | Direct component import (allowlisted) | VisibilitySelector rendered in ChatHeader |
+
+<!-- AUDIT: W4-VI-02 — Visibility→Chat communication channel added.
+     Traceability: wave2/visibility.md W2-VI-2, wave3/chat-visibility-conflicts.md CV-02.
+     Mirrors voting precedent (VO-4). Allowlisted in conventions.md §3 cross-feature exceptions table. -->
 
 ### What Is NOT Allowed
 

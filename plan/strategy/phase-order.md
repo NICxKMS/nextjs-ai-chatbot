@@ -3,7 +3,7 @@
 # Phase Order & Dependencies
 
 > Execution order, dependency graph, critical path, and parallelization opportunities.
-> 125 tasks across 8 phases (P0–P7). ~210 files total.
+> 126 tasks across 8 phases (P0–P7). ~210 files total. <!-- C2-W4: C2-SB-03 fix -->
 > Reflects redesign decisions: ChatShell, proxy.ts, useSyncExternalStore, handler registry.
 
 ---
@@ -44,7 +44,7 @@ P4 Artifacts      P5 Sidebar  ◄──── CAN PARALLEL    │    │    │ 
 | P0 Scaffold | — | First phase, no dependencies |
 | P1 Data Foundation | P0 | Needs schema types, error types, config |
 | P2 Auth | P1 | Needs DB client, cache client, user data access |
-| P3 Chat Core | P2 | Needs auth session, data context, handler registry |
+| P3 Chat Core | P2 | Needs auth session, data access layer, handler registry | <!-- wave4-cleanup: "data context" replaced — DataContext removed per DEV-024 -->
 | P4 Artifacts | P3 | Needs chat tools, StreamBridge, handler registry, data stream pipeline |
 | P5 Sidebar | P3 | Needs chat data, PendingChatsProvider context, title sync |
 | P6 Enhancements | P4 + P5 | Needs all core features working for cross-feature wiring |
@@ -63,7 +63,7 @@ P2 (Auth)          →  9 tasks, ~14 files
 P3 (Chat Core)     →  27 tasks, ~42 files
 P4 (Artifacts)     →  18 tasks, ~28 files  ──┐
                                                ├──  P4 + P5 in parallel
-P5 (Sidebar)       →  12 tasks, ~12 files  ──┘
+P5 (Sidebar)       →  13 tasks, ~12 files  ──┘ <!-- audit: W4-CONF-002 — was 12, corrected to 13 per p05-sidebar.md (P5-T13 added) -->
 P6 (Enhancements)  →  14 tasks, ~17 files
 P7 (Polish)        →  13 tasks, ~20 files
 ```
@@ -106,7 +106,7 @@ Weather UI       ──── independent
 Health           ──── independent
 ```
 
-**All can run in parallel.** Each touches different feature directories and files. The only shared modification is `multimodal-input.tsx` which gets file upload and model selector — these touch different sections of the component.
+**All can run in parallel.** Each touches different feature directories and files. The only shared modification is `multimodal-input.tsx`, which gets file upload; the model selector lives in `ChatHeader` via `ModelSelector`.
 
 ---
 
@@ -119,10 +119,10 @@ Health           ──── independent
 | P2 Auth | 9 | ~14 | Yes | — |
 | P3 Chat Core | 27 | ~42 | Yes | — |
 | P4 Artifacts | 18 | ~28 | No | P5 |
-| P5 Sidebar | 12 | ~12 | No | P4 |
+| P5 Sidebar | 13 | ~12 | No | P4 | <!-- audit: W4-CONF-002 — was 12, corrected to 13 -->
 | P6 Enhancements | 14 | ~17 | Yes (for P7) | Internal sub-tasks |
 | P7 Polish | 13 | ~20 | — | — |
-| **Total** | **125** | **~210** | | |
+| **Total** | **126** | **~210** | | | <!-- audit: W4-CONF-002 — corrected to 126 -->
 
 ---
 
@@ -207,12 +207,14 @@ Dev B:                         (wait) → P5 ──┘
 
 ## 10. Seam-to-Phase Coverage
 
+> **⚠️ DEPRECATION NOTICE (audit: W4-CONF-003):** The condensed SEAM table below is an approximate summary and contains ~20 mismatches with the authoritative per-phase SEAM tables. **For accurate SEAM ownership, always consult each phase file's "Seam Coverage" section** (e.g., `phases/p01-data-foundation.md`, `phases/p05-sidebar.md`, etc.). The per-phase files define which tasks implement each seam. This §10 table is retained only as a high-level overview and should NOT be used for task assignment or dependency analysis.
+
 Condensed mapping of integration seams (SEAM-001 through SEAM-040) to the phase that implements them. Every seam is verified in P7 via integration testing.
 
 | Phase | Seams | Key Integration Points |
 |-------|-------|------------------------|
 | P0 Scaffold | SEAM-029 (Provider Assembly), SEAM-036 (`proxy.ts` Rate Limiting) | Root layout provider tree, proxy auth guard |
-| P1 Data Foundation | SEAM-021 (Artifact Version Schema), SEAM-025 (Artifact Data Access), SEAM-033 (Cache-Through Helper) | Drizzle schema, `lib/data/artifact.ts`, `withCache` |
+| P1 Data Foundation | SEAM-021 (Artifact Version Schema), SEAM-025 (Artifact Data Access) | Drizzle schema, `lib/data/artifact.ts`, `withCache` (`'use cache'` wrapper) | <!-- wave4-cleanup: SEAM-033 removed (withCache is not a separate seam — it's a thin 'use cache' wrapper) -->
 | P2 Auth | SEAM-001 (SessionProvider Injection), SEAM-002 (Auth State to UI), SEAM-003 (Guest→Auth Migration), SEAM-004 (`proxy.ts` Guest Token), SEAM-005 (Auth Callback) | Session resolution, guest bootstrap, proxy wiring |
 | P3 Chat Core | SEAM-006 (Chat Send), SEAM-007 (ChatStreamProvider Pipeline), SEAM-008 (Message Rendering), SEAM-009 (`createArtifact` Tool), SEAM-010 (`updateArtifact` Tool), SEAM-011 (Suggestion Pipeline), SEAM-014 (Title Sync Single-Channel), SEAM-015 (Settings `useSyncExternalStore`), SEAM-016 (Error Display) | Streaming pipeline, handler registry, ChatShell orchestration |
 | P4 Artifacts | SEAM-012 (Artifact Store `useSyncExternalStore`), SEAM-017 (Artifact Save), SEAM-019 (Artifact UI Shell), SEAM-020 (Artifact Action Bar), SEAM-023 (Artifact Version Navigation), SEAM-024 (Code Editor), SEAM-026 (Sheet Editor), SEAM-027 (Text/Image Editor), SEAM-028 (Artifact Close), SEAM-040 (Inline Artifact Preview) | Artifact store, editors, panel, StreamBridge→store |

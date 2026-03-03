@@ -167,7 +167,7 @@ SSE delta arrives
   → RAF batches deltas in ChatStreamProvider (split context)
   → StreamBridge effect fires
     → processStreamDelta(delta, currentArtifact)  // Pure function
-    → artifactStore.setState(newArtifact)          // useSyncExternalStore
+    → onArtifactDelta(artifact)                    // Callback (wired in P4-T17)
   → ArtifactPanel re-renders (only subscribers)
 ```
 
@@ -175,20 +175,35 @@ SSE delta arrives
 
 ```typescript
 // features/chat/components/stream-bridge.tsx
-export function StreamBridge({ id }: { id: string }) {
+interface StreamBridgeProps {
+  id: string
+  onArtifactDelta?: (artifact: UIArtifact) => void
+}
+
+export function StreamBridge({ id, onArtifactDelta }: StreamBridgeProps) {
   const { ChatStream } = useChatStream()
-  const lastProcessedRef = useRef(-1)
+  const lastProcessedRef = useRef(0)
 
   useEffect(() => {
-    const newDeltas = ChatStream.slice(lastProcessedRef.current + 1)
-    lastProcessedRef.current = ChatStream.length - 1
-
-    for (const delta of newDeltas) {
-      const current = artifactStore.getSnapshot()
-      const { artifact } = processStreamDelta(delta, current)
-      artifactStore.setState(artifact)
+    if (!ChatStream.length) return
+    let current = onArtifactDelta ? artifactSnapshotRef.current : undefined
+    for (let i = lastProcessedRef.current; i < ChatStream.length; i++) {
+      const delta = ChatStream[i]
+      if (current !== undefined) {
+        const { artifact } = processStreamDelta(delta, current)
+        current = artifact
+      }
     }
-  }, [ChatStream, id])
+    lastProcessedRef.current = ChatStream.length
+    if (current !== undefined && onArtifactDelta) {
+      onArtifactDelta(current)
+    }
+  }, [ChatStream, onArtifactDelta])
+
+  // Reset on chat ID change
+  useEffect(() => {
+    lastProcessedRef.current = 0
+  }, [id])
 
   return null
 }
@@ -207,7 +222,10 @@ export function processStreamDelta(delta: DataPart, current: UIArtifact): { arti
     case 'artifact-kind':
       return { artifact: { ...current, kind: delta.content as ArtifactKind } }
     case 'artifact-clear':
-      return { artifact: { ...current, content: '', status: 'streaming' } }
+      return { artifact: { ...current, content: '', suggestions: [], status: 'streaming' } }
+    case 'artifact-suggestion':
+      return { artifact: { ...current, suggestions: [...(current.suggestions ?? []), delta.content] } }
+    // <!-- audit: SOFT-006 — added artifact-suggestion case + suggestions reset on artifact-clear -->
     case 'artifact-finish':
       return { artifact: { ...current, status: 'idle' } }
     case 'artifact-textDelta':
@@ -258,11 +276,16 @@ export async function POST(request: Request) {
     execute: async ({ writer: ChatStream }) => {
       const titlePromise = generateTitle(firstMessage)
 
+      // Model metadata lookup (CONF-007)
+      const model = getModelById(selectedModel)
+      const hasTools = model.supportsToolCalling
+      const supportsReasoning = model.supportsReasoning
+
       const result = streamText({
         model: myProvider.languageModel(selectedModel),
-        system: composeSystemPrompt({ settings, hasTools }),
+        system: composeSystemPrompt({ settings, hasTools, supportsReasoning }),
         messages,
-        tools: getEnabledTools(selectedModel) ? buildTools({ session, ChatStream, chatId }) : undefined,
+        tools: hasTools ? buildTools({ session, ChatStream, chatId }) : undefined,
         providerOptions: getProviderOptions(selectedModel, settings),
         experimental_transform: smoothStream({ delayInMs: 2, chunking: 'word' }),
         maxSteps: 5,
@@ -342,7 +365,7 @@ features/*/components/      → CAN import from: components/ui/, lib/*, own feat
 lib/ai/
   ├── registry.ts              # createProviderRegistry (conditional providers)
   ├── provider.ts              # myProvider (reasoning middleware wrapper)
-  ├── models.ts                # listChatModels() with 'use cache'
+  ├── models.ts                # STATIC_MODELS, discoverModels(), getModelById()
   ├── prompts.ts               # composeSystemPrompt()
   ├── provider-options.ts      # getProviderOptions() per-provider config
   ├── artifact-handlers.ts     # Handler registry (register/get) — dependency inversion
@@ -363,7 +386,7 @@ features/chat/
   │   └── request-suggestions.ts
   ├── components/
   │   ├── chat-stream-provider.tsx  # Split context + RAF batching
-  │   └── stream-bridge.tsx         # Thin bridge → processStreamDelta → artifactStore
+  │   └── stream-bridge.tsx         # Thin bridge → processStreamDelta → onArtifactDelta callback <!-- wave4-cleanup -->
   ├── hooks/
   │   └── use-chat-session.ts       # useChat config + callbacks
   └── lib/
@@ -377,6 +400,10 @@ features/artifacts/
   │   └── sheet-handler.ts     # streamObject → artifact-sheetDelta (replace)
   └── lib/
       └── artifact-store.ts    # useSyncExternalStore: getSnapshot, subscribe, setState, reset
+
+features/models/
+  └── lib/
+      └── models.ts            # getAvailableModels() with 'use cache' + cacheTag('models')
 ```
 
 ---

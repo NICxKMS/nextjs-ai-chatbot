@@ -30,7 +30,7 @@
 | **Props (SettingsButton)** | `className?` |
 | **Parents** | `ChatHeader` |
 | **Children** | `Sheet` → `SheetContent` (right side, max-w-xl) with sections |
-| **Sections** | 1. **Sampling:** Temperature (0–1.5), Top P (0–1), Max Output Tokens (256–1M) — all numeric inputs. 2. **System Prompt:** Textarea. 3. **Behavior:** Enable reasoning (toggle), Stream artifacts (toggle), Auto-scroll (toggle) |
+| **Sections** | 1. **Sampling:** Temperature (0–2), Top P (0–1), Max Output Tokens (256–1M) — all numeric inputs. 2. **System Prompt:** Textarea. 3. **Behavior:** Enable reasoning (toggle) *(redesign: "Stream artifacts" and "Auto-scroll" toggles removed — artifacts always stream, auto-scroll handled by `useScrollToBottom`; see interactions.md §9)* |
 | **Footer** | Reset to defaults, Close |
 | **Hooks** | `useSettings` *(redesign: `useSettingsSnapshot` merged into `useSettings` — useSyncExternalStore, SettingsProvider removed)*, `useBoolean` (usehooks-ts) |
 | **Toggle pattern** | `aria-pressed`, On/Off button styled as pill (primary when on, muted when off) |
@@ -79,8 +79,8 @@
 | **Props** | `chat: Chat`, `isActive: boolean`, `onDelete`, `setOpenMobile` |
 | **Parents** | `SidebarHistoryClient` *(redesign: renamed from SidebarHistory)* |
 | **Children** | `SidebarMenuItem` → `SidebarMenuButton` (Link), `DropdownMenu` (actions) |
-| **Dropdown actions** | Share → Submenu (Private/Public with checkmarks), Delete (destructive) |
-| **Hooks** | `useChatVisibility` |
+| **Dropdown actions** | Rename → inline edit, Share → Submenu (Private/Public with checkmarks), Delete (destructive) *(redesign: Rename action added per interactions.md §3 + `features/sidebar/actions/rename-chat.ts`)* |
+| **Hooks** | `useChatVisibility` *(shared hook — see `features/visibility/hooks/use-chat-visibility.ts`)* |
 | **Memo** | Re-renders on `isActive` or `chat.title` change only |
 
 ---
@@ -240,12 +240,17 @@
 | Field | Detail |
 |-------|--------|
 | **Type** | Client (`"use client"`) |
-| **Props** | `chatId`, `selectedVisibilityType`, `className?` |
+| **Props** | `chatId`, `className?` |
 | **Parents** | `ChatHeader` |
 | **Children** | `DropdownMenu` → Private (LockIcon) / Public (GlobeIcon) with checkmarks |
-| **Hooks** | `useOptimistic` + `updateChatVisibility` Server Action |
+| **Hooks** | `useChatSessionContext()` (reads `visibility`, `setVisibility` per CV-01 Option A) + `updateChatVisibility` Server Action |
 | **Responsive** | `hidden md:flex` on trigger button (desktop only) |
 | **Exported type** | `VisibilityType = "private" | "public"` |
+| **data-testid** | `visibility-selector` (trigger), `visibility-selector-item-private`, `visibility-selector-item-public` (items) |
+
+<!-- AUDIT: CONF-001 / Wave 4 — Props updated: removed selectedVisibilityType (reads from ChatSessionContext).
+     PATCH-VIS-01 — Added data-testid row.
+     Traceability: wave3/cross-unit-reconciliation.md CONF-001, wave2/visibility.md PATCH-VIS-01. -->
 
 ---
 
@@ -270,10 +275,10 @@
 |------|------|------------------|
 | `useArtifact` | `hooks/use-artifact.ts` | `features/artifacts/hooks/use-artifact.ts` *(redesign: useSyncExternalStore)* |
 | `useArtifactSelector` | `hooks/use-artifact.ts` | `features/artifacts/hooks/use-artifact-selector.ts` |
-| `useChatVisibility` | `hooks/use-chat-visibility.ts` | `features/visibility/components/visibility-selector.tsx` + `updateChatVisibility` Server Action |
+| `useChatVisibility` | `hooks/use-chat-visibility.ts` | `features/visibility/hooks/use-chat-visibility.ts` *(shared hook for consumers outside ChatSessionContext — consumed by `SidebarHistoryItem`; wraps `useOptimistic` + `updateChatVisibility` Server Action. Note: `VisibilitySelector` in ChatHeader reads from ChatSessionContext directly per CV-01 Option A)* |
 | ~~`useMessages`~~ | ~~`hooks/use-messages.tsx`~~ | *(redesign: removed — `ChatSessionContext` provides messages)* |
 | `useIsMobile` | `hooks/use-mobile.ts` | `hooks/use-mobile.ts` (shared) |
-| `usePendingChats` | `hooks/use-pending-chats.tsx` | `features/sidebar/hooks/use-pending-chats.tsx` *(redesign: renamed from useOptimisticChats)* |
+| `usePendingChats` | `hooks/use-pending-chats.tsx` | `lib/providers/pending-chats-provider.tsx` *(redesign: relocated cross-feature: PendingChatsProvider + usePendingChats)* |
 | `useScrollToBottom` | `hooks/use-scroll-to-bottom.tsx` | `features/chat/hooks/use-scroll-to-bottom.tsx` |
 | `useWindowSize` | `hooks/use-window-size.ts` | `hooks/use-window-size.ts` (shared) |
 

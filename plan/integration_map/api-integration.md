@@ -291,7 +291,7 @@ if (!result.success) toast.error(result.error.message);
 ### Error Response Shape
 
 ```typescript
-// Route Handler errors:
+// Route Handler errors (AppError.toResponse()):
 { error: { code: "rate_limit:chat:daily_limit_exceeded", message: "...", status: 429 } }
 
 // Server Action errors (ActionResult):

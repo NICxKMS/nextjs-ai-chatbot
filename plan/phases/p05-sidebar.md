@@ -89,7 +89,7 @@ Behavior ref: state-management.md (pending chats: Set-based dedup, explicit life
 Architecture ref: conventions.md (feature hooks collocation); redesign (use-pending-chats.ts)
 
 Action: Create lib/providers/pending-chats-provider.tsx — "use client" context provider + hook. PendingChatsProvider wraps both sidebar AND content (placed in chat layout). Internal state: array of PendingChat, Set<string> for O(1) dedup by chat ID. Operations: add(chat) — add unconfirmed chat to list head (dedup by ID), remove(chatId) — remove by ID (used on delete), updateTitle(chatId, title) — update title in-place (used for streaming title via single-channel delivery), markConfirmed(chatId) — clear pending flag when server-confirmed. No timer-based cleanup. Export PendingChatsProvider and usePendingChats hook. Title flows via single channel: `chat-title` stream event → `PendingChats.updateTitle()` — NO window.dispatchEvent, NO polling.
-<!-- AUDIT(CR-1, Wave 4): Provider relocated from `features/sidebar/hooks/use-pending-chats.ts` to `lib/providers/pending-chats-provider.tsx` — cross-feature communication primitive (chat writes, sidebar reads), not sidebar-internal. Implementation and API are identical; only file location changes. -->
+<!-- AUDIT(CR-1, Wave 4): Provider relocated from `features/sidebar/hooks/use-pending-chats.ts` to `lib/providers/pending-chats-provider.tsx` — architecturally NECESSARY: placing in `features/sidebar/hooks/` would create a FORBIDDEN cross-feature import (`features/chat/ → features/sidebar/hooks/*` per domain-boundaries.md §2), since chat core (useChatSession/P3-T11) calls PendingChats.add() and updateTitle(). Moving to `lib/providers/` resolves the boundary violation while keeping the API identical. -->
 
 Output files:
 - lib/providers/pending-chats-provider.tsx
@@ -159,7 +159,8 @@ Type: IMPL
 Behavior ref: components-02.md (sidebar-history-item.tsx: memo, dropdown actions, visibility)
 Architecture ref: interactions.md (sidebar actions: rename, share, delete)
 
-Action: Create features/sidebar/components/sidebar-history-item.tsx — "use client" memo component. Props: chat (Chat), isActive (boolean), onDelete callback, setOpenMobile callback. Renders: SidebarMenuItem → SidebarMenuButton (as Link to /chat/{id}) with chat title text. DropdownMenu trigger (ellipsis icon) with actions: Rename (inline edit or rename-chat action), Share → submenu with Private/Public radio options (using visibility toggle), separator, Delete (destructive style, calls onDelete). Memo: re-renders only on isActive or chat.title change. Active chat highlighted via data-active attribute.
+Action: Create features/sidebar/components/sidebar-history-item.tsx — "use client" memo component. Props: chat (Chat), isActive (boolean), onDelete callback, onVisibilityChange? callback (optional — wired in P6), setOpenMobile callback. Renders: SidebarMenuItem → SidebarMenuButton (as Link to /chat/{id}) with chat title text. DropdownMenu trigger (ellipsis icon) with actions: Rename (inline edit or rename-chat action), Share → submenu with Private/Public radio options (stub UI — renders only when `onVisibilityChange` is provided; actual `updateChatVisibility` wired in P6-T07/T08), separator, Delete (destructive style, calls onDelete). Memo: re-renders only on isActive or chat.title change. Active chat highlighted via data-active attribute.
+<!-- AUDIT(SB-W3/C6, Wave 4): Share/visibility submenu is a STUB UI in P5 — `onVisibilityChange?` optional callback prop follows the same pattern as `onDelete`. The actual `updateChatVisibility` server action is created in P6-T07 and wired through SidebarHistoryClient in P6-T08. This resolves the phase sequencing conflict: P5 cannot import from features/visibility/ since it doesn't exist until P6. P5-T12 gate should note that share/visibility verification is deferred to P6. -->
 
 Output files:
 - features/sidebar/components/sidebar-history-item.tsx
@@ -169,16 +170,19 @@ Outputs: SidebarHistoryItem consumed by SidebarHistoryClient (P5-T05)
 
 AI layer handling: NEW
 
-Dependencies: P5-T01
+Dependencies: P5-T01, P5-T09
+<!-- AUDIT(SB-W2/I2, Wave 4): Added P5-T09 dependency — P5-T04 rename action requires the renameChat Server Action created in P5-T09. -->
 Dependents: P5-T05
 
 Success criteria:
 - Renders as link to /chat/{id}
 - Active state highlighted
-- Dropdown menu with rename, share, and delete actions
+- Dropdown menu with rename, share (stub — hidden when `onVisibilityChange` not provided), and delete actions
+- Share submenu renders Private/Public radio options when `onVisibilityChange` callback is provided
 - Memo prevents unnecessary re-renders
 - Delete calls onDelete callback
 - pnpm typecheck passes
+<!-- AUDIT(SB-W3/C6, Wave 4): Share visibility success criteria updated to reflect stub UI pattern. Full share/visibility verification is deferred to P6 gate. -->
 
 Complexity: M
 
@@ -202,7 +206,8 @@ Outputs: SidebarHistoryClient consumed by SidebarShell (P5-T08)
 
 AI layer handling: NEW
 
-Dependencies: P5-T02, P5-T03, P5-T04, P0-T11
+Dependencies: P5-T02, P5-T03, P5-T04, P0-T11, P3-T22
+<!-- AUDIT(SB-W2/I1, Wave 4): Added P3-T22 dependency — P5-T05 delete uses the deleteChat Server Action from P3-T22. Phase prerequisite (P3 before P5) ensures availability, but explicit dependency improves traceability. -->
 Dependents: P5-T08, P5-T12
 
 Success criteria:
@@ -210,9 +215,12 @@ Success criteria:
 - useSWRInfinite used ONLY for pagination (not initial load)
 - Date grouping renders correctly (Today, Yesterday, Last 7/30 days, Older)
 - Pending chats appear before "Today" group
+- Paginated history merge is deduplicated by `chat.id` across initial server data + SWR pages + pending entries (single rendered row per ID; when server data for an optimistic chat appears, pending entry is marked confirmed and not duplicated) <!-- C2-W4: ID fix -->
 - Infinite scroll loads more pages on scroll
 - Delete removes chat with server action
 - Title updates via PendingChatsProvider (NO polling, NO window events)
+- When server data (initial render or SWR refresh) contains a chat ID matching a pending entry, calls `markConfirmed(id)` to clear the optimistic flag
+<!-- AUDIT(SB-W3/C3, Wave 4): Assigned markConfirmed() caller to SidebarHistoryClient — architecturally natural location (owns merge logic, has access to both server data and pending entries). Conservative approach per Wave 3 Conflict 3 reconciliation. -->
 - Active chat highlighted
 - Named SidebarHistoryClient (NOT SidebarHistory)
 - File under 400 lines
@@ -298,7 +306,9 @@ Type: IMPL
 Behavior ref: features.md (server-rendered sidebar); redesign (SidebarShell is async SERVER component)
 Architecture ref: redesign (use cache + cacheTag('chats:{userId}'), NOT ssr:false client dynamic import)
 
-Action: Create features/sidebar/components/sidebar-shell.tsx — Async SERVER component (NOT "use client"). Uses `'use cache'` + `cacheTag('chats:{userId}')` for cached data fetching. Fetches initial 20 chats server-side via lib/data/chat.ts. Renders sidebar structure: SidebarHeader with "Assistant" brand text + new chat button, SidebarContent with SidebarHistoryClient (passing server-fetched initial data), SidebarFooter with SidebarUserNav. This eliminates the client waterfall — first 20 chats are available on initial render.
+Action: Create features/sidebar/components/sidebar-shell.tsx — Async SERVER component (NOT "use client"). Uses `'use cache'` + `cacheLife('seconds')` + `cacheTag('chats:{userId}')` for cached data fetching. Fetches initial chats server-side via lib/data/chat.ts (fetches 21, slices to 20 for `initialHasMore` flag). Renders sidebar structure: SidebarHeader with "Assistant" brand text + new chat button (navigates to `/`), SidebarContent with SidebarHistoryClient (passing server-fetched initial data + `initialHasMore` flag), SidebarFooter with SidebarUserNav. This eliminates the client waterfall — first 20 chats are available on initial render.
+<!-- AUDIT(SB-W2/NEW1, Wave 4): Clarified over-fetch pattern (21→slice to 20) per redesign data-flow.md line 118 and component-architecture.md line 133. -->
+<!-- AUDIT(SB-W2/I3, Wave 4): Added new chat button navigation target ("/") — was inferable from P5-T12 gate but not explicit in task. -->
 
 Output files:
 - features/sidebar/components/sidebar-shell.tsx
@@ -313,10 +323,12 @@ Dependents: P5-T11, P5-T12
 
 Success criteria:
 - SidebarShell is a SERVER component (NOT "use client")
-- Uses `'use cache'` + `cacheTag('chats:{userId}')` for data fetching
-- Initial 20 chats fetched server-side (no client waterfall)
-- Passes initial data to SidebarHistoryClient
+- Uses `'use cache'` + `cacheLife('seconds')` + `cacheTag('chats:{userId}')` for data fetching
+<!-- AUDIT(SB-W2/MC-1, Wave 4): Added cacheLife('seconds') per redesign mandate — 5 redesign sources consistently require it alongside cacheTag for sidebar freshness. -->
+- Initial chats fetched server-side: fetches 21, slices to 20, passes `initialHasMore` flag (no client waterfall)
+- Passes initial data + `initialHasMore` to SidebarHistoryClient
 - SidebarHistoryClient uses useSWRInfinite only for pagination (not initial load)
+- New chat button navigates to `/`
 - Renders header, content, and footer sections
 - NOT a dynamic import with ssr:false
 - pnpm typecheck passes
@@ -333,7 +345,7 @@ Type: IMPL
 Behavior ref: interactions.md (rename chat in sidebar)
 Architecture ref: conventions.md (Server Actions for mutations); redesign (rename-chat.ts + updateTag)
 
-Action: Create features/sidebar/actions/rename-chat.ts — "use server" action renameChat({chatId, title}). Flow: auth check, validate ownership, update chat title in DB via lib/data/chat.ts, call `updateTag` to invalidate chat and chats-list cache tags. Returns ActionResult<void>. Used by SidebarHistoryItem rename action.
+Action: Create features/sidebar/actions/rename-chat.ts — "use server" action renameChat({chatId, title}). Flow: auth check, validate ownership, update chat title in DB via lib/data/chat.ts, invalidate **both** `chat:{chatId}` and `chats:{userId}` cache tags via `invalidateChat(chatId)` + `invalidateChatList(userId)`. Returns ActionResult<void>. Used by SidebarHistoryItem rename action. <!-- wave4: RC-04 — renameChat must invalidate both tags -->
 
 Output files:
 - features/sidebar/actions/rename-chat.ts
@@ -349,7 +361,7 @@ Dependents: P5-T04, P5-T12
 Success criteria:
 - Server Action validates auth and ownership
 - Updates chat title in DB
-- Calls updateTag to invalidate relevant cache tags
+- Calls `invalidateChat(chatId)` + `invalidateChatList(userId)` to invalidate both `chat:{chatId}` and `chats:{userId}` tags <!-- wave4: RC-04 -->
 - Returns ActionResult (never throws)
 - pnpm typecheck passes
 
@@ -448,8 +460,9 @@ Success criteria:
 - pnpm typecheck exits 0
 - pnpm lint exits 0
 - pnpm format --check exits 0
-- `SidebarShell` is a SERVER component with `'use cache'` + `cacheTag`
-- Initial 20 chats fetched server-side (no client waterfall)
+- `SidebarShell` is a SERVER component with `'use cache'` + `cacheLife('seconds')` + `cacheTag`
+<!-- AUDIT(SB-W2/MC-1, Wave 4): Added cacheLife('seconds') to verification gate — matches P5-T08 spec. -->
+- Initial chats fetched server-side: fetches 21, slices to 20, passes `initialHasMore` flag (no client waterfall)
 - `SidebarHistoryClient` uses `useSWRInfinite` only for pagination (not initial load)
 - `PendingChatsProvider` provides `add`, `remove`, `updateTitle`, `markConfirmed` operations
 <!-- AUDIT(SB-W5, Wave 4): Added `markConfirmed` to verification gate success criteria — was defined in P5-T01/T02 but missing from gate. -->
@@ -479,7 +492,7 @@ Type: IMPL
 Behavior ref: features.md (delete all chats); interactions.md (destructive confirmation pattern)
 Architecture ref: conventions.md (Server Actions for mutations); P3-T22 (deleteAllChats action)
 
-Action: Add Delete All Chats UI to the sidebar header area within SidebarHistoryClient (P5-T05 output file). Scope: (1) Add a "Delete All" button (destructive style, trash icon) in the sidebar header area alongside the new-chat button, (2) Wire AlertDialog confirmation dialog ("Delete all chats? This action cannot be undone."), (3) On confirm: call `deleteAllChats` Server Action from P3-T22, (4) On success: clear pending chats via `PendingChats.remove()` for all entries, redirect to `/` via `router.push('/')`, (5) Show toast on error. ~30-50 lines added to sidebar-history-client.tsx.
+Action: Add Delete All Chats UI to SidebarHistoryClient-owned header controls (P5-T05 output file), not SidebarShell's SERVER header. Scope: (1) Add a "Delete All" button (destructive style, trash icon) in SidebarHistoryClient's client header controls (NOT alongside SidebarShell's new-chat button), (2) Wire AlertDialog confirmation dialog ("Delete all chats? This action cannot be undone."), (3) On confirm: call `deleteAllChats` Server Action from P3-T22, (4) On success: clear pending chats via `PendingChats.remove()` for all entries, redirect to `/` via `router.push('/')`, (5) Show toast on error. ~30-50 lines added to sidebar-history-client.tsx. <!-- C2-W4: ID fix -->
 
 Output files:
 - features/sidebar/components/sidebar-history-client.tsx (modify — add delete-all button + AlertDialog)
@@ -493,7 +506,7 @@ Dependencies: P5-T05, P3-T22, P0-T11
 Dependents: P5-T12
 
 Success criteria:
-- "Delete All" button visible in sidebar header area
+- "Delete All" button visible in SidebarHistoryClient-owned header controls (not SidebarShell SERVER header) <!-- C2-W4: ID fix -->
 - AlertDialog confirmation shown before deletion
 - Calls `deleteAllChats` Server Action on confirm
 - Redirects to `/` on success

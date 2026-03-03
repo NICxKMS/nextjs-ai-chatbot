@@ -250,4 +250,6 @@ Report to the orchestrator with:
 
 Never guess. If behavior is unclear, stop and ask. If sources conflict, see `STARTER-PROMPT.md` § 2 for precedence.
 
+> **Conflict Resolution**: In case of any conflict between plan documents and the redesign directory (`plan-archives/redesign/`), **the redesign directory takes precedence**. The 13 redesign docs are the authoritative source of architectural truth.
+
 If the task is too large to complete, mark `status: partial` with a "Remaining Work" checklist and report back immediately.

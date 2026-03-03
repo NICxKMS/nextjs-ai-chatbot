@@ -16,7 +16,9 @@
   <body className="antialiased">
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <SessionProvider session={session}>         // server-fetched via getAppSession()
-        {children}                                // ← route group content
+        <TooltipProvider delayDuration={0}>       // DEV-028: retained at root layout
+          {children}                              // ← route group content
+        </TooltipProvider>
       </SessionProvider>
     </ThemeProvider>
     <Toaster position="top-center" />             // sonner toast target
@@ -26,9 +28,9 @@
 
 > **What's NOT here (removed per redesign):**
 > - ~~SWRConfig~~ — SWR only used in specific features, configure at point of use
-> - ~~TooltipProvider~~ — moved to point of consumption (sidebar, chat header)
 > - ~~AppShell wrapper~~ — root layout is a SERVER component, not a Suspense wrapper
 > - ~~SettingsProvider~~ — replaced by `useSyncExternalStore` module store (no provider needed)
+<!-- audit: SOFT-003 — TooltipProvider moved from "NOT here" list to root tree per DEV-028 -->
 
 ### Server/Client Component Summary (Redesign Baseline)
 
@@ -88,25 +90,30 @@ app/(chat)/page.tsx OR app/(chat)/chat/[id]/page.tsx   SERVER (async)
       │ Split contexts: StateCtx (readers) + DispatchCtx (writers)
       │ Why page-scoped: MUST NOT cascade to sidebar
       │
-      ├── ChatShell                                'use client' (~60 lines)
-      │     Props: id, initialMessages, initialChatModel, isReadonly, availableModels
-      │     Creates: ChatSessionContext via useChatSession()
-      │     Calls: useChatSideEffects()
-      │     │
-      │     └── ChatSessionContext.Provider
-      │           ├── ChatHeader                   'use client' (reads context)
-      │           ├── Messages                     'use client' (reads context)
-      │           ├── MultimodalInput              'use client' (reads context)
-      │           └── ArtifactPanel (conditional)  'use client' (reads artifactStore)
-      │
-      ├── StreamBridge(id)                         'use client' (~20 lines, renders null)
-      │     Reads: ChatStreamProvider (useChatStream)
-      │     Writes: artifactStore.setState() via processStreamDelta()
-      │
-      └── Suspense (existing chat only)
-            └── VoteResolver(chatId, votesPromise) 'use client'
-                  Uses: React 19 use() for deferred vote hydration
+      └── VotesProvider                            'use client' (existing chat only)
+            │ Purpose: React Context for deferred vote hydration
+            │ Initially empty; VoteResolver hydrates via use()
+            │
+            ├── ChatShell                                'use client' (~60 lines)
+            │     Props: id, initialMessages, initialChatModel, isReadonly, availableModels
+            │     Creates: ChatSessionContext via useChatSession()
+            │     Calls: useChatSideEffects()
+            │     │
+            │     └── ChatSessionContext.Provider
+            │           ├── ChatHeader                   'use client' (reads context)
+            │           ├── Messages                     'use client' (reads context)
+            │           ├── MultimodalInput              'use client' (reads context)
+            │           └── ArtifactPanel (conditional)  'use client' (reads artifactStore)
+            │
+            ├── StreamBridge(id)                         'use client' (~20 lines, renders null)
+            │     Reads: ChatStreamProvider (useChatStream)
+            │     Writes: artifactStore.setState() via processStreamDelta()
+            │
+            └── Suspense (existing chat only)
+                  └── VoteResolver(chatId, votesPromise) 'use client'
+                        Uses: React 19 use() for deferred vote hydration → hydrates VotesProvider
 ```
+<!-- Wave 4-VOTING: CONF-020 fix — added VotesProvider wrapping to match patterns.md §7.5 canonical structure -->
 
 ### Auth Route Group (`(auth)/`)
 
@@ -138,6 +145,8 @@ app/(auth)/layout.tsx                              SERVER
 | **ChatStream delta** | **Chat page only** | **Sidebar, root** |
 | ChatSessionContext update | Chat children only | Sidebar, root |
 | **Artifact store delta** | **Only subscribed components (selector-based)** | **Most components** |
+| **VotesProvider update** | **VoteButtons, Message components (chat page only)** | **Sidebar, root, other pages** |
+<!-- audit: SOFT-001 — added VotesProvider cascade row; scoped to existing-chat page, hydrated by VoteResolver -->
 
 ---
 
@@ -159,6 +168,9 @@ app/(auth)/layout.tsx                              SERVER
 | `ModelSelector` | (none — props-driven) | — |
 | `VisibilitySelector` | (none — props + useOptimistic) | `useOptimistic` |
 | `VoteResolver` | (none — promise resolution) | React 19 `use()` |
+
+> **Visibility ownership:** `ChatSessionContext` exposes `visibility` (read) and `setVisibility` (write) fields, consumed by `ChatHeader`, `Messages`, `MultimodalInput`, and `ArtifactPanel`. The `VisibilitySelector` calls `setVisibility` (which triggers `updateChatVisibility` Server Action + `useOptimistic`) for per-chat `Chat.visibility` column mutation.
+<!-- wave4-cleanup: CONF-001 CV-01 Option A -->
 
 ### Artifact Sub-Components
 
@@ -223,16 +235,18 @@ Page (SERVER, async)
   ├── Access control: notFound() if missing/unauthorized
   │
   └── ChatStreamProvider
-        ├── ChatShell (client) — same as Home but with:
-        │     initialMessages = chat.messages
-        │     initialChatModel = chat.model
-        │     isReadonly = (chat.userId !== session.user.id)
-        │
-        ├── StreamBridge(id) (client, renders null)
-        │
-        └── Suspense
-              └── VoteResolver(chatId, votesPromise) — deferred vote hydration
+        └── VotesProvider                          (empty context initially)
+              ├── ChatShell (client) — same as Home but with:
+              │     initialMessages = chat.messages
+              │     initialChatModel = chat.model
+              │     isReadonly = (chat.userId !== session.user.id)
+              │
+              ├── StreamBridge(id) (client, renders null)
+              │
+              └── Suspense
+                    └── VoteResolver(chatId, votesPromise) — deferred vote hydration → hydrates VotesProvider
 ```
+<!-- Wave 4-VOTING: CONF-020 fix — added VotesProvider wrapping to match patterns.md §7.5 canonical structure -->
 
 ### Sidebar (Server-Rendered Initial + Client Pagination)
 

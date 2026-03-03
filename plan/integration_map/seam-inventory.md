@@ -186,9 +186,11 @@
 | Field | Detail |
 |-------|--------|
 | **Description** | Model catalog flows server→client, selection flows through cookie+localStorage to chat request |
-| **Components** | `lib/ai/models.ts` (listChatModels with `use cache`) → Page props → `ModelSelector` → `chat-model` cookie + localStorage → `useChat` request → Server model resolution |
+| **Components** | `features/models/lib/models.ts` (`getAvailableModels` with `use cache`) → Page props → `ModelSelector` → `chat-model` cookie + localStorage → `useChat` request → Server model resolution |
 | **Data Exchanged** | Models: `ModelMetadata[]`. Selection: `string` (model ID). Server: `myProvider.languageModel(modelId)` |
-| **Task Needed** | Build listChatModels() (curated + discovery merge, `cacheTag('models')`, `cacheLife('hours')`). Build ModelSelector component. Wire model ID to cookie + localStorage. Server: validate model ID via registry, resolve via myProvider. |
+| **Task Needed** | Build `getAvailableModels()` (curated + discovery merge, `cacheTag('models')`, `cacheLife('hours')`). Build ModelSelector component. Wire model ID to cookie + localStorage. Server: validate model ID via registry, resolve via myProvider. |
+
+<!-- AUDIT: Wave4-CONF-031 — listChatModels renamed to getAvailableModels per P3-T01. File path corrected from lib/ai/models.ts to features/models/lib/models.ts per P3-T01 file structure. -->
 
 ### SEAM-017: AI Provider Registry
 
@@ -208,9 +210,9 @@
 | Field | Detail |
 |-------|--------|
 | **Description** | User votes on assistant message via Server Action + useOptimistic |
-| **Components** | `features/voting/components/vote-buttons.tsx` → Server Action `voteOnMessage()` → `lib/data/vote` → DB |
-| **Data Exchanged** | Input: `{ chatId, messageId, type: "up"|"down" }`. Optimistic: `useOptimistic(type)` immediate UI. Server: auth check, upsert vote, `updateTag('votes:{chatId}')`. Return: `ActionResult<{ messageId }>`. |
-| **Task Needed** | Build VoteButtons component with useOptimistic + useTransition. Build voteOnMessage Server Action (auth, non-guest, DB upsert, updateTag). Build VoteResolver for deferred vote hydration via React 19 use(). |
+| **Components** | `features/voting/components/vote-buttons.tsx` → `features/voting/components/vote-resolver.tsx` → page/helper-level `getCachedVotes(chatId, userId)` (RSC `'use cache'` + `cacheTag('votes:{chatId}')` + `cacheLife('seconds')`) → Server Action `voteOnMessage()` → `lib/data/vote` (DB-only, ID-based) → DB; tag invalidation via `invalidateVotes(chatId)` helper. |
+| **Data Exchanged** | Input: `{ chatId, messageId, type: "up"|"down" }`. Optimistic: `useOptimistic(type)` immediate UI. Server: auth check via `getAppSession()`, `getCachedVotes` RSC read for non-guest authenticated users, DB upsert in `lib/data/vote` (IDs only), cache invalidation via `invalidateVotes(chatId)` → `updateTag('votes:{chatId}')`. Return: `ActionResult<{ messageId }>`. |
+| **Task Needed** | Build VoteButtons component with useOptimistic + useTransition. Build `getCachedVotes(chatId, userId)` helper at the chat page/feature layer (RSC `'use cache'` + `cacheTag('votes:{chatId}')` + `cacheLife('seconds')`) and a matching `invalidateVotes(chatId)` helper that wraps `updateTag('votes:{chatId}')`. Build `voteOnMessage` Server Action (auth, non-guest, ownership/visibility checks via `getAppSession()`, DB upsert in `lib/data/vote` with IDs only, then `invalidateVotes(chatId)`). Build VoteResolver for deferred vote hydration via React 19 `use()` that consumes the `getCachedVotes` promise. |
 
 > **Replaced:** SWR `PATCH /api/vote` with optimistic mutate → Server Action + useOptimistic.
 
@@ -276,16 +278,16 @@
 
 | Field | Detail |
 |-------|--------|
-| **Description** | AppSession gates all data access for guest vs auth paths |
-| **Components** | `lib/auth/session.ts` getAppSession() → All `lib/data/` functions |
-| **Data Exchanged** | `AppSession` → `{ user: { id, type } }` branching for authorization + feature gating. Both guest and auth paths use DB persistence with cache-tagged reads. |
-| **Task Needed** | All lib/data/ functions accept session context for guest/auth branching. |
+| **Description** | AppSession gates data access at the auth layer (Server Actions and Route Handlers), while the `lib/data/` layer remains session-agnostic and ID-based. |
+| **Components** | `lib/auth/session.ts#getAppSession()` → Server Actions / Route Handlers → `lib/data/*` functions (IDs + simple options only) |
+| **Data Exchanged** | `getAppSession()` returns `AppSession \| null` to actions/routes. Those use `session.user.id` and user type for auth/ownership/visibility checks, then call `lib/data/*` with entity IDs and simple options (no session). Both guest and authenticated users share the same DB-backed persistence with cache-tagged reads. |
+| **Task Needed** | Ensure all `lib/data/*` functions accept only IDs and simple options (no `AppSession`, no session-derived `DataContext`). All auth/ownership/visibility and guest/auth branching happens in Server Actions and Route Handlers via `getAppSession()` before calling `lib/data/*`. Example: `voteOnMessage` gets the session, validates the vote and user, then calls `lib/data/vote` with `{ chatId, messageId, type }` only; chat CRUD actions follow the same pattern with `lib/data/chat`. |
 
 ### SEAM-024: Chat Data Operations
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Chat CRUD operations via lib/data/chat with cache-through pattern |
+| **Description** | Chat CRUD operations via lib/data/chat with framework caching (`'use cache'` + `cacheTag`) | <!-- wave4-cleanup: "cache-through pattern" → framework caching -->
 | **Components** | `lib/data/chat.ts` → `lib/db/` (Drizzle) + cache via `'use cache'` + `cacheTag` |
 | **Data Exchanged** | `Chat`, `ChatWithMessages`. Operations: get, getWithMessages, list, create, updateTitle, updateChatVisibility, delete, deleteAll. |
 | **Task Needed** | Build all chat data functions. 'use cache' + cacheTag for reads. updateTag/revalidateTag for writes. |
@@ -316,10 +318,10 @@
 
 | Field | Detail |
 |-------|--------|
-| **Description** | Three levels of error boundaries catch and display errors |
-| **Components** | `app/global-error.tsx` (root), `app/(chat)/error.tsx` (chat route), `features/artifacts/components/artifact-error-boundary.tsx` (artifact panel) |
+| **Description** | Four levels of error boundaries catch and display errors |
+| **Components** | `app/global-error.tsx` (root), `app/(chat)/error.tsx` (chat route), `app/(auth)/error.tsx` (auth route), `features/artifacts/components/artifact-error-boundary.tsx` (artifact panel) |
 | **Data Exchanged** | `Error` objects caught by boundary. Reset functions for retry. |
-| **Task Needed** | Build three error boundary components. Global: standalone html/body wrapper. Chat: preserves sidebar, shows retry + home. Artifact: prevents editor crashes from propagating. |
+| **Task Needed** | Build four error boundary components. Global: standalone html/body wrapper. Chat: preserves sidebar, shows retry + home. Auth: provides recovery path for auth-route failures. Artifact: prevents editor crashes from propagating. | <!-- C2-W4: SEAM-027 fix -->
 
 ### SEAM-028: Client Error Handling (useChat.onError)
 

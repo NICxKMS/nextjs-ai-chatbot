@@ -5,7 +5,7 @@
 > Blueprint for the new project's directory structure, configuration, and shared types.
 > These files define the **empty shell** that all feature implementations build upon.
 > Uses `proxy.ts` (NOT middleware.ts), "artifact" naming throughout, `useSyncExternalStore`
-> for artifact state, handler registry for dependency inversion, 125 tasks across 8 phases.
+> for artifact state, handler registry for dependency inversion, 126 tasks across 8 phases. <!-- C2-W4: IC-05/06 fix -->
 
 ## Contents
 

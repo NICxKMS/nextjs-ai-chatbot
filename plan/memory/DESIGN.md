@@ -14,7 +14,7 @@ plan/memory/
 └── tasks/
     ├── P0-T01.md                    # Created on-demand by subagent
     ├── P0-T02.md                    # ...
-    └── ...                          # (up to 125 files, created as needed)
+     └── ...                          # (up to 126 files, created as needed) <!-- C2-W4: IC-05/06 fix -->
 ```
 
 **That's it.** Three concerns, three file types:
@@ -159,7 +159,7 @@ active    →  active                               (session crash → re-dispat
 2. `active_task` matches the `active` or `done` (pending review) entry in `progress`, or both are empty/null.
 3. `sessions` has at most 3 entries. When adding a 4th, discard the oldest.
 4. `blockers` only contains unresolved blockers. Resolution removes the entry.
-5. `next_task` is null when all 125 tasks are `done/pass` (project complete), OR when no dispatchable task exists (all remaining tasks are blocked/failed — escalate to user).
+5. `next_task` is null when all 126 tasks are `done/pass` (project complete), OR when no dispatchable task exists (all remaining tasks are blocked/failed — escalate to user).
 6. A `done/fail` task must be re-dispatched before advancing `next_task` past it.
 7. If a task reaches `attempt_count` 4 (i.e., 3 retries), escalate to user.
 
@@ -503,7 +503,7 @@ IF verdict = PASS:
        - Next task in dependency order whose deps are all done/pass
        - If last task in phase → next_task = gate task
        - If gate passed → next_task = first task of next phase
-       - If all 125 done → next_task: null
+     - If all 126 done → next_task: null
   4. Set state.md: next_task: {computed}
   5. IF current task is the phase gate task AND review passed:
        phases.P{N}.status: done
@@ -763,8 +763,8 @@ against the naming table in `plan/final_plan/preamble.md`.
 | State | Old System | New System |
 |-------|-----------|------------|
 | Orchestrator session-start reads | 7+ files | 4 files (STARTER-PROMPT, state.md, decisions.md, Task_Assignment_Guide) |
-| Files in `plan/memory/` | 8 + 125 pre-created = 133 | 2 + on-demand tasks |
-| At project completion | 133 files | 127 files (state.md + decisions.md + 125 task files) |
+| Files in `plan/memory/` | 8 + 126 pre-created = 134 | 2 + on-demand tasks |
+| At project completion | 134 files | 128 files (state.md + decisions.md + 126 task files) |
 | Info to find "is P0-T05 done?" | Open progress.md, scan table | Read state.md frontmatter → `progress.P0-T05` |
 | Info to find review status | Open task file + progress.md | Read state.md frontmatter → `progress.P0-T05: done/pass` |
 | Session history | Unbounded append-only log | Rolling 3 in state.md; full history in task timestamps |

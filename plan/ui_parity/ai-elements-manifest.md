@@ -1,9 +1,10 @@
 # AI Elements Manifest — 31 Read-Only Primitives
 
-> **Updated per redesign audit (2026-03-01)**
+> **Updated per redesign audit (2026-03-02)**: Hybrid on-demand copy policy applied.
 
-> Location: `oldapp/components/elements/` → Rebuild: `components/ai-elements/`
-> These are reference UI primitives. They are optional/conditional carry-forward items under redesign (not mandatory verbatim copies).
+> **Source**: `oldapp/components/elements/`
+> **Target**: `components/ai-elements/` (on-demand)
+> **Policy**: When a feature wrapper needs a primitive, copy that specific file as-is from source → target. No bulk upfront copy. Copied files are **read-only** — never modified, never reformatted, excluded from Biome. Wrappers are colocated in consuming features and import from `@/components/ai-elements/`.
 
 ---
 
@@ -171,7 +172,7 @@
 | **LOC** | 177 |
 | **Exports** | `ModelSelectorProps`, `ModelSelector`, `ModelSelectorTriggerProps`, `ModelSelectorTrigger`, `ModelSelectorContentProps`, `ModelSelectorContent`, `ModelSelectorDialogProps`, `ModelSelectorDialog`, `ModelSelectorInputProps`, `ModelSelectorInput`, `ModelSelectorListProps`, `ModelSelectorList`, `ModelSelectorEmptyProps`, `ModelSelectorEmpty`, `ModelSelectorGroupProps`, `ModelSelectorGroup`, `ModelSelectorItemProps`, `ModelSelectorItem`, `ModelSelectorShortcutProps`, `ModelSelectorShortcut`, `ModelSelectorSeparatorProps`, `ModelSelectorSeparator`, `ModelSelectorLogoProps`, `ModelSelectorLogo`, `ModelSelectorLogoGroupProps`, `ModelSelectorLogoGroup`, `ModelSelectorNameProps`, `ModelSelectorName` (28) |
 | **Dependencies** | `react`, `@/components/ui/command`, `@/components/ui/dialog`, `@/lib/utils/cn` |
-| **Consumed by** | `ModelSelectorCompact`, `ModelSelector` components |
+| **Consumed by** | `ModelSelector` components <!-- wave4-cleanup: was ModelSelectorCompact + ModelSelector, compact variant dropped in redesign --> |
 
 ### 18. node.tsx — `components/ai-elements/node.tsx`
 

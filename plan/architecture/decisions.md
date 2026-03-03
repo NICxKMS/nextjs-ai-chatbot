@@ -66,8 +66,8 @@ data access APIs (`getChatById()`, `saveArtifactVersion()`).
 ### Decision
 
 **Use plain function modules in `lib/data/`.** Each entity gets a file exporting specific
-functions that match actual usage patterns. The `withCache()` helper handles the common
-cache-through pattern.
+functions that match actual usage patterns. The `withCache()` helper wraps `'use cache'`
+for framework-level caching. <!-- wave4-cleanup: S-07 — "cache-through" replaced with 'use cache' wrapper semantics -->
 
 ### Alternatives Considered
 
@@ -99,7 +99,7 @@ eliminates DataContext; bare-ID signatures are sufficient. Auth checks at action
 | Gain | Cost |
 |------|------|
 | ~60% less code | No enforced interface contract |
-| No abstraction to understand | Cache pattern repeated per function (mitigated by withCache) |
+| No abstraction to understand | Cache pattern repeated per function (mitigated by `withCache` `'use cache'` wrapper) | <!-- wave4-cleanup: S-08 -->
 | Guest/auth branching is natural | Slightly more boilerplate per entity |
 | Direct testing without class mocking | — |
 
@@ -210,17 +210,17 @@ utils, services, and test utilities. It sits below `lib/` in the import hierarch
 ### Context
 
 The v6 spec (§11.1, §16) defines two AI component layers:
-- `components/ai-elements/` — 30 read-only primitives (never modify)
+- `components/ai-elements/` — 31 read-only primitives (never modify)
 - `components/ai/` — 31 project wrapper modules (10 categories)
 
 Both are global. With feature collocation, the wrappers should live in features.
 
 ### Decision
 
-- **`components/ai-elements/`** stays global and read-only. It's an external dependency
-  consumed by multiple features.
-- **AI wrappers** are colocated in the feature that uses them. Don't create wrappers for
-  functionality that doesn't exist yet.
+- **`components/ai-elements/`** is populated **on-demand**: when a feature wrapper needs a primitive, copy that specific file as-is from `oldapp/components/elements/` to `components/ai-elements/`. No bulk upfront copy.
+- Copied files are **read-only** — never modified, never reformatted, excluded from Biome.
+- **AI wrappers** are colocated in the feature that uses them (e.g., `features/chat/components/`). Wrappers import from `@/components/ai-elements/`.
+- Don't create wrappers (or copy primitives) for functionality that doesn't exist yet.
 
 ### What's Actually Needed
 
@@ -241,6 +241,7 @@ corresponding feature. Do not build them.
 | Wrappers colocated with consumers | If a wrapper is later needed by 2 features, extract to shared |
 | No dead code for non-existent features | Initial discovery requires knowing which feature |
 | ai-elements stays a clean external dep | — |
+| On-demand copy per feature | Requires tracking which primitives are already copied |
 
 ### Confidence: 85%
 
@@ -435,22 +436,34 @@ the chat feature. This creates a hard coupling: chat must know about every artif
 
 ### Decision
 
-**Use a handler registry** in `lib/ai/artifact-handlers.ts` with `registerHandler(kind, handler)`
-and `getHandler(kind)` functions. Each artifact kind registers itself. The chat feature
-gets handlers via the registry without importing artifact internals.
+<!-- C2-W4: SSA-03 fix -->
+
+**Use a handler registry** in `lib/ai/artifact-handlers.ts` with `registerArtifactHandler(kind, handler)`,
+`getArtifactHandler(kind)`, and `hasArtifactHandler(kind)` functions. Each artifact kind registers
+itself. The chat feature gets handlers via the registry without importing artifact internals.
+`registerArtifactHandler` throws if a handler for the given kind is already registered (duplicate-prevention guard).
 
 ### Pattern
 
 ```typescript
 // lib/ai/artifact-handlers.ts
 const handlers = new Map<ArtifactKind, ArtifactHandler>()
-export function registerHandler(kind: ArtifactKind, handler: ArtifactHandler) { ... }
-export function getHandler(kind: ArtifactKind): ArtifactHandler | undefined { ... }
+
+export function registerArtifactHandler(kind: ArtifactKind, handler: ArtifactHandler) {
+  if (handlers.has(kind)) throw new Error(`Artifact handler already registered: ${kind}`)
+  handlers.set(kind, handler)
+}
+export function getArtifactHandler(kind: ArtifactKind): ArtifactHandler | undefined {
+  return handlers.get(kind)
+}
+export function hasArtifactHandler(kind: ArtifactKind): boolean {
+  return handlers.has(kind)
+}
 
 // features/artifacts/handlers/index.ts
-import { registerHandler } from '@/lib/ai/artifact-handlers'
-registerHandler('text', textHandler)
-registerHandler('code', codeHandler)
+import { registerArtifactHandler } from '@/lib/ai/artifact-handlers'
+registerArtifactHandler('text', textHandler)
+registerArtifactHandler('code', codeHandler)
 // ...
 ```
 
@@ -477,14 +490,15 @@ Children access chat state via `useChatSessionContext()` instead of prop drillin
 ### Components
 
 - `ChatShell`: Calls useChat, provides context, renders Messages + MultimodalInput + ArtifactPanel
-- `ChatSessionContext`: Holds messages, status, append, reload, stop, setMessages
+- `ChatSessionContext`: Holds messages, status, sendMessage, appendMessage, stop, editMessage, error, clearError
 - `StreamBridge`: Thin sibling component (~20 lines) that calls `processStreamDelta()` pure function
-- `VoteResolver`: Uses `use()` to resolve deferred vote promise, passes `initialVotes` to VoteButtons which use `useOptimistic`
+- `VoteResolver`: Uses `use()` to resolve deferred vote promise, hydrates VotesProvider context; VoteButtons reads from VotesProvider via `useVoteForMessage()`
 
 > **Updated per Wave 4 reconciliation (CI-3/DA-5, 2026-03-02):** "hydrates SWR" replaced
-> with "passes `initialVotes` to VoteButtons which use `useOptimistic`" per SC-3 resolution.
+> with VotesProvider context pattern per SC-3/CV-02 resolution.
 
 <!-- audit: CI-3, DA-5 — VoteResolver description corrected from SWR to useOptimistic -->
+<!-- Wave 4-VOTING: C4 fix — updated from pre-CV-02 "passes initialVotes" to VotesProvider context pattern -->
 
 ### Confidence: 90%
 

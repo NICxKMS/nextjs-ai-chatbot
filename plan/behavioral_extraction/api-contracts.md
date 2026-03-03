@@ -55,14 +55,12 @@ Required (guest or authenticated). Rate limited.
   selectedChatModel: string;      // Provider-qualified model ID (e.g., "google:gemini-2.5-flash")
   selectedVisibilityType: "public" | "private";
   settings?: {
-    sampling?: {
-      temperature?: number;
-      topP?: number;
-      maxOutputTokens?: number;
-    };
-    systemPrompt?: string;
-    enableReasoning?: boolean;
-  };
+    temperature: number;
+    topP: number;
+    maxOutputTokens: number;
+    systemPrompt: string;
+    enableReasoning: boolean;
+  }; // Matches SettingsState in lib/types/settings.types.ts
   // Settings limited to: temperature, topP, maxOutputTokens, systemPrompt, enableReasoning.
   // Model selection via `chat-model` cookie.
 }
@@ -80,19 +78,27 @@ SSE stream (`Content-Type: text/event-stream`). Uses Vercel AI SDK `UIMessageStr
 6. Build system prompt, configure tools, stream response
 
 ### Side Effects
-- Creates chat record (DB + cache) if new; `revalidateTag('chats:{userId}', 'max')`
+- Creates chat record (DB) if new; `revalidateTag('chats:{userId}', 'max')` refreshes framework cache <!-- wave4: CONF-038 — clarified "DB + cache" → "DB"; cache = Next.js framework cache via revalidateTag, not Redis -->
 - Creates message records (user message saved before streaming, assistant after)
 - Updates chat title (async) via `chat-title` stream part (single-channel)
-- Updates chat `lastContext` with model context (e.g. `modelId`)
+- Persists chat `model` column with the selected model ID (e.g. `google:gemini-2.5-flash`)
+<!-- C2-W4: C2X-004 fix -->
 
 ### Error Responses
+Pre-stream validation/auth failures are thrown as `AppError` instances with these codes and serialized via `AppError.toResponse()` as:
+
+```typescript
+{ error: { code: string; message: string; status: number } }
+```
+
 | Error | Code | Status |
 |-------|------|--------|
 | Invalid body | `bad_request:api:invalid_request_body` | 400 |
 | Not authenticated | `unauthorized:chat:auth_required` | 401 |
-| Invalid model | `bad_request:api:invalid_model_id` | 400 |
+| Invalid model | `bad_request:chat:invalid_model_id` | 400 |
 | Rate limited | `rate_limit:chat:*` | 429 |
 | Chat owner mismatch | `forbidden:chat:owner_mismatch` | 403 |
+<!-- C2-W4: C2X-006 fix -->
 
 ---
 
@@ -112,9 +118,7 @@ Required (guest sessions allowed with ownership checks).
 3. Chat ownership verification (query chat, compare userId)
 
 ### Side Effects
-- Deletes chat from DB
-- Removes from cache (meta + messages + user's ZSET entry)
-- `updateTag('chats:{userId}')`
+- Deletes chat from DB, `updateTag('chats:{userId}')` <!-- wave4: CONF-018 — removed stale Redis ZSET reference; no Redis cache keys for chat data -->
 
 ### Response
 `ActionResult<void>` on success/failure envelope
@@ -123,11 +127,46 @@ Required (guest sessions allowed with ownership checks).
 | Error | Code | Status |
 |-------|------|--------|
 | Unauthorized | `unauthorized:chat:auth_required` | 401 |
-| Invalid ID | `bad_request:chat:invalid_id` | 400 |
-| Not found | `not_found:chat:not_found` | 404 |
+| Invalid ID | `bad_request:validation:invalid_input` | 400 |
+| Not found | `not_found:chat:chat_not_found` | 404 |
 | Not owner | `forbidden:chat:owner_mismatch` | 403 |
+<!-- C2-W4: C2X-006 fix -->
 
 > **Current behavior (post-redesign):** `deleteChat` and `deleteAllChats` are Server Actions returning `ActionResult<void>`. They call `updateTag('chats:{userId}')` for immediate invalidation (not `revalidateTag`). See `architecture/patterns.md` revalidation matrix.
+
+---
+
+## Server Action `renameChat({ chatId, title })` <!-- wave4: CONF-041 — added missing dedicated section; matches contracts.md §6 pattern -->
+
+> *Enables inline title editing from sidebar. Returns `ActionResult`.*
+
+### Auth
+Required (ownership verified).
+
+### Input
+`{ chatId: string, title: string }` (Zod validated)
+
+### Validation
+1. Auth check (authenticated or guest session)
+2. UUID validation for chatId
+3. Title string validation (non-empty, max length)
+4. Chat ownership verification
+
+### Side Effects
+- Updates chat title in DB
+- `updateTag('chat:{chatId}')` + `updateTag('chats:{userId}')`
+
+### Response
+`ActionResult` on success/failure envelope
+
+### Errors
+| Error | Code | Status |
+|-------|------|--------|
+| Unauthorized | `unauthorized:chat:auth_required` | 401 |
+| Invalid ID | `bad_request:validation:invalid_input` | 400 |
+| Not found | `not_found:chat:chat_not_found` | 404 |
+| Not owner | `forbidden:chat:owner_mismatch` | 403 |
+<!-- C2-W4: C2X-006 fix -->
 
 ---
 
@@ -171,9 +210,7 @@ Required. Rate limited (strict: 10/min).
 `ActionResult<void>`
 
 ### Side Effects
-- Deletes all chats for user from DB
-- Clears all cache entries (per-chat meta + messages + user ZSET)
-- `updateTag('chats:{userId}')` *(cache invalidation)*
+- Deletes all user data from DB, `updateTag('chats:{userId}')` <!-- wave4: CONF-018 — removed stale Redis ZSET reference; no Redis cache keys for chat data -->
 
 > **Current behavior (post-redesign):** `deleteChat` and `deleteAllChats` are Server Actions returning `ActionResult<void>`. They call `updateTag('chats:{userId}')` for immediate invalidation (not `revalidateTag`). See `architecture/patterns.md` revalidation matrix.
 

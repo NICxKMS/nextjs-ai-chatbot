@@ -38,7 +38,7 @@ interface ModelMetadata {
   id: string;                           // full model ID (e.g. "openai:gpt-4o")
   provider: string;                     // was providerId: ProviderId
   providerModelId: string;              // was modelId
-  label: string;                        // was name
+  name: string;                         // canonical display name (legacy field was `label`)
   description?: string;
   supportsToolCalling: boolean;         // was capabilities array
   supportsReasoning: boolean;           // was capabilities array
@@ -49,7 +49,7 @@ interface ModelMetadata {
 }
 ```
 
-> **Redesign note:** `providerId` → `provider`, `modelId` → `providerModelId`, `name` → `label`. The `capabilities` array was replaced by explicit boolean flags (`supportsToolCalling`, `supportsReasoning`). `isCurated` removed; use `source === 'static'` instead. `reasoningType` and `thinkingBudget` are no longer part of `ModelMetadata` — reasoning config is resolved at call time via provider options.
+> **Redesign note:** `providerId` → `provider`, `modelId` → `providerModelId`. `name: string` is the canonical display field for `ModelMetadata` (older behavioral extractions used a `label` field). The `capabilities` array was replaced by explicit boolean flags (`supportsToolCalling`, `supportsReasoning`). `isCurated` removed; use `source === 'static'` instead. `reasoningType` and `thinkingBudget` are no longer part of `ModelMetadata` — reasoning config is resolved at call time via provider options.
 
 ### Capability Flags (Canonical)
 Tool and reasoning behavior is determined by explicit booleans on `ModelMetadata`:
@@ -59,11 +59,13 @@ Tool and reasoning behavior is determined by explicit booleans on `ModelMetadata
 ### Reasoning Types & Middleware
 | Type | Tag Name | Provider Options |
 |------|----------|-----------------|
-| `openai-thinking` | `<think>` | `openai.reasoningEffort: "high"` |
+| `openai-thinking` | `<thinking>` | `openai.reasoningEffort: "high"` |
 | `anthropic-thinking` | `<thinking>` | `anthropic.thinkingBudget: N` |
-| `gemini-thinking` | `<think>` | `google.thinkingConfig: { type: "enabled", includeThoughts: true }` |
+| `gemini-thinking` | `<thinking>` | `google.thinkingConfig: { type: "enabled", includeThoughts: true }` |
 | `deepseek-thinking` | `<think>` | `deepseek.reasoningLevel: "high"` |
 | `internal-thinking` | `<think>` | `reasoning.enabled: true, budget: N` |
+
+> **Tag name reconciliation (Wave 4):** OpenAI and Google use `<thinking>` (matching the redesign's `REASONING_TAGS` map). DeepSeek uses `<think>`. Previous behavioral extractions incorrectly listed `<think>` for all providers. Verified against redesign `ai-integration.md` §1 REASONING_TAGS. See AI-W1-02, SSC-08.
 
 Reasoning models are wrapped with `extractReasoningMiddleware({ tagName })` from AI SDK.
 
@@ -93,17 +95,17 @@ Model discovery and catalog merge live in `lib/ai/models.ts` (no standalone `mod
 - **Behavior**: Geocodes city via Open-Meteo API, fetches weather forecast
 - **Returns**: Temperature, hourly forecast, sunrise/sunset
 
-#### `createArtifact({ session, dataStream, chatId })`
+#### `createArtifact({ session, ChatStream, chatId })`
 - **Schema**: `z.object({ title: z.string(), kind: z.enum(["text","code","sheet"]) })`
 - **Behavior**: Generates UUID, streams data parts (`artifact-kind`, `artifact-id`, `artifact-title`, `artifact-clear`), delegates to `artifactHandler.create()`, writes `artifact-finish`
 - **Returns**: `{ id, title, kind, content: "An artifact was created..." }`
 
-#### `updateArtifact({ session, dataStream })`
+#### `updateArtifact({ session, ChatStream })`
 - **Schema**: `z.object({ id: z.string(), description: z.string() })`
 - **Behavior**: Fetches existing artifact via `getArtifactById()`, streams `artifact-clear`, delegates to `artifactHandler.update()`, writes `artifact-finish`
 - **Returns**: `{ id, title, kind, content: "The artifact has been updated..." }`
 
-#### `requestSuggestions({ session, dataStream })`
+#### `requestSuggestions({ session, ChatStream })`
 - **Schema**: `z.object({ artifactId: z.string() })`
 - **Behavior**: Fetches artifact, uses `streamObject` with artifact-model to generate up to 5 suggestions, streams each as `artifact-suggestion`
 - **Saves**: To DB for authenticated users only
@@ -112,9 +114,10 @@ Model discovery and catalog merge live in `lib/ai/models.ts` (no standalone `mod
 ### Tool Enablement Logic
 ```
 if (!model.supportsToolCalling) → no tools
-if (model is google:gemma-*) → no tools
-otherwise → tools enabled per `getEnabledTools(modelId)`
+otherwise → tools enabled per getEnabledTools(model)
 ```
+
+> **Tool gating rule:** At runtime, the **only** gate for tools is `ModelMetadata.supportsToolCalling === true`. Any prefix-based lists (for example, a `noToolModels` array for reasoning-only models such as Gemma) are used **only** when constructing the model catalog to set `supportsToolCalling` / `supportsReasoning` correctly, not as a separate runtime allow/deny list.
 
 ---
 
@@ -126,7 +129,7 @@ const result = streamText({
   model: myProvider.languageModel(selectedChatModel),
   system: systemPrompt({...}),
   messages: convertToModelMessages(uiMessages),
-  stopWhen: stepCountIs(5),
+  maxSteps: 5, // AMB-6: Standardized on maxSteps (available in AI SDK v4+v5). If future SDK requires stopWhen: stepCountIs(5), swap at implementation time.
   abortSignal: AbortSignal.timeout(55_000),
   experimental_activeTools: enabledTools,
   experimental_transform: smoothStream({ delayInMs: 2, chunking: "word" }),
@@ -137,7 +140,7 @@ const result = streamText({
 });
 
 result.consumeStream();
-dataStream.merge(result.toUIMessageStream({ sendReasoning: true }));
+ChatStream.merge(result.toUIMessageStream({ sendReasoning: true }));
 ```
 
 ### Title Generation
@@ -184,21 +187,34 @@ const { text: title } = await generateText({
 
 ## System Prompts (`lib/ai/prompts.ts`)
 
+> *`ai-integration.md` §4 `composeSystemPrompt()` is the authoritative specification.*
+> *This section documents the legacy extraction for behavioral context.*
+
+<!-- audit: SSC-07 — composition aligned with ai-integration.md §4 (Wave 4 reconciliation) -->
+
 ### Composition
 ```typescript
-systemPrompt = [
-  regularPrompt,           // Base assistant behavior
-  userSystemPrompt?,       // User-configured (from settings, max 8192 chars)
-  requestPrompt,           // Geo hints (lat, lon, city, country)
-  artifactsPrompt?,        // Only if NOT a reasoning model
-].join("\n\n")
+// Authoritative: ai-integration.md §4 composeSystemPrompt()
+composeSystemPrompt({ settings, hasTools, supportsReasoning }): string
+
+// Components (in order):
+//   BASE_PROMPT                       — Base assistant behavior + date context
+//   settings.systemPrompt?            — User-configured (from settings, max 8192 chars)
+//   ARTIFACTS_PROMPT?                 — Only when hasTools === true
+//   REASONING_PROMPT?                 — Only when settings.enableReasoning && supportsReasoning
 ```
 
-### `regularPrompt`
-Concise, direct assistant. Use tools only when necessary. Match user's tone.
+> *Legacy `requestPrompt` (geo hints: lat, lon, city, country) was present in the old codebase
+> but intentionally omitted from the redesign's `composeSystemPrompt()`. See SSC-07.*
 
-### `artifactsPrompt`
-Instructions for `createArtifact`/`updateArtifact` tool usage. Rules: substantial content (>10 lines), code always in artifacts, Python only, never update immediately after creating.
+### `BASE_PROMPT` (legacy: `regularPrompt`)
+"You are a helpful assistant. Today's date is {date}." Concise, direct. Match user's tone.
+
+### `ARTIFACTS_PROMPT` (legacy: `artifactsPrompt`)
+Instructions for `createArtifact`/`updateArtifact` tool usage. Rules: substantial content (>10 lines), code always in artifacts, Python only, never update immediately after creating. Included only when `hasTools === true` (derived from `ModelMetadata.supportsToolCalling`).
+
+### `REASONING_PROMPT`
+"Think step-by-step before responding." Included only when `settings.enableReasoning && ModelMetadata.supportsReasoning` for the selected model.
 
 ### `updateArtifactPrompt(content, type)`
 Update existing content based on user feedback.
@@ -208,6 +224,16 @@ Instructs the model to write self-contained Python code: use `print()` for outpu
 
 ### `sheetPrompt`
 Instructs the model to generate CSV data with headers as the first row.
+
+---
+
+## Provider Options & Reasoning Config
+
+> **`getProviderOptions()` reasoning fields (Wave 4):** The redesign's `getProviderOptions()` code sketch references `settings.reasoningBudget` and `settings.reasoningEffort` — fields that **do not exist** in the planned `SettingsState`. The current plan defines only `enableReasoning: boolean` (a toggle). Provider options use **hardcoded defaults** gated by the `enableReasoning` boolean:
+> - Google: `{ thinkingConfig: { thinkingBudget: 1024 } }` (hardcoded)
+> - OpenAI: `{ reasoningEffort: 'medium' }` (hardcoded)
+>
+> The redesign's `settings.reasoningBudget` / `settings.reasoningEffort` references are **superseded** by this approach. If per-provider tuning is desired later, add `reasoningBudget?: number` and `reasoningEffort?: string` to `SettingsState` explicitly. See AI-W2-01.
 
 ---
 

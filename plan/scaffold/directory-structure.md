@@ -72,8 +72,8 @@ app/
 │
 ├── (chat)/
 │   ├── layout.tsx                    # Chat layout (SERVER): sidebar + PendingChatsProvider
-│   ├── loading.tsx                   # Loading skeleton while chat data loads (SERVER) (post-redesign addition: route-level loading state)
 │   ├── error.tsx                     # Chat route error boundary
+│   <!-- Audit: W4-POLISH-01 (Wave 4) — Removed loading.tsx. cleanup-inventory §3 #23 prescribes PPR + <Suspense> boundaries instead of route-level loading.tsx. Chat pages use <Suspense> for data-dependent sections (sidebar via P5-T11, votes via VoteResolver). See W2 D-1 (MEDIUM), W3-01 (CONTRADICTION resolved: align with cleanup-inventory). -->
 │   ├── page.tsx                      # New chat page (SERVER): generates UUID, renders ChatShell
 │   └── chat/
 │       └── [id]/
@@ -83,7 +83,7 @@ app/
     ├── chat/
     │   └── route.ts                  # POST: AI chat streaming (SSE via createUIMessageStream)
     ├── artifact/
-    │   └── route.ts                  # GET: artifact versions, POST: save/restore artifact version
+    │   └── route.ts                  # POST: save artifact version <!-- audit: W4-CONF-023 — corrected to POST-only per conventions.md + redesign. Artifact version retrieval is server-rendered via 'use cache', not client GET. -->
     ├── files/
     │   └── upload/
     │       └── route.ts              # POST: file upload (Vercel Blob)
@@ -172,6 +172,7 @@ features/artifacts/
 │   ├── artifact-actions.tsx          # Toolbar: copy, run, diff, undo/redo ('use client')
 │   ├── artifact-close-button.tsx     # Close button (useArtifactSelector for isVisible) ('use client')
 │   ├── artifact-preview.tsx          # Inline artifact preview in messages ('use client')
+│   ├── artifact-tool-result.tsx      # Tool call result card for artifacts in message stream ('use client') <!-- Wave 4: CONF-010 -->
 │   ├── artifact-error-boundary.tsx   # Error boundary for editor crashes ('use client')
 │   ├── version-footer.tsx            # Version navigation prev/next ('use client')
 │   └── editors/
@@ -243,8 +244,8 @@ features/sidebar/
 │   ├── sidebar-user-nav.tsx          # 'use client': user avatar, theme toggle, logout
 │   └── sidebar-skeleton.tsx          # SERVER: loading skeleton for SSR/PPR fallback
 ├── hooks/
-│   ├── use-pending-chats.ts          # PendingChatsProvider context + operations (add, remove, updateTitle)
 │   └── use-sidebar-history.ts        # useSWRInfinite wrapper for paginated history
+<!-- audit: W4-CONF-014 — use-pending-chats.ts removed; PendingChatsProvider relocated to lib/providers/pending-chats-provider.tsx per conventions.md (CR-1, DEV-030) -->
 ├── actions/
 │   └── rename-chat.ts               # Server Action: rename chat title + updateTag
 └── types/
@@ -254,7 +255,8 @@ features/sidebar/
 **Key changes from old plan:**
 - `app-sidebar.tsx` → `sidebar-shell.tsx` (SERVER component with `'use cache'`)
 - `sidebar-history.tsx` → `sidebar-history-client.tsx` (explicit client marker)
-- `use-optimistic-chats.ts` → `use-pending-chats.ts` (PendingChatsProvider)
+- `use-optimistic-chats.ts` → PendingChatsProvider (relocated to `lib/providers/pending-chats-provider.tsx` per CR-1, DEV-030)
+<!-- audit: W4-CONF-014 — updated to reflect lib/providers/ location -->
 - New: `use-sidebar-history.ts`, `rename-chat.ts`, `sidebar.types.ts`
 - Title sync: single channel via `chat-title` stream → `PendingChats.updateTitle()` (no polling, no window events)
 
@@ -285,7 +287,7 @@ features/models/
 ├── components/
 │   └── model-selector.tsx            # Model dropdown grouped by provider ('use client')
 ├── lib/
-│   └── models.ts                     # Model catalog: listChatModels() with 'use cache' + cacheTag
+│   └── models.ts                     # Model catalog: getAvailableModels() with 'use cache' + cacheTag <!-- wave4-cleanup: CONF-031 listChatModels→getAvailableModels -->
 └── types/
     └── model.types.ts                # ModelMetadata, grouped model types
 ```
@@ -300,13 +302,20 @@ features/models/
 features/visibility/
 ├── components/
 │   └── visibility-selector.tsx       # Public/private toggle dropdown ('use client')
+├── hooks/
+│   └── use-chat-visibility.ts       # useChatVisibility hook for consumers outside ChatSessionContext (e.g., SidebarHistoryItem)
 ├── actions/
 │   └── update-visibility.ts          # Server Action: update chat visibility + updateTag
 └── types/
     └── visibility.types.ts           # VisibilityType
 ```
 
-**Key change from old plan:** Visibility is its own feature module (was inside chat).
+<!-- AUDIT: CONF-024 / Wave 4 — Added hooks/ with use-chat-visibility.ts.
+     SidebarHistoryItem is outside ChatSessionContext and needs a self-contained
+     useOptimistic + Server Action pattern for visibility mutation.
+     Traceability: wave3/cross-unit-reconciliation.md CONF-024, wave1/ui-parity.md D12. -->
+
+**Key change from old plan:** Visibility is its own feature module (was inside chat). Hook added for consumers outside ChatSessionContext scope.
 
 ### `features/settings/`
 
@@ -332,39 +341,8 @@ Only components used by 2+ features or genuinely app-wide.
 
 ```
 components/
-├── ai-elements/                       # Optional legacy reference primitives from oldapp (NOT redesign-required baseline)
-│   ├── artifact.tsx                   # (128 LOC) Artifact compound component
-│   ├── canvas.tsx                     # (20 LOC) Graph canvas
-│   ├── chain-of-thought.tsx           # (211 LOC) CoT display
-│   ├── checkpoint.tsx                 # (64 LOC) Progress indicators
-│   ├── code-block.tsx                 # (182 LOC) Syntax-highlighted code
-│   ├── confirmation.tsx               # (158 LOC) Tool confirmation dialog
-│   ├── connection.tsx                 # (26 LOC) Graph connections
-│   ├── context.tsx                    # (379 LOC) Token usage display
-│   ├── controls.tsx                   # (15 LOC) Graph controls
-│   ├── conversation.tsx               # (92 LOC) Conversation wrapper
-│   ├── edge.tsx                       # (132 LOC) Graph edges
-│   ├── image.tsx                      # (107 LOC) Image file rendering
-│   ├── inline-citation.tsx            # (258 LOC) Citation display
-│   ├── lazy.tsx                       # (100 LOC) Lazy-loaded heavy components
-│   ├── loader.tsx                     # (92 LOC) Loading spinner
-│   ├── message.tsx                    # (394 LOC) Message compound component
-│   ├── model-selector.tsx             # (177 LOC) Model selector primitive
-│   ├── node.tsx                       # (60 LOC) Graph nodes
-│   ├── open-in-chat.tsx               # (339 LOC) Open-in external tools
-│   ├── panel.tsx                      # (13 LOC) Graph panel
-│   ├── plan.tsx                       # (120 LOC) Plan/step display
-│   ├── prompt-input.tsx               # (1275 LOC) Rich prompt input
-│   ├── queue.tsx                      # (245 LOC) Task queue display
-│   ├── reasoning.tsx                  # (183 LOC) Reasoning display
-│   ├── shimmer.tsx                    # (58 LOC) Streaming text shimmer
-│   ├── sources.tsx                    # (68 LOC) Source citations
-│   ├── suggestion.tsx                 # (56 LOC) Suggestion pills
-│   ├── task.tsx                       # (80 LOC) Task/progress display
-│   ├── tool.tsx                       # (156 LOC) Tool invocation display
-│   ├── toolbar.tsx                    # (14 LOC) Graph toolbar
-│   └── web-preview.tsx                # (243 LOC) Web preview iframe
-│
+├── ai-elements/                     # On-demand primitives (copied as-is from oldapp/components/elements/)
+│   └── ... (populated per-feature, read-only)
 ├── ui/                                # shadcn/ui base components
 │   ├── alert.tsx
 │   ├── avatar.tsx
@@ -408,6 +386,7 @@ components/
 
 **Key changes from old plan:**
 - Removed `app-shell.tsx` (no monolithic provider tree — server layout composes providers)
+- `ai-elements/` populated ON-DEMAND — when a feature wrapper needs a primitive, copy from `oldapp/components/elements/` to `components/ai-elements/`. Read-only, never modified, excluded from Biome. <!-- audit: W4-SC-07 -->
 - New: `weather.tsx` (moved from chat to shared), `toaster.tsx`
 
 ---
@@ -421,7 +400,7 @@ lib/
 ├── ai/
 │   ├── registry.ts                   # createProviderRegistry (conditional: google, openai, openrouter — NO vercel-gateway)
 │   ├── provider.ts                   # myProvider: customProvider with reasoning middleware
-│   ├── models.ts                     # listChatModels() with 'use cache' + dynamic discovery
+│   ├── models.ts                     # getAvailableModels() with 'use cache' + dynamic discovery <!-- wave4-cleanup: CONF-031 listChatModels→getAvailableModels -->
 │   ├── prompts.ts                    # composeSystemPrompt() with conditional composition
 │   ├── provider-options.ts           # getProviderOptions() per-provider config (temperature, reasoning)
 │   ├── artifact-handlers.ts          # Handler registry: registerArtifactHandler/getArtifactHandler
@@ -435,7 +414,8 @@ lib/
 │   ├── client.ts                     # Upstash Redis client (globalThis singleton, edge-compatible)
 │   ├── keys.ts                       # Cache key factory: cacheKeys.chat(id), cacheKeys.artifact(id), etc.
 │   ├── revalidate.ts                # updateTag/revalidateTag utilities (invalidateChat, refreshChat, etc.)
-│   └── with-cache.ts                # withCache<T>(key, ttl, fetcher) cache-through helper
+│   └── with-cache.ts                # withCache<T>(tag, fetcher, life?) — 'use cache' directive wrapper
+<!-- audit: W4-CONF-027 — updated from Redis cache-aside params (key, ttl, fetcher) to 'use cache' wrapper -->
 │
 ├── data/
 │   ├── chat.ts                       # Chat CRUD: getChatById, getChatsByUserId, createChat, etc.
@@ -455,13 +435,16 @@ lib/
 │   ├── app-error.ts                  # AppError class with static factories + toResponse()
 │   └── codes.ts                      # Error code registry (NO activate_gateway, NO credit codes)
 │
+├── providers/
+│   └── pending-chats-provider.tsx    # Cross-feature: PendingChatsProvider (chat writes, sidebar reads) <!-- audit: W4-CONF-014, CR-1, DEV-030 -->
+│
 ├── types/
-│   ├── api.types.ts                  # (post-redesign addition) PaginatedResult<T>, PaginationParams, ErrorResponse, HealthResponse
+│   ├── api.types.ts                  # (created by P0-T05) PaginatedResult<T>, PaginationParams, ErrorResponse, HealthResponse
 │   ├── artifact.types.ts             # UIArtifact, ArtifactKind (canonical shared artifact types)
 │   ├── artifact-handler.types.ts     # ArtifactHandler, ArtifactStreamWriter, Create/UpdateArtifactParams
 │   ├── pending-chats.types.ts        # PendingChat, PendingChatOperations
-│   ├── data-context.types.ts         # DataContext (userId, isGuest)
 │   ├── model.types.ts                # ModelMetadata, DEFAULT_CHAT_MODEL, TITLE_MODEL, ARTIFACT_MODEL
+│   ├── models.types.ts               # Drizzle InferSelectModel/InferInsertModel for all tables (shared-types.md §1) <!-- audit: W4-SC-W2-01 -->
 │   ├── settings.types.ts             # SettingsState type
 │   └── result.types.ts              # ActionResult<T> for Server Actions
 │
@@ -483,7 +466,7 @@ lib/
 - New: `lib/types/artifact-handler.types.ts`, `lib/types/pending-chats.types.ts`, `lib/types/result.types.ts`
 - Removed: `lib/api/` (guards, validation, response — moved to features or simplified)
 - Removed: `lib/rate-limit/` (rate limiting handled in proxy.ts + route handlers directly)
-- Removed: `lib/data/context.ts` (DataContext simplified to `lib/types/data-context.types.ts`)
+- Removed: `lib/data/context.ts` (DataContext removed entirely per DEV-024 / AMB-2)
 - Removed: barrel `index.ts` files (direct imports instead — no mandatory barrel files)
 - `lib/ai/providers.ts` → `lib/ai/provider.ts`
 - `lib/ai/model-discovery.ts` → merged into `lib/ai/models.ts`
@@ -554,25 +537,25 @@ public/
 | Directory | Files | Purpose |
 |-----------|-------|---------|
 | **Root config** | 14 | proxy.ts, next.config.ts, tsconfig, biome, package.json, etc. |
-| **app/** | 16 | Routes, layouts, API handlers, error/loading boundaries |
+| **app/** | 15 | Routes, layouts, API handlers, error boundaries |
 | **features/chat/** | 21 | Chat session: components, hooks, actions, tools, schemas, types |
 | **features/artifacts/** | 17 | Artifact panel: components, editors, handlers, store, schemas, types |
 | **features/auth/** | 9 | Authentication: form, providers, actions, session, schemas, types |
 | **features/sidebar/** | 10 | Sidebar history: components, hooks, actions, types |
 | **features/voting/** | 6 | Message voting: components, hook, action, type |
 | **features/models/** | 4 | Model selection: component, catalog, types |
-| **features/visibility/** | 4 | Visibility toggle: component, action, types |
+| **features/visibility/** | 5 | Visibility toggle: component, hook, action, types |
 | **features/settings/** | 4 | User settings: component, hook, types |
-| **components/ai-elements/** | optional | Legacy reference primitives (excluded from redesign baseline) |
+| **components/ai-elements/** | on-demand | ON-DEMAND — copied per-feature from `oldapp/components/elements/` when wrapper needs primitive. Read-only, excluded from Biome. |
 | **components/ui/** | 32 | shadcn/ui base components |
 | **components/** (root) | 5 | Theme, icons, sidebar toggle, weather, toaster |
 | **lib/ai/** | 8 | AI registry, provider, models, prompts, handlers, tools, title |
 | **lib/auth/** | 1 | Session infrastructure |
-| **lib/cache/** | 4 | Redis client, keys, revalidation, cache-through |
+| **lib/cache/** | 4 | Redis client (rate-limiting), cache keys, revalidation helpers, `'use cache'` wrapper | <!-- wave4-cleanup: clarified dual purpose — Redis for ops + framework caching -->
 | **lib/data/** | 6 | Data access: chat, artifact, message, vote, suggestion, user |
 | **lib/db/** | 2+ | Drizzle client, schema, migrations |
 | **lib/errors/** | 2 | AppError class, error codes |
-| **lib/types/** | 8 | Shared type contracts (cross-feature) |
+| **lib/types/** | 9 | Shared type contracts (cross-feature) | <!-- audit: W4-SC-W2-01 added models.types.ts -->
 | **lib/utils/** | 3 | cn, format, generate-uuid |
 | **lib/hooks/** | 2 | Truly generic hooks |
 | **tests/** | 16 | Mocks, fixtures, utils, integration, E2E |

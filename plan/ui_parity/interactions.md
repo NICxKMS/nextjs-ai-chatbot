@@ -4,6 +4,8 @@
 
 > Every user-facing interaction flow in the oldapp, documented for zero-regression rebuild.
 
+> ⚠️ **Historical/non-prescriptive policy:** This parity map is reference-only. If any interaction detail here conflicts with `plan/phases/*.md`, phase tasks are canonical. For **ART-AMB-SUGGESTION-FILE** and **ART-AMB-SKELETON-FILE**, inline implementation is canonical unless a phase task explicitly requires standalone files. <!-- C2-W4: ID fix -->
+
 ---
 
 ## 1. Chat Message Send/Receive
@@ -89,7 +91,7 @@
 
 ### Close Flow
 
-1. `ArtifactCloseButton` click → set `isVisible: false` on artifact state (pure visibility toggle; content/metadata preserved until chat lifecycle reset)
+1. `ArtifactCloseButton` click → set `isVisible: false` on artifact state (panel open/close only; content/metadata preserved until chat lifecycle reset, **not** a sharing/visibility control)
 2. On mobile: always full-screen, close returns to chat
 
 ---
@@ -127,14 +129,16 @@
 
 ## 4. Model Selection
 
-### Compact (In-Input)
-1. `ModelSelectorCompact` in `MultimodalInput` toolbar
-2. Tiny button showing current model name
+<!-- wave4-cleanup: ModelSelectorCompact variant was intentionally dropped in redesign. Consolidated to single ModelSelector component. -->
+<!-- audit: SOFT-011 — updated placement from MultimodalInput to ChatHeader per P6-T05 redesign -->
+### Redesign Placement (ChatHeader)
+1. `ModelSelector` in `ChatHeader` *(redesign: moved from MultimodalInput toolbar)*
+2. Dropdown showing current model name
 3. Click → `DropdownMenu` with grouped model list
 4. Models grouped by provider, sorted by name
 
-### Full Selector
-1. `ModelSelector` standalone component
+### ~~Full Selector~~ *(consolidated into single ModelSelector)*
+1. ~~`ModelSelector` standalone component~~
 2. Searchable with filter input
 3. Model details: name, description, provider, release date, context window, capabilities badges, pricing
 4. `curated` / `discovered` badges
@@ -172,7 +176,7 @@
 3. Selection applies optimistic UI state via `useOptimistic`
 4. Mutation call: `updateChatVisibility` Server Action updates DB + cache tags
 5. Local state updated optimistically
-6. Reflected in sidebar item dropdown (Share submenu with radio options)
+6. Reflected in sidebar item dropdown (Share submenu with radio options) as another **chat-level** control; artifacts themselves never render a `VisibilitySelector` and inherit visibility from their parent chat.
 
 ---
 
@@ -221,7 +225,7 @@
 ### Sections
 
 #### Sampling Parameters
-- **Temperature:** `Input type="number"` (0–1.5, step 0.1), label + tooltip
+- **Temperature:** `Input type="number"` (0–2, step 0.1), label + tooltip
 - **Top P:** `Input type="number"` (0–1, step 0.1)
 - **Max Output Tokens:** `Input type="number"` (256–1,000,000)
 - Changes → `updateSettings()` on input change
@@ -272,7 +276,7 @@
 ## 12. Inline Artifact Preview *(redesign: renamed from Inline Document Preview)*
 
 1. Tool calls (`createArtifact`, `updateArtifact`) render inline `ArtifactPreview` *(redesign: renamed from DocumentPreview)*
-2. Shows skeleton during loading, mini editor when ready
+2. Shows inline skeleton during loading, mini editor when ready (standalone skeleton/suggestion file mappings are historical unless phase tasks explicitly require standalone) <!-- C2-W4: ID fix -->
 3. Click → opens full artifact panel
 4. Captures bounding box for smooth open animation (`hitboxRef`)
 

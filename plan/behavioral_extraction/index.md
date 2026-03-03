@@ -15,7 +15,7 @@
 | 5 | [state-management.md](state-management.md) | **State Management** — Complete state inventory table. Hooks: useChat, useArtifact (useSyncExternalStore), useChatVisibility (useOptimistic), usePendingChats, useScrollToBottom, useMobile, useWindowSize. Providers: ChatStreamProvider (split state/dispatch, page-scoped), PendingChatsProvider, SessionProvider, ThemeProvider. Settings via `useSyncExternalStore` + localStorage (no provider). StreamBridge → artifactStore. |
 | 6 | [auth-system.md](auth-system.md) | **Auth System** — Dual auth architecture (Supabase + Guest JWT), session resolution, Server Action auth mutations (`login`, `register`, `logout`), guest auto-creation in proxy.ts, token rotation, guest limitations table, rate limiting, auth guards, security considerations (IDOR, JWT, cookies). SessionProvider wraps app. |
 | 7 | [artifacts-system.md](artifacts-system.md) | **Artifacts System** — 4 artifact types (text/TipTap, code/CodeMirror+Pyodide, sheet/react-data-grid, image), ArtifactHandler registry with `.create()`/`.update()` methods, server/client split, versioning via composite PK, `artifact-*` stream parts, artifactStore (useSyncExternalStore), suggestions flow, diff view, toolbar system, panel UI layout/visibility logic, error boundaries. |
-| 8 | [edge-cases.md](edge-cases.md) | **Edge Cases** — ChatSDKError system, error boundaries (global, chat, artifact), loading states, empty states, network error handling, AbortController usage, rate limiting behavior, cache failure modes (circuit breaker), data integrity (dedup, optimistic rollback, race conditions), specific edge cases (Pyodide, concurrent tabs, file uploads). |
+| 8 | [edge-cases.md](edge-cases.md) | **Edge Cases** — Unified error model (AppError + ActionResult), error boundaries (global, chat, artifact), loading states, empty states, network error handling, AbortController usage, rate limiting behavior, cache failure modes (circuit breaker), data integrity (dedup, optimistic rollback, race conditions), specific edge cases (Pyodide, concurrent tabs, file uploads). |
 
 ## Key Architectural Patterns
 
@@ -33,7 +33,7 @@
 
 7. **Provider Registry**: Dynamic model discovery + curated catalog. Reasoning middleware wraps models transparently via `myProvider` in `lib/ai/provider.ts`.
 
-8. **Structured Errors**: `ChatSDKError` / `AppError` with typed codes, surface-based visibility, HTTP response serialization. Server Actions return `ActionResult<T>` instead of throwing.
+8. **Structured Errors**: `AppError` with typed codes for route handlers (serialized via `AppError.toResponse()` as `{ error: { code, message, status } }`), surface-based visibility, and Server Actions that return `ActionResult<T>` instead of throwing.
 
 ## Dependency Map
 
@@ -71,6 +71,6 @@ Root Layout (SERVER)
 | Stream → UI | StreamBridge → artifactStore (useSyncExternalStore) | `artifact-*` data parts |
 | Chat → Sidebar | PendingChats.add() on first message | Context (PendingChatsProvider) |
 | Title → Sidebar | `chat-title` stream part → PendingChats.updateTitle() | Single-channel (stream + context) |
-| Settings → Server | request body → temperature/topP/prompt | Per-request (useSyncExternalStore + localStorage) |
+| Settings → Server | `SettingsState` → `request.body.settings` (`temperature`, `topP`, `maxOutputTokens`, `systemPrompt`, `enableReasoning`) | Per-request (useSyncExternalStore + localStorage) |
 | Auth → Everything | getAppSession() → AppSession | Cookie + JWT (SessionProvider) |
 | Cache → DB | `'use cache'` + `cacheTag`, write-through + `revalidateTag`/`updateTag` | Next.js cache + Drizzle |

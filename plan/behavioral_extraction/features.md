@@ -21,7 +21,8 @@ Real-time AI chat interface with multi-model support, streaming responses, and m
 4. User types message in `<MultimodalInput>`, optionally attaches files
 5. On submit: `window.history.replaceState` to `/chat/{chatId}`, `sendMessage()` called
 6. `useChat` hook sends POST to `/api/chat` with `{ id, message, selectedChatModel, selectedVisibilityType, settings }`
-7. Server validates body via Zod (`postRequestBodySchema`), checks auth, and enforces rate limits
+7. Server validates body via Zod (`chatRequestSchema`), checks auth, and enforces rate limits
+<!-- SYNC: Wave 4-CHAT — LC-04. postRequestBodySchema renamed to chatRequestSchema per P3-T05. -->
 8. `createUIMessageStream` created; inside `execute()`:
    - Title generation starts in parallel for new chats (non-blocking)
    - `executeChatCompletion()` called with `streamText` from AI SDK
@@ -43,7 +44,8 @@ Real-time AI chat interface with multi-model support, streaming responses, and m
 - Max 5 steps (`stepCountIs(5)`)
 
 ### Edge Cases
-- Model not in registry → `bad_request:api:invalid_model_id`
+<!-- C2-W4-FIXUP: ErrorCode drift fix -->
+- Model not in registry → `bad_request:chat:invalid_model_id`
 - Rate limit exceeded → `429 Too Many Requests`
 - Chat owned by different user → `forbidden:chat:owner_mismatch`
 - AI completion timeout (55s) → AbortSignal fires
@@ -201,32 +203,32 @@ Upload file attachments to messages.
 Users can switch between available AI models.
 
 ### Entry Points
-- `<ModelSelector>` / `<PromptInputModelSelect>` in input area
+- `<ModelSelector>` in `ChatHeader` (owned by `features/models/`)
 - Cookie `chat-model` persists selection + localStorage directly (not via SettingsState)
 
 ### User Flow
-1. User opens model dropdown in input area
-2. Available models from `listChatModels()` displayed (curated + discovered)
+1. User opens model dropdown in the chat header
+2. Available models from `getAvailableModels()` displayed (curated + discovered) <!-- AUDIT: Wave4-CONF-031 — listChatModels renamed to getAvailableModels per P3-T01 -->
 3. Selection persisted via `chat-model` cookie + localStorage (independent of `useSettings`)
-4. New chats use localStorage value; existing chats use `chat.lastContext.modelId`
+4. New chats use localStorage value; existing chats use `chat.model` (flat column) <!-- SYNC: Wave 4-CHAT — CONF-013. chat.lastContext.modelId replaced with chat.model per redesign flat column recommendation. -->
 
 ---
 
 ## 8. Chat Visibility
 
 ### Description
-Chats can be public or private.
+Each chat has a per-chat `visibility` flag (`public` \| `private`) stored on the `Chat` table; there is **no artifact-level visibility**.
 
 ### Entry Points
-- `<VisibilitySelector>` component
-- `updateChatVisibility` server action
+- `<VisibilitySelector>` component in `ChatHeader` (desktop) and sidebar share menu
+- `updateChatVisibility` server action (visibility feature)
 
 ### User Flow
-1. User toggles visibility via dropdown
-2. Optimistic update applied immediately
-3. Server action validates auth, UUID, ownership
-4. DB + cache updated
-5. On failure: rollback optimistic update, show toast
+1. User toggles chat visibility via `VisibilitySelector` dropdown
+2. Optimistic update applied immediately via React 19 `useOptimistic`
+3. Server action `updateChatVisibility({ chatId, visibility })` validates auth, UUID, ownership
+4. DB + cache updated (`updateTag('chat:{id}')` + `updateTag('chats:{userId}')`)
+5. On failure: rollback optimistic update and show toast
 
 ---
 

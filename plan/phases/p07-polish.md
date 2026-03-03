@@ -37,7 +37,7 @@
 
 | Seam | Description | Task |
 |------|-------------|------|
-| SEAM-027 | Error boundaries (all 3 levels) | P7-T01, P7-T02 |
+| SEAM-027 | Error boundaries (all 4 levels) | P7-T01, P7-T02 | <!-- C2-W4: SEAM-027 fix -->
 
 ---
 
@@ -50,8 +50,8 @@ Title: Finalize error boundaries
 Phase: 7 — Polish & Production
 Type: IMPL
 
-Behavior ref: edge-cases.md (error boundaries at 3 levels)
-Architecture ref: SEAM-027 (error boundaries — root, chat route, artifact); redesign (polish all 3)
+Behavior ref: edge-cases.md (error boundaries)
+Architecture ref: SEAM-027 (error boundaries — root, chat route, auth route, artifact); redesign (polish all 4) <!-- C2-W4: SEAM-027 fix -->
 
 Action: Finalize 3 error boundary files. (1) app/global-error.tsx — "use client" standalone error boundary that renders its own html/body (required by Next.js for global-error). Layout: centered error message with app branding, error code display, "Try again" button (calls reset()), "Go home" link (navigates to /). Must not import from any layout-level providers (SessionProvider, etc.) — render standalone. (2) app/(chat)/error.tsx — "use client" error boundary for the chat route group. Preserves sidebar and layout (only replaces main content area). Shows error message, "Try again" button, "Go home" button. Sidebar remains functional for navigation. (3) app/(auth)/error.tsx — Auth route error boundary with recovery actions.
 
@@ -61,7 +61,7 @@ Output files:
 - app/(auth)/error.tsx
 
 Inputs: None (standalone components)
-Outputs: Error boundaries at all 3 levels
+Outputs: Error boundaries at 3 route levels (global/chat/auth) with artifact boundary finalized in P7-T02 (4 total levels) <!-- C2-W4: SEAM-027 fix -->
 
 AI layer handling: NEW
 
@@ -72,7 +72,7 @@ Success criteria:
 - Global error renders standalone html/body
 - Chat error preserves sidebar for navigation
 - Auth error provides recovery path
-- All 3 render standalone with recovery actions
+- All 3 route-level boundaries render standalone with recovery actions (artifact boundary verified in P7-T02) <!-- C2-W4: SEAM-027 fix -->
 - "Try again" calls reset()
 - Error logged to console
 - pnpm typecheck passes
@@ -122,7 +122,8 @@ Type: IMPL
 Behavior ref: accessibility.md (ARIA attributes, roles, labels, states, live regions, keyboard patterns)
 Architecture ref: interactions.md (keyboard shortcuts)
 
-Action: Audit and update ~8 key component files for comprehensive ARIA coverage, keyboard navigation, and motion preferences. Key areas: (1) multimodal-input.tsx — aria-label="Upload file" on file input, aria-label="Send Message" on submit, Enter submits (not during composition), Shift+Enter newline. (2) settings-panel.tsx — aria-pressed on all toggle buttons, label+input pairings. (3) auth-form.tsx — label+input with htmlFor, output aria-live="polite". (4) sidebar-skeleton.tsx — aria-busy on loading sections. (5) message-editor.tsx — Escape cancels, Enter submits. (6) code-editor console — ArrowUp/ArrowDown adjusts resize. (7) artifact-panel.tsx — focus management on open/close. (8) vote-buttons.tsx — aria-pressed on vote buttons. (9) Add `prefers-reduced-motion` CSS media query in globals.css — disable all CSS transitions/animations when user prefers reduced motion. Apply `@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }` as a global baseline.
+Action: Audit and update ~8 key component files for comprehensive ARIA coverage, keyboard navigation, and motion preferences. Key areas: (1) multimodal-input.tsx — aria-label="Upload file" on file input, aria-label="Send Message" on submit, Enter submits (not during composition), Shift+Enter newline. (2) settings-panel.tsx — aria-pressed on all toggle buttons, label+input pairings. (3) auth-form.tsx — label+input with htmlFor, output aria-live="polite". (4) sidebar-skeleton.tsx — aria-busy on loading sections. (5) message-editor.tsx — Escape cancels, Enter submits. (6) code-editor console — ArrowUp/ArrowDown adjusts resize. (7) artifact-panel.tsx — focus management on open/close. (8) vote-buttons.tsx — aria-pressed on vote buttons. (9) Add `prefers-reduced-motion` CSS media query in globals.css — disable all CSS transitions/animations when user prefers reduced motion. Apply `@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }` as a global baseline. (10) Add `<MotionConfig reducedMotion="user">` wrapper in `app/layout.tsx` (inside ThemeProvider). Import from `framer-motion`. This respects `prefers-reduced-motion` for all 7 framer-motion components (greeting, suggested-actions, version-footer, artifact, toolbar, suggestion, messages). CSS media query from (9) handles non-framer animations; `MotionConfig` handles JS-driven framer-motion springs that CSS cannot reach.
+<!-- Audit: W4-POLISH-03 (Wave 4) — Added MotionConfig requirement. CSS-only prefers-reduced-motion provably fails for framer-motion JS springs (requestAnimationFrame-based, not CSS transitions). See W2 D-2 (ESCALATED to MEDIUM), W3-08. Avoids creating lib/motion.tsx (not in directory structure) by placing MotionConfig in root layout. -->
 
 Output files:
 - ~8 component files (modify)
@@ -145,6 +146,7 @@ Success criteria:
 - Escape cancels message editing
 - No keyboard traps
 - `prefers-reduced-motion: reduce` disables all CSS animations/transitions
+- `<MotionConfig reducedMotion="user">` wraps app in root layout for framer-motion components
 - pnpm typecheck passes
 
 Complexity: M
@@ -179,6 +181,8 @@ Success criteria:
 - Desktop layouts correct at 1024px+
 - Touch targets ≥44px on mobile
 - No horizontal scroll at any breakpoint
+- Viewport config does NOT set `maximumScale: 1` or `user-scalable=no` (WCAG 2.1 AA SC 1.4.4 — Resize Text compliance)
+<!-- Audit: W4-POLISH-04 (Wave 4) — Added viewport zoom verification. accessibility.md §8 explicitly warns against maximumScale:1 but neither P7-T03 nor P7-T04 checked it. See W2 NEW-2, W3-10. -->
 - pnpm typecheck passes
 
 Complexity: M
@@ -248,6 +252,9 @@ Success criteria:
 - Artifacts spec: create, version nav, close tests
 - Sidebar spec: history, navigation, delete tests
 - All specs use "artifact" naming (not "document")
+- Add `data-testid` attributes to key interactive elements for E2E selector stability: `multimodal-input` (textarea), `send-button`, `stop-button`, `auth-form`, `login-button`, `register-button`, `vote-up`, `vote-down`, `sidebar-toggle`, `model-selector`, `visibility-selector`, `visibility-selector-item-private`, `visibility-selector-item-public`. Note: component files modified here or in P7-T03 to add these attributes as needed.
+<!-- Audit: W4-POLISH-05 (Wave 4) — accessibility.md §8 specifies data-testid for test automation; E2E specs depend on stable selectors. See W2 NEW-4, W3-07. -->
+<!-- wave4-cleanup: PATCH-VIS-01 — Added visibility-selector, visibility-selector-item-private, visibility-selector-item-public data-testid entries. -->
 - pnpm typecheck passes on test files
 
 Complexity: L
@@ -262,7 +269,7 @@ Type: IMPL
 Behavior ref: features.md (feature integration)
 Architecture ref: AGENTS.md (pnpm test:unit)
 
-Action: Create 4 integration test files. (1) tests/integration/chat-flow.test.ts — Chat send/receive flow with mocked AI. (2) tests/integration/artifact-flow.test.ts — Artifact creation/update flow with mocked handlers. (3) tests/integration/auth-flow.test.ts — Auth session resolution and guard flows. (4) tests/integration/sidebar-flow.test.ts — Sidebar data loading and pending chat operations.
+Action: Create 4 integration test files. (1) tests/integration/chat-flow.test.ts — Chat send/receive flow with mocked AI. (2) tests/integration/artifact-flow.test.ts — Artifact creation/update flow with mocked handlers. (3) tests/integration/auth-flow.test.ts — Auth session resolution and guard flows. (4) tests/integration/sidebar-flow.test.ts — Sidebar data loading and pending chat operations. Include HTTP-boundary route coverage assertions (status + error envelope/code) for `/api/chat`, `/api/history`, `/api/artifact`, and `/api/files/upload` across auth, validation, ownership, and rate-limit cases. <!-- C2-W4: C2X-008 fix -->
 
 Output files:
 - tests/integration/chat-flow.test.ts
@@ -270,8 +277,8 @@ Output files:
 - tests/integration/auth-flow.test.ts
 - tests/integration/sidebar-flow.test.ts
 
-Inputs: tests/fixtures/ (P1-T13), tests/mocks/ (P0-T16)
-Outputs: Integration test suite
+Inputs: tests/fixtures/ (P1-T13), tests/mocks/ (P0-T16), vitest.config.ts (P0-T16) <!-- W4-CYCLE1: SOFT-013 fix -->
+Outputs: Integration test suite runnable via `pnpm test:unit`
 
 AI layer handling: NEW
 
@@ -282,6 +289,9 @@ Success criteria:
 - Tests cover core flows for each feature area
 - All tests use "artifact" naming (not "document")
 - Tests use mocked dependencies
+- HTTP-boundary route behavior is covered for `/api/chat`, `/api/history`, `/api/artifact`, and `/api/files/upload` (status + canonical error code assertions) <!-- C2-W4: C2X-008 fix -->
+- Multi-user fixture scenarios validate owner vs non-owner access paths for protected chat mutations/routes <!-- C2-W4: C2X-008 fix -->
+- `pnpm test:unit` discovers and runs integration test files via vitest <!-- W4-CYCLE1: SOFT-013 fix -->
 - pnpm typecheck passes on test files
 
 Complexity: L
@@ -461,7 +471,7 @@ Type: VERIFY
 Behavior ref: All behavioral extraction documents
 Architecture ref: AGENTS.md (final validation); redesign (complete exit criteria)
 
-Action: Final gate — verify all exit criteria. Checklist: (1) All 3 error boundaries render standalone with recovery actions, (2) `scripts/check-imports.mjs` reports zero violations, (3) Zero occurrences of "document" in code identifiers (use "artifact"), (4) Zero occurrences of credit/gateway/quota/data-usage terminology, (5) `proxy.ts` exists (not `middleware.ts`), (6) `pnpm format && pnpm typecheck && pnpm lint` all pass, (7) `pnpm build` succeeds cleanly, (8) E2E test specs cover: auth flow, chat send/receive, artifact create/edit, sidebar navigation, (9) All naming consistent per redesign: StreamBridge, ChatStreamProvider, ChatSessionContext, PendingChatsProvider, VoteResolver, SessionProvider, ArtifactHandler, ArtifactKind, artifactId, createArtifact, updateArtifact, artifact-preview, (10) No SettingsProvider exists (REMOVED), (11) Responsive design verified at mobile + desktop, (12) Keyboard navigation functional, (13) ARIA attributes present on all interactive elements.
+Action: Final gate — verify all exit criteria. Checklist: (1) All 4 error boundaries render standalone with recovery actions, (2) `scripts/check-imports.mjs` reports zero violations, (3) Zero occurrences of "document" in code identifiers (use "artifact"), (4) Zero occurrences of credit/gateway/quota/data-usage terminology, (5) `proxy.ts` exists (not `middleware.ts`), (6) `pnpm format && pnpm typecheck && pnpm lint` all pass, (7) `pnpm build` succeeds cleanly, (8) E2E test specs cover: auth flow, chat send/receive, artifact create/edit, sidebar navigation, (9) All naming consistent per redesign: StreamBridge, ChatStreamProvider, ChatSessionContext, PendingChatsProvider, VoteResolver, SessionProvider, ArtifactHandler, ArtifactKind, artifactId, createArtifact, updateArtifact, artifact-preview, (10) No SettingsProvider exists (REMOVED), (11) Responsive design verified at mobile + desktop, (12) Keyboard navigation functional, (13) ARIA attributes present on all interactive elements. <!-- C2-W4: SEAM-027 fix -->
 
 Output files: none (validation only)
 
@@ -482,7 +492,7 @@ pnpm test:unit
 ```
 
 Success criteria:
-- All 3 error boundaries functional
+- All 4 error boundaries functional <!-- C2-W4: SEAM-027 fix -->
 - Import boundaries respected (zero violations)
 - "artifact" naming throughout (zero "document" identifiers)
 - Zero credit/gateway/quota/data-usage terminology
@@ -492,7 +502,12 @@ Success criteria:
 - E2E tests cover all core flows
 - Non-negotiable constraints #8–#10 verified (defensive, not redesign-mandated):
   - #8: `grep -r "revalidateTag"` in all Server Action files — every mutation calls `revalidateTag`
-  - #9: `grep -rE "useSWR|SWRConfig"` — zero occurrences (no SWR-as-state-store)
+  - #9: No SWR-as-state-store — verify with anti-pattern-specific checks:
+    - `grep -rE "useSWR\([^)]*,\s*null" --include='*.ts' --include='*.tsx'` — zero occurrences (SWR with null fetcher is the anti-pattern)
+    - `grep -rn "SWRConfig" --include='*.ts' --include='*.tsx'` — zero occurrences (no global SWR state provider)
+    - Manual review: all remaining `useSWR`/`useSWRInfinite` calls use real HTTP fetchers (expected: `useSWRInfinite` in sidebar, `useSWR` in VersionFooter — both fetcher-backed)
+    <!-- Audit: W4-POLISH-02 (Wave 4) — Replaced overly broad `useSWR|SWRConfig` grep that false-positives against legitimate useSWRInfinite (P5-T03 sidebar) and useSWR (VersionFooter). See W2 NEW-1, W3-06. -->
+    <!-- AMB-8 Resolution: Grep pattern targets useSWR-with-null-fetcher (the primary anti-pattern). Aliased imports (e.g., import { default as useData } from 'swr') are theoretical edge cases not present in the codebase. Manual review criterion serves as safety net. Accepted as sufficient. -->
   - #10: `grep -r "window.dispatchEvent"` — zero occurrences
   <!-- Audit: PO-4 (Wave 2/4) — Added defensive grep verification for non-negotiable constraints #8-#10. Not redesign-mandated for P7, but provides safety net. -->
 - All redesign naming applied:

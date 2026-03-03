@@ -23,15 +23,13 @@ Abstract database + cache operations behind plain functions. No classes, no gene
 import { eq, desc } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { chats } from '@/lib/db/schema'
-import { cache } from '@/lib/cache'
-import { cacheKeys } from '@/lib/cache/keys'
 import type { Chat } from '@/lib/types'
 export async function getChatById(
   id: string
 ): Promise<Chat | null> {
-  // Server cache-tagged read pattern
-  // Read from DB under 'use cache' + cacheTag
+  // Pure DB lookup — no auth, no caching
   // Auth/ownership checks happen at the action/page level, not data level
+  // Caching via 'use cache' + cacheTag happens at the page/feature layer
   const chat = await db.query.chats.findFirst({ where: eq(chats.id, id) })
   return chat ?? null
 }
@@ -43,49 +41,46 @@ export async function createChat(data: {
   visibility: 'public' | 'private'
 }): Promise<Chat> {
   const [chat] = await db.insert(chats).values(data).returning()
-  // Write-through: update cache after DB write
-  await cache.set(cacheKeys.chat(chat.id), chat, { ex: 3600 })
-  await cache.del(cacheKeys.userChats(data.userId))
+  // Revalidation happens at the caller level (Server Action or Route Handler)
+  // e.g., SA calls invalidateChatList(userId); RH calls refreshChatList(userId)
   return chat
 }
 
 export async function deleteChatById(
-  id: string,
-  userId: string
+  id: string
 ): Promise<void> {
   await db.delete(chats).where(eq(chats.id, id))
-  await cache.del(cacheKeys.chat(id))
-  await cache.del(cacheKeys.userChats(userId))
+  // Revalidation happens at the caller level (Server Action or Route Handler)
 }
 ```
+<!-- wave4: XDL-01/XDL-05 — removed Redis cache.set/cache.del from mutation templates; revalidation at caller level -->
 
-### withCache Helper
+### Page-Level Cache Pattern (`'use cache'` + `cacheTag`)
+
+> **Updated per Wave 4 (XDL-05, 2026-03-02):** Replaced Redis cache-aside `withCache` with
+> inline `'use cache'` pattern per redesign. Data functions in `lib/data/` are pure DB operations.
+> Caching wrappers live at the page/feature layer.
 
 ```typescript
-// lib/cache/with-cache.ts
-export async function withCache<T>(
-  key: string,
-  ttl: number,
-  fetcher: () => Promise<T | null>
-): Promise<T | null> {
-  try {
-    const cached = await cache.get<T>(key)
-    if (cached) return cached
-  } catch {
-    // Cache failure: fall through to fetcher
-  }
+// In page or server component — NOT in lib/data/
+import { cacheTag, cacheLife } from 'next/cache'
+import { getChatWithMessages } from '@/lib/data/chat'
 
-  const result = await fetcher()
-  if (result) {
-    try {
-      await cache.set(key, result, { ex: ttl })
-    } catch {
-      // Cache write failure: non-fatal
-    }
-  }
-  return result
+async function getCachedChat(chatId: string) {
+  'use cache'
+  cacheTag(`chat:${chatId}`)
+  cacheLife('seconds')
+  return getChatWithMessages(chatId)  // pure DB function from lib/data/
+}
+
+async function getCachedChats(userId: string) {
+  'use cache'
+  cacheTag(`chats:${userId}`)
+  cacheLife('seconds')
+  return getChatsByUserId(userId)  // pure DB function from lib/data/
 }
 ```
+<!-- wave4: XDL-05 — replaced Redis withCache with inline 'use cache' pattern -->
 
 ### Rules
 
@@ -93,10 +88,11 @@ export async function withCache<T>(
 - ✅ Read functions use bare-ID signatures (no `DataContext` parameter)
 - ✅ Auth/ownership checks happen at action/page level, not data level
 - ✅ Guest and auth users both use DB persistence
-- ✅ Reads use `'use cache'` + `cacheTag`; writes revalidate tags
-- ✅ Write functions: DB first, then cache update/invalidate
+- ✅ Reads use `'use cache'` + `cacheTag` + `cacheLife` at the page/feature layer; writes revalidate tags at the caller level
+- ✅ Write functions: DB operations only — no inline cache invalidation; revalidation at caller (SA/RH)
 - ❌ No abstract classes or generics
 - ❌ No direct DB access from actions (go through `lib/data/`)
+- ❌ No Redis cache-aside for data reads — Redis is for rate limiting and operational data only
 
 <!-- audit: HC-3 — bare-ID signatures, no DataContext parameter -->
 
@@ -166,12 +162,13 @@ export async function deleteChat({ chatId }: { chatId: string }): Promise<Action
   const session = await getAppSession()
   if (!session) return { success: false, error: { code: 'unauthorized:chat:auth_required', message: 'Unauthorized' } }
 
-  await deleteChatById(chatId, session.user.id)
-  updateTag(`chat:${chatId}`)
+  await deleteChatById(chatId)
   updateTag(`chats:${session.user.id}`)
   return { success: true, data: undefined }
 }
 ```
+<!-- W4-CYCLE1: DF-03 fix — removed extra updateTag('chat:{chatId}'), matches §9 matrix and redesign -->
+<!-- W4-CYCLE1: DF-W2-01 fix — deleteChatById takes 1 arg per §1 definition -->
 
 ### Structure
 
@@ -203,13 +200,20 @@ Thin HTTP handlers. Parse request, delegate to action, return response.
 
 ### Template — Streaming Route
 
+<!-- C2-W4: SOFT-010 fix -->
+
 ```typescript
-// app/api/chat/route.ts
-import { streamChatAction } from '@/features/chat/actions/stream-chat'
+// app/api/chat/route.ts — streaming routes are inline (see §7.1 for full template)
+import { createUIMessageStream } from 'ai'
+import { getAppSession } from '@/lib/auth/session'
+import { chatRequestSchema } from '@/features/chat/schemas/chat.schema'
 
 export async function POST(request: Request) {
+  const session = await getAppSession()
+  if (!session) throw AppError.unauthorized()
   const body = await request.json()
-  return streamChatAction(body)
+  const validated = chatRequestSchema.parse(body)
+  return createUIMessageStream({ execute: async (writer) => { /* ... see §7.1 */ } })
 }
 ```
 
@@ -236,8 +240,8 @@ export async function GET(request: Request) {
 
 ### Rules
 
-- ✅ Route files under 20 lines
-- ✅ Streaming routes return SSE response from action
+- ✅ Route files under 20 lines (streaming route is an exception — see §7.1)
+- ✅ Streaming routes implement SSE inline in route handler (no separate action file — P3-T23)
 - ✅ REST routes handle auth, parse params, call data layer
 - ✅ Error responses via `AppError.toResponse()`
 - ❌ No business logic in routes
@@ -262,19 +266,21 @@ export async function GET(request: Request) {
 ### 4.1 Server Component (Default)
 
 ```tsx
-// features/chat/components/messages.tsx
-import { getChatById } from '@/lib/data/chat'
-import { Message } from './message'
+// features/sidebar/components/sidebar-shell.tsx
+import { getAppSession } from '@/lib/auth/session'
+import { getCachedChats } from '@/features/sidebar/lib/queries'
+import { SidebarHistoryClient } from './sidebar-history-client'
 
-export async function Messages({ chatId }: { chatId: string }) {
-  const messages = await getMessagesByChatId(chatId)
-  return (
-    <div>
-      {messages.map(msg => <Message key={msg.id} message={msg} />)}
-    </div>
-  )
+export async function SidebarShell() {
+  const session = await getAppSession()
+  if (!session) return null
+  const chats = await getCachedChats(session.user.id)
+  return <SidebarHistoryClient initialChats={chats} />
 }
 ```
+
+<!-- SYNC: Wave 4-CHAT — LC-06. Messages is a CLIENT component (reads from ChatSessionContext),
+     not a server component. Replaced example with SidebarShell (actual server component). -->
 
 ### 4.2 Client Component
 
@@ -283,16 +289,16 @@ export async function Messages({ chatId }: { chatId: string }) {
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useChat } from '@ai-sdk/react'
+import { useChatSessionContext } from '@/features/chat/hooks/use-chat-session-context'
 
-export function MultimodalInput({ chatId }: { chatId: string }) {
-  const [attachments, setAttachments] = useState<FileAttachment[]>([])
-  const { handleSubmit, input, setInput, status } = useChat({ id: chatId })
+export function MultimodalInput() {
+  const { sendMessage, input, setInput, attachments, setAttachments, status } =
+    useChatSessionContext()
 
   const onSubmit = useCallback(() => {
-    handleSubmit(undefined, { experimental_attachments: attachments })
+    sendMessage()
     setAttachments([])
-  }, [handleSubmit, attachments])
+  }, [sendMessage, setAttachments])
 
   return (
     <form onSubmit={onSubmit}>
@@ -301,6 +307,9 @@ export function MultimodalInput({ chatId }: { chatId: string }) {
   )
 }
 ```
+
+<!-- SYNC: Wave 4-CHAT — LC-05. MultimodalInput reads from useChatSessionContext() (NOT useChat
+     directly, NOT prop-driven). No chatId prop needed — context provides all state. -->
 
 ### 4.3 Compound Component (AI Wrappers)
 
@@ -371,7 +380,7 @@ type ErrorCode =
   | 'bad_request:api:invalid_request_body'
   | 'unauthorized:chat:auth_required'
   | 'forbidden:chat:owner_mismatch'
-  | 'not_found:chat:not_found'
+  | 'not_found:chat:chat_not_found'
   | 'rate_limit:chat:too_many_requests'
   | 'ai_error:provider:failed'
   | 'internal_error:database:query_failed'
@@ -384,6 +393,7 @@ export class AppError extends Error {
   // toResponse() → Response.json({ error, code, details }, { status })
 }
 ```
+<!-- C2-W4: C2X-006 fix -->
 
 ### Usage
 
@@ -407,17 +417,23 @@ export class AppError extends Error {
 
 ### 7.1 Chat Streaming (Route Handler → SSE)
 
+<!-- W4-CYCLE1: CONFLICT-008 fix — getEnabledTools takes ModelMetadata, not raw string -->
+<!-- C2-W4: SOFT-010 fix -->
+
 ```typescript
-// features/chat/actions/stream-chat.ts
+// app/api/chat/route.ts — inline route handler (P3-T23)
 import { streamText } from 'ai'
 import { createUIMessageStream } from 'ai'
 import { myProvider } from '@/lib/ai/provider'
+import { getModelMetadata } from '@/lib/ai/models'
 
-export async function streamChatAction(body: ChatRequestBody) {
+export async function POST(request: Request) {
   const session = await getAppSession()
   if (!session) throw AppError.unauthorized()
 
+  const body = await request.json()
   const validated = chatRequestSchema.parse(body)
+  const model = getModelMetadata(validated.selectedChatModel)
 
   return createUIMessageStream({
     execute: async (dataStream) => {
@@ -431,7 +447,7 @@ export async function streamChatAction(body: ChatRequestBody) {
         model: myProvider.languageModel(validated.selectedChatModel),
         system: buildSystemPrompt(validated, session),
         messages: convertToModelMessages(validated.messages),
-        tools: getEnabledTools(validated.selectedChatModel)
+        tools: getEnabledTools(model)
           ? buildTools({ session, dataStream, chatId: validated.chatId })
           : undefined,
         abortSignal: AbortSignal.timeout(55_000),
@@ -536,38 +552,65 @@ export function ChatShell(props: ChatShellProps) {
 // NOTE: StreamBridge and VoteResolver are SIBLINGS of ChatShell, NOT children.
 // See component-wiring.md § 1 for the canonical layout:
 //   <ChatStreamProvider>
-//     <ChatShell />
-//     <StreamBridge />        ← sibling
-//     <Suspense><VoteResolver /></Suspense>  ← sibling
+//     <VotesProvider>              ← wraps ChatShell + StreamBridge + VoteResolver
+//       <ChatShell />
+//       <StreamBridge />           ← sibling
+//       <Suspense><VoteResolver /></Suspense>  ← sibling, hydrates VotesProvider
+//     </VotesProvider>
 //   </ChatStreamProvider>
+// <!-- Wave 4-VOTING: CONF-004 fix — VoteHydrator→VoteResolver per P7 gate + Implementation Agent Guide -->
 ```
 
 Children access chat state via `useChatSessionContext()` — no prop drilling.
 
-### 7.5 React 19 `use()` Promise-Passing (VoteResolver)
+### 7.5 React 19 `use()` Promise-Passing (VotesProvider + VoteResolver)
 
 > **Added per redesign audit (2026-03-01)**
+> **Updated per Wave 4 reconciliation (CV-01/CV-02/CV-03, 2026-03-02):** Replaced `mergeVotes` / `useChatSessionContext()` with VotesProvider context pattern. VoteButtons rendered in message.tsx, not by VoteResolver.
 
 ```tsx
-// Server component (page.tsx) creates the promise — does NOT await it:
-const votesPromise = getCachedVotes(chatId)  // returns Promise<Vote[]>
-return <ChatShell votesPromise={votesPromise} />
+// Server component (page.tsx) starts the votes fetch — does NOT await it:
+const votesPromise = session.user.type !== 'guest'
+  ? getCachedVotes(id, session.user.id)
+  : Promise.resolve([])
+const chat = await getCachedChat(id)  // only chat is awaited
 
-// Client component resolves with use():
+return (
+  <ChatStreamProvider>
+    <VotesProvider>                         {/* empty context initially */}
+      <ChatShell id={id} initialMessages={chat.messages} />
+      <StreamBridge id={id} />
+      <Suspense>
+        <VoteResolver votesPromise={votesPromise} />  {/* resolves, writes to VotesProvider */}
+      </Suspense>
+    </VotesProvider>
+  </ChatStreamProvider>
+)
+
+// VoteResolver resolves with use(), hydrates VotesProvider context:
 'use client'
 import { use } from 'react'
 
 function VoteResolver({ votesPromise }: { votesPromise: Promise<Vote[]> }) {
   const votes = use(votesPromise)       // Suspends until resolved
-  const { mergeVotes } = useChatSessionContext()
-  useEffect(() => { mergeVotes(votes) }, [votes])
+  const { setVotes } = useVotesContext()
+  useEffect(() => { setVotes(votes) }, [votes, setVotes])
   return null                           // Render-less data bridge
+}
+
+// VoteButtons inside message.tsx reads from VotesProvider:
+function VoteButtons({ chatId, messageId }: { chatId: string; messageId: string }) {
+  const vote = useVoteForMessage(messageId)  // reads from VotesProvider context
+  // ... renders ThumbsUp/ThumbsDown with useOptimistic
 }
 ```
 
 This pattern enables **parallel data fetching**: the server starts fetching votes
 while the chat page streams — no waterfall. The `<Suspense>` boundary around
-`VoteResolver` shows a fallback while votes load.
+`VoteResolver` shows a fallback while votes load. VoteButtons in message.tsx
+re-render when VotesProvider context is hydrated.
+
+> **UX Note (AMB-4):** The Suspense boundary around VoteResolver produces a brief fallback flash while votes load. This is architecturally intentional — vote states are non-blocking for the primary chat content render. Inlining votes into the page component would reintroduce `Promise.all` blocking on the critical render path.
 
 ### Rules
 
@@ -585,25 +628,28 @@ while the chat page streams — no waterfall. The `<Suspense>` boundary around
 
 ### 8.1 Redis Cache (Operational)
 
-> **Updated per Wave 4 reconciliation (HC-2, 2026-03-02):** Redis scope corrected.
+> **Updated per Wave 4 reconciliation (HC-2, XDL-01, RC-01, 2026-03-02):** Redis scope corrected.
 > Primary reads (chat, messages, artifacts, votes) use `'use cache'` + `cacheTag` (see §8.2 and §9).
 > Redis is reserved for rate limiting, session cache, and operational data.
 
 <!-- audit: HC-2 — Redis scope corrected to operational only -->
+<!-- wave4: XDL-01/RC-01 — removed data-domain Redis code templates -->
 
 Used for: rate limits, session cache, operational data.
 
 ```typescript
-// Read pattern
-const chat = await cache.get<Chat>(cacheKeys.chat(id))
+// Rate limiting pattern (ONLY valid Redis use for data)
+import { redis } from '@/lib/cache/client'
 
-// Write-through pattern
-await db.insert(chats)...
-await cache.set(cacheKeys.chat(id), chat, { ex: 3600 })
-
-// Invalidation pattern
-await cache.del(cacheKeys.userChats(userId))
+// Rate limit check
+const key = `rateLimit:${userId}`
+const count = await redis.incr(key)
+if (count === 1) await redis.expire(key, 60)
+if (count > MAX_REQUESTS_PER_MINUTE) throw AppError.rateLimited()
 ```
+
+> **Important:** No `cache.get`/`cache.set` for chat, message, artifact, or vote data.
+> All data read caching uses `'use cache'` + `cacheTag` + `cacheLife` (§8.2).
 
 ### 8.2 `use cache` (Server-Rendered, Tag-Invalidated)
 
@@ -626,14 +672,18 @@ export async function getModelCatalog() {
 
 ### Decision: Redis vs `use cache`
 
+> **Updated per Wave 4 (XDL-01, 2026-03-02):** Redis is NOT for data reads.
+> All data reads (user-specific or shared) use `'use cache'`. Redis handles only rate limiting and operational data.
+
 | Factor | Redis | `use cache` |
 |--------|-------|-------------|
-| User-specific | ✅ | ❌ |
-| Real-time updates | ✅ | ❌ |
-| Guest-only data | ✅ | ❌ |
-| Shared/static data | ❌ | ✅ |
-| Tag-based invalidation | Manual | Built-in |
+| Rate limiting / counters | ✅ | ❌ |
+| Session cache | ✅ | ❌ |
+| Data reads (chat, messages, artifacts, votes) | ❌ | ✅ |
+| Shared/static data (models, config) | ❌ | ✅ |
+| Tag-based invalidation | N/A | Built-in |
 | Edge compatible | ✅ (Upstash) | ✅ (framework) |
+<!-- wave4: XDL-01 — updated decision table to reflect Redis scoping -->
 
 ---
 
@@ -664,7 +714,7 @@ provides better latency.
 |----------|-----------------|--------|-----------|
 | `deleteChat({ chatId })` | `chats:{userId}` | Server Action | `updateTag` |
 | `deleteAllChats()` | `chats:{userId}` | Server Action | `updateTag` |
-| `renameChat({ chatId, title })` | `chats:{userId}` | Server Action | `updateTag` |
+| `renameChat({ chatId, title })` | `chat:{chatId}`, `chats:{userId}` | Server Action | `updateTag` |
 | `updateChatVisibility({ chatId, visibility })` | `chat:{chatId}`, `chats:{userId}` | Server Action | `updateTag` |
 | `voteOnMessage({ chatId, messageId, type })` | `votes:{chatId}` | Server Action | `updateTag` |
 | `saveArtifactVersion(artifactId)` | `artifact:{artifactId}` | Route Handler | `revalidateTag` |
@@ -679,9 +729,8 @@ import { updateTag } from 'next/cache'
 
 // --- Server Action invalidation (immediate, read-your-own-writes) ---
 
-export function invalidateChat(chatId: string, userId: string) {
+export function invalidateChat(chatId: string) {
   updateTag(`chat:${chatId}`)
-  updateTag(`chats:${userId}`)
 }
 
 export function invalidateChatList(userId: string) {
@@ -696,6 +745,7 @@ export function invalidateVotes(chatId: string) {
   updateTag(`votes:${chatId}`)
 }
 ```
+<!-- wave4: RC-02 — invalidateChat uses 1-param signature (chatId only); callers compose with invalidateChatList when needed -->
 
 ### Template — Route Handler Revalidation Functions
 
@@ -705,9 +755,8 @@ import { revalidateTag } from 'next/cache'
 
 // --- Route Handler revalidation (cooperative freshness, stale-while-revalidate) ---
 
-export function refreshChat(chatId: string, userId: string) {
+export function refreshChat(chatId: string) {
   revalidateTag(`chat:${chatId}`, 'max')
-  revalidateTag(`chats:${userId}`, 'max')
 }
 
 export function refreshChatList(userId: string) {
@@ -718,6 +767,7 @@ export function refreshArtifact(artifactId: string) {
   revalidateTag(`artifact:${artifactId}`, 'max')
 }
 ```
+<!-- wave4: RC-02 — refreshChat uses 1-param signature (chatId only); callers compose with refreshChatList when needed -->
 
 ### Rules
 
@@ -757,16 +807,18 @@ Minimal provider tree. Each provider wraps only the components that consume it.
 ```tsx
 // app/(chat)/chat/[id]/page.tsx (SERVER)
 <ChatStreamProvider>       {/* page-level, not layout */}
-  <ChatShell>              {/* 'use client' — calls useChat, provides ChatSessionContext */}
-    <ChatHeader />
-    <Messages />
-    <MultimodalInput />
-    <ArtifactPanel />      {/* reads from artifact store */}
-  </ChatShell>
-  <StreamBridge />         {/* sibling — dispatches stream deltas */}
-  <Suspense>
-    <VoteResolver />       {/* use() for deferred votes */}
-  </Suspense>
+  <VotesProvider>            {/* empty context initially — Wave 4: CV-02 reconciliation */}
+    <ChatShell>              {/* 'use client' — calls useChat, provides ChatSessionContext */}
+      <ChatHeader />
+      <Messages />
+      <MultimodalInput />
+      <ArtifactPanel />      {/* reads from artifact store */}
+    </ChatShell>
+    <StreamBridge />         {/* sibling — dispatches stream deltas */}
+    <Suspense>
+      <VoteResolver />       {/* use() for deferred votes — hydrates VotesProvider */}
+    </Suspense>
+  </VotesProvider>
 </ChatStreamProvider>
 ```
 
