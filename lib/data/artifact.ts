@@ -55,7 +55,12 @@ export async function saveArtifactVersion(data: {
 		.returning()
 
 	const artifact = result[0]
-	if (!artifact) throw AppError.internal("Artifact insert returned no rows", { id: data.id })
+	if (!artifact)
+		throw AppError.internal(
+			"internal_error:database:query_failed",
+			"Artifact insert returned no rows",
+			{ id: data.id },
+		)
 	return artifact
 }
 

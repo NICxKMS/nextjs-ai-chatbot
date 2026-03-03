@@ -4,6 +4,9 @@ import type { Metadata, Viewport } from "next"
 
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/toaster"
+import { TooltipProvider } from "@/components/ui/tooltip"
+import { SessionProvider } from "@/features/auth/components/session-provider"
+import { getAppSession } from "@/lib/auth/session"
 
 import "@/app/globals.css"
 
@@ -17,11 +20,13 @@ export const viewport: Viewport = {
 	initialScale: 1,
 }
 
-export default function RootLayout({
+export default async function RootLayout({
 	children,
 }: Readonly<{
 	children: React.ReactNode
 }>) {
+	const session = await getAppSession()
+
 	return (
 		<html
 			lang="en"
@@ -35,7 +40,9 @@ export default function RootLayout({
 					enableSystem
 					disableTransitionOnChange
 				>
-					{children}
+					<SessionProvider session={session}>
+						<TooltipProvider delayDuration={0}>{children}</TooltipProvider>
+					</SessionProvider>
 					<Toaster />
 				</ThemeProvider>
 			</body>

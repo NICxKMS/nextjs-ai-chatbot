@@ -1,14 +1,5 @@
+import type { AppSession } from "@/features/auth/types/auth.types"
 import type { User } from "@/lib/types/models.types"
-
-// ── AppSession type (matches plan/scaffold/shared-types.md §12) ──
-// Defined locally until features/auth/types/auth.types.ts is created in P2.
-type AppSession = {
-	user: {
-		id: string
-		type: "authenticated" | "guest"
-		email?: string
-	}
-}
 
 // ── Default IDs for multi-user scenarios ─────────────────────
 export const TEST_USER_ID = "00000000-0000-4000-8000-000000000001"

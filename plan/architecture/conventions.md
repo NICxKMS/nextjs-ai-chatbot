@@ -306,7 +306,7 @@ Error codes follow the `type:surface:detail` pattern:
 'rate_limit:api:too_many_requests'
 ```
 
-Core `type` values: `bad_request`, `unauthorized`, `forbidden`, `not_found`, `rate_limit`, `ai_error`, `internal_error`.
+Core `type` values: `bad_request`, `unauthorized`, `forbidden`, `not_found`, `rate_limit`, `ai_error`, `internal_error`, `offline`.
 This keeps API and Server Action error contracts consistent across features.
 
 ---

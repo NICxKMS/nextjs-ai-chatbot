@@ -38,3 +38,35 @@ last_updated: "2026-03-03"
 - `customProvider()` takes static `Record<string, LanguageModel>` for `languageModels`, not a callback
 - Used `fallbackProvider` parameter with a `ProviderV2`-conformant object for dynamic model resolution + conditional reasoning middleware
 - Canonical AI SDK pattern for dynamic providers
+
+### D009 — lib/ → features/ Import for Guest Auth (P2-T03)
+- `lib/auth/session.ts` imports `verifyGuestToken` from `@/features/auth/lib/guest`
+- This violates conventions.md §3 (`lib/ → nothing above`) but is spec-prescribed (P2-T01 + P2-T03 specs design this relationship)
+- Accepted as-is since session resolution fundamentally needs guest verification
+- Alternative: relocate `guest.ts` to `lib/auth/` (deferred to sweep if needed)
+
+### D010 — Rate Limiting Deferred (P2-T04)
+- Task spec requires per-action rate limiting (login 5/min, register 3/min)
+- No rate limiting infrastructure exists yet — deferred to P6 or dedicated follow-up task
+- Auth actions have TODO markers for wiring when infra is ready
+
+### D011 — Supabase Client Variants (P2-T04, P2-T06)
+- `supabase-action.ts` — write-capable server client for Server Actions (different cookie adapter from session.ts)
+- `supabase-browser.ts` — singleton browser client for client-side auth state listeners
+- Both collocated in `features/auth/lib/` alongside guest utilities
+
+### D012 — Register Partial Failure Gap (P2 Review)
+- If Supabase `signUp` succeeds but `createUser` fails, Supabase user exists without local DB record
+- Login flow doesn't reconcile (create missing DB record)
+- Tracked for future resolution (post-MVP or P6 cleanup task)
+
+### D013 — Double JWT Verification on Rotation (P2 Review)
+- `verifyGuestToken()` + `rotateGuestToken()` decode the JWT twice in proxy rotation path
+- Accepted as-is (~0.5ms overhead in edge function is negligible)
+- Could optimize by passing verified payload if performance becomes a concern
+
+### D014 — AppError Factory Methods Require Explicit Error Code (P0-T08 Retrofix)
+- **Original:** Factory methods (`AppError.internal()`, `AppError.unauthorized()`, etc.) hardcoded a single error code each, hiding the granular `type:surface:detail` system
+- **Changed:** All factory methods now require the error code as the first parameter, type-restricted to the matching category using `Extract<ErrorCode, \`prefix:${string}\`>`
+- **Why:** The granular error code system (19 codes) was defeated by factory methods collapsing categories to a single default. Call sites now explicitly declare the exact error code, improving traceability and preventing misuse (e.g., using `internal_error:database:query_failed` for cache failures)
+- **Impact:** All 15 call sites in `lib/data/` updated. Future callers must choose the correct code — TypeScript enforces category membership

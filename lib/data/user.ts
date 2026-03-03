@@ -15,7 +15,11 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 		return result[0] ?? null
 	} catch (error) {
 		if (error instanceof AppError) throw error
-		throw AppError.internal("Failed to get user by email", error)
+		throw AppError.internal(
+			"internal_error:database:query_failed",
+			"Failed to get user by email",
+			error,
+		)
 	}
 }
 
@@ -29,7 +33,11 @@ export async function getUserById(id: string): Promise<User | null> {
 		return result[0] ?? null
 	} catch (error) {
 		if (error instanceof AppError) throw error
-		throw AppError.internal("Failed to get user by id", error)
+		throw AppError.internal(
+			"internal_error:database:query_failed",
+			"Failed to get user by id",
+			error,
+		)
 	}
 }
 
@@ -46,7 +54,11 @@ export async function createUser(data: NewUser): Promise<User> {
 		return user
 	} catch (error) {
 		if (error instanceof AppError) throw error
-		throw AppError.internal("Failed to create user", error)
+		throw AppError.internal(
+			"internal_error:database:query_failed",
+			"Failed to create user",
+			error,
+		)
 	}
 }
 
@@ -58,6 +70,10 @@ export async function updateUserLastLogin(id: string): Promise<void> {
 		await db.update(users).set({ lastLogin: new Date() }).where(eq(users.id, id))
 	} catch (error) {
 		if (error instanceof AppError) throw error
-		throw AppError.internal("Failed to update user last login", error)
+		throw AppError.internal(
+			"internal_error:database:query_failed",
+			"Failed to update user last login",
+			error,
+		)
 	}
 }

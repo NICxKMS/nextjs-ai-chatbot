@@ -5,8 +5,11 @@ import { ERROR_STATUS_MAP, type ErrorCode } from "@/lib/errors/codes"
 /**
  * Application error class with typed error codes and HTTP status mapping.
  *
+ * Factory methods require an explicit ErrorCode from the matching category,
+ * ensuring granular error tracking at every call site.
+ *
  * Usage in Route Handlers:
- *   throw AppError.unauthorized("Session expired")
+ *   throw AppError.unauthorized("unauthorized:auth:expired_token", "Session expired")
  *   // → catch → error.toResponse() → JSON { code, message } with 401
  *
  * Usage in Server Actions:
@@ -34,48 +37,61 @@ export class AppError extends Error {
 	}
 
 	// ── Factory methods ──
+	// Each requires an explicit ErrorCode from its category — no hidden defaults.
 
-	static unauthorized(message?: string, details?: unknown): AppError {
-		return new AppError("unauthorized:auth:no_session", message ?? "Unauthorized", details)
+	static unauthorized(
+		code: Extract<ErrorCode, `unauthorized:${string}`>,
+		message?: string,
+		details?: unknown,
+	): AppError {
+		return new AppError(code, message ?? "Unauthorized", details)
 	}
 
-	static notFound(message?: string, details?: unknown): AppError {
-		return new AppError("not_found:chat:chat_not_found", message ?? "Not found", details)
+	static notFound(
+		code: Extract<ErrorCode, `not_found:${string}`>,
+		message?: string,
+		details?: unknown,
+	): AppError {
+		return new AppError(code, message ?? "Not found", details)
 	}
 
-	static forbidden(message?: string, details?: unknown): AppError {
-		return new AppError("forbidden:chat:owner_mismatch", message ?? "Forbidden", details)
+	static forbidden(
+		code: Extract<ErrorCode, `forbidden:${string}`>,
+		message?: string,
+		details?: unknown,
+	): AppError {
+		return new AppError(code, message ?? "Forbidden", details)
 	}
 
-	static badRequest(message?: string, details?: unknown): AppError {
-		return new AppError(
-			"bad_request:api:invalid_request_body",
-			message ?? "Bad request",
-			details,
-		)
+	static badRequest(
+		code: Extract<ErrorCode, `bad_request:${string}`>,
+		message?: string,
+		details?: unknown,
+	): AppError {
+		return new AppError(code, message ?? "Bad request", details)
 	}
 
-	static rateLimited(message?: string, details?: unknown): AppError {
-		return new AppError(
-			"rate_limit:chat:too_many_requests",
-			message ?? "Too many requests",
-			details,
-		)
+	static rateLimited(
+		code: Extract<ErrorCode, `rate_limit:${string}`>,
+		message?: string,
+		details?: unknown,
+	): AppError {
+		return new AppError(code, message ?? "Too many requests", details)
 	}
 
-	static internal(message?: string, details?: unknown): AppError {
-		return new AppError(
-			"internal_error:database:query_failed",
-			message ?? "Internal server error",
-			details,
-		)
+	static internal(
+		code: Extract<ErrorCode, `internal_error:${string}`>,
+		message?: string,
+		details?: unknown,
+	): AppError {
+		return new AppError(code, message ?? "Internal server error", details)
 	}
 
-	static serviceUnavailable(message?: string, details?: unknown): AppError {
-		return new AppError(
-			"offline:api:service_unavailable",
-			message ?? "Service unavailable",
-			details,
-		)
+	static serviceUnavailable(
+		code: Extract<ErrorCode, `offline:${string}`>,
+		message?: string,
+		details?: unknown,
+	): AppError {
+		return new AppError(code, message ?? "Service unavailable", details)
 	}
 }

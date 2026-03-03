@@ -33,10 +33,14 @@ export async function upsertVote(data: {
 		})
 		.returning()
 	if (!vote) {
-		throw AppError.internal("Vote upsert returned no rows", {
-			chatId: data.chatId,
-			messageId: data.messageId,
-		})
+		throw AppError.internal(
+			"internal_error:database:query_failed",
+			"Vote upsert returned no rows",
+			{
+				chatId: data.chatId,
+				messageId: data.messageId,
+			},
+		)
 	}
 	return vote
 }

@@ -20,7 +20,10 @@ export async function getChatById(chatId: string): Promise<Chat | null> {
 		return result ?? null
 	} catch (error) {
 		if (error instanceof AppError) throw error
-		throw AppError.internal("Failed to get chat", { chatId, cause: error })
+		throw AppError.internal("internal_error:database:query_failed", "Failed to get chat", {
+			chatId,
+			cause: error,
+		})
 	}
 }
 
@@ -72,7 +75,11 @@ export async function getChatsByUserId(
 		}
 	} catch (error) {
 		if (error instanceof AppError) throw error
-		throw AppError.internal("Failed to get chats for user", { userId, cause: error })
+		throw AppError.internal(
+			"internal_error:database:query_failed",
+			"Failed to get chats for user",
+			{ userId, cause: error },
+		)
 	}
 }
 
@@ -98,7 +105,11 @@ export async function getChatWithMessages(
 		return { chat: chatResult, messages: chatMessages }
 	} catch (error) {
 		if (error instanceof AppError) throw error
-		throw AppError.internal("Failed to get chat with messages", { chatId, cause: error })
+		throw AppError.internal(
+			"internal_error:database:query_failed",
+			"Failed to get chat with messages",
+			{ chatId, cause: error },
+		)
 	}
 }
 
@@ -125,13 +136,19 @@ export async function createChat(data: {
 			.returning()
 
 		if (!created) {
-			throw AppError.internal("Chat insert returned no rows", { id: data.id })
+			throw AppError.internal(
+				"internal_error:database:query_failed",
+				"Chat insert returned no rows",
+				{ id: data.id },
+			)
 		}
 
 		return created
 	} catch (error) {
 		if (error instanceof AppError) throw error
-		throw AppError.internal("Failed to create chat", { cause: error })
+		throw AppError.internal("internal_error:database:query_failed", "Failed to create chat", {
+			cause: error,
+		})
 	}
 }
 
@@ -143,7 +160,11 @@ export async function updateChatTitle(chatId: string, title: string): Promise<vo
 		await db.update(chats).set({ title, updatedAt: new Date() }).where(eq(chats.id, chatId))
 	} catch (error) {
 		if (error instanceof AppError) throw error
-		throw AppError.internal("Failed to update chat title", { chatId, cause: error })
+		throw AppError.internal(
+			"internal_error:database:query_failed",
+			"Failed to update chat title",
+			{ chatId, cause: error },
+		)
 	}
 }
 
@@ -161,7 +182,11 @@ export async function updateChatVisibility(chatId: string, visibility: string): 
 			.where(eq(chats.id, chatId))
 	} catch (error) {
 		if (error instanceof AppError) throw error
-		throw AppError.internal("Failed to update chat visibility", { chatId, cause: error })
+		throw AppError.internal(
+			"internal_error:database:query_failed",
+			"Failed to update chat visibility",
+			{ chatId, cause: error },
+		)
 	}
 }
 
@@ -174,7 +199,10 @@ export async function deleteChat(chatId: string): Promise<void> {
 		await db.delete(chats).where(eq(chats.id, chatId))
 	} catch (error) {
 		if (error instanceof AppError) throw error
-		throw AppError.internal("Failed to delete chat", { chatId, cause: error })
+		throw AppError.internal("internal_error:database:query_failed", "Failed to delete chat", {
+			chatId,
+			cause: error,
+		})
 	}
 }
 
@@ -187,6 +215,10 @@ export async function deleteAllChats(userId: string): Promise<void> {
 		await db.delete(chats).where(eq(chats.userId, userId))
 	} catch (error) {
 		if (error instanceof AppError) throw error
-		throw AppError.internal("Failed to delete all chats for user", { userId, cause: error })
+		throw AppError.internal(
+			"internal_error:database:query_failed",
+			"Failed to delete all chats for user",
+			{ userId, cause: error },
+		)
 	}
 }
