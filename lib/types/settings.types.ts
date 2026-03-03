@@ -1,0 +1,16 @@
+// ── Settings state ───────────────────────────────────────────
+// Canonical shared definition for chat settings.
+// P3-T06 re-exports from features/settings/types/ — never redefines.
+// Model selection is handled separately (cookie/localStorage), not here.
+
+export interface SettingsState {
+	temperature: number
+	topP: number
+	maxOutputTokens: number
+	systemPrompt: string
+	enableReasoning: boolean
+}
+
+// Alias for redesign compatibility — redesign references `UserSettings`
+// in function signatures. Implementation should use `SettingsState` directly.
+export type UserSettings = SettingsState

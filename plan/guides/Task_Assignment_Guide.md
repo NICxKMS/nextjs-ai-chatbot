@@ -1,9 +1,13 @@
 # Task Assignment Guide — Orchestrator Playbook
 
-> **The orchestrator NEVER implements tasks directly.** Every task — including config, scaffolding, and gate verification — MUST be delegated to a subagent.
+> **The orchestrator NEVER implements tasks directly.** Every task — including config, scaffolding, and gate verification — MUST be delegated to a subagent.You do not read code files.
 >
 > Orchestrator role: **plan → delegate → review → record → next**
 
+---
+## **Critical** Subagents must be instructed to read their respective guide before starting any implementation and review work.
+>For Implementing/Implementation Subagent, Subagent must read `plan/guides/Implementation_Agent_Guide.md` and `.next-docs/` before starting.
+>For Review Subagent, Subagent must read `plan/guides/Review_Agent_Guide.md` before starting.
 ---
 
 ## 1. Before Assigning a Task
@@ -130,7 +134,7 @@ Dispatch a review subagent with this context:
 ## 7. Assignment Templates
 
 > **Orchestrator reads ONLY plan/memory files** (`plan/`, `plan/memory/`). Never read source code files.
-> Assignment template info comes from the **task spec** (a plan file), not from reading code.
+> Assignment template info comes from the **task spec** (a plan file), not from reading code.Just point it to complete task specs and let it figure out the rest. The subagent will read the relevant code files itself as part of implementation.
 > Subagents read code files themselves as part of their implementation work.
 
 ### Template A: Hephaestus (Goal-Oriented)

@@ -6,6 +6,12 @@
 
 ---
 
+## **Critical** Must read before starting any implementation and review work.
+>For Implementing/Implementation Subagent `plan/guides/Implementation_Agent_Guide.md` and `.next-docs/` before starting.**
+>For Review Subagent `plan/guides/Review_Agent_Guide.md` before starting.**
+
+---
+
 ## Next.js Documentation
 
 > Your training data about Next.js is likely outdated. This project runs **Next.js 16** with the **App Router**.

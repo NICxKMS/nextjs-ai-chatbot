@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.4.4/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.4.5/schema.json",
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
@@ -21,15 +21,18 @@
 			"!!**/drizzle",
 			"!!**/*.min.js",
 			"!!**/pnpm-lock.yaml",
-			"!!**/oldapp"
+			"!!**/oldapp",
+			"!!**/plan",
+			"!!**/components/ai-elements"
 		]
 	},
+	"assist": { "actions": { "source": { "organizeImports": "on" } } },
 	"formatter": {
 		"enabled": true,
 		"formatWithErrors": false,
 		"indentStyle": "tab",
 		"indentWidth": 4,
-		"lineWidth": 80,
+		"lineWidth": 100,
 		"lineEnding": "lf"
 	},
 	"linter": {
@@ -78,7 +81,7 @@
 				"noDuplicateObjectKeys": "error",
 				"noDuplicateParameters": "error",
 				"noEmptyBlockStatements": "warn",
-				"noExplicitAny": "warn",
+				"noExplicitAny": "error",
 				"noFallthroughSwitchClause": "error",
 				"noFunctionAssign": "error",
 				"noGlobalAssign": "error",
@@ -92,6 +95,7 @@
 				"useGetterReturn": "error"
 			},
 			"style": {
+				"noDefaultExport": "error",
 				"useConst": "error",
 				"useSingleVarDeclarator": "error"
 			}
@@ -114,11 +118,53 @@
 	"overrides": [
 		{
 			"includes": [
-				"**/*.test.ts",
-				"**/*.test.tsx",
-				"**/*.spec.ts",
-				"**/*.spec.tsx"
+				"proxy.ts",
+				"drizzle.config.ts",
+				"next.config.ts",
+				"vitest.config.ts",
+				"playwright.config.ts",
+				"postcss.config.mjs",
+				"**/page.tsx",
+				"**/layout.tsx",
+				"**/route.ts",
+				"**/error.tsx",
+				"**/global-error.tsx",
+				"**/loading.tsx",
+				"**/not-found.tsx"
 			],
+			"linter": {
+				"rules": {
+					"style": {
+						"noDefaultExport": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["components/ui/**"],
+			"linter": {
+				"rules": {
+					"a11y": {
+						"useSemanticElements": "warn"
+					},
+					"suspicious": {
+						"noDocumentCookie": "warn"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["components/icons.tsx"],
+			"linter": {
+				"rules": {
+					"a11y": {
+						"noSvgWithoutTitle": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"],
 			"linter": {
 				"rules": {
 					"suspicious": {

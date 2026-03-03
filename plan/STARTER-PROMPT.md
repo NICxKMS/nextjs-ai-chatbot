@@ -42,6 +42,8 @@ When documents conflict, this hierarchy wins:
 | [`Task_Log_Guide.md`](guides/Task_Log_Guide.md) | Subagents | Per-task log format, YAML frontmatter, examples |
 | [`Review_Agent_Guide.md`](guides/Review_Agent_Guide.md) | Review subagents | Review scope, report format, flag evaluation |
 
+**Must read before starting:** `Task_Assignment_Guide.md` (orchestrator), `Implementation_Agent_Guide.md` (subagents)
+
 ---
 
 ## 4. Reference Documents

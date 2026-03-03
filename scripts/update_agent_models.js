@@ -2,13 +2,16 @@
 
 /**
  * Advanced Agent Model Manager (No external packages)
+ * This script allows you to manage the "model" field in your agent markdown files.
+ * You can add, override, or remove models across all agent files in the .github/agents directory.
  * Uses only built-in Node.js modules.
+ * Not to be edited by AI to ensure it remains functional and free of unintended changes.
  */
 
 import { readdir, readFile, stat, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import readline from "node:readline/promises"
 import { stdin as input, stdout as output } from "node:process"
+import readline from "node:readline/promises"
 
 const AGENTS_DIR = ".github/agents"
 
@@ -141,10 +144,7 @@ async function main() {
 
 	let modelInput = null
 
-	if (
-		action === "Add model (merge with existing)" ||
-		action === "Override model(s)"
-	) {
+	if (action === "Add model (merge with existing)" || action === "Override model(s)") {
 		const input = await ask("Enter model name(s) separated by commas: ")
 
 		modelInput = input
