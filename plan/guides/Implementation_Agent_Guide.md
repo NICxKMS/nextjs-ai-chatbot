@@ -28,6 +28,7 @@ Your assignment includes: task ID, task spec path, task log path, and acceptance
 3. **Next.js 16 local docs** — `.next-docs/` (your training data about Next.js is outdated; always consult these)
 4. **Naming conventions** — `plan/architecture/conventions.md`
 5. **Relevant patterns** — `plan/architecture/patterns.md` (only sections your task touches)
+6. **Previous task logs** — `plan/memory/tasks/` (search for your task id to find related logs, especially dependencies or your mentioned logs)
 
 ### Conditional Reading
 

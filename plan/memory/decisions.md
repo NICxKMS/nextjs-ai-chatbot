@@ -70,3 +70,14 @@ last_updated: "2026-03-03"
 - **Changed:** All factory methods now require the error code as the first parameter, type-restricted to the matching category using `Extract<ErrorCode, \`prefix:${string}\`>`
 - **Why:** The granular error code system (19 codes) was defeated by factory methods collapsing categories to a single default. Call sites now explicitly declare the exact error code, improving traceability and preventing misuse (e.g., using `internal_error:database:query_failed` for cache failures)
 - **Impact:** All 15 call sites in `lib/data/` updated. Future callers must choose the correct code — TypeScript enforces category membership
+
+### D015 — AI SDK Type Reality (P3-T05)
+- AI SDK `@ai-sdk/react` does not export an `Attachment` type — using inline type definition in ChatSessionValue
+- `ChatStatus` from AI SDK has no `'idle'` value — uses `'ready'` instead
+- `UIMessage` is the correct type (not `Message`) from `@ai-sdk/react`
+- Downstream tasks (P3-T10, P3-T11, P3-T18, P3-T21) must use these verified SDK types
+
+### D016 — ArtifactHandler Has No Render Method (P3-T04)
+- P0-T06 defined `ArtifactHandler` with `create`/`update` only (server-side operations)
+- `render` is a client-side React component concern, addressed separately in P4
+- P4 will need a client-side kind→component map separate from server handler registry
