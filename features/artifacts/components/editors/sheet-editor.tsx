@@ -5,6 +5,7 @@ import { parse, unparse } from "papaparse"
 import { memo, useEffect, useMemo, useState } from "react"
 import { type CellMouseArgs, DataGrid, renderTextEditor } from "react-data-grid"
 
+import type { EditorSaveCallback } from "@/features/artifacts/types/artifact.types"
 import { cn } from "@/lib/utils/cn"
 
 // NOTE: react-data-grid CSS is imported in app/globals.css for proper bundling
@@ -25,7 +26,7 @@ type RowData = Record<string, CellValue> & {
 
 type SheetEditorProps = {
 	content: string
-	saveContent: (content: string, isCurrentVersion: boolean) => void
+	onSaveContent: EditorSaveCallback
 	status: string
 	isCurrentVersion: boolean
 	currentVersionIndex: number
@@ -102,7 +103,7 @@ function toRows(data: string[][], dataColumns: { key: string }[]): RowData[] {
 
 // ── Component ────────────────────────────────────────────────
 
-function PureSheetEditor({ content, saveContent, isCurrentVersion }: SheetEditorProps) {
+function PureSheetEditor({ content, onSaveContent, isCurrentVersion }: SheetEditorProps) {
 	const { resolvedTheme } = useTheme()
 	const [mounted, setMounted] = useState(false)
 
@@ -131,7 +132,7 @@ function PureSheetEditor({ content, saveContent, isCurrentVersion }: SheetEditor
 		const updatedData = newRows.map((row) => dataColumns.map((col) => row[col.key] || ""))
 
 		const csv = unparse(updatedData)
-		saveContent(csv, true)
+		onSaveContent(csv, { debounce: false })
 	}
 
 	// Prevent hydration mismatch — resolve theme only after mount
@@ -167,7 +168,7 @@ function arePropsEqual(prev: SheetEditorProps, next: SheetEditorProps): boolean 
 		prev.isCurrentVersion === next.isCurrentVersion &&
 		!(prev.status === "streaming" && next.status === "streaming") &&
 		prev.content === next.content &&
-		prev.saveContent === next.saveContent
+		prev.onSaveContent === next.onSaveContent
 	)
 }
 

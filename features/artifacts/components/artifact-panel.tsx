@@ -230,11 +230,12 @@ function PureArtifactPanel() {
 	)
 
 	/**
-	 * Save callback for text/code editors.
-	 * Signature: `(updatedContent: string, debounce: boolean) => void`
+	 * Unified save callback for all artifact editors.
+	 * Signature: `(content: string, options?: { debounce?: boolean }) => void`
+	 * Debounce defaults to `true` when not specified.
 	 */
 	const saveContent = useCallback(
-		(updatedContent: string, debounce: boolean) => {
+		(updatedContent: string, options?: { debounce?: boolean }) => {
 			if (!documents || documents.length === 0) return
 
 			const latestDoc = documents.at(-1)
@@ -243,7 +244,9 @@ function PureArtifactPanel() {
 			if (updatedContent !== (latestDoc.content ?? "")) {
 				setIsContentDirty(true)
 
-				if (debounce) {
+				const shouldDebounce = options?.debounce ?? true
+
+				if (shouldDebounce) {
 					if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
 					debounceTimerRef.current = setTimeout(() => {
 						handleSave(updatedContent)
@@ -254,17 +257,6 @@ function PureArtifactPanel() {
 			}
 		},
 		[documents, handleSave],
-	)
-
-	/**
-	 * Save callback for sheet editor.
-	 * Signature: `(content: string, isCurrentVersion: boolean) => void`
-	 */
-	const sheetSaveContent = useCallback(
-		(content: string, _isCurrentVersion: boolean) => {
-			saveContent(content, false)
-		},
-		[saveContent],
 	)
 
 	// ── Cleanup debounce timer on unmount ─────────────────────
@@ -307,7 +299,7 @@ function PureArtifactPanel() {
 					/>
 				)
 			case "sheet":
-				return <SheetEditor {...commonProps} saveContent={sheetSaveContent} />
+				return <SheetEditor {...commonProps} onSaveContent={saveContent} />
 			case "image":
 				return <ImageEditor {...commonProps} title={artifact.title} />
 			default:

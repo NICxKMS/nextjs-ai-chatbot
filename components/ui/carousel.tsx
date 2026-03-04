@@ -126,6 +126,7 @@ const Carousel = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement> & Car
 					canScrollNext,
 				}}
 			>
+				{/* biome-ignore lint/a11y/useSemanticElements: WAI-ARIA carousel pattern requires role="region" on a div; using <section> would change the ref type from HTMLDivElement */}
 				<div
 					aria-roledescription="carousel"
 					className={cn("relative", className)}
@@ -168,6 +169,7 @@ const CarouselItem = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
 		const { orientation } = useCarousel()
 
 		return (
+			// biome-ignore lint/a11y/useSemanticElements: WAI-ARIA carousel slide pattern requires role="group"; <fieldset> would add form semantics and unwanted default styling
 			<div
 				aria-roledescription="slide"
 				className={cn(

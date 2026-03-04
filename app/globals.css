@@ -1,6 +1,8 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 @import "react-data-grid/lib/styles.css";
-
+/* include utility classes in streamdown */
+@source '../node_modules/streamdown/dist/index.js';
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));

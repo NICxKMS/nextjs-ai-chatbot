@@ -9,8 +9,13 @@ export const metadata: Metadata = {
 	title: "New Chat",
 }
 
-export default async function NewChatPage() {
-	const session = await getAppSession()
+export default async function NewChatPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ q?: string; query?: string }>
+}) {
+	const [session, params] = await Promise.all([getAppSession(), searchParams])
+	const initialQuery = params.q || params.query || undefined
 
 	const [availableModels, defaultModel] = await Promise.all([
 		getAvailableModels(),
@@ -28,6 +33,7 @@ export default async function NewChatPage() {
 				isReadonly={false}
 				initialVisibility="private"
 				availableModels={availableModels}
+				initialQuery={initialQuery}
 			/>
 		</ChatStreamProvider>
 	)

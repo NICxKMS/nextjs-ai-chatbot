@@ -8,3 +8,11 @@ export type { AppSession, UserType } from "@/lib/auth/session"
  * Used by `AuthForm` component to switch between login/register views.
  */
 export type AuthMode = "login" | "register"
+
+/**
+ * Data returned by auth server actions (login/register).
+ *
+ * - `undefined` — action redirected (normal success path).
+ * - `{ confirmationRequired: true }` — email confirmation needed (register only).
+ */
+export type AuthActionData = { confirmationRequired: true } | undefined

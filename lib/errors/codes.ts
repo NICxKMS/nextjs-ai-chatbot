@@ -14,16 +14,24 @@ export type ErrorCode =
 	| "forbidden:chat:owner_mismatch"
 	// ── Request validation errors ──
 	| "bad_request:api:invalid_request_body"
+	| "bad_request:api:file_too_large"
+	| "bad_request:api:file_type_unsupported"
+	| "bad_request:api:no_file_uploaded"
 	| "bad_request:chat:invalid_model_id"
 	| "bad_request:artifact:invalid_kind"
 	| "bad_request:validation:invalid_input"
 	// ── Not found errors ──
 	| "not_found:chat:chat_not_found"
 	| "not_found:artifact:artifact_not_found"
+	| "not_found:vote:message_not_in_chat"
 	// ── Rate limiting errors ──
 	| "rate_limit:chat:too_many_requests"
 	| "rate_limit:chat:daily_limit_exceeded"
 	| "rate_limit:api:too_many_requests"
+	| "rate_limit:upload:too_many_requests"
+	| "rate_limit:vote:too_many_requests"
+	| "rate_limit:auth:login_too_many"
+	| "rate_limit:auth:register_too_many"
 	// ── Infrastructure errors ──
 	| "ai_error:provider:failed"
 	| "offline:api:service_unavailable"
@@ -38,14 +46,22 @@ export const ERROR_STATUS_MAP: Record<ErrorCode, number> = {
 	"forbidden:auth:guest_restricted": 403,
 	"forbidden:chat:owner_mismatch": 403,
 	"bad_request:api:invalid_request_body": 400,
+	"bad_request:api:file_too_large": 400,
+	"bad_request:api:file_type_unsupported": 400,
+	"bad_request:api:no_file_uploaded": 400,
 	"bad_request:chat:invalid_model_id": 400,
 	"bad_request:artifact:invalid_kind": 400,
 	"bad_request:validation:invalid_input": 400,
 	"not_found:chat:chat_not_found": 404,
 	"not_found:artifact:artifact_not_found": 404,
+	"not_found:vote:message_not_in_chat": 404,
 	"rate_limit:chat:too_many_requests": 429,
 	"rate_limit:chat:daily_limit_exceeded": 429,
 	"rate_limit:api:too_many_requests": 429,
+	"rate_limit:upload:too_many_requests": 429,
+	"rate_limit:vote:too_many_requests": 429,
+	"rate_limit:auth:login_too_many": 429,
+	"rate_limit:auth:register_too_many": 429,
 	"ai_error:provider:failed": 502,
 	"offline:api:service_unavailable": 503,
 	"internal_error:database:query_failed": 500,

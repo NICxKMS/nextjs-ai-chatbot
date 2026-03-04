@@ -2,7 +2,7 @@
 
 import type { UIMessage } from "ai"
 import dynamic from "next/dynamic"
-import { useCallback } from "react"
+import { useCallback, useEffect, useRef } from "react"
 
 import { artifactStore } from "@/features/artifacts/lib/artifact-store"
 import { ChatHeader } from "@/features/chat/components/chat-header"
@@ -37,6 +37,8 @@ export interface ChatShellProps {
 	isReadonly: boolean
 	initialVisibility: VisibilityType
 	availableModels: ModelMetadata[]
+	/** Pre-fill query from URL params (?q= or ?query=) — auto-submitted on mount */
+	initialQuery?: string
 }
 
 // ── Component ────────────────────────────────────────────────
@@ -52,6 +54,7 @@ export function ChatShell({
 	isReadonly,
 	initialVisibility,
 	availableModels,
+	initialQuery,
 }: ChatShellProps) {
 	const session = useChatSession({
 		id,
@@ -66,8 +69,18 @@ export function ChatShell({
 		id,
 		status: session.status,
 		messages: session.messages,
+		stop: session.stop,
 		onChatChange: artifactStore.reset,
 	})
+
+	// ── Auto-submit query from URL params (?q= / ?query=) ──────
+	const hasAppendedQuery = useRef(false)
+	useEffect(() => {
+		if (initialQuery && !hasAppendedQuery.current && initialMessages.length === 0) {
+			hasAppendedQuery.current = true
+			session.sendMessage(initialQuery)
+		}
+	}, [initialQuery, initialMessages.length, session.sendMessage])
 
 	// StreamBridge passes fully-resolved UIArtifact from processStreamDelta.
 	// Replace the store state wholesale — StreamBridge already accumulated deltas.

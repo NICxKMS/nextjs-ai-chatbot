@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { loginSchema, registerSchema } from "@/features/auth/schemas/auth.schema"
-import type { AuthMode } from "@/features/auth/types/auth.types"
+import type { AuthActionData, AuthMode } from "@/features/auth/types/auth.types"
 import type { ActionResult } from "@/lib/types/result.types"
 
 // ── Form state ──────────────────────────────────────────────
@@ -18,6 +18,7 @@ import type { ActionResult } from "@/lib/types/result.types"
  */
 interface AuthFormState {
 	serverError?: string
+	successMessage?: string
 	fieldErrors?: Record<string, string[] | undefined>
 }
 
@@ -27,7 +28,10 @@ interface AuthFormProps {
 	/** Switches between login and register form variants. */
 	mode: AuthMode
 	/** Server action compatible with `useActionState` — `(prevState, formData) => Promise<ActionResult>`. */
-	action: (prevState: ActionResult<void>, formData: FormData) => Promise<ActionResult<void>>
+	action: (
+		prevState: ActionResult<AuthActionData>,
+		formData: FormData,
+	) => Promise<ActionResult<AuthActionData>>
 }
 
 // ── Component ───────────────────────────────────────────────
@@ -68,9 +72,17 @@ export function AuthForm({ mode, action }: AuthFormProps) {
 		// Server actions ignore prevState — pass a neutral value.
 		const result = await action({ success: true, data: undefined }, formData)
 
-		// 3. Server redirects on success; only errors reach here
+		// 3. Handle result — server redirects on most successes; only errors
+		//    and special cases (email confirmation) reach here.
 		if (!result.success) {
 			return { serverError: result.error.message }
+		}
+
+		// 4. Email confirmation required — show success message instead of redirecting
+		if (result.data && "confirmationRequired" in result.data) {
+			return {
+				successMessage: "Account created! Please check your email for a confirmation link.",
+			}
 		}
 
 		return null
@@ -83,6 +95,13 @@ export function AuthForm({ mode, action }: AuthFormProps) {
 
 	return (
 		<form action={formAction} className="flex flex-col gap-4 px-4 sm:px-16">
+			{/* Success message banner (e.g., email confirmation required) */}
+			{state?.successMessage && (
+				<output className="rounded-md bg-emerald-500/10 px-4 py-3 text-emerald-700 text-sm dark:text-emerald-400">
+					{state.successMessage}
+				</output>
+			)}
+
 			{/* Server error banner */}
 			{state?.serverError && (
 				<div

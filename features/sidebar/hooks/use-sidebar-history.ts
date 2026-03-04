@@ -64,17 +64,42 @@ function getKey(pageIndex: number, previousPageData: HistoryPage | null): string
 
 // ── Hook ─────────────────────────────────────────────────────
 
+/** Options for `useSidebarHistory` */
+interface UseSidebarHistoryOptions {
+	/** Server-provided initial data for page 0. When supplied, SWR uses it
+	 *  as `fallbackData` and skips the redundant first-page fetch. */
+	initialData?: {
+		chats: Chat[]
+		hasMore: boolean
+	}
+}
+
 /**
  * Paginated chat history hook using `useSWRInfinite`.
  *
- * Only used for loading **additional** pages beyond the initial
- * server-fetched data. The first 20 chats are rendered server-side
- * via SidebarShell and passed as `fallbackData` to SidebarHistoryClient.
+ * When `initialData` is provided (from the server component), it is
+ * passed as `fallbackData` so SWR uses the server data for page 0
+ * without issuing a duplicate network request.
  *
  * Returns null key when no authenticated user to skip fetching.
  */
-export function useSidebarHistory(): UseSidebarHistoryReturn {
+export function useSidebarHistory(options?: UseSidebarHistoryOptions): UseSidebarHistoryReturn {
 	const { session } = useSession()
+
+	// Build fallbackData from server-provided initial chats so SWR
+	// doesn't re-fetch page 0 on mount.
+	const fallbackData = options?.initialData
+		? [
+				{
+					chats: options.initialData.chats,
+					hasMore: options.initialData.hasMore,
+					nextCursor:
+						options.initialData.hasMore && options.initialData.chats.length > 0
+							? options.initialData.chats[options.initialData.chats.length - 1]?.id
+							: undefined,
+				},
+			]
+		: undefined
 
 	const { data, size, setSize, isLoading, isValidating } = useSWRInfinite<HistoryPage>(
 		// Null key when no authenticated user — skips all requests
@@ -84,6 +109,9 @@ export function useSidebarHistory(): UseSidebarHistoryReturn {
 			revalidateFirstPage: false,
 			revalidateOnFocus: false,
 			revalidateOnReconnect: false,
+			fallbackData,
+			// Skip mount revalidation when server data is available
+			revalidateOnMount: !fallbackData,
 		},
 	)
 

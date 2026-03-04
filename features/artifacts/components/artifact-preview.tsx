@@ -80,14 +80,11 @@ async function artifactFetcher(url: string): Promise<ArtifactVersionData[]> {
 	return res.json()
 }
 
-// ── No-op save handlers ─────────────────────────────────────
-// Preview editors are read-only — save callbacks are never invoked.
-// Different editors have slightly different save signatures.
+// ── No-op save handler ──────────────────────────────────────
+// Preview editors are read-only — save callback is never invoked.
+// Uses the standardized EditorSaveCallback signature.
 
-const noopSaveContent = (_content: string, _debounce: boolean) => {
-	/* read-only preview — intentional noop */
-}
-const noopSheetSave = (_content: string, _isCurrentVersion: boolean) => {
+const noopSaveContent = () => {
 	/* read-only preview — intentional noop */
 }
 
@@ -283,7 +280,7 @@ function PreviewContent({
 							content={content ?? ""}
 							isCurrentVersion={true}
 							currentVersionIndex={0}
-							saveContent={noopSheetSave}
+							onSaveContent={noopSaveContent}
 							status={status}
 						/>
 					</div>

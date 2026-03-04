@@ -35,6 +35,17 @@ export const initialArtifactData: UIArtifact = {
 	status: "idle",
 }
 
+// ── Editor save callback types ───────────────────────────────
+// Standardized save callback signature for all artifact editors (text,
+// code, sheet). Image editor is excluded — it has no editable content.
+
+export type EditorSaveOptions = {
+	/** Whether to debounce the save. Defaults to `true`. */
+	debounce?: boolean
+}
+
+export type EditorSaveCallback = (content: string, options?: EditorSaveOptions) => void
+
 // ── Artifact action types ───────────────────────────────────
 // Context provided to kind-specific artifact actions (version navigation,
 // copy, undo/redo, etc.). Used by artifact-actions.tsx (P4-T12).

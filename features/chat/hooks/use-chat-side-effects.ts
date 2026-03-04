@@ -10,6 +10,8 @@ interface UseChatSideEffectsConfig {
 	status: ChatStatus
 	/** Current messages array */
 	messages: UIMessage[]
+	/** Abort the current streaming response (from useChat) */
+	stop: () => void
 	/** Optional callback invoked on chat change (e.g., artifactStore.reset) — wired by ChatShell */
 	onChatChange?: () => void
 }
@@ -17,15 +19,16 @@ interface UseChatSideEffectsConfig {
 /**
  * Manages chat side effects:
  * 1. URL update via history.replaceState when a new chat receives its first response
- * 2. Abort controller cleanup on chat change
+ * 2. Abort in-progress streaming on chat change (calls stop from useChat)
  * 3. Artifact reset on navigation (via onChatChange callback)
  *
- * ~40 lines. Pure side-effect hook — no return value.
+ * Pure side-effect hook — no return value.
  */
 export function useChatSideEffects({
 	id,
 	status: _status,
 	messages,
+	stop,
 	onChatChange,
 }: UseChatSideEffectsConfig): void {
 	const prevIdRef = useRef(id)
@@ -54,6 +57,7 @@ export function useChatSideEffects({
 		if (prevIdRef.current === id) return
 		prevIdRef.current = id
 		hasUpdatedUrlRef.current = false
+		stop()
 		onChatChange?.()
-	}, [id, onChatChange])
+	}, [id, stop, onChatChange])
 }

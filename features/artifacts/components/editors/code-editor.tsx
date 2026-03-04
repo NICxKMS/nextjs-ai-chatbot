@@ -5,7 +5,11 @@ import type { EditorView } from "@codemirror/view"
 import { memo, useCallback, useEffect, useRef, useState } from "react"
 import { CrossSmallIcon, LoaderIcon, PlayIcon, TerminalWindowIcon } from "@/components/icons"
 import { Button } from "@/components/ui/button"
-import type { ArtifactStatus, ArtifactSuggestion } from "@/features/artifacts/types/artifact.types"
+import type {
+	ArtifactStatus,
+	ArtifactSuggestion,
+	EditorSaveCallback,
+} from "@/features/artifacts/types/artifact.types"
 import { cn } from "@/lib/utils/cn"
 
 // ── CodeMirror lazy-loaded modules ──────────────────────────
@@ -309,7 +313,7 @@ function Console({ outputs, onClear }: { outputs: ConsoleOutput[]; onClear: () =
 
 type CodeEditorProps = {
 	content: string
-	onSaveContent: (updatedContent: string, debounce: boolean) => void
+	onSaveContent: EditorSaveCallback
 	status: ArtifactStatus
 	isCurrentVersion: boolean
 	currentVersionIndex: number
@@ -396,7 +400,7 @@ function PureCodeEditor({ content, onSaveContent, status, isCurrentVersion }: Co
 					)
 					if (userTransaction) {
 						const newContent = update.state.doc.toString()
-						onSaveContent(newContent, true)
+						onSaveContent(newContent, { debounce: true })
 					}
 				}
 			})

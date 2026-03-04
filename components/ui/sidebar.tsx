@@ -89,6 +89,7 @@ const SidebarProvider = forwardRef<
 
 		// Persist changes to cookie
 		useEffect(() => {
+			// biome-ignore lint/suspicious/noDocumentCookie: Synchronous cookie write needed inside useEffect; Cookie Store API is async with limited browser support
 			document.cookie = `${SIDEBAR_COOKIE_NAME}=${_open}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
 		}, [_open])
 

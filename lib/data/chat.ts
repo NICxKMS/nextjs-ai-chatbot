@@ -3,7 +3,7 @@ import { and, asc, desc, eq, lt } from "drizzle-orm"
 import { db } from "@/lib/db/client"
 import { chats, messages } from "@/lib/db/schema"
 import { AppError } from "@/lib/errors/app-error"
-import type { PaginationParams } from "@/lib/types/api.types"
+import type { HistoryResponse, PaginationParams } from "@/lib/types/api.types"
 import type { Chat, Message, Visibility } from "@/lib/types/models.types"
 
 const DEFAULT_PAGE_SIZE = 20
@@ -34,7 +34,7 @@ export async function getChatById(chatId: string): Promise<Chat | null> {
 export async function getChatsByUserId(
 	userId: string,
 	params?: PaginationParams,
-): Promise<{ chats: Chat[]; hasMore: boolean; nextCursor?: string }> {
+): Promise<HistoryResponse<Chat>> {
 	const limit = params?.limit ?? DEFAULT_PAGE_SIZE
 	const cursor = params?.cursor
 
@@ -131,6 +131,7 @@ export async function createChat(data: {
 				userId: data.userId,
 				title: data.title,
 				model: data.model,
+				// Safe cast: callers validate visibility via Zod (chatRequestSchema)
 				visibility: (data.visibility as Visibility) ?? "private",
 			})
 			.returning()
@@ -176,6 +177,7 @@ export async function updateChatVisibility(chatId: string, visibility: string): 
 		await db
 			.update(chats)
 			.set({
+				// Safe cast: callers validate visibility via Zod (updateVisibilitySchema)
 				visibility: visibility as Visibility,
 				updatedAt: new Date(),
 			})
@@ -219,6 +221,40 @@ export async function deleteAllChats(userId: string): Promise<void> {
 			"internal_error:database:query_failed",
 			"Failed to delete all chats for user",
 			{ userId, cause: error },
+		)
+	}
+}
+
+/**
+ * Transfer all chats from one user to another.
+ *
+ * Used during guest-to-authenticated user migration: reassigns
+ * ownership of all chats created under the guest user ID to the
+ * newly authenticated user. Returns the number of transferred chats.
+ *
+ * **Best-effort** — callers should catch errors and not fail auth flows.
+ *
+ * NOTE: Currently a no-op in practice because guest user IDs are minted as
+ * `guest:{uuid}` (not a valid PostgreSQL UUID), so no guest chats can be
+ * persisted to the DB yet. This function exists as prep work for when guest
+ * chat persistence is implemented (e.g., with UUID-only guest IDs or a
+ * separate guest storage mechanism).
+ */
+export async function transferGuestChats(fromUserId: string, toUserId: string): Promise<number> {
+	try {
+		const result = await db
+			.update(chats)
+			.set({ userId: toUserId, updatedAt: new Date() })
+			.where(eq(chats.userId, fromUserId))
+			.returning({ id: chats.id })
+
+		return result.length
+	} catch (error) {
+		if (error instanceof AppError) throw error
+		throw AppError.internal(
+			"internal_error:database:query_failed",
+			"Failed to transfer guest chats",
+			{ fromUserId, toUserId, cause: error },
 		)
 	}
 }

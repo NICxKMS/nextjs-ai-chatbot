@@ -30,6 +30,7 @@ export interface ModelMetadata {
 
 // ── Default model constants ──
 
+export const MODEL_COOKIE_NAME = "chat-model"
 export const DEFAULT_CHAT_MODEL = "google:gemma-3-4b-it"
 export const TITLE_MODEL = "google:gemma-3-4b-it"
 export const ARTIFACT_MODEL = "google:gemini-2.5-flash-lite"

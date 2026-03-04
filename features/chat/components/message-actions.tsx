@@ -9,9 +9,11 @@ import {
 	MessageAction,
 	MessageActions as MessageActionsContainer,
 } from "@/components/ai-elements/message"
-import { CopyIcon, PencilEditIcon, ThumbDownIcon, ThumbUpIcon } from "@/components/icons"
+import { CopyIcon, PencilEditIcon } from "@/components/icons"
 import { useChatSessionContext } from "@/features/chat/hooks/use-chat-session-context"
-import type { Vote } from "@/lib/types/models.types"
+import { getMessageText } from "@/features/chat/lib/message-utils"
+import { VoteButtons } from "@/features/voting/components/vote-buttons"
+import { useVoteForMessage } from "@/features/voting/components/vote-resolver"
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -20,25 +22,13 @@ interface MessageActionsToolbarProps {
 	message: UIMessage
 	/** Switch message into edit mode (only provided for user messages when not readonly) */
 	setMode?: (mode: "view" | "edit") => void
-	/** Current vote state for this message (provided by VoteResolver in P6) */
-	vote?: Vote
-}
-
-// ── Helpers ──────────────────────────────────────────────────
-
-/** Extract concatenated text from a UIMessage's text parts */
-function getMessageText(message: UIMessage): string {
-	return (message.parts ?? [])
-		.filter((part): part is { type: "text"; text: string } => part.type === "text")
-		.map((part) => part.text)
-		.join("\n")
-		.trim()
 }
 
 // ── Component ────────────────────────────────────────────────
 
-function PureMessageActions({ message, setMode, vote }: MessageActionsToolbarProps) {
+function PureMessageActions({ message, setMode }: MessageActionsToolbarProps) {
 	const { isReadonly, status } = useChatSessionContext()
+	const { vote, submitVote } = useVoteForMessage(message.id)
 
 	const isLoading = status === "streaming" || status === "submitted"
 
@@ -90,33 +80,13 @@ function PureMessageActions({ message, setMode, vote }: MessageActionsToolbarPro
 			</MessageAction>
 
 			{!isReadonly && (
-				<>
-					<MessageAction
-						aria-pressed={vote?.isUpvoted === true}
-						data-testid="message-upvote"
-						disabled={vote?.isUpvoted === true}
-						onClick={() => {
-							// TODO(P6): Wire to VoteResolver for functional voting
-							toast.info("Voting will be available soon")
-						}}
-						tooltip="Upvote Response"
-					>
-						<ThumbUpIcon />
-					</MessageAction>
-
-					<MessageAction
-						aria-pressed={vote?.isUpvoted === false}
-						data-testid="message-downvote"
-						disabled={vote !== undefined && vote.isUpvoted === false}
-						onClick={() => {
-							// TODO(P6): Wire to VoteResolver for functional voting
-							toast.info("Voting will be available soon")
-						}}
-						tooltip="Downvote Response"
-					>
-						<ThumbDownIcon />
-					</MessageAction>
-				</>
+				<VoteButtons
+					isAssistant
+					isLoading={false}
+					messageId={message.id}
+					onVote={submitVote}
+					vote={vote}
+				/>
 			)}
 		</MessageActionsContainer>
 	)
@@ -127,7 +97,6 @@ function PureMessageActions({ message, setMode, vote }: MessageActionsToolbarPro
 export const MessageActions = memo(PureMessageActions, (prev, next) => {
 	if (prev.message.id !== next.message.id) return false
 	if (!equal(prev.message.parts, next.message.parts)) return false
-	if (prev.vote?.isUpvoted !== next.vote?.isUpvoted) return false
 	if (prev.setMode !== next.setMode) return false
 	return true
 })

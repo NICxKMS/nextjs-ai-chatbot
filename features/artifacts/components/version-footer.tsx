@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion"
 import { useState } from "react"
+import { toast } from "sonner"
 
 import { LoaderIcon } from "@/components/icons"
 import { Button } from "@/components/ui/button"
@@ -107,8 +108,9 @@ export function VersionFooter({
 
 							// After restore, go to latest version (which is now the restored one)
 							handleVersionChange("latest")
-						} catch (_error) {
-							// Error handling — toast could be added here
+						} catch (error) {
+							console.error("Failed to restore artifact version:", error)
+							toast.error("Failed to restore version. Please try again.")
 						} finally {
 							setIsMutating(false)
 						}

@@ -28,15 +28,35 @@ function fileURLDirname(url) {
 
 // ─── Allowlist: explicit cross-feature import exceptions ────────────────────
 const ALLOWLIST = new Set([
+	// chat → artifacts: shell/stream-bridge compose artifact panel & store
 	"features/chat/components/stream-bridge.tsx -> features/artifacts/lib/artifact-store.ts",
 	"features/chat/components/chat-shell.tsx -> features/artifacts/lib/artifact-store.ts",
 	"features/chat/components/chat-shell.tsx -> features/artifacts/components/artifact-panel.tsx",
+	// chat → settings: header opens settings panel
 	"features/chat/hooks/use-chat-session.ts -> features/settings/hooks/use-settings.ts",
+	"features/chat/components/chat-header.tsx -> features/settings/components/settings-panel.tsx",
+	// chat → voting: messages render vote buttons & resolver
 	"features/chat/components/message.tsx -> features/voting/components/vote-buttons.tsx",
+	"features/chat/components/message-actions.tsx -> features/voting/components/vote-buttons.tsx",
+	"features/chat/components/message-actions.tsx -> features/voting/components/vote-resolver.tsx",
+	// chat → visibility/models: header renders selectors
 	"features/chat/components/chat-header.tsx -> features/visibility/components/visibility-selector.tsx",
 	"features/chat/components/chat-header.tsx -> features/models/components/model-selector.tsx",
+	// sidebar → chat: history triggers chat deletion
 	"features/sidebar/components/sidebar-history-item.tsx -> features/chat/actions/delete-chat.ts",
+	"features/sidebar/components/sidebar-history-client.tsx -> features/chat/actions/delete-chat.ts",
+	"features/sidebar/components/sidebar-history-client.tsx -> features/chat/actions/delete-all-chats.ts",
+	// sidebar → visibility: history manages chat visibility
 	"features/sidebar/components/sidebar-history-item.tsx -> features/visibility/actions/update-visibility.ts",
+	"features/sidebar/components/sidebar-history-client.tsx -> features/visibility/actions/update-visibility.ts",
+	// sidebar → auth: user nav needs logout action and session state
+	"features/sidebar/components/sidebar-user-nav.tsx -> features/auth/actions/logout.ts",
+	"features/sidebar/components/sidebar-user-nav.tsx -> features/auth/components/session-provider.tsx",
+	"features/sidebar/hooks/use-sidebar-history.ts -> features/auth/components/session-provider.tsx",
+	// visibility → chat: selector reads chat session context
+	"features/visibility/components/visibility-selector.tsx -> features/chat/hooks/use-chat-session-context.ts",
+	// voting → auth: vote buttons check session for auth gating
+	"features/voting/components/vote-buttons.tsx -> features/auth/components/session-provider.tsx",
 ])
 
 // ─── Cross-feature internal directories that are off-limits ─────────────────

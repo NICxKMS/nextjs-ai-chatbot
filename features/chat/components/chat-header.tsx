@@ -2,28 +2,40 @@
 
 import { Settings2Icon } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { useCallback, useState } from "react"
 import { PlusIcon } from "@/components/icons"
 import { SidebarToggle } from "@/components/sidebar-toggle"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useChatSessionContext } from "@/features/chat/hooks/use-chat-session-context"
+import { ModelSelector } from "@/features/models/components/model-selector"
 import { SettingsPanel } from "@/features/settings/components/settings-panel"
+import { VisibilitySelector } from "@/features/visibility/components/visibility-selector"
 
 export function ChatHeader() {
-	const { chatModel, availableModels, isReadonly } = useChatSessionContext()
+	const { chatModel, availableModels } = useChatSessionContext()
 	const [settingsOpen, setSettingsOpen] = useState(false)
-	const modelLabel = availableModels.find((m) => m.id === chatModel)?.name ?? chatModel
+	const router = useRouter()
+
+	const handleModelChange = useCallback(
+		(_modelId: string) => {
+			// Cookie + localStorage persistence is handled inside ModelSelector.
+			// Refresh server state so the new model is picked up by the chat transport.
+			router.refresh()
+		},
+		[router],
+	)
 
 	return (
 		<header className="sticky top-0 flex items-center gap-2 bg-background px-2 py-1.5 md:px-2">
 			<SidebarToggle />
-			{/* Model selector placeholder — functional ModelSelector wired in P6-T05 */}
-			<span className="truncate text-sm" data-testid="chat-model-label">
-				{modelLabel}
-			</span>
-			{/* Visibility selector placeholder slot — wired in P6-T08 */}
-			{!isReadonly && <div data-slot="visibility-selector" />}
+			<ModelSelector
+				selectedModelId={chatModel}
+				onModelChange={handleModelChange}
+				models={availableModels}
+			/>
+			<VisibilitySelector />
 
 			<div className="ml-auto flex items-center gap-1">
 				<Tooltip>

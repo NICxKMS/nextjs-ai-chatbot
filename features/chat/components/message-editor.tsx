@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useChatSessionContext } from "@/features/chat/hooks/use-chat-session-context"
+import { getMessageText } from "@/features/chat/lib/message-utils"
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -15,17 +16,6 @@ interface MessageEditorProps {
 	message: UIMessage
 	/** Switch back to view mode on cancel or successful submit */
 	setMode: (mode: "view" | "edit") => void
-}
-
-// ── Helpers ──────────────────────────────────────────────────
-
-/** Extract concatenated text from a UIMessage's text parts */
-function getMessageText(message: UIMessage): string {
-	return (message.parts ?? [])
-		.filter((part): part is { type: "text"; text: string } => part.type === "text")
-		.map((part) => part.text)
-		.join("\n")
-		.trim()
 }
 
 // ── Component ────────────────────────────────────────────────

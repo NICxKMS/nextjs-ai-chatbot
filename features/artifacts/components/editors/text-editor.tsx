@@ -15,13 +15,17 @@ import {
 	SuggestionsExtension,
 	suggestionsPluginKey,
 } from "@/features/artifacts/lib/suggestions-extension"
-import type { ArtifactStatus, ArtifactSuggestion } from "@/features/artifacts/types/artifact.types"
+import type {
+	ArtifactStatus,
+	ArtifactSuggestion,
+	EditorSaveCallback,
+} from "@/features/artifacts/types/artifact.types"
 
 // ── Props ────────────────────────────────────────────────────
 
 type TextEditorProps = {
 	content: string
-	onSaveContent: (updatedContent: string, debounce: boolean) => void
+	onSaveContent: EditorSaveCallback
 	status: ArtifactStatus
 	isCurrentVersion: boolean
 	currentVersionIndex: number
@@ -79,7 +83,7 @@ function PureTextEditor({
 
 			const markdown = currentEditor.getMarkdown()
 			const shouldDebounce = !transaction.getMeta("no-debounce")
-			onSaveContent(markdown, shouldDebounce)
+			onSaveContent(markdown, { debounce: shouldDebounce })
 		},
 	})
 

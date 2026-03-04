@@ -36,7 +36,12 @@ function classifyRoute(pathname: string): "public" | "guest-eligible" | "auth-re
 	}
 
 	// Guest-eligible: root, chat routes, API routes (for chat streaming)
-	if (pathname === "/" || pathname.startsWith("/chat") || pathname.startsWith("/api/")) {
+	if (
+		pathname === "/" ||
+		pathname === "/chat" ||
+		pathname.startsWith("/chat/") ||
+		pathname.startsWith("/api/")
+	) {
 		return "guest-eligible"
 	}
 
@@ -113,59 +118,66 @@ export async function proxy(request: NextRequest) {
 
 	// ── Guest-eligible routes: guest token lifecycle ───────────
 	if (routeClass === "guest-eligible" && !hasSupabaseToken) {
-		// No session at all → mint a new guest token (dual-write)
-		if (!hasGuestToken) {
-			const guestId = `guest:${crypto.randomUUID()}`
-			const token = await mintGuestToken(guestId)
+		try {
+			// No session at all → mint a new guest token (dual-write)
+			if (!hasGuestToken) {
+				const guestId = `guest:${crypto.randomUUID()}`
+				const token = await mintGuestToken(guestId)
 
-			// Dual-write pattern:
-			// 1. request.cookies.set → same-request forwarding (server components can read it)
-			request.cookies.set(GUEST_COOKIE_NAME, token)
-			// Refresh requestHeaders after cookie mutation
-			requestHeaders.set("cookie", request.cookies.toString())
+				// Dual-write pattern:
+				// 1. request.cookies.set → same-request forwarding (server components can read it)
+				request.cookies.set(GUEST_COOKIE_NAME, token)
+				// Refresh requestHeaders after cookie mutation
+				requestHeaders.set("cookie", request.cookies.toString())
 
-			// 2. response.cookies.set → browser persistence
-			const response = NextResponse.next({
-				request: { headers: requestHeaders },
-			})
-			response.cookies.set(GUEST_COOKIE_NAME, token, GUEST_COOKIE_OPTIONS)
-			return response
-		}
+				// 2. response.cookies.set → browser persistence
+				const response = NextResponse.next({
+					request: { headers: requestHeaders },
+				})
+				response.cookies.set(GUEST_COOKIE_NAME, token, GUEST_COOKIE_OPTIONS)
+				return response
+			}
 
-		// Existing guest token → verify, rotate if near expiry
-		const verified = await verifyGuestToken(guestTokenCookie.value)
-		if (verified) {
-			const rotated = await rotateGuestToken(guestTokenCookie.value)
+			// Existing guest token → verify, rotate if near expiry
+			const verified = await verifyGuestToken(guestTokenCookie.value)
+			if (verified) {
+				const rotated = await rotateGuestToken(guestTokenCookie.value)
 
-			// Token was rotated (different from original) → dual-write the new token
-			if (rotated !== guestTokenCookie.value) {
-				request.cookies.set(GUEST_COOKIE_NAME, rotated)
+				// Token was rotated (different from original) → dual-write the new token
+				if (rotated !== guestTokenCookie.value) {
+					request.cookies.set(GUEST_COOKIE_NAME, rotated)
+					requestHeaders.set("cookie", request.cookies.toString())
+
+					const response = NextResponse.next({
+						request: { headers: requestHeaders },
+					})
+					response.cookies.set(GUEST_COOKIE_NAME, rotated, GUEST_COOKIE_OPTIONS)
+					return response
+				}
+			} else {
+				// Guest token is invalid/expired → mint a fresh one with new identity
+				const guestId = `guest:${crypto.randomUUID()}`
+				const token = await mintGuestToken(guestId)
+
+				request.cookies.set(GUEST_COOKIE_NAME, token)
 				requestHeaders.set("cookie", request.cookies.toString())
 
 				const response = NextResponse.next({
 					request: { headers: requestHeaders },
 				})
-				response.cookies.set(GUEST_COOKIE_NAME, rotated, GUEST_COOKIE_OPTIONS)
+				response.cookies.set(GUEST_COOKIE_NAME, token, GUEST_COOKIE_OPTIONS)
 				return response
 			}
-		} else {
-			// Guest token is invalid/expired → mint a fresh one with new identity
-			const guestId = `guest:${crypto.randomUUID()}`
-			const token = await mintGuestToken(guestId)
-
-			request.cookies.set(GUEST_COOKIE_NAME, token)
-			requestHeaders.set("cookie", request.cookies.toString())
-
-			const response = NextResponse.next({
-				request: { headers: requestHeaders },
-			})
-			response.cookies.set(GUEST_COOKIE_NAME, token, GUEST_COOKIE_OPTIONS)
-			return response
+		} catch (error) {
+			// Guest token operations can fail if GUEST_JWT_SECRET is missing.
+			// Continue without guest token — degraded experience is better than crash.
+			console.error("[proxy] Guest token lifecycle error:", error)
 		}
 	}
 
 	// ── Rate limiting stub ─────────────────────────────────────
-	// TODO(P6): Wire @upstash/ratelimit with Redis backend
+	// NOTE: Auth rate limiting handled inline in login/register actions (Redis incr/expire).
+	// API route rate limiting can be added here if needed.
 	// Placeholder: log API route access for future rate limiting
 	if (pathname.startsWith("/api/") && !isRateLimitExempt(pathname)) {
 		// Log only, do not block — rate limiting infrastructure not yet wired

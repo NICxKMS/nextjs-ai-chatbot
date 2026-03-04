@@ -7,6 +7,7 @@ import {
 	streamText,
 	type UIMessage,
 } from "ai"
+import { convertToUIMessages } from "@/features/chat/lib/message-utils"
 import { createArtifactTool } from "@/features/chat/lib/tools/create-artifact"
 import { requestSuggestionsTool } from "@/features/chat/lib/tools/request-suggestions"
 import { updateArtifactTool } from "@/features/chat/lib/tools/update-artifact"
@@ -108,11 +109,7 @@ export async function POST(request: Request) {
 	const dbMessages = existingChat ? await getMessagesByChatId(chatId) : []
 
 	const allMessages: UIMessage[] = [
-		...dbMessages.map((msg) => ({
-			id: msg.id,
-			role: msg.role as UIMessage["role"],
-			parts: msg.parts as UIMessage["parts"],
-		})),
+		...convertToUIMessages(dbMessages),
 		{
 			id: message.id,
 			role: "user" as const,

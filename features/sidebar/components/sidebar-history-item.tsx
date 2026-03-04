@@ -192,5 +192,6 @@ function PureSidebarHistoryItem({
 export const SidebarHistoryItem = memo(PureSidebarHistoryItem, (prevProps, nextProps) => {
 	if (prevProps.isActive !== nextProps.isActive) return false
 	if (prevProps.chat.title !== nextProps.chat.title) return false
+	if (prevProps.chat.visibility !== nextProps.chat.visibility) return false
 	return true
 })

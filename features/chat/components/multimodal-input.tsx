@@ -5,6 +5,7 @@ import {
 	type DragEvent,
 	type KeyboardEvent,
 	useCallback,
+	useEffect,
 	useRef,
 	useState,
 } from "react"
@@ -17,17 +18,19 @@ import { useChatSessionContext } from "@/features/chat/hooks/use-chat-session-co
 import type { Attachment } from "@/features/chat/types/chat.types"
 import { cn } from "@/lib/utils/cn"
 
+import { PreviewAttachment } from "./preview-attachment"
 import { SubmitButton } from "./submit-button"
 
 // ── File upload helpers ──────────────────────────────────────
 
-async function uploadFile(file: File): Promise<Attachment | undefined> {
+async function uploadFile(file: File, signal?: AbortSignal): Promise<Attachment | undefined> {
 	const formData = new FormData()
 	formData.append("file", file)
 	try {
 		const response = await fetch("/api/files/upload", {
 			method: "POST",
 			body: formData,
+			signal,
 		})
 		if (response.ok) {
 			const data = (await response.json()) as {
@@ -44,7 +47,9 @@ async function uploadFile(file: File): Promise<Attachment | undefined> {
 		}
 		const errorData = (await response.json()) as { error: string }
 		toast.error(errorData.error)
-	} catch {
+	} catch (error) {
+		// Silently ignore aborted uploads (e.g., component unmount)
+		if (error instanceof Error && error.name === "AbortError") return
 		toast.error("Failed to upload file, please try again!")
 	}
 }
@@ -53,10 +58,11 @@ async function processFiles(
 	files: File[],
 	setAttachments: React.Dispatch<React.SetStateAction<Attachment[]>>,
 	setUploadQueue: React.Dispatch<React.SetStateAction<string[]>>,
+	signal?: AbortSignal,
 ) {
 	setUploadQueue(files.map((f) => f.name))
 	try {
-		const results = await Promise.all(files.map(uploadFile))
+		const results = await Promise.all(files.map((f) => uploadFile(f, signal)))
 		const uploaded = results.filter((r): r is Attachment => r !== undefined)
 		if (uploaded.length > 0) {
 			setAttachments((prev) => [...prev, ...uploaded])
@@ -76,6 +82,14 @@ export function MultimodalInput({ className }: { className?: string }) {
 	const fileInputRef = useRef<HTMLInputElement>(null)
 	const [isDragging, setIsDragging] = useState(false)
 	const [uploadQueue, setUploadQueue] = useState<string[]>([])
+	const uploadAbortRef = useRef<AbortController | null>(null)
+
+	// Abort active uploads on unmount
+	useEffect(() => {
+		return () => {
+			uploadAbortRef.current?.abort()
+		}
+	}, [])
 
 	// Auto-resize textarea to fit content (capped at 200px)
 	const adjustHeight = useCallback((textarea: HTMLTextAreaElement) => {
@@ -108,7 +122,9 @@ export function MultimodalInput({ className }: { className?: string }) {
 		(e: ChangeEvent<HTMLInputElement>) => {
 			const files = Array.from(e.target.files || [])
 			if (files.length > 0) {
-				processFiles(files, setAttachments, setUploadQueue)
+				const controller = new AbortController()
+				uploadAbortRef.current = controller
+				processFiles(files, setAttachments, setUploadQueue, controller.signal)
 			}
 		},
 		[setAttachments],
@@ -123,7 +139,9 @@ export function MultimodalInput({ className }: { className?: string }) {
 				.filter((f): f is File => f !== null)
 			if (imageFiles.length > 0) {
 				e.preventDefault()
-				processFiles(imageFiles, setAttachments, setUploadQueue)
+				const controller = new AbortController()
+				uploadAbortRef.current = controller
+				processFiles(imageFiles, setAttachments, setUploadQueue, controller.signal)
 			}
 		},
 		[setAttachments],
@@ -146,7 +164,9 @@ export function MultimodalInput({ className }: { className?: string }) {
 			setIsDragging(false)
 			const files = Array.from(e.dataTransfer.files)
 			if (files.length > 0) {
-				processFiles(files, setAttachments, setUploadQueue)
+				const controller = new AbortController()
+				uploadAbortRef.current = controller
+				processFiles(files, setAttachments, setUploadQueue, controller.signal)
 			}
 		},
 		[setAttachments],
@@ -172,43 +192,38 @@ export function MultimodalInput({ className }: { className?: string }) {
 			{/* Attachment previews */}
 			{(attachments.length > 0 || uploadQueue.length > 0) && (
 				<div
-					className="flex flex-row gap-2 overflow-x-auto"
+					className="flex flex-row items-end gap-2 overflow-x-auto"
 					data-testid="attachments-preview"
 				>
 					{attachments.map((attachment) => (
-						<div
-							className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs"
+						<PreviewAttachment
+							attachment={attachment}
 							key={attachment.url}
-						>
-							<span className="max-w-[120px] truncate">{attachment.name}</span>
-							<button
-								aria-label={`Remove ${attachment.name}`}
-								className="text-muted-foreground hover:text-foreground"
-								onClick={() =>
-									setAttachments((prev) =>
-										prev.filter((a) => a.url !== attachment.url),
-									)
-								}
-								type="button"
-							>
-								×
-							</button>
-						</div>
+							onRemove={() =>
+								setAttachments((prev) =>
+									prev.filter((a) => a.url !== attachment.url),
+								)
+							}
+						/>
 					))}
-					{uploadQueue.map((name) => (
-						<div
-							className="flex animate-pulse items-center gap-1 rounded-md border px-2 py-1 text-xs"
-							key={name}
-						>
-							<span className="max-w-[120px] truncate">{name}</span>
-						</div>
+					{uploadQueue.map((filename) => (
+						<PreviewAttachment
+							attachment={{
+								url: "",
+								name: filename,
+								contentType: "",
+							}}
+							isUploading
+							key={filename}
+						/>
 					))}
 				</div>
 			)}
 
 			{/* Hidden file input for attachment button */}
 			<input
-				aria-label="Upload attachments"
+				accept="image/*"
+				aria-label="Upload file"
 				className="hidden"
 				multiple
 				onChange={handleFileChange}

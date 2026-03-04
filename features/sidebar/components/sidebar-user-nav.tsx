@@ -3,6 +3,7 @@
 import { ChevronUp } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import { unstable_rethrow } from "next/navigation"
 import { useTheme } from "next-themes"
 import { useEffect, useState, useTransition } from "react"
 import { toast } from "sonner"
@@ -117,9 +118,10 @@ export function SidebarUserNav({ user }: SidebarUserNavProps) {
 									startTransition(async () => {
 										try {
 											await logout()
-										} catch {
+										} catch (error) {
 											// logout() calls redirect("/login") which throws
-											// NEXT_REDIRECT — this is expected behavior.
+											// NEXT_REDIRECT — re-throw so Next.js handles it.
+											unstable_rethrow(error)
 											// Only show error for genuine failures.
 											toast.error("Failed to sign out, please try again.")
 										}

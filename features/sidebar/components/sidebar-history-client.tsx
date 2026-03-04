@@ -29,8 +29,9 @@ import { deleteChat } from "@/features/chat/actions/delete-chat"
 import { SidebarHistoryItem } from "@/features/sidebar/components/sidebar-history-item"
 import { useSidebarHistory } from "@/features/sidebar/hooks/use-sidebar-history"
 import type { SidebarHistoryGroup } from "@/features/sidebar/types/sidebar.types"
+import { updateChatVisibility } from "@/features/visibility/actions/update-visibility"
 import { usePendingChats } from "@/lib/providers/pending-chats-provider"
-import type { Chat } from "@/lib/types/models.types"
+import type { Chat, Visibility } from "@/lib/types/models.types"
 import type { PendingChat } from "@/lib/types/pending-chats.types"
 
 // ── Props ──────────────────────────────────────────────────────
@@ -103,7 +104,14 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 	const { setOpenMobile } = useSidebar()
 
 	const { entries: pendingEntries, remove: removePending, markConfirmed } = usePendingChats()
-	const { chats: paginatedChats, hasMore: swrHasMore, loadMore, isLoading } = useSidebarHistory()
+	const {
+		chats: paginatedChats,
+		hasMore: swrHasMore,
+		loadMore,
+		isLoading,
+	} = useSidebarHistory({
+		initialData: { chats: initialChats, hasMore: initialHasMore },
+	})
 
 	const [deleteId, setDeleteId] = useState<string | null>(null)
 	const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set())
@@ -205,6 +213,19 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 		}
 	}, [deleteId, activeChatId, removePending, router])
 
+	const handleVisibilityChange = useCallback(
+		async (chatId: string, newVisibility: Visibility) => {
+			const result = await updateChatVisibility({
+				chatId,
+				visibility: newVisibility,
+			})
+			if (!result.success) {
+				toast.error("Failed to update visibility")
+			}
+		},
+		[],
+	)
+
 	const handleDeleteAllConfirm = useCallback(async () => {
 		setShowDeleteAllDialog(false)
 		const result = await deleteAllChats()
@@ -271,6 +292,7 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 										chat={pendingToChat(pending)}
 										isActive={pending.id === activeChatId}
 										onDelete={handleDeleteRequest}
+										onVisibilityChange={handleVisibilityChange}
 										setOpenMobile={setOpenMobile}
 									/>
 								))}
@@ -280,6 +302,7 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 										chat={chat}
 										isActive={chat.id === activeChatId}
 										onDelete={handleDeleteRequest}
+										onVisibilityChange={handleVisibilityChange}
 										setOpenMobile={setOpenMobile}
 									/>
 								))}
@@ -296,6 +319,7 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 										chat={chat}
 										isActive={chat.id === activeChatId}
 										onDelete={handleDeleteRequest}
+										onVisibilityChange={handleVisibilityChange}
 										setOpenMobile={setOpenMobile}
 									/>
 								))}

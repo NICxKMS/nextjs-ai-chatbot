@@ -92,3 +92,14 @@ export async function del(...keys: string[]): Promise<number | null> {
 		return null
 	}
 }
+
+/** Ping the Redis server. Returns "PONG" or null on failure/missing config. */
+export async function ping(): Promise<string | null> {
+	try {
+		const client = getClient()
+		if (!client) return null
+		return await client.ping()
+	} catch {
+		return null
+	}
+}

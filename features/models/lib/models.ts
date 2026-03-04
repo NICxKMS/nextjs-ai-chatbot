@@ -6,9 +6,7 @@ import { cookies } from "next/headers"
 import { discoverModels, STATIC_MODELS } from "@/lib/ai/models"
 import type { AppSession } from "@/lib/auth/session"
 import type { ModelMetadata } from "@/lib/types/model.types"
-import { DEFAULT_CHAT_MODEL } from "@/lib/types/model.types"
-
-const MODEL_COOKIE_NAME = "chat-model"
+import { DEFAULT_CHAT_MODEL, MODEL_COOKIE_NAME } from "@/lib/types/model.types"
 
 /**
  * Get all available AI models (static + dynamically discovered).

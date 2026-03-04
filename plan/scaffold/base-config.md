@@ -70,7 +70,6 @@ Carried over from `oldapp/package.json` with version pins verified:
 "@vercel/blob": "^0.24.1",
 "@vercel/functions": "^2.0.0",
 "@vercel/otel": "^2.1.0",
-"@vercel/postgres": "^0.10.0",
 "@vercel/speed-insights": "^1.2.0",
 
 // ── Database ──
@@ -96,6 +95,7 @@ Carried over from `oldapp/package.json` with version pins verified:
 "react-virtuoso": "^4.17.0",
 "sonner": "^1.5.0",
 "tailwind-merge": "^2.5.2",
+"tw-animate-css": "^1.4.0",
 "use-stick-to-bottom": "^1.1.1",
 
 // ── Utilities ──
@@ -155,7 +155,7 @@ Carried over from `oldapp/package.json` with version pins verified:
 | `cross-env` | Not needed (Playwright handles env natively) |
 | `@radix-ui/react-icons` | Replaced by lucide-react consistently |
 | `@radix-ui/react-select` | Use radix-ui unified package |
-| `tailwindcss-animate` | Tailwind v4 handles animations natively |
+| `tailwindcss-animate` | Replaced by `tw-animate-css` (Tailwind v4 compatible) |
 | `usehooks-ts` | Hooks colocated in features, no blanket utility lib |
 | `import-in-the-middle` | OTel-specific, evaluate if still needed |
 | `dotenv` | Next.js handles .env natively |
@@ -174,11 +174,8 @@ Carried over from `oldapp/package.json` with version pins verified:
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  experimental: {
-    reactCompiler: true,
-    cacheComponents: true, // Next.js 16 component-level caching
-    ppr: 'incremental',    // Partial Prerendering
-  },
+  reactCompiler: true,     // Top-level in Next.js 16 (promoted from experimental)
+  cacheComponents: true,   // Top-level in Next.js 16 (promoted from experimental)
   images: {
     remotePatterns: [
       {
@@ -192,9 +189,8 @@ export default nextConfig
 ```
 
 **Key decisions:**
-- `reactCompiler: true` — React Compiler for automatic memoization
-- `cacheComponents: true` — Enable component-level caching (Next.js 16) <!-- audit: SC-V4 -->
-- `ppr: 'incremental'` — Partial Prerendering for streaming + static hybrid
+- `reactCompiler: true` — React Compiler for automatic memoization (top-level in Next.js 16)
+- `cacheComponents: true` — Enable component-level caching (top-level in Next.js 16)
 - No `serverExternalPackages` unless needed by specific dependencies
 
 ---

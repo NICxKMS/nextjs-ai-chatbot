@@ -1,9 +1,11 @@
-import type { UIMessage } from "ai"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
+import { Suspense } from "react"
 import { ChatShell } from "@/features/chat/components/chat-shell"
 import { ChatStreamProvider } from "@/features/chat/components/chat-stream-provider"
+import { convertToUIMessages } from "@/features/chat/lib/message-utils"
 import { getAvailableModels } from "@/features/models/lib/models"
+import { VoteResolver, VotesProvider } from "@/features/voting/components/vote-resolver"
 import { getAppSession } from "@/lib/auth/session"
 import { cacheKeys } from "@/lib/cache/keys"
 import { withCache } from "@/lib/cache/with-cache"
@@ -44,12 +46,15 @@ export default async function ExistingChatPage({ params }: { params: Promise<{ i
 	const { id: chatId } = await params
 	const session = await getAppSession()
 
-	// Start votes promise in parallel (non-blocking) — consumed by VoteResolver in P6.
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	const _votesPromise =
+	// Start votes promise in parallel (non-blocking) — consumed by VoteResolver.
+	// Errors are caught to ensure vote fetch failures don't crash the page.
+	const votesPromise =
 		session?.user && session.user.type !== "guest"
-			? getCachedVotes(chatId, session.user.id)
-			: Promise.resolve([])
+			? getCachedVotes(chatId, session.user.id).catch((error: unknown) => {
+					console.error("[VoteResolver] Failed to fetch votes:", error)
+					return [] as Awaited<ReturnType<typeof getCachedVotes>>
+				})
+			: Promise.resolve([] as Awaited<ReturnType<typeof getCachedVotes>>)
 
 	// Await chat separately for access control
 	const chat = await getCachedChat(chatId)
@@ -66,26 +71,25 @@ export default async function ExistingChatPage({ params }: { params: Promise<{ i
 		getAvailableModels(),
 	])
 
-	// Convert DB messages to UIMessage format (id + role + parts)
-	const initialMessages: UIMessage[] = dbMessages.map((msg) => ({
-		id: msg.id,
-		role: msg.role as UIMessage["role"],
-		parts: msg.parts as UIMessage["parts"],
-	}))
+	const initialMessages = convertToUIMessages(dbMessages)
 
 	const isReadonly = !session?.user || session.user.id !== chat.userId
 
 	return (
 		<ChatStreamProvider>
-			{/* P6: VotesProvider wraps ChatShell; VoteResolver in Suspense consumes votesPromise */}
-			<ChatShell
-				id={chat.id}
-				initialMessages={initialMessages}
-				initialChatModel={chat.model ?? DEFAULT_CHAT_MODEL}
-				isReadonly={isReadonly}
-				initialVisibility={chat.visibility}
-				availableModels={availableModels}
-			/>
+			<VotesProvider chatId={chat.id}>
+				<ChatShell
+					id={chat.id}
+					initialMessages={initialMessages}
+					initialChatModel={chat.model ?? DEFAULT_CHAT_MODEL}
+					isReadonly={isReadonly}
+					initialVisibility={chat.visibility}
+					availableModels={availableModels}
+				/>
+				<Suspense fallback={null}>
+					<VoteResolver votesPromise={votesPromise} />
+				</Suspense>
+			</VotesProvider>
 		</ChatStreamProvider>
 	)
 }

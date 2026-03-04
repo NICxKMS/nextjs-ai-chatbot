@@ -1,6 +1,7 @@
 import { z } from "zod"
 
 import { getAppSession } from "@/lib/auth/session"
+import { getArtifactById } from "@/lib/data/artifact"
 import { getSuggestionsByArtifactId } from "@/lib/data/suggestion"
 import { AppError } from "@/lib/errors/app-error"
 
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
 
 	// Guest users: suggestions are not persisted, return empty array
 	if (session.user.type === "guest") {
-		return Response.json([])
+		return Response.json({ suggestions: [] })
 	}
 
 	const url = new URL(request.url)
@@ -32,9 +33,24 @@ export async function GET(request: Request) {
 	}
 
 	try {
+		// IDOR check: verify the requesting user owns the artifact
+		const artifact = await getArtifactById(parsed.data.artifactId)
+		if (!artifact) {
+			return AppError.notFound(
+				"not_found:artifact:artifact_not_found",
+				"Artifact not found",
+			).toResponse()
+		}
+		if (artifact.userId !== session.user.id) {
+			return AppError.forbidden("forbidden:chat:owner_mismatch", "Access denied").toResponse()
+		}
+
 		const suggestions = await getSuggestionsByArtifactId(parsed.data.artifactId)
-		return Response.json(suggestions)
-	} catch {
+		return Response.json({ suggestions })
+	} catch (error) {
+		if (error instanceof AppError) {
+			return error.toResponse()
+		}
 		return AppError.internal(
 			"internal_error:database:query_failed",
 			"Failed to fetch suggestions",

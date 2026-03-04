@@ -134,9 +134,11 @@ In `proxy.ts`, on every request:
 
 ---
 
-## Edge Layer (`proxy.ts`)
+## Request Interception Layer (`proxy.ts`)
 
-> *`proxy.ts` is the single edge layer for all request interception. Handles guest JWT creation, token rotation, rate limiting, and path guards.*
+> *`proxy.ts` is the single request interception layer. Handles guest JWT creation, token rotation, rate limiting, and path guards.*
+>
+> **Note (Next.js 16):** `proxy.ts` runs on the Node.js runtime, not the Edge runtime. Earlier references to "edge" in this document are historical — the functionality is identical but the runtime is Node.js.
 
 ### Route Classification Matrix (canonical)
 <!-- C2-W4: C2X-005 fix -->
