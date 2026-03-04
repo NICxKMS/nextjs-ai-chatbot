@@ -119,7 +119,7 @@ function PureMessages() {
 			{!isAtBottom && (
 				<Button
 					aria-label="Scroll to bottom"
-					className="-translate-x-1/2 absolute bottom-4 left-1/2 z-10 rounded-full shadow-lg"
+					className="-translate-x-1/2 absolute bottom-4 left-1/2 z-10 rounded-full shadow-lg after:absolute after:-inset-0.5 after:md:hidden"
 					onClick={handleScrollToBottom}
 					size="icon"
 					type="button"

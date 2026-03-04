@@ -2,7 +2,6 @@
  * Error code definitions for the application.
  *
  * Codes follow `type:surface:detail` naming convention.
- * No ACTIVATE_GATEWAY or credit/quota error codes (removed per redesign).
  */
 
 export type ErrorCode =

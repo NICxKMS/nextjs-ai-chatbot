@@ -94,10 +94,17 @@ export function AuthForm({ mode, action }: AuthFormProps) {
 	)
 
 	return (
-		<form action={formAction} className="flex flex-col gap-4 px-4 sm:px-16">
+		<form
+			action={formAction}
+			className="flex flex-col gap-4 px-4 sm:px-16"
+			data-testid="auth-form"
+		>
 			{/* Success message banner (e.g., email confirmation required) */}
 			{state?.successMessage && (
-				<output className="rounded-md bg-emerald-500/10 px-4 py-3 text-emerald-700 text-sm dark:text-emerald-400">
+				<output
+					aria-live="polite"
+					className="rounded-md bg-emerald-500/10 px-4 py-3 text-emerald-700 text-sm dark:text-emerald-400"
+				>
 					{state.successMessage}
 				</output>
 			)}
@@ -179,7 +186,11 @@ export function AuthForm({ mode, action }: AuthFormProps) {
 			</div>
 
 			{/* Submit button */}
-			<Button disabled={isPending} type="submit">
+			<Button
+				data-testid={isLogin ? "login-button" : "register-button"}
+				disabled={isPending}
+				type="submit"
+			>
 				{isPending
 					? isLogin
 						? "Signing in…"

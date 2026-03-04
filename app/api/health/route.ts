@@ -3,8 +3,6 @@ import { sql } from "drizzle-orm"
 import { ping } from "@/lib/cache/client"
 import { db } from "@/lib/db/client"
 
-export const dynamic = "force-dynamic"
-
 type HealthStatus = "healthy" | "degraded" | "unhealthy"
 
 interface CheckResult {

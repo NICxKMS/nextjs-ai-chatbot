@@ -76,7 +76,7 @@ function persistModelSelection(modelId: string): void {
 	try {
 		localStorage.setItem(MODEL_COOKIE_NAME, modelId)
 	} catch {
-		// localStorage may be unavailable (private browsing, storage quota)
+		// localStorage may be unavailable (private browsing, storage limit exceeded)
 	}
 }
 
@@ -144,6 +144,7 @@ export function ModelSelector({
 					size="sm"
 					className={cn("gap-2", className)}
 					aria-label="Select AI model"
+					data-testid="model-selector"
 				>
 					{selectedModel ? (
 						<>

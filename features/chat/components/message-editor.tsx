@@ -1,7 +1,7 @@
 "use client"
 
 import type { UIMessage } from "ai"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -53,7 +53,7 @@ export function MessageEditor({ message, setMode }: MessageEditorProps) {
 		adjustHeight()
 	}
 
-	const handleSubmit = async () => {
+	const handleSubmit = useCallback(async () => {
 		setIsSubmitting(true)
 		try {
 			await editMessage(message.id, draftContent)
@@ -62,11 +62,27 @@ export function MessageEditor({ message, setMode }: MessageEditorProps) {
 			toast.error("Failed to edit message")
 			setIsSubmitting(false)
 		}
-	}
+	}, [editMessage, message.id, draftContent, setMode])
 
-	const handleCancel = () => {
+	const handleCancel = useCallback(() => {
 		setMode("view")
-	}
+	}, [setMode])
+
+	// Escape cancels editing, Enter submits (Shift+Enter for newline)
+	const handleKeyDown = useCallback(
+		(e: KeyboardEvent<HTMLTextAreaElement>) => {
+			if (e.key === "Escape") {
+				e.preventDefault()
+				handleCancel()
+			} else if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+				e.preventDefault()
+				if (!isSubmitting && draftContent.trim()) {
+					handleSubmit()
+				}
+			}
+		},
+		[handleCancel, handleSubmit, draftContent, isSubmitting],
+	)
 
 	return (
 		<div className="flex w-full flex-col gap-2">
@@ -74,6 +90,7 @@ export function MessageEditor({ message, setMode }: MessageEditorProps) {
 				className="w-full resize-none overflow-hidden rounded-xl bg-transparent text-base! outline-hidden"
 				data-testid="message-editor"
 				onChange={handleInput}
+				onKeyDown={handleKeyDown}
 				ref={textareaRef}
 				value={draftContent}
 			/>

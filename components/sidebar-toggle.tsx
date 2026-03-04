@@ -14,8 +14,11 @@ export function SidebarToggle({ className }: ComponentProps<typeof SidebarTrigge
 		<Tooltip>
 			<TooltipTrigger asChild>
 				<Button
-					className={cn("h-8 px-2 md:h-fit md:px-2", className)}
-					data-testid="sidebar-toggle-button"
+					className={cn(
+						"relative h-8 px-2 after:absolute after:-inset-1.5 after:md:hidden md:h-fit md:px-2",
+						className,
+					)}
+					data-testid="sidebar-toggle"
 					onClick={toggleSidebar}
 					variant="outline"
 				>

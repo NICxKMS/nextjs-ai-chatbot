@@ -106,9 +106,10 @@ export function MultimodalInput({ className }: { className?: string }) {
 	)
 
 	// Submit on Enter, newline on Shift+Enter
+	// Skip during IME composition (e.g. CJK input) to avoid premature submission
 	const handleKeyDown = useCallback(
 		(e: KeyboardEvent<HTMLTextAreaElement>) => {
-			if (e.key === "Enter" && !e.shiftKey) {
+			if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
 				e.preventDefault()
 				if (status === "ready" && input.trim()) {
 					sendMessage()
@@ -241,7 +242,7 @@ export function MultimodalInput({ className }: { className?: string }) {
 			>
 				<Button
 					aria-label="Attach file"
-					className="shrink-0"
+					className="relative shrink-0 after:absolute after:-inset-0.5 after:md:hidden"
 					disabled={isSubmitting}
 					onClick={() => fileInputRef.current?.click()}
 					size="icon"

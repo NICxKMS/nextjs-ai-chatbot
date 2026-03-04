@@ -14,7 +14,7 @@ import { useArtifactSelector } from "../hooks/use-artifact-selector"
 
 type VersionFooterProps = {
 	handleVersionChange: (type: "next" | "prev" | "toggle" | "latest") => void
-	documents: Artifact[] | undefined
+	versions: Artifact[] | undefined
 	currentVersionIndex: number
 }
 
@@ -22,10 +22,10 @@ type VersionFooterProps = {
 
 /**
  * Gets the ISO timestamp for a given version index.
- * Returns empty string if documents or index is invalid.
+ * Returns empty string if versions array or index is invalid.
  */
-function getVersionTimestamp(documents: Artifact[], index: number): string {
-	const doc = documents[index]
+function getVersionTimestamp(versions: Artifact[], index: number): string {
+	const doc = versions[index]
 	if (!doc) return ""
 	return new Date(doc.createdAt).toISOString()
 }
@@ -34,17 +34,17 @@ function getVersionTimestamp(documents: Artifact[], index: number): string {
 
 export function VersionFooter({
 	handleVersionChange,
-	documents,
+	versions,
 	currentVersionIndex,
 }: VersionFooterProps) {
 	const artifactId = useArtifactSelector((s) => s.artifactId)
 	const [isMutating, setIsMutating] = useState(false)
 
-	if (!documents || documents.length === 0) {
+	if (!versions || versions.length === 0) {
 		return null
 	}
 
-	const isCurrentVersion = currentVersionIndex === documents.length - 1
+	const isCurrentVersion = currentVersionIndex === versions.length - 1
 
 	if (isCurrentVersion) {
 		return null
@@ -60,7 +60,7 @@ export function VersionFooter({
 		>
 			<div>
 				<div className="font-medium">
-					Version {currentVersionIndex + 1} of {documents.length}
+					Version {currentVersionIndex + 1} of {versions.length}
 				</div>
 				<div className="text-muted-foreground text-sm">
 					Restore this version to make edits
@@ -89,7 +89,7 @@ export function VersionFooter({
 					onClick={async () => {
 						setIsMutating(true)
 						try {
-							const timestamp = getVersionTimestamp(documents, currentVersionIndex)
+							const timestamp = getVersionTimestamp(versions, currentVersionIndex)
 							if (!timestamp) return
 
 							const response = await fetch("/api/artifact", {

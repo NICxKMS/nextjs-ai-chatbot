@@ -5,6 +5,11 @@ import { useEffect } from "react"
 
 import { Button } from "@/components/ui/button"
 
+/**
+ * Error boundary for the (auth) route group.
+ * Catches runtime errors in auth pages (login, register) and provides recovery.
+ * Renders within the auth layout's centered container.
+ */
 export default function AuthError({
 	error,
 	reset,
@@ -23,6 +28,9 @@ export default function AuthError({
 				<p className="text-muted-foreground text-sm">
 					An error occurred during authentication. Please try again.
 				</p>
+				{error.digest && (
+					<p className="text-muted-foreground/60 text-xs">Error ID: {error.digest}</p>
+				)}
 			</div>
 
 			<div className="flex gap-3">

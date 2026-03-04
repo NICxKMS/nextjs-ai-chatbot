@@ -110,6 +110,28 @@ function PureArtifactPanel() {
 	const { artifact, setArtifact } = useArtifact()
 	const isVisible = useArtifactSelector((s) => s.isVisible)
 
+	// ── Focus management ──────────────────────────────────────
+	// Save the element that was focused before the panel opened,
+	// move focus into the panel on open, restore on close.
+
+	const panelRef = useRef<HTMLDivElement>(null)
+	const previousFocusRef = useRef<HTMLElement | null>(null)
+
+	useEffect(() => {
+		if (isVisible) {
+			// Save the currently focused element before the panel opens
+			previousFocusRef.current = document.activeElement as HTMLElement | null
+			// Focus the panel container after animation frame to ensure it's mounted
+			requestAnimationFrame(() => {
+				panelRef.current?.focus()
+			})
+		} else if (previousFocusRef.current) {
+			// Restore focus to the element that was focused before the panel opened
+			previousFocusRef.current.focus()
+			previousFocusRef.current = null
+		}
+	}, [isVisible])
+
 	// ── Version data via SWR ──────────────────────────────────
 
 	const swrKey =
@@ -117,7 +139,7 @@ function PureArtifactPanel() {
 			? `/api/artifact?id=${artifact.artifactId}`
 			: null
 
-	const { data: documents, mutate: mutateVersions } = useSWR<Artifact[]>(
+	const { data: versions, mutate: mutateVersions } = useSWR<Artifact[]>(
 		swrKey,
 		artifactVersionFetcher,
 	)
@@ -128,20 +150,20 @@ function PureArtifactPanel() {
 	const [isContentDirty, setIsContentDirty] = useState(false)
 	const [metadata, setMetadata] = useState<unknown>(null)
 
-	// ── Sync version index when documents load ────────────────
+	// ── Sync version index when versions load ────────────────
 
 	useEffect(() => {
-		if (documents && documents.length > 0) {
-			const latest = documents.at(-1)
+		if (versions && versions.length > 0) {
+			const latest = versions.at(-1)
 			if (latest) {
-				setCurrentVersionIndex(documents.length - 1)
+				setCurrentVersionIndex(versions.length - 1)
 				setArtifact((prev) => ({
 					...prev,
 					content: latest.content ?? "",
 				}))
 			}
 		}
-	}, [documents, setArtifact])
+	}, [versions, setArtifact])
 
 	// Reset mode to edit when streaming starts
 	useEffect(() => {
@@ -153,13 +175,13 @@ function PureArtifactPanel() {
 	// ── Derived state ─────────────────────────────────────────
 
 	const isCurrentVersion =
-		documents && documents.length > 0 ? currentVersionIndex === documents.length - 1 : true
+		versions && versions.length > 0 ? currentVersionIndex === versions.length - 1 : true
 
-	const currentDocument = documents?.[currentVersionIndex] ?? null
+	const currentVersion = versions?.[currentVersionIndex] ?? null
 
 	function getContentByVersionIndex(index: number): string {
-		if (!documents?.[index]) return ""
-		return documents[index].content ?? ""
+		if (!versions?.[index]) return ""
+		return versions[index].content ?? ""
 	}
 
 	const displayContent = isCurrentVersion
@@ -170,18 +192,18 @@ function PureArtifactPanel() {
 
 	const handleVersionChange = useCallback(
 		(type: "next" | "prev" | "toggle" | "latest") => {
-			if (!documents) return
+			if (!versions) return
 
 			if (type === "latest") {
-				setCurrentVersionIndex(documents.length - 1)
+				setCurrentVersionIndex(versions.length - 1)
 			} else if (type === "prev") {
 				setCurrentVersionIndex((i) => Math.max(0, i - 1))
 			} else if (type === "next") {
-				setCurrentVersionIndex((i) => Math.min(documents.length - 1, i + 1))
+				setCurrentVersionIndex((i) => Math.min(versions.length - 1, i + 1))
 			}
 			// "toggle" is a no-op — diff mode deferred to post-MVP (Wave 4: AR-8)
 		},
-		[documents],
+		[versions],
 	)
 
 	// ── Save logic ────────────────────────────────────────────
@@ -236,9 +258,9 @@ function PureArtifactPanel() {
 	 */
 	const saveContent = useCallback(
 		(updatedContent: string, options?: { debounce?: boolean }) => {
-			if (!documents || documents.length === 0) return
+			if (!versions || versions.length === 0) return
 
-			const latestDoc = documents.at(-1)
+			const latestDoc = versions.at(-1)
 			if (!latestDoc) return
 
 			if (updatedContent !== (latestDoc.content ?? "")) {
@@ -256,7 +278,7 @@ function PureArtifactPanel() {
 				}
 			}
 		},
-		[documents, handleSave],
+		[versions, handleSave],
 	)
 
 	// ── Cleanup debounce timer on unmount ─────────────────────
@@ -329,10 +351,10 @@ function PureArtifactPanel() {
 			return <div className="text-muted-foreground text-sm">Saving changes…</div>
 		}
 
-		if (currentDocument) {
+		if (currentVersion) {
 			return (
 				<div className="text-muted-foreground text-sm">
-					{`Updated ${formatDistance(new Date(currentDocument.createdAt), new Date(), { addSuffix: true })}`}
+					{`Updated ${formatDistance(new Date(currentVersion.createdAt), new Date(), { addSuffix: true })}`}
 				</div>
 			)
 		}
@@ -355,8 +377,12 @@ function PureArtifactPanel() {
 						borderRadius: 0,
 						transition: { ...SPRING_TRANSITION, duration: 0.5 },
 					}}
+					aria-label={`Artifact: ${artifact.title}`}
 					className="fixed top-0 left-0 z-50 flex h-dvh w-dvw flex-col overflow-hidden border-zinc-200 bg-background dark:border-zinc-700 dark:bg-muted"
 					data-testid="artifact-panel"
+					ref={panelRef}
+					role="dialog"
+					tabIndex={-1}
 					exit={{
 						opacity: 0,
 						scale: 0.5,
@@ -421,7 +447,7 @@ function PureArtifactPanel() {
 						{!isCurrentVersion && (
 							<VersionFooter
 								currentVersionIndex={currentVersionIndex}
-								documents={documents}
+								versions={versions}
 								handleVersionChange={handleVersionChange}
 							/>
 						)}

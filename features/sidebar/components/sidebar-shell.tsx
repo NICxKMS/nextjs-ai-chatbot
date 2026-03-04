@@ -65,7 +65,11 @@ export async function SidebarShell() {
 						</Link>
 						<Tooltip>
 							<TooltipTrigger asChild>
-								<Button asChild className="h-8 p-1 md:h-fit md:p-2" variant="ghost">
+								<Button
+									asChild
+									className="relative h-8 p-1 after:absolute after:-inset-1.5 after:md:hidden md:h-fit md:p-2"
+									variant="ghost"
+								>
 									<Link href="/">
 										<PlusIcon />
 									</Link>

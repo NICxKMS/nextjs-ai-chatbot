@@ -5,6 +5,11 @@ import { useEffect } from "react"
 
 import { Button } from "@/components/ui/button"
 
+/**
+ * Error boundary for the (chat) route group.
+ * Renders within the chat layout, preserving the sidebar for navigation.
+ * Only replaces the main content area (SidebarInset children).
+ */
 export default function ChatError({
 	error,
 	reset,

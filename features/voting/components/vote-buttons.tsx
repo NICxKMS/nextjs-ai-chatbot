@@ -53,7 +53,7 @@ function PureVoteButtons({ messageId, isAssistant, isLoading, vote, onVote }: Vo
 			<MessageAction
 				aria-pressed={isUpvoted}
 				className={isUpvoted ? "text-foreground disabled:opacity-100" : undefined}
-				data-testid="message-upvote"
+				data-testid="vote-up"
 				disabled={isUpvoted}
 				onClick={() => onVote?.(messageId, "up")}
 				tooltip="Upvote Response"
@@ -64,7 +64,7 @@ function PureVoteButtons({ messageId, isAssistant, isLoading, vote, onVote }: Vo
 			<MessageAction
 				aria-pressed={isDownvoted}
 				className={isDownvoted ? "text-foreground disabled:opacity-100" : undefined}
-				data-testid="message-downvote"
+				data-testid="vote-down"
 				disabled={isDownvoted}
 				onClick={() => onVote?.(messageId, "down")}
 				tooltip="Downvote Response"

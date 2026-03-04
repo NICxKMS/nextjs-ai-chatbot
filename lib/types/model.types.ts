@@ -1,4 +1,4 @@
-// ── Provider identifiers (NO vercel-gateway / xAI) ──
+// ── Provider identifiers ──
 
 export type ProviderId = "openai" | "google" | "openrouter"
 

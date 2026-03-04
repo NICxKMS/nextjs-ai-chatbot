@@ -98,6 +98,7 @@ After each task (or batch of tasks), report:
 | Backend/API/DB          | `@poseidon`          | Backend specialization    |
 | Architecture decisions  | `@oracle`            | Read-only consultation    |
 | Codebase research       | `@hermes`            | Fast pattern discovery    |
+| External research       | `@metis`             | Tech eval & docs synthesis|
 | Security concerns       | `@athena`            | Security-focused analysis |
 | Documentation           | `@calliope`          | Technical writing         |
 | Verification            | `@momus`             | Independent verification  |
@@ -127,3 +128,4 @@ After each task (or batch of tasks), report:
 ## The Conductor's Rule
 
 > The orchestra plays beautifully not because each musician is perfect, but because the conductor ensures they play **together**. Your job is harmony, not solo performance.
+

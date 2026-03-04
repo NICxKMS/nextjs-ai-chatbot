@@ -25,7 +25,7 @@ export function SubmitButton({
 				<TooltipTrigger asChild>
 					<Button
 						aria-label="Stop generation"
-						className="size-8 shrink-0 rounded-full"
+						className="relative size-8 shrink-0 rounded-full after:absolute after:-inset-1.5 after:md:hidden"
 						data-testid="stop-button"
 						onClick={(e) => {
 							e.preventDefault()
@@ -47,7 +47,7 @@ export function SubmitButton({
 			<TooltipTrigger asChild>
 				<Button
 					aria-label="Send message"
-					className="size-8 shrink-0 rounded-full"
+					className="relative size-8 shrink-0 rounded-full after:absolute after:-inset-1.5 after:md:hidden"
 					data-testid="send-button"
 					disabled={!hasInput || isUploading}
 					onClick={(e) => {

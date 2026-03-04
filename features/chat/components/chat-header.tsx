@@ -31,6 +31,7 @@ export function ChatHeader() {
 		<header className="sticky top-0 flex items-center gap-2 bg-background px-2 py-1.5 md:px-2">
 			<SidebarToggle />
 			<ModelSelector
+				className="relative min-w-0 after:absolute after:-inset-1 after:md:hidden"
 				selectedModelId={chatModel}
 				onModelChange={handleModelChange}
 				models={availableModels}
@@ -40,7 +41,11 @@ export function ChatHeader() {
 			<div className="ml-auto flex items-center gap-1">
 				<Tooltip>
 					<TooltipTrigger asChild>
-						<Button asChild className="h-8 px-2 md:h-fit md:px-2" variant="outline">
+						<Button
+							asChild
+							className="relative h-8 px-2 after:absolute after:-inset-1.5 after:md:hidden md:h-fit md:px-2"
+							variant="outline"
+						>
 							<Link href="/">
 								<PlusIcon size={16} />
 								<span className="md:sr-only">New Chat</span>
@@ -52,7 +57,7 @@ export function ChatHeader() {
 				<Tooltip>
 					<TooltipTrigger asChild>
 						<Button
-							className="h-8 px-2 md:h-fit md:px-2"
+							className="relative h-8 px-2 after:absolute after:-inset-1.5 after:md:hidden md:h-fit md:px-2"
 							onClick={() => setSettingsOpen(true)}
 							variant="outline"
 						>
