@@ -1,4 +1,4 @@
-import type { ChatStatus, FileUIPart, UIMessage } from "ai"
+import type { ChatStatus, FileUIPart, LanguageModelUsage, UIMessage } from "ai"
 import type { Dispatch, SetStateAction } from "react"
 
 import type { ArtifactKind, ArtifactSuggestion } from "@/lib/types/artifact.types"
@@ -39,6 +39,8 @@ export interface ChatSessionValue {
 	chatId: string
 	/** Selected model ID (e.g., "google:gemma-3-4b-it") */
 	chatModel: string
+	/** Update the selected model ID (client-side, avoids router.refresh) */
+	setChatModel: (modelId: string) => void
 	/** Whether the chat is read-only (e.g., shared public chat viewed by non-owner) */
 	isReadonly: boolean
 	/** Current message list from useChat */
@@ -76,6 +78,8 @@ export interface ChatSessionValue {
 	setVisibility: (v: VisibilityType) => void
 	/** Available models from the catalog for model selector UI */
 	availableModels: ModelMetadata[]
+	/** Token usage from the last completed response */
+	usage: LanguageModelUsage | undefined
 }
 
 // ── Artifact data stream parts ──────────────────────────────
@@ -95,6 +99,7 @@ export type ArtifactDataPart =
 	| { type: "artifact-imageDelta"; content: string }
 	| { type: "artifact-suggestion"; content: ArtifactSuggestion }
 	| { type: "chat-title"; content: string }
+	| { type: "usage"; content: string }
 	| { type: "error"; content: string }
 
 /** Consolidated stream data part type (alias for ArtifactDataPart) */

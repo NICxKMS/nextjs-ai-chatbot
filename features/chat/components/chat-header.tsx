@@ -2,8 +2,7 @@
 
 import { Settings2Icon } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { useCallback, useState } from "react"
+import { useState } from "react"
 import { PlusIcon } from "@/components/icons"
 import { SidebarToggle } from "@/components/sidebar-toggle"
 import { Button } from "@/components/ui/button"
@@ -14,18 +13,8 @@ import { SettingsPanel } from "@/features/settings/components/settings-panel"
 import { VisibilitySelector } from "@/features/visibility/components/visibility-selector"
 
 export function ChatHeader() {
-	const { chatModel, availableModels } = useChatSessionContext()
+	const { chatModel, setChatModel, availableModels } = useChatSessionContext()
 	const [settingsOpen, setSettingsOpen] = useState(false)
-	const router = useRouter()
-
-	const handleModelChange = useCallback(
-		(_modelId: string) => {
-			// Cookie + localStorage persistence is handled inside ModelSelector.
-			// Refresh server state so the new model is picked up by the chat transport.
-			router.refresh()
-		},
-		[router],
-	)
 
 	return (
 		<header className="sticky top-0 flex items-center gap-2 bg-background px-2 py-1.5 md:px-2">
@@ -33,7 +22,7 @@ export function ChatHeader() {
 			<ModelSelector
 				className="relative min-w-0 after:absolute after:-inset-1 after:md:hidden"
 				selectedModelId={chatModel}
-				onModelChange={handleModelChange}
+				onModelChange={setChatModel}
 				models={availableModels}
 			/>
 			<VisibilitySelector />

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback } from "react"
+import { useCallback, useMemo } from "react"
 
 import {
 	PromptInput,
@@ -14,7 +14,9 @@ import {
 	PromptInputTextarea,
 	PromptInputTools,
 } from "@/components/ai-elements/prompt-input"
+import { ContextDisplay } from "@/features/chat/components/context-display"
 import { useChatSessionContext } from "@/features/chat/hooks/use-chat-session-context"
+import { ModelSelector } from "@/features/models/components/model-selector"
 import { cn } from "@/lib/utils/cn"
 
 // ── Component ────────────────────────────────────────────────
@@ -25,16 +27,32 @@ import { cn } from "@/lib/utils/cn"
 // submit handler and status/stop to the chat session.
 
 export function MultimodalInput({ className }: { className?: string }) {
-	const { sendMessage, stop, status, isReadonly } = useChatSessionContext()
+	const {
+		sendMessage,
+		stop,
+		status,
+		isReadonly,
+		chatModel,
+		setChatModel,
+		availableModels,
+		usage,
+	} = useChatSessionContext()
 
 	const handleSubmit = useCallback(
 		(message: PromptInputMessage) => {
-			// The ai-element already converted blob URLs to data URLs in message.files.
-			// Pass text + files directly to sendMessage which forwards to the AI SDK.
 			sendMessage(message.text, message.files)
 		},
 		[sendMessage],
 	)
+
+	const currentModel = useMemo(
+		() => availableModels.find((m) => m.id === chatModel),
+		[availableModels, chatModel],
+	)
+
+	const usedTokens =
+		(usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0) + (usage?.reasoningTokens ?? 0)
+	const maxTokens = currentModel?.contextWindow ?? 0
 
 	if (isReadonly) return null
 
@@ -49,10 +67,20 @@ export function MultimodalInput({ className }: { className?: string }) {
 		>
 			<PromptInputTextarea
 				autoFocus
-				className="min-h-11"
+				className="min-h-11 pr-14"
 				data-testid="multimodal-input"
 				placeholder="Send a message..."
 			/>
+			{maxTokens > 0 && (
+				<div className="absolute top-1 right-1 z-10">
+					<ContextDisplay
+						usedTokens={usedTokens}
+						maxTokens={maxTokens}
+						usage={usage}
+						modelId={chatModel}
+					/>
+				</div>
+			)}
 			<PromptInputFooter>
 				<PromptInputTools>
 					<PromptInputActionMenu>
@@ -61,6 +89,13 @@ export function MultimodalInput({ className }: { className?: string }) {
 							<PromptInputActionAddAttachments />
 						</PromptInputActionMenuContent>
 					</PromptInputActionMenu>
+					<ModelSelector
+						compact
+						className="size-8 border-0 bg-transparent shadow-none hover:bg-accent hover:text-foreground rounded-md"
+						selectedModelId={chatModel}
+						onModelChange={setChatModel}
+						models={availableModels}
+					/>
 				</PromptInputTools>
 				<PromptInputSubmit
 					data-testid={isGenerating ? "stop-button" : "send-button"}

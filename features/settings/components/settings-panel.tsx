@@ -35,6 +35,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 	const maxTokensId = useId()
 	const systemPromptId = useId()
 	const reasoningId = useId()
+	const contextDisplayId = useId()
 
 	const handleTemperatureChange = useCallback(
 		(e: ChangeEvent<HTMLInputElement>) => {
@@ -70,6 +71,13 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 	const handleReasoningToggle = useCallback(
 		(checked: boolean) => {
 			updateSettings({ enableReasoning: checked })
+		},
+		[updateSettings],
+	)
+
+	const handleContextDisplayToggle = useCallback(
+		(checked: boolean) => {
+			updateSettings({ contextDisplayMode: checked ? "detailed" : "compact" })
 		},
 		[updateSettings],
 	)
@@ -218,6 +226,23 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 								checked={settings.enableReasoning}
 								id={reasoningId}
 								onCheckedChange={handleReasoningToggle}
+							/>
+						</div>
+
+						<div className="flex items-center justify-between gap-4 rounded-md border px-3 py-3">
+							<div className="space-y-0.5">
+								<Label className="cursor-pointer" htmlFor={contextDisplayId}>
+									Detailed token usage
+								</Label>
+								<p className="text-muted-foreground text-xs">
+									Show token usage inline instead of on hover.
+								</p>
+							</div>
+							<Switch
+								aria-label="Detailed token usage"
+								checked={settings.contextDisplayMode === "detailed"}
+								id={contextDisplayId}
+								onCheckedChange={handleContextDisplayToggle}
 							/>
 						</div>
 					</section>

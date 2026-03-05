@@ -11,4 +11,5 @@ export const settingsSchema = z.object({
 	maxOutputTokens: z.number().int().min(256).max(1_000_000),
 	systemPrompt: z.string().max(8192),
 	enableReasoning: z.boolean(),
+	contextDisplayMode: z.enum(["compact", "detailed"]).default("compact"),
 })

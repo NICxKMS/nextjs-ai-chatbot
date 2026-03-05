@@ -114,6 +114,7 @@ export function processStreamDelta(delta: DataPart, current: UIArtifact): { arti
 
 		// Non-artifact data parts: no artifact state change
 		case "chat-title":
+		case "usage":
 		case "error":
 			return { artifact: current }
 

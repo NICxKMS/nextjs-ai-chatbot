@@ -1,7 +1,7 @@
 "use client"
 
 import { Check, ChevronDown } from "lucide-react"
-import { useCallback, useMemo, useRef, useState } from "react"
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import {
 	ModelSelectorContent,
@@ -22,6 +22,9 @@ import { cn } from "@/lib/utils/cn"
 
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365 // 1 year
 
+/** Number of dynamic models to render per animation frame. */
+const DYNAMIC_CHUNK_SIZE = 50
+
 // ── Types ───────────────────────────────────────────────────────────────────
 
 export interface ModelSelectorProps {
@@ -33,6 +36,8 @@ export interface ModelSelectorProps {
 	models: ModelMetadata[]
 	/** Additional CSS classes for the trigger button */
 	className?: string
+	/** Show only the provider icon, hiding model name and chevron */
+	compact?: boolean
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -97,16 +102,48 @@ export function ModelSelector({
 	onModelChange,
 	models,
 	className,
+	compact,
 }: ModelSelectorProps) {
 	const [open, setOpen] = useState(false)
 	const inputRef = useRef<HTMLInputElement>(null)
+
+	// ── Progressive rendering for large model lists ──────────
+	// Static models render immediately; dynamic models load in chunks
+	// via requestAnimationFrame + startTransition to keep UI responsive.
+	const staticModels = useMemo(() => models.filter((m) => m.source === "static"), [models])
+	const dynamicModels = useMemo(() => models.filter((m) => m.source === "dynamic"), [models])
+	const [dynamicRenderedCount, setDynamicRenderedCount] = useState(0)
+
+	useEffect(() => {
+		if (!open || dynamicModels.length === 0) return
+
+		let count = 0
+		let frameId: number
+
+		const scheduleNextChunk = () => {
+			count = Math.min(count + DYNAMIC_CHUNK_SIZE, dynamicModels.length)
+			const next = count
+			startTransition(() => setDynamicRenderedCount(next))
+			if (count < dynamicModels.length) {
+				frameId = requestAnimationFrame(scheduleNextChunk)
+			}
+		}
+
+		frameId = requestAnimationFrame(scheduleNextChunk)
+		return () => cancelAnimationFrame(frameId)
+	}, [open, dynamicModels])
+
+	const visibleModels = useMemo(() => {
+		if (dynamicRenderedCount === 0) return staticModels
+		return [...staticModels, ...dynamicModels.slice(0, dynamicRenderedCount)]
+	}, [staticModels, dynamicModels, dynamicRenderedCount])
 
 	const selectedModel = useMemo(
 		() => models.find((m) => m.id === selectedModelId),
 		[models, selectedModelId],
 	)
 
-	const groupedModels = useMemo(() => groupModelsByProvider(models), [models])
+	const groupedModels = useMemo(() => groupModelsByProvider(visibleModels), [visibleModels])
 
 	const handleSelect = useCallback(
 		(modelId: string) => {
@@ -119,6 +156,7 @@ export function ModelSelector({
 
 	const handleOpenChange = useCallback((nextOpen: boolean) => {
 		setOpen(nextOpen)
+		if (!nextOpen) setDynamicRenderedCount(0)
 	}, [])
 
 	return (
@@ -126,8 +164,8 @@ export function ModelSelector({
 			<ModelSelectorTrigger asChild>
 				<Button
 					variant="outline"
-					size="sm"
-					className={cn("gap-2", className)}
+					size={compact ? "icon" : "sm"}
+					className={cn(compact ? "" : "gap-2", className)}
 					aria-label="Select AI model"
 					data-testid="model-selector"
 				>
@@ -135,14 +173,18 @@ export function ModelSelector({
 						<>
 							<ModelSelectorLogo
 								provider={selectedModel.provider}
-								className="size-3.5"
+								className={compact ? "size-4" : "size-3.5"}
 							/>
-							<ModelSelectorName>{selectedModel.name}</ModelSelectorName>
+							{!compact && (
+								<ModelSelectorName>{selectedModel.name}</ModelSelectorName>
+							)}
 						</>
 					) : (
-						<span className="text-muted-foreground">Select model…</span>
+						<span className="text-muted-foreground">
+							{compact ? "?" : "Select model…"}
+						</span>
 					)}
-					<ChevronDown className="size-3.5 shrink-0 opacity-50" />
+					{!compact && <ChevronDown className="size-3.5 shrink-0 opacity-50" />}
 				</Button>
 			</ModelSelectorTrigger>
 

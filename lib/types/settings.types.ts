@@ -9,4 +9,5 @@ export interface SettingsState {
 	maxOutputTokens: number
 	systemPrompt: string
 	enableReasoning: boolean
+	contextDisplayMode: "compact" | "detailed"
 }

@@ -17,4 +17,5 @@ export const DEFAULT_SETTINGS = {
 	maxOutputTokens: 4096,
 	systemPrompt: "",
 	enableReasoning: false,
+	contextDisplayMode: "compact",
 } as const satisfies SettingsState

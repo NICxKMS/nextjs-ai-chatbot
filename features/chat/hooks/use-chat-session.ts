@@ -1,7 +1,7 @@
 "use client"
 
 import { useChat } from "@ai-sdk/react"
-import { DefaultChatTransport, type FileUIPart, type UIMessage } from "ai"
+import { DefaultChatTransport, type FileUIPart, type LanguageModelUsage, type UIMessage } from "ai"
 import { useCallback, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { deleteTrailingMessages } from "@/features/chat/actions/delete-trailing-messages"
@@ -62,8 +62,10 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 
 	// ── Local state ──────────────────────────────────────────
 	const [input, setInput] = useState("")
+	const [chatModel, setChatModel] = useState(initialChatModel)
 	const [attachments, setAttachments] = useState<Attachment[]>([])
 	const [visibility, setVisibility] = useState<VisibilityType>(initialVisibility)
+	const [usage, setUsage] = useState<LanguageModelUsage | undefined>(undefined)
 
 	// ── External hooks ───────────────────────────────────────
 	const settings = useSettings()
@@ -72,6 +74,8 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 	// ── Refs for stale-closure safety in transport + callbacks ─
 	const settingsRef = useRef(settings)
 	settingsRef.current = settings
+	const chatModelRef = useRef(chatModel)
+	chatModelRef.current = chatModel
 	const visibilityRef = useRef(visibility)
 	visibilityRef.current = visibility
 	const callbacksRef = useRef({
@@ -93,7 +97,7 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 						body: {
 							id: request.id,
 							message: request.messages.at(-1),
-							selectedChatModel: initialChatModel,
+							selectedChatModel: chatModelRef.current,
 							selectedVisibilityType: visibilityRef.current,
 							settings: settingsRef.current,
 							...request.body,
@@ -101,7 +105,7 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 					}
 				},
 			}),
-		[initialChatModel],
+		[],
 	)
 
 	// ── useChat (AI SDK core) ────────────────────────────────
@@ -135,6 +139,13 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 			}
 			if (sdkType === "data-chat-title" && typeof dataPart.data === "string") {
 				callbacksRef.current.onTitleUpdate?.(id, dataPart.data)
+			}
+			if (sdkType === "data-usage" && typeof dataPart.data === "string") {
+				try {
+					setUsage(JSON.parse(dataPart.data) as LanguageModelUsage)
+				} catch {
+					// Ignore malformed usage data
+				}
 			}
 		},
 		onFinish() {
@@ -180,6 +191,7 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 			void sdkSendMessage(files.length > 0 ? { text, files } : { text })
 			setInput("")
 			setAttachments([])
+			setUsage(undefined)
 		},
 		[id, input, isReadonly, messages.length, attachments, sdkSendMessage],
 	)
@@ -205,10 +217,11 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 		[id, sdkSendMessage, setMessages],
 	)
 
-	// ── Compose ChatSessionValue (18 canonical fields) ───────
+	// ── Compose ChatSessionValue (19 canonical fields) ───────
 	return {
 		chatId: id,
-		chatModel: initialChatModel,
+		chatModel,
+		setChatModel,
 		isReadonly,
 		messages,
 		status,
@@ -225,5 +238,6 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 		visibility,
 		setVisibility,
 		availableModels,
+		usage,
 	}
 }

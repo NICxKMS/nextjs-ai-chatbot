@@ -14,8 +14,8 @@ import { requestSuggestionsTool } from "@/features/chat/lib/tools/request-sugges
 import { updateArtifactTool } from "@/features/chat/lib/tools/update-artifact"
 import { getWeather } from "@/features/chat/lib/tools/weather"
 import { chatRequestSchema } from "@/features/chat/schemas/chat.schema"
+import { getAvailableModels } from "@/features/models/lib/models"
 import { DEFAULT_SETTINGS } from "@/features/settings/types/settings.types"
-import { getModelById } from "@/lib/ai/models"
 import { composeSystemPrompt } from "@/lib/ai/prompts"
 import { myProvider } from "@/lib/ai/provider"
 import { getProviderOptions } from "@/lib/ai/provider-options"
@@ -102,8 +102,9 @@ export async function POST(request: Request) {
 
 	const effectiveSettings = settings ?? DEFAULT_SETTINGS
 
-	// 5. Resolve model metadata
-	const modelMetadata = getModelById(selectedChatModel)
+	// 5. Resolve model metadata (includes dynamic models from OpenRouter)
+	const availableModels = await getAvailableModels()
+	const modelMetadata = availableModels.find((m) => m.id === selectedChatModel)
 	if (!modelMetadata) {
 		return AppError.badRequest(
 			"bad_request:chat:invalid_model_id",
@@ -229,6 +230,19 @@ export async function POST(request: Request) {
 						data: generatedTitle,
 					} as Parameters<typeof writer.write>[0])
 				}
+
+				// h. Await usage and stream to client
+				const usage = await result.usage
+				writer.write({
+					type: "data-usage",
+					data: JSON.stringify({
+						inputTokens: usage.inputTokens,
+						outputTokens: usage.outputTokens,
+						totalTokens: usage.totalTokens,
+						reasoningTokens: usage.reasoningTokens,
+						cachedInputTokens: usage.cachedInputTokens,
+					}),
+				} as Parameters<typeof writer.write>[0])
 			},
 			generateId: generateUUID,
 			onFinish: async ({ messages: responseMessages }) => {
