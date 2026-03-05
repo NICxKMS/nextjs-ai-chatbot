@@ -1,3 +1,13 @@
+/**
+ * ArtifactPreview — Rich inline preview for artifact tool results.
+ *
+ * Rendered inside chat messages for createArtifact / updateArtifact tool calls.
+ * Displays a mini-editor preview (text, code, sheet, image) with a hitbox layer
+ * to open the full artifact panel. Falls back to a compact card when the panel
+ * is already open, and shows a loading skeleton while fetching artifact data.
+ *
+ * Consumer: features/chat/components/message.tsx
+ */
 "use client"
 
 import dynamic from "next/dynamic"

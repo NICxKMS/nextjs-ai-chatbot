@@ -55,44 +55,6 @@ export async function expire(key: string, seconds: number): Promise<boolean | nu
 	}
 }
 
-/** Get a typed value by key. Returns the value or null on failure/miss. */
-export async function get<T>(key: string): Promise<T | null> {
-	try {
-		const client = getClient()
-		if (!client) return null
-		return await client.get<T>(key)
-	} catch {
-		return null
-	}
-}
-
-/** Set a key to a value, with optional TTL in seconds. Returns "OK" or null on failure. */
-export async function set(key: string, value: unknown, ttl?: number): Promise<string | null> {
-	try {
-		const client = getClient()
-		if (!client) return null
-		if (ttl !== undefined) {
-			const result = await client.set(key, value, { ex: ttl })
-			return result as string | null
-		}
-		const result = await client.set(key, value)
-		return result as string | null
-	} catch {
-		return null
-	}
-}
-
-/** Delete one or more keys. Returns count of deleted keys or null on failure. */
-export async function del(...keys: string[]): Promise<number | null> {
-	try {
-		const client = getClient()
-		if (!client) return null
-		return await client.del(...keys)
-	} catch {
-		return null
-	}
-}
-
 /** Ping the Redis server. Returns "PONG" or null on failure/missing config. */
 export async function ping(): Promise<string | null> {
 	try {

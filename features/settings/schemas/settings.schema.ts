@@ -12,5 +12,3 @@ export const settingsSchema = z.object({
 	systemPrompt: z.string().max(8192),
 	enableReasoning: z.boolean(),
 })
-
-export type ValidatedSettings = z.infer<typeof settingsSchema>

@@ -1,5 +1,5 @@
+import type { Metadata } from "next"
 import { cookies } from "next/headers"
-import Script from "next/script"
 import { Suspense } from "react"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { NoticeHandler } from "@/features/chat/components/notice-handler"
@@ -7,6 +7,13 @@ import { SidebarShell } from "@/features/sidebar/components/sidebar-shell"
 import { SidebarSkeleton } from "@/features/sidebar/components/sidebar-skeleton"
 import { getAppSession } from "@/lib/auth/session"
 import { PendingChatsProvider } from "@/lib/providers/pending-chats-provider"
+
+export const metadata: Metadata = {
+	title: {
+		template: "%s | ai-assistant",
+		default: "ai-assistant",
+	},
+}
 
 // ── Chat layout shell (async, accesses cookies → must be inside Suspense) ──
 
@@ -37,7 +44,6 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
 	return (
 		<>
 			<NoticeHandler />
-			<Script src="/pyodide/pyodide.js" strategy="lazyOnload" />
 			<PendingChatsProvider>
 				<Suspense fallback={<SidebarSkeleton />}>
 					<ChatLayoutShell>{children}</ChatLayoutShell>

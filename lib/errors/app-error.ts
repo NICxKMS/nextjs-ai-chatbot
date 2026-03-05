@@ -94,4 +94,12 @@ export class AppError extends Error {
 	): AppError {
 		return new AppError(code, message ?? "Service unavailable", details)
 	}
+
+	static aiError(
+		code: Extract<ErrorCode, `ai_error:${string}`>,
+		message?: string,
+		details?: unknown,
+	): AppError {
+		return new AppError(code, message ?? "AI provider error", details)
+	}
 }

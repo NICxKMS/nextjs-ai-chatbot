@@ -1,4 +1,4 @@
-import type { ProviderV2 } from "@ai-sdk/provider"
+import type { ProviderV3 } from "@ai-sdk/provider"
 import { customProvider, extractReasoningMiddleware, wrapLanguageModel } from "ai"
 import { registry } from "@/lib/ai/registry"
 
@@ -30,7 +30,8 @@ function getReasoningTag(modelId: string): { tagName: string } | null {
  */
 type RegistryModelId = `${string}:${string}`
 
-const reasoningProvider: ProviderV2 = {
+const reasoningProvider: ProviderV3 = {
+	specificationVersion: "v3",
 	languageModel(modelId: string) {
 		const base = registry.languageModel(modelId as RegistryModelId)
 		const reasoningTag = getReasoningTag(modelId)
@@ -45,8 +46,8 @@ const reasoningProvider: ProviderV2 = {
 		return base
 	},
 
-	textEmbeddingModel(modelId: string) {
-		return registry.textEmbeddingModel(modelId as RegistryModelId)
+	embeddingModel(modelId: string) {
+		return registry.embeddingModel(modelId as RegistryModelId)
 	},
 
 	imageModel(modelId: string) {

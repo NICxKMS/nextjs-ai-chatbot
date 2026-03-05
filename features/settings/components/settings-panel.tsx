@@ -68,8 +68,8 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 	)
 
 	const handleReasoningToggle = useCallback(
-		(e: ChangeEvent<HTMLInputElement>) => {
-			updateSettings({ enableReasoning: e.target.checked })
+		(checked: boolean) => {
+			updateSettings({ enableReasoning: checked })
 		},
 		[updateSettings],
 	)
@@ -217,7 +217,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 								aria-label="Enable reasoning"
 								checked={settings.enableReasoning}
 								id={reasoningId}
-								onChange={handleReasoningToggle}
+								onCheckedChange={handleReasoningToggle}
 							/>
 						</div>
 					</section>

@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { settingsSchema } from "@/features/settings/schemas/settings.schema"
 
 // ── Message part schemas ─────────────────────────────────────
 // Reusable sub-schemas for message content parts.
@@ -35,15 +36,7 @@ export const chatRequestSchema = z.object({
 	/** Chat visibility setting */
 	selectedVisibilityType: z.enum(["public", "private"]),
 	/** Optional chat settings (temperature, reasoning, etc.) */
-	settings: z
-		.object({
-			temperature: z.number().min(0).max(2),
-			topP: z.number().min(0).max(1),
-			maxOutputTokens: z.number().int().min(256).max(1_000_000),
-			systemPrompt: z.string().max(8192),
-			enableReasoning: z.boolean(),
-		})
-		.optional(),
+	settings: settingsSchema.optional(),
 })
 
 export type ChatRequest = z.infer<typeof chatRequestSchema>

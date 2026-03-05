@@ -4,7 +4,7 @@ import { isToday, isYesterday, subDays } from "date-fns"
 import { usePathname, useRouter } from "next/navigation"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
-import { LoaderIcon, TrashIcon } from "@/components/icons"
+import { LoaderIcon } from "@/components/icons"
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -15,7 +15,6 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Button } from "@/components/ui/button"
 import {
 	SidebarGroup,
 	SidebarGroupContent,
@@ -23,8 +22,6 @@ import {
 	SidebarMenu,
 	useSidebar,
 } from "@/components/ui/sidebar"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { deleteAllChats } from "@/features/chat/actions/delete-all-chats"
 import { deleteChat } from "@/features/chat/actions/delete-chat"
 import { SidebarHistoryItem } from "@/features/sidebar/components/sidebar-history-item"
 import { useSidebarHistory } from "@/features/sidebar/hooks/use-sidebar-history"
@@ -115,7 +112,6 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 
 	const [deleteId, setDeleteId] = useState<string | null>(null)
 	const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set())
-	const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false)
 	const sentinelRef = useRef<HTMLDivElement>(null)
 
 	// ── Derived state ────────────────────────────────────────────
@@ -226,29 +222,15 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 		[],
 	)
 
-	const handleDeleteAllConfirm = useCallback(async () => {
-		setShowDeleteAllDialog(false)
-		const result = await deleteAllChats()
-		if (result.success) {
-			for (const entry of pendingEntries) {
-				removePending(entry.id)
-			}
-			router.push("/")
-			toast.success("All chats deleted")
-		} else {
-			toast.error(result.error.message)
-		}
-	}, [pendingEntries, removePending, router])
-
 	// ── Empty state ─────────────────────────────────────────────
 
 	if (serverChats.length === 0 && visiblePending.length === 0 && !isLoading) {
 		return (
 			<SidebarGroup>
 				<SidebarGroupContent>
-					<div className="flex w-full flex-row items-center justify-center px-2 text-sm text-zinc-500">
+					<output className="flex w-full flex-row items-center justify-center px-2 text-sm text-zinc-500">
 						Your conversations will appear here once you start chatting!
-					</div>
+					</output>
 				</SidebarGroupContent>
 			</SidebarGroup>
 		)
@@ -258,28 +240,9 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 
 	const hasTodaySection = visiblePending.length > 0 || todayGroup
 
-	const totalChats = serverChats.length + visiblePending.length
-
 	return (
 		<>
 			<SidebarGroup className="flex-1 overflow-y-auto">
-				{totalChats > 0 && (
-					<div className="flex items-center justify-end px-2 py-1">
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<Button
-									variant="ghost"
-									size="icon-sm"
-									className="text-destructive hover:text-destructive"
-									onClick={() => setShowDeleteAllDialog(true)}
-								>
-									<TrashIcon />
-								</Button>
-							</TooltipTrigger>
-							<TooltipContent>Delete all chats</TooltipContent>
-						</Tooltip>
-					</div>
-				)}
 				<SidebarGroupContent>
 					<SidebarMenu>
 						{/* Today section: pending chats prepended before server "Today" chats */}
@@ -333,12 +296,15 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 
 						{/* Loading indicator for pagination */}
 						{isLoading && (
-							<div className="flex items-center gap-2 p-2 text-sm text-zinc-500">
+							<output
+								aria-label="Loading more chats"
+								className="flex items-center gap-2 p-2 text-sm text-zinc-500"
+							>
 								<div className="animate-spin">
 									<LoaderIcon />
 								</div>
 								<span>Loading more chats…</span>
-							</div>
+							</output>
 						)}
 					</SidebarMenu>
 				</SidebarGroupContent>
@@ -363,28 +329,6 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction onClick={handleDeleteConfirm}>
 							Continue
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
-
-			{/* Delete all chats confirmation dialog */}
-			<AlertDialog open={showDeleteAllDialog} onOpenChange={setShowDeleteAllDialog}>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Delete all chats?</AlertDialogTitle>
-						<AlertDialogDescription>
-							This action cannot be undone. All your chats will be permanently
-							deleted.
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction
-							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-							onClick={handleDeleteAllConfirm}
-						>
-							Delete All
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

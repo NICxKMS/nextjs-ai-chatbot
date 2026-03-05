@@ -1,13 +1,11 @@
 "use client"
 
-import type { ChatStatus, UIMessage } from "ai"
+import type { UIMessage } from "ai"
 import { useEffect, useRef } from "react"
 
 interface UseChatSideEffectsConfig {
 	/** Current chat ID */
 	id: string
-	/** Chat status from useChat */
-	status: ChatStatus
 	/** Current messages array */
 	messages: UIMessage[]
 	/** Abort the current streaming response (from useChat) */
@@ -26,7 +24,6 @@ interface UseChatSideEffectsConfig {
  */
 export function useChatSideEffects({
 	id,
-	status: _status,
 	messages,
 	stop,
 	onChatChange,

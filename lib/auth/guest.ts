@@ -23,7 +23,7 @@ function getSecret(): Uint8Array | null {
 /**
  * Create a signed JWT for a guest user.
  *
- * @param userId - The guest user ID (e.g. `guest:<uuid>`)
+ * @param userId - The guest user ID (a valid UUID)
  * @returns Signed JWT string with 1-hour expiry
  * @throws If `GUEST_JWT_SECRET` is not configured
  */

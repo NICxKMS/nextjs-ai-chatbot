@@ -1,17 +1,14 @@
 "use client"
 
-import type { UIMessage } from "ai"
+import type { ToolUIPart, UIMessage } from "ai"
 import equal from "fast-deep-equal"
 import { memo } from "react"
 
-import {
-	MessageAttachment,
-	MessageContent,
-	MessageResponse,
-} from "@/components/ai-elements/message"
+import { Attachment, AttachmentPreview } from "@/components/ai-elements/attachments"
+import { MessageContent, MessageResponse } from "@/components/ai-elements/message"
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "@/components/ai-elements/tool"
 import { SparklesIcon } from "@/components/icons"
-import type { ExtendedToolState } from "@/lib/types/ai-sdk"
+import { ArtifactPreview } from "@/features/artifacts/components/artifact-preview"
 import { cn } from "@/lib/utils/cn"
 
 import { MessageReasoning } from "./message-reasoning"
@@ -31,8 +28,6 @@ interface ChatMessageProps {
 	message: UIMessage
 	/** Whether the chat is currently loading/streaming */
 	isLoading: boolean
-	/** Whether the current user is a read-only viewer */
-	isReadonly: boolean
 }
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -47,28 +42,14 @@ function formatToolName(type: string): string {
 	return type.startsWith("tool-") ? type.slice(5) : type
 }
 
-// ── Artifact tool result stub ────────────────────────────────
-// Full ArtifactToolResult will be provided by features/artifacts (P4).
-// Until then, render a minimal confirmation card.
+// ── Artifact tool error ──────────────────────────────────────
+// Inline error card for failed createArtifact / updateArtifact calls.
+// Non-error artifact tools are rendered via ArtifactPreview.
 
-function ArtifactToolResult({ toolCallId, output }: { toolCallId: string; output: unknown }) {
-	if (output && typeof output === "object" && "error" in output) {
-		return (
-			<div
-				className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-500 dark:bg-red-950/50"
-				key={toolCallId}
-			>
-				Error: {String((output as { error: unknown }).error)}
-			</div>
-		)
-	}
-
+function ArtifactToolError({ errorMessage }: { errorMessage: string }) {
 	return (
-		<div
-			className="rounded-lg border bg-muted/50 p-3 text-sm text-muted-foreground"
-			key={toolCallId}
-		>
-			Artifact operation completed.
+		<div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-500 dark:bg-red-950/50">
+			Error: {errorMessage}
 		</div>
 	)
 }
@@ -84,7 +65,7 @@ function GenericToolResult({ part }: { part: ToolPartLike }) {
 	return (
 		<Tool defaultOpen key={toolCallId}>
 			<ToolHeader
-				state={state as ExtendedToolState}
+				state={state as ToolUIPart["state"]}
 				title={toolName}
 				type={type as `tool-${string}`}
 			/>
@@ -119,7 +100,7 @@ function isToolPart(part: { type: string }): part is ToolPartLike {
 
 // ── Main component ───────────────────────────────────────────
 
-const PureChatMessage = ({ message, isLoading, isReadonly: _isReadonly }: ChatMessageProps) => {
+const PureChatMessage = ({ message, isLoading }: ChatMessageProps) => {
 	const { role, parts } = message
 
 	// Extract file attachments from message parts
@@ -162,15 +143,18 @@ const PureChatMessage = ({ message, isLoading, isReadonly: _isReadonly }: ChatMe
 							data-testid="message-attachments"
 						>
 							{attachments.map((attachment) => (
-								<MessageAttachment
+								<Attachment
 									data={{
 										type: "file",
 										url: attachment.url,
 										mediaType: attachment.mediaType,
 										filename: attachment.name ?? attachment.filename ?? "file",
+										id: attachment.url,
 									}}
 									key={attachment.url}
-								/>
+								>
+									<AttachmentPreview />
+								</Attachment>
 							))}
 						</div>
 					)}
@@ -203,8 +187,9 @@ const PureChatMessage = ({ message, isLoading, isReadonly: _isReadonly }: ChatMe
 								return (
 									<div key={key}>
 										<MessageContent
-											className="w-fit break-words rounded-2xl bg-secondary px-3 py-2 text-right"
+											className="w-fit break-words rounded-2xl px-3 py-2 text-right text-white"
 											data-testid="message-content"
+											style={{ backgroundColor: "#006cff" }}
 										>
 											<MessageResponse>{sanitizeText(text)}</MessageResponse>
 										</MessageContent>
@@ -229,13 +214,52 @@ const PureChatMessage = ({ message, isLoading, isReadonly: _isReadonly }: ChatMe
 						if (isToolPart(part)) {
 							const toolName = formatToolName(part.type)
 
-							// Artifact tools — delegate to ArtifactToolResult
+							// Artifact tools — rich inline preview via ArtifactPreview
 							if (toolName === "createArtifact" || toolName === "updateArtifact") {
+								// Error state — show inline error card
+								if (
+									part.state === "output-error" ||
+									(part.output &&
+										typeof part.output === "object" &&
+										"error" in part.output)
+								) {
+									const errorMessage =
+										part.errorText ??
+										(part.output &&
+										typeof part.output === "object" &&
+										"error" in part.output
+											? String((part.output as Record<string, unknown>).error)
+											: "Unknown error")
+									return (
+										<ArtifactToolError
+											errorMessage={errorMessage}
+											key={part.toolCallId}
+										/>
+									)
+								}
+
 								return (
-									<ArtifactToolResult
+									<ArtifactPreview
+										args={
+											part.input as
+												| {
+														title?: string
+														kind?: string
+														id?: string
+												  }
+												| undefined
+										}
 										key={part.toolCallId}
-										output={part.output}
-										toolCallId={part.toolCallId}
+										result={
+											part.output as
+												| {
+														id?: string
+														title?: string
+														kind?: string
+														content?: string
+												  }
+												| undefined
+										}
 									/>
 								)
 							}

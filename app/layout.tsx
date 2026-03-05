@@ -14,6 +14,11 @@ import "@/app/globals.css"
 export const metadata: Metadata = {
 	title: "ai-assistant",
 	description: "AI assistant powered by the AI SDK.",
+	openGraph: {
+		title: "ai-assistant",
+		description: "AI assistant powered by the AI SDK.",
+		type: "website",
+	},
 }
 
 export const viewport: Viewport = {

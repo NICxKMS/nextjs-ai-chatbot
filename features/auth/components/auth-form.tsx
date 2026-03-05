@@ -171,6 +171,7 @@ export function AuthForm({ mode, action }: AuthFormProps) {
 					Password
 				</Label>
 				<Input
+					autoComplete={isLogin ? "current-password" : "new-password"}
 					className="bg-muted text-md md:text-sm"
 					disabled={isPending}
 					id="password"

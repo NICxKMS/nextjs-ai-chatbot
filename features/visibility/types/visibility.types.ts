@@ -1,7 +1,9 @@
 import { z } from "zod"
 
-/** Chat visibility — either publicly shared or private to the owner. */
-export type VisibilityType = "public" | "private"
+import type { Visibility } from "@/lib/types/models.types"
+
+/** Chat visibility — aliased from the canonical Visibility type. */
+export type VisibilityType = Visibility
 
 /**
  * Zod schema for visibility update request validation.

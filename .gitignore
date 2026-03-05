@@ -43,3 +43,4 @@ yarn-error.log*
 # ── Project-specific ──
 .next-docs
 oldapp/node_modules
+next-env.d.ts

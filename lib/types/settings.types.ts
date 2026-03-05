@@ -10,7 +10,3 @@ export interface SettingsState {
 	systemPrompt: string
 	enableReasoning: boolean
 }
-
-// Alias for redesign compatibility — redesign references `UserSettings`
-// in function signatures. Implementation should use `SettingsState` directly.
-export type UserSettings = SettingsState

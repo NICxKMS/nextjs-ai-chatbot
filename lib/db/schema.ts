@@ -22,7 +22,7 @@ export const artifactKindEnum = pgEnum("artifact_kind", ["text", "code", "image"
 
 export const users = pgTable("User", {
 	id: uuid("id").primaryKey().notNull().defaultRandom(),
-	email: varchar("email", { length: 128 }).notNull().unique(),
+	email: varchar("email", { length: 128 }).unique(),
 	passwordHash: varchar("password_hash", { length: 128 }),
 	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 	lastLogin: timestamp("last_login", { withTimezone: true }),

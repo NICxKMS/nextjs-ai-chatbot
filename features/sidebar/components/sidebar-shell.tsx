@@ -1,13 +1,17 @@
 import { cacheLife, cacheTag } from "next/cache"
-import Link from "next/link"
 
-import { PlusIcon } from "@/components/icons"
-import { Button } from "@/components/ui/button"
-import { SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu } from "@/components/ui/sidebar"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+	Sidebar,
+	SidebarContent,
+	SidebarFooter,
+	SidebarHeader,
+	SidebarMenu,
+} from "@/components/ui/sidebar"
+import { SidebarHeaderActions } from "@/features/sidebar/components/sidebar-header-actions"
 import { SidebarHistoryClient } from "@/features/sidebar/components/sidebar-history-client"
 import { SidebarUserNav } from "@/features/sidebar/components/sidebar-user-nav"
 import { getAppSession } from "@/lib/auth/session"
+import { cacheKeys } from "@/lib/cache/keys"
 import { getChatsByUserId } from "@/lib/data/chat"
 import type { Chat } from "@/lib/types/models.types"
 
@@ -24,7 +28,7 @@ import type { Chat } from "@/lib/types/models.types"
 async function getCachedChats(userId: string): Promise<{ chats: Chat[]; hasMore: boolean }> {
 	"use cache"
 	cacheLife("seconds")
-	cacheTag(`chats:${userId}`)
+	cacheTag(cacheKeys.chats(userId))
 
 	const result = await getChatsByUserId(userId, { limit: 20 })
 	return { chats: result.chats, hasMore: result.hasMore }
@@ -54,32 +58,10 @@ export async function SidebarShell() {
 	}
 
 	return (
-		<>
+		<Sidebar className="group-data-[side=left]:border-r-0">
 			<SidebarHeader>
 				<SidebarMenu>
-					<div className="flex flex-row items-center justify-between">
-						<Link className="flex flex-row items-center gap-3" href="/">
-							<span className="cursor-pointer rounded-md px-2 font-semibold text-lg hover:bg-muted">
-								Assistant
-							</span>
-						</Link>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<Button
-									asChild
-									className="relative h-8 p-1 after:absolute after:-inset-1.5 after:md:hidden md:h-fit md:p-2"
-									variant="ghost"
-								>
-									<Link href="/">
-										<PlusIcon />
-									</Link>
-								</Button>
-							</TooltipTrigger>
-							<TooltipContent align="end" className="hidden md:block">
-								New Chat
-							</TooltipContent>
-						</Tooltip>
-					</div>
+					<SidebarHeaderActions hasUser={!!user} />
 				</SidebarMenu>
 			</SidebarHeader>
 			<SidebarContent>
@@ -88,6 +70,6 @@ export async function SidebarShell() {
 			<SidebarFooter>
 				<SidebarUserNav user={{ email: user?.email ?? null }} />
 			</SidebarFooter>
-		</>
+		</Sidebar>
 	)
 }

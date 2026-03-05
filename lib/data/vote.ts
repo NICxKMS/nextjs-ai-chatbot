@@ -9,10 +9,19 @@ import type { Vote } from "@/lib/types/models.types"
  * Get all votes for a chat by a specific user.
  */
 export async function getVotesByChatId(chatId: string, userId: string): Promise<Vote[]> {
-	return db
-		.select()
-		.from(votes)
-		.where(and(eq(votes.chatId, chatId), eq(votes.userId, userId)))
+	try {
+		return await db
+			.select()
+			.from(votes)
+			.where(and(eq(votes.chatId, chatId), eq(votes.userId, userId)))
+	} catch (error) {
+		if (error instanceof AppError) throw error
+		throw AppError.internal(
+			"internal_error:database:query_failed",
+			"Failed to get votes for chat",
+			{ chatId, cause: error },
+		)
+	}
 }
 
 /**
@@ -24,30 +33,51 @@ export async function upsertVote(data: {
 	userId: string
 	isUpvoted: boolean
 }): Promise<Vote> {
-	const [vote] = await db
-		.insert(votes)
-		.values(data)
-		.onConflictDoUpdate({
-			target: [votes.chatId, votes.messageId, votes.userId],
-			set: { isUpvoted: data.isUpvoted },
+	try {
+		const [vote] = await db
+			.insert(votes)
+			.values(data)
+			.onConflictDoUpdate({
+				target: [votes.chatId, votes.messageId, votes.userId],
+				set: { isUpvoted: data.isUpvoted },
+			})
+			.returning()
+		if (!vote) {
+			throw AppError.internal(
+				"internal_error:database:query_failed",
+				"Vote upsert returned no rows",
+				{
+					chatId: data.chatId,
+					messageId: data.messageId,
+				},
+			)
+		}
+		return vote
+	} catch (error) {
+		if (error instanceof AppError) throw error
+		throw AppError.internal("internal_error:database:query_failed", "Failed to upsert vote", {
+			chatId: data.chatId,
+			messageId: data.messageId,
+			cause: error,
 		})
-		.returning()
-	if (!vote) {
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Vote upsert returned no rows",
-			{
-				chatId: data.chatId,
-				messageId: data.messageId,
-			},
-		)
 	}
-	return vote
 }
 
 /**
  * Delete all votes for a chat by a specific user.
+ *
+ * @unused FK cascade on `chats.id → votes.chatId` handles
+ * cleanup during chat deletion. Retained for selective vote removal.
  */
 export async function deleteVotesByChatId(chatId: string, userId: string): Promise<void> {
-	await db.delete(votes).where(and(eq(votes.chatId, chatId), eq(votes.userId, userId)))
+	try {
+		await db.delete(votes).where(and(eq(votes.chatId, chatId), eq(votes.userId, userId)))
+	} catch (error) {
+		if (error instanceof AppError) throw error
+		throw AppError.internal(
+			"internal_error:database:query_failed",
+			"Failed to delete votes for chat",
+			{ chatId, cause: error },
+		)
+	}
 }

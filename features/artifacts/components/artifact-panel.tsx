@@ -16,6 +16,7 @@ import useSWR from "swr"
 
 import { LoaderIcon } from "@/components/icons"
 import { Badge } from "@/components/ui/badge"
+import { useChatSessionContext } from "@/features/chat/hooks/use-chat-session-context"
 import type { Artifact } from "@/lib/types/models.types"
 import { cn } from "@/lib/utils/cn"
 
@@ -107,6 +108,7 @@ const SPRING_TRANSITION = { type: "spring" as const, stiffness: 300, damping: 30
 // ── Main component ──────────────────────────────────────────
 
 function PureArtifactPanel() {
+	const { chatId } = useChatSessionContext()
 	const { artifact, setArtifact } = useArtifact()
 	const isVisible = useArtifactSelector((s) => s.isVisible)
 
@@ -231,6 +233,7 @@ function PureArtifactPanel() {
 						title: artifact.title,
 						content: updatedContent,
 						kind: artifact.kind,
+						chatId,
 						mode: "save",
 					}),
 					signal: controller.signal,
@@ -248,7 +251,7 @@ function PureArtifactPanel() {
 				pendingSaveRef.current = null
 			}
 		},
-		[artifact.artifactId, artifact.title, artifact.kind, mutateVersions],
+		[artifact.artifactId, artifact.title, artifact.kind, chatId, mutateVersions],
 	)
 
 	/**
@@ -449,6 +452,7 @@ function PureArtifactPanel() {
 								currentVersionIndex={currentVersionIndex}
 								versions={versions}
 								handleVersionChange={handleVersionChange}
+								onVersionRestore={mutateVersions}
 							/>
 						)}
 					</AnimatePresence>

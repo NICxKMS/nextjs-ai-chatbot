@@ -103,6 +103,7 @@ function PureSidebarHistoryItem({
 				<div className="flex h-8 items-center px-2">
 					<input
 						ref={inputRef}
+						aria-label="Rename chat"
 						className="h-6 w-full rounded-sm border border-sidebar-border bg-sidebar px-1 text-sm outline-none focus:ring-1 focus:ring-sidebar-ring"
 						value={renameValue}
 						onChange={(e) => setRenameValue(e.target.value)}

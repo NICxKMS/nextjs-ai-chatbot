@@ -36,7 +36,7 @@ last_updated: "2026-03-03"
 
 ### D008 — AI Provider via fallbackProvider (P1-T12)
 - `customProvider()` takes static `Record<string, LanguageModel>` for `languageModels`, not a callback
-- Used `fallbackProvider` parameter with a `ProviderV2`-conformant object for dynamic model resolution + conditional reasoning middleware
+- Used `fallbackProvider` parameter with a `ProviderV3`-conformant object for dynamic model resolution + conditional reasoning middleware
 - Canonical AI SDK pattern for dynamic providers
 
 ### D009 — lib/ → features/ Import for Guest Auth (P2-T03)

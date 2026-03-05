@@ -21,16 +21,6 @@ export function invalidateVotes(chatId: string): void {
 	updateTag(cacheKeys.votes(chatId))
 }
 
-/** Invalidate cached data for an artifact (Server Action). */
-export function invalidateArtifact(artifactId: string): void {
-	updateTag(cacheKeys.artifact(artifactId))
-}
-
-/** Invalidate the cached models list (Server Action). */
-export function invalidateModels(): void {
-	updateTag(cacheKeys.models())
-}
-
 // ── Route Handler helpers (stale-while-revalidate via revalidateTag) ────────
 // Use these inside Route Handlers where a slight delay is acceptable.
 // Stale content is served while fresh data loads in the background.
@@ -43,6 +33,11 @@ export function refreshChat(chatId: string): void {
 /** Revalidate the chat list for a user (Route Handler). */
 export function refreshChatList(userId: string): void {
 	revalidateTag(cacheKeys.chats(userId), "max")
+}
+
+/** Revalidate cached votes for a chat (Route Handler). */
+export function refreshVotes(chatId: string): void {
+	revalidateTag(cacheKeys.votes(chatId), "max")
 }
 
 /** Revalidate cached data for an artifact (Route Handler). */

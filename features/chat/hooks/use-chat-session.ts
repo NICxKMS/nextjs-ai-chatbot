@@ -1,7 +1,7 @@
 "use client"
 
 import { useChat } from "@ai-sdk/react"
-import { DefaultChatTransport, type UIMessage } from "ai"
+import { DefaultChatTransport, type FileUIPart, type UIMessage } from "ai"
 import { useCallback, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { deleteTrailingMessages } from "@/features/chat/actions/delete-trailing-messages"
@@ -124,10 +124,17 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 			// Transform to our internal DataPart format (strip 'data-' prefix, map data → content).
 			const sdkType = dataPart.type // e.g. 'data-artifact-id', 'data-chat-title'
 			if (sdkType.startsWith("data-artifact-")) {
-				setChatStream([{ type: sdkType.slice(5), content: dataPart.data } as DataPart])
+				const content = dataPart.data
+				// Guard: DataPart content is always string or ArtifactSuggestion (object)
+				if (
+					typeof content === "string" ||
+					(typeof content === "object" && content !== null)
+				) {
+					setChatStream([{ type: sdkType.slice(5), content } as DataPart])
+				}
 			}
-			if (sdkType === "data-chat-title") {
-				callbacksRef.current.onTitleUpdate?.(id, dataPart.data as string)
+			if (sdkType === "data-chat-title" && typeof dataPart.data === "string") {
+				callbacksRef.current.onTitleUpdate?.(id, dataPart.data)
 			}
 		},
 		onFinish() {
@@ -140,7 +147,10 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 
 	// ── sendMessage (intent-based wrapper) ───────────────────
 	const sendMessage = useCallback(
-		(contentOrEvent?: string | { preventDefault?: () => void }) => {
+		(
+			contentOrEvent?: string | { preventDefault?: () => void },
+			externalFiles?: FileUIPart[],
+		) => {
 			if (typeof contentOrEvent !== "string") {
 				contentOrEvent?.preventDefault?.()
 			}
@@ -157,13 +167,15 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 				})
 			}
 
-			// Convert attachments to FileUIPart format for the SDK
-			const files = attachments.map((a) => ({
-				type: "file" as const,
-				mediaType: a.contentType,
-				url: a.url,
-				filename: a.name,
-			}))
+			// Use externally-provided files (e.g. from ai-element) or convert from attachments state
+			const files =
+				externalFiles ??
+				attachments.map((a) => ({
+					type: "file" as const,
+					mediaType: a.contentType,
+					url: a.url,
+					filename: a.name,
+				}))
 
 			void sdkSendMessage(files.length > 0 ? { text, files } : { text })
 			setInput("")

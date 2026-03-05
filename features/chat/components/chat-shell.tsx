@@ -67,7 +67,6 @@ export function ChatShell({
 
 	useChatSideEffects({
 		id,
-		status: session.status,
 		messages: session.messages,
 		stop: session.stop,
 		onChatChange: artifactStore.reset,
@@ -90,9 +89,15 @@ export function ChatShell({
 
 	return (
 		<ChatSessionContext.Provider value={session}>
-			<ChatHeader />
-			<Messages />
-			{!isReadonly && <MultimodalInput />}
+			<div className="flex h-dvh min-w-0 flex-col bg-background">
+				<ChatHeader />
+				<Messages />
+				{!isReadonly && (
+					<div className="sticky bottom-0 z-[1] mx-auto flex w-full max-w-4xl bg-background px-2 pb-3 md:px-4 md:pb-4">
+						<MultimodalInput />
+					</div>
+				)}
+			</div>
 			<StreamBridge chatId={id} onArtifactDelta={handleArtifactDelta} />
 			<ArtifactPanel />
 		</ChatSessionContext.Provider>

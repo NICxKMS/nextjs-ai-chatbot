@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, lt } from "drizzle-orm"
+import { and, asc, desc, eq, lt, or } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import { chats, messages } from "@/lib/db/schema"
@@ -51,16 +51,21 @@ export async function getChatsByUserId(
 			}
 		}
 
-		const conditions = [eq(chats.userId, userId)]
-		if (cursorDate) {
-			conditions.push(lt(chats.updatedAt, cursorDate))
-		}
+		// Compound cursor: (updatedAt, id) prevents skipping rows
+		// when multiple chats share the same updatedAt timestamp.
+		const cursorCondition =
+			cursorDate && cursor
+				? or(
+						lt(chats.updatedAt, cursorDate),
+						and(eq(chats.updatedAt, cursorDate), lt(chats.id, cursor)),
+					)
+				: undefined
 
 		const results = await db
 			.select()
 			.from(chats)
-			.where(and(...conditions))
-			.orderBy(desc(chats.updatedAt))
+			.where(and(eq(chats.userId, userId), cursorCondition))
+			.orderBy(desc(chats.updatedAt), desc(chats.id))
 			.limit(limit + 1)
 
 		const hasMore = results.length > limit
@@ -86,6 +91,9 @@ export async function getChatsByUserId(
 /**
  * Co-fetch a chat and its messages in parallel.
  * Messages are ordered by createdAt ASC.
+ *
+ * @unused Chat page fetches chat and messages separately
+ * with individual cache tags. Retained as a convenience for non-cached contexts.
  */
 export async function getChatWithMessages(
 	chatId: string,
@@ -121,7 +129,7 @@ export async function createChat(data: {
 	userId: string
 	title: string
 	model?: string
-	visibility?: string
+	visibility?: Visibility
 }): Promise<Chat> {
 	try {
 		const [created] = await db
@@ -131,8 +139,7 @@ export async function createChat(data: {
 				userId: data.userId,
 				title: data.title,
 				model: data.model,
-				// Safe cast: callers validate visibility via Zod (chatRequestSchema)
-				visibility: (data.visibility as Visibility) ?? "private",
+				visibility: data.visibility ?? "private",
 			})
 			.returning()
 
@@ -172,13 +179,12 @@ export async function updateChatTitle(chatId: string, title: string): Promise<vo
 /**
  * Update the visibility of a chat.
  */
-export async function updateChatVisibility(chatId: string, visibility: string): Promise<void> {
+export async function updateChatVisibility(chatId: string, visibility: Visibility): Promise<void> {
 	try {
 		await db
 			.update(chats)
 			.set({
-				// Safe cast: callers validate visibility via Zod (updateVisibilitySchema)
-				visibility: visibility as Visibility,
+				visibility,
 				updatedAt: new Date(),
 			})
 			.where(eq(chats.id, chatId))
@@ -233,12 +239,6 @@ export async function deleteAllChats(userId: string): Promise<void> {
  * newly authenticated user. Returns the number of transferred chats.
  *
  * **Best-effort** — callers should catch errors and not fail auth flows.
- *
- * NOTE: Currently a no-op in practice because guest user IDs are minted as
- * `guest:{uuid}` (not a valid PostgreSQL UUID), so no guest chats can be
- * persisted to the DB yet. This function exists as prep work for when guest
- * chat persistence is implemented (e.g., with UUID-only guest IDs or a
- * separate guest storage mechanism).
  */
 export async function transferGuestChats(fromUserId: string, toUserId: string): Promise<number> {
 	try {

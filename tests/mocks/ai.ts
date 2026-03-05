@@ -1,10 +1,17 @@
-import type { LanguageModelV2, LanguageModelV2StreamPart } from "@ai-sdk/provider"
+import type {
+	LanguageModelV3,
+	LanguageModelV3StreamPart,
+	LanguageModelV3Usage,
+} from "@ai-sdk/provider"
 import { simulateReadableStream } from "ai"
-import { MockLanguageModelV2 } from "ai/test"
+import { MockLanguageModelV3 } from "ai/test"
 
 // ── Default usage stats ─────────────────────────────────────
 
-const DEFAULT_USAGE = { inputTokens: 10, outputTokens: 20, totalTokens: 30 }
+const DEFAULT_USAGE: LanguageModelV3Usage = {
+	inputTokens: { total: 10, noCache: undefined, cacheRead: undefined, cacheWrite: undefined },
+	outputTokens: { total: 20, text: undefined, reasoning: undefined },
+}
 
 // ── createMockTextModel ─────────────────────────────────────
 
@@ -12,7 +19,7 @@ const DEFAULT_USAGE = { inputTokens: 10, outputTokens: 20, totalTokens: 30 }
  * Create a mock model that returns a fixed text response.
  * Supports both `generateText` (doGenerate) and `streamText` (doStream).
  *
- * Uses `MockLanguageModelV2` from `ai/test` under the hood.
+ * Uses `MockLanguageModelV3` from `ai/test` under the hood.
  *
  * @example
  * ```ts
@@ -20,10 +27,10 @@ const DEFAULT_USAGE = { inputTokens: 10, outputTokens: 20, totalTokens: 30 }
  * const result = streamText({ model, prompt: "Hi" })
  * ```
  */
-export function createMockTextModel(text: string): LanguageModelV2 {
-	return new MockLanguageModelV2({
+export function createMockTextModel(text: string): LanguageModelV3 {
+	return new MockLanguageModelV3({
 		doGenerate: async () => ({
-			finishReason: "stop",
+			finishReason: { unified: "stop", raw: undefined },
 			usage: DEFAULT_USAGE,
 			content: [{ type: "text", text }],
 			warnings: [],
@@ -36,10 +43,10 @@ export function createMockTextModel(text: string): LanguageModelV2 {
 					{ type: "text-end", id: "text-0" },
 					{
 						type: "finish",
-						finishReason: "stop",
+						finishReason: { unified: "stop", raw: undefined },
 						usage: DEFAULT_USAGE,
 					},
-				] satisfies LanguageModelV2StreamPart[],
+				] satisfies LanguageModelV3StreamPart[],
 				initialDelayInMs: null,
 				chunkDelayInMs: null,
 			}),
@@ -61,8 +68,8 @@ export function createMockTextModel(text: string): LanguageModelV2 {
  * const result = streamText({ model, prompt: "Hi" })
  * ```
  */
-export function createMockStreamModel(chunks: string[]): LanguageModelV2 {
-	return new MockLanguageModelV2({
+export function createMockStreamModel(chunks: string[]): LanguageModelV3 {
+	return new MockLanguageModelV3({
 		doStream: async () => ({
 			stream: simulateReadableStream({
 				chunks: [
@@ -75,10 +82,10 @@ export function createMockStreamModel(chunks: string[]): LanguageModelV2 {
 					{ type: "text-end", id: "text-0" },
 					{
 						type: "finish",
-						finishReason: "stop",
+						finishReason: { unified: "stop", raw: undefined },
 						usage: DEFAULT_USAGE,
 					},
-				] satisfies LanguageModelV2StreamPart[],
+				] satisfies LanguageModelV3StreamPart[],
 				initialDelayInMs: null,
 				chunkDelayInMs: null,
 			}),
@@ -93,7 +100,7 @@ export function createMockStreamModel(chunks: string[]): LanguageModelV2 {
  * The model returns a tool-call on the first invocation, then a text
  * response on subsequent invocations (simulating the tool result step).
  *
- * Uses `MockLanguageModelV2` from `ai/test` under the hood.
+ * Uses `MockLanguageModelV3` from `ai/test` under the hood.
  *
  * @example
  * ```ts
@@ -110,18 +117,18 @@ export function createMockToolCallModel(config: {
 	toolCallId?: string
 	args: Record<string, unknown>
 	followUpText?: string
-}): LanguageModelV2 {
+}): LanguageModelV3 {
 	const toolCallId = config.toolCallId ?? `call-${crypto.randomUUID().slice(0, 8)}`
 	const argsJson = JSON.stringify(config.args)
 	const followUp = config.followUpText ?? "Done."
 	let callCount = 0
 
-	return new MockLanguageModelV2({
+	return new MockLanguageModelV3({
 		doGenerate: async () => {
 			callCount++
 			if (callCount === 1) {
 				return {
-					finishReason: "tool-calls" as const,
+					finishReason: { unified: "tool-calls" as const, raw: undefined },
 					usage: DEFAULT_USAGE,
 					content: [
 						{
@@ -135,7 +142,7 @@ export function createMockToolCallModel(config: {
 				}
 			}
 			return {
-				finishReason: "stop" as const,
+				finishReason: { unified: "stop" as const, raw: undefined },
 				usage: DEFAULT_USAGE,
 				content: [{ type: "text" as const, text: followUp }],
 				warnings: [],
@@ -162,10 +169,10 @@ export function createMockToolCallModel(config: {
 							},
 							{
 								type: "finish",
-								finishReason: "tool-calls",
+								finishReason: { unified: "tool-calls", raw: undefined },
 								usage: DEFAULT_USAGE,
 							},
-						] satisfies LanguageModelV2StreamPart[],
+						] satisfies LanguageModelV3StreamPart[],
 						initialDelayInMs: null,
 						chunkDelayInMs: null,
 					}),
@@ -179,11 +186,10 @@ export function createMockToolCallModel(config: {
 						{ type: "text-end", id: "text-0" },
 						{
 							type: "finish",
-							finishReason: "stop",
-
+							finishReason: { unified: "stop", raw: undefined },
 							usage: DEFAULT_USAGE,
 						},
-					] satisfies LanguageModelV2StreamPart[],
+					] satisfies LanguageModelV3StreamPart[],
 					initialDelayInMs: null,
 					chunkDelayInMs: null,
 				}),
@@ -198,7 +204,7 @@ export function createMockToolCallModel(config: {
  * Create a mock model pre-configured for artifact creation tool calls,
  * matching the real `createArtifact` tool shape.
  *
- * Uses `MockLanguageModelV2` from `ai/test` under the hood.
+ * Uses `MockLanguageModelV3` from `ai/test` under the hood.
  *
  * @example
  * ```ts
@@ -213,7 +219,7 @@ export function createMockArtifactModel(overrides?: {
 	title?: string
 	kind?: string
 	followUpText?: string
-}): LanguageModelV2 {
+}): LanguageModelV3 {
 	return createMockToolCallModel({
 		toolName: "createArtifact",
 		args: {
@@ -227,9 +233,9 @@ export function createMockArtifactModel(overrides?: {
 // ── Internal helper ─────────────────────────────────────────
 
 /** Split text into stream delta chunks of ~10 chars for realistic streaming. */
-function splitTextToDeltas(text: string, id: string): LanguageModelV2StreamPart[] {
+function splitTextToDeltas(text: string, id: string): LanguageModelV3StreamPart[] {
 	const chunkSize = 10
-	const deltas: LanguageModelV2StreamPart[] = []
+	const deltas: LanguageModelV3StreamPart[] = []
 	for (let i = 0; i < text.length; i += chunkSize) {
 		deltas.push({
 			type: "text-delta",

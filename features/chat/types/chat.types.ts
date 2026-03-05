@@ -1,4 +1,4 @@
-import type { ChatStatus, UIMessage } from "ai"
+import type { ChatStatus, FileUIPart, UIMessage } from "ai"
 import type { Dispatch, SetStateAction } from "react"
 
 import type { ArtifactKind, ArtifactSuggestion } from "@/lib/types/artifact.types"
@@ -54,8 +54,12 @@ export interface ChatSessionValue {
 	/** Update pending file attachments */
 	setAttachments: Dispatch<SetStateAction<Attachment[]>>
 	/** Submit the current input + attachments as a new message.
-	 *  Optionally pass content string to bypass input state (avoids stale closure). */
-	sendMessage: (contentOrEvent?: string | { preventDefault?: () => void }) => void
+	 *  Optionally pass content string to bypass input state (avoids stale closure).
+	 *  When `files` is provided, those are sent directly instead of reading from attachments state. */
+	sendMessage: (
+		contentOrEvent?: string | { preventDefault?: () => void },
+		files?: FileUIPart[],
+	) => void
 	/** Abort the current streaming response */
 	stop: () => void
 	/** Programmatically append a message to the conversation */

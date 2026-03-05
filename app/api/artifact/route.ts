@@ -9,7 +9,7 @@ import {
 	saveArtifactVersion,
 } from "@/lib/data/artifact"
 import { AppError } from "@/lib/errors/app-error"
-import type { ArtifactKind } from "@/lib/types/models.types"
+import { validateOrigin } from "@/lib/utils/validate-origin"
 
 // ── Zod schemas for POST body ───────────────────────────────
 
@@ -86,6 +86,14 @@ export async function GET(request: Request) {
 // ── POST /api/artifact — Save or restore artifact ───────────
 
 export async function POST(request: Request) {
+	// CSRF protection — validate Origin header
+	if (!validateOrigin(request)) {
+		return AppError.forbidden(
+			"forbidden:api:csrf_failed",
+			"Invalid request origin",
+		).toResponse()
+	}
+
 	const session = await getAppSession()
 	if (!session?.user) {
 		return AppError.unauthorized("unauthorized:chat:auth_required").toResponse()
@@ -138,7 +146,7 @@ async function handleSave(data: z.infer<typeof saveBodySchema>, userId: string):
 		id: data.id,
 		title: data.title,
 		content: data.content,
-		kind: data.kind as ArtifactKind,
+		kind: data.kind,
 		userId,
 		chatId: data.chatId,
 	})

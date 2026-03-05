@@ -97,11 +97,8 @@ export const settingsStore = {
 
 // ── Hooks ───────────────────────────────────────────────────
 
-// Stable actions object — never changes, so useSyncExternalStore never triggers re-render
+// Stable actions object — returned directly by useSettingsSetter (no subscription needed).
 const actions = { updateSettings, resetSettings } as const
-function getActionsSnapshot() {
-	return actions
-}
 
 /**
  * Read-only hook — returns the current settings snapshot.
@@ -117,11 +114,11 @@ export function useSettings(): SettingsState {
 
 /**
  * Write-only hook — returns stable `updateSettings` and `resetSettings` functions.
- * Never triggers re-renders (actions are stable references).
+ * No subscription needed — actions are module-level stable references that never change.
  */
 export function useSettingsSetter(): {
 	updateSettings: typeof updateSettings
 	resetSettings: typeof resetSettings
 } {
-	return useSyncExternalStore(settingsStore.subscribe, getActionsSnapshot, getActionsSnapshot)
+	return actions
 }

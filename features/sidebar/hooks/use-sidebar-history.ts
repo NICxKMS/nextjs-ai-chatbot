@@ -101,7 +101,7 @@ export function useSidebarHistory(options?: UseSidebarHistoryOptions): UseSideba
 			]
 		: undefined
 
-	const { data, size, setSize, isLoading, isValidating } = useSWRInfinite<HistoryPage>(
+	const { data, setSize, isLoading, isValidating } = useSWRInfinite<HistoryPage>(
 		// Null key when no authenticated user — skips all requests
 		session?.user ? getKey : () => null,
 		historyFetcher,
@@ -121,9 +121,9 @@ export function useSidebarHistory(options?: UseSidebarHistoryOptions): UseSideba
 
 	const loadMore = useCallback(() => {
 		if (!isValidating && hasMore) {
-			setSize(size + 1)
+			setSize((prev) => prev + 1)
 		}
-	}, [isValidating, hasMore, setSize, size])
+	}, [isValidating, hasMore, setSize])
 
 	return {
 		chats,

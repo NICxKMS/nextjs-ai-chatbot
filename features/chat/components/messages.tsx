@@ -38,7 +38,7 @@ function PureMessageItem({ message, isLoading, isReadonly }: MessageItemProps) {
 
 	return (
 		<div className="group/message w-full px-2 md:px-4">
-			<ChatMessage isLoading={isLoading} isReadonly={isReadonly} message={message} />
+			<ChatMessage isLoading={isLoading} message={message} />
 
 			{!isLoading && (
 				<MessageActions
@@ -78,7 +78,7 @@ function PureMessages() {
 				data-testid="messages-empty"
 				ref={containerRef}
 			>
-				<div className="mx-auto flex w-full min-w-0 max-w-3xl flex-1 flex-col justify-center gap-6 px-4 py-4">
+				<div className="mx-auto flex w-full min-w-0 max-w-4xl flex-1 flex-col justify-center gap-6 px-4 py-4">
 					<Greeting />
 					<SuggestedActions />
 				</div>
@@ -91,7 +91,7 @@ function PureMessages() {
 	return (
 		<div className="relative flex-1 overflow-hidden">
 			<div className="h-full overflow-y-auto" data-testid="messages-list" ref={containerRef}>
-				<div className="mx-auto flex min-w-0 max-w-3xl flex-col gap-4 py-4 md:gap-6">
+				<div className="mx-auto flex min-w-0 max-w-4xl flex-col gap-4 py-4 md:gap-6">
 					{messages.map((message, index) => (
 						<MessageItem
 							isLoading={status === "streaming" && index === messages.length - 1}

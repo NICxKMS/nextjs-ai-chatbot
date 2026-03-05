@@ -3,6 +3,7 @@ import { z } from "zod"
 
 import { getArtifactHandler } from "@/lib/ai/artifact-handlers"
 import { getArtifactById, saveArtifactVersion } from "@/lib/data/artifact"
+import { AppError } from "@/lib/errors/app-error"
 import type { ArtifactStreamWriter } from "@/lib/types/artifact-handler.types"
 
 // ── Types ────────────────────────────────────────────────────
@@ -35,6 +36,13 @@ export const updateArtifactTool = ({ session, chatStream }: UpdateArtifactToolPa
 
 			if (!artifact) {
 				return { error: "Artifact not found" }
+			}
+
+			if (artifact.userId !== session.userId) {
+				throw AppError.forbidden(
+					"forbidden:artifact:owner_mismatch",
+					"Not authorized to modify this artifact",
+				)
 			}
 
 			chatStream.writeData({ type: "artifact-clear", content: "" })

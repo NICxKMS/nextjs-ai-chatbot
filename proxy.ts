@@ -121,7 +121,7 @@ export async function proxy(request: NextRequest) {
 		try {
 			// No session at all → mint a new guest token (dual-write)
 			if (!hasGuestToken) {
-				const guestId = `guest:${crypto.randomUUID()}`
+				const guestId = crypto.randomUUID()
 				const token = await mintGuestToken(guestId)
 
 				// Dual-write pattern:
@@ -156,7 +156,7 @@ export async function proxy(request: NextRequest) {
 				}
 			} else {
 				// Guest token is invalid/expired → mint a fresh one with new identity
-				const guestId = `guest:${crypto.randomUUID()}`
+				const guestId = crypto.randomUUID()
 				const token = await mintGuestToken(guestId)
 
 				request.cookies.set(GUEST_COOKIE_NAME, token)
@@ -175,14 +175,9 @@ export async function proxy(request: NextRequest) {
 		}
 	}
 
-	// ── Rate limiting stub ─────────────────────────────────────
-	// NOTE: Auth rate limiting handled inline in login/register actions (Redis incr/expire).
-	// API route rate limiting can be added here if needed.
-	// Placeholder: log API route access for future rate limiting
-	if (pathname.startsWith("/api/") && !isRateLimitExempt(pathname)) {
-		// Log only, do not block — rate limiting infrastructure not yet wired
-		// console.debug(`[proxy:rate-limit] ${request.method} ${pathname}`)
-	}
+	// ── Rate limiting ──────────────────────────────────────────
+	// Auth rate limiting is handled inline in login/register actions (Redis incr/expire).
+	// API route rate limiting can be added here when needed.
 
 	// --- Forward mutated request headers to downstream route handlers ---
 	return NextResponse.next({

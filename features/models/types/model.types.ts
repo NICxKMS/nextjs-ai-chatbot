@@ -5,9 +5,4 @@
  * types should import from here rather than reaching into `lib/types/` directly.
  */
 export type { ModelMetadata, ProviderId } from "@/lib/types/model.types"
-export {
-	ARTIFACT_MODEL,
-	DEFAULT_CHAT_MODEL,
-	MODEL_COOKIE_NAME,
-	TITLE_MODEL,
-} from "@/lib/types/model.types"
+export { MODEL_COOKIE_NAME } from "@/lib/types/model.types"

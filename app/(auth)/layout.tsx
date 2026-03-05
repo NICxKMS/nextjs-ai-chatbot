@@ -1,8 +1,9 @@
+import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { Suspense } from "react"
 import { getAppSession } from "@/lib/auth/session"
 
-export const metadata = {
+export const metadata: Metadata = {
 	title: "Authentication",
 	description: "Sign in or create an account.",
 }

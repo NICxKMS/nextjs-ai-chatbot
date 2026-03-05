@@ -9,25 +9,42 @@ import type { Artifact, ArtifactKind } from "@/lib/types/models.types"
  * Get the latest version of an artifact (highest createdAt for the given id).
  */
 export async function getArtifactById(artifactId: string): Promise<Artifact | null> {
-	const result = await db
-		.select()
-		.from(artifacts)
-		.where(eq(artifacts.id, artifactId))
-		.orderBy(desc(artifacts.createdAt))
-		.limit(1)
+	try {
+		const result = await db
+			.select()
+			.from(artifacts)
+			.where(eq(artifacts.id, artifactId))
+			.orderBy(desc(artifacts.createdAt))
+			.limit(1)
 
-	return result[0] ?? null
+		return result[0] ?? null
+	} catch (error) {
+		if (error instanceof AppError) throw error
+		throw AppError.internal("internal_error:database:query_failed", "Failed to get artifact", {
+			artifactId,
+			cause: error,
+		})
+	}
 }
 
 /**
  * Get all versions of an artifact, ordered by createdAt descending (newest first).
  */
 export async function getArtifactVersions(artifactId: string): Promise<Artifact[]> {
-	return db
-		.select()
-		.from(artifacts)
-		.where(eq(artifacts.id, artifactId))
-		.orderBy(desc(artifacts.createdAt))
+	try {
+		return await db
+			.select()
+			.from(artifacts)
+			.where(eq(artifacts.id, artifactId))
+			.orderBy(desc(artifacts.createdAt))
+	} catch (error) {
+		if (error instanceof AppError) throw error
+		throw AppError.internal(
+			"internal_error:database:query_failed",
+			"Failed to get artifact versions",
+			{ artifactId, cause: error },
+		)
+	}
 }
 
 /**
@@ -42,26 +59,35 @@ export async function saveArtifactVersion(data: {
 	userId: string
 	chatId: string
 }): Promise<Artifact> {
-	const result = await db
-		.insert(artifacts)
-		.values({
-			id: data.id,
-			title: data.title,
-			content: data.content,
-			kind: data.kind,
-			userId: data.userId,
-			chatId: data.chatId,
-		})
-		.returning()
+	try {
+		const result = await db
+			.insert(artifacts)
+			.values({
+				id: data.id,
+				title: data.title,
+				content: data.content,
+				kind: data.kind,
+				userId: data.userId,
+				chatId: data.chatId,
+			})
+			.returning()
 
-	const artifact = result[0]
-	if (!artifact)
+		const artifact = result[0]
+		if (!artifact)
+			throw AppError.internal(
+				"internal_error:database:query_failed",
+				"Artifact insert returned no rows",
+				{ id: data.id },
+			)
+		return artifact
+	} catch (error) {
+		if (error instanceof AppError) throw error
 		throw AppError.internal(
 			"internal_error:database:query_failed",
-			"Artifact insert returned no rows",
-			{ id: data.id },
+			"Failed to save artifact version",
+			{ id: data.id, cause: error },
 		)
-	return artifact
+	}
 }
 
 /**
@@ -69,7 +95,16 @@ export async function saveArtifactVersion(data: {
  * Uses the composite PK (id + createdAt) for targeted deletion.
  */
 export async function deleteArtifactVersion(artifactId: string, createdAt: Date): Promise<void> {
-	await db
-		.delete(artifacts)
-		.where(and(eq(artifacts.id, artifactId), gte(artifacts.createdAt, createdAt)))
+	try {
+		await db
+			.delete(artifacts)
+			.where(and(eq(artifacts.id, artifactId), gte(artifacts.createdAt, createdAt)))
+	} catch (error) {
+		if (error instanceof AppError) throw error
+		throw AppError.internal(
+			"internal_error:database:query_failed",
+			"Failed to delete artifact version",
+			{ artifactId, cause: error },
+		)
+	}
 }

@@ -147,6 +147,11 @@ Never repeat the same failed approach.
 
 ---
 
+## ai-element Rule
+- files in components/ai-elements/ are **read-only** and should not be modified directly. They are generated from prompts and any changes will be overwritten.
+- Modify the colocated wrapper if you need to change behavior or styling, but do not change the core ai-element file.
+
+---
 ## Guiding Principle
 
 > This system is intentionally designed. Extend it safely, consistently, and correctly.

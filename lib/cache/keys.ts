@@ -26,6 +26,7 @@ export const cacheKeys = {
 export const rateLimitKeys = {
 	rateLimit: (userId: string) => `rate-limit:${userId}`,
 	rateLimitDaily: (userId: string) => `rate-limit-daily:${userId}`,
+	rateLimitChat: (userId: string) => `rate-limit-chat:${userId}`,
 	rateLimitVote: (userId: string) => `rate-limit-vote:${userId}`,
 	rateLimitUpload: (userId: string) => `rate-limit-upload:${userId}`,
 	rateLimitLogin: (ip: string) => `rate-limit-login:${ip}`,

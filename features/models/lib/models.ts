@@ -4,7 +4,9 @@ import { cacheLife, cacheTag } from "next/cache"
 import { cookies } from "next/headers"
 
 import { discoverModels, STATIC_MODELS } from "@/lib/ai/models"
+import { getAvailableProviderIds } from "@/lib/ai/registry"
 import type { AppSession } from "@/lib/auth/session"
+import { cacheKeys } from "@/lib/cache/keys"
 import type { ModelMetadata } from "@/lib/types/model.types"
 import { DEFAULT_CHAT_MODEL, MODEL_COOKIE_NAME } from "@/lib/types/model.types"
 
@@ -20,16 +22,20 @@ import { DEFAULT_CHAT_MODEL, MODEL_COOKIE_NAME } from "@/lib/types/model.types"
  */
 export async function getAvailableModels(): Promise<ModelMetadata[]> {
 	"use cache"
-	cacheTag("models")
+	cacheTag(cacheKeys.models())
 	cacheLife("hours")
 
-	const discovered = await discoverModels()
+	const [discovered, availableProviders] = await Promise.all([
+		discoverModels(),
+		Promise.resolve(getAvailableProviderIds()),
+	])
 
 	// Deduplicate: static models take priority over discovered
 	const staticIds = new Set(STATIC_MODELS.map((m) => m.id))
 	const uniqueDiscovered = discovered.filter((m) => !staticIds.has(m.id))
 
-	return [...STATIC_MODELS, ...uniqueDiscovered]
+	// Filter to only include models whose provider has a configured API key
+	return [...STATIC_MODELS, ...uniqueDiscovered].filter((m) => availableProviders.has(m.provider))
 }
 
 /**

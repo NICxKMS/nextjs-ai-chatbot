@@ -18,7 +18,7 @@ export default function ChatError({
 	reset: () => void
 }) {
 	useEffect(() => {
-		console.error("Chat error:", error)
+		console.error("Chat error:", error.digest ?? error.message)
 	}, [error])
 
 	return (

@@ -12,7 +12,7 @@ import {
 	ModelSelectorList,
 	ModelSelectorLogo,
 	ModelSelectorName,
-	ModelSelectorRoot,
+	ModelSelector as ModelSelectorRoot,
 	ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector"
 import { Badge } from "@/components/ui/badge"
@@ -70,8 +70,10 @@ function groupModelsByProvider(models: ModelMetadata[]): Map<string, ModelMetada
  * localStorage provides fast client-side reads.
  */
 function persistModelSelection(modelId: string): void {
+	const secure = globalThis.location?.protocol === "https:" ? ";secure" : ""
+
 	// biome-ignore lint/suspicious/noDocumentCookie: Synchronous cookie write required; Cookie Store API is async and would change this function's signature
-	document.cookie = `${MODEL_COOKIE_NAME}=${encodeURIComponent(modelId)};path=/;max-age=${COOKIE_MAX_AGE_SECONDS};samesite=lax`
+	document.cookie = `${MODEL_COOKIE_NAME}=${modelId};path=/;max-age=${COOKIE_MAX_AGE_SECONDS};samesite=lax${secure}`
 
 	try {
 		localStorage.setItem(MODEL_COOKIE_NAME, modelId)
@@ -97,7 +99,6 @@ export function ModelSelector({
 	className,
 }: ModelSelectorProps) {
 	const [open, setOpen] = useState(false)
-	const [search, setSearch] = useState("")
 	const inputRef = useRef<HTMLInputElement>(null)
 
 	const selectedModel = useMemo(
@@ -105,35 +106,19 @@ export function ModelSelector({
 		[models, selectedModelId],
 	)
 
-	const filteredModels = useMemo(() => {
-		const query = search.trim().toLowerCase()
-		if (!query) return models
-		return models.filter(
-			(m) =>
-				m.name.toLowerCase().includes(query) ||
-				m.description?.toLowerCase().includes(query) ||
-				m.provider.toLowerCase().includes(query) ||
-				m.providerModelId.toLowerCase().includes(query),
-		)
-	}, [models, search])
-
-	const groupedModels = useMemo(() => groupModelsByProvider(filteredModels), [filteredModels])
+	const groupedModels = useMemo(() => groupModelsByProvider(models), [models])
 
 	const handleSelect = useCallback(
 		(modelId: string) => {
 			persistModelSelection(modelId)
 			onModelChange(modelId)
 			setOpen(false)
-			setSearch("")
 		},
 		[onModelChange],
 	)
 
 	const handleOpenChange = useCallback((nextOpen: boolean) => {
 		setOpen(nextOpen)
-		if (!nextOpen) {
-			setSearch("")
-		}
 	}, [])
 
 	return (
@@ -170,8 +155,6 @@ export function ModelSelector({
 				<ModelSelectorInput
 					ref={inputRef}
 					placeholder="Search models…"
-					value={search}
-					onChange={(e) => setSearch(e.target.value)}
 					aria-label="Search models"
 				/>
 
@@ -187,8 +170,8 @@ export function ModelSelector({
 								{providerModels.map((model) => (
 									<ModelSelectorItem
 										key={model.id}
-										selected={model.id === selectedModelId}
-										onClick={() => handleSelect(model.id)}
+										value={`${model.provider} ${model.providerModelId} ${model.name} ${model.description ?? ""}`}
+										onSelect={() => handleSelect(model.id)}
 									>
 										<div className="flex flex-1 flex-col gap-1">
 											<div className="flex items-center gap-2">

@@ -14,6 +14,7 @@ import { useArtifactSelector } from "../hooks/use-artifact-selector"
 
 type VersionFooterProps = {
 	handleVersionChange: (type: "next" | "prev" | "toggle" | "latest") => void
+	onVersionRestore?: () => Promise<unknown> | unknown
 	versions: Artifact[] | undefined
 	currentVersionIndex: number
 }
@@ -34,6 +35,7 @@ function getVersionTimestamp(versions: Artifact[], index: number): string {
 
 export function VersionFooter({
 	handleVersionChange,
+	onVersionRestore,
 	versions,
 	currentVersionIndex,
 }: VersionFooterProps) {
@@ -105,6 +107,9 @@ export function VersionFooter({
 							if (!response.ok) {
 								throw new Error("Restore failed")
 							}
+
+							// Revalidate SWR cache so the UI reflects the restored version
+							await onVersionRestore?.()
 
 							// After restore, go to latest version (which is now the restored one)
 							handleVersionChange("latest")

@@ -80,34 +80,3 @@ export async function withCache<T>(
 	}
 	return fetcher()
 }
-
-/**
- * Apply cache tag and optional lifetime configuration within a `'use cache'` scope.
- *
- * Use this when you want to apply cache configuration without wrapping the data
- * fetch call — for example, when the fetch logic is inline rather than in a separate function.
- *
- * **IMPORTANT:** Must be called inside a function that has the `'use cache'` directive.
- *
- * @example
- * ```ts
- * import { applyCacheConfig } from '@/lib/cache/with-cache'
- * import { cacheKeys } from '@/lib/cache/keys'
- *
- * export async function getCachedModels() {
- *   'use cache'
- *   applyCacheConfig(cacheKeys.models(), 'hours')
- *   const models = await fetchModelsFromProviders()
- *   return models
- * }
- * ```
- *
- * @param tag - Cache tag string for invalidation.
- * @param life - Optional cache lifetime preset or custom config.
- */
-export function applyCacheConfig(tag: string, life?: CacheLife): void {
-	cacheTag(tag)
-	if (life !== undefined) {
-		applyCacheLife(life)
-	}
-}

@@ -7,12 +7,14 @@ import {
 	streamText,
 	type UIMessage,
 } from "ai"
+import "@/features/artifacts/handlers"
 import { convertToUIMessages } from "@/features/chat/lib/message-utils"
 import { createArtifactTool } from "@/features/chat/lib/tools/create-artifact"
 import { requestSuggestionsTool } from "@/features/chat/lib/tools/request-suggestions"
 import { updateArtifactTool } from "@/features/chat/lib/tools/update-artifact"
 import { getWeather } from "@/features/chat/lib/tools/weather"
 import { chatRequestSchema } from "@/features/chat/schemas/chat.schema"
+import { DEFAULT_SETTINGS } from "@/features/settings/types/settings.types"
 import { getModelById } from "@/lib/ai/models"
 import { composeSystemPrompt } from "@/lib/ai/prompts"
 import { myProvider } from "@/lib/ai/provider"
@@ -20,36 +22,58 @@ import { getProviderOptions } from "@/lib/ai/provider-options"
 import { generateTitle } from "@/lib/ai/title"
 import { getEnabledTools } from "@/lib/ai/tools"
 import { getAppSession } from "@/lib/auth/session"
+import { expire, incr } from "@/lib/cache/client"
+import { rateLimitKeys } from "@/lib/cache/keys"
 import { refreshChat, refreshChatList } from "@/lib/cache/revalidate"
 import { createChat, getChatById, updateChatTitle } from "@/lib/data/chat"
 import { getMessagesByChatId, saveMessages } from "@/lib/data/message"
+import { ensureGuestUser } from "@/lib/data/user"
 import { AppError } from "@/lib/errors/app-error"
 import type { ArtifactStreamWriter } from "@/lib/types/artifact-handler.types"
 import type { NewMessage } from "@/lib/types/models.types"
-import type { SettingsState } from "@/lib/types/settings.types"
 import { generateUUID } from "@/lib/utils/generate-uuid"
+import { validateOrigin } from "@/lib/utils/validate-origin"
 
 export const maxDuration = 60
 
-/** Fallback settings when client does not provide overrides. */
-const DEFAULT_SETTINGS: SettingsState = {
-	temperature: 0.7,
-	topP: 1,
-	maxOutputTokens: 4096,
-	systemPrompt: "",
-	enableReasoning: false,
-}
+/** Rate limit: 20 chat requests per minute per user. */
+const CHAT_RATE_LIMIT = 20
+/** Rate limit window: 1 minute in seconds. */
+const CHAT_RATE_WINDOW_SECONDS = 60
 
 // ── POST /api/chat — Streaming chat completion ──────────────
 
 export async function POST(request: Request) {
-	// 1. Auth check
+	// 1. CSRF protection — validate Origin header
+	if (!validateOrigin(request)) {
+		return AppError.forbidden(
+			"forbidden:api:csrf_failed",
+			"Invalid request origin",
+		).toResponse()
+	}
+
+	// 2. Auth check
 	const session = await getAppSession()
 	if (!session?.user) {
 		return AppError.unauthorized("unauthorized:chat:auth_required").toResponse()
 	}
 
-	// 2. Parse and validate request body
+	// 3. Rate limit — 20 requests/min per user (graceful: skip if Redis unavailable)
+	const rateLimitKey = rateLimitKeys.rateLimitChat(session.user.id)
+	const count = await incr(rateLimitKey)
+	if (count !== null) {
+		if (count === 1) {
+			await expire(rateLimitKey, CHAT_RATE_WINDOW_SECONDS)
+		}
+		if (count > CHAT_RATE_LIMIT) {
+			return AppError.rateLimited(
+				"rate_limit:chat:too_many_requests",
+				"Too many chat requests. Please try again later.",
+			).toResponse()
+		}
+	}
+
+	// 4. Parse and validate request body
 	let body: unknown
 	try {
 		body = await request.json()
@@ -76,9 +100,9 @@ export async function POST(request: Request) {
 		settings,
 	} = parseResult.data
 
-	const effectiveSettings: SettingsState = settings ?? DEFAULT_SETTINGS
+	const effectiveSettings = settings ?? DEFAULT_SETTINGS
 
-	// 3. Resolve model metadata
+	// 5. Resolve model metadata
 	const modelMetadata = getModelById(selectedChatModel)
 	if (!modelMetadata) {
 		return AppError.badRequest(
@@ -87,7 +111,7 @@ export async function POST(request: Request) {
 		).toResponse()
 	}
 
-	// 4. Check if chat exists or create new
+	// 6. Check if chat exists or create new
 	const existingChat = await getChatById(chatId)
 	const isNewChat = !existingChat
 
@@ -96,6 +120,10 @@ export async function POST(request: Request) {
 	}
 
 	if (isNewChat) {
+		// Ensure guest users have a DB record before creating their first chat
+		if (session.user.type === "guest") {
+			await ensureGuestUser(session.user.id)
+		}
 		await createChat({
 			id: chatId,
 			userId: session.user.id,
@@ -105,7 +133,7 @@ export async function POST(request: Request) {
 		})
 	}
 
-	// 5. Load message history and build full conversation
+	// 7. Load message history and build full conversation
 	const dbMessages = existingChat ? await getMessagesByChatId(chatId) : []
 
 	const allMessages: UIMessage[] = [
@@ -117,16 +145,15 @@ export async function POST(request: Request) {
 		},
 	]
 
-	// 6. Extract text for title generation
+	// 8. Extract text for title generation
 	const firstTextPart = message.parts.find((p) => p.type === "text")
 	const messageText = firstTextPart && "text" in firstTextPart ? firstTextPart.text : ""
 
-	// 7. Determine model capabilities
+	// 9. Determine model capabilities
 	const enabledToolIds = getEnabledTools(modelMetadata)
 	const hasTools = enabledToolIds.length > 0
-	const { supportsReasoning } = modelMetadata
 
-	// 8. Track generated title across execute and onFinish
+	// 10. Track generated title across execute and onFinish
 	let generatedTitle: string | undefined
 
 	try {
@@ -174,7 +201,6 @@ export async function POST(request: Request) {
 				const systemPrompt = composeSystemPrompt({
 					settings: effectiveSettings,
 					hasTools,
-					supportsReasoning,
 				})
 
 				const providerOpts = getProviderOptions(selectedChatModel, effectiveSettings)
@@ -183,7 +209,7 @@ export async function POST(request: Request) {
 				const result = streamText({
 					model: myProvider.languageModel(selectedChatModel),
 					system: systemPrompt,
-					messages: convertToModelMessages(allMessages),
+					messages: await convertToModelMessages(allMessages),
 					tools,
 					...providerOpts,
 					experimental_transform: smoothStream(),
@@ -236,8 +262,18 @@ export async function POST(request: Request) {
 					refreshChat(chatId)
 					refreshChatList(session.user.id)
 				} catch (error) {
-					// Log but don't throw — stream is already closed
-					console.error("Failed to persist chat data:", error)
+					// Stream is already closed — we cannot surface this to the client.
+					// Log structured details so persistence failures are diagnosable.
+					console.error(
+						"[onFinish] Failed to persist chat data:",
+						JSON.stringify({
+							chatId,
+							userId: session.user.id,
+							isNewChat,
+							messageCount: responseMessages.length,
+							error: error instanceof Error ? error.message : String(error),
+						}),
+					)
 				}
 			},
 			onError: () => {

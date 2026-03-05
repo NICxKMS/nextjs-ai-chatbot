@@ -6,6 +6,7 @@ import { getAppSession } from "@/lib/auth/session"
 import { expire, incr } from "@/lib/cache/client"
 import { rateLimitKeys } from "@/lib/cache/keys"
 import { AppError } from "@/lib/errors/app-error"
+import { validateOrigin } from "@/lib/utils/validate-origin"
 
 // ── Constants ──────────────────────────────────────────────────
 
@@ -83,6 +84,14 @@ async function checkUploadRateLimit(userId: string): Promise<boolean> {
 // ── Route Handler ──────────────────────────────────────────────
 
 export async function POST(request: Request) {
+	// 0. CSRF protection — validate Origin header
+	if (!validateOrigin(request)) {
+		return AppError.forbidden(
+			"forbidden:api:csrf_failed",
+			"Invalid request origin",
+		).toResponse()
+	}
+
 	// 1. Auth check
 	const session = await getAppSession()
 	if (!session?.user) {

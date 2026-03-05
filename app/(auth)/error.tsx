@@ -18,7 +18,7 @@ export default function AuthError({
 	reset: () => void
 }) {
 	useEffect(() => {
-		console.error("Auth error:", error)
+		console.error("Auth error:", error.digest ?? error.message)
 	}, [error])
 
 	return (

@@ -4,6 +4,7 @@ import { z } from "zod"
 import { myProvider } from "@/lib/ai/provider"
 import { getArtifactById } from "@/lib/data/artifact"
 import { saveSuggestions } from "@/lib/data/suggestion"
+import { AppError } from "@/lib/errors/app-error"
 import type { ArtifactSuggestion } from "@/lib/types/artifact.types"
 import type { ArtifactStreamWriter } from "@/lib/types/artifact-handler.types"
 import { ARTIFACT_MODEL } from "@/lib/types/model.types"
@@ -48,6 +49,13 @@ export const requestSuggestionsTool = ({ session, chatStream }: RequestSuggestio
 
 			if (!artifact || !artifact.content) {
 				return { error: "Artifact not found or has no content" }
+			}
+
+			if (artifact.userId !== session.userId) {
+				throw AppError.forbidden(
+					"forbidden:artifact:owner_mismatch",
+					"Not authorized to access this artifact",
+				)
 			}
 
 			const suggestions: ArtifactSuggestion[] = []
