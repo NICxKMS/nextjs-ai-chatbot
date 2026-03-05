@@ -1,15 +1,24 @@
-import { z } from "zod"
-
 import { getAppSession } from "@/lib/auth/session"
 import { getChatsByUserId } from "@/lib/data/chat"
 import { AppError } from "@/lib/errors/app-error"
 
 const DEFAULT_LIMIT = 20
+const MIN_LIMIT = 1
+const MAX_LIMIT = 100
 
-const historyQuerySchema = z.object({
-	limit: z.coerce.number().int().min(1).max(100).default(DEFAULT_LIMIT),
-	cursor: z.string().optional(),
-})
+function resolveLimit(searchParams: URLSearchParams): number {
+	const rawLimit = searchParams.get("limit")
+	if (!rawLimit) {
+		return DEFAULT_LIMIT
+	}
+
+	const parsedLimit = Number.parseInt(rawLimit, 10)
+	if (Number.isNaN(parsedLimit)) {
+		return DEFAULT_LIMIT
+	}
+
+	return Math.min(Math.max(parsedLimit, MIN_LIMIT), MAX_LIMIT)
+}
 
 export async function GET(request: Request) {
 	const session = await getAppSession()
@@ -18,20 +27,8 @@ export async function GET(request: Request) {
 	}
 
 	const url = new URL(request.url)
-
-	const parsed = historyQuerySchema.safeParse({
-		limit: url.searchParams.get("limit") ?? undefined,
-		cursor: url.searchParams.get("cursor") ?? undefined,
-	})
-
-	if (!parsed.success) {
-		return AppError.badRequest(
-			"bad_request:validation:invalid_input",
-			"Invalid query parameters",
-		).toResponse()
-	}
-
-	const { limit, cursor } = parsed.data
+	const limit = resolveLimit(url.searchParams)
+	const cursor = url.searchParams.get("cursor") ?? undefined
 
 	try {
 		const result = await getChatsByUserId(session.user.id, { limit, cursor })

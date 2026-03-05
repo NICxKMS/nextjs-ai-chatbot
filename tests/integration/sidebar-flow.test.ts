@@ -38,7 +38,7 @@ vi.mock("@/lib/cache/revalidate", () => ({
 
 describe("Sidebar Flow — Integration Tests", () => {
 	beforeEach(() => {
-		vi.clearAllMocks()
+		vi.resetAllMocks()
 	})
 
 	// ── GET /api/history — Data loading ──────────────────────
@@ -304,6 +304,7 @@ describe("Sidebar Flow — Integration Tests", () => {
 
 			const request = new Request("http://localhost/api/files/upload", {
 				method: "POST",
+				headers: { origin: "http://localhost" },
 				body: formData,
 			})
 

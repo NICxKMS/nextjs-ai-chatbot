@@ -1,4 +1,9 @@
 import "@testing-library/jest-dom/vitest"
+import { vi } from "vitest"
+
+// `server-only` throws outside Next.js React Server runtime.
+// In Vitest we treat it as a no-op marker.
+vi.mock("server-only", () => ({}))
 
 // Mock environment variables for test context
 process.env.DATABASE_URL = "postgresql://test:test@localhost:5432/test"

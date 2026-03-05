@@ -9,6 +9,11 @@ import {
 } from "@/tests/fixtures/user"
 import { createMockTextModel } from "@/tests/mocks/ai"
 
+const JSON_HEADERS = {
+	"Content-Type": "application/json",
+	origin: "http://localhost",
+}
+
 // ── Module mocks ────────────────────────────────────────────
 
 // Auth session
@@ -49,6 +54,25 @@ vi.mock("@/lib/cache/revalidate", () => ({
 	invalidateChatList: vi.fn(),
 }))
 
+const mockIncr = vi.fn()
+const mockExpire = vi.fn()
+vi.mock("@/lib/cache/client", () => ({
+	incr: (...args: unknown[]) => mockIncr(...args),
+	expire: (...args: unknown[]) => mockExpire(...args),
+}))
+
+const mockEnsureGuestUser = vi.fn()
+vi.mock("@/lib/data/user", () => ({
+	ensureGuestUser: (...args: unknown[]) => mockEnsureGuestUser(...args),
+}))
+
+const mockGetAvailableModels = vi.fn()
+vi.mock("@/features/models/lib/models", () => ({
+	getAvailableModels: (...args: unknown[]) => mockGetAvailableModels(...args),
+}))
+
+vi.mock("@/features/artifacts/handlers", () => ({}))
+
 // AI provider
 const mockLanguageModel = vi.fn()
 vi.mock("@/lib/ai/provider", () => ({
@@ -60,16 +84,6 @@ vi.mock("@/lib/ai/provider", () => ({
 // AI utilities
 vi.mock("@/lib/ai/title", () => ({
 	generateTitle: vi.fn().mockResolvedValue("Generated Title"),
-}))
-
-vi.mock("@/lib/ai/models", () => ({
-	getModelById: vi.fn().mockReturnValue({
-		id: "gpt-4o",
-		name: "GPT-4o",
-		provider: "openai",
-		supportsReasoning: false,
-		supportsTools: true,
-	}),
 }))
 
 vi.mock("@/lib/ai/prompts", () => ({
@@ -92,6 +106,23 @@ describe("Chat Flow — Integration Tests", () => {
 		mockGetMessagesByChatId.mockResolvedValue([])
 		mockSaveMessages.mockResolvedValue(undefined)
 		mockCreateChat.mockResolvedValue(undefined)
+		mockIncr.mockResolvedValue(1)
+		mockExpire.mockResolvedValue(true)
+		mockEnsureGuestUser.mockResolvedValue(undefined)
+		mockGetAvailableModels.mockResolvedValue([
+			{
+				id: "gpt-4o",
+				provider: "openai",
+				providerModelId: "gpt-4o",
+				name: "GPT-4o",
+				supportsToolCalling: true,
+				supportsReasoning: false,
+				modalities: { input: ["text"], output: ["text"] },
+				contextWindow: 128_000,
+				maxOutputTokens: 16_384,
+				source: "static",
+			},
+		])
 	})
 
 	// ── POST /api/chat — Auth boundary ───────────────────────
@@ -103,7 +134,7 @@ describe("Chat Flow — Integration Tests", () => {
 			const { POST } = await import("@/app/api/chat/route")
 			const request = new Request("http://localhost/api/chat", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: JSON_HEADERS,
 				body: JSON.stringify({
 					id: crypto.randomUUID(),
 					message: {
@@ -133,7 +164,7 @@ describe("Chat Flow — Integration Tests", () => {
 			const { POST } = await import("@/app/api/chat/route")
 			const request = new Request("http://localhost/api/chat", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: JSON_HEADERS,
 				body: "not-json",
 			})
 
@@ -150,7 +181,7 @@ describe("Chat Flow — Integration Tests", () => {
 			const { POST } = await import("@/app/api/chat/route")
 			const request = new Request("http://localhost/api/chat", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: JSON_HEADERS,
 				body: JSON.stringify({ id: "not-a-uuid" }),
 			})
 
@@ -163,15 +194,12 @@ describe("Chat Flow — Integration Tests", () => {
 
 		it("returns 400 for unknown model ID", async () => {
 			mockGetAppSession.mockResolvedValue(createMockSession())
-
-			// Override getModelById to return null for unknown model
-			const { getModelById } = await import("@/lib/ai/models")
-			vi.mocked(getModelById).mockReturnValueOnce(undefined)
+			mockGetAvailableModels.mockResolvedValueOnce([])
 
 			const { POST } = await import("@/app/api/chat/route")
 			const request = new Request("http://localhost/api/chat", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: JSON_HEADERS,
 				body: JSON.stringify({
 					id: crypto.randomUUID(),
 					message: {
@@ -206,7 +234,7 @@ describe("Chat Flow — Integration Tests", () => {
 			const { POST } = await import("@/app/api/chat/route")
 			const request = new Request("http://localhost/api/chat", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: JSON_HEADERS,
 				body: JSON.stringify({
 					id: existingChat.id,
 					message: {
@@ -240,7 +268,7 @@ describe("Chat Flow — Integration Tests", () => {
 			const { POST } = await import("@/app/api/chat/route")
 			const request = new Request("http://localhost/api/chat", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: JSON_HEADERS,
 				body: JSON.stringify({
 					id: existingChat.id,
 					message: {
@@ -274,7 +302,7 @@ describe("Chat Flow — Integration Tests", () => {
 			const { POST } = await import("@/app/api/chat/route")
 			const request = new Request("http://localhost/api/chat", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: JSON_HEADERS,
 				body: JSON.stringify({
 					id: chatId,
 					message: {

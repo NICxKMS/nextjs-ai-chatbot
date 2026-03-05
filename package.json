@@ -118,6 +118,7 @@
 		"@typescript/native-preview": "7.0.0-dev.20260304.1",
 		"@vitest/coverage-v8": "^3.2.4",
 		"drizzle-kit": "latest",
+		"jsdom": "^28.1.0",
 		"postcss": "^8.5.8",
 		"shadcn": "^3.8.5",
 		"tailwindcss": "^4.2.1",

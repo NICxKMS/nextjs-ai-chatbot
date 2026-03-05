@@ -9,6 +9,11 @@ import {
 	filterArtifactEvents,
 } from "@/tests/utils/stream"
 
+const JSON_HEADERS = {
+	"Content-Type": "application/json",
+	origin: "http://localhost",
+}
+
 // ── Module mocks ────────────────────────────────────────────
 
 const mockGetAppSession = vi.fn()
@@ -40,7 +45,7 @@ vi.mock("@/lib/cache/revalidate", () => ({
 
 describe("Artifact Flow — Integration Tests", () => {
 	beforeEach(() => {
-		vi.clearAllMocks()
+		vi.resetAllMocks()
 	})
 
 	// ── GET /api/artifact — Auth boundary ────────────────────
@@ -168,7 +173,7 @@ describe("Artifact Flow — Integration Tests", () => {
 			const { POST } = await import("@/app/api/artifact/route")
 			const request = new Request("http://localhost/api/artifact", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: JSON_HEADERS,
 				body: JSON.stringify({
 					mode: "save",
 					id: crypto.randomUUID(),
@@ -189,7 +194,7 @@ describe("Artifact Flow — Integration Tests", () => {
 			const { POST } = await import("@/app/api/artifact/route")
 			const request = new Request("http://localhost/api/artifact", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: JSON_HEADERS,
 				body: JSON.stringify({ mode: "save", id: "not-valid" }),
 			})
 
@@ -211,7 +216,7 @@ describe("Artifact Flow — Integration Tests", () => {
 			const { POST } = await import("@/app/api/artifact/route")
 			const request = new Request("http://localhost/api/artifact", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: JSON_HEADERS,
 				body: JSON.stringify({
 					mode: "save",
 					id: existing.id,
@@ -252,7 +257,7 @@ describe("Artifact Flow — Integration Tests", () => {
 			const { POST } = await import("@/app/api/artifact/route")
 			const request = new Request("http://localhost/api/artifact", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: JSON_HEADERS,
 				body: JSON.stringify({
 					mode: "save",
 					id: artifactId,
@@ -282,7 +287,7 @@ describe("Artifact Flow — Integration Tests", () => {
 			const { POST } = await import("@/app/api/artifact/route")
 			const request = new Request("http://localhost/api/artifact", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: JSON_HEADERS,
 				body: JSON.stringify({
 					mode: "restore",
 					id: crypto.randomUUID(),
@@ -307,7 +312,7 @@ describe("Artifact Flow — Integration Tests", () => {
 			const { POST } = await import("@/app/api/artifact/route")
 			const request = new Request("http://localhost/api/artifact", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: JSON_HEADERS,
 				body: JSON.stringify({
 					mode: "restore",
 					id: existing.id,
@@ -335,7 +340,7 @@ describe("Artifact Flow — Integration Tests", () => {
 			const { POST } = await import("@/app/api/artifact/route")
 			const request = new Request("http://localhost/api/artifact", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: JSON_HEADERS,
 				body: JSON.stringify({
 					mode: "restore",
 					id: existing.id,
@@ -441,7 +446,7 @@ describe("Artifact Flow — Integration Tests", () => {
 			const { POST, GET } = await import("@/app/api/artifact/route")
 			const saveRequest = new Request("http://localhost/api/artifact", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: JSON_HEADERS,
 				body: JSON.stringify({
 					mode: "save",
 					id: artifactId,
@@ -469,7 +474,7 @@ describe("Artifact Flow — Integration Tests", () => {
 
 			const restoreRequest = new Request("http://localhost/api/artifact", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: JSON_HEADERS,
 				body: JSON.stringify({
 					mode: "restore",
 					id: artifactId,
@@ -501,7 +506,7 @@ describe("Artifact Flow — Integration Tests", () => {
 			const saveResponse = await POST(
 				new Request("http://localhost/api/artifact", {
 					method: "POST",
-					headers: { "Content-Type": "application/json" },
+					headers: JSON_HEADERS,
 					body: JSON.stringify({
 						mode: "save",
 						id: ownerArtifact.id,
@@ -519,7 +524,7 @@ describe("Artifact Flow — Integration Tests", () => {
 			const restoreResponse = await POST(
 				new Request("http://localhost/api/artifact", {
 					method: "POST",
-					headers: { "Content-Type": "application/json" },
+					headers: JSON_HEADERS,
 					body: JSON.stringify({
 						mode: "restore",
 						id: ownerArtifact.id,

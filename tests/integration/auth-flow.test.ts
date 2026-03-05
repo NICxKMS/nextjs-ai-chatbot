@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import {
 	createMockSession,
@@ -35,6 +35,10 @@ vi.mock("@/lib/cache/revalidate", () => ({
 // ── Tests ───────────────────────────────────────────────────
 
 describe("Auth Flow — Integration Tests", () => {
+	beforeEach(() => {
+		vi.resetAllMocks()
+	})
+
 	// ── Session resolution scenarios ─────────────────────────
 
 	describe("Session resolution", () => {
@@ -121,7 +125,10 @@ describe("Auth Flow — Integration Tests", () => {
 			const { POST } = await import("@/app/api/chat/route")
 			const request = new Request("http://localhost/api/chat", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: {
+					"Content-Type": "application/json",
+					origin: "http://localhost",
+				},
 				body: JSON.stringify({
 					id: crypto.randomUUID(),
 					message: {

@@ -150,7 +150,6 @@ function ConsoleOutputContents({
 }) {
 	const items = contents.map((content, i) =>
 		content.type === "image" ? (
-			// biome-ignore lint/suspicious/noArrayIndexKey: console outputs are append-only, never reordered
 			<picture key={`${outputId}-img-${i}`}>
 				<img
 					alt="Generated console output"
@@ -162,7 +161,6 @@ function ConsoleOutputContents({
 				/>
 			</picture>
 		) : (
-			// biome-ignore lint/suspicious/noArrayIndexKey: console outputs are append-only, never reordered
 			<div className="w-full whitespace-pre-line break-words" key={`${outputId}-txt-${i}`}>
 				{content.value}
 			</div>
