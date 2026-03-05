@@ -15,10 +15,12 @@ export const metadata: Metadata = {
 	},
 }
 
-// ── Chat layout shell (async, accesses cookies → must be inside Suspense) ──
+// ── Chat layout shell (async runtime APIs) ───────────────────
+// With cacheComponents enabled, cookies/session access must remain
+// inside a Suspense boundary.
 
 async function ChatLayoutShell({ children }: { children: React.ReactNode }) {
-	// Pre-warm session for child server components (React.cache dedup).
+	// Pre-warm request-scoped session cache for child server components.
 	await getAppSession()
 
 	const cookieStore = await cookies()
@@ -34,18 +36,29 @@ async function ChatLayoutShell({ children }: { children: React.ReactNode }) {
 	)
 }
 
+// ── Fallback shell ───────────────────────────────────────────
+// Preserve the chat pane while the async layout shell resolves so
+// sidebar loading does not blank already-visible page content.
+
+function ChatLayoutFallback({ children }: { children: React.ReactNode }) {
+	return (
+		<SidebarProvider defaultOpen>
+			<SidebarSkeleton />
+			<SidebarInset>{children}</SidebarInset>
+		</SidebarProvider>
+	)
+}
+
 // ── Chat layout ────────────────────────────────────────────────
-// With cacheComponents enabled, dynamic APIs (cookies/headers) must be
-// accessed inside <Suspense> boundaries. NoticeHandler and
-// PendingChatsProvider are client components that don't use server-side
-// dynamic APIs, so they remain outside Suspense.
+// NoticeHandler and PendingChatsProvider are client components without
+// server runtime API reads, so they remain outside the Suspense boundary.
 
 export default function ChatLayout({ children }: { children: React.ReactNode }) {
 	return (
 		<>
 			<NoticeHandler />
 			<PendingChatsProvider>
-				<Suspense fallback={<SidebarSkeleton />}>
+				<Suspense fallback={<ChatLayoutFallback>{children}</ChatLayoutFallback>}>
 					<ChatLayoutShell>{children}</ChatLayoutShell>
 				</Suspense>
 			</PendingChatsProvider>

@@ -8,7 +8,7 @@ import type { SettingsState } from "@/lib/types/settings.types"
 // NOT `reasoningBudget`/`reasoningEffort` — those may be added later if needed.
 
 /** Default reasoning budget (tokens) for Google models. */
-const GOOGLE_THINKING_BUDGET = 1024
+const GOOGLE_THINKING_BUDGET = -1
 
 /** Default reasoning effort for OpenAI models. */
 const OPENAI_REASONING_EFFORT = "medium" as const
@@ -35,7 +35,7 @@ export interface ProviderOptionsResult {
  * Provider reasoning config:
  * - Google (`google:*`): `thinkingConfig.thinkingBudget`
  * - OpenAI (`openai:*`): `reasoningEffort`
- * - Anthropic via OpenRouter (`openrouter:anthropic/*`): `thinkingBudget`
+ * - OpenRouter (`openrouter:*`): `openrouter.reasoning.max_tokens`
  *
  * @param modelId - Full model ID (e.g. "google:gemini-2.5-flash")
  * @param settings - Current user settings state
@@ -76,10 +76,12 @@ export function getProviderOptions(
 				reasoningEffort: OPENAI_REASONING_EFFORT,
 			},
 		}
-	} else if (modelId.startsWith("openrouter:anthropic/")) {
+	} else if (modelId.startsWith("openrouter:")) {
 		result.providerOptions = {
-			anthropic: {
-				thinkingBudget: 8000,
+			openrouter: {
+				reasoning: {
+					max_tokens: 8000,
+				},
 			},
 		}
 	}

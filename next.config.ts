@@ -4,7 +4,8 @@ const nextConfig: NextConfig = {
 	reactCompiler: true,
 	cacheComponents: true,
 	reactStrictMode: true,
-	productionBrowserSourceMaps: false,
+	productionBrowserSourceMaps: true,
+	devIndicators: false,
 
 	experimental: {
 		inlineCss: true,

@@ -205,14 +205,23 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 	// ── editMessage ──────────────────────────────────────────
 	const editMessage = useCallback(
 		async (messageId: string, content: string): Promise<void> => {
-			// Remove target + trailing messages from local state
+			const text = content.trim()
+			if (!text) return
+
+			// Delete on server first so we don't flash the local empty state while
+			// the round-trip is in-flight.
+			const result = await deleteTrailingMessages({ chatId: id, messageId })
+			if (!result.success) {
+				throw new Error(result.error.message)
+			}
+
+			// Trim target + trailing messages, then submit the edited text.
 			setMessages((prev) => {
 				const idx = prev.findIndex((m) => m.id === messageId)
 				return idx === -1 ? prev : prev.slice(0, idx)
 			})
-			// Delete from server, then re-submit with edited content
-			await deleteTrailingMessages({ chatId: id, messageId })
-			void sdkSendMessage({ text: content })
+			setUsage(undefined)
+			void sdkSendMessage({ text })
 		},
 		[id, sdkSendMessage, setMessages],
 	)

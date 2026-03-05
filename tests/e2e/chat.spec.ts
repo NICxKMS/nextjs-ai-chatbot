@@ -105,6 +105,36 @@ test.describe("Chat", () => {
 		})
 	})
 
+	test.describe("Edit Message", () => {
+		test("should not show empty greeting state while resubmitting an edited first message", async ({
+			page,
+		}) => {
+			const input = page.getByTestId("multimodal-input")
+
+			await input.fill("Give me one short sentence about the sky")
+			await page.getByTestId("send-button").click()
+			await expect(page.getByTestId("message-assistant").first()).toBeVisible({
+				timeout: 30000,
+			})
+
+			const firstUserMessage = page.getByTestId("message-user").first()
+			await firstUserMessage.hover()
+			await page.getByRole("button", { name: "Edit" }).first().click()
+
+			const editor = page.getByTestId("message-editor")
+			await expect(editor).toBeVisible({ timeout: 10000 })
+			await editor.fill("Give me one short sentence about the ocean")
+			await page.getByTestId("message-editor-send-button").click()
+
+			// Regression guard: editing the first message should not bounce to the
+			// empty-state greeting while the edit flow transitions to resubmission.
+			await expect(page.getByTestId("messages-empty")).toHaveCount(0)
+
+			// Ensure the route remains on an active chat during handoff.
+			await expect(page).toHaveURL(/\/chat\/[\w-]+/)
+		})
+	})
+
 	test.describe("Tool Invocation", () => {
 		test("should invoke weather tool and display result", async ({ page }) => {
 			const input = page.getByTestId("multimodal-input")

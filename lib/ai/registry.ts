@@ -1,6 +1,7 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google"
 import { createOpenAI } from "@ai-sdk/openai"
 import type { ProviderV3 } from "@ai-sdk/provider"
+import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { createProviderRegistry } from "ai"
 
 /**
@@ -9,7 +10,7 @@ import { createProviderRegistry } from "ai"
  * - `google` — Always registered. Reads `GEMINI_API_KEY` env var.
  * - `openai` — Registered if `OPENAI_API_KEY` env var exists.
  * - `openrouter` — Registered if `OPENROUTER_API_KEY` env var exists.
- *   Uses OpenAI-compatible API via custom baseURL.
+ *   Uses `@openrouter/ai-sdk-provider` SDK for native provider support.
  *
  * Usage: `registry.languageModel("google:gemini-2.0-flash")`
  */
@@ -28,11 +29,10 @@ function buildRegistry() {
 		})
 	}
 
-	// OpenRouter — conditional, uses OpenAI-compatible API with custom base URL
+	// OpenRouter — conditional, uses native OpenRouter SDK for proper provider support
 	if (process.env.OPENROUTER_API_KEY) {
-		providers.openrouter = createOpenAI({
+		providers.openrouter = createOpenRouter({
 			apiKey: process.env.OPENROUTER_API_KEY,
-			baseURL: "https://openrouter.ai/api/v1",
 		})
 	}
 

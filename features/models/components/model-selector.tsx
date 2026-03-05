@@ -1,7 +1,8 @@
 "use client"
 
 import { Check, ChevronDown } from "lucide-react"
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import type React from "react"
+import { memo, startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import {
 	ModelSelectorContent,
@@ -23,7 +24,13 @@ import { cn } from "@/lib/utils/cn"
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365 // 1 year
 
 /** Number of dynamic models to render per animation frame. */
-const DYNAMIC_CHUNK_SIZE = 50
+const DYNAMIC_CHUNK_SIZE = 25
+
+/** CSS containment for model items — browser skips painting off-screen items. */
+const ITEM_CONTAIN_STYLE: React.CSSProperties = {
+	contentVisibility: "auto",
+	containIntrinsicSize: "0 64px",
+}
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -209,34 +216,23 @@ export function ModelSelector({
 								key={provider}
 								heading={formatProviderName(provider)}
 							>
-								{providerModels.map((model) => (
-									<ModelSelectorItem
-										key={model.id}
-										value={`${model.provider} ${model.providerModelId} ${model.name} ${model.description ?? ""}`}
-										onSelect={() => handleSelect(model.id)}
-									>
-										<div className="flex flex-1 flex-col gap-1">
-											<div className="flex items-center gap-2">
-												<ModelSelectorLogo
-													provider={model.provider}
-													className="size-3.5"
-												/>
-												<ModelSelectorName className="font-medium">
-													{model.name}
-												</ModelSelectorName>
-												{model.id === selectedModelId && (
-													<Check className="ml-auto size-4 shrink-0" />
-												)}
-											</div>
-											{model.description && (
-												<p className="line-clamp-1 text-muted-foreground text-xs">
-													{model.description}
-												</p>
-											)}
-											<CapabilityBadges model={model} />
-										</div>
-									</ModelSelectorItem>
-								))}
+								{providerModels.map((model) =>
+									model.source === "static" ? (
+										<StaticModelItem
+											key={model.id}
+											model={model}
+											isSelected={model.id === selectedModelId}
+											onSelect={handleSelect}
+										/>
+									) : (
+										<DynamicModelItem
+											key={model.id}
+											model={model}
+											isSelected={model.id === selectedModelId}
+											onSelect={handleSelect}
+										/>
+									),
+								)}
 							</ModelSelectorGroup>
 						))
 					)}
@@ -268,3 +264,59 @@ function CapabilityBadges({ model }: { model: ModelMetadata }) {
 		</div>
 	)
 }
+
+// ── Memoized item components ────────────────────────────────────────────────
+
+interface ModelItemProps {
+	model: ModelMetadata
+	isSelected: boolean
+	onSelect: (modelId: string) => void
+}
+
+/** Full-detail item for static (curated) models — logo, description, badges. */
+const StaticModelItem = memo(function StaticModelItem({
+	model,
+	isSelected,
+	onSelect,
+}: ModelItemProps) {
+	return (
+		<ModelSelectorItem
+			value={`${model.provider} ${model.providerModelId} ${model.name} ${model.description ?? ""}`}
+			onSelect={() => onSelect(model.id)}
+		>
+			<div className="flex flex-1 flex-col gap-1">
+				<div className="flex items-center gap-2">
+					<ModelSelectorLogo provider={model.provider} className="size-3.5" />
+					<ModelSelectorName className="font-medium">{model.name}</ModelSelectorName>
+					{isSelected && <Check className="ml-auto size-4 shrink-0" />}
+				</div>
+				{model.description && (
+					<p className="line-clamp-1 text-muted-foreground text-xs">
+						{model.description}
+					</p>
+				)}
+				<CapabilityBadges model={model} />
+			</div>
+		</ModelSelectorItem>
+	)
+})
+
+/** Lightweight item for dynamic (discovered) models — name only, no external assets. */
+const DynamicModelItem = memo(function DynamicModelItem({
+	model,
+	isSelected,
+	onSelect,
+}: ModelItemProps) {
+	return (
+		<ModelSelectorItem
+			value={`${model.provider} ${model.providerModelId} ${model.name} ${model.description ?? ""}`}
+			onSelect={() => onSelect(model.id)}
+			style={ITEM_CONTAIN_STYLE}
+		>
+			<div className="flex items-center gap-2">
+				<ModelSelectorName className="font-medium">{model.name}</ModelSelectorName>
+				{isSelected && <Check className="ml-auto size-4 shrink-0" />}
+			</div>
+		</ModelSelectorItem>
+	)
+})

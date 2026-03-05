@@ -13,6 +13,7 @@ import {
 	useContext,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from "react"
 import { Button } from "@/components/ui/button"
@@ -35,6 +36,21 @@ const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
+
+function readSidebarCookie(cookieSource: string): boolean | null {
+	const cookiePrefix = `${SIDEBAR_COOKIE_NAME}=`
+	const cookie = cookieSource
+		.split(";")
+		.map((part) => part.trim())
+		.find((part) => part.startsWith(cookiePrefix))
+
+	if (!cookie) return null
+
+	const value = cookie.slice(cookiePrefix.length)
+	if (value === "true") return true
+	if (value === "false") return false
+	return null
+}
 
 type SidebarContextProps = {
 	state: "expanded" | "collapsed"
@@ -81,19 +97,39 @@ const SidebarProvider = forwardRef<
 	) => {
 		const isMobile = useIsMobile({ initialIsMobile })
 		const [openMobile, setOpenMobile] = useState(false)
+		const hasHydratedFromCookieRef = useRef(false)
+		const hasSkippedInitialPersistRef = useRef(false)
 
 		// This is the internal state of the sidebar.
 		// We use openProp and setOpenProp for control from outside the component.
-		// Initialize with defaultOpen (from server cookie)
+		// Initialize with defaultOpen (layout default; may hydrate from cookie on mount).
 		const [_open, _setOpen] = useState(defaultOpen)
 
-		// Persist changes to cookie
-		useEffect(() => {
-			// biome-ignore lint/suspicious/noDocumentCookie: Synchronous cookie write needed inside useEffect; Cookie Store API is async with limited browser support
-			document.cookie = `${SIDEBAR_COOKIE_NAME}=${_open}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
-		}, [_open])
-
 		const open = openProp ?? _open
+
+		// Hydrate uncontrolled state from persisted cookie after mount.
+		// This keeps layout synchronous while preserving user preference.
+		useEffect(() => {
+			if (openProp !== undefined || hasHydratedFromCookieRef.current) return
+			hasHydratedFromCookieRef.current = true
+
+			const persistedOpen = readSidebarCookie(document.cookie)
+			if (persistedOpen !== null) {
+				_setOpen(persistedOpen)
+			}
+		}, [openProp])
+
+		// Persist effective sidebar state (works for controlled + uncontrolled usage).
+		useEffect(() => {
+			if (!hasSkippedInitialPersistRef.current) {
+				hasSkippedInitialPersistRef.current = true
+				return
+			}
+
+			// biome-ignore lint/suspicious/noDocumentCookie: Synchronous cookie write needed inside useEffect; Cookie Store API is async with limited browser support
+			document.cookie = `${SIDEBAR_COOKIE_NAME}=${open}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
+		}, [open])
+
 		const setOpen = useCallback(
 			(newValue: boolean | ((value: boolean) => boolean)) => {
 				const openState = typeof newValue === "function" ? newValue(open) : newValue
@@ -204,12 +240,9 @@ const Sidebar = forwardRef<
 			)
 		}
 
-		// Don't render anything while detecting mobile state to prevent
-		// loading sidebar content on mobile where it's not visible initially
-		if (isMobile === undefined) {
-			return null
-		}
-
+		// Treat undefined (SSR / initial hydration) as desktop.
+		// The desktop layout uses `hidden md:block`, so it's invisible on
+		// mobile and matches the SidebarSkeleton, preventing layout flash.
 		if (isMobile) {
 			return (
 				<Sheet onOpenChange={setOpenMobile} open={openMobile} {...props}>
