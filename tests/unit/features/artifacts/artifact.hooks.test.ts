@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, renderHook } from "@testing-library/react"
-import { beforeEach, describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { useArtifact } from "@/features/artifacts/hooks/use-artifact"
 import { useArtifactSelector } from "@/features/artifacts/hooks/use-artifact-selector"
@@ -76,5 +76,104 @@ describe("artifact hooks", () => {
 
 		expect(result.current).toBe("text")
 		expect(renderCount).toBe(initialRenderCount)
+	})
+})
+
+describe("artifact store", () => {
+	beforeEach(() => {
+		artifactStore.reset()
+	})
+
+	it("returns initial snapshot values for client and server accessors", () => {
+		expect(artifactStore.getSnapshot()).toEqual(initialArtifactData)
+		expect(artifactStore.getServerSnapshot()).toEqual(initialArtifactData)
+	})
+
+	it("notifies subscribers on state changes and stops after unsubscribe", () => {
+		const listener = vi.fn<() => void>()
+		const unsubscribe = artifactStore.subscribe(listener)
+
+		artifactStore.setState((prev) => ({
+			...prev,
+			title: "Spec Draft",
+			isVisible: true,
+		}))
+
+		expect(listener).toHaveBeenCalledTimes(1)
+		expect(artifactStore.getSnapshot().title).toBe("Spec Draft")
+		expect(artifactStore.getSnapshot().isVisible).toBe(true)
+
+		unsubscribe()
+
+		artifactStore.setState((prev) => ({
+			...prev,
+			status: "streaming",
+		}))
+
+		expect(listener).toHaveBeenCalledTimes(1)
+	})
+
+	it("skips emit when updater returns the same state reference", () => {
+		const listener = vi.fn<() => void>()
+		const unsubscribe = artifactStore.subscribe(listener)
+
+		artifactStore.setState((prev) => prev)
+
+		expect(listener).not.toHaveBeenCalled()
+		unsubscribe()
+	})
+
+	it("supports content updates through setState", () => {
+		const listener = vi.fn<() => void>()
+		const unsubscribe = artifactStore.subscribe(listener)
+
+		artifactStore.setState((prev) => ({
+			...prev,
+			content: `${prev.content}Hello`,
+		}))
+		artifactStore.setState((prev) => ({
+			...prev,
+			content: `${prev.content} world`,
+		}))
+
+		expect(artifactStore.getSnapshot().content).toBe("Hello world")
+
+		artifactStore.setState((prev) => ({
+			...prev,
+			content: "const answer = 42",
+		}))
+
+		expect(artifactStore.getSnapshot().content).toBe("const answer = 42")
+		expect(listener).toHaveBeenCalledTimes(3)
+
+		unsubscribe()
+	})
+
+	it("resets to initial data after chained updates", () => {
+		artifactStore.setState((prev) => ({
+			...prev,
+			title: "My Artifact",
+			status: "streaming",
+			isVisible: true,
+		}))
+		artifactStore.setState((prev) => ({
+			...prev,
+			content: `${prev.content}delta`,
+		}))
+		artifactStore.setState((prev) => ({
+			...prev,
+			title: `${prev.title} v2`,
+		}))
+
+		expect(artifactStore.getSnapshot()).toMatchObject({
+			title: "My Artifact v2",
+			status: "streaming",
+			isVisible: true,
+			content: "delta",
+		})
+
+		artifactStore.reset()
+
+		expect(artifactStore.getSnapshot()).toEqual(initialArtifactData)
 	})
 })

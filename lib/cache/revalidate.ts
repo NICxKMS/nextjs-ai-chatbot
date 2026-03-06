@@ -39,8 +39,3 @@ export function refreshChatList(userId: string): void {
 export function refreshVotes(chatId: string): void {
 	revalidateTag(cacheKeys.votes(chatId), "max")
 }
-
-/** Revalidate cached data for an artifact (Route Handler). */
-export function refreshArtifact(artifactId: string): void {
-	revalidateTag(cacheKeys.artifact(artifactId), "max")
-}

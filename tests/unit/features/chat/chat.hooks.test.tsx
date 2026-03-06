@@ -531,7 +531,7 @@ describe("chat hooks", () => {
 			})
 
 			act(() => {
-				latest.scrollToBottom()
+				latest?.scrollToBottom()
 			})
 
 			expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "end" })

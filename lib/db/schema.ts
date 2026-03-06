@@ -59,7 +59,7 @@ export const messages = pgTable(
 			.references(() => chats.id, { onDelete: "cascade" }),
 		role: roleEnum("role").notNull(),
 		parts: jsonb("parts").notNull(),
-		attachments: jsonb("attachments").notNull(),
+		attachments: jsonb("attachments").notNull().default([]),
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 	},
 	(t) => ({

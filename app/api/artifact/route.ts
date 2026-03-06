@@ -1,7 +1,10 @@
-import { z } from "zod"
-
+import {
+	artifactPostBodySchema,
+	getArtifactSchema,
+	type RestoreArtifactInput,
+	type SaveArtifactInput,
+} from "@/features/artifacts/schemas/artifact.schema"
 import { getAppSession } from "@/lib/auth/session"
-import { refreshArtifact } from "@/lib/cache/revalidate"
 import {
 	deleteArtifactVersion,
 	getArtifactById,
@@ -10,25 +13,6 @@ import {
 } from "@/lib/data/artifact"
 import { AppError } from "@/lib/errors/app-error"
 import { validateOrigin } from "@/lib/utils/validate-origin"
-
-// ── Zod schemas for POST body ───────────────────────────────
-
-const saveBodySchema = z.object({
-	mode: z.literal("save"),
-	id: z.string().uuid(),
-	title: z.string().min(1).max(200),
-	content: z.string(),
-	kind: z.enum(["text", "code", "image", "sheet"]),
-	chatId: z.string().uuid(),
-})
-
-const restoreBodySchema = z.object({
-	mode: z.literal("restore"),
-	id: z.string().uuid(),
-	timestamp: z.string().datetime(),
-})
-
-const postBodySchema = z.discriminatedUnion("mode", [saveBodySchema, restoreBodySchema])
 
 // ── GET /api/artifact?id= — Fetch all versions ─────────────
 
@@ -48,16 +32,18 @@ export async function GET(request: Request) {
 		).toResponse()
 	}
 
-	const uuidResult = z.string().uuid().safeParse(artifactId)
-	if (!uuidResult.success) {
+	const parsed = getArtifactSchema.safeParse({ id: artifactId })
+	if (!parsed.success) {
 		return AppError.badRequest(
 			"bad_request:validation:invalid_input",
 			"Invalid artifact id format",
 		).toResponse()
 	}
 
+	const { id } = parsed.data
+
 	try {
-		const latest = await getArtifactById(artifactId)
+		const latest = await getArtifactById(id)
 		if (!latest) {
 			return AppError.notFound(
 				"not_found:artifact:artifact_not_found",
@@ -69,7 +55,7 @@ export async function GET(request: Request) {
 			return AppError.forbidden("forbidden:chat:owner_mismatch", "Access denied").toResponse()
 		}
 
-		const versions = await getArtifactVersions(artifactId)
+		const versions = await getArtifactVersions(id)
 
 		return Response.json(versions, { status: 200 })
 	} catch (error) {
@@ -109,7 +95,7 @@ export async function POST(request: Request) {
 		).toResponse()
 	}
 
-	const parsed = postBodySchema.safeParse(body)
+	const parsed = artifactPostBodySchema.safeParse(body)
 	if (!parsed.success) {
 		return AppError.badRequest(
 			"bad_request:validation:invalid_input",
@@ -135,7 +121,7 @@ export async function POST(request: Request) {
 
 // ── Save mode ───────────────────────────────────────────────
 
-async function handleSave(data: z.infer<typeof saveBodySchema>, userId: string): Promise<Response> {
+async function handleSave(data: SaveArtifactInput, userId: string): Promise<Response> {
 	// Ownership check: if artifact already exists, verify the user owns it
 	const existing = await getArtifactById(data.id)
 	if (existing && existing.userId !== userId) {
@@ -151,17 +137,12 @@ async function handleSave(data: z.infer<typeof saveBodySchema>, userId: string):
 		chatId: data.chatId,
 	})
 
-	refreshArtifact(artifact.id)
-
 	return Response.json({ artifact }, { status: 200 })
 }
 
 // ── Restore mode ────────────────────────────────────────────
 
-async function handleRestore(
-	data: z.infer<typeof restoreBodySchema>,
-	userId: string,
-): Promise<Response> {
+async function handleRestore(data: RestoreArtifactInput, userId: string): Promise<Response> {
 	const existing = await getArtifactById(data.id)
 	if (!existing) {
 		throw AppError.notFound("not_found:artifact:artifact_not_found", "Artifact not found")
@@ -174,8 +155,6 @@ async function handleRestore(
 	const restorePoint = new Date(data.timestamp)
 	const afterRestore = new Date(restorePoint.getTime() + 1)
 	await deleteArtifactVersion(data.id, afterRestore)
-
-	refreshArtifact(data.id)
 
 	return Response.json({ success: true }, { status: 200 })
 }

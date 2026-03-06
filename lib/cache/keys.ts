@@ -8,7 +8,6 @@
  *    stored in Upstash Redis. These are the ONLY keys that touch Redis.
  *
  * NO Redis cache keys for data reads — all data caching uses `'use cache'` + `cacheTag`.
- * Uses `artifact` prefix (NOT `document`).
  */
 
 // ── Cache tag name builders (for cacheTag / updateTag / revalidateTag) ──
@@ -17,7 +16,6 @@ export const cacheKeys = {
 	chat: (chatId: string) => `chat:${chatId}`,
 	chats: (userId: string) => `chats:${userId}`,
 	votes: (chatId: string) => `votes:${chatId}`,
-	artifact: (artifactId: string) => `artifact:${artifactId}`,
 	models: () => "models",
 } as const
 

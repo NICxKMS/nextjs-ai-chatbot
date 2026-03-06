@@ -148,9 +148,16 @@ function ConsoleOutputContents({
 	outputId: string
 	contents: ConsoleOutputContent[]
 }) {
-	const items = contents.map((content, i) =>
-		content.type === "image" ? (
-			<picture key={`${outputId}-img-${i}`}>
+	const keyCounts = new Map<string, number>()
+
+	const items = contents.map((content) => {
+		const keyBase = `${content.type}:${content.value}`
+		const keyCount = keyCounts.get(keyBase) ?? 0
+		keyCounts.set(keyBase, keyCount + 1)
+		const contentKey = `${outputId}-${keyBase}-${keyCount}`
+
+		return content.type === "image" ? (
+			<picture key={contentKey}>
 				<img
 					alt="Generated console output"
 					className="h-auto w-full max-w-md rounded-md object-contain"
@@ -161,11 +168,11 @@ function ConsoleOutputContents({
 				/>
 			</picture>
 		) : (
-			<div className="w-full whitespace-pre-line break-words" key={`${outputId}-txt-${i}`}>
+			<div className="w-full whitespace-pre-line break-words" key={contentKey}>
 				{content.value}
 			</div>
-		),
-	)
+		)
+	})
 
 	return (
 		<div className="flex w-full flex-col gap-2 overflow-x-scroll text-zinc-900 dark:text-zinc-50">

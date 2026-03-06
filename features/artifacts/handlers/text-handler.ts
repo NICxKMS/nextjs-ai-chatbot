@@ -1,12 +1,11 @@
 import { smoothStream, streamText } from "ai"
+import { getInternalLanguageModel } from "@/lib/ai/internal-models"
 import { getUpdateArtifactPrompt } from "@/lib/ai/prompts"
-import { myProvider } from "@/lib/ai/provider"
 import type {
 	ArtifactHandler,
 	CreateArtifactParams,
 	UpdateArtifactParams,
 } from "@/lib/types/artifact-handler.types"
-import { ARTIFACT_MODEL } from "@/lib/types/model.types"
 
 // ── Text-specific system prompt ──────────────────────────────
 // Guides the model to generate Markdown prose without code blocks.
@@ -23,7 +22,7 @@ export const textHandler: ArtifactHandler = {
 		let content = ""
 
 		const { fullStream } = streamText({
-			model: myProvider.languageModel(ARTIFACT_MODEL),
+			model: getInternalLanguageModel("artifact"),
 			system: TEXT_SYSTEM_PROMPT,
 			prompt: title,
 			experimental_transform: smoothStream({ chunking: "word" }),
@@ -51,7 +50,7 @@ export const textHandler: ArtifactHandler = {
 		let content = ""
 
 		const { fullStream } = streamText({
-			model: myProvider.languageModel(ARTIFACT_MODEL),
+			model: getInternalLanguageModel("artifact"),
 			system: getUpdateArtifactPrompt(currentContent, "text"),
 			prompt: description,
 			experimental_transform: smoothStream({ chunking: "word" }),

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
+import { AppError } from "@/lib/errors/app-error"
 import { createMockArtifact } from "@/tests/fixtures/artifact"
 import { createMockSession, createMockUserPair, TEST_USER_ID } from "@/tests/fixtures/user"
 import {
@@ -162,11 +163,53 @@ describe("Artifact Flow — Integration Tests", () => {
 			const json = await response.json()
 			expect(json).toHaveLength(2)
 		})
+
+		it("returns data-layer AppError responses as-is", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+			mockGetArtifactById.mockRejectedValue(
+				AppError.forbidden("forbidden:chat:owner_mismatch", "Access denied"),
+			)
+
+			const { GET } = await import("@/app/api/artifact/route")
+			const request = new Request(`http://localhost/api/artifact?id=${crypto.randomUUID()}`)
+
+			const response = await GET(request)
+			expect(response.status).toBe(403)
+
+			const json = await response.json()
+			expect(json.code).toBe("forbidden:chat:owner_mismatch")
+		})
 	})
 
 	// ── POST /api/artifact — Save mode ───────────────────────
 
 	describe("POST /api/artifact — save mode", () => {
+		it("returns 403 when origin header is missing", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+
+			const { POST } = await import("@/app/api/artifact/route")
+			const request = new Request("http://localhost/api/artifact", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					mode: "save",
+					id: crypto.randomUUID(),
+					title: "Test",
+					content: "Content",
+					kind: "text",
+					chatId: crypto.randomUUID(),
+				}),
+			})
+
+			const response = await POST(request)
+			expect(response.status).toBe(403)
+
+			const json = await response.json()
+			expect(json.code).toBe("forbidden:api:csrf_failed")
+		})
+
 		it("returns 401 when unauthenticated", async () => {
 			mockGetAppSession.mockResolvedValue(null)
 
@@ -203,6 +246,23 @@ describe("Artifact Flow — Integration Tests", () => {
 
 			const json = await response.json()
 			expect(json.code).toBe("bad_request:validation:invalid_input")
+		})
+
+		it("returns 400 for invalid JSON body", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+
+			const { POST } = await import("@/app/api/artifact/route")
+			const request = new Request("http://localhost/api/artifact", {
+				method: "POST",
+				headers: JSON_HEADERS,
+				body: "not-json",
+			})
+
+			const response = await POST(request)
+			expect(response.status).toBe(400)
+
+			const json = await response.json()
+			expect(json.code).toBe("bad_request:api:invalid_request_body")
 		})
 
 		it("returns 403 when non-owner tries to save to existing artifact", async () => {
@@ -274,6 +334,60 @@ describe("Artifact Flow — Integration Tests", () => {
 			const json = await response.json()
 			expect(json.artifact.id).toBe(artifactId)
 			expect(json.artifact.title).toBe("My Artifact")
+		})
+
+		it("returns data-layer AppError responses in save mode", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+			mockGetArtifactById.mockResolvedValue(null)
+			mockSaveArtifactVersion.mockRejectedValue(
+				AppError.forbidden("forbidden:chat:owner_mismatch", "Access denied"),
+			)
+
+			const { POST } = await import("@/app/api/artifact/route")
+			const request = new Request("http://localhost/api/artifact", {
+				method: "POST",
+				headers: JSON_HEADERS,
+				body: JSON.stringify({
+					mode: "save",
+					id: crypto.randomUUID(),
+					title: "Test",
+					content: "Content",
+					kind: "text",
+					chatId: crypto.randomUUID(),
+				}),
+			})
+
+			const response = await POST(request)
+			expect(response.status).toBe(403)
+
+			const json = await response.json()
+			expect(json.code).toBe("forbidden:chat:owner_mismatch")
+		})
+
+		it("returns 500 when save mode hits an unexpected error", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+			mockGetArtifactById.mockResolvedValue(null)
+			mockSaveArtifactVersion.mockRejectedValue(new Error("write failed"))
+
+			const { POST } = await import("@/app/api/artifact/route")
+			const request = new Request("http://localhost/api/artifact", {
+				method: "POST",
+				headers: JSON_HEADERS,
+				body: JSON.stringify({
+					mode: "save",
+					id: crypto.randomUUID(),
+					title: "Test",
+					content: "Content",
+					kind: "text",
+					chatId: crypto.randomUUID(),
+				}),
+			})
+
+			const response = await POST(request)
+			expect(response.status).toBe(500)
+
+			const json = await response.json()
+			expect(json.code).toBe("internal_error:database:query_failed")
 		})
 	})
 

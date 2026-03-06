@@ -253,7 +253,6 @@ export async function POST(request: Request) {
 						chatId,
 						role: "user",
 						parts: message.parts,
-						attachments: [],
 					}
 
 					// Save assistant response messages
@@ -262,7 +261,6 @@ export async function POST(request: Request) {
 						chatId,
 						role: msg.role as NewMessage["role"],
 						parts: msg.parts,
-						attachments: [],
 					}))
 
 					await saveMessages([userMsg, ...assistantMsgs])

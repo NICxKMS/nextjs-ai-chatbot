@@ -1,5 +1,42 @@
 import "@testing-library/jest-dom/vitest"
-import { vi } from "vitest"
+import { cleanup } from "@testing-library/react"
+import { afterEach, vi } from "vitest"
+
+afterEach(() => {
+	if (typeof document !== "undefined") {
+		cleanup()
+	}
+})
+
+if (typeof HTMLElement !== "undefined" && !HTMLElement.prototype.scrollIntoView) {
+	Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+		value: vi.fn(),
+		writable: true,
+		configurable: true,
+	})
+}
+
+if (typeof globalThis.ResizeObserver === "undefined") {
+	class ResizeObserverMock {
+		observe() {
+			return undefined
+		}
+
+		unobserve() {
+			return undefined
+		}
+
+		disconnect() {
+			return undefined
+		}
+	}
+
+	Object.defineProperty(globalThis, "ResizeObserver", {
+		value: ResizeObserverMock,
+		writable: true,
+		configurable: true,
+	})
+}
 
 // `server-only` throws outside Next.js React Server runtime.
 // In Vitest we treat it as a no-op marker.

@@ -53,6 +53,11 @@ interface KeyedLine {
   key: string;
 }
 
+type TokenWithBackgroundFallback = ThemedToken & {
+  bgColor?: string;
+  bgcolor?: string;
+};
+
 const addKeysToTokens = (lines: ThemedToken[][]): KeyedLine[] =>
   lines.map((line, lineIdx) => ({
     key: `line-${lineIdx}`,
@@ -62,13 +67,18 @@ const addKeysToTokens = (lines: ThemedToken[][]): KeyedLine[] =>
     })),
   }));
 
+const getTokenBackgroundColor = (token: ThemedToken) => {
+  const tokenWithBackgroundFallback = token as TokenWithBackgroundFallback;
+  return tokenWithBackgroundFallback.bgColor ?? tokenWithBackgroundFallback.bgcolor;
+};
+
 // Token rendering component
 const TokenSpan = ({ token }: { token: ThemedToken }) => (
   <span
     className="dark:!bg-[var(--shiki-dark-bg)] dark:!text-[var(--shiki-dark)]"
     style={
       {
-        backgroundColor: token.bgColor,
+        backgroundColor: getTokenBackgroundColor(token),
         color: token.color,
         fontStyle: isItalic(token.fontStyle) ? "italic" : undefined,
         fontWeight: isBold(token.fontStyle) ? "bold" : undefined,

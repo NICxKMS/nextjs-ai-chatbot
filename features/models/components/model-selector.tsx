@@ -76,22 +76,16 @@ function groupModelsByProvider(models: ModelMetadata[]): Map<string, ModelMetada
 }
 
 /**
- * Persist model selection to cookie (server-readable) and localStorage.
+ * Persist model selection to the server-readable cookie.
  *
  * Cookie is read server-side by `getDefaultModel()` in `features/models/lib/models.ts`.
- * localStorage provides fast client-side reads.
+ * The cookie is the only live persistence path for model selection.
  */
 function persistModelSelection(modelId: string): void {
 	const secure = globalThis.location?.protocol === "https:" ? ";secure" : ""
 
 	// biome-ignore lint/suspicious/noDocumentCookie: Synchronous cookie write required; Cookie Store API is async and would change this function's signature
 	document.cookie = `${MODEL_COOKIE_NAME}=${modelId};path=/;max-age=${COOKIE_MAX_AGE_SECONDS};samesite=lax${secure}`
-
-	try {
-		localStorage.setItem(MODEL_COOKIE_NAME, modelId)
-	} catch {
-		// localStorage may be unavailable (private browsing, storage limit exceeded)
-	}
 }
 
 // ── Component ───────────────────────────────────────────────────────────────
@@ -100,8 +94,8 @@ function persistModelSelection(modelId: string): void {
  * Model selector — searchable dropdown grouped by provider.
  *
  * Displays available AI models with name, description, provider logo, and
- * capability badges. Selection persists to both cookie (server-readable)
- * and localStorage. Models are passed via props from the server
+ * capability badges. Selection persists to the server-readable cookie.
+ * Models are passed via props from the server
  * (fetched via `getAvailableModels()`).
  */
 export function ModelSelector({

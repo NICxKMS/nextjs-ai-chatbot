@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest"
 
 import {
+	artifactPostBodySchema,
 	createArtifactSchema,
 	deleteArtifactVersionSchema,
 	getArtifactSchema,
+	restoreArtifactSchema,
+	saveArtifactSchema,
 	suggestionResponseSchema,
 	updateArtifactSchema,
 } from "@/features/artifacts/schemas/artifact.schema"
@@ -121,6 +124,86 @@ describe("deleteArtifactVersionSchema", () => {
 			deleteArtifactVersionSchema.parse({
 				id: ARTIFACT_ID,
 				timestamp: "not-a-datetime",
+			}),
+		).toThrow()
+	})
+})
+
+describe("saveArtifactSchema", () => {
+	it("accepts valid save payloads for persisted artifact kinds", () => {
+		expect(() =>
+			saveArtifactSchema.parse({
+				mode: "save",
+				id: ARTIFACT_ID,
+				title: "Saved artifact",
+				content: "artifact content",
+				kind: "image",
+				chatId: "44444444-4444-4444-8444-444444444444",
+			}),
+		).not.toThrow()
+	})
+
+	it("rejects invalid save payloads", () => {
+		expect(() =>
+			saveArtifactSchema.parse({
+				mode: "save",
+				id: ARTIFACT_ID,
+				title: "Saved artifact",
+				content: "artifact content",
+				kind: "invalid",
+				chatId: "44444444-4444-4444-8444-444444444444",
+			}),
+		).toThrow()
+	})
+})
+
+describe("restoreArtifactSchema", () => {
+	it("accepts valid restore payload", () => {
+		expect(() =>
+			restoreArtifactSchema.parse({
+				mode: "restore",
+				id: ARTIFACT_ID,
+				timestamp: "2026-01-01T12:34:56.789Z",
+			}),
+		).not.toThrow()
+	})
+
+	it("rejects invalid restore timestamps", () => {
+		expect(() =>
+			restoreArtifactSchema.parse({
+				mode: "restore",
+				id: ARTIFACT_ID,
+				timestamp: "not-a-datetime",
+			}),
+		).toThrow()
+	})
+})
+
+describe("artifactPostBodySchema", () => {
+	it("accepts both save and restore modes", () => {
+		const save = artifactPostBodySchema.parse({
+			mode: "save",
+			id: ARTIFACT_ID,
+			title: "Saved artifact",
+			content: "artifact content",
+			kind: "text",
+			chatId: "44444444-4444-4444-8444-444444444444",
+		})
+		const restore = artifactPostBodySchema.parse({
+			mode: "restore",
+			id: ARTIFACT_ID,
+			timestamp: "2026-01-01T12:34:56.789Z",
+		})
+
+		expect(save.mode).toBe("save")
+		expect(restore.mode).toBe("restore")
+	})
+
+	it("rejects unsupported modes", () => {
+		expect(() =>
+			artifactPostBodySchema.parse({
+				mode: "delete",
+				id: ARTIFACT_ID,
 			}),
 		).toThrow()
 	})

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
+import { AppError } from "@/lib/errors/app-error"
 import { createMockChat } from "@/tests/fixtures/chat"
 import {
 	createMockSession,
@@ -34,11 +35,36 @@ vi.mock("@/lib/cache/revalidate", () => ({
 	refreshChatList: vi.fn(),
 }))
 
+// Upload route dependencies
+const mockUploadIncr = vi.fn()
+const mockUploadExpire = vi.fn()
+vi.mock("@/lib/cache/client", () => ({
+	incr: (...args: unknown[]) => mockUploadIncr(...args),
+	expire: (...args: unknown[]) => mockUploadExpire(...args),
+}))
+
+vi.mock("@/lib/cache/keys", () => ({
+	rateLimitKeys: {
+		rateLimitUpload: (userId: string) => `rate-limit-upload:${userId}`,
+	},
+}))
+
+const mockBlobPut = vi.fn()
+vi.mock("@vercel/blob", () => ({
+	put: (...args: unknown[]) => mockBlobPut(...args),
+}))
+
 // ── Tests ───────────────────────────────────────────────────
 
 describe("Sidebar Flow — Integration Tests", () => {
 	beforeEach(() => {
 		vi.resetAllMocks()
+		mockUploadIncr.mockResolvedValue(1)
+		mockUploadExpire.mockResolvedValue(true)
+		mockBlobPut.mockResolvedValue({
+			url: "https://blob.example.com/uploads/test-image.png",
+			pathname: "uploads/test-image.png",
+		})
 	})
 
 	// ── GET /api/history — Data loading ──────────────────────
@@ -283,20 +309,6 @@ describe("Sidebar Flow — Integration Tests", () => {
 		it("returns 401 when unauthenticated", async () => {
 			mockGetAppSession.mockResolvedValue(null)
 
-			// Mock the cache and blob dependencies for the upload route
-			vi.mock("@/lib/cache/client", () => ({
-				incr: vi.fn().mockResolvedValue(1),
-				expire: vi.fn().mockResolvedValue(undefined),
-			}))
-			vi.mock("@/lib/cache/keys", () => ({
-				rateLimitKeys: {
-					rateLimitUpload: (userId: string) => `ratelimit:upload:${userId}`,
-				},
-			}))
-			vi.mock("@vercel/blob", () => ({
-				put: vi.fn(),
-			}))
-
 			const { POST } = await import("@/app/api/files/upload/route")
 
 			const formData = new FormData()
@@ -314,11 +326,218 @@ describe("Sidebar Flow — Integration Tests", () => {
 			const json = await response.json()
 			expect(json.code).toBe("unauthorized:auth:no_session")
 		})
+
+		it("returns 403 when origin header is missing", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+
+			const { POST } = await import("@/app/api/files/upload/route")
+
+			const formData = new FormData()
+			formData.append("file", new Blob(["test"], { type: "image/png" }), "test.png")
+
+			const request = new Request("http://localhost/api/files/upload", {
+				method: "POST",
+				body: formData,
+			})
+
+			const response = await POST(request)
+			expect(response.status).toBe(403)
+
+			const json = await response.json()
+			expect(json.code).toBe("forbidden:api:csrf_failed")
+		})
+
+		it("returns 429 when upload rate limit is exceeded", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+			mockUploadIncr.mockResolvedValue(11)
+
+			const { POST } = await import("@/app/api/files/upload/route")
+
+			const formData = new FormData()
+			formData.append("file", new Blob(["test"], { type: "image/png" }), "test.png")
+
+			const request = new Request("http://localhost/api/files/upload", {
+				method: "POST",
+				headers: { origin: "http://localhost" },
+				body: formData,
+			})
+
+			const response = await POST(request)
+			expect(response.status).toBe(429)
+
+			const json = await response.json()
+			expect(json.code).toBe("rate_limit:upload:too_many_requests")
+		})
+
+		it("returns 400 for invalid non-form-data request body", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+
+			const { POST } = await import("@/app/api/files/upload/route")
+
+			const request = new Request("http://localhost/api/files/upload", {
+				method: "POST",
+				headers: {
+					origin: "http://localhost",
+				},
+			})
+
+			vi.spyOn(request, "formData").mockRejectedValue(new Error("Invalid form data"))
+
+			const response = await POST(request)
+			expect(response.status).toBe(400)
+
+			const json = await response.json()
+			expect(json.code).toBe("bad_request:api:invalid_request_body")
+		})
+
+		it("returns 400 when no file is provided", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+
+			const { POST } = await import("@/app/api/files/upload/route")
+			const request = new Request("http://localhost/api/files/upload", {
+				method: "POST",
+				headers: { origin: "http://localhost" },
+				body: new FormData(),
+			})
+
+			const response = await POST(request)
+			expect(response.status).toBe(400)
+
+			const json = await response.json()
+			expect(json.code).toBe("bad_request:api:no_file_uploaded")
+		})
+
+		it("returns 400 for unsupported file types", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+
+			const { POST } = await import("@/app/api/files/upload/route")
+
+			const formData = new FormData()
+			formData.append("file", new Blob(["hello"], { type: "text/plain" }), "test.txt")
+
+			const request = new Request("http://localhost/api/files/upload", {
+				method: "POST",
+				headers: { origin: "http://localhost" },
+				body: formData,
+			})
+
+			const response = await POST(request)
+			expect(response.status).toBe(400)
+
+			const json = await response.json()
+			expect(json.code).toBe("bad_request:api:file_type_unsupported")
+		})
+
+		it("returns 400 when image exceeds max file size", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+
+			const { POST } = await import("@/app/api/files/upload/route")
+
+			const oversized = new Blob([new Uint8Array(5 * 1024 * 1024 + 1)], {
+				type: "image/png",
+			})
+
+			const formData = new FormData()
+			formData.append("file", oversized, "too-big.png")
+
+			const request = new Request("http://localhost/api/files/upload", {
+				method: "POST",
+				headers: { origin: "http://localhost" },
+				body: formData,
+			})
+
+			const response = await POST(request)
+			expect(response.status).toBe(400)
+
+			const json = await response.json()
+			expect(json.code).toBe("bad_request:api:file_too_large")
+		})
+
+		it("uploads a valid image and returns blob metadata", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+
+			const { POST } = await import("@/app/api/files/upload/route")
+
+			const formData = new FormData()
+			formData.append("file", new Blob(["png"], { type: "image/png" }), "safe-image.png")
+
+			const request = new Request("http://localhost/api/files/upload", {
+				method: "POST",
+				headers: { origin: "http://localhost" },
+				body: formData,
+			})
+
+			const response = await POST(request)
+			expect(response.status).toBe(200)
+
+			const json = await response.json()
+			expect(json.url).toBe("https://blob.example.com/uploads/test-image.png")
+			expect(json.pathname).toBe("uploads/test-image.png")
+			expect(json.contentType).toBe("image/png")
+			expect(mockBlobPut).toHaveBeenCalled()
+		})
+
+		it("returns 400 when blob upload fails", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+			mockBlobPut.mockRejectedValue(new Error("blob down"))
+
+			const { POST } = await import("@/app/api/files/upload/route")
+
+			const formData = new FormData()
+			formData.append("file", new Blob(["png"], { type: "image/png" }), "safe-image.png")
+
+			const request = new Request("http://localhost/api/files/upload", {
+				method: "POST",
+				headers: { origin: "http://localhost" },
+				body: formData,
+			})
+
+			const response = await POST(request)
+			expect(response.status).toBe(400)
+
+			const json = await response.json()
+			expect(json.code).toBe("bad_request:api:invalid_request_body")
+		})
+
+		it("allows upload when rate-limit storage is unavailable", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+			mockUploadIncr.mockResolvedValue(null)
+
+			const { POST } = await import("@/app/api/files/upload/route")
+
+			const formData = new FormData()
+			formData.append("file", new Blob(["png"], { type: "image/png" }), "safe-image.png")
+
+			const request = new Request("http://localhost/api/files/upload", {
+				method: "POST",
+				headers: { origin: "http://localhost" },
+				body: formData,
+			})
+
+			const response = await POST(request)
+			expect(response.status).toBe(200)
+			expect(mockUploadExpire).not.toHaveBeenCalled()
+		})
 	})
 
 	// ── Error handling — database failures ───────────────────
 
 	describe("Error handling — database failures", () => {
+		it("GET /api/history returns AppError responses when data layer throws AppError", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+			mockGetChatsByUserId.mockRejectedValue(
+				AppError.forbidden("forbidden:chat:owner_mismatch", "Access denied"),
+			)
+
+			const { GET } = await import("@/app/api/history/route")
+			const response = await GET(new Request("http://localhost/api/history"))
+
+			expect(response.status).toBe(403)
+
+			const json = await response.json()
+			expect(json.code).toBe("forbidden:chat:owner_mismatch")
+		})
+
 		it("GET /api/history returns 500 on data layer failure", async () => {
 			mockGetAppSession.mockResolvedValue(createMockSession())
 

@@ -337,6 +337,116 @@ describe("register action", () => {
 		})
 		expect(mockRedirect).toHaveBeenCalledWith("/")
 	})
+
+	it("sets register rate-limit expiration on first attempt", async () => {
+		const { register } = await import("@/features/auth/actions/register")
+		mockSignUp.mockResolvedValue({
+			data: {
+				user: { id: TEST_USER_ID, email: "test@example.com" },
+				session: null,
+			},
+			error: null,
+		})
+
+		const result = await register(PREV_STATE, createRegisterFormData())
+
+		expect(result).toEqual({
+			success: true,
+			data: { confirmationRequired: true },
+		})
+		expect(mockIncr).toHaveBeenCalledTimes(1)
+		expect(mockExpire).toHaveBeenCalledWith(expect.stringContaining("register"), 60)
+	})
+
+	it("returns register rate-limit error when attempts exceed threshold", async () => {
+		const { register } = await import("@/features/auth/actions/register")
+		mockIncr.mockResolvedValue(4)
+
+		const result = await register(PREV_STATE, createRegisterFormData())
+
+		expect(result.success).toBe(false)
+		if (!result.success) {
+			expect(result.error.code).toBe("rate_limit:auth:register_too_many")
+		}
+		expect(mockSignUp).not.toHaveBeenCalled()
+	})
+
+	it("returns service unavailable when Supabase env vars are missing", async () => {
+		const { register } = await import("@/features/auth/actions/register")
+		setEnvValue("NEXT_PUBLIC_SUPABASE_URL", undefined)
+		setEnvValue("NEXT_PUBLIC_SUPABASE_ANON_KEY", undefined)
+
+		const result = await register(PREV_STATE, createRegisterFormData())
+
+		expect(result.success).toBe(false)
+		if (!result.success) {
+			expect(result.error.code).toBe("offline:api:service_unavailable")
+		}
+	})
+
+	it("returns profile setup failed when createUser throws", async () => {
+		const { register } = await import("@/features/auth/actions/register")
+		mockCreateUser.mockRejectedValueOnce(new Error("db write failed"))
+
+		const result = await register(PREV_STATE, createRegisterFormData())
+
+		expect(result.success).toBe(false)
+		if (!result.success) {
+			expect(result.error.code).toBe("internal_error:database:query_failed")
+		}
+	})
+
+	it("migrates guest chats and clears guest cookie when token is valid", async () => {
+		const { register } = await import("@/features/auth/actions/register")
+		cookieStore.get.mockReturnValue({ name: GUEST_COOKIE_NAME, value: "guest-token" })
+		mockVerifyGuestToken.mockResolvedValue({ userId: "guest:user" })
+		mockTransferGuestChats.mockResolvedValue(2)
+		mockSignUp.mockResolvedValue({
+			data: {
+				user: { id: TEST_USER_ID, email: "test@example.com" },
+				session: null,
+			},
+			error: null,
+		})
+
+		const result = await register(PREV_STATE, createRegisterFormData())
+
+		expect(result).toEqual({
+			success: true,
+			data: { confirmationRequired: true },
+		})
+		expect(mockVerifyGuestToken).toHaveBeenCalledWith("guest-token")
+		expect(mockTransferGuestChats).toHaveBeenCalledWith("guest:user", TEST_USER_ID)
+		expect(cookieStore.delete).toHaveBeenCalledWith(GUEST_COOKIE_NAME)
+	})
+
+	it("continues successfully when guest migration throws", async () => {
+		const { register } = await import("@/features/auth/actions/register")
+		const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined)
+
+		cookieStore.get.mockReturnValue({ name: GUEST_COOKIE_NAME, value: "guest-token" })
+		mockVerifyGuestToken.mockRejectedValueOnce(new Error("migration failed"))
+		mockSignUp.mockResolvedValue({
+			data: {
+				user: { id: TEST_USER_ID, email: "test@example.com" },
+				session: null,
+			},
+			error: null,
+		})
+
+		try {
+			const result = await register(PREV_STATE, createRegisterFormData())
+
+			expect(result).toEqual({
+				success: true,
+				data: { confirmationRequired: true },
+			})
+			expect(cookieStore.delete).toHaveBeenCalledWith(GUEST_COOKIE_NAME)
+			expect(consoleErrorSpy).toHaveBeenCalled()
+		} finally {
+			consoleErrorSpy.mockRestore()
+		}
+	})
 })
 
 describe("createSupabaseActionClient", () => {

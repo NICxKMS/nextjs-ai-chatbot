@@ -1,13 +1,12 @@
 import { streamObject } from "ai"
 import { z } from "zod"
+import { getInternalLanguageModel } from "@/lib/ai/internal-models"
 import { CODE_PROMPT, getUpdateArtifactPrompt } from "@/lib/ai/prompts"
-import { myProvider } from "@/lib/ai/provider"
 import type {
 	ArtifactHandler,
 	CreateArtifactParams,
 	UpdateArtifactParams,
 } from "@/lib/types/artifact-handler.types"
-import { ARTIFACT_MODEL } from "@/lib/types/model.types"
 
 // ── Code output schema ───────────────────────────────────────
 // streamObject() parses the model output into this shape.
@@ -26,7 +25,7 @@ export const codeHandler: ArtifactHandler = {
 		let content = ""
 
 		const { fullStream } = streamObject({
-			model: myProvider.languageModel(ARTIFACT_MODEL),
+			model: getInternalLanguageModel("artifact"),
 			system: CODE_PROMPT,
 			prompt: title,
 			schema: codeSchema,
@@ -58,7 +57,7 @@ export const codeHandler: ArtifactHandler = {
 		let content = ""
 
 		const { fullStream } = streamObject({
-			model: myProvider.languageModel(ARTIFACT_MODEL),
+			model: getInternalLanguageModel("artifact"),
 			system: getUpdateArtifactPrompt(currentContent, "code"),
 			prompt: description,
 			schema: codeSchema,

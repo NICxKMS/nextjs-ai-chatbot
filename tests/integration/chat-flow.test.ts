@@ -4,6 +4,7 @@ import { createMockChat } from "@/tests/fixtures/chat"
 import {
 	createMockSession,
 	createMockUserPair,
+	TEST_GUEST_ID,
 	TEST_OTHER_USER_ID,
 	TEST_USER_ID,
 } from "@/tests/fixtures/user"
@@ -127,6 +128,36 @@ describe("Chat Flow — Integration Tests", () => {
 
 	// ── POST /api/chat — Auth boundary ───────────────────────
 
+	describe("POST /api/chat — route guards", () => {
+		it("returns 403 when origin header is missing", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+
+			const { POST } = await import("@/app/api/chat/route")
+			const request = new Request("http://localhost/api/chat", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					id: crypto.randomUUID(),
+					message: {
+						id: crypto.randomUUID(),
+						role: "user",
+						parts: [{ type: "text", text: "Hello" }],
+					},
+					selectedChatModel: "gpt-4o",
+					selectedVisibilityType: "private",
+				}),
+			})
+
+			const response = await POST(request)
+			expect(response.status).toBe(403)
+
+			const json = await response.json()
+			expect(json.code).toBe("forbidden:api:csrf_failed")
+		})
+	})
+
 	describe("POST /api/chat — auth boundary", () => {
 		it("returns 401 when session is missing", async () => {
 			mockGetAppSession.mockResolvedValue(null)
@@ -152,6 +183,66 @@ describe("Chat Flow — Integration Tests", () => {
 
 			const json = await response.json()
 			expect(json.code).toBe("unauthorized:chat:auth_required")
+		})
+	})
+
+	// ── POST /api/chat — Rate limiting ───────────────────────
+
+	describe("POST /api/chat — rate limiting", () => {
+		it("returns 429 when user exceeds chat rate limit", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+			mockIncr.mockResolvedValue(21)
+
+			const { POST } = await import("@/app/api/chat/route")
+			const request = new Request("http://localhost/api/chat", {
+				method: "POST",
+				headers: JSON_HEADERS,
+				body: JSON.stringify({
+					id: crypto.randomUUID(),
+					message: {
+						id: crypto.randomUUID(),
+						role: "user",
+						parts: [{ type: "text", text: "Hello" }],
+					},
+					selectedChatModel: "gpt-4o",
+					selectedVisibilityType: "private",
+				}),
+			})
+
+			const response = await POST(request)
+			expect(response.status).toBe(429)
+
+			const json = await response.json()
+			expect(json.code).toBe("rate_limit:chat:too_many_requests")
+		})
+
+		it("continues chat flow when rate-limit backend is unavailable", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+			mockIncr.mockResolvedValue(null)
+			mockGetChatById.mockResolvedValue(createMockChat({ userId: TEST_USER_ID }))
+
+			const model = createMockTextModel("Fallback works")
+			mockLanguageModel.mockReturnValue(model)
+
+			const { POST } = await import("@/app/api/chat/route")
+			const request = new Request("http://localhost/api/chat", {
+				method: "POST",
+				headers: JSON_HEADERS,
+				body: JSON.stringify({
+					id: crypto.randomUUID(),
+					message: {
+						id: crypto.randomUUID(),
+						role: "user",
+						parts: [{ type: "text", text: "Hello" }],
+					},
+					selectedChatModel: "gpt-4o",
+					selectedVisibilityType: "private",
+				}),
+			})
+
+			const response = await POST(request)
+			expect(response.status).toBe(200)
+			expect(mockExpire).not.toHaveBeenCalled()
 		})
 	})
 
@@ -326,6 +417,47 @@ describe("Chat Flow — Integration Tests", () => {
 					title: "New Chat",
 					model: "gpt-4o",
 					visibility: "private",
+				}),
+			)
+		})
+
+		it("ensures guest users exist before creating their first chat", async () => {
+			mockGetAppSession.mockResolvedValue(
+				createMockSession({
+					user: { id: TEST_GUEST_ID, type: "guest", email: "guest@example.com" },
+				}),
+			)
+			mockGetChatById.mockResolvedValue(null)
+
+			const model = createMockTextModel("Hi guest")
+			mockLanguageModel.mockReturnValue(model)
+
+			const chatId = crypto.randomUUID()
+
+			const { POST } = await import("@/app/api/chat/route")
+			const request = new Request("http://localhost/api/chat", {
+				method: "POST",
+				headers: JSON_HEADERS,
+				body: JSON.stringify({
+					id: chatId,
+					message: {
+						id: crypto.randomUUID(),
+						role: "user",
+						parts: [{ type: "text", text: "Hello" }],
+					},
+					selectedChatModel: "gpt-4o",
+					selectedVisibilityType: "private",
+				}),
+			})
+
+			const response = await POST(request)
+			expect(response.status).toBe(200)
+
+			expect(mockEnsureGuestUser).toHaveBeenCalledWith(TEST_GUEST_ID)
+			expect(mockCreateChat).toHaveBeenCalledWith(
+				expect.objectContaining({
+					id: chatId,
+					userId: TEST_GUEST_ID,
 				}),
 			)
 		})

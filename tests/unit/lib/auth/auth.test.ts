@@ -1,3 +1,4 @@
+import { SignJWT } from "jose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import {
@@ -40,6 +41,21 @@ function createCookieStore(guestToken?: string): CookieStore {
 			// no-op in unit tests
 		},
 	}
+}
+
+async function signGuestPayload(payload: Record<string, unknown>) {
+	const secret = process.env.GUEST_JWT_SECRET
+	if (!secret) {
+		throw new Error("GUEST_JWT_SECRET is required for test token signing")
+	}
+
+	const nowSeconds = Math.floor(Date.now() / 1000)
+
+	return new SignJWT(payload)
+		.setProtectedHeader({ alg: "HS256" })
+		.setIssuedAt(nowSeconds)
+		.setExpirationTime(nowSeconds + GUEST_TOKEN_TTL_SECONDS)
+		.sign(new TextEncoder().encode(secret))
 }
 
 async function loadSessionModule() {
@@ -99,8 +115,60 @@ describe("lib/auth/session", () => {
 		expect(mockCreateServerClient).toHaveBeenCalledTimes(1)
 	})
 
+	it("prefers authenticated session when both auth and guest sessions exist", async () => {
+		mockGetUser.mockResolvedValue({
+			data: { user: { id: TEST_USER_ID, email: "auth@example.com" } },
+			error: null,
+		})
+		const guestToken = await mintGuestToken(TEST_GUEST_ID)
+		mockCookies.mockResolvedValue(createCookieStore(guestToken))
+
+		const { getAppSession } = await loadSessionModule()
+		const result = await getAppSession()
+
+		expect(result).toEqual({
+			user: {
+				id: TEST_USER_ID,
+				type: "authenticated",
+				email: "auth@example.com",
+			},
+		})
+	})
+
+	it("returns authenticated session with undefined email when Supabase email is missing", async () => {
+		mockGetUser.mockResolvedValue({
+			data: { user: { id: TEST_USER_ID } },
+			error: null,
+		})
+
+		const { getAppSession } = await loadSessionModule()
+		const result = await getAppSession()
+
+		expect(result).toEqual({
+			user: {
+				id: TEST_USER_ID,
+				type: "authenticated",
+				email: undefined,
+			},
+		})
+	})
+
 	it("falls back to guest session when Supabase has no user", async () => {
 		mockGetUser.mockResolvedValue({ data: { user: null }, error: null })
+		const guestToken = await mintGuestToken(TEST_GUEST_ID)
+		mockCookies.mockResolvedValue(createCookieStore(guestToken))
+
+		const { getAppSession } = await loadSessionModule()
+		const result = await getAppSession()
+
+		expect(result).toEqual({ user: { id: TEST_GUEST_ID, type: "guest" } })
+	})
+
+	it("falls back to guest session when Supabase returns an auth error", async () => {
+		mockGetUser.mockResolvedValue({
+			data: { user: { id: TEST_USER_ID, email: "auth@example.com" } },
+			error: { message: "token expired" },
+		})
 		const guestToken = await mintGuestToken(TEST_GUEST_ID)
 		mockCookies.mockResolvedValue(createCookieStore(guestToken))
 
@@ -120,6 +188,31 @@ describe("lib/auth/session", () => {
 		expect(result).toBeNull()
 	})
 
+	it("returns null when Supabase lookup throws and guest token is invalid", async () => {
+		mockGetUser.mockRejectedValue(new Error("supabase unavailable"))
+		mockCookies.mockResolvedValue(createCookieStore("invalid-token"))
+
+		const { getAppSession } = await loadSessionModule()
+		const result = await getAppSession()
+
+		expect(result).toBeNull()
+	})
+
+	it("returns null when guest token is expired", async () => {
+		vi.useFakeTimers()
+		vi.setSystemTime(new Date("2026-01-01T00:00:00Z"))
+		const guestToken = await mintGuestToken(TEST_GUEST_ID)
+
+		vi.setSystemTime(new Date("2026-01-01T01:01:00Z"))
+		mockGetUser.mockResolvedValue({ data: { user: null }, error: null })
+		mockCookies.mockResolvedValue(createCookieStore(guestToken))
+
+		const { getAppSession } = await loadSessionModule()
+		const result = await getAppSession()
+
+		expect(result).toBeNull()
+	})
+
 	it("resolves guest session when Supabase env vars are missing", async () => {
 		process.env.NEXT_PUBLIC_SUPABASE_URL = ""
 		process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = ""
@@ -131,6 +224,35 @@ describe("lib/auth/session", () => {
 
 		expect(result).toEqual({ user: { id: TEST_GUEST_ID, type: "guest" } })
 		expect(mockCreateServerClient).not.toHaveBeenCalled()
+	})
+
+	it("ignores cookie write errors in Supabase setAll helper", async () => {
+		const throwingSet = vi.fn(() => {
+			throw new Error("read-only cookie store")
+		})
+		const throwingCookieStore: CookieStore = {
+			getAll: () => [],
+			get: () => undefined,
+			set: throwingSet,
+		}
+		mockCookies.mockResolvedValue(throwingCookieStore)
+		mockGetUser.mockResolvedValue({ data: { user: null }, error: null })
+
+		const { getAppSession } = await loadSessionModule()
+		await expect(getAppSession()).resolves.toBeNull()
+
+		const options = mockCreateServerClient.mock.calls[0]?.[2] as {
+			cookies: {
+				setAll: (
+					cookiesToSet: Array<{ name: string; value: string; options?: unknown }>,
+				) => void
+			}
+		}
+
+		expect(() =>
+			options.cookies.setAll([{ name: "sb-access-token", value: "token", options: {} }]),
+		).not.toThrow()
+		expect(throwingSet).toHaveBeenCalledTimes(1)
 	})
 })
 
@@ -152,6 +274,25 @@ describe("lib/auth/guest", () => {
 
 	it("verifyGuestToken returns null for invalid token", async () => {
 		const result = await verifyGuestToken("not-a-valid-jwt")
+
+		expect(result).toBeNull()
+	})
+
+	it("verifyGuestToken returns null for expired token", async () => {
+		vi.useFakeTimers()
+		vi.setSystemTime(new Date("2026-01-01T00:00:00Z"))
+		const token = await mintGuestToken(TEST_GUEST_ID)
+
+		vi.setSystemTime(new Date("2026-01-01T01:01:00Z"))
+		const result = await verifyGuestToken(token)
+
+		expect(result).toBeNull()
+	})
+
+	it("verifyGuestToken returns null for token with non-guest type", async () => {
+		const token = await signGuestPayload({ sub: TEST_GUEST_ID, type: "authenticated" })
+
+		const result = await verifyGuestToken(token)
 
 		expect(result).toBeNull()
 	})
@@ -186,6 +327,34 @@ describe("lib/auth/guest", () => {
 
 		expect(rotated).not.toBe(token)
 		expect(await verifyGuestToken(rotated)).toEqual({ userId: TEST_GUEST_ID })
+	})
+
+	it("rotateGuestToken keeps token at the exact rotation threshold", async () => {
+		vi.useFakeTimers()
+		vi.setSystemTime(new Date("2026-01-01T00:00:00Z"))
+		const token = await mintGuestToken(TEST_GUEST_ID)
+
+		vi.setSystemTime(new Date("2026-01-01T00:30:00Z"))
+		const rotated = await rotateGuestToken(token)
+
+		expect(rotated).toBe(token)
+	})
+
+	it("rotateGuestToken returns original token when secret is missing", async () => {
+		const token = await mintGuestToken(TEST_GUEST_ID)
+		process.env.GUEST_JWT_SECRET = ""
+
+		const rotated = await rotateGuestToken(token)
+
+		expect(rotated).toBe(token)
+	})
+
+	it("rotateGuestToken returns original token for non-guest claim type", async () => {
+		const nonGuestToken = await signGuestPayload({ sub: TEST_GUEST_ID, type: "authenticated" })
+
+		const rotated = await rotateGuestToken(nonGuestToken)
+
+		expect(rotated).toBe(nonGuestToken)
 	})
 
 	it("rotateGuestToken returns original token on verification failure", async () => {

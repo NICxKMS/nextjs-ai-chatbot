@@ -44,19 +44,13 @@ export function getProviderOptions(
 	modelId: string,
 	settings: SettingsState,
 ): ProviderOptionsResult {
-	const result: ProviderOptionsResult = {}
+	const result: ProviderOptionsResult = {
+		temperature: settings.temperature,
+		topP: settings.topP,
+		maxOutputTokens: settings.maxOutputTokens,
+	}
 
 	// ── Model generation parameters from user settings ──
-	if (settings.temperature !== undefined) {
-		result.temperature = settings.temperature
-	}
-	if (settings.topP !== undefined) {
-		result.topP = settings.topP
-	}
-	if (settings.maxOutputTokens !== undefined) {
-		result.maxOutputTokens = settings.maxOutputTokens
-	}
-
 	// ── Per-provider reasoning configuration ──
 	if (!settings.enableReasoning) {
 		return result

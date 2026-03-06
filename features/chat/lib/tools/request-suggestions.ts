@@ -1,13 +1,12 @@
 import { streamObject, tool } from "ai"
 import { z } from "zod"
 
-import { myProvider } from "@/lib/ai/provider"
+import { getInternalLanguageModel } from "@/lib/ai/internal-models"
 import { getArtifactById } from "@/lib/data/artifact"
 import { saveSuggestions } from "@/lib/data/suggestion"
 import { AppError } from "@/lib/errors/app-error"
 import type { ArtifactSuggestion } from "@/lib/types/artifact.types"
 import type { ArtifactStreamWriter } from "@/lib/types/artifact-handler.types"
-import { ARTIFACT_MODEL } from "@/lib/types/model.types"
 import type { NewSuggestion } from "@/lib/types/models.types"
 import { generateUUID } from "@/lib/utils/generate-uuid"
 
@@ -61,7 +60,7 @@ export const requestSuggestionsTool = ({ session, chatStream }: RequestSuggestio
 			const suggestions: ArtifactSuggestion[] = []
 
 			const { elementStream } = streamObject({
-				model: myProvider.languageModel(ARTIFACT_MODEL),
+				model: getInternalLanguageModel("artifact"),
 				system: "You are a writing assistant. Analyze the text and provide up to 5 specific suggestions for improvement. Each suggestion should identify an exact passage in the original text and offer a concrete replacement. Ensure suggestions are complete sentences and clearly describe the change.",
 				prompt: artifact.content,
 				output: "array",

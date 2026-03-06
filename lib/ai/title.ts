@@ -1,6 +1,5 @@
 import { generateText } from "ai"
-import { myProvider } from "@/lib/ai/provider"
-import { TITLE_MODEL } from "@/lib/types/model.types"
+import { getInternalLanguageModel } from "@/lib/ai/internal-models"
 
 /** Maximum time (ms) to wait for AI title generation before falling back. */
 const TITLE_TIMEOUT_MS = 5_000
@@ -11,7 +10,7 @@ const MAX_TITLE_LENGTH = 80
 /**
  * Generate a short chat title from the user's first message.
  *
- * Uses a lightweight model (`TITLE_MODEL`) to keep latency and cost low.
+ * Uses the current internal title model to keep latency and cost low.
  * Wrapped with `AbortSignal.timeout()` to prevent indefinite hangs that
  * would block stream close and message persistence.
  *
@@ -23,7 +22,7 @@ const MAX_TITLE_LENGTH = 80
 export async function generateTitle(message: string): Promise<string> {
 	try {
 		const { text: title } = await generateText({
-			model: myProvider.languageModel(TITLE_MODEL),
+			model: getInternalLanguageModel("title"),
 			system: `\
 - you will generate a short title based on the first message a user begins a conversation with
 - ensure it is not more than 80 characters long

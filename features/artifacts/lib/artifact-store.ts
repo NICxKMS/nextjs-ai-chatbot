@@ -7,7 +7,7 @@ import type { UIArtifact } from "@/lib/types/artifact.types"
 //
 // Consumers:
 // - useArtifact() / useArtifactSelector() hooks (P4-T03)
-// - StreamBridge (P3-T20) calls setState/appendContent/replaceContent
+// - StreamBridge (P3-T20) calls setState
 // - ArtifactPanel, ArtifactCloseButton, etc. subscribe via hooks
 
 let state: UIArtifact = initialArtifactData
@@ -57,29 +57,6 @@ export const artifactStore = {
 	/** Resets artifact state to initial defaults. */
 	reset(): void {
 		state = initialArtifactData
-		emitChange()
-	},
-
-	// ── Content accumulation helpers ──────────────────────────
-	// These encode the delta semantics so callers (StreamBridge) don't
-	// need to know kind-specific accumulation logic.
-
-	/**
-	 * Appends a text delta to the current content.
-	 * Used for `artifact-textDelta` stream parts (text kind).
-	 */
-	appendContent(delta: string): void {
-		state = { ...state, content: state.content + delta }
-		emitChange()
-	},
-
-	/**
-	 * Replaces the entire content with the given value.
-	 * Used for `artifact-codeDelta`, `artifact-sheetDelta`, and
-	 * `artifact-imageDelta` stream parts (code/sheet/image kinds).
-	 */
-	replaceContent(content: string): void {
-		state = { ...state, content }
 		emitChange()
 	},
 } as const

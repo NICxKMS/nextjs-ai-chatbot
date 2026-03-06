@@ -35,9 +35,9 @@ export function PendingChatsProvider({ children }: { children: ReactNode }) {
 		setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, title } : e)))
 	}, [])
 
-	// Clear the optimistic flag when the server confirms persistence.
+	// Drop the optimistic entry once the server confirms persistence.
 	const markConfirmed = useCallback((id: string) => {
-		setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, isOptimistic: false } : e)))
+		setEntries((prev) => prev.filter((e) => e.id !== id))
 	}, [])
 
 	return (
