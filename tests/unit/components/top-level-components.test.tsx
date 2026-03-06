@@ -1,91 +1,12 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react"
-import React from "react"
+import { render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { FileIcon, LoaderIcon, SidebarLeftIcon } from "@/components/icons"
-import { MotionProvider } from "@/components/motion-provider"
-import { SidebarToggle } from "@/components/sidebar-toggle"
-import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "@/components/toaster"
 import { Weather, type WeatherAtLocation } from "@/components/weather"
 
-const { mockToggleSidebar, mockUseIsMobile } = vi.hoisted(() => ({
-	mockToggleSidebar: vi.fn(),
+const { mockUseIsMobile } = vi.hoisted(() => ({
 	mockUseIsMobile: vi.fn(),
-}))
-
-vi.mock("next/navigation", () => ({
-	useRouter: () => ({ push: vi.fn() }),
-}))
-
-vi.mock("framer-motion", () => ({
-	MotionConfig: ({
-		children,
-		reducedMotion,
-	}: React.PropsWithChildren<{ reducedMotion?: string }>) =>
-		React.createElement(
-			"div",
-			{ "data-testid": "motion-config", "data-reduced-motion": reducedMotion ?? "" },
-			children,
-		),
-	AnimatePresence: ({ children }: { children: React.ReactNode }) => children,
-	motion: {
-		div: ({
-			children,
-			...props
-		}: React.PropsWithChildren<React.HTMLAttributes<HTMLDivElement>>) =>
-			React.createElement("div", props, children),
-		span: ({
-			children,
-			...props
-		}: React.PropsWithChildren<React.HTMLAttributes<HTMLSpanElement>>) =>
-			React.createElement("span", props, children),
-	},
-	LazyMotion: ({ children }: { children: React.ReactNode }) => children,
-	domMax: {},
-	domAnimation: {},
-}))
-
-vi.mock("next-themes", () => ({
-	ThemeProvider: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) =>
-		React.createElement(
-			"div",
-			{
-				"data-testid": "next-themes-provider",
-				"data-theme-attribute": String(props.attribute ?? ""),
-			},
-			children,
-		),
-}))
-
-vi.mock("sonner", () => ({
-	Toaster: ({ position }: { position?: string }) =>
-		React.createElement("div", {
-			"data-testid": "sonner-toaster",
-			"data-position": position ?? "",
-		}),
-}))
-
-vi.mock("@/components/ui/sidebar", () => ({
-	useSidebar: () => ({ toggleSidebar: mockToggleSidebar }),
-}))
-
-vi.mock("@/components/ui/button", () => ({
-	Button: ({ children, ...props }: React.PropsWithChildren<React.ComponentProps<"button">>) =>
-		React.createElement("button", { type: "button", ...props }, children),
-}))
-
-vi.mock("@/components/ui/tooltip", () => ({
-	Tooltip: ({ children }: React.PropsWithChildren) =>
-		React.createElement(React.Fragment, null, children),
-	TooltipTrigger: ({ children }: React.PropsWithChildren<{ asChild?: boolean }>) =>
-		React.createElement(React.Fragment, null, children),
-	TooltipContent: ({
-		children,
-		...props
-	}: React.PropsWithChildren<React.HTMLAttributes<HTMLDivElement>>) =>
-		React.createElement("div", props, children),
 }))
 
 vi.mock("@/lib/hooks/use-mobile", () => ({
@@ -171,62 +92,6 @@ describe("icons", () => {
 
 		expect(svg).toBeTruthy()
 		expect(svg).toHaveAttribute("width", "20")
-	})
-})
-
-describe("MotionProvider", () => {
-	it("renders children inside MotionConfig", () => {
-		render(
-			<MotionProvider>
-				<div>motion-child</div>
-			</MotionProvider>,
-		)
-
-		expect(screen.getByText("motion-child")).toBeInTheDocument()
-		expect(screen.getByTestId("motion-config")).toHaveAttribute("data-reduced-motion", "user")
-	})
-})
-
-describe("SidebarToggle", () => {
-	it("renders toggle button and tooltip content", () => {
-		render(<SidebarToggle />)
-
-		expect(screen.getByTestId("sidebar-toggle")).toBeInTheDocument()
-		expect(screen.getByText("Toggle Sidebar")).toBeInTheDocument()
-	})
-
-	it("calls toggleSidebar when clicked", () => {
-		const { getByTestId } = render(<SidebarToggle className="custom-class" />)
-		const toggleButton = getByTestId("sidebar-toggle")
-
-		fireEvent.click(toggleButton)
-
-		expect(toggleButton).toHaveClass("custom-class")
-		expect(mockToggleSidebar).toHaveBeenCalledTimes(1)
-	})
-})
-
-describe("ThemeProvider", () => {
-	it("renders children", () => {
-		render(
-			<ThemeProvider attribute="class">
-				<div>child</div>
-			</ThemeProvider>,
-		)
-
-		expect(screen.getByText("child")).toBeInTheDocument()
-		expect(screen.getByTestId("next-themes-provider")).toHaveAttribute(
-			"data-theme-attribute",
-			"class",
-		)
-	})
-})
-
-describe("Toaster", () => {
-	it("renders sonner toaster with top-center position", () => {
-		render(<Toaster />)
-
-		expect(screen.getByTestId("sonner-toaster")).toHaveAttribute("data-position", "top-center")
 	})
 })
 

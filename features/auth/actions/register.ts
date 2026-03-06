@@ -1,15 +1,16 @@
 "use server"
 
-import { cookies, headers } from "next/headers"
 import { redirect } from "next/navigation"
+
+import {
+	authServiceUnavailableResult,
+	enforceAuthRateLimit,
+	migrateGuestChatsAndClearToken,
+} from "@/features/auth/lib/action-utils"
 import { createSupabaseActionClient } from "@/features/auth/lib/supabase-action"
 import { registerSchema } from "@/features/auth/schemas/auth.schema"
 import type { AuthActionData } from "@/features/auth/types/auth.types"
-import { GUEST_COOKIE_NAME } from "@/lib/auth/constants"
-import { verifyGuestToken } from "@/lib/auth/guest"
-import { expire, incr } from "@/lib/cache/client"
 import { rateLimitKeys } from "@/lib/cache/keys"
-import { transferGuestChats } from "@/lib/data/chat"
 import { createUser } from "@/lib/data/user"
 import type { ActionResult } from "@/lib/types/result.types"
 
@@ -51,35 +52,22 @@ export async function register(
 	}
 
 	// 2. Rate limit — 3 attempts/min per IP (graceful: skip if Redis unavailable)
-	const headerStore = await headers()
-	const ip = headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown"
-	const rateLimitKey = rateLimitKeys.rateLimitRegister(ip)
-	const count = await incr(rateLimitKey)
-	if (count !== null) {
-		if (count === 1) {
-			await expire(rateLimitKey, REGISTER_RATE_WINDOW_SECONDS)
-		}
-		if (count > REGISTER_RATE_LIMIT) {
-			return {
-				success: false,
-				error: {
-					code: "rate_limit:auth:register_too_many",
-					message: "Too many registration attempts. Please try again later.",
-				},
-			}
-		}
+	const rateLimitResult = await enforceAuthRateLimit({
+		createKey: rateLimitKeys.rateLimitRegister,
+		limit: REGISTER_RATE_LIMIT,
+		windowSeconds: REGISTER_RATE_WINDOW_SECONDS,
+		errorCode: "rate_limit:auth:register_too_many",
+		errorMessage: "Too many registration attempts. Please try again later.",
+	})
+
+	if (rateLimitResult) {
+		return rateLimitResult
 	}
 
 	// 3. Create Supabase action client
 	const supabase = await createSupabaseActionClient()
 	if (!supabase) {
-		return {
-			success: false,
-			error: {
-				code: "offline:api:service_unavailable",
-				message: "Auth service is unavailable",
-			},
-		}
+		return authServiceUnavailableResult()
 	}
 
 	// 4. Create Supabase auth user
@@ -117,27 +105,7 @@ export async function register(
 	}
 
 	// 6. Migrate guest data + clear stale guest token
-	const cookieStore = await cookies()
-	const guestToken = cookieStore.get(GUEST_COOKIE_NAME)?.value
-	if (guestToken) {
-		// Best-effort migration — don't fail auth if migration fails
-		if (data.user) {
-			try {
-				const guest = await verifyGuestToken(guestToken)
-				if (guest) {
-					const count = await transferGuestChats(guest.userId, data.user.id)
-					if (count > 0) {
-						console.info(
-							`[register] Migrated ${count} guest chat(s) to user ${data.user.id}`,
-						)
-					}
-				}
-			} catch (migrationError) {
-				console.error("[register] Guest data migration failed:", migrationError)
-			}
-		}
-		cookieStore.delete(GUEST_COOKIE_NAME)
-	}
+	await migrateGuestChatsAndClearToken(data.user?.id, "register")
 
 	// 7. Handle email confirmation requirement
 	// When email confirmation is required, Supabase returns user but no session.

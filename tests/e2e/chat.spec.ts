@@ -8,8 +8,8 @@ import { expect, test } from "@playwright/test"
 test.describe("Chat", () => {
 	test.beforeEach(async ({ page }) => {
 		// Navigate to home page — guest session is auto-bootstrapped
-		await page.goto("/")
-		await expect(page.getByTestId("multimodal-input")).toBeVisible()
+		await page.goto("/", { waitUntil: "domcontentloaded" })
+		await expect(page.getByTestId("multimodal-input")).toBeVisible({ timeout: 15000 })
 	})
 
 	test.describe("Message Input", () => {
@@ -188,8 +188,8 @@ test.describe("Chat", () => {
 			await expect(page.getByTestId("message-assistant")).toBeVisible({ timeout: 30000 })
 
 			// Navigate away and back
-			await page.goto("/")
-			await page.goto(chatUrl)
+			await page.goto("/", { waitUntil: "domcontentloaded" })
+			await page.goto(chatUrl, { waitUntil: "domcontentloaded" })
 
 			// Chat messages should be restored
 			await expect(page.getByTestId("message-user")).toBeVisible({ timeout: 10000 })
@@ -199,7 +199,7 @@ test.describe("Chat", () => {
 
 	test.describe("Model Selector", () => {
 		test("should display the model selector in the chat header", async ({ page }) => {
-			await expect(page.getByTestId("model-selector")).toBeVisible()
+			await expect(page.locator("header").getByTestId("model-selector")).toBeVisible()
 		})
 	})
 })

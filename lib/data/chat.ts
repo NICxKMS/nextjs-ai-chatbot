@@ -1,8 +1,8 @@
 import { and, asc, desc, eq, lt, or } from "drizzle-orm"
 
+import { requireDatabaseRow, throwDatabaseError } from "@/lib/data/database-error"
 import { db } from "@/lib/db/client"
 import { chats, messages } from "@/lib/db/schema"
-import { AppError } from "@/lib/errors/app-error"
 import type { HistoryResponse, PaginationParams } from "@/lib/types/api.types"
 import type { Chat, Message, Visibility } from "@/lib/types/models.types"
 
@@ -19,11 +19,7 @@ export async function getChatById(chatId: string): Promise<Chat | null> {
 		})
 		return result ?? null
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal("internal_error:database:query_failed", "Failed to get chat", {
-			chatId,
-			cause: error,
-		})
+		throwDatabaseError(error, "Failed to get chat", { chatId })
 	}
 }
 
@@ -79,12 +75,7 @@ export async function getChatsByUserId(
 			nextCursor: hasMore && lastChat ? lastChat.id : undefined,
 		}
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to get chats for user",
-			{ userId, cause: error },
-		)
+		throwDatabaseError(error, "Failed to get chats for user", { userId })
 	}
 }
 
@@ -112,12 +103,7 @@ export async function getChatWithMessages(
 
 		return { chat: chatResult, messages: chatMessages }
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to get chat with messages",
-			{ chatId, cause: error },
-		)
+		throwDatabaseError(error, "Failed to get chat with messages", { chatId })
 	}
 }
 
@@ -143,20 +129,9 @@ export async function createChat(data: {
 			})
 			.returning()
 
-		if (!created) {
-			throw AppError.internal(
-				"internal_error:database:query_failed",
-				"Chat insert returned no rows",
-				{ id: data.id },
-			)
-		}
-
-		return created
+		return requireDatabaseRow(created, "Chat insert returned no rows", { id: data.id })
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal("internal_error:database:query_failed", "Failed to create chat", {
-			cause: error,
-		})
+		throwDatabaseError(error, "Failed to create chat")
 	}
 }
 
@@ -167,12 +142,7 @@ export async function updateChatTitle(chatId: string, title: string): Promise<vo
 	try {
 		await db.update(chats).set({ title, updatedAt: new Date() }).where(eq(chats.id, chatId))
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to update chat title",
-			{ chatId, cause: error },
-		)
+		throwDatabaseError(error, "Failed to update chat title", { chatId })
 	}
 }
 
@@ -189,12 +159,7 @@ export async function updateChatVisibility(chatId: string, visibility: Visibilit
 			})
 			.where(eq(chats.id, chatId))
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to update chat visibility",
-			{ chatId, cause: error },
-		)
+		throwDatabaseError(error, "Failed to update chat visibility", { chatId })
 	}
 }
 
@@ -206,11 +171,7 @@ export async function deleteChat(chatId: string): Promise<void> {
 	try {
 		await db.delete(chats).where(eq(chats.id, chatId))
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal("internal_error:database:query_failed", "Failed to delete chat", {
-			chatId,
-			cause: error,
-		})
+		throwDatabaseError(error, "Failed to delete chat", { chatId })
 	}
 }
 
@@ -222,12 +183,7 @@ export async function deleteAllChats(userId: string): Promise<void> {
 	try {
 		await db.delete(chats).where(eq(chats.userId, userId))
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to delete all chats for user",
-			{ userId, cause: error },
-		)
+		throwDatabaseError(error, "Failed to delete all chats for user", { userId })
 	}
 }
 
@@ -250,11 +206,9 @@ export async function transferGuestChats(fromUserId: string, toUserId: string): 
 
 		return result.length
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to transfer guest chats",
-			{ fromUserId, toUserId, cause: error },
-		)
+		throwDatabaseError(error, "Failed to transfer guest chats", {
+			fromUserId,
+			toUserId,
+		})
 	}
 }

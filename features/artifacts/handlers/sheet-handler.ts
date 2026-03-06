@@ -8,6 +8,8 @@ import type {
 	UpdateArtifactParams,
 } from "@/lib/types/artifact-handler.types"
 
+import { collectReplacingObjectStream } from "./stream-artifact-deltas"
+
 // ── Schema ───────────────────────────────────────────────────
 
 const csvSchema = z.object({
@@ -22,7 +24,6 @@ const csvSchema = z.object({
 export const sheetHandler: ArtifactHandler = {
 	async create(params: CreateArtifactParams): Promise<string> {
 		const { title, chatStream } = params
-		let draftContent = ""
 
 		const { fullStream } = streamObject({
 			model: getInternalLanguageModel("artifact"),
@@ -31,25 +32,16 @@ export const sheetHandler: ArtifactHandler = {
 			schema: csvSchema,
 		})
 
-		for await (const delta of fullStream) {
-			if (delta.type === "object") {
-				const csv = delta.object.csv
-				if (csv) {
-					chatStream.writeData({
-						type: "artifact-sheetDelta",
-						content: csv,
-					})
-					draftContent = csv
-				}
-			}
-		}
-
-		return draftContent
+		return collectReplacingObjectStream({
+			fullStream,
+			chatStream,
+			eventType: "artifact-sheetDelta",
+			pickContent: (object) => object?.csv,
+		})
 	},
 
 	async update(params: UpdateArtifactParams): Promise<string> {
 		const { currentContent, description, kind, chatStream } = params
-		let draftContent = ""
 
 		const { fullStream } = streamObject({
 			model: getInternalLanguageModel("artifact"),
@@ -58,19 +50,11 @@ export const sheetHandler: ArtifactHandler = {
 			schema: csvSchema,
 		})
 
-		for await (const delta of fullStream) {
-			if (delta.type === "object") {
-				const csv = delta.object.csv
-				if (csv) {
-					chatStream.writeData({
-						type: "artifact-sheetDelta",
-						content: csv,
-					})
-					draftContent = csv
-				}
-			}
-		}
-
-		return draftContent
+		return collectReplacingObjectStream({
+			fullStream,
+			chatStream,
+			eventType: "artifact-sheetDelta",
+			pickContent: (object) => object?.csv,
+		})
 	},
 }

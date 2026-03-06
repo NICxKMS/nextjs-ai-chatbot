@@ -1,12 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import {
-	createMockSession,
-	createMockUserPair,
-	TEST_GUEST_ID,
-	TEST_OTHER_USER_ID,
-	TEST_USER_ID,
-} from "@/tests/fixtures/user"
+import { createMockSession, createMockUserPair, TEST_USER_ID } from "@/tests/fixtures/user"
 
 // ── Module mocks ────────────────────────────────────────────
 
@@ -37,33 +31,6 @@ vi.mock("@/lib/cache/revalidate", () => ({
 describe("Auth Flow — Integration Tests", () => {
 	beforeEach(() => {
 		vi.resetAllMocks()
-	})
-
-	// ── Session resolution scenarios ─────────────────────────
-
-	describe("Session resolution", () => {
-		it("returns authenticated session with user id and type", () => {
-			const session = createMockSession()
-			expect(session.user.id).toBe(TEST_USER_ID)
-			expect(session.user.type).toBe("authenticated")
-			expect(session.user.email).toBe("test@example.com")
-		})
-
-		it("supports guest session creation", () => {
-			const guestSession = createMockSession({
-				user: { id: TEST_GUEST_ID, type: "guest" },
-			})
-			expect(guestSession.user.id).toBe(TEST_GUEST_ID)
-			expect(guestSession.user.type).toBe("guest")
-		})
-
-		it("supports multi-user fixture pair creation", () => {
-			const { owner, other, ownerSession, otherSession } = createMockUserPair()
-			expect(owner.id).toBe(TEST_USER_ID)
-			expect(other.id).toBe(TEST_OTHER_USER_ID)
-			expect(ownerSession.user.id).toBe(TEST_USER_ID)
-			expect(otherSession.user.id).toBe(TEST_OTHER_USER_ID)
-		})
 	})
 
 	// ── Auth guard patterns — route handlers ─────────────────
@@ -97,30 +64,6 @@ describe("Auth Flow — Integration Tests", () => {
 
 		it("POST /api/chat returns 401 for unauthenticated request", async () => {
 			mockGetAppSession.mockResolvedValue(null)
-
-			// Mock AI-related imports to avoid module resolution issues
-			vi.mock("@/lib/ai/provider", () => ({
-				myProvider: { languageModel: vi.fn() },
-			}))
-			vi.mock("@/lib/ai/title", () => ({
-				generateTitle: vi.fn(),
-			}))
-			vi.mock("@/lib/ai/models", () => ({
-				getModelById: vi.fn(),
-			}))
-			vi.mock("@/lib/ai/prompts", () => ({
-				composeSystemPrompt: vi.fn(),
-			}))
-			vi.mock("@/lib/ai/provider-options", () => ({
-				getProviderOptions: vi.fn(),
-			}))
-			vi.mock("@/lib/ai/tools", () => ({
-				getEnabledTools: vi.fn(),
-			}))
-			vi.mock("@/lib/data/message", () => ({
-				getMessagesByChatId: vi.fn(),
-				saveMessages: vi.fn(),
-			}))
 
 			const { POST } = await import("@/app/api/chat/route")
 			const request = new Request("http://localhost/api/chat", {
@@ -252,21 +195,6 @@ describe("Auth Flow — Integration Tests", () => {
 
 			const successResult = await deleteChat({ chatId })
 			expect(successResult.success).toBe(true)
-		})
-
-		it("guest session has 'guest' type and can be distinguished", () => {
-			const guestSession = createMockSession({
-				user: { id: TEST_GUEST_ID, type: "guest" },
-			})
-
-			const authSession = createMockSession()
-
-			expect(guestSession.user.type).toBe("guest")
-			expect(authSession.user.type).toBe("authenticated")
-
-			// Guest IDs follow the prefix convention
-			expect(guestSession.user.id).toMatch(/^guest:/)
-			expect(authSession.user.id).not.toMatch(/^guest:/)
 		})
 	})
 

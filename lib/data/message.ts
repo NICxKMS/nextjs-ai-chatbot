@@ -1,8 +1,8 @@
 import { and, asc, eq, gte } from "drizzle-orm"
 
+import { throwDatabaseError } from "@/lib/data/database-error"
 import { db } from "@/lib/db/client"
 import { messages } from "@/lib/db/schema"
-import { AppError } from "@/lib/errors/app-error"
 import type { Message, NewMessage } from "@/lib/types/models.types"
 
 /**
@@ -16,12 +16,7 @@ export async function getMessagesByChatId(chatId: string): Promise<Message[]> {
 			.where(eq(messages.chatId, chatId))
 			.orderBy(asc(messages.createdAt))
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to get messages for chat",
-			{ chatId, cause: error },
-		)
+		throwDatabaseError(error, "Failed to get messages for chat", { chatId })
 	}
 }
 
@@ -33,11 +28,7 @@ export async function getMessageById(messageId: string): Promise<Message | null>
 		const result = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1)
 		return result[0] ?? null
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal("internal_error:database:query_failed", "Failed to get message", {
-			messageId,
-			cause: error,
-		})
+		throwDatabaseError(error, "Failed to get message", { messageId })
 	}
 }
 
@@ -49,11 +40,7 @@ export async function saveMessages(newMessages: NewMessage[]): Promise<Message[]
 	try {
 		return await db.insert(messages).values(newMessages).returning()
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal("internal_error:database:query_failed", "Failed to save messages", {
-			count: newMessages.length,
-			cause: error,
-		})
+		throwDatabaseError(error, "Failed to save messages", { count: newMessages.length })
 	}
 }
 
@@ -82,12 +69,10 @@ export async function deleteMessagesByIdAfter(chatId: string, messageId: string)
 				and(eq(messages.chatId, chatId), gte(messages.createdAt, targetMessage.createdAt)),
 			)
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to delete messages after target",
-			{ chatId, messageId, cause: error },
-		)
+		throwDatabaseError(error, "Failed to delete messages after target", {
+			chatId,
+			messageId,
+		})
 	}
 }
 
@@ -101,11 +86,6 @@ export async function deleteMessagesByChatId(chatId: string): Promise<void> {
 	try {
 		await db.delete(messages).where(eq(messages.chatId, chatId))
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to delete messages for chat",
-			{ chatId, cause: error },
-		)
+		throwDatabaseError(error, "Failed to delete messages for chat", { chatId })
 	}
 }

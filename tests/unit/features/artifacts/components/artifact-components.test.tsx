@@ -679,7 +679,7 @@ describe("artifact-panel.tsx", () => {
 		}
 
 		testState.mockUseSWR.mockReturnValue({
-			data: [older, latest],
+			data: [latest, older],
 			isLoading: false,
 			mutate: vi.fn(),
 		})
@@ -697,6 +697,25 @@ describe("artifact-panel.tsx", () => {
 
 		const updated = updater(testState.artifact as UIArtifact)
 		expect(updated.content).toBe("latest content")
+	})
+
+	it("disables eager artifact revalidation for mutable editor state", () => {
+		testState.mockUseSWR.mockReturnValue({
+			data: [createMockArtifact()],
+			isLoading: false,
+			mutate: vi.fn(),
+		})
+
+		render(<ArtifactPanel />)
+
+		expect(testState.mockUseSWR).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.any(Function),
+			expect.objectContaining({
+				revalidateOnFocus: false,
+				revalidateOnReconnect: false,
+			}),
+		)
 	})
 
 	it("saves content through editor callbacks and mutates versions", async () => {
@@ -762,6 +781,58 @@ describe("artifact-panel.tsx", () => {
 			expect(payload.mode).toBe("save")
 			expect(payload.content).toBe("updated content")
 			expect(mutate).toHaveBeenCalled()
+		} finally {
+			globalThis.fetch = originalFetch
+		}
+	})
+
+	it("keeps the dirty state when a save request fails", async () => {
+		const version = createMockArtifact({
+			content: "initial",
+			createdAt: new Date("2026-01-02T00:00:00Z"),
+			id: "artifact-v2",
+			title: "Panel Artifact",
+		})
+		const mutate = vi.fn().mockResolvedValue(undefined)
+		const fetchMock = vi.fn().mockResolvedValue({ ok: false })
+		const originalFetch = globalThis.fetch
+		globalThis.fetch = fetchMock as unknown as typeof fetch
+
+		testState.artifact = {
+			...testState.artifact,
+			content: "initial",
+			kind: "text",
+			title: "Panel Artifact",
+		}
+
+		testState.mockUseSWR.mockReturnValue({
+			data: [version],
+			isLoading: false,
+			mutate,
+		})
+
+		try {
+			render(<ArtifactPanel />)
+
+			const editorProps = testState.dynamicEditorProps.at(-1) as
+				| {
+						onSaveContent?: (
+							content: string,
+							options?: { debounce?: boolean },
+						) => Promise<void>
+				  }
+				| undefined
+
+			if (!editorProps?.onSaveContent) {
+				throw new Error("Expected dynamic editor to receive onSaveContent")
+			}
+
+			await editorProps.onSaveContent("updated content", { debounce: false })
+
+			await waitFor(() => {
+				expect(screen.getByText("Saving changes…")).toBeInTheDocument()
+			})
+			expect(mutate).not.toHaveBeenCalled()
 		} finally {
 			globalThis.fetch = originalFetch
 		}

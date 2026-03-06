@@ -11,11 +11,11 @@ import type { SettingsState } from "@/lib/types/settings.types"
  * Default settings for chat parameters.
  * Does NOT include model selection — that's handled by the model selector.
  */
-export const DEFAULT_SETTINGS = {
+export const DEFAULT_SETTINGS: SettingsState = {
 	temperature: 0.7,
 	topP: 1,
 	maxOutputTokens: 4096,
 	systemPrompt: "",
 	enableReasoning: false,
 	contextDisplayMode: "compact",
-} as const satisfies SettingsState
+}

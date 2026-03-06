@@ -7,6 +7,8 @@ import type {
 	UpdateArtifactParams,
 } from "@/lib/types/artifact-handler.types"
 
+import { collectTextStreamDeltas } from "./stream-artifact-deltas"
+
 // ── Text-specific system prompt ──────────────────────────────
 // Guides the model to generate Markdown prose without code blocks.
 
@@ -19,8 +21,6 @@ const TEXT_SYSTEM_PROMPT =
 
 export const textHandler: ArtifactHandler = {
 	async create({ title, chatStream }: CreateArtifactParams): Promise<string> {
-		let content = ""
-
 		const { fullStream } = streamText({
 			model: getInternalLanguageModel("artifact"),
 			system: TEXT_SYSTEM_PROMPT,
@@ -28,18 +28,11 @@ export const textHandler: ArtifactHandler = {
 			experimental_transform: smoothStream({ chunking: "word" }),
 		})
 
-		for await (const part of fullStream) {
-			if (part.type === "text-delta") {
-				content += part.text
-
-				chatStream.writeData({
-					type: "artifact-textDelta",
-					content: part.text,
-				})
-			}
-		}
-
-		return content
+		return collectTextStreamDeltas({
+			fullStream,
+			chatStream,
+			eventType: "artifact-textDelta",
+		})
 	},
 
 	async update({
@@ -47,8 +40,6 @@ export const textHandler: ArtifactHandler = {
 		description,
 		chatStream,
 	}: UpdateArtifactParams): Promise<string> {
-		let content = ""
-
 		const { fullStream } = streamText({
 			model: getInternalLanguageModel("artifact"),
 			system: getUpdateArtifactPrompt(currentContent, "text"),
@@ -56,17 +47,10 @@ export const textHandler: ArtifactHandler = {
 			experimental_transform: smoothStream({ chunking: "word" }),
 		})
 
-		for await (const part of fullStream) {
-			if (part.type === "text-delta") {
-				content += part.text
-
-				chatStream.writeData({
-					type: "artifact-textDelta",
-					content: part.text,
-				})
-			}
-		}
-
-		return content
+		return collectTextStreamDeltas({
+			fullStream,
+			chatStream,
+			eventType: "artifact-textDelta",
+		})
 	},
 }

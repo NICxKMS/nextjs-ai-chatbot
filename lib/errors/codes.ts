@@ -32,6 +32,7 @@ export type ErrorCode =
 	// ── CSRF errors ──
 	| "forbidden:api:csrf_failed"
 	// ── Infrastructure errors ──
+	| "ai_error:artifact:empty_output"
 	| "ai_error:provider:failed"
 	| "offline:api:service_unavailable"
 	| "internal_error:database:query_failed"
@@ -59,6 +60,7 @@ export const ERROR_STATUS_MAP: Record<ErrorCode, number> = {
 	"rate_limit:vote:too_many_requests": 429,
 	"rate_limit:auth:login_too_many": 429,
 	"rate_limit:auth:register_too_many": 429,
+	"ai_error:artifact:empty_output": 502,
 	"ai_error:provider:failed": 502,
 	"offline:api:service_unavailable": 503,
 	"internal_error:database:query_failed": 500,

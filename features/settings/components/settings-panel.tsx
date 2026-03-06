@@ -1,6 +1,6 @@
 "use client"
 
-import { type ChangeEvent, useCallback, useId } from "react"
+import { useId } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -24,6 +24,10 @@ interface SettingsPanelProps {
 	onOpenChange: (open: boolean) => void
 }
 
+function clampOutputTokens(value: number): number {
+	return Math.max(256, Math.min(1_000_000, value))
+}
+
 // ── Main Component ──────────────────────────────────────────
 
 export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
@@ -36,55 +40,6 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 	const systemPromptId = useId()
 	const reasoningId = useId()
 	const contextDisplayId = useId()
-
-	const handleTemperatureChange = useCallback(
-		(e: ChangeEvent<HTMLInputElement>) => {
-			updateSettings({ temperature: Number.parseFloat(e.target.value) })
-		},
-		[updateSettings],
-	)
-
-	const handleTopPChange = useCallback(
-		(e: ChangeEvent<HTMLInputElement>) => {
-			updateSettings({ topP: Number.parseFloat(e.target.value) })
-		},
-		[updateSettings],
-	)
-
-	const handleMaxTokensChange = useCallback(
-		(e: ChangeEvent<HTMLInputElement>) => {
-			const value = Number.parseInt(e.target.value, 10)
-			if (!Number.isNaN(value)) {
-				updateSettings({ maxOutputTokens: Math.max(256, Math.min(1_000_000, value)) })
-			}
-		},
-		[updateSettings],
-	)
-
-	const handleSystemPromptChange = useCallback(
-		(e: ChangeEvent<HTMLTextAreaElement>) => {
-			updateSettings({ systemPrompt: e.target.value })
-		},
-		[updateSettings],
-	)
-
-	const handleReasoningToggle = useCallback(
-		(checked: boolean) => {
-			updateSettings({ enableReasoning: checked })
-		},
-		[updateSettings],
-	)
-
-	const handleContextDisplayToggle = useCallback(
-		(checked: boolean) => {
-			updateSettings({ contextDisplayMode: checked ? "detailed" : "compact" })
-		},
-		[updateSettings],
-	)
-
-	const handleReset = useCallback(() => {
-		resetSettings()
-	}, [resetSettings])
 
 	return (
 		<Sheet onOpenChange={onOpenChange} open={open}>
@@ -126,7 +81,11 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 								id={temperatureId}
 								max={2}
 								min={0}
-								onChange={handleTemperatureChange}
+								onChange={(event) => {
+									updateSettings({
+										temperature: Number.parseFloat(event.target.value),
+									})
+								}}
 								step={0.01}
 								value={settings.temperature}
 							/>
@@ -148,7 +107,9 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 								id={topPId}
 								max={1}
 								min={0}
-								onChange={handleTopPChange}
+								onChange={(event) => {
+									updateSettings({ topP: Number.parseFloat(event.target.value) })
+								}}
 								step={0.01}
 								value={settings.topP}
 							/>
@@ -173,7 +134,15 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 								id={maxTokensId}
 								max={1_000_000}
 								min={256}
-								onChange={handleMaxTokensChange}
+								onChange={(event) => {
+									const value = Number.parseInt(event.target.value, 10)
+
+									if (!Number.isNaN(value)) {
+										updateSettings({
+											maxOutputTokens: clampOutputTokens(value),
+										})
+									}
+								}}
 								step={64}
 								type="number"
 								value={settings.maxOutputTokens}
@@ -196,7 +165,9 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 							aria-label="System prompt"
 							id={systemPromptId}
 							maxLength={8192}
-							onChange={handleSystemPromptChange}
+							onChange={(event) => {
+								updateSettings({ systemPrompt: event.target.value })
+							}}
 							placeholder="You are a helpful assistant..."
 							rows={4}
 							value={settings.systemPrompt}
@@ -225,7 +196,9 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 								aria-label="Enable reasoning"
 								checked={settings.enableReasoning}
 								id={reasoningId}
-								onCheckedChange={handleReasoningToggle}
+								onCheckedChange={(checked) => {
+									updateSettings({ enableReasoning: checked })
+								}}
 							/>
 						</div>
 
@@ -242,14 +215,18 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 								aria-label="Detailed token usage"
 								checked={settings.contextDisplayMode === "detailed"}
 								id={contextDisplayId}
-								onCheckedChange={handleContextDisplayToggle}
+								onCheckedChange={(checked) => {
+									updateSettings({
+										contextDisplayMode: checked ? "detailed" : "compact",
+									})
+								}}
 							/>
 						</div>
 					</section>
 				</div>
 
 				<SheetFooter className="flex-row gap-2 border-t pt-4">
-					<Button onClick={handleReset} type="button" variant="outline">
+					<Button onClick={resetSettings} type="button" variant="outline">
 						Reset to defaults
 					</Button>
 					<Button onClick={() => onOpenChange(false)} type="button">

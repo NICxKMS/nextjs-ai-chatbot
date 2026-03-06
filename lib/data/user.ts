@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm"
 
+import { requireDatabaseRow, throwDatabaseError } from "@/lib/data/database-error"
 import { db } from "@/lib/db/client"
 import { users } from "@/lib/db/schema"
-import { AppError } from "@/lib/errors/app-error"
 import type { NewUser, User } from "@/lib/types/models.types"
 
 /**
@@ -17,12 +17,7 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 		const result = await db.select().from(users).where(eq(users.email, email.toLowerCase()))
 		return result[0] ?? null
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to get user by email",
-			error,
-		)
+		throwDatabaseError(error, "Failed to get user by email")
 	}
 }
 
@@ -35,12 +30,7 @@ export async function getUserById(id: string): Promise<User | null> {
 		const result = await db.select().from(users).where(eq(users.id, id))
 		return result[0] ?? null
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to get user by id",
-			error,
-		)
+		throwDatabaseError(error, "Failed to get user by id")
 	}
 }
 
@@ -51,17 +41,9 @@ export async function getUserById(id: string): Promise<User | null> {
 export async function createUser(data: NewUser): Promise<User> {
 	try {
 		const [user] = await db.insert(users).values(data).returning()
-		if (!user) {
-			throw new Error("Insert did not return a row")
-		}
-		return user
+		return requireDatabaseRow(user, "Failed to create user")
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to create user",
-			error,
-		)
+		throwDatabaseError(error, "Failed to create user")
 	}
 }
 
@@ -75,12 +57,7 @@ export async function updateUserLastLogin(id: string): Promise<void> {
 	try {
 		await db.update(users).set({ lastLogin: new Date() }).where(eq(users.id, id))
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to update user last login",
-			error,
-		)
+		throwDatabaseError(error, "Failed to update user last login")
 	}
 }
 
@@ -96,11 +73,6 @@ export async function ensureGuestUser(userId: string): Promise<void> {
 	try {
 		await db.insert(users).values({ id: userId }).onConflictDoNothing({ target: users.id })
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to ensure guest user exists",
-			error,
-		)
+		throwDatabaseError(error, "Failed to ensure guest user exists")
 	}
 }

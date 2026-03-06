@@ -9,7 +9,6 @@ const nextConfig: NextConfig = {
 
 	experimental: {
 		inlineCss: true,
-		useLightningcss: true,
 		optimisticClientCache: true,
 		turbopackFileSystemCacheForDev: true,
 		viewTransition: true,

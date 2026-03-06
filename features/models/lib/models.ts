@@ -10,6 +10,21 @@ import { cacheKeys } from "@/lib/cache/keys"
 import type { ModelMetadata } from "@/lib/types/model.types"
 import { DEFAULT_CHAT_MODEL, MODEL_COOKIE_NAME } from "@/lib/types/model.types"
 
+const STATIC_MODEL_IDS = new Set(STATIC_MODELS.map((model) => model.id))
+
+function mergeAvailableModels(
+	discoveredModels: ModelMetadata[],
+	availableProviders: Set<string>,
+): ModelMetadata[] {
+	const uniqueDiscoveredModels = discoveredModels.filter(
+		(model) => !STATIC_MODEL_IDS.has(model.id),
+	)
+
+	return [...STATIC_MODELS, ...uniqueDiscoveredModels].filter((model) =>
+		availableProviders.has(model.provider),
+	)
+}
+
 /**
  * Get all available AI models (static + dynamically discovered).
  *
@@ -25,17 +40,10 @@ export async function getAvailableModels(): Promise<ModelMetadata[]> {
 	cacheTag(cacheKeys.models())
 	cacheLife("hours")
 
-	const [discovered, availableProviders] = await Promise.all([
-		discoverModels(),
-		Promise.resolve(getAvailableProviderIds()),
-	])
+	const availableProviders = getAvailableProviderIds()
+	const discoveredModels = await discoverModels()
 
-	// Deduplicate: static models take priority over discovered
-	const staticIds = new Set(STATIC_MODELS.map((m) => m.id))
-	const uniqueDiscovered = discovered.filter((m) => !staticIds.has(m.id))
-
-	// Filter to only include models whose provider has a configured API key
-	return [...STATIC_MODELS, ...uniqueDiscovered].filter((m) => availableProviders.has(m.provider))
+	return mergeAvailableModels(discoveredModels, availableProviders)
 }
 
 /**
@@ -52,12 +60,10 @@ export async function getDefaultModel(_session: AppSession | null): Promise<stri
 	const cookieStore = await cookies()
 	const preferred = cookieStore.get(MODEL_COOKIE_NAME)?.value
 
-	if (preferred) {
-		const models = await getAvailableModels()
-		if (models.some((m) => m.id === preferred)) {
-			return preferred
-		}
+	if (!preferred) {
+		return DEFAULT_CHAT_MODEL
 	}
 
-	return DEFAULT_CHAT_MODEL
+	const models = await getAvailableModels()
+	return models.some((model) => model.id === preferred) ? preferred : DEFAULT_CHAT_MODEL
 }

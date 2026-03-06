@@ -1,8 +1,8 @@
 import { and, desc, eq, gte } from "drizzle-orm"
 
+import { requireDatabaseRow, throwDatabaseError } from "@/lib/data/database-error"
 import { db } from "@/lib/db/client"
 import { artifacts } from "@/lib/db/schema"
-import { AppError } from "@/lib/errors/app-error"
 import type { Artifact, ArtifactKind } from "@/lib/types/models.types"
 
 /**
@@ -19,11 +19,7 @@ export async function getArtifactById(artifactId: string): Promise<Artifact | nu
 
 		return result[0] ?? null
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal("internal_error:database:query_failed", "Failed to get artifact", {
-			artifactId,
-			cause: error,
-		})
+		throwDatabaseError(error, "Failed to get artifact", { artifactId })
 	}
 }
 
@@ -38,12 +34,7 @@ export async function getArtifactVersions(artifactId: string): Promise<Artifact[
 			.where(eq(artifacts.id, artifactId))
 			.orderBy(desc(artifacts.createdAt))
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to get artifact versions",
-			{ artifactId, cause: error },
-		)
+		throwDatabaseError(error, "Failed to get artifact versions", { artifactId })
 	}
 }
 
@@ -72,21 +63,11 @@ export async function saveArtifactVersion(data: {
 			})
 			.returning()
 
-		const artifact = result[0]
-		if (!artifact)
-			throw AppError.internal(
-				"internal_error:database:query_failed",
-				"Artifact insert returned no rows",
-				{ id: data.id },
-			)
-		return artifact
+		return requireDatabaseRow(result[0], "Artifact insert returned no rows", {
+			id: data.id,
+		})
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to save artifact version",
-			{ id: data.id, cause: error },
-		)
+		throwDatabaseError(error, "Failed to save artifact version", { id: data.id })
 	}
 }
 
@@ -100,11 +81,6 @@ export async function deleteArtifactVersion(artifactId: string, createdAt: Date)
 			.delete(artifacts)
 			.where(and(eq(artifacts.id, artifactId), gte(artifacts.createdAt, createdAt)))
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to delete artifact version",
-			{ artifactId, cause: error },
-		)
+		throwDatabaseError(error, "Failed to delete artifact version", { artifactId })
 	}
 }

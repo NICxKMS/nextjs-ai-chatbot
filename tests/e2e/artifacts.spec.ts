@@ -134,14 +134,13 @@ test.describe("Artifacts", () => {
 			await expect(artifactPanel).not.toBeVisible()
 
 			// Click on the artifact reference in the chat to reopen
-			// Artifact references appear as clickable elements in assistant messages
+			// Artifact references render as preview hitboxes with an accessible button label.
 			const assistantMessage = page.getByTestId("message-assistant").last()
-			const artifactLink = assistantMessage.locator("[data-artifact-id]").first()
+			const artifactLink = assistantMessage.getByRole("button", { name: /open artifact:/i })
 
-			if (await artifactLink.isVisible()) {
-				await artifactLink.click()
-				await expect(artifactPanel).toBeVisible({ timeout: 10000 })
-			}
+			await expect(artifactLink).toBeVisible({ timeout: 10000 })
+			await artifactLink.click()
+			await expect(artifactPanel).toBeVisible({ timeout: 10000 })
 		})
 	})
 })

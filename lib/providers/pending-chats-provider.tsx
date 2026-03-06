@@ -13,21 +13,31 @@ const PendingChatsContext = createContext<PendingChatsState | null>(null)
 
 export function PendingChatsProvider({ children }: { children: ReactNode }) {
 	const [entries, setEntries] = useState<PendingChat[]>([])
-	const seenIds = useRef(new Set<string>())
+	const reservedIds = useRef(new Set<string>())
+
+	const dropEntry = useCallback((id: string, shouldReleaseId = false) => {
+		if (shouldReleaseId) {
+			reservedIds.current.delete(id)
+		}
+		setEntries((prev) => prev.filter((entry) => entry.id !== id))
+	}, [])
 
 	// Add a pending chat to the head of the list.
-	// Duplicates are silently ignored via Set-based dedup.
+	// Reserved IDs prevent duplicate optimistic rows and re-adding
+	// chats that have already been confirmed by the server.
 	const add = useCallback((chat: Omit<PendingChat, "isOptimistic">) => {
-		if (seenIds.current.has(chat.id)) return
-		seenIds.current.add(chat.id)
+		if (reservedIds.current.has(chat.id)) return
+		reservedIds.current.add(chat.id)
 		setEntries((prev) => [{ ...chat, isOptimistic: true }, ...prev])
 	}, [])
 
 	// Remove a pending chat by ID (e.g. on delete).
-	const remove = useCallback((id: string) => {
-		seenIds.current.delete(id)
-		setEntries((prev) => prev.filter((e) => e.id !== id))
-	}, [])
+	const remove = useCallback(
+		(id: string) => {
+			dropEntry(id, true)
+		},
+		[dropEntry],
+	)
 
 	// Update the title in-place — single-channel title delivery
 	// from `chat-title` stream events.
@@ -36,9 +46,12 @@ export function PendingChatsProvider({ children }: { children: ReactNode }) {
 	}, [])
 
 	// Drop the optimistic entry once the server confirms persistence.
-	const markConfirmed = useCallback((id: string) => {
-		setEntries((prev) => prev.filter((e) => e.id !== id))
-	}, [])
+	const markConfirmed = useCallback(
+		(id: string) => {
+			dropEntry(id)
+		},
+		[dropEntry],
+	)
 
 	return (
 		<PendingChatsContext value={{ entries, add, remove, updateTitle, markConfirmed }}>

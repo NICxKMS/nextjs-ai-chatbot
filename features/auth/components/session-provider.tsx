@@ -27,6 +27,12 @@ interface SessionProviderProps {
 	children: ReactNode
 }
 
+const SESSION_REFRESH_EVENTS = new Set<AuthChangeEvent>([
+	"SIGNED_IN",
+	"SIGNED_OUT",
+	"TOKEN_REFRESHED",
+])
+
 /**
  * Provides auth session state to all client components via React context.
  *
@@ -53,23 +59,34 @@ export function SessionProvider({ session: initialSession, children }: SessionPr
 
 	// Subscribe to Supabase auth state changes
 	useEffect(() => {
-		const supabase = getSupabaseBrowserClient()
+		let unsubscribe: (() => void) | undefined
 
-		const {
-			data: { subscription },
-		} = supabase.auth.onAuthStateChange((event: AuthChangeEvent) => {
-			if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "TOKEN_REFRESHED") {
-				// Revalidate all server components — the server will re-run
-				// getAppSession() and pass an updated session prop
-				router.refresh()
+		try {
+			const supabase = getSupabaseBrowserClient()
+
+			const {
+				data: { subscription },
+			} = supabase.auth.onAuthStateChange((event: AuthChangeEvent) => {
+				if (SESSION_REFRESH_EVENTS.has(event)) {
+					// Revalidate all server components — the server will re-run
+					// getAppSession() and pass an updated session prop
+					router.refresh()
+				}
+			})
+
+			unsubscribe = () => {
+				subscription.unsubscribe()
 			}
-		})
+		} catch {
+			setIsLoading(false)
+			return
+		}
 
 		// Auth listener is set up — no longer in initial loading state
 		setIsLoading(false)
 
 		return () => {
-			subscription.unsubscribe()
+			unsubscribe?.()
 		}
 	}, [router])
 

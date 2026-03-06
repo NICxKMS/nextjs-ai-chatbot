@@ -551,7 +551,7 @@ describe("lib/data/message", () => {
 		expect(mockDb.delete).not.toHaveBeenCalled()
 	})
 
-	it("deleteMessagesByIdAfter deletes messages at or after target timestamp", async () => {
+	it("deleteMessagesByIdAfter issues a delete when the target message exists", async () => {
 		const createdAt = new Date("2026-01-01T00:00:00Z")
 		mockDb.select.mockReturnValueOnce(mockSelectLimitResult([{ createdAt }]))
 		const deleteChain = mockDeleteWhere()
@@ -694,7 +694,7 @@ describe("lib/data/artifact", () => {
 		)
 	})
 
-	it("deleteArtifactVersion deletes versions at or after provided timestamp", async () => {
+	it("deleteArtifactVersion issues a delete for the artifact id and cutoff", async () => {
 		const chain = mockDeleteWhere()
 		const createdAt = new Date("2026-01-01T00:00:00Z")
 

@@ -101,9 +101,7 @@ Do not proceed to implementation if any of the above is unclear.
 
 Before marking any code change complete:
 
-- [ ] `pnpm format` passes
-- [ ] `pnpm typecheck` passes
-- [ ] `pnpm lint` passes
+- [ ] `pnpm format`; `pnpm lint`; `pnpm typecheck` passes (run all 3 at one if doable)
 - [ ] Architecture constraints are respected
 - [ ] No duplicate logic introduced
 - [ ] All imports resolve correctly

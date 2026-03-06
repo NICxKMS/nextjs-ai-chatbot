@@ -25,33 +25,28 @@ afterEach(() => {
 })
 
 describe("cn", () => {
-	const variants = [
-		["lib/utils/cn", cnFromUtilsDir],
-		["lib/utils", cnFromRootUtils],
-	] as const
+	it("re-exports the canonical implementation from lib/utils", () => {
+		expect(cnFromRootUtils).toBe(cnFromUtilsDir)
+	})
 
-	for (const [label, cn] of variants) {
-		describe(label, () => {
-			it("merges conditional classes", () => {
-				const result = cn("px-2", undefined, false, ["text-sm"], {
-					"font-bold": true,
-					italic: false,
-				})
-
-				expect(result).toBe("px-2 text-sm font-bold")
-			})
-
-			it("resolves conflicting Tailwind classes by keeping the last one", () => {
-				const result = cn("bg-red-500 px-2", "bg-blue-500 px-4")
-
-				expect(result).toBe("bg-blue-500 px-4")
-			})
-
-			it("returns an empty string when no classes are provided", () => {
-				expect(cn()).toBe("")
-			})
+	it("merges conditional classes", () => {
+		const result = cnFromUtilsDir("px-2", undefined, false, ["text-sm"], {
+			"font-bold": true,
+			italic: false,
 		})
-	}
+
+		expect(result).toBe("px-2 text-sm font-bold")
+	})
+
+	it("resolves conflicting Tailwind classes by keeping the last one", () => {
+		const result = cnFromUtilsDir("bg-red-500 px-2", "bg-blue-500 px-4")
+
+		expect(result).toBe("bg-blue-500 px-4")
+	})
+
+	it("returns an empty string when no classes are provided", () => {
+		expect(cnFromUtilsDir()).toBe("")
+	})
 })
 
 describe("generateUUID", () => {

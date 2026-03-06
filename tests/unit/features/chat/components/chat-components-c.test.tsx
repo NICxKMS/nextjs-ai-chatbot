@@ -92,6 +92,24 @@ vi.mock("@/features/models/components/model-selector", () => ({
 }))
 
 vi.mock("@/components/ai-elements/prompt-input", () => ({
+	PromptInputProvider: ({
+		children,
+		initialInput,
+	}: {
+		children: ReactNode
+		initialInput?: string
+	}) => (
+		<div data-testid="prompt-input-provider" data-initial-input={initialInput ?? ""}>
+			{children}
+		</div>
+	),
+	usePromptInputController: () => ({
+		textInput: {
+			value: mockUseChatSessionContext().input,
+			setInput: vi.fn(),
+			clear: vi.fn(),
+		},
+	}),
 	PromptInput: ({
 		children,
 		onSubmit,
@@ -131,12 +149,19 @@ vi.mock("@/components/ai-elements/prompt-input", () => ({
 	PromptInputFooter: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 	PromptInputSubmit: ({
 		"data-testid": dataTestId,
+		disabled,
 		onStop,
 	}: {
 		"data-testid"?: string
+		disabled?: boolean
 		onStop?: () => void
 	}) => (
-		<button type="button" data-testid={dataTestId ?? "send-button"} onClick={onStop}>
+		<button
+			type="button"
+			data-testid={dataTestId ?? "send-button"}
+			disabled={disabled}
+			onClick={onStop}
+		>
 			submit
 		</button>
 	),
@@ -436,14 +461,32 @@ describe("MultimodalInput", () => {
 		expect(screen.queryByTestId("multimodal-input")).not.toBeInTheDocument()
 	})
 
-	it("renders message input and send button when ready", () => {
-		mockUseChatSessionContext.mockReturnValue(createSessionValue({ status: "ready" }))
+	it("renders message input and keeps send disabled until text exists", () => {
+		mockUseChatSessionContext.mockReturnValue(
+			createSessionValue({
+				status: "ready",
+				input: "",
+			}),
+		)
 
 		render(<MultimodalInput />)
 
 		expect(screen.getByTestId("multimodal-input")).toBeInTheDocument()
-		expect(screen.getByTestId("send-button")).toBeInTheDocument()
+		expect(screen.getByTestId("send-button")).toBeDisabled()
 		expect(screen.getByTestId("model-selector")).toHaveTextContent("model-1")
+	})
+
+	it("enables send when the controlled prompt input already has text", () => {
+		mockUseChatSessionContext.mockReturnValue(
+			createSessionValue({
+				status: "ready",
+				input: "hello",
+			}),
+		)
+
+		render(<MultimodalInput />)
+
+		expect(screen.getByTestId("send-button")).toBeEnabled()
 	})
 
 	it("renders stop button while a response is streaming", () => {

@@ -1,6 +1,11 @@
 import { tool } from "ai"
 import { z } from "zod"
 
+import {
+	ensureArtifactContent,
+	writeArtifactCreatePrelude,
+	writeArtifactFinish,
+} from "@/features/chat/lib/tools/artifact-tool-utils"
 import { getArtifactHandler } from "@/lib/ai/artifact-handlers"
 import { saveArtifactVersion } from "@/lib/data/artifact"
 import type { ArtifactStreamWriter } from "@/lib/types/artifact-handler.types"
@@ -37,11 +42,7 @@ export const createArtifactTool = ({ session, chatStream, chatId }: CreateArtifa
 		execute: async ({ title, kind }) => {
 			const id = generateUUID()
 
-			// Signal client to open artifact panel with metadata
-			chatStream.writeData({ type: "artifact-kind", content: kind })
-			chatStream.writeData({ type: "artifact-id", content: id })
-			chatStream.writeData({ type: "artifact-title", content: title })
-			chatStream.writeData({ type: "artifact-clear", content: "" })
+			writeArtifactCreatePrelude(chatStream, { id, title, kind })
 
 			// Delegate content generation to the registered handler
 			const handler = getArtifactHandler(kind)
@@ -53,18 +54,19 @@ export const createArtifactTool = ({ session, chatStream, chatId }: CreateArtifa
 				session,
 				chatStream,
 			})
+			const persistedContent = ensureArtifactContent(content, "create")
 
 			// Persist artifact version to database
 			await saveArtifactVersion({
 				id,
 				title,
-				content,
+				content: persistedContent,
 				kind,
 				userId: session.userId,
 				chatId,
 			})
 
-			chatStream.writeData({ type: "artifact-finish", content: "" })
+			writeArtifactFinish(chatStream)
 
 			return {
 				id,

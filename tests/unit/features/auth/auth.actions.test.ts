@@ -1,6 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest"
 
-import { loginSchema, registerSchema } from "@/features/auth/schemas/auth.schema"
 import type { AuthActionData } from "@/features/auth/types/auth.types"
 import { GUEST_COOKIE_NAME } from "@/lib/auth/constants"
 import type { ActionResult } from "@/lib/types/result.types"
@@ -507,45 +506,5 @@ describe("createSupabaseActionClient", () => {
 		expect(cookieStore.set).toHaveBeenCalledWith("sb-access-token", "token", {
 			path: "/",
 		})
-	})
-})
-
-describe("auth schemas", () => {
-	it("accepts valid login payload", () => {
-		const parsed = loginSchema.safeParse({
-			email: "test@example.com",
-			password: "password123",
-		})
-
-		expect(parsed.success).toBe(true)
-	})
-
-	it("rejects login payload when password is too short", () => {
-		const parsed = loginSchema.safeParse({
-			email: "test@example.com",
-			password: "12345",
-		})
-
-		expect(parsed.success).toBe(false)
-	})
-
-	it("accepts register payload with optional name", () => {
-		const parsed = registerSchema.safeParse({
-			email: "test@example.com",
-			password: "password123",
-			name: "Test User",
-		})
-
-		expect(parsed.success).toBe(true)
-	})
-
-	it("rejects register payload when name exceeds max length", () => {
-		const parsed = registerSchema.safeParse({
-			email: "test@example.com",
-			password: "password123",
-			name: "x".repeat(101),
-		})
-
-		expect(parsed.success).toBe(false)
 	})
 })

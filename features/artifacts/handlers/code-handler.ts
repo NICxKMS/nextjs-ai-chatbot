@@ -8,6 +8,8 @@ import type {
 	UpdateArtifactParams,
 } from "@/lib/types/artifact-handler.types"
 
+import { collectReplacingObjectStream } from "./stream-artifact-deltas"
+
 // ── Code output schema ───────────────────────────────────────
 // streamObject() parses the model output into this shape.
 
@@ -22,8 +24,6 @@ const codeSchema = z.object({
 
 export const codeHandler: ArtifactHandler = {
 	async create({ title, chatStream }: CreateArtifactParams): Promise<string> {
-		let content = ""
-
 		const { fullStream } = streamObject({
 			model: getInternalLanguageModel("artifact"),
 			system: CODE_PROMPT,
@@ -31,22 +31,12 @@ export const codeHandler: ArtifactHandler = {
 			schema: codeSchema,
 		})
 
-		for await (const part of fullStream) {
-			if (part.type === "object") {
-				const { code } = part.object
-
-				if (code) {
-					chatStream.writeData({
-						type: "artifact-codeDelta",
-						content: code,
-					})
-
-					content = code
-				}
-			}
-		}
-
-		return content
+		return collectReplacingObjectStream({
+			fullStream,
+			chatStream,
+			eventType: "artifact-codeDelta",
+			pickContent: (object) => object?.code,
+		})
 	},
 
 	async update({
@@ -54,8 +44,6 @@ export const codeHandler: ArtifactHandler = {
 		description,
 		chatStream,
 	}: UpdateArtifactParams): Promise<string> {
-		let content = ""
-
 		const { fullStream } = streamObject({
 			model: getInternalLanguageModel("artifact"),
 			system: getUpdateArtifactPrompt(currentContent, "code"),
@@ -63,21 +51,11 @@ export const codeHandler: ArtifactHandler = {
 			schema: codeSchema,
 		})
 
-		for await (const part of fullStream) {
-			if (part.type === "object") {
-				const { code } = part.object
-
-				if (code) {
-					chatStream.writeData({
-						type: "artifact-codeDelta",
-						content: code,
-					})
-
-					content = code
-				}
-			}
-		}
-
-		return content
+		return collectReplacingObjectStream({
+			fullStream,
+			chatStream,
+			eventType: "artifact-codeDelta",
+			pickContent: (object) => object?.code,
+		})
 	},
 }

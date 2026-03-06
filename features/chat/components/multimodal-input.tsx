@@ -10,9 +10,11 @@ import {
 	PromptInputActionMenuTrigger,
 	PromptInputFooter,
 	type PromptInputMessage,
+	PromptInputProvider,
 	PromptInputSubmit,
 	PromptInputTextarea,
 	PromptInputTools,
+	usePromptInputController,
 } from "@/components/ai-elements/prompt-input"
 import { ContextDisplay } from "@/features/chat/components/context-display"
 import { useChatSessionContext } from "@/features/chat/hooks/use-chat-session-context"
@@ -26,7 +28,7 @@ import { cn } from "@/lib/utils/cn"
 // paste, and submit UX internally. This wrapper only wires the
 // submit handler and status/stop to the chat session.
 
-export function MultimodalInput({ className }: { className?: string }) {
+function ControlledMultimodalInput({ className }: { className?: string }) {
 	const {
 		sendMessage,
 		stop,
@@ -35,8 +37,10 @@ export function MultimodalInput({ className }: { className?: string }) {
 		chatModel,
 		setChatModel,
 		availableModels,
+		setInput,
 		usage,
 	} = useChatSessionContext()
+	const controller = usePromptInputController()
 
 	const handleSubmit = useCallback(
 		(message: PromptInputMessage) => {
@@ -57,6 +61,7 @@ export function MultimodalInput({ className }: { className?: string }) {
 	if (isReadonly) return null
 
 	const isGenerating = status === "submitted" || status === "streaming"
+	const isSubmitDisabled = !controller.textInput.value.trim()
 
 	return (
 		<PromptInput
@@ -69,6 +74,7 @@ export function MultimodalInput({ className }: { className?: string }) {
 				autoFocus
 				className="min-h-11 pr-14"
 				data-testid="multimodal-input"
+				onChange={(event) => setInput(event.currentTarget.value)}
 				placeholder="Send a message..."
 			/>
 			{maxTokens > 0 && (
@@ -99,10 +105,23 @@ export function MultimodalInput({ className }: { className?: string }) {
 				</PromptInputTools>
 				<PromptInputSubmit
 					data-testid={isGenerating ? "stop-button" : "send-button"}
+					disabled={!isGenerating && isSubmitDisabled}
 					onStop={stop}
 					status={status}
 				/>
 			</PromptInputFooter>
 		</PromptInput>
+	)
+}
+
+export function MultimodalInput({ className }: { className?: string }) {
+	const { isReadonly, input } = useChatSessionContext()
+
+	if (isReadonly) return null
+
+	return (
+		<PromptInputProvider initialInput={input}>
+			<ControlledMultimodalInput className={className} />
+		</PromptInputProvider>
 	)
 }

@@ -5,11 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const NOT_FOUND_ERROR = "NEXT_NOT_FOUND"
 
-interface MockAuthFormProps {
-	mode: "login" | "register"
-	action: unknown
-}
-
 interface MockModel {
 	id: string
 	name: string
@@ -29,17 +24,6 @@ const mockRedirect = vi.fn()
 const mockNotFound = vi.fn(() => {
 	throw new Error(NOT_FOUND_ERROR)
 })
-
-const mockAuthForm = vi.fn((props: MockAuthFormProps) =>
-	React.createElement(
-		"div",
-		{ "data-testid": `auth-form-${props.mode}` },
-		`${props.mode} auth form`,
-	),
-)
-
-const mockLoginAction = vi.fn()
-const mockRegisterAction = vi.fn()
 const mockGetAppSession = vi.fn()
 const mockGetAvailableModels = vi.fn()
 const mockGetDefaultModel = vi.fn()
@@ -93,18 +77,6 @@ vi.mock("next/image", () => ({
 }))
 
 vi.mock("server-only", () => ({}))
-
-vi.mock("@/features/auth/actions/login", () => ({
-	login: (...args: unknown[]) => mockLoginAction(...args),
-}))
-
-vi.mock("@/features/auth/actions/register", () => ({
-	register: (...args: unknown[]) => mockRegisterAction(...args),
-}))
-
-vi.mock("@/features/auth/components/auth-form", () => ({
-	AuthForm: (props: MockAuthFormProps) => mockAuthForm(props),
-}))
 
 vi.mock("@/features/chat/components/chat-shell", () => ({
 	ChatShell: (props: MockChatShellProps) => mockChatShell(props),
@@ -212,34 +184,6 @@ describe("app pages render tests", () => {
 		)
 	})
 
-	it("renders the login page without throwing and shows the auth form", async () => {
-		const { default: LoginPage } = await import("@/app/(auth)/login/page")
-
-		const page = LoginPage()
-		const { container } = render(page as React.ReactElement)
-
-		expect(container).toBeDefined()
-		expect(screen.getByTestId("auth-form-login")).toBeInTheDocument()
-
-		const props = mockAuthForm.mock.calls.at(-1)?.[0] as MockAuthFormProps | undefined
-		expect(props?.mode).toBe("login")
-		expect(typeof props?.action).toBe("function")
-	})
-
-	it("renders the register page without throwing and shows the auth form", async () => {
-		const { default: RegisterPage } = await import("@/app/(auth)/register/page")
-
-		const page = RegisterPage()
-		const { container } = render(page as React.ReactElement)
-
-		expect(container).toBeDefined()
-		expect(screen.getByTestId("auth-form-register")).toBeInTheDocument()
-
-		const props = mockAuthForm.mock.calls.at(-1)?.[0] as MockAuthFormProps | undefined
-		expect(props?.mode).toBe("register")
-		expect(typeof props?.action).toBe("function")
-	})
-
 	it("renders the new chat page without throwing and shows core chat UI", async () => {
 		const { default: NewChatPage } = await import("@/app/(chat)/page")
 
@@ -293,6 +237,26 @@ describe("app pages render tests", () => {
 			availableModels: [{ id: "model-1", name: "Model 1" }],
 		})
 		expect(mockConvertToUIMessages).toHaveBeenCalled()
+	})
+
+	it("returns the private chat title in metadata when the session can read it", async () => {
+		const { generateMetadata } = await import("@/app/(chat)/chat/[id]/page")
+
+		const metadata = await generateMetadata({ params: Promise.resolve({ id: "chat-1" }) })
+
+		expect(metadata.title).toBe("Existing Chat")
+	})
+
+	it("returns a generic metadata title for unauthorized private chats", async () => {
+		const { generateMetadata } = await import("@/app/(chat)/chat/[id]/page")
+
+		mockGetAppSession.mockResolvedValue({
+			user: { id: "different-user", type: "authenticated" },
+		})
+
+		const metadata = await generateMetadata({ params: Promise.resolve({ id: "chat-1" }) })
+
+		expect(metadata.title).toBe("Chat")
 	})
 
 	it("calls notFound when existing chat does not exist", async () => {

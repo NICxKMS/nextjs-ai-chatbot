@@ -1,8 +1,8 @@
 import { and, eq } from "drizzle-orm"
 
+import { requireDatabaseRow, throwDatabaseError } from "@/lib/data/database-error"
 import { db } from "@/lib/db/client"
 import { votes } from "@/lib/db/schema"
-import { AppError } from "@/lib/errors/app-error"
 import type { Vote } from "@/lib/types/models.types"
 
 /**
@@ -15,12 +15,7 @@ export async function getVotesByChatId(chatId: string, userId: string): Promise<
 			.from(votes)
 			.where(and(eq(votes.chatId, chatId), eq(votes.userId, userId)))
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to get votes for chat",
-			{ chatId, cause: error },
-		)
+		throwDatabaseError(error, "Failed to get votes for chat", { chatId })
 	}
 }
 
@@ -42,23 +37,14 @@ export async function upsertVote(data: {
 				set: { isUpvoted: data.isUpvoted },
 			})
 			.returning()
-		if (!vote) {
-			throw AppError.internal(
-				"internal_error:database:query_failed",
-				"Vote upsert returned no rows",
-				{
-					chatId: data.chatId,
-					messageId: data.messageId,
-				},
-			)
-		}
-		return vote
-	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal("internal_error:database:query_failed", "Failed to upsert vote", {
+		return requireDatabaseRow(vote, "Vote upsert returned no rows", {
 			chatId: data.chatId,
 			messageId: data.messageId,
-			cause: error,
+		})
+	} catch (error) {
+		throwDatabaseError(error, "Failed to upsert vote", {
+			chatId: data.chatId,
+			messageId: data.messageId,
 		})
 	}
 }
@@ -73,11 +59,6 @@ export async function deleteVotesByChatId(chatId: string, userId: string): Promi
 	try {
 		await db.delete(votes).where(and(eq(votes.chatId, chatId), eq(votes.userId, userId)))
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to delete votes for chat",
-			{ chatId, cause: error },
-		)
+		throwDatabaseError(error, "Failed to delete votes for chat", { chatId })
 	}
 }

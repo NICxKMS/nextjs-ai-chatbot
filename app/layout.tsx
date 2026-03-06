@@ -37,6 +37,17 @@ async function SessionShell({ children }: { children: React.ReactNode }) {
 	)
 }
 
+function RootLayoutFallback() {
+	return (
+		<div className="flex min-h-svh items-center justify-center bg-background">
+			<div className="flex flex-col items-center gap-3">
+				<div className="size-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
+				<span className="text-muted-foreground text-sm">Loading app shell...</span>
+			</div>
+		</div>
+	)
+}
+
 // ── Root layout ────────────────────────────────────────────────
 // With cacheComponents enabled, dynamic APIs (cookies/headers) must be
 // accessed inside <Suspense> boundaries. The static shell (html, body,
@@ -62,7 +73,7 @@ export default function RootLayout({
 					disableTransitionOnChange
 				>
 					<MotionProvider>
-						<Suspense fallback={null}>
+						<Suspense fallback={<RootLayoutFallback />}>
 							<SessionShell>{children}</SessionShell>
 						</Suspense>
 					</MotionProvider>

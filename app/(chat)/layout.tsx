@@ -15,6 +15,28 @@ export const metadata: Metadata = {
 	},
 }
 
+function ChatLayoutFrame({
+	children,
+	defaultOpen,
+	sidebar,
+}: {
+	children: React.ReactNode
+	defaultOpen: boolean
+	sidebar: React.ReactNode
+}) {
+	return (
+		<SidebarProvider defaultOpen={defaultOpen}>
+			{sidebar}
+			<SidebarInset>{children}</SidebarInset>
+		</SidebarProvider>
+	)
+}
+
+async function getSidebarDefaultOpen() {
+	const cookieStore = await cookies()
+	return cookieStore.get("sidebar_state")?.value !== "false"
+}
+
 // ── Chat layout shell (async runtime APIs) ───────────────────
 // With cacheComponents enabled, cookies/session access must remain
 // inside a Suspense boundary.
@@ -23,16 +45,17 @@ async function ChatLayoutShell({ children }: { children: React.ReactNode }) {
 	// Pre-warm request-scoped session cache for child server components.
 	await getAppSession()
 
-	const cookieStore = await cookies()
-	const sidebarOpen = cookieStore.get("sidebar_state")?.value !== "false"
-
 	return (
-		<SidebarProvider defaultOpen={sidebarOpen}>
-			<Suspense fallback={<SidebarSkeleton />}>
-				<SidebarShell />
-			</Suspense>
-			<SidebarInset>{children}</SidebarInset>
-		</SidebarProvider>
+		<ChatLayoutFrame
+			defaultOpen={await getSidebarDefaultOpen()}
+			sidebar={
+				<Suspense fallback={<SidebarSkeleton />}>
+					<SidebarShell />
+				</Suspense>
+			}
+		>
+			{children}
+		</ChatLayoutFrame>
 	)
 }
 
@@ -42,10 +65,9 @@ async function ChatLayoutShell({ children }: { children: React.ReactNode }) {
 
 function ChatLayoutFallback({ children }: { children: React.ReactNode }) {
 	return (
-		<SidebarProvider defaultOpen>
-			<SidebarSkeleton />
-			<SidebarInset>{children}</SidebarInset>
-		</SidebarProvider>
+		<ChatLayoutFrame defaultOpen={true} sidebar={<SidebarSkeleton />}>
+			{children}
+		</ChatLayoutFrame>
 	)
 }
 

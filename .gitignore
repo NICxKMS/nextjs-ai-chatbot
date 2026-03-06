@@ -44,3 +44,4 @@ yarn-error.log*
 .next-docs
 oldapp/node_modules
 next-env.d.ts
+# .github

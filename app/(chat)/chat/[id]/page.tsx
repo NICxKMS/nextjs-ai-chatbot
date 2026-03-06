@@ -28,6 +28,41 @@ async function getCachedVotes(chatId: string, userId: string) {
 	return withCache(cacheKeys.votes(chatId), () => getVotesByChatId(chatId, userId), "seconds")
 }
 
+function getVisibleChat(
+	chat: Awaited<ReturnType<typeof getCachedChat>>,
+	session: Awaited<ReturnType<typeof getAppSession>>,
+) {
+	if (!chat) {
+		return null
+	}
+
+	if (chat.visibility === "private" && session?.user?.id !== chat.userId) {
+		return null
+	}
+
+	return chat
+}
+
+async function getChatPageState(chatId: string) {
+	const [session, chat] = await Promise.all([getAppSession(), getCachedChat(chatId)])
+
+	return {
+		session,
+		chat: getVisibleChat(chat, session),
+	}
+}
+
+function getVotesPromise(chatId: string, session: Awaited<ReturnType<typeof getAppSession>>) {
+	if (!session?.user || session.user.type === "guest") {
+		return Promise.resolve([] as Awaited<ReturnType<typeof getCachedVotes>>)
+	}
+
+	return getCachedVotes(chatId, session.user.id).catch((error: unknown) => {
+		console.error("[VoteResolver] Failed to fetch votes:", error)
+		return [] as Awaited<ReturnType<typeof getCachedVotes>>
+	})
+}
+
 // ── Metadata ─────────────────────────────────────────────────
 
 export async function generateMetadata({
@@ -36,7 +71,7 @@ export async function generateMetadata({
 	params: Promise<{ id: string }>
 }): Promise<Metadata> {
 	const { id } = await params
-	const chat = await getCachedChat(id)
+	const { chat } = await getChatPageState(id)
 	return { title: chat?.title ?? "Chat" }
 }
 
@@ -44,31 +79,18 @@ export async function generateMetadata({
 
 export default async function ExistingChatPage({ params }: { params: Promise<{ id: string }> }) {
 	const { id: chatId } = await params
-	const session = await getAppSession()
+	const chatPageStatePromise = getChatPageState(chatId)
+	const availableModelsPromise = getAvailableModels()
+	const { session, chat } = await chatPageStatePromise
 
-	// Start votes promise in parallel (non-blocking) — consumed by VoteResolver.
-	// Errors are caught to ensure vote fetch failures don't crash the page.
-	const votesPromise =
-		session?.user && session.user.type !== "guest"
-			? getCachedVotes(chatId, session.user.id).catch((error: unknown) => {
-					console.error("[VoteResolver] Failed to fetch votes:", error)
-					return [] as Awaited<ReturnType<typeof getCachedVotes>>
-				})
-			: Promise.resolve([] as Awaited<ReturnType<typeof getCachedVotes>>)
-
-	// Await chat separately for access control
-	const chat = await getCachedChat(chatId)
 	if (!chat) notFound()
 
-	// Private chats: only the owner can view
-	if (chat.visibility === "private" && session?.user?.id !== chat.userId) {
-		notFound()
-	}
+	const votesPromise = getVotesPromise(chatId, session)
 
 	// Fetch messages + models in parallel after access control passes
 	const [dbMessages, availableModels] = await Promise.all([
 		getMessagesByChatId(chatId),
-		getAvailableModels(),
+		availableModelsPromise,
 	])
 
 	const initialMessages = convertToUIMessages(dbMessages)

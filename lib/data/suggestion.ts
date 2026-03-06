@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm"
 
+import { throwDatabaseError } from "@/lib/data/database-error"
 import { db } from "@/lib/db/client"
 import { suggestions } from "@/lib/db/schema"
-import { AppError } from "@/lib/errors/app-error"
 import type { NewSuggestion, Suggestion } from "@/lib/types/models.types"
 
 /**
@@ -13,12 +13,7 @@ export async function getSuggestionsByArtifactId(artifactId: string): Promise<Su
 	try {
 		return await db.select().from(suggestions).where(eq(suggestions.artifactId, artifactId))
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to get suggestions for artifact",
-			{ artifactId, cause: error },
-		)
+		throwDatabaseError(error, "Failed to get suggestions for artifact", { artifactId })
 	}
 }
 
@@ -30,12 +25,7 @@ export async function saveSuggestions(data: NewSuggestion[]): Promise<Suggestion
 	try {
 		return await db.insert(suggestions).values(data).returning()
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to save suggestions",
-			{ count: data.length, cause: error },
-		)
+		throwDatabaseError(error, "Failed to save suggestions", { count: data.length })
 	}
 }
 
@@ -49,11 +39,6 @@ export async function deleteSuggestionsByArtifactId(artifactId: string): Promise
 	try {
 		await db.delete(suggestions).where(eq(suggestions.artifactId, artifactId))
 	} catch (error) {
-		if (error instanceof AppError) throw error
-		throw AppError.internal(
-			"internal_error:database:query_failed",
-			"Failed to delete suggestions for artifact",
-			{ artifactId, cause: error },
-		)
+		throwDatabaseError(error, "Failed to delete suggestions for artifact", { artifactId })
 	}
 }

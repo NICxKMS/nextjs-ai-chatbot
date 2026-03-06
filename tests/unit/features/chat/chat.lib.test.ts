@@ -356,6 +356,37 @@ describe("chat library utilities", () => {
 				content: 'Created artifact: "Design Spec"',
 			})
 		})
+
+		it("rejects blank handler output instead of persisting an empty artifact", async () => {
+			const chatStream = { writeData: vi.fn() }
+			const handler = {
+				create: vi.fn().mockResolvedValue(""),
+				update: vi.fn(),
+			}
+			mockGetArtifactHandler.mockReturnValue(handler)
+			mockGenerateUUID.mockReturnValue("artifact-uuid")
+
+			const toolConfig = asTool<{ title: string; kind: "text" | "code" | "sheet" }, unknown>(
+				createArtifactTool({
+					session: { userId: TEST_USER_ID, isGuest: false },
+					chatStream,
+					chatId: "chat-1",
+				}),
+			)
+
+			await expect(
+				toolConfig.execute({ title: "Design Spec", kind: "text" }),
+			).rejects.toMatchObject({
+				code: "ai_error:artifact:empty_output",
+				message: "Artifact create produced no content",
+			})
+
+			expect(mockSaveArtifactVersion).not.toHaveBeenCalled()
+			expect(chatStream.writeData).not.toHaveBeenNthCalledWith(5, {
+				type: "artifact-finish",
+				content: "",
+			})
+		})
 	})
 
 	describe("updateArtifactTool", () => {
@@ -438,7 +469,18 @@ describe("chat library utilities", () => {
 			})
 			const handler = {
 				create: vi.fn(),
-				update: vi.fn().mockResolvedValue("updated body"),
+				update: vi.fn().mockImplementation(async ({ chatStream: handlerStream }) => {
+					handlerStream.writeData({
+						type: "artifact-textDelta",
+						content: "\n\n",
+					})
+					handlerStream.writeData({
+						type: "artifact-textDelta",
+						content: "updated body",
+					})
+
+					return "\n\nupdated body"
+				}),
 			}
 			mockGetArtifactHandler.mockReturnValue(handler)
 			mockSaveArtifactVersion.mockResolvedValue(undefined)
@@ -455,19 +497,23 @@ describe("chat library utilities", () => {
 				description: "refresh tone",
 			})
 
-			expect(handler.update).toHaveBeenCalledWith({
-				id: "artifact-1",
-				title: "Doc",
-				kind: "text",
-				currentContent: "",
-				description: "refresh tone",
-				session: { userId: TEST_USER_ID, isGuest: false },
-				chatStream,
-			})
+			expect(handler.update).toHaveBeenCalledWith(
+				expect.objectContaining({
+					id: "artifact-1",
+					title: "Doc",
+					kind: "text",
+					currentContent: "",
+					description: "refresh tone",
+					session: { userId: TEST_USER_ID, isGuest: false },
+					chatStream: expect.objectContaining({
+						writeData: expect.any(Function),
+					}),
+				}),
+			)
 			expect(mockSaveArtifactVersion).toHaveBeenCalledWith({
 				id: "artifact-1",
 				title: "Doc",
-				content: "updated body",
+				content: "\n\nupdated body",
 				kind: "text",
 				userId: TEST_USER_ID,
 				chatId: "chat-1",
@@ -477,6 +523,10 @@ describe("chat library utilities", () => {
 				content: "",
 			})
 			expect(chatStream.writeData).toHaveBeenNthCalledWith(2, {
+				type: "artifact-textDelta",
+				content: "\n\nupdated body",
+			})
+			expect(chatStream.writeData).toHaveBeenNthCalledWith(3, {
 				type: "artifact-finish",
 				content: "",
 			})
@@ -486,6 +536,48 @@ describe("chat library utilities", () => {
 				kind: "text",
 				content: "The artifact has been updated successfully.",
 			})
+		})
+
+		it("rejects whitespace-only streamed update output without clearing the live artifact", async () => {
+			const chatStream = { writeData: vi.fn() }
+			mockGetArtifactById.mockResolvedValue({
+				id: "artifact-1",
+				title: "Doc",
+				kind: "text",
+				content: "existing",
+				userId: TEST_USER_ID,
+				chatId: "chat-1",
+				createdAt: new Date("2026-01-01T00:00:00Z"),
+			})
+			const handler = {
+				create: vi.fn(),
+				update: vi.fn().mockImplementation(async ({ chatStream: handlerStream }) => {
+					handlerStream.writeData({
+						type: "artifact-textDelta",
+						content: " \n\t",
+					})
+
+					return " \n\t"
+				}),
+			}
+			mockGetArtifactHandler.mockReturnValue(handler)
+
+			const toolConfig = asTool<{ id: string; description: string }, unknown>(
+				updateArtifactTool({
+					session: { userId: TEST_USER_ID, isGuest: false },
+					chatStream,
+				}),
+			)
+
+			await expect(
+				toolConfig.execute({ id: "artifact-1", description: "refresh tone" }),
+			).rejects.toMatchObject({
+				code: "ai_error:artifact:empty_output",
+				message: "Artifact update produced no content",
+			})
+
+			expect(mockSaveArtifactVersion).not.toHaveBeenCalled()
+			expect(chatStream.writeData).not.toHaveBeenCalled()
 		})
 	})
 

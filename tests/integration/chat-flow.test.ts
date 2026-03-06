@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { createMockChat } from "@/tests/fixtures/chat"
+import { createMockChat, createMockMessage } from "@/tests/fixtures/chat"
 import {
 	createMockSession,
 	createMockUserPair,
@@ -14,6 +14,8 @@ const JSON_HEADERS = {
 	"Content-Type": "application/json",
 	origin: "http://localhost",
 }
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // ── Module mocks ────────────────────────────────────────────
 
@@ -105,8 +107,8 @@ describe("Chat Flow — Integration Tests", () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 		mockGetMessagesByChatId.mockResolvedValue([])
-		mockSaveMessages.mockResolvedValue(undefined)
-		mockCreateChat.mockResolvedValue(undefined)
+		mockSaveMessages.mockResolvedValue([createMockMessage()])
+		mockCreateChat.mockResolvedValue(createMockChat())
 		mockIncr.mockResolvedValue(1)
 		mockExpire.mockResolvedValue(true)
 		mockEnsureGuestUser.mockResolvedValue(undefined)
@@ -155,34 +157,6 @@ describe("Chat Flow — Integration Tests", () => {
 
 			const json = await response.json()
 			expect(json.code).toBe("forbidden:api:csrf_failed")
-		})
-	})
-
-	describe("POST /api/chat — auth boundary", () => {
-		it("returns 401 when session is missing", async () => {
-			mockGetAppSession.mockResolvedValue(null)
-
-			const { POST } = await import("@/app/api/chat/route")
-			const request = new Request("http://localhost/api/chat", {
-				method: "POST",
-				headers: JSON_HEADERS,
-				body: JSON.stringify({
-					id: crypto.randomUUID(),
-					message: {
-						id: crypto.randomUUID(),
-						role: "user",
-						parts: [{ type: "text", text: "Hello" }],
-					},
-					selectedChatModel: "gpt-4o",
-					selectedVisibilityType: "private",
-				}),
-			})
-
-			const response = await POST(request)
-			expect(response.status).toBe(401)
-
-			const json = await response.json()
-			expect(json.code).toBe("unauthorized:chat:auth_required")
 		})
 	})
 
@@ -418,6 +392,69 @@ describe("Chat Flow — Integration Tests", () => {
 					model: "gpt-4o",
 					visibility: "private",
 				}),
+			)
+		})
+
+		it("persists streamed assistant messages with UUID ids", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+			mockGetChatById.mockResolvedValue(null)
+
+			const model = createMockTextModel("Hi!")
+			mockLanguageModel.mockReturnValue(model)
+
+			const chatId = crypto.randomUUID()
+			const userMessageId = crypto.randomUUID()
+
+			const { POST } = await import("@/app/api/chat/route")
+			const request = new Request("http://localhost/api/chat", {
+				method: "POST",
+				headers: JSON_HEADERS,
+				body: JSON.stringify({
+					id: chatId,
+					message: {
+						id: userMessageId,
+						role: "user",
+						parts: [{ type: "text", text: "Hello" }],
+					},
+					selectedChatModel: "gpt-4o",
+					selectedVisibilityType: "private",
+				}),
+			})
+
+			const response = await POST(request)
+			expect(response.status).toBe(200)
+
+			const reader = response.body?.getReader()
+			if (reader) {
+				while (true) {
+					const { done } = await reader.read()
+					if (done) {
+						break
+					}
+				}
+			}
+
+			expect(mockSaveMessages).toHaveBeenCalledTimes(1)
+
+			const [savedMessages] = mockSaveMessages.mock.calls.at(-1) as [
+				Array<{ id: string; role: string; chatId: string }>,
+			]
+
+			expect(savedMessages).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						id: userMessageId,
+						role: "user",
+						chatId,
+						attachments: [],
+					}),
+					expect.objectContaining({
+						role: "assistant",
+						chatId,
+						attachments: [],
+						id: expect.stringMatching(UUID_PATTERN),
+					}),
+				]),
 			)
 		})
 

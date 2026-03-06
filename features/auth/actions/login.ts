@@ -1,15 +1,16 @@
 "use server"
 
-import { cookies, headers } from "next/headers"
 import { redirect } from "next/navigation"
+
+import {
+	authServiceUnavailableResult,
+	enforceAuthRateLimit,
+	migrateGuestChatsAndClearToken,
+} from "@/features/auth/lib/action-utils"
 import { createSupabaseActionClient } from "@/features/auth/lib/supabase-action"
 import { loginSchema } from "@/features/auth/schemas/auth.schema"
 import type { AuthActionData } from "@/features/auth/types/auth.types"
-import { GUEST_COOKIE_NAME } from "@/lib/auth/constants"
-import { verifyGuestToken } from "@/lib/auth/guest"
-import { expire, incr } from "@/lib/cache/client"
 import { rateLimitKeys } from "@/lib/cache/keys"
-import { transferGuestChats } from "@/lib/data/chat"
 import { createUser, getUserById } from "@/lib/data/user"
 import type { ActionResult } from "@/lib/types/result.types"
 
@@ -48,35 +49,22 @@ export async function login(
 	}
 
 	// 2. Rate limit — 5 attempts/min per IP (graceful: skip if Redis unavailable)
-	const headerStore = await headers()
-	const ip = headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown"
-	const rateLimitKey = rateLimitKeys.rateLimitLogin(ip)
-	const count = await incr(rateLimitKey)
-	if (count !== null) {
-		if (count === 1) {
-			await expire(rateLimitKey, LOGIN_RATE_WINDOW_SECONDS)
-		}
-		if (count > LOGIN_RATE_LIMIT) {
-			return {
-				success: false,
-				error: {
-					code: "rate_limit:auth:login_too_many",
-					message: "Too many login attempts. Please try again later.",
-				},
-			}
-		}
+	const rateLimitResult = await enforceAuthRateLimit({
+		createKey: rateLimitKeys.rateLimitLogin,
+		limit: LOGIN_RATE_LIMIT,
+		windowSeconds: LOGIN_RATE_WINDOW_SECONDS,
+		errorCode: "rate_limit:auth:login_too_many",
+		errorMessage: "Too many login attempts. Please try again later.",
+	})
+
+	if (rateLimitResult) {
+		return rateLimitResult
 	}
 
 	// 3. Create Supabase action client
 	const supabase = await createSupabaseActionClient()
 	if (!supabase) {
-		return {
-			success: false,
-			error: {
-				code: "offline:api:service_unavailable",
-				message: "Auth service is unavailable",
-			},
-		}
+		return authServiceUnavailableResult()
 	}
 
 	// 4. Sign in with Supabase (sets auth cookies via setAll callback)
@@ -115,27 +103,7 @@ export async function login(
 	}
 
 	// 6. Migrate guest data + clear stale guest token
-	const cookieStore = await cookies()
-	const guestToken = cookieStore.get(GUEST_COOKIE_NAME)?.value
-	if (guestToken) {
-		// Best-effort migration — don't fail auth if migration fails
-		if (data.user) {
-			try {
-				const guest = await verifyGuestToken(guestToken)
-				if (guest) {
-					const count = await transferGuestChats(guest.userId, data.user.id)
-					if (count > 0) {
-						console.info(
-							`[login] Migrated ${count} guest chat(s) to user ${data.user.id}`,
-						)
-					}
-				}
-			} catch (migrationError) {
-				console.error("[login] Guest data migration failed:", migrationError)
-			}
-		}
-		cookieStore.delete(GUEST_COOKIE_NAME)
-	}
+	await migrateGuestChatsAndClearToken(data.user?.id, "login")
 
 	// 7. Redirect to home (throws NEXT_REDIRECT — must be outside try/catch)
 	redirect("/")

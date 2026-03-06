@@ -12,18 +12,28 @@ import { DEFAULT_SETTINGS } from "@/features/settings/types/settings.types"
 const STORAGE_KEY = "chat-settings"
 let state: SettingsState = DEFAULT_SETTINGS
 const listeners = new Set<() => void>()
+const partialSettingsSchema = settingsSchema.partial()
+
+function parseStoredSettings(value: string): SettingsState | null {
+	try {
+		const parsed = JSON.parse(value)
+		const result = settingsSchema.safeParse({ ...DEFAULT_SETTINGS, ...parsed })
+		return result.success ? result.data : null
+	} catch {
+		return null
+	}
+}
+
+function setState(nextState: SettingsState): void {
+	state = nextState
+	emitChange()
+}
 
 // Initialize from localStorage (client-only, runs once at module load)
 if (typeof window !== "undefined") {
-	try {
-		const stored = localStorage.getItem(STORAGE_KEY)
-		if (stored) {
-			const parsed = JSON.parse(stored)
-			const result = settingsSchema.safeParse({ ...DEFAULT_SETTINGS, ...parsed })
-			state = result.success ? result.data : DEFAULT_SETTINGS
-		}
-	} catch {
-		// Corrupted localStorage — fall back to defaults
+	const storedSettings = localStorage.getItem(STORAGE_KEY)
+	if (storedSettings) {
+		state = parseStoredSettings(storedSettings) ?? DEFAULT_SETTINGS
 	}
 }
 
@@ -36,19 +46,18 @@ function emitChange(): void {
 // ── Store API (public for non-React consumers) ─────────────
 
 function updateSettings(partial: Partial<SettingsState>): boolean {
-	const result = settingsSchema.partial().safeParse(partial)
+	const result = partialSettingsSchema.safeParse(partial)
 	if (!result.success) return false
 
-	state = { ...state, ...result.data }
-	localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-	emitChange()
+	const nextState = { ...state, ...result.data }
+	localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState))
+	setState(nextState)
 	return true
 }
 
 function resetSettings(): void {
-	state = DEFAULT_SETTINGS
 	localStorage.removeItem(STORAGE_KEY)
-	emitChange()
+	setState(DEFAULT_SETTINGS)
 }
 
 export const settingsStore = {
@@ -66,21 +75,15 @@ export const settingsStore = {
 		// Cross-tab sync via StorageEvent
 		const handler = (e: StorageEvent) => {
 			if (e.key !== STORAGE_KEY) return
-			if (e.newValue) {
-				try {
-					const parsed = JSON.parse(e.newValue)
-					const result = settingsSchema.safeParse({ ...DEFAULT_SETTINGS, ...parsed })
-					if (result.success) {
-						state = result.data
-						emitChange()
-					}
-				} catch {
-					// Ignore malformed data from other tabs
-				}
-			} else {
+			if (e.newValue === null) {
 				// Key was removed in another tab
-				state = DEFAULT_SETTINGS
-				emitChange()
+				setState(DEFAULT_SETTINGS)
+				return
+			}
+
+			const nextState = parseStoredSettings(e.newValue)
+			if (nextState) {
+				setState(nextState)
 			}
 		}
 		window.addEventListener("storage", handler)

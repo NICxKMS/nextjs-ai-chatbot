@@ -4,6 +4,47 @@ import type { ProviderV3 } from "@ai-sdk/provider"
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { createProviderRegistry } from "ai"
 
+type ProviderId = "google" | "openai" | "openrouter"
+
+type ProviderDefinition = {
+	envKey: string
+	registerWithoutEnv?: boolean
+	create(): ProviderV3
+}
+
+const PROVIDER_DEFINITIONS: Record<ProviderId, ProviderDefinition> = {
+	google: {
+		envKey: "GEMINI_API_KEY",
+		registerWithoutEnv: true,
+		create: () =>
+			createGoogleGenerativeAI({
+				apiKey: process.env.GEMINI_API_KEY,
+			}),
+	},
+	openai: {
+		envKey: "OPENAI_API_KEY",
+		create: () =>
+			createOpenAI({
+				apiKey: process.env.OPENAI_API_KEY,
+			}),
+	},
+	openrouter: {
+		envKey: "OPENROUTER_API_KEY",
+		create: () =>
+			createOpenRouter({
+				apiKey: process.env.OPENROUTER_API_KEY,
+			}),
+	},
+}
+
+function hasConfiguredProvider({ envKey }: ProviderDefinition): boolean {
+	return Boolean(process.env[envKey])
+}
+
+function getProviderEntries(): Array<[ProviderId, ProviderDefinition]> {
+	return Object.entries(PROVIDER_DEFINITIONS) as Array<[ProviderId, ProviderDefinition]>
+}
+
 /**
  * Builds the AI provider registry with conditional provider inclusion.
  *
@@ -17,23 +58,12 @@ import { createProviderRegistry } from "ai"
 function buildRegistry() {
 	const providers: Record<string, ProviderV3> = {}
 
-	// Google — always available (API key validated at model call time)
-	providers.google = createGoogleGenerativeAI({
-		apiKey: process.env.GEMINI_API_KEY,
-	})
+	for (const [providerId, definition] of getProviderEntries()) {
+		if (!definition.registerWithoutEnv && !hasConfiguredProvider(definition)) {
+			continue
+		}
 
-	// OpenAI — conditional on API key presence
-	if (process.env.OPENAI_API_KEY) {
-		providers.openai = createOpenAI({
-			apiKey: process.env.OPENAI_API_KEY,
-		})
-	}
-
-	// OpenRouter — conditional, uses native OpenRouter SDK for proper provider support
-	if (process.env.OPENROUTER_API_KEY) {
-		providers.openrouter = createOpenRouter({
-			apiKey: process.env.OPENROUTER_API_KEY,
-		})
+		providers[providerId] = definition.create()
 	}
 
 	return createProviderRegistry(providers)
@@ -43,29 +73,15 @@ function buildRegistry() {
 export const registry = buildRegistry()
 
 /**
- * Provider ID → required environment variable mapping.
- *
- * Used to determine which providers have their API keys configured.
- * Must stay in sync with the conditional logic in `buildRegistry()`.
- */
-const PROVIDER_ENV_KEYS: Record<string, string> = {
-	google: "GEMINI_API_KEY",
-	openai: "OPENAI_API_KEY",
-	openrouter: "OPENROUTER_API_KEY",
-}
-
-/**
  * Returns the set of provider IDs that have their required API key configured.
  *
  * Used by `getAvailableModels()` to filter the model catalog to only include
  * models whose provider is actually usable.
  */
 export function getAvailableProviderIds(): Set<string> {
-	const available = new Set<string>()
-	for (const [providerId, envVar] of Object.entries(PROVIDER_ENV_KEYS)) {
-		if (process.env[envVar]) {
-			available.add(providerId)
-		}
-	}
-	return available
+	return new Set(
+		getProviderEntries()
+			.filter(([, definition]) => hasConfiguredProvider(definition))
+			.map(([providerId]) => providerId),
+	)
 }

@@ -23,22 +23,32 @@ interface HealthResponse {
 /** High-latency threshold in milliseconds. */
 const LATENCY_THRESHOLD_MS = 1000
 
+function toErrorMessage(error: unknown, fallbackMessage: string) {
+	return error instanceof Error ? error.message : fallbackMessage
+}
+
+function createLatencyResult(latency: number, highLatencyMessage: string): CheckResult {
+	if (latency > LATENCY_THRESHOLD_MS) {
+		return { status: "degraded", latency, error: highLatencyMessage }
+	}
+
+	return { status: "healthy", latency }
+}
+
+function createFailureResult(error: unknown, fallbackMessage: string): CheckResult {
+	return {
+		status: "unhealthy",
+		error: toErrorMessage(error, fallbackMessage),
+	}
+}
+
 async function checkDatabase(): Promise<CheckResult> {
 	try {
 		const start = Date.now()
 		await db.execute(sql`SELECT 1`)
-		const latency = Date.now() - start
-
-		if (latency > LATENCY_THRESHOLD_MS) {
-			return { status: "degraded", latency, error: "High database latency" }
-		}
-
-		return { status: "healthy", latency }
+		return createLatencyResult(Date.now() - start, "High database latency")
 	} catch (error) {
-		return {
-			status: "unhealthy",
-			error: error instanceof Error ? error.message : "Database check failed",
-		}
+		return createFailureResult(error, "Database check failed")
 	}
 }
 
@@ -52,16 +62,9 @@ async function checkCache(): Promise<CheckResult> {
 			return { status: "degraded", error: "Cache not configured or unavailable" }
 		}
 
-		if (latency > LATENCY_THRESHOLD_MS) {
-			return { status: "degraded", latency, error: "High cache latency" }
-		}
-
-		return { status: "healthy", latency }
+		return createLatencyResult(latency, "High cache latency")
 	} catch (error) {
-		return {
-			status: "unhealthy",
-			error: error instanceof Error ? error.message : "Cache check failed",
-		}
+		return createFailureResult(error, "Cache check failed")
 	}
 }
 

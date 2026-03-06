@@ -1,6 +1,11 @@
 import { tool } from "ai"
 import { z } from "zod"
 
+import {
+	createDeferredArtifactClearWriter,
+	ensureArtifactContent,
+	writeArtifactFinish,
+} from "@/features/chat/lib/tools/artifact-tool-utils"
 import { getArtifactHandler } from "@/lib/ai/artifact-handlers"
 import { getArtifactById, saveArtifactVersion } from "@/lib/data/artifact"
 import { AppError } from "@/lib/errors/app-error"
@@ -45,7 +50,7 @@ export const updateArtifactTool = ({ session, chatStream }: UpdateArtifactToolPa
 				)
 			}
 
-			chatStream.writeData({ type: "artifact-clear", content: "" })
+			const updateStream = createDeferredArtifactClearWriter(chatStream)
 
 			// Delegate update to the registered handler
 			const handler = getArtifactHandler(artifact.kind)
@@ -56,20 +61,22 @@ export const updateArtifactTool = ({ session, chatStream }: UpdateArtifactToolPa
 				currentContent: artifact.content ?? "",
 				description,
 				session,
-				chatStream,
+				chatStream: updateStream,
 			})
+
+			const persistedContent = ensureArtifactContent(updatedContent, "update")
 
 			// Persist new artifact version
 			await saveArtifactVersion({
 				id,
 				title: artifact.title,
-				content: updatedContent,
+				content: persistedContent,
 				kind: artifact.kind,
 				userId: session.userId,
 				chatId: artifact.chatId,
 			})
 
-			chatStream.writeData({ type: "artifact-finish", content: "" })
+			writeArtifactFinish(chatStream)
 
 			return {
 				id,

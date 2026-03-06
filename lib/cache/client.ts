@@ -16,6 +16,16 @@ const globalForRedis = globalThis as unknown as {
 	__upstashRedis?: Redis
 }
 
+async function withRedisClient<T>(operation: (client: Redis) => Promise<T>): Promise<T | null> {
+	try {
+		const client = getClient()
+		if (!client) return null
+		return await operation(client)
+	} catch {
+		return null
+	}
+}
+
 function getClient(): Redis | null {
 	const url = process.env.CACHE_KV_REST_API_URL
 	const token = process.env.CACHE_KV_REST_API_TOKEN
@@ -33,35 +43,18 @@ function getClient(): Redis | null {
 
 /** Increment a key's integer value. Returns new value or null on failure. */
 export async function incr(key: string): Promise<number | null> {
-	try {
-		const client = getClient()
-		if (!client) return null
-		return await client.incr(key)
-	} catch {
-		return null
-	}
+	return withRedisClient((client) => client.incr(key))
 }
 
 /** Set a TTL (in seconds) on a key. Returns true/false or null on failure. */
 export async function expire(key: string, seconds: number): Promise<boolean | null> {
-	try {
-		const client = getClient()
-		if (!client) return null
-		// Upstash expire returns 0 | 1
+	return withRedisClient(async (client) => {
 		const result = await client.expire(key, seconds)
 		return result === 1
-	} catch {
-		return null
-	}
+	})
 }
 
 /** Ping the Redis server. Returns "PONG" or null on failure/missing config. */
 export async function ping(): Promise<string | null> {
-	try {
-		const client = getClient()
-		if (!client) return null
-		return await client.ping()
-	} catch {
-		return null
-	}
+	return withRedisClient((client) => client.ping())
 }
