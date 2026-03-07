@@ -14,6 +14,7 @@ import { Redis } from "@upstash/redis"
 // Singleton across HMR / warm container reuse
 const globalForRedis = globalThis as unknown as {
 	__upstashRedis?: Redis
+	__upstashRedisInitFailed?: boolean
 }
 
 async function withRedisClient<T>(operation: (client: Redis) => Promise<T>): Promise<T | null> {
@@ -34,11 +35,22 @@ function getClient(): Redis | null {
 		return null
 	}
 
-	if (!globalForRedis.__upstashRedis) {
-		globalForRedis.__upstashRedis = new Redis({ url, token })
+	if (globalForRedis.__upstashRedis) {
+		return globalForRedis.__upstashRedis
 	}
 
-	return globalForRedis.__upstashRedis
+	if (globalForRedis.__upstashRedisInitFailed) {
+		return null
+	}
+
+	try {
+		globalForRedis.__upstashRedis = new Redis({ url, token })
+		delete globalForRedis.__upstashRedisInitFailed
+		return globalForRedis.__upstashRedis
+	} catch {
+		globalForRedis.__upstashRedisInitFailed = true
+		return null
+	}
 }
 
 /** Increment a key's integer value. Returns new value or null on failure. */

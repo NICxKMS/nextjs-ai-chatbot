@@ -11,7 +11,7 @@ import type { AppSession } from "@/lib/auth/session"
 interface SessionContextValue {
 	/** Current session (authenticated or guest). Null if unauthenticated. */
 	session: AppSession | null
-	/** True during initial mount before the auth listener has settled. */
+	/** True while the current session state is unresolved. */
 	isLoading: boolean
 	/** True when the current session is a guest session. */
 	isGuest: boolean
@@ -21,9 +21,14 @@ const SessionContext = createContext<SessionContextValue | undefined>(undefined)
 
 // ── SessionProvider ────────────────────────────────────────────
 
+type SessionSource = AppSession | null | Promise<AppSession | null>
+
 interface SessionProviderProps {
-	/** Initial session resolved server-side via `getAppSession()`. */
-	session: AppSession | null
+	/**
+	 * Initial session resolved server-side via `getAppSession()`, or a promise that
+	 * was started in a server layout so the provider can stay mounted during suspense.
+	 */
+	session: SessionSource
 	children: ReactNode
 }
 
@@ -33,10 +38,19 @@ const SESSION_REFRESH_EVENTS = new Set<AuthChangeEvent>([
 	"TOKEN_REFRESHED",
 ])
 
+function isPromiseLike(session: SessionSource): session is Promise<AppSession | null> {
+	return (
+		typeof session === "object" &&
+		session !== null &&
+		"then" in session &&
+		typeof session.then === "function"
+	)
+}
+
 /**
  * Provides auth session state to all client components via React context.
  *
- * - Receives initial session from server component (layout.tsx)
+ * - Receives an initial session value or server-started promise from a shared layout
  * - Subscribes to Supabase `onAuthStateChange` for cross-tab login,
  *   logout, and token refresh events
  * - Calls `router.refresh()` on auth state changes to revalidate
@@ -46,16 +60,46 @@ const SESSION_REFRESH_EVENTS = new Set<AuthChangeEvent>([
  * **No client-side JWT minting.** Guest sessions are resolved entirely
  * server-side via proxy.ts cookie forwarding.
  */
-export function SessionProvider({ session: initialSession, children }: SessionProviderProps) {
+export function SessionProvider({ session: sessionSource, children }: SessionProviderProps) {
 	const router = useRouter()
-	const [session, setSession] = useState<AppSession | null>(initialSession)
-	const [isLoading, setIsLoading] = useState(true)
+	const [session, setSession] = useState<AppSession | null>(() =>
+		isPromiseLike(sessionSource) ? null : sessionSource,
+	)
+	const [isLoading, setIsLoading] = useState(() => isPromiseLike(sessionSource))
 
-	// Sync state when server re-renders with a new session prop
-	// (e.g., after router.refresh() revalidates the layout)
+	// Sync state when the server re-renders with a new session value or promise
+	// (for example after router.refresh() or a route transition).
 	useEffect(() => {
-		setSession(initialSession)
-	}, [initialSession])
+		let isActive = true
+
+		if (isPromiseLike(sessionSource)) {
+			setIsLoading(true)
+
+			void sessionSource.then(
+				(resolvedSession) => {
+					if (!isActive) return
+					setSession(resolvedSession)
+					setIsLoading(false)
+				},
+				() => {
+					if (!isActive) return
+					setSession(null)
+					setIsLoading(false)
+				},
+			)
+
+			return () => {
+				isActive = false
+			}
+		}
+
+		setSession(sessionSource)
+		setIsLoading(false)
+
+		return () => {
+			isActive = false
+		}
+	}, [sessionSource])
 
 	// Subscribe to Supabase auth state changes
 	useEffect(() => {
@@ -78,19 +122,15 @@ export function SessionProvider({ session: initialSession, children }: SessionPr
 				subscription.unsubscribe()
 			}
 		} catch {
-			setIsLoading(false)
 			return
 		}
-
-		// Auth listener is set up — no longer in initial loading state
-		setIsLoading(false)
 
 		return () => {
 			unsubscribe?.()
 		}
 	}, [router])
 
-	const isGuest = session?.user.type === "guest"
+	const isGuest = session?.user.type === "guest" || isLoading
 
 	const value = useMemo<SessionContextValue>(
 		() => ({ session, isLoading, isGuest }),
@@ -113,7 +153,7 @@ export function useSession(): SessionContextValue {
 	if (context === undefined) {
 		throw new Error(
 			"useSession must be used within a <SessionProvider>. " +
-				"Wrap your component tree with <SessionProvider> in your root layout.",
+				"Wrap your component tree with <SessionProvider> in a shared route layout.",
 		)
 	}
 

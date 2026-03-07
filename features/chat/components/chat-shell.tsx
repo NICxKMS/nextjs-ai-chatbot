@@ -13,6 +13,7 @@ import { useChatSession } from "@/features/chat/hooks/use-chat-session"
 import { ChatSessionContext } from "@/features/chat/hooks/use-chat-session-context"
 import { useChatSideEffects } from "@/features/chat/hooks/use-chat-side-effects"
 import type { VisibilityType } from "@/features/chat/types/chat.types"
+import { usePendingChats } from "@/lib/providers/pending-chats-provider"
 import type { UIArtifact } from "@/lib/types/artifact.types"
 import type { ModelMetadata } from "@/lib/types/model.types"
 
@@ -56,6 +57,8 @@ export function ChatShell({
 	availableModels,
 	initialQuery,
 }: ChatShellProps) {
+	const { add: addPendingChat, patch: patchPendingChat } = usePendingChats()
+
 	const session = useChatSession({
 		id,
 		initialMessages,
@@ -63,6 +66,10 @@ export function ChatShell({
 		isReadonly,
 		initialVisibility,
 		availableModels,
+		onNewChat: addPendingChat,
+		onTitleUpdate: (chatId, title) => {
+			patchPendingChat(chatId, { title })
+		},
 	})
 
 	useChatSideEffects({
@@ -99,7 +106,7 @@ export function ChatShell({
 				)}
 			</div>
 			<StreamBridge chatId={id} onArtifactDelta={handleArtifactDelta} />
-			<ArtifactPanel />
+			<ArtifactPanel chatId={id} />
 		</ChatSessionContext.Provider>
 	)
 }

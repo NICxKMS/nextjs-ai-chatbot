@@ -2,11 +2,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import type {
-	ArtifactStatus,
-	ArtifactSuggestion,
-	EditorSaveCallback,
-} from "@/features/artifacts/types/artifact.types"
+import type { ArtifactStatus, EditorSaveCallback } from "@/features/artifacts/types/artifact.types"
 
 const codeMirrorTestState = vi.hoisted(() => {
 	const pythonToken = { name: "python-language" }
@@ -200,7 +196,6 @@ type CodeEditorProps = {
 	status: ArtifactStatus
 	isCurrentVersion: boolean
 	currentVersionIndex: number
-	suggestions: ArtifactSuggestion[]
 }
 
 async function renderCodeEditor(props: CodeEditorProps) {
@@ -217,7 +212,6 @@ function createProps(overrides: Partial<CodeEditorProps> = {}): CodeEditorProps 
 		status: "idle",
 		isCurrentVersion: true,
 		currentVersionIndex: 0,
-		suggestions: [],
 		...overrides,
 	}
 }
@@ -348,8 +342,6 @@ describe("code-editor.tsx deep coverage", () => {
 	})
 
 	it("dispatches while streaming when status changes with unchanged content", async () => {
-		const initialSuggestions: CodeEditorProps["suggestions"] = []
-		const nextSuggestions: CodeEditorProps["suggestions"] = []
 		const baseProps = {
 			content: 'print("stream")',
 			onSaveContent: vi.fn(),
@@ -360,16 +352,14 @@ describe("code-editor.tsx deep coverage", () => {
 			"@/features/artifacts/components/editors/code-editor"
 		)
 
-		const { rerender } = render(
-			<Editor {...baseProps} status="idle" suggestions={initialSuggestions} />,
-		)
+		const { rerender } = render(<Editor {...baseProps} status="idle" />)
 
 		await waitFor(() => {
 			expect(screen.getByRole("button", { name: /run code/i })).toBeEnabled()
 		})
 
 		codeMirrorTestState.dispatchAnnotations.length = 0
-		rerender(<Editor {...baseProps} status="streaming" suggestions={nextSuggestions} />)
+		rerender(<Editor {...baseProps} status="streaming" />)
 
 		await waitFor(() => {
 			expect(codeMirrorTestState.dispatchAnnotations.length).toBeGreaterThan(0)

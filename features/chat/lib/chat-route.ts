@@ -15,15 +15,25 @@ import { type AppSession, getAppSession } from "@/lib/auth/session"
 import { expire, incr } from "@/lib/cache/client"
 import { rateLimitKeys } from "@/lib/cache/keys"
 import { refreshChat, refreshChatList } from "@/lib/cache/revalidate"
-import { createChat, getChatById, updateChatTitle } from "@/lib/data/chat"
-import { getMessagesByChatId, saveMessages } from "@/lib/data/message"
+import {
+	createChatWithInitialMessage,
+	getChatById,
+	saveMessagesAndTouchChat,
+} from "@/lib/data/chat"
+import { getMessagesForChatRender, saveMessages } from "@/lib/data/message"
 import { ensureGuestUser } from "@/lib/data/user"
 import { AppError } from "@/lib/errors/app-error"
 import type { ArtifactStreamWriter } from "@/lib/types/artifact-handler.types"
 import type { NewMessage } from "@/lib/types/models.types"
+import { generateUUID } from "@/lib/utils/generate-uuid"
 
 const CHAT_RATE_LIMIT = 20
 const CHAT_RATE_WINDOW_SECONDS = 60
+const CHAT_PERSISTENCE_RETRY_DELAYS_MS = [150, 400] as const
+const CHAT_PERSISTENCE_RECOVERY_MESSAGE =
+	"The last assistant response could not be saved. Please resend your last message or continue the conversation from here."
+export const CHAT_PERSISTENCE_FAILURE_SIGNAL =
+	"The assistant response was shown, but it could not be saved. Please copy anything you need and try again once storage recovers."
 
 type ChatRouteContext = {
 	chatId: string
@@ -47,6 +57,59 @@ function toUserMessage(message: ChatRequest["message"]): UIMessage {
 		role: "user",
 		parts: message.parts as UIMessage["parts"],
 	}
+}
+
+function toUserDbMessage(chatId: string, message: ChatRequest["message"]): NewMessage {
+	return {
+		id: message.id,
+		chatId,
+		role: "user",
+		parts: message.parts,
+		attachments: [],
+	}
+}
+
+function toAssistantDbMessages(chatId: string, messages: UIMessage[]): NewMessage[] {
+	return messages.map((message) => ({
+		id: message.id,
+		chatId,
+		role: message.role as NewMessage["role"],
+		parts: message.parts,
+		attachments: [],
+	}))
+}
+
+function createPersistenceRecoveryMessage(chatId: string): NewMessage {
+	return {
+		id: generateUUID(),
+		chatId,
+		role: "assistant",
+		parts: [{ type: "text", text: CHAT_PERSISTENCE_RECOVERY_MESSAGE }],
+		attachments: [],
+	}
+}
+
+async function waitForDelay(delayMs: number): Promise<void> {
+	await new Promise((resolve) => setTimeout(resolve, delayMs))
+}
+
+async function runWithPersistenceRetries(operation: () => Promise<void>): Promise<void> {
+	let lastError: unknown
+
+	for (const delayMs of [...CHAT_PERSISTENCE_RETRY_DELAYS_MS, -1]) {
+		try {
+			await operation()
+			return
+		} catch (error) {
+			lastError = error
+			if (delayMs === -1) {
+				break
+			}
+			await waitForDelay(delayMs)
+		}
+	}
+
+	throw lastError
 }
 
 export async function requireChatSession(): Promise<AppSession | Response> {
@@ -114,7 +177,10 @@ export async function resolveChatRouteContext({
 	const { id: chatId, message, selectedChatModel, selectedVisibilityType, settings } = requestData
 	const effectiveSettings = settings ?? DEFAULT_SETTINGS
 
-	const availableModels = await getAvailableModels()
+	const [availableModels, existingChat] = await Promise.all([
+		getAvailableModels(),
+		getChatById(chatId),
+	])
 	const modelMetadata = availableModels.find((model) => model.id === selectedChatModel)
 	if (!modelMetadata) {
 		return AppError.badRequest(
@@ -123,10 +189,12 @@ export async function resolveChatRouteContext({
 		).toResponse()
 	}
 
-	const existingChat = await getChatById(chatId)
 	if (existingChat && existingChat.userId !== session.user.id) {
 		return AppError.forbidden("forbidden:chat:owner_mismatch").toResponse()
 	}
+
+	const dbMessages = existingChat ? await getMessagesForChatRender(chatId) : []
+	const userDbMessage = toUserDbMessage(chatId, message)
 
 	const isNewChat = !existingChat
 	if (isNewChat) {
@@ -134,16 +202,17 @@ export async function resolveChatRouteContext({
 			await ensureGuestUser(session.user.id)
 		}
 
-		await createChat({
+		await createChatWithInitialMessage({
 			id: chatId,
 			userId: session.user.id,
 			title: "New Chat",
 			model: selectedChatModel,
 			visibility: selectedVisibilityType,
+			message: userDbMessage,
 		})
+	} else {
+		await saveMessages([userDbMessage])
 	}
-
-	const dbMessages = existingChat ? await getMessagesByChatId(chatId) : []
 
 	return {
 		chatId,
@@ -208,42 +277,57 @@ export function serializeUsage(usage: LanguageModelUsage): string {
 export async function persistChatResponse({
 	chatId,
 	userId,
-	userMessage,
 	responseMessages,
 	isNewChat,
 	generatedTitle,
 }: {
 	chatId: string
 	userId: string
-	userMessage: ChatRequest["message"]
 	responseMessages: UIMessage[]
 	isNewChat: boolean
 	generatedTitle?: string
 }) {
-	const userDbMessage: NewMessage = {
-		id: userMessage.id,
-		chatId,
-		role: "user",
-		parts: userMessage.parts,
-		attachments: [],
-	}
+	const assistantMessages = toAssistantDbMessages(chatId, responseMessages)
+	const title = isNewChat ? generatedTitle : undefined
 
-	const assistantMessages: NewMessage[] = responseMessages.map((message) => ({
-		id: message.id,
-		chatId,
-		role: message.role as NewMessage["role"],
-		parts: message.parts,
-		attachments: [],
-	}))
-
-	await saveMessages([userDbMessage, ...assistantMessages])
-
-	if (isNewChat && generatedTitle) {
-		await updateChatTitle(chatId, generatedTitle)
-	}
+	await runWithPersistenceRetries(() =>
+		saveMessagesAndTouchChat({
+			chatId,
+			messages: assistantMessages,
+			title,
+		}),
+	)
 
 	refreshChat(chatId)
 	refreshChatList(userId)
+}
+
+export async function recoverChatPersistenceFailure({
+	chatId,
+	userId,
+	isNewChat,
+	generatedTitle,
+}: {
+	chatId: string
+	userId: string
+	isNewChat: boolean
+	generatedTitle?: string
+}): Promise<boolean> {
+	try {
+		await runWithPersistenceRetries(() =>
+			saveMessagesAndTouchChat({
+				chatId,
+				messages: [createPersistenceRecoveryMessage(chatId)],
+				title: isNewChat ? generatedTitle : undefined,
+			}),
+		)
+
+		refreshChat(chatId)
+		refreshChatList(userId)
+		return true
+	} catch {
+		return false
+	}
 }
 
 export function logChatPersistenceFailure({

@@ -23,12 +23,12 @@ import {
 	SidebarMenuSub,
 	SidebarMenuSubButton,
 	SidebarMenuSubItem,
-	SidebarProvider,
-	SidebarRail,
+	SidebarProvider as SidebarProviderFromBarrel,
 	SidebarSeparator,
 	SidebarTrigger,
-	useSidebar,
+	useSidebar as useSidebarFromBarrel,
 } from "@/components/ui/sidebar"
+import { SidebarProvider, useSidebar } from "@/components/ui/sidebar-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 function clearSidebarCookie() {
@@ -71,6 +71,11 @@ beforeEach(() => {
 })
 
 describe("sidebar.tsx deep coverage", () => {
+	it("keeps the compatibility barrel exports aligned with the provider entry", () => {
+		expect(SidebarProviderFromBarrel).toBe(SidebarProvider)
+		expect(useSidebarFromBarrel).toBe(useSidebar)
+	})
+
 	it("throws when useSidebar is used outside SidebarProvider", () => {
 		function InvalidConsumer() {
 			useSidebar()
@@ -82,7 +87,7 @@ describe("sidebar.tsx deep coverage", () => {
 		)
 	})
 
-	it("hydrates from cookie and persists state changes via trigger, rail, and keyboard shortcut", async () => {
+	it("hydrates from cookie and persists state changes via trigger and keyboard shortcut", async () => {
 		// biome-ignore lint/suspicious/noDocumentCookie: test controls hydration cookie
 		document.cookie = "sidebar_state=false;path=/"
 		const triggerClick = vi.fn()
@@ -94,7 +99,6 @@ describe("sidebar.tsx deep coverage", () => {
 						<SidebarTrigger onClick={triggerClick} />
 					</SidebarHeader>
 					<SidebarContent>Links</SidebarContent>
-					<SidebarRail />
 				</Sidebar>
 			</SidebarProvider>,
 		)
@@ -117,7 +121,7 @@ describe("sidebar.tsx deep coverage", () => {
 		})
 		expect(document.cookie).toContain("sidebar_state=true")
 
-		fireEvent.click(screen.getByTitle("Toggle Sidebar"))
+		fireEvent.click(trigger)
 		await waitFor(() => {
 			expect(container.querySelector('[data-state="collapsed"]')).toBeInTheDocument()
 		})

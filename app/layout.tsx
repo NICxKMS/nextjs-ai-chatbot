@@ -1,13 +1,9 @@
 import { GeistMono } from "geist/font/mono"
 import { GeistSans } from "geist/font/sans"
 import type { Metadata, Viewport } from "next"
-import { Suspense } from "react"
-import { MotionProvider } from "@/components/motion-provider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/toaster"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { SessionProvider } from "@/features/auth/components/session-provider"
-import { getAppSession } from "@/lib/auth/session"
 
 import "@/app/globals.css"
 
@@ -26,33 +22,10 @@ export const viewport: Viewport = {
 	initialScale: 1,
 }
 
-// ── Session shell (async, accesses cookies → must be inside Suspense) ──
-
-async function SessionShell({ children }: { children: React.ReactNode }) {
-	const session = await getAppSession()
-	return (
-		<SessionProvider session={session}>
-			<TooltipProvider delayDuration={0}>{children}</TooltipProvider>
-		</SessionProvider>
-	)
-}
-
-function RootLayoutFallback() {
-	return (
-		<div className="flex min-h-svh items-center justify-center bg-background">
-			<div className="flex flex-col items-center gap-3">
-				<div className="size-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
-				<span className="text-muted-foreground text-sm">Loading app shell...</span>
-			</div>
-		</div>
-	)
-}
-
 // ── Root layout ────────────────────────────────────────────────
-// With cacheComponents enabled, dynamic APIs (cookies/headers) must be
-// accessed inside <Suspense> boundaries. The static shell (html, body,
-// ThemeProvider) prerenders immediately; session-dependent content streams
-// once cookies resolve at request time.
+// Keep the root shell static so unmatched URLs and non-chat routes are not
+// blocked behind auth-cookie work. Chat routes start session resolution in
+// their own layout and reuse the same request-scoped server cache there.
 
 export default function RootLayout({
 	children,
@@ -72,11 +45,7 @@ export default function RootLayout({
 					enableSystem
 					disableTransitionOnChange
 				>
-					<MotionProvider>
-						<Suspense fallback={<RootLayoutFallback />}>
-							<SessionShell>{children}</SessionShell>
-						</Suspense>
-					</MotionProvider>
+					<TooltipProvider delayDuration={0}>{children}</TooltipProvider>
 					<Toaster />
 				</ThemeProvider>
 			</body>

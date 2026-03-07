@@ -27,9 +27,6 @@ const updateArtifactSchema = z.object({
 })
 
 // ── Tool factory ─────────────────────────────────────────────
-// Stub implementation for P3 — full handler integration completes in P4.
-// The schema and wiring are production-ready; only the execute body
-// will gain full handler dispatch once artifact handlers are registered.
 
 export const updateArtifactTool = ({ session, chatStream }: UpdateArtifactToolParams) =>
 	tool({

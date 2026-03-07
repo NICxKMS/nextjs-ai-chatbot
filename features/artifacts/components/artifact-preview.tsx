@@ -270,13 +270,12 @@ function PreviewContent({
 		isCurrentVersion: true,
 		currentVersionIndex: 0,
 		status,
-		suggestions: [],
 	}
 
 	return (
 		<div className={containerClassName}>
 			{kind === "text" ? (
-				<TextEditor {...commonProps} onSaveContent={noopSaveContent} />
+				<TextEditor {...commonProps} onSaveContent={noopSaveContent} suggestions={[]} />
 			) : kind === "code" ? (
 				<div className="relative flex w-full flex-1">
 					<div className="absolute inset-0">
@@ -324,9 +323,8 @@ function PureArtifactPreview({ result, args }: ArtifactPreviewProps) {
 	const kind = (result?.kind ?? args?.kind ?? "text") as ArtifactKind
 	const title = result?.title ?? args?.title ?? ""
 
-	// Fetch artifact versions from API when we have a result with an ID
 	const { data: versions, isLoading } = useSWR<ArtifactVersionData[]>(
-		result?.id ? `/api/artifact?id=${result.id}` : null,
+		result?.id ? `/api/artifact?id=${result.id}&view=latest` : null,
 		artifactFetcher,
 	)
 

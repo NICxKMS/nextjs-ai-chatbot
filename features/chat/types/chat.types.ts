@@ -1,5 +1,4 @@
 import type { ChatStatus, FileUIPart, LanguageModelUsage, UIMessage } from "ai"
-import type { Dispatch, SetStateAction } from "react"
 
 import type { ArtifactKind, ArtifactSuggestion } from "@/lib/types/artifact.types"
 import type { ModelMetadata } from "@/lib/types/model.types"
@@ -16,23 +15,9 @@ export type { ArtifactSuggestion } from "@/lib/types/artifact.types"
 // Aliased as VisibilityType for domain clarity in chat contexts.
 export type VisibilityType = Visibility
 
-// ── File attachment (UI concept, not an SDK type) ────────────
-// Represents a pending file attachment on the chat input before
-// it is embedded in a message. The AI SDK does not export this type.
-
-export interface Attachment {
-	/** Display name of the file */
-	name: string
-	/** Data URL or upload URL */
-	url: string
-	/** MIME type (e.g., "image/png") */
-	contentType: string
-}
-
 // ── ChatSessionContext value ─────────────────────────────────
 // Contract for ChatSessionContext (P3-T08). The useChatSession hook (P3-T11)
 // bridges between useChat's return type and this interface.
-// 18 canonical fields per P3-T05 spec.
 
 export interface ChatSessionValue {
 	/** Current chat UUID */
@@ -51,13 +36,9 @@ export interface ChatSessionValue {
 	input: string
 	/** Update the input text */
 	setInput: (input: string) => void
-	/** Pending file attachments */
-	attachments: Attachment[]
-	/** Update pending file attachments */
-	setAttachments: Dispatch<SetStateAction<Attachment[]>>
-	/** Submit the current input + attachments as a new message.
+	/** Submit the current input as a new message.
 	 *  Optionally pass content string to bypass input state (avoids stale closure).
-	 *  When `files` is provided, those are sent directly instead of reading from attachments state. */
+	 *  When `files` is provided, those are sent with the message. */
 	sendMessage: (
 		contentOrEvent?: string | { preventDefault?: () => void },
 		files?: FileUIPart[],

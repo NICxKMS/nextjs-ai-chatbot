@@ -428,12 +428,16 @@ The following cross-feature implementation imports are intentionally allowed bey
 |--------|------|----|-----------|
 | `artifactStore` | `features/artifacts/lib/artifact-store.ts` | `features/chat/components/stream-bridge.tsx` | Single mediation point for stream→artifact state |
 | `useSettings()` | `features/settings/hooks/use-settings.ts` | `features/chat/hooks/use-chat-session.ts` | Settings affect chat behavior (temperature, reasoning) |
+| `useSettings()` | `features/settings/hooks/use-settings.ts` | `features/chat/components/context-display.tsx` | UI composition — context popover shows live runtime settings |
 | `VoteButtons` | `features/voting/components/vote-buttons.tsx` | `features/chat/components/message.tsx` | UI composition — voting is per-message |
 | `VisibilitySelector` | `features/visibility/components/visibility-selector.tsx` | `features/chat/components/chat-header.tsx` | UI composition — visibility is per-chat |
 | `ModelSelector` | `features/models/components/model-selector.tsx` | `features/chat/components/chat-header.tsx` | UI composition — model selection is per-chat |
+| `ModelSelector` | `features/models/components/model-selector.tsx` | `features/chat/components/multimodal-input.tsx` | UI composition — compact model switcher is colocated with message submit controls |
+| `getAvailableModels()` | `features/models/lib/models.ts` | `features/chat/lib/chat-route.ts` | Server orchestration validates the selected model and tool availability against the live catalog |
 | `ArtifactPreview` | `features/artifacts/components/artifact-preview.tsx` | `features/chat/components/message.tsx` | UI composition — inline artifact preview in messages <!-- Wave 4: CONF-035 --> |
 | `ArtifactToolResult` | `features/artifacts/components/artifact-tool-result.tsx` | `features/chat/components/message.tsx` | UI composition — tool call result card for artifacts <!-- Wave 4: CONF-035 --> |
 | `deleteChat`, `deleteAllChats` | `features/chat/actions/delete-chat.ts`, `delete-all-chats.ts` | `features/sidebar/components/sidebar-history-item.tsx` | Sidebar triggers chat deletion; annotated consumer |
+| `deleteAllChats` | `features/chat/actions/delete-all-chats.ts` | `features/sidebar/components/sidebar-header-actions.tsx` | Sidebar header owns the delete-all confirmation flow |
 | `updateChatVisibility` | `features/visibility/actions/update-visibility.ts` | `features/sidebar/components/sidebar-history-item.tsx` | Sidebar triggers visibility change via Share submenu; annotated consumer |
 | `useChatVisibility` | `features/visibility/hooks/use-chat-visibility.ts` | `features/sidebar/components/sidebar-history-item.tsx` | Sidebar reads/updates per-chat visibility state; direct hook import per oldapp pattern <!-- W4-CYCLE1: SOFT-007 fix --> |
 

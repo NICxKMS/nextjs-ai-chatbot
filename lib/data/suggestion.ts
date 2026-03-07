@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 
 import { throwDatabaseError } from "@/lib/data/database-error"
 import { db } from "@/lib/db/client"
@@ -6,14 +6,27 @@ import { suggestions } from "@/lib/db/schema"
 import type { NewSuggestion, Suggestion } from "@/lib/types/models.types"
 
 /**
- * Get all suggestions for an artifact by its ID.
- * Uses artifactId (NOT documentId).
+ * Get all suggestions for a specific artifact version.
  */
-export async function getSuggestionsByArtifactId(artifactId: string): Promise<Suggestion[]> {
+export async function getSuggestionsByArtifactVersion(
+	artifactId: string,
+	artifactCreatedAt: Date,
+): Promise<Suggestion[]> {
 	try {
-		return await db.select().from(suggestions).where(eq(suggestions.artifactId, artifactId))
+		return await db
+			.select()
+			.from(suggestions)
+			.where(
+				and(
+					eq(suggestions.artifactId, artifactId),
+					eq(suggestions.artifactCreatedAt, artifactCreatedAt),
+				),
+			)
 	} catch (error) {
-		throwDatabaseError(error, "Failed to get suggestions for artifact", { artifactId })
+		throwDatabaseError(error, "Failed to get suggestions for artifact version", {
+			artifactId,
+			artifactCreatedAt: artifactCreatedAt.toISOString(),
+		})
 	}
 }
 
@@ -28,17 +41,29 @@ export async function saveSuggestions(data: NewSuggestion[]): Promise<Suggestion
 		throwDatabaseError(error, "Failed to save suggestions", { count: data.length })
 	}
 }
-
 /**
- * Delete all suggestions for an artifact by its ID.
+ * Delete all suggestions for a specific artifact version.
  *
  * @unused Retained for targeted suggestion cleanup without
  * removing the parent artifact.
  */
-export async function deleteSuggestionsByArtifactId(artifactId: string): Promise<void> {
+export async function deleteSuggestionsByArtifactVersion(
+	artifactId: string,
+	artifactCreatedAt: Date,
+): Promise<void> {
 	try {
-		await db.delete(suggestions).where(eq(suggestions.artifactId, artifactId))
+		await db
+			.delete(suggestions)
+			.where(
+				and(
+					eq(suggestions.artifactId, artifactId),
+					eq(suggestions.artifactCreatedAt, artifactCreatedAt),
+				),
+			)
 	} catch (error) {
-		throwDatabaseError(error, "Failed to delete suggestions for artifact", { artifactId })
+		throwDatabaseError(error, "Failed to delete suggestions for artifact version", {
+			artifactId,
+			artifactCreatedAt: artifactCreatedAt.toISOString(),
+		})
 	}
 }

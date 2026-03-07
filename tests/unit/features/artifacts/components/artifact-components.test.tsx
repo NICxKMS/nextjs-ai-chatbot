@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { UIArtifact } from "@/lib/types/artifact.types"
 import { createMockArtifact } from "@/tests/fixtures/artifact"
+
+vi.mock("react-data-grid/lib/styles.css", () => ({}))
 
 const testState = vi.hoisted(() => ({
 	artifact: {
@@ -49,6 +51,18 @@ vi.mock("framer-motion", async () => {
 	)
 
 	return {
+		MotionConfig: ({
+			children,
+			reducedMotion,
+		}: {
+			children?: React.ReactNode
+			reducedMotion?: string
+		}) =>
+			ReactModule.createElement(
+				"div",
+				{ "data-testid": "motion-config", "data-reduced-motion": reducedMotion ?? "" },
+				children,
+			),
 		motion,
 		AnimatePresence: ({ children }: { children?: React.ReactNode }) =>
 			ReactModule.createElement(ReactModule.Fragment, null, children),
@@ -99,12 +113,6 @@ vi.mock("@/features/artifacts/hooks/use-artifact", () => ({
 vi.mock("@/features/artifacts/hooks/use-artifact-selector", () => ({
 	useArtifactSelector: <T,>(selector: (artifact: UIArtifact) => T): T =>
 		selector(testState.artifact as UIArtifact),
-}))
-
-vi.mock("@/features/chat/hooks/use-chat-session-context", () => ({
-	useChatSessionContext: () => ({
-		chatId: "chat-1",
-	}),
 }))
 
 vi.mock("next-themes", () => ({
@@ -627,8 +635,9 @@ describe("artifact-panel.tsx", () => {
 			mutate: vi.fn(),
 		})
 
-		render(<ArtifactPanel />)
+		render(<ArtifactPanel chatId="chat-1" />)
 
+		expect(screen.getByTestId("motion-config")).toHaveAttribute("data-reduced-motion", "user")
 		expect(screen.getByTestId("artifact-panel")).toBeInTheDocument()
 		expect(screen.getByText("Panel Artifact")).toBeInTheDocument()
 	})
@@ -640,7 +649,7 @@ describe("artifact-panel.tsx", () => {
 			status: "idle",
 		}
 
-		render(<ArtifactPanel />)
+		render(<ArtifactPanel chatId="chat-1" />)
 
 		expect(screen.queryByTestId("artifact-panel")).not.toBeInTheDocument()
 	})
@@ -652,7 +661,7 @@ describe("artifact-panel.tsx", () => {
 			isVisible: true,
 		}
 
-		render(<ArtifactPanel />)
+		render(<ArtifactPanel chatId="chat-1" />)
 
 		expect(screen.getByText(/unsupported artifact kind/i)).toBeInTheDocument()
 	})
@@ -684,7 +693,7 @@ describe("artifact-panel.tsx", () => {
 			mutate: vi.fn(),
 		})
 
-		render(<ArtifactPanel />)
+		render(<ArtifactPanel chatId="chat-1" />)
 
 		expect(testState.mockSetArtifact).toHaveBeenCalled()
 		const updater = testState.mockSetArtifact.mock.calls.at(-1)?.[0] as
@@ -706,7 +715,7 @@ describe("artifact-panel.tsx", () => {
 			mutate: vi.fn(),
 		})
 
-		render(<ArtifactPanel />)
+		render(<ArtifactPanel chatId="chat-1" />)
 
 		expect(testState.mockUseSWR).toHaveBeenCalledWith(
 			expect.anything(),
@@ -725,7 +734,102 @@ describe("artifact-panel.tsx", () => {
 			id: "artifact-v2",
 			title: "Panel Artifact",
 		})
+		const savedArtifact = createMockArtifact({
+			content: "updated content",
+			createdAt: new Date("2026-01-03T00:00:00Z"),
+			id: version.id,
+			title: "Panel Artifact",
+		})
 		const mutate = vi.fn().mockResolvedValue(undefined)
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: vi.fn().mockResolvedValue({ artifact: savedArtifact }),
+		})
+		const originalFetch = globalThis.fetch
+		globalThis.fetch = fetchMock as unknown as typeof fetch
+
+		testState.artifact = {
+			...testState.artifact,
+			content: "initial",
+			kind: "text",
+			title: "Panel Artifact",
+		}
+
+		testState.mockUseSWR.mockReturnValue({
+			data: [version],
+			isLoading: false,
+			mutate,
+		})
+
+		try {
+			render(<ArtifactPanel chatId="chat-1" />)
+
+			const editorProps = testState.dynamicEditorProps.at(-1) as
+				| {
+						onSaveContent?: (
+							content: string,
+							options?: { debounce?: boolean },
+						) => Promise<void>
+				  }
+				| undefined
+
+			if (!editorProps?.onSaveContent) {
+				throw new Error("Expected dynamic editor to receive onSaveContent")
+			}
+
+			await act(async () => {
+				await editorProps.onSaveContent?.("updated content", { debounce: false })
+			})
+
+			await waitFor(() => {
+				expect(fetchMock).toHaveBeenCalledWith(
+					"/api/artifact",
+					expect.objectContaining({
+						method: "POST",
+					}),
+				)
+			})
+
+			const requestInit = fetchMock.mock.calls[0]?.[1] as { body?: string }
+			expect(requestInit.body).toBeDefined()
+			if (!requestInit.body) {
+				throw new Error("Expected request body")
+			}
+
+			const payload = JSON.parse(requestInit.body) as {
+				content: string
+				mode: string
+			}
+			expect(payload.mode).toBe("save")
+			expect(payload.content).toBe("updated content")
+
+			await waitFor(() => {
+				expect(mutate).toHaveBeenCalledWith(expect.any(Function), { revalidate: false })
+			})
+
+			const updater = mutate.mock.calls[0]?.[0] as
+				| ((versions: unknown[]) => unknown[])
+				| undefined
+
+			if (!updater) {
+				throw new Error("Expected SWR mutate updater")
+			}
+
+			expect(updater([version])).toEqual([savedArtifact, version])
+		} finally {
+			globalThis.fetch = originalFetch
+		}
+	})
+
+	it("shows unsaved changes before the debounced save request starts", async () => {
+		vi.useFakeTimers()
+
+		const version = createMockArtifact({
+			content: "initial",
+			createdAt: new Date("2026-01-02T00:00:00Z"),
+			id: "artifact-v2",
+			title: "Panel Artifact",
+		})
 		const fetchMock = vi.fn().mockResolvedValue({ ok: true })
 		const originalFetch = globalThis.fetch
 		globalThis.fetch = fetchMock as unknown as typeof fetch
@@ -740,18 +844,15 @@ describe("artifact-panel.tsx", () => {
 		testState.mockUseSWR.mockReturnValue({
 			data: [version],
 			isLoading: false,
-			mutate,
+			mutate: vi.fn(),
 		})
 
 		try {
-			render(<ArtifactPanel />)
+			render(<ArtifactPanel chatId="chat-1" />)
 
 			const editorProps = testState.dynamicEditorProps.at(-1) as
 				| {
-						onSaveContent?: (
-							content: string,
-							options?: { debounce?: boolean },
-						) => Promise<void>
+						onSaveContent?: (content: string, options?: { debounce?: boolean }) => void
 				  }
 				| undefined
 
@@ -759,42 +860,43 @@ describe("artifact-panel.tsx", () => {
 				throw new Error("Expected dynamic editor to receive onSaveContent")
 			}
 
-			await editorProps.onSaveContent("updated content", { debounce: false })
+			act(() => {
+				editorProps.onSaveContent?.("updated content")
+			})
 
-			expect(fetchMock).toHaveBeenCalledWith(
-				"/api/artifact",
-				expect.objectContaining({
-					method: "POST",
-				}),
-			)
-
-			const requestInit = fetchMock.mock.calls[0]?.[1] as { body?: string }
-			expect(requestInit.body).toBeDefined()
-			if (!requestInit.body) {
-				throw new Error("Expected request body")
-			}
-
-			const payload = JSON.parse(requestInit.body) as {
-				content: string
-				mode: string
-			}
-			expect(payload.mode).toBe("save")
-			expect(payload.content).toBe("updated content")
-			expect(mutate).toHaveBeenCalled()
+			expect(screen.getByText("Unsaved changes")).toBeInTheDocument()
+			expect(screen.queryByText("Saving changes…")).not.toBeInTheDocument()
+			expect(fetchMock).not.toHaveBeenCalled()
 		} finally {
 			globalThis.fetch = originalFetch
+			vi.useRealTimers()
 		}
 	})
 
-	it("keeps the dirty state when a save request fails", async () => {
+	it("surfaces save failures and retries the last edited content", async () => {
 		const version = createMockArtifact({
 			content: "initial",
 			createdAt: new Date("2026-01-02T00:00:00Z"),
 			id: "artifact-v2",
 			title: "Panel Artifact",
 		})
+		const savedArtifact = createMockArtifact({
+			content: "updated content",
+			createdAt: new Date("2026-01-03T00:00:00Z"),
+			id: version.id,
+			title: "Panel Artifact",
+		})
 		const mutate = vi.fn().mockResolvedValue(undefined)
-		const fetchMock = vi.fn().mockResolvedValue({ ok: false })
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce({
+				ok: false,
+				json: vi.fn().mockResolvedValue({ message: "Save failed on server" }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: vi.fn().mockResolvedValue({ artifact: savedArtifact }),
+			})
 		const originalFetch = globalThis.fetch
 		globalThis.fetch = fetchMock as unknown as typeof fetch
 
@@ -812,7 +914,7 @@ describe("artifact-panel.tsx", () => {
 		})
 
 		try {
-			render(<ArtifactPanel />)
+			render(<ArtifactPanel chatId="chat-1" />)
 
 			const editorProps = testState.dynamicEditorProps.at(-1) as
 				| {
@@ -827,12 +929,34 @@ describe("artifact-panel.tsx", () => {
 				throw new Error("Expected dynamic editor to receive onSaveContent")
 			}
 
-			await editorProps.onSaveContent("updated content", { debounce: false })
+			await act(async () => {
+				await editorProps.onSaveContent?.("updated content", { debounce: false })
+			})
 
 			await waitFor(() => {
-				expect(screen.getByText("Saving changes…")).toBeInTheDocument()
+				expect(screen.getByText("Save failed on server")).toBeInTheDocument()
 			})
+			expect(testState.mockToastError).toHaveBeenCalledWith("Save failed on server")
 			expect(mutate).not.toHaveBeenCalled()
+
+			fireEvent.click(screen.getByRole("button", { name: "Retry save" }))
+
+			await waitFor(() => {
+				expect(fetchMock).toHaveBeenCalledTimes(2)
+			})
+
+			const retryRequestInit = fetchMock.mock.calls[1]?.[1] as { body?: string }
+			expect(retryRequestInit.body).toBeDefined()
+			if (!retryRequestInit.body) {
+				throw new Error("Expected retry request body")
+			}
+
+			const retryPayload = JSON.parse(retryRequestInit.body) as { content: string }
+			expect(retryPayload.content).toBe("updated content")
+
+			await waitFor(() => {
+				expect(mutate).toHaveBeenCalledWith(expect.any(Function), { revalidate: false })
+			})
 		} finally {
 			globalThis.fetch = originalFetch
 		}
@@ -910,7 +1034,6 @@ describe("code-editor.tsx", () => {
 				currentVersionIndex={0}
 				isCurrentVersion={true}
 				onSaveContent={vi.fn()}
-				suggestions={[]}
 				status="idle"
 			/>,
 		)

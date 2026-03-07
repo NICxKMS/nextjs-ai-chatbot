@@ -1,4 +1,37 @@
-import { expect, test } from "@playwright/test"
+import { expect, type Page, test } from "@playwright/test"
+import { ARTIFACT_E2E_COOKIE_NAME } from "@/features/chat/lib/e2e-artifact-fixture-cookie"
+import { gotoIsolatedGuestHome, toCookie } from "./session-helpers"
+
+const TOOL_CAPABLE_MODEL_ID = "google:gemini-2.5-flash-lite"
+const MODEL_COOKIE_NAME = "chat-model"
+
+async function bootstrapToolCapableModel(page: Page) {
+	await gotoIsolatedGuestHome(page, [
+		toCookie(MODEL_COOKIE_NAME, TOOL_CAPABLE_MODEL_ID),
+		toCookie(ARTIFACT_E2E_COOKIE_NAME, "1"),
+	])
+	await expect(page.getByTestId("multimodal-input")).toBeVisible({ timeout: 15000 })
+}
+
+async function sendArtifactPrompt(page: Page, prompt: string) {
+	const requestPromise = page.waitForRequest(
+		(request) => request.method() === "POST" && request.url().includes("/api/chat"),
+	)
+
+	const input = page.getByTestId("multimodal-input")
+	await input.fill(prompt)
+	await page.getByTestId("send-button").click()
+
+	const request = await requestPromise
+	const payload = request.postDataJSON() as { selectedChatModel?: string }
+	await expect(payload.selectedChatModel).toBe(TOOL_CAPABLE_MODEL_ID)
+}
+
+async function closeArtifactPanel(page: Page) {
+	await expect(page.getByTestId("send-button")).toBeVisible({ timeout: 60000 })
+	await page.getByTestId("artifact-close-button").click()
+	await expect(page.getByTestId("artifact-panel")).not.toBeVisible({ timeout: 15000 })
+}
 
 // ── Artifact E2E Tests ───────────────────────────────────────
 // Covers: AI creates text artifact (panel opens), code artifact
@@ -8,18 +41,15 @@ import { expect, test } from "@playwright/test"
 
 test.describe("Artifacts", () => {
 	test.beforeEach(async ({ page }) => {
-		// Navigate to home page — guest session is auto-bootstrapped
-		await page.goto("/")
-		await expect(page.getByTestId("multimodal-input")).toBeVisible()
+		await bootstrapToolCapableModel(page)
 	})
 
 	test.describe("Text Artifact", () => {
 		test("should open artifact panel when AI creates a text artifact", async ({ page }) => {
-			const input = page.getByTestId("multimodal-input")
-
-			// Request the AI to create a text artifact
-			await input.fill("Help me write an essay about Silicon Valley")
-			await page.getByTestId("send-button").click()
+			await sendArtifactPrompt(
+				page,
+				"Create a text artifact titled 'Silicon Valley Essay' with at least 12 lines about Silicon Valley. Use the artifact panel instead of replying inline.",
+			)
 
 			// Wait for the artifact panel to open
 			const artifactPanel = page.getByTestId("artifact-panel")
@@ -27,10 +57,10 @@ test.describe("Artifacts", () => {
 		})
 
 		test("should display artifact content in the editor", async ({ page }) => {
-			const input = page.getByTestId("multimodal-input")
-
-			await input.fill("Write a short paragraph about TypeScript")
-			await page.getByTestId("send-button").click()
+			await sendArtifactPrompt(
+				page,
+				"Create a text artifact titled 'TypeScript Overview' with at least 12 lines explaining TypeScript and why teams adopt it. Use the artifact panel.",
+			)
 
 			// Wait for artifact panel
 			const artifactPanel = page.getByTestId("artifact-panel")
@@ -43,13 +73,10 @@ test.describe("Artifacts", () => {
 
 	test.describe("Code Artifact", () => {
 		test("should open artifact panel with CodeMirror for code artifacts", async ({ page }) => {
-			const input = page.getByTestId("multimodal-input")
-
-			// Request the AI to create a code artifact
-			await input.fill(
-				"Create a Python function that calculates fibonacci numbers recursively",
+			await sendArtifactPrompt(
+				page,
+				"Create a code artifact titled 'fibonacci.py' containing a recursive Python fibonacci function that prints the first 8 Fibonacci numbers. Use the artifact panel.",
 			)
-			await page.getByTestId("send-button").click()
 
 			// Wait for the artifact panel to open
 			const artifactPanel = page.getByTestId("artifact-panel")
@@ -64,11 +91,11 @@ test.describe("Artifacts", () => {
 
 	test.describe("Version Navigation", () => {
 		test("should navigate between artifact versions", async ({ page }) => {
-			const input = page.getByTestId("multimodal-input")
-
 			// Create initial artifact
-			await input.fill("Write a haiku about programming")
-			await page.getByTestId("send-button").click()
+			await sendArtifactPrompt(
+				page,
+				"Create a text artifact titled 'Programming Haiku' with a multi-line haiku sequence about programming. Use the artifact panel.",
+			)
 
 			// Wait for artifact panel
 			const artifactPanel = page.getByTestId("artifact-panel")
@@ -76,10 +103,13 @@ test.describe("Artifacts", () => {
 
 			// Wait for streaming to complete (send button reappears)
 			await expect(page.getByTestId("send-button")).toBeVisible({ timeout: 30000 })
+			await closeArtifactPanel(page)
 
 			// Ask for an update to create a new version
-			await input.fill("Make the haiku about debugging instead")
-			await page.getByTestId("send-button").click()
+			await sendArtifactPrompt(
+				page,
+				"Update the current artifact so the haiku sequence is about debugging instead of programming. Rewrite the artifact in the panel.",
+			)
 
 			// Wait for the update to complete
 			await expect(page.getByTestId("send-button")).toBeVisible({ timeout: 60000 })
@@ -100,38 +130,33 @@ test.describe("Artifacts", () => {
 
 	test.describe("Close Panel", () => {
 		test("should close the artifact panel", async ({ page }) => {
-			const input = page.getByTestId("multimodal-input")
-
 			// Create an artifact
-			await input.fill("Write a short poem about clouds")
-			await page.getByTestId("send-button").click()
+			await sendArtifactPrompt(
+				page,
+				"Create a text artifact titled 'Cloud Poem' with at least 12 lines about clouds. Use the artifact panel.",
+			)
 
 			// Wait for artifact panel
 			const artifactPanel = page.getByTestId("artifact-panel")
 			await expect(artifactPanel).toBeVisible({ timeout: 60000 })
 
 			// Close the artifact panel
-			const closeButton = page.getByTestId("artifact-close-button")
-			await closeButton.click()
-
-			// Artifact panel should be hidden
-			await expect(artifactPanel).not.toBeVisible()
+			await closeArtifactPanel(page)
 		})
 
 		test("should reopen artifact by clicking on it in chat", async ({ page }) => {
-			const input = page.getByTestId("multimodal-input")
-
 			// Create an artifact
-			await input.fill("Write a limerick about JavaScript")
-			await page.getByTestId("send-button").click()
+			await sendArtifactPrompt(
+				page,
+				"Create a text artifact titled 'JavaScript Limerick' with a limerick about JavaScript. Use the artifact panel.",
+			)
 
 			// Wait for artifact panel
 			const artifactPanel = page.getByTestId("artifact-panel")
 			await expect(artifactPanel).toBeVisible({ timeout: 60000 })
 
 			// Close the artifact panel
-			await page.getByTestId("artifact-close-button").click()
-			await expect(artifactPanel).not.toBeVisible()
+			await closeArtifactPanel(page)
 
 			// Click on the artifact reference in the chat to reopen
 			// Artifact references render as preview hitboxes with an accessible button label.

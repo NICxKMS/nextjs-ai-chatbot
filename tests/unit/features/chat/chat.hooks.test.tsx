@@ -23,7 +23,7 @@ type MockUseChatConfig = {
 const mockUseChat = vi.fn()
 const mockDeleteTrailingMessages = vi.fn()
 const mockSetChatStream = vi.fn()
-const mockUseSettings = vi.fn()
+const mockUseSettingsSelector = vi.fn()
 const mockToastError = vi.fn()
 const mockGenerateUUID = vi.fn(() => "generated-id")
 
@@ -40,7 +40,8 @@ vi.mock("@/features/chat/components/chat-stream-provider", () => ({
 }))
 
 vi.mock("@/features/settings/hooks/use-settings", () => ({
-	useSettings: () => mockUseSettings(),
+	useSettingsSelector: (selector: (settings: typeof settingsValue) => unknown) =>
+		mockUseSettingsSelector(selector),
 }))
 
 vi.mock("@/lib/utils/generate-uuid", () => ({
@@ -112,7 +113,9 @@ describe("chat hooks", () => {
 			contextDisplayMode: "compact",
 		}
 
-		mockUseSettings.mockImplementation(() => settingsValue)
+		mockUseSettingsSelector.mockImplementation(
+			(selector: (settings: typeof settingsValue) => unknown) => selector(settingsValue),
+		)
 
 		mockUseChat.mockImplementation((config: MockUseChatConfig) => {
 			latestUseChatConfig = config
@@ -131,7 +134,7 @@ describe("chat hooks", () => {
 	})
 
 	describe("useChatSession", () => {
-		it("sends a trimmed message, maps attachments, and notifies on new chat", () => {
+		it("sends a trimmed message and notifies on new chat", () => {
 			const onNewChat = vi.fn()
 
 			const { result } = renderHook(() =>
@@ -144,30 +147,13 @@ describe("chat hooks", () => {
 
 			act(() => {
 				result.current.setInput("  hello world  ")
-				result.current.setAttachments([
-					{
-						name: "notes.txt",
-						url: "https://example.com/notes.txt",
-						contentType: "text/plain",
-					},
-				])
 			})
 
 			act(() => {
 				result.current.sendMessage()
 			})
 
-			expect(mockSdkSendMessage).toHaveBeenCalledWith({
-				text: "hello world",
-				files: [
-					{
-						type: "file",
-						mediaType: "text/plain",
-						url: "https://example.com/notes.txt",
-						filename: "notes.txt",
-					},
-				],
-			})
+			expect(mockSdkSendMessage).toHaveBeenCalledWith({ text: "hello world" })
 			expect(onNewChat).toHaveBeenCalledWith(
 				expect.objectContaining({
 					id: "chat-1",
@@ -177,7 +163,6 @@ describe("chat hooks", () => {
 				}),
 			)
 			expect(result.current.input).toBe("")
-			expect(result.current.attachments).toEqual([])
 			expect(result.current.usage).toBeUndefined()
 		})
 
@@ -272,6 +257,21 @@ describe("chat hooks", () => {
 				expect.objectContaining({
 					totalTokens: 15,
 				}),
+			)
+		})
+
+		it("shows explicit in-band stream errors as toasts", () => {
+			renderHook(() => useChatSession(createParams()))
+
+			act(() => {
+				latestUseChatConfig?.onData?.({
+					type: "data-error",
+					data: "The assistant response was shown, but it could not be saved.",
+				})
+			})
+
+			expect(mockToastError).toHaveBeenCalledWith(
+				"The assistant response was shown, but it could not be saved.",
 			)
 		})
 
@@ -370,8 +370,6 @@ describe("chat hooks", () => {
 				status: "ready",
 				input: "",
 				setInput: vi.fn(),
-				attachments: [],
-				setAttachments: vi.fn(),
 				sendMessage: vi.fn(),
 				stop: vi.fn(),
 				appendMessage: vi.fn(),

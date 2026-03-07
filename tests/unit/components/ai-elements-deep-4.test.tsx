@@ -145,10 +145,18 @@ vi.mock("@/components/ui/hover-card", () => ({
 vi.mock("@/components/ui/dropdown-menu", () => ({
 	DropdownMenu: ({
 		children,
+		defaultOpen,
+		modal,
+		onOpenChange,
+		open,
 		...props
 	}: {
 		children?: React.ReactNode
+		defaultOpen?: boolean
 		[key: string]: unknown
+		modal?: boolean
+		onOpenChange?: (open: boolean) => void
+		open?: boolean
 	}) => React.createElement("div", props, children),
 	DropdownMenuTrigger: ({
 		asChild,
@@ -231,8 +239,24 @@ vi.mock("@/components/ui/tooltip", () => ({
 }))
 
 vi.mock("@/components/ui/command", () => ({
-	Command: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) =>
-		React.createElement("div", props, children),
+	Command: ({
+		children,
+		onValueChange,
+		shouldFilter,
+		value,
+		...props
+	}: {
+		children?: React.ReactNode
+		onValueChange?: (value: string) => void
+		shouldFilter?: boolean
+		value?: string
+		[key: string]: unknown
+	}) => {
+		void onValueChange
+		void shouldFilter
+		void value
+		return React.createElement("div", props, children)
+	},
 	CommandInput: (props: React.ComponentProps<"input">) => React.createElement("input", props),
 	CommandList: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) =>
 		React.createElement("div", props, children),
@@ -243,8 +267,27 @@ vi.mock("@/components/ui/command", () => ({
 		children?: React.ReactNode
 		[key: string]: unknown
 	}) => React.createElement("div", props, children),
-	CommandItem: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) =>
-		React.createElement("button", { type: "button", ...props }, children),
+	CommandItem: ({
+		children,
+		onSelect,
+		value,
+		...props
+	}: {
+		children?: React.ReactNode
+		onSelect?: (value: string) => void
+		value?: string
+		[key: string]: unknown
+	}) =>
+		React.createElement(
+			"button",
+			{
+				"data-value": value,
+				onClick: () => onSelect?.(value ?? ""),
+				type: "button",
+				...props,
+			},
+			children,
+		),
 	CommandEmpty: ({
 		children,
 		...props
@@ -256,8 +299,30 @@ vi.mock("@/components/ui/command", () => ({
 }))
 
 vi.mock("@/components/ui/select", () => ({
-	Select: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) =>
-		React.createElement("div", props, children),
+	Select: ({
+		children,
+		defaultValue,
+		onOpenChange,
+		onValueChange,
+		open,
+		value,
+		...props
+	}: {
+		children?: React.ReactNode
+		defaultValue?: string
+		onOpenChange?: (open: boolean) => void
+		onValueChange?: (value: string) => void
+		open?: boolean
+		value?: string
+		[key: string]: unknown
+	}) => {
+		void defaultValue
+		void onOpenChange
+		void onValueChange
+		void open
+		void value
+		return React.createElement("div", props, children)
+	},
 	SelectTrigger: ({
 		children,
 		...props
@@ -272,8 +337,16 @@ vi.mock("@/components/ui/select", () => ({
 		children?: React.ReactNode
 		[key: string]: unknown
 	}) => React.createElement("div", props, children),
-	SelectItem: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) =>
-		React.createElement("button", { type: "button", ...props }, children),
+	SelectItem: ({
+		children,
+		value,
+		...props
+	}: {
+		children?: React.ReactNode
+		value?: string
+		[key: string]: unknown
+	}) =>
+		React.createElement("button", { "data-value": value, type: "button", ...props }, children),
 	SelectValue: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) =>
 		React.createElement("span", props, children),
 }))
@@ -284,12 +357,17 @@ vi.mock("@/components/ui/spinner", () => ({
 
 vi.mock("media-chrome/react", () => ({
 	MediaController: ({
+		audio,
 		children,
 		...props
 	}: {
+		audio?: boolean
 		children?: React.ReactNode
 		[key: string]: unknown
-	}) => React.createElement("div", props, children),
+	}) => {
+		void audio
+		return React.createElement("div", props, children)
+	},
 	MediaControlBar: ({
 		children,
 		...props

@@ -13,7 +13,7 @@ const SUGGESTED_ACTIONS = [
 ] as const
 
 function PureSuggestedActions() {
-	const { chatId, sendMessage } = useChatSessionContext()
+	const { sendMessage } = useChatSessionContext()
 
 	return (
 		<div className="grid w-full gap-2 sm:grid-cols-2" data-testid="suggested-actions">
@@ -21,10 +21,7 @@ function PureSuggestedActions() {
 				<Suggestion
 					className="h-auto w-full whitespace-normal p-3 text-left"
 					key={action}
-					onClick={(suggestion) => {
-						window.history.replaceState({}, "", `/chat/${chatId}`)
-						sendMessage(suggestion)
-					}}
+					onClick={sendMessage}
 					suggestion={action}
 				>
 					{action}

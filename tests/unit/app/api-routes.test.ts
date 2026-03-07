@@ -11,13 +11,16 @@ vi.mock("@/lib/auth/session", () => ({
 }))
 
 const mockGetArtifactById = vi.fn()
+const mockGetArtifactByIdAndCreatedAt = vi.fn()
 vi.mock("@/lib/data/artifact", () => ({
 	getArtifactById: (...args: unknown[]) => mockGetArtifactById(...args),
+	getArtifactByIdAndCreatedAt: (...args: unknown[]) => mockGetArtifactByIdAndCreatedAt(...args),
 }))
 
-const mockGetSuggestionsByArtifactId = vi.fn()
+const mockGetSuggestionsByArtifactVersion = vi.fn()
 vi.mock("@/lib/data/suggestion", () => ({
-	getSuggestionsByArtifactId: (...args: unknown[]) => mockGetSuggestionsByArtifactId(...args),
+	getSuggestionsByArtifactVersion: (...args: unknown[]) =>
+		mockGetSuggestionsByArtifactVersion(...args),
 }))
 
 describe("API routes", () => {
@@ -69,10 +72,25 @@ describe("API routes", () => {
 			const body = await response.json()
 			expect(body).toEqual({ suggestions: [] })
 			expect(mockGetArtifactById).not.toHaveBeenCalled()
-			expect(mockGetSuggestionsByArtifactId).not.toHaveBeenCalled()
+			expect(mockGetArtifactByIdAndCreatedAt).not.toHaveBeenCalled()
+			expect(mockGetSuggestionsByArtifactVersion).not.toHaveBeenCalled()
 		})
 
-		it("returns 200 with suggestions for a valid owned artifact", async () => {
+		it("returns 400 when artifactCreatedAt query parameter is invalid", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+
+			const { GET } = await import("@/app/api/suggestions/route")
+			const request = new Request(
+				`http://localhost/api/suggestions?artifactId=${crypto.randomUUID()}&artifactCreatedAt=not-a-timestamp`,
+			)
+			const response = await GET(request)
+
+			expect(response.status).toBe(400)
+			const body = await response.json()
+			expect(body.code).toBe("bad_request:validation:invalid_input")
+		})
+
+		it("returns 200 with suggestions for the latest owned artifact version when no artifactCreatedAt is provided", async () => {
 			const artifactId = crypto.randomUUID()
 			const artifact = createMockArtifact({ id: artifactId, userId: TEST_USER_ID })
 			const suggestions = [
@@ -91,7 +109,7 @@ describe("API routes", () => {
 
 			mockGetAppSession.mockResolvedValue(createMockSession())
 			mockGetArtifactById.mockResolvedValue(artifact)
-			mockGetSuggestionsByArtifactId.mockResolvedValue(suggestions)
+			mockGetSuggestionsByArtifactVersion.mockResolvedValue(suggestions)
 
 			const { GET } = await import("@/app/api/suggestions/route")
 			const request = new Request(`http://localhost/api/suggestions?artifactId=${artifactId}`)
@@ -101,7 +119,60 @@ describe("API routes", () => {
 			const body = await response.json()
 			expect(body.suggestions).toHaveLength(1)
 			expect(body.suggestions[0]?.suggestedText).toBe("better text")
-			expect(mockGetSuggestionsByArtifactId).toHaveBeenCalledWith(artifactId)
+			expect(mockGetArtifactById).toHaveBeenCalledWith(artifactId)
+			expect(mockGetSuggestionsByArtifactVersion).toHaveBeenCalledWith(
+				artifactId,
+				artifact.createdAt,
+			)
+		})
+
+		it("returns 200 with suggestions for the requested owned artifact version", async () => {
+			const artifactId = crypto.randomUUID()
+			const artifactCreatedAt = new Date("2026-01-02T00:00:00Z")
+			const artifact = createMockArtifact({
+				id: artifactId,
+				userId: TEST_USER_ID,
+				createdAt: artifactCreatedAt,
+				updatedAt: artifactCreatedAt,
+			})
+			const suggestions = [
+				{
+					id: crypto.randomUUID(),
+					artifactId,
+					artifactCreatedAt,
+					originalText: "older text",
+					suggestedText: "version specific text",
+					description: "Target the requested version",
+					isResolved: false,
+					userId: TEST_USER_ID,
+					createdAt: new Date("2026-01-02T00:30:00Z"),
+				},
+			]
+
+			mockGetAppSession.mockResolvedValue(createMockSession())
+			mockGetArtifactByIdAndCreatedAt.mockResolvedValue(artifact)
+			mockGetSuggestionsByArtifactVersion.mockResolvedValue(suggestions)
+
+			const { GET } = await import("@/app/api/suggestions/route")
+			const request = new Request(
+				`http://localhost/api/suggestions?artifactId=${artifactId}&artifactCreatedAt=${encodeURIComponent(
+					artifactCreatedAt.toISOString(),
+				)}`,
+			)
+			const response = await GET(request)
+
+			expect(response.status).toBe(200)
+			const body = await response.json()
+			expect(body.suggestions).toHaveLength(1)
+			expect(body.suggestions[0]?.suggestedText).toBe("version specific text")
+			expect(mockGetArtifactByIdAndCreatedAt).toHaveBeenCalledWith(
+				artifactId,
+				artifactCreatedAt,
+			)
+			expect(mockGetSuggestionsByArtifactVersion).toHaveBeenCalledWith(
+				artifactId,
+				artifactCreatedAt,
+			)
 		})
 	})
 })

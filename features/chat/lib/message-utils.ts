@@ -2,13 +2,15 @@ import type { UIMessage } from "ai"
 
 import type { Message } from "@/lib/types/models.types"
 
+type UIMessageSource = Pick<Message, "id" | "role" | "parts">
+
 /**
- * Convert DB messages to the AI SDK `UIMessage[]` format.
+ * Convert persisted chat messages to the AI SDK `UIMessage[]` format.
  *
  * Maps `role` and `parts` with type assertions — safe because the DB schema
  * stores these fields in the same shape that `UIMessage` expects.
  */
-export function convertToUIMessages(dbMessages: Message[]): UIMessage[] {
+export function convertToUIMessages(dbMessages: UIMessageSource[]): UIMessage[] {
 	return dbMessages.map((msg) => ({
 		id: msg.id,
 		role: msg.role as UIMessage["role"],

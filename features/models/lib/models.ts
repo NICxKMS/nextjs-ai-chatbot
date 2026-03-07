@@ -56,7 +56,10 @@ export async function getAvailableModels(): Promise<ModelMetadata[]> {
  *
  * The `session` parameter is reserved for future user-level model preferences.
  */
-export async function getDefaultModel(_session: AppSession | null): Promise<string> {
+export async function getDefaultModel(
+	_session: AppSession | null,
+	availableModels?: readonly ModelMetadata[] | Promise<readonly ModelMetadata[]>,
+): Promise<string> {
 	const cookieStore = await cookies()
 	const preferred = cookieStore.get(MODEL_COOKIE_NAME)?.value
 
@@ -64,6 +67,6 @@ export async function getDefaultModel(_session: AppSession | null): Promise<stri
 		return DEFAULT_CHAT_MODEL
 	}
 
-	const models = await getAvailableModels()
+	const models = await (availableModels ?? getAvailableModels())
 	return models.some((model) => model.id === preferred) ? preferred : DEFAULT_CHAT_MODEL
 }

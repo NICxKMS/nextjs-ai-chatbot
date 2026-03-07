@@ -40,7 +40,7 @@ describe("useVotes", () => {
 		const { result } = renderHook(() => useVotes("chat-1", initialVotes))
 
 		expect(result.current.votes).toEqual(initialVotes)
-		expect(result.current.isPending).toBe(false)
+		expect(result.current).not.toHaveProperty("isPending")
 	})
 
 	it("applies optimistic vote updates and calls the server action", async () => {

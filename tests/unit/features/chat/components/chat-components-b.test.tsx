@@ -209,8 +209,6 @@ function createChatSessionValue(overrides: Partial<ChatSessionValue> = {}): Chat
 		status: "ready",
 		input: "",
 		setInput: vi.fn(),
-		attachments: [],
-		setAttachments: vi.fn() as unknown as ChatSessionValue["setAttachments"],
 		sendMessage: vi.fn(),
 		stop: vi.fn(),
 		appendMessage: vi.fn(),

@@ -5,11 +5,7 @@ import type { EditorView } from "@codemirror/view"
 import { memo, useCallback, useEffect, useRef, useState } from "react"
 import { CrossSmallIcon, LoaderIcon, PlayIcon, TerminalWindowIcon } from "@/components/icons"
 import { Button } from "@/components/ui/button"
-import type {
-	ArtifactStatus,
-	ArtifactSuggestion,
-	EditorSaveCallback,
-} from "@/features/artifacts/types/artifact.types"
+import type { ArtifactStatus, EditorSaveCallback } from "@/features/artifacts/types/artifact.types"
 import { cn } from "@/lib/utils/cn"
 
 // ── CodeMirror lazy-loaded modules ──────────────────────────
@@ -322,7 +318,6 @@ type CodeEditorProps = {
 	status: ArtifactStatus
 	isCurrentVersion: boolean
 	currentVersionIndex: number
-	suggestions: ArtifactSuggestion[]
 }
 
 // ── Run ID generator ────────────────────────────────────────
@@ -425,7 +420,7 @@ function PureCodeEditor({ content, onSaveContent, status, isCurrentVersion }: Co
 
 	// Sync streaming content via EditorView.dispatch
 	useEffect(() => {
-		if (!modules || !editorRef.current || !content) return
+		if (!modules || !editorRef.current) return
 
 		const { Transaction: CMTx } = modules
 		const currentContent = editorRef.current.state.doc.toString()
@@ -564,10 +559,9 @@ function PureCodeEditor({ content, onSaveContent, status, isCurrentVersion }: Co
 // ── Memo comparator ─────────────────────────────────────────
 
 function areEqual(prevProps: CodeEditorProps, nextProps: CodeEditorProps): boolean {
-	if (prevProps.suggestions !== nextProps.suggestions) return false
 	if (prevProps.currentVersionIndex !== nextProps.currentVersionIndex) return false
 	if (prevProps.isCurrentVersion !== nextProps.isCurrentVersion) return false
-	if (prevProps.status === "streaming" && nextProps.status === "streaming") return false
+	if (prevProps.status !== nextProps.status) return false
 	if (prevProps.content !== nextProps.content) return false
 	return true
 }

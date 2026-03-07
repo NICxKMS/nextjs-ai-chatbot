@@ -19,14 +19,30 @@ const {
 	mockUseChatSession,
 	mockUseChatSideEffects,
 	mockUseChatSessionContext,
+	mockAddPendingChat,
+	mockPatchPendingChat,
 	mockArtifactSetState,
 	mockArtifactReset,
+	mockPromptSubmitMessage,
+	mockPromptInputClear,
+	mockToastError,
 } = vi.hoisted(() => ({
 	mockUseChatSession: vi.fn(),
 	mockUseChatSideEffects: vi.fn(),
 	mockUseChatSessionContext: vi.fn(),
+	mockAddPendingChat: vi.fn(),
+	mockPatchPendingChat: vi.fn(),
 	mockArtifactSetState: vi.fn(),
 	mockArtifactReset: vi.fn(),
+	mockPromptSubmitMessage: vi.fn(),
+	mockPromptInputClear: vi.fn(),
+	mockToastError: vi.fn(),
+}))
+
+vi.mock("sonner", () => ({
+	toast: {
+		error: (...args: unknown[]) => mockToastError(...args),
+	},
 }))
 
 vi.mock("next/navigation", () => ({
@@ -53,6 +69,16 @@ vi.mock("@/features/chat/hooks/use-chat-session", () => ({
 
 vi.mock("@/features/chat/hooks/use-chat-side-effects", () => ({
 	useChatSideEffects: (...args: unknown[]) => mockUseChatSideEffects(...args),
+}))
+
+vi.mock("@/lib/providers/pending-chats-provider", () => ({
+	usePendingChats: () => ({
+		entries: [],
+		add: mockAddPendingChat,
+		patch: mockPatchPendingChat,
+		remove: vi.fn(),
+		markConfirmed: vi.fn(),
+	}),
 }))
 
 vi.mock("@/features/chat/hooks/use-chat-session-context", async () => {
@@ -107,7 +133,7 @@ vi.mock("@/components/ai-elements/prompt-input", () => ({
 		textInput: {
 			value: mockUseChatSessionContext().input,
 			setInput: vi.fn(),
-			clear: vi.fn(),
+			clear: mockPromptInputClear,
 		},
 	}),
 	PromptInput: ({
@@ -122,19 +148,9 @@ vi.mock("@/components/ai-elements/prompt-input", () => ({
 			<button
 				type="button"
 				data-testid="prompt-input-trigger-submit"
-				onClick={() =>
-					onSubmit({
-						text: "mock prompt text",
-						files: [
-							{
-								type: "file",
-								mediaType: "image/png",
-								url: "https://example.com/mock.png",
-								filename: "mock.png",
-							},
-						],
-					})
-				}
+				onClick={() => {
+					void Promise.resolve(onSubmit(mockPromptSubmitMessage())).catch(() => undefined)
+				}}
 			>
 				trigger-submit
 			</button>
@@ -216,8 +232,6 @@ function createSessionValue(overrides: Partial<ChatSessionValue> = {}): ChatSess
 		status: "ready",
 		input: "",
 		setInput: vi.fn(),
-		attachments: [],
-		setAttachments: vi.fn() as ChatSessionValue["setAttachments"],
 		sendMessage: vi.fn(),
 		stop: vi.fn(),
 		appendMessage: vi.fn(),
@@ -451,6 +465,17 @@ describe("MultimodalInput", () => {
 		vi.clearAllMocks()
 		globalThis.URL.createObjectURL = vi.fn().mockReturnValue("blob:mock")
 		globalThis.URL.revokeObjectURL = vi.fn()
+		mockPromptSubmitMessage.mockReturnValue({
+			text: "mock prompt text",
+			files: [
+				{
+					type: "file",
+					mediaType: "image/png",
+					url: "https://example.com/mock.png",
+					filename: "mock.png",
+				},
+			],
+		})
 	})
 
 	it("returns null when chat is read-only", () => {
@@ -497,21 +522,117 @@ describe("MultimodalInput", () => {
 		expect(screen.getByTestId("stop-button")).toBeInTheDocument()
 	})
 
-	it("forwards prompt submit payload to sendMessage", () => {
+	it("forwards prompt submit payload to sendMessage", async () => {
 		const sendMessage = vi.fn()
 		mockUseChatSessionContext.mockReturnValue(createSessionValue({ sendMessage }))
 
 		render(<MultimodalInput />)
 		fireEvent.click(screen.getByTestId("prompt-input-trigger-submit"))
 
-		expect(sendMessage).toHaveBeenCalledWith("mock prompt text", [
-			{
-				type: "file",
-				mediaType: "image/png",
-				url: "https://example.com/mock.png",
-				filename: "mock.png",
-			},
-		])
+		await waitFor(() => {
+			expect(sendMessage).toHaveBeenCalledWith("mock prompt text", [
+				{
+					type: "file",
+					mediaType: "image/png",
+					url: "https://example.com/mock.png",
+					filename: "mock.png",
+				},
+			])
+		})
+	})
+
+	it("uploads inline attachments before sending the message", async () => {
+		const sendMessage = vi.fn()
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			if (input === "data:image/png;base64,cG5n") {
+				return {
+					blob: vi.fn().mockResolvedValue(new Blob(["png"], { type: "image/png" })),
+				}
+			}
+
+			return {
+				ok: true,
+				json: vi.fn().mockResolvedValue({
+					url: "https://blob.example.com/mock.png",
+					pathname: "uploads/mock.png",
+					contentType: "image/png",
+				}),
+			}
+		})
+
+		vi.stubGlobal("fetch", fetchMock)
+		mockPromptSubmitMessage.mockReturnValue({
+			text: "mock prompt text",
+			files: [
+				{
+					type: "file",
+					mediaType: "image/png",
+					url: "data:image/png;base64,cG5n",
+					filename: "mock.png",
+				},
+			],
+		})
+		mockUseChatSessionContext.mockReturnValue(createSessionValue({ sendMessage }))
+
+		render(<MultimodalInput />)
+		fireEvent.click(screen.getByTestId("prompt-input-trigger-submit"))
+
+		await waitFor(() => {
+			expect(sendMessage).toHaveBeenCalledWith("mock prompt text", [
+				{
+					type: "file",
+					mediaType: "image/png",
+					url: "https://blob.example.com/mock.png",
+					filename: "mock.png",
+				},
+			])
+		})
+
+		expect(fetchMock).toHaveBeenNthCalledWith(1, "data:image/png;base64,cG5n")
+		expect(fetchMock).toHaveBeenNthCalledWith(
+			2,
+			"/api/files/upload",
+			expect.objectContaining({ method: "POST" }),
+		)
+	})
+
+	it("keeps the message unsent when attachment upload fails", async () => {
+		const sendMessage = vi.fn()
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			if (input === "data:image/png;base64,cG5n") {
+				return {
+					blob: vi.fn().mockResolvedValue(new Blob(["png"], { type: "image/png" })),
+				}
+			}
+
+			return {
+				ok: false,
+				json: vi.fn().mockResolvedValue({ message: "File upload service unavailable" }),
+			}
+		})
+
+		vi.stubGlobal("fetch", fetchMock)
+		mockPromptSubmitMessage.mockReturnValue({
+			text: "mock prompt text",
+			files: [
+				{
+					type: "file",
+					mediaType: "image/png",
+					url: "data:image/png;base64,cG5n",
+					filename: "mock.png",
+				},
+			],
+		})
+		mockUseChatSessionContext.mockReturnValue(createSessionValue({ sendMessage }))
+
+		render(<MultimodalInput />)
+		fireEvent.click(screen.getByTestId("prompt-input-trigger-submit"))
+
+		await waitFor(() => {
+			expect(mockToastError).toHaveBeenCalledWith("File upload service unavailable")
+		})
+
+		expect(sendMessage).not.toHaveBeenCalled()
 	})
 
 	it("shows context usage when selected model has a context window", () => {
@@ -585,6 +706,27 @@ describe("ChatShell", () => {
 		expect(screen.getByTestId("multimodal-input")).toBeInTheDocument()
 		expect(screen.getByTestId("artifact-panel")).toBeInTheDocument()
 		expect(mockUseChatSideEffects).toHaveBeenCalledTimes(1)
+	})
+
+	it("wires pending chat add and title patch callbacks into useChatSession", () => {
+		renderChatShell()
+
+		expect(mockUseChatSession).toHaveBeenCalledWith(
+			expect.objectContaining({
+				onNewChat: mockAddPendingChat,
+				onTitleUpdate: expect.any(Function),
+			}),
+		)
+
+		const params = mockUseChatSession.mock.calls[0]?.[0] as
+			| { onTitleUpdate?: (chatId: string, title: string) => void }
+			| undefined
+
+		params?.onTitleUpdate?.("chat-1", "Streamed title")
+
+		expect(mockPatchPendingChat).toHaveBeenCalledWith("chat-1", {
+			title: "Streamed title",
+		})
 	})
 
 	it("hides multimodal input container when chat is read-only", () => {

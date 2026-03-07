@@ -60,32 +60,29 @@ describe("loginSchema", () => {
 })
 
 describe("registerSchema", () => {
-	it("accepts valid input without a name", () => {
-		expect(() =>
-			registerSchema.parse({
-				email: "user@example.com",
-				password: "secret123",
-			}),
-		).not.toThrow()
+	it("accepts the same credentials-only input as login", () => {
+		const parsed = registerSchema.parse({
+			email: "user@example.com",
+			password: "secret123",
+		})
+
+		expect(parsed).toEqual({
+			email: "user@example.com",
+			password: "secret123",
+		})
 	})
 
-	it("accepts a name up to 100 characters", () => {
-		expect(() =>
-			registerSchema.parse({
-				email: "user@example.com",
-				password: "secret123",
-				name: "a".repeat(100),
-			}),
-		).not.toThrow()
-	})
+	it("strips the legacy name field from parsed input", () => {
+		const parsed = registerSchema.parse({
+			email: "user@example.com",
+			password: "secret123",
+			name: "Ignored Name",
+		}) as { email: string; password: string; name?: string }
 
-	it("rejects names longer than 100 characters", () => {
-		expect(() =>
-			registerSchema.parse({
-				email: "user@example.com",
-				password: "secret123",
-				name: "a".repeat(101),
-			}),
-		).toThrow()
+		expect(parsed).toEqual({
+			email: "user@example.com",
+			password: "secret123",
+		})
+		expect(parsed.name).toBeUndefined()
 	})
 })

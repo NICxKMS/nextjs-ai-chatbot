@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test"
+import { gotoIsolatedGuestHome } from "./session-helpers"
 
 // ── Sidebar E2E Tests ────────────────────────────────────────
 // Covers: chat history loads, click chat navigates, delete removes
@@ -7,8 +8,7 @@ import { expect, test } from "@playwright/test"
 
 test.describe("Sidebar", () => {
 	test.beforeEach(async ({ page }) => {
-		// Navigate to home page — guest session is auto-bootstrapped
-		await page.goto("/")
+		await gotoIsolatedGuestHome(page)
 		await expect(page.getByTestId("multimodal-input")).toBeVisible()
 	})
 
@@ -47,7 +47,7 @@ test.describe("Sidebar", () => {
 		test("should toggle sidebar as overlay on mobile viewport", async ({ page }) => {
 			// Set mobile viewport
 			await page.setViewportSize({ width: 375, height: 667 })
-			await page.goto("/")
+			await page.goto("/", { waitUntil: "domcontentloaded" })
 			await expect(page.getByTestId("multimodal-input")).toBeVisible()
 
 			// Toggle sidebar open
@@ -62,7 +62,7 @@ test.describe("Sidebar", () => {
 		test("should close mobile sidebar when navigating", async ({ page }) => {
 			// Set mobile viewport
 			await page.setViewportSize({ width: 375, height: 667 })
-			await page.goto("/")
+			await page.goto("/", { waitUntil: "domcontentloaded" })
 			await expect(page.getByTestId("multimodal-input")).toBeVisible()
 
 			// Create a chat first

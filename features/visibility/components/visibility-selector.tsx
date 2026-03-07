@@ -51,7 +51,7 @@ const visibilities: Array<{
 export function VisibilitySelector({ className }: { className?: string }) {
 	const { chatId, visibility, setVisibility, isReadonly } = useChatSessionContext()
 	const [open, setOpen] = useState(false)
-	const [, startTransition] = useTransition()
+	const [isPending, startTransition] = useTransition()
 
 	const selectedVisibility = useMemo(
 		() => visibilities.find((v) => v.id === visibility),
@@ -62,6 +62,11 @@ export function VisibilitySelector({ className }: { className?: string }) {
 	if (isReadonly) return null
 
 	const handleSelect = (newVisibility: VisibilityType) => {
+		if (isPending || newVisibility === visibility) {
+			setOpen(false)
+			return
+		}
+
 		const previousVisibility = visibility
 
 		// Instant context update
@@ -95,6 +100,7 @@ export function VisibilitySelector({ className }: { className?: string }) {
 				<Button
 					className="hidden h-8 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 md:flex md:h-fit md:px-2"
 					data-testid="visibility-selector"
+					disabled={isPending}
 					variant="outline"
 				>
 					{selectedVisibility?.icon}
@@ -109,6 +115,7 @@ export function VisibilitySelector({ className }: { className?: string }) {
 						className="group/item flex flex-row items-center justify-between gap-4"
 						data-active={item.id === visibility}
 						data-testid={`visibility-selector-item-${item.id}`}
+						disabled={isPending}
 						key={item.id}
 						onSelect={() => handleSelect(item.id)}
 					>

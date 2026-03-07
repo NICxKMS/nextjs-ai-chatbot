@@ -17,6 +17,33 @@ const JSON_HEADERS = {
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+async function readResponseBody(response: Response): Promise<string> {
+	const reader = response.body?.getReader()
+	if (!reader) {
+		return ""
+	}
+
+	const decoder = new TextDecoder()
+	let result = ""
+
+	while (true) {
+		const { done, value } = await reader.read()
+		if (done) {
+			result += decoder.decode()
+			break
+		}
+
+		if (typeof value === "string") {
+			result += value
+			continue
+		}
+
+		result += decoder.decode(value, { stream: true })
+	}
+
+	return result
+}
+
 // ── Module mocks ────────────────────────────────────────────
 
 // Auth session
@@ -27,25 +54,25 @@ vi.mock("@/lib/auth/session", () => ({
 
 // Data access — chat
 const mockGetChatById = vi.fn()
-const mockCreateChat = vi.fn()
+const mockCreateChatWithInitialMessage = vi.fn()
 const mockGetChatsByUserId = vi.fn()
-const mockUpdateChatTitle = vi.fn()
+const mockSaveMessagesAndTouchChat = vi.fn()
 const mockUpdateChatVisibility = vi.fn()
 
 vi.mock("@/lib/data/chat", () => ({
 	getChatById: (...args: unknown[]) => mockGetChatById(...args),
-	createChat: (...args: unknown[]) => mockCreateChat(...args),
+	createChatWithInitialMessage: (...args: unknown[]) => mockCreateChatWithInitialMessage(...args),
 	getChatsByUserId: (...args: unknown[]) => mockGetChatsByUserId(...args),
-	updateChatTitle: (...args: unknown[]) => mockUpdateChatTitle(...args),
+	saveMessagesAndTouchChat: (...args: unknown[]) => mockSaveMessagesAndTouchChat(...args),
 	updateChatVisibility: (...args: unknown[]) => mockUpdateChatVisibility(...args),
 }))
 
 // Data access — messages
-const mockGetMessagesByChatId = vi.fn()
+const mockGetMessagesForChatRender = vi.fn()
 const mockSaveMessages = vi.fn()
 
 vi.mock("@/lib/data/message", () => ({
-	getMessagesByChatId: (...args: unknown[]) => mockGetMessagesByChatId(...args),
+	getMessagesForChatRender: (...args: unknown[]) => mockGetMessagesForChatRender(...args),
 	saveMessages: (...args: unknown[]) => mockSaveMessages(...args),
 }))
 
@@ -85,8 +112,9 @@ vi.mock("@/lib/ai/provider", () => ({
 }))
 
 // AI utilities
+const mockGenerateTitle = vi.fn()
 vi.mock("@/lib/ai/title", () => ({
-	generateTitle: vi.fn().mockResolvedValue("Generated Title"),
+	generateTitle: (...args: unknown[]) => mockGenerateTitle(...args),
 }))
 
 vi.mock("@/lib/ai/prompts", () => ({
@@ -103,15 +131,17 @@ vi.mock("@/lib/ai/tools", () => ({
 
 // ── Tests ───────────────────────────────────────────────────
 
-describe("Chat Flow — Integration Tests", () => {
+describe("Chat Flow — Contract Tests", () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
-		mockGetMessagesByChatId.mockResolvedValue([])
+		mockGetMessagesForChatRender.mockResolvedValue([])
 		mockSaveMessages.mockResolvedValue([createMockMessage()])
-		mockCreateChat.mockResolvedValue(createMockChat())
+		mockCreateChatWithInitialMessage.mockResolvedValue(createMockChat())
+		mockSaveMessagesAndTouchChat.mockResolvedValue(undefined)
 		mockIncr.mockResolvedValue(1)
 		mockExpire.mockResolvedValue(true)
 		mockEnsureGuestUser.mockResolvedValue(undefined)
+		mockGenerateTitle.mockResolvedValue("Generated Title")
 		mockGetAvailableModels.mockResolvedValue([
 			{
 				id: "gpt-4o",
@@ -216,6 +246,7 @@ describe("Chat Flow — Integration Tests", () => {
 
 			const response = await POST(request)
 			expect(response.status).toBe(200)
+			await readResponseBody(response)
 			expect(mockExpire).not.toHaveBeenCalled()
 		})
 	})
@@ -349,13 +380,14 @@ describe("Chat Flow — Integration Tests", () => {
 			const response = await POST(request)
 			// Streaming response returns 200
 			expect(response.status).toBe(200)
+			await readResponseBody(response)
 		})
 	})
 
 	// ── POST /api/chat — New chat creation ───────────────────
 
 	describe("POST /api/chat — new chat creation", () => {
-		it("creates a new chat when chatId does not exist", async () => {
+		it("creates a new chat with its first user message when chatId does not exist", async () => {
 			mockGetAppSession.mockResolvedValue(createMockSession())
 			mockGetChatById.mockResolvedValue(null) // new chat
 
@@ -382,20 +414,25 @@ describe("Chat Flow — Integration Tests", () => {
 
 			const response = await POST(request)
 			expect(response.status).toBe(200)
+			await readResponseBody(response)
 
-			// Verify createChat was called for the new chat
-			expect(mockCreateChat).toHaveBeenCalledWith(
+			expect(mockCreateChatWithInitialMessage).toHaveBeenCalledWith(
 				expect.objectContaining({
 					id: chatId,
 					userId: TEST_USER_ID,
 					title: "New Chat",
 					model: "gpt-4o",
 					visibility: "private",
+					message: expect.objectContaining({
+						chatId,
+						role: "user",
+						attachments: [],
+					}),
 				}),
 			)
 		})
 
-		it("persists streamed assistant messages with UUID ids", async () => {
+		it("persists streamed assistant messages and updates chat activity after streaming", async () => {
 			mockGetAppSession.mockResolvedValue(createMockSession())
 			mockGetChatById.mockResolvedValue(null)
 
@@ -434,28 +471,193 @@ describe("Chat Flow — Integration Tests", () => {
 				}
 			}
 
-			expect(mockSaveMessages).toHaveBeenCalledTimes(1)
+			expect(mockSaveMessagesAndTouchChat).toHaveBeenCalledTimes(1)
 
-			const [savedMessages] = mockSaveMessages.mock.calls.at(-1) as [
-				Array<{ id: string; role: string; chatId: string }>,
+			const [persistedTurn] = mockSaveMessagesAndTouchChat.mock.calls.at(-1) as [
+				{
+					chatId: string
+					title?: string
+					messages: Array<{ id: string; role: string; chatId: string }>
+				},
 			]
 
-			expect(savedMessages).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({
+			expect(persistedTurn).toEqual(
+				expect.objectContaining({
+					chatId,
+					title: "Generated Title",
+					messages: expect.arrayContaining([
+						expect.objectContaining({
+							role: "assistant",
+							chatId,
+							attachments: [],
+							id: expect.stringMatching(UUID_PATTERN),
+						}),
+					]),
+				}),
+			)
+		})
+
+		it("persists a recovery notice when assistant persistence fails after streaming", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+			mockGetChatById.mockResolvedValue(null)
+			mockSaveMessagesAndTouchChat
+				.mockRejectedValueOnce(new Error("assistant save failed"))
+				.mockRejectedValueOnce(new Error("assistant save failed"))
+				.mockRejectedValueOnce(new Error("assistant save failed"))
+				.mockResolvedValueOnce(undefined)
+
+			const model = createMockTextModel("Hi!")
+			mockLanguageModel.mockReturnValue(model)
+
+			const chatId = crypto.randomUUID()
+			const userMessageId = crypto.randomUUID()
+
+			const { POST } = await import("@/app/api/chat/route")
+			const request = new Request("http://localhost/api/chat", {
+				method: "POST",
+				headers: JSON_HEADERS,
+				body: JSON.stringify({
+					id: chatId,
+					message: {
 						id: userMessageId,
 						role: "user",
-						chatId,
-						attachments: [],
-					}),
-					expect.objectContaining({
-						role: "assistant",
-						chatId,
-						attachments: [],
-						id: expect.stringMatching(UUID_PATTERN),
-					}),
-				]),
+						parts: [{ type: "text", text: "Hello" }],
+					},
+					selectedChatModel: "gpt-4o",
+					selectedVisibilityType: "private",
+				}),
+			})
+
+			const response = await POST(request)
+			expect(response.status).toBe(200)
+
+			const reader = response.body?.getReader()
+			if (reader) {
+				while (true) {
+					const { done } = await reader.read()
+					if (done) {
+						break
+					}
+				}
+			}
+
+			expect(mockSaveMessagesAndTouchChat).toHaveBeenCalledTimes(4)
+
+			const recoveryCall = mockSaveMessagesAndTouchChat.mock.calls[3]?.[0] as {
+				chatId: string
+				messages: Array<{ role: string; parts: Array<{ type: string; text: string }> }>
+			}
+
+			expect(recoveryCall).toEqual(
+				expect.objectContaining({
+					chatId,
+					messages: [
+						expect.objectContaining({
+							role: "assistant",
+							parts: [
+								expect.objectContaining({
+									type: "text",
+									text: expect.stringContaining("could not be saved"),
+								}),
+							],
+						}),
+					],
+				}),
 			)
+		})
+
+		it("does not wait for title generation before usage emission and stream completion", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+			mockGetChatById.mockResolvedValue(null)
+
+			let resolveTitle: ((title: string) => void) | undefined
+			mockGenerateTitle.mockImplementation(
+				() =>
+					new Promise<string>((resolve) => {
+						resolveTitle = resolve
+					}),
+			)
+
+			const model = createMockTextModel("Hi!")
+			mockLanguageModel.mockReturnValue(model)
+
+			const chatId = crypto.randomUUID()
+
+			const { POST } = await import("@/app/api/chat/route")
+			const request = new Request("http://localhost/api/chat", {
+				method: "POST",
+				headers: JSON_HEADERS,
+				body: JSON.stringify({
+					id: chatId,
+					message: {
+						id: crypto.randomUUID(),
+						role: "user",
+						parts: [{ type: "text", text: "Hello" }],
+					},
+					selectedChatModel: "gpt-4o",
+					selectedVisibilityType: "private",
+				}),
+			})
+
+			const response = await POST(request)
+			expect(response.status).toBe(200)
+
+			const body = await Promise.race([
+				readResponseBody(response),
+				new Promise<string>((resolve) => {
+					setTimeout(() => resolve("__timeout__"), 250)
+				}),
+			])
+
+			expect(body).not.toBe("__timeout__")
+			expect(body).toContain('"type":"data-usage"')
+			expect(mockSaveMessagesAndTouchChat).toHaveBeenCalledWith(
+				expect.objectContaining({
+					chatId,
+					title: undefined,
+				}),
+			)
+
+			resolveTitle?.("Generated Later")
+		})
+
+		it("streams an explicit error when persistence and recovery both fail", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+			mockGetChatById.mockResolvedValue(null)
+			mockSaveMessagesAndTouchChat.mockRejectedValue(new Error("db offline"))
+
+			const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined)
+
+			const model = createMockTextModel("Hi!")
+			mockLanguageModel.mockReturnValue(model)
+
+			const { POST } = await import("@/app/api/chat/route")
+			const request = new Request("http://localhost/api/chat", {
+				method: "POST",
+				headers: JSON_HEADERS,
+				body: JSON.stringify({
+					id: crypto.randomUUID(),
+					message: {
+						id: crypto.randomUUID(),
+						role: "user",
+						parts: [{ type: "text", text: "Hello" }],
+					},
+					selectedChatModel: "gpt-4o",
+					selectedVisibilityType: "private",
+				}),
+			})
+
+			const response = await POST(request)
+			expect(response.status).toBe(200)
+
+			const body = await readResponseBody(response)
+
+			expect(body).toContain('"type":"data-error"')
+			expect(body).toContain("could not be saved")
+			expect(mockSaveMessagesAndTouchChat).toHaveBeenCalledTimes(6)
+			expect(consoleErrorSpy).toHaveBeenCalledTimes(1)
+
+			consoleErrorSpy.mockRestore()
 		})
 
 		it("ensures guest users exist before creating their first chat", async () => {
@@ -489,9 +691,10 @@ describe("Chat Flow — Integration Tests", () => {
 
 			const response = await POST(request)
 			expect(response.status).toBe(200)
+			await readResponseBody(response)
 
 			expect(mockEnsureGuestUser).toHaveBeenCalledWith(TEST_GUEST_ID)
-			expect(mockCreateChat).toHaveBeenCalledWith(
+			expect(mockCreateChatWithInitialMessage).toHaveBeenCalledWith(
 				expect.objectContaining({
 					id: chatId,
 					userId: TEST_GUEST_ID,

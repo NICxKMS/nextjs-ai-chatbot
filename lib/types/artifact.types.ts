@@ -18,6 +18,9 @@ export type ArtifactSuggestion = {
 	originalText: string
 	suggestedText: string
 	description: string
+	occurrenceIndex?: number
+	selectionStart?: number
+	selectionEnd?: number
 }
 
 // ── Client-side artifact representation ──────────────────────

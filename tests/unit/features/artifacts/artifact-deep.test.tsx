@@ -405,6 +405,20 @@ describe("artifact-preview.tsx deep coverage", () => {
 		).toBeInTheDocument()
 	})
 
+	it("requests only the latest preview version", () => {
+		testState.useSWR.mockReturnValue({
+			data: undefined,
+			isLoading: false,
+		})
+
+		render(<ArtifactPreview result={{ id: "latest-1", kind: "text", title: "Latest" }} />)
+
+		expect(testState.useSWR).toHaveBeenCalledWith(
+			"/api/artifact?id=latest-1&view=latest",
+			expect.any(Function),
+		)
+	})
+
 	it("renders code preview content", () => {
 		testState.useSWR.mockReturnValue({
 			data: [
@@ -715,15 +729,17 @@ describe("artifact-preview.tsx deep coverage", () => {
 			]),
 		})
 
-		await expect(testState.swrFetcher("/api/artifact?id=fetch-1")).resolves.toEqual([
-			{
-				id: "fetch-1",
-				title: "Fetched",
-				kind: "text",
-				content: "ok",
-				createdAt: expect.any(String),
-			},
-		])
+		await expect(testState.swrFetcher("/api/artifact?id=fetch-1&view=latest")).resolves.toEqual(
+			[
+				{
+					id: "fetch-1",
+					title: "Fetched",
+					kind: "text",
+					content: "ok",
+					createdAt: expect.any(String),
+				},
+			],
+		)
 
 		fetchMock.mockResolvedValueOnce({
 			ok: false,
@@ -731,7 +747,7 @@ describe("artifact-preview.tsx deep coverage", () => {
 			json: vi.fn(),
 		})
 
-		await expect(testState.swrFetcher("/api/artifact?id=fetch-1")).rejects.toThrow(
+		await expect(testState.swrFetcher("/api/artifact?id=fetch-1&view=latest")).rejects.toThrow(
 			"Artifact fetch failed: 503",
 		)
 	})
@@ -767,6 +783,78 @@ describe("suggestions-extension.tsx deep coverage", () => {
 			id: "suggestion-1",
 			selectionStart: 0,
 			selectionEnd: 0,
+		})
+	})
+
+	it("skips ambiguous repeated matches when one suggestion targets repeated text", () => {
+		const doc = makeDoc([{ text: "repeat once repeat", pos: 0 }])
+
+		const [projected] = projectWithPositions(
+			doc as unknown as Parameters<typeof projectWithPositions>[0],
+			[
+				{
+					originalText: "repeat",
+					suggestedText: "updated",
+					description: "Ambiguous repeated match",
+				},
+			],
+		)
+
+		expect(projected).toMatchObject({
+			selectionStart: 0,
+			selectionEnd: 0,
+		})
+	})
+
+	it("assigns repeated suggestions to sequential occurrences", () => {
+		const doc = makeDoc([{ text: "alpha beta gamma beta", pos: 0 }])
+
+		const projected = projectWithPositions(
+			doc as unknown as Parameters<typeof projectWithPositions>[0],
+			[
+				{
+					originalText: "beta",
+					suggestedText: "first",
+					description: "Update first beta",
+				},
+				{
+					originalText: "beta",
+					suggestedText: "second",
+					description: "Update second beta",
+				},
+			],
+		)
+
+		expect(projected[0]).toMatchObject({
+			selectionStart: 6,
+			selectionEnd: 10,
+		})
+		expect(projected[1]).toMatchObject({
+			selectionStart: 17,
+			selectionEnd: 21,
+		})
+	})
+
+	it("uses producer occurrence metadata to anchor a repeated single suggestion", () => {
+		const doc = makeDoc([{ text: "repeat once repeat", pos: 0 }])
+
+		const [projected] = projectWithPositions(
+			doc as unknown as Parameters<typeof projectWithPositions>[0],
+			[
+				{
+					originalText: "repeat",
+					suggestedText: "updated",
+					description: "Target the second repeated match",
+					occurrenceIndex: 1,
+					selectionStart: 12,
+					selectionEnd: 18,
+				},
+			],
+		)
+
+		expect(projected).toMatchObject({
+			selectionStart: 12,
+			selectionEnd: 18,
 		})
 	})
 

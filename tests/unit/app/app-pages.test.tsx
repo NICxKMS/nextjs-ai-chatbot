@@ -42,7 +42,7 @@ const mockVoteResolver = vi.fn(() =>
 )
 
 const mockGetChatById = vi.fn()
-const mockGetMessagesByChatId = vi.fn()
+const mockGetMessagesForChatRender = vi.fn()
 const mockGetVotesByChatId = vi.fn()
 const mockConvertToUIMessages = vi.fn()
 const mockWithCache = vi.fn(async (_tag: string, fetcher: () => Promise<unknown>) => fetcher())
@@ -111,7 +111,7 @@ vi.mock("@/lib/data/chat", () => ({
 }))
 
 vi.mock("@/lib/data/message", () => ({
-	getMessagesByChatId: (...args: unknown[]) => mockGetMessagesByChatId(...args),
+	getMessagesForChatRender: (...args: unknown[]) => mockGetMessagesForChatRender(...args),
 }))
 
 vi.mock("@/lib/data/vote", () => ({
@@ -163,7 +163,7 @@ describe("app pages render tests", () => {
 			visibility: "private",
 			model: "model-1",
 		})
-		mockGetMessagesByChatId.mockResolvedValue([
+		mockGetMessagesForChatRender.mockResolvedValue([
 			{
 				id: "message-1",
 				role: "user",

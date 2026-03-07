@@ -1,22 +1,26 @@
 import type { NextConfig } from "next"
 
+const enableProductionBrowserSourceMaps =
+	process.env.ENABLE_PRODUCTION_BROWSER_SOURCE_MAPS === "true"
+const enableExperimentalInlineCss = process.env.ENABLE_EXPERIMENTAL_INLINE_CSS === "true"
+const enableExperimentalViewTransition = process.env.ENABLE_EXPERIMENTAL_VIEW_TRANSITION === "true"
+const isProductionBuild = process.env.NODE_ENV === "production"
+
 const nextConfig: NextConfig = {
 	reactCompiler: true,
 	cacheComponents: true,
 	reactStrictMode: true,
-	productionBrowserSourceMaps: true,
+	productionBrowserSourceMaps: enableProductionBrowserSourceMaps,
 	devIndicators: false,
+	typescript: {
+		tsconfigPath: isProductionBuild ? "tsconfig.build.json" : "tsconfig.json",
+	},
 
 	experimental: {
-		inlineCss: true,
-		optimisticClientCache: true,
+		inlineCss: enableExperimentalInlineCss,
 		turbopackFileSystemCacheForDev: true,
-		viewTransition: true,
-		optimizeCss: true,
+		viewTransition: enableExperimentalViewTransition,
 		optimizePackageImports: [
-			"lucide-react",
-			"date-fns",
-
 			// editor ecosystem
 			"@tiptap/react",
 			"@tiptap/core",

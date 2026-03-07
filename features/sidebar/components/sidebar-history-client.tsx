@@ -15,13 +15,14 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Button } from "@/components/ui/button"
 import {
 	SidebarGroup,
 	SidebarGroupContent,
 	SidebarGroupLabel,
 	SidebarMenu,
-	useSidebar,
 } from "@/components/ui/sidebar"
+import { useSidebar } from "@/components/ui/sidebar-provider"
 import { deleteChat } from "@/features/chat/actions/delete-chat"
 import { SidebarHistoryItem } from "@/features/sidebar/components/sidebar-history-item"
 import { useSidebarHistory } from "@/features/sidebar/hooks/use-sidebar-history"
@@ -100,12 +101,20 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 	const router = useRouter()
 	const { setOpenMobile } = useSidebar()
 
-	const { entries: pendingEntries, remove: removePending, markConfirmed } = usePendingChats()
 	const {
-		chats: paginatedChats,
-		hasMore: swrHasMore,
+		entries: pendingEntries,
+		patch: patchPendingChat,
+		remove: removePending,
+		markConfirmed,
+	} = usePendingChats()
+	const {
+		chats: historyChats,
+		hasMore,
+		error,
 		loadMore,
 		isLoading,
+		patchChat,
+		retry,
 	} = useSidebarHistory({
 		initialData: { chats: initialChats, hasMore: initialHasMore },
 	})
@@ -113,6 +122,7 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 	const [deleteId, setDeleteId] = useState<string | null>(null)
 	const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set())
 	const sentinelRef = useRef<HTMLDivElement>(null)
+	const visibilityRequestIdsRef = useRef(new Map<string, number>())
 
 	// ── Derived state ────────────────────────────────────────────
 
@@ -122,21 +132,46 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 		return match?.[1] ?? null
 	}, [pathname])
 
-	// Merge initial + SWR pages, deduplicate by ID, exclude deleted
+	const handleRename = useCallback(
+		(chatId: string, title: string) => {
+			patchChat(chatId, { title })
+			patchPendingChat(chatId, { title })
+		},
+		[patchChat, patchPendingChat],
+	)
+
+	const rawServerChats = useMemo(() => {
+		return historyChats.filter((chat) => !deletedIds.has(chat.id))
+	}, [historyChats, deletedIds])
+
+	const pendingEntryById = useMemo(() => {
+		return new Map(pendingEntries.map((entry) => [entry.id, entry]))
+	}, [pendingEntries])
+
+	// Keep hydrated SWR history as the single server-data source and layer
+	// pending metadata over matching rows until the server copy catches up.
 	const serverChats = useMemo(() => {
-		const map = new Map<string, Chat>()
-		for (const chat of initialChats) map.set(chat.id, chat)
-		for (const chat of paginatedChats) map.set(chat.id, chat)
-		return Array.from(map.values()).filter((c) => !deletedIds.has(c.id))
-	}, [initialChats, paginatedChats, deletedIds])
+		return rawServerChats.map((chat) => {
+			const pendingEntry = pendingEntryById.get(chat.id)
+			if (!pendingEntry) {
+				return chat
+			}
+
+			return {
+				...chat,
+				title: pendingEntry.title,
+				visibility: pendingEntry.visibility,
+			}
+		})
+	}, [pendingEntryById, rawServerChats])
 
 	// Pending chats to display — optimistic entries not yet in server data, not deleted
 	const visiblePending = useMemo(() => {
-		const serverIds = new Set(serverChats.map((c) => c.id))
+		const serverIds = new Set(rawServerChats.map((c) => c.id))
 		return pendingEntries.filter(
 			(e) => e.isOptimistic && !serverIds.has(e.id) && !deletedIds.has(e.id),
 		)
-	}, [pendingEntries, serverChats, deletedIds])
+	}, [deletedIds, pendingEntries, rawServerChats])
 
 	// Date-grouped server chats
 	const groups = useMemo(() => groupChatsByDate(serverChats), [serverChats])
@@ -145,25 +180,32 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 	const todayGroup = groups.find((g) => g.label === "Today")
 	const otherGroups = groups.filter((g) => g.label !== "Today")
 
-	// Whether more pages are available (use SWR once loaded, otherwise initial flag)
-	const hasMore = paginatedChats.length > 0 ? swrHasMore : initialHasMore
-
 	// ── Mark confirmed when server data contains pending chat ────
 
 	useEffect(() => {
-		const serverIds = new Set(serverChats.map((c) => c.id))
+		const serverChatsById = new Map(rawServerChats.map((chat) => [chat.id, chat]))
 		for (const entry of pendingEntries) {
-			if (entry.isOptimistic && serverIds.has(entry.id)) {
+			const serverChat = serverChatsById.get(entry.id)
+			if (!serverChat) {
+				continue
+			}
+
+			if (entry.isOptimistic) {
 				markConfirmed(entry.id)
+				continue
+			}
+
+			if (serverChat.title === entry.title && serverChat.visibility === entry.visibility) {
+				removePending(entry.id)
 			}
 		}
-	}, [serverChats, pendingEntries, markConfirmed])
+	}, [markConfirmed, pendingEntries, rawServerChats, removePending])
 
 	// ── Infinite scroll via IntersectionObserver ────────────────
 
 	useEffect(() => {
 		const sentinel = sentinelRef.current
-		if (!sentinel || !hasMore) return
+		if (!sentinel || !hasMore || error) return
 
 		const observer = new IntersectionObserver(
 			([entry]) => {
@@ -176,7 +218,7 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 
 		observer.observe(sentinel)
 		return () => observer.disconnect()
-	}, [hasMore, isLoading, loadMore])
+	}, [error, hasMore, isLoading, loadMore])
 
 	// ── Delete handlers ─────────────────────────────────────────
 
@@ -211,18 +253,47 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 
 	const handleVisibilityChange = useCallback(
 		async (chatId: string, newVisibility: Visibility) => {
+			const requestId = (visibilityRequestIdsRef.current.get(chatId) ?? 0) + 1
+			visibilityRequestIdsRef.current.set(chatId, requestId)
+
 			const result = await updateChatVisibility({
 				chatId,
 				visibility: newVisibility,
 			})
-			if (!result.success) {
+
+			if (visibilityRequestIdsRef.current.get(chatId) !== requestId) {
+				return
+			}
+
+			visibilityRequestIdsRef.current.delete(chatId)
+
+			if (result.success) {
+				patchChat(chatId, { visibility: newVisibility })
+				patchPendingChat(chatId, { visibility: newVisibility })
+			} else {
 				toast.error("Failed to update visibility")
+				retry()
 			}
 		},
-		[],
+		[patchChat, patchPendingChat, retry],
 	)
 
 	// ── Empty state ─────────────────────────────────────────────
+
+	if (serverChats.length === 0 && visiblePending.length === 0 && error && !isLoading) {
+		return (
+			<SidebarGroup>
+				<SidebarGroupContent>
+					<div className="flex w-full flex-col items-center gap-2 px-2 text-sm text-zinc-500">
+						<output>We couldn&apos;t load your conversations.</output>
+						<Button size="sm" variant="outline" onClick={retry}>
+							Retry
+						</Button>
+					</div>
+				</SidebarGroupContent>
+			</SidebarGroup>
+		)
+	}
 
 	if (serverChats.length === 0 && visiblePending.length === 0 && !isLoading) {
 		return (
@@ -255,6 +326,7 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 										chat={pendingToChat(pending)}
 										isActive={pending.id === activeChatId}
 										onDelete={handleDeleteRequest}
+										onRename={handleRename}
 										onVisibilityChange={handleVisibilityChange}
 										setOpenMobile={setOpenMobile}
 									/>
@@ -265,6 +337,7 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 										chat={chat}
 										isActive={chat.id === activeChatId}
 										onDelete={handleDeleteRequest}
+										onRename={handleRename}
 										onVisibilityChange={handleVisibilityChange}
 										setOpenMobile={setOpenMobile}
 									/>
@@ -282,6 +355,7 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 										chat={chat}
 										isActive={chat.id === activeChatId}
 										onDelete={handleDeleteRequest}
+										onRename={handleRename}
 										onVisibilityChange={handleVisibilityChange}
 										setOpenMobile={setOpenMobile}
 									/>
@@ -305,6 +379,15 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 								</div>
 								<span>Loading more chats…</span>
 							</output>
+						)}
+
+						{error && (
+							<div className="flex items-center gap-2 p-2 text-sm text-zinc-500">
+								<span>Couldn&apos;t load more conversations.</span>
+								<Button size="sm" variant="ghost" onClick={retry}>
+									Retry
+								</Button>
+							</div>
 						)}
 					</SidebarMenu>
 				</SidebarGroupContent>

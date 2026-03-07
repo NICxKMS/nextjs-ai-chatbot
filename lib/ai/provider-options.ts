@@ -1,4 +1,5 @@
 import type { JSONValue } from "ai"
+import { getModelCapabilities } from "@/lib/ai/model-capabilities"
 import type { SettingsState } from "@/lib/types/settings.types"
 
 // ── Provider Options ─────────────────────────────────────────────────────────
@@ -44,6 +45,7 @@ export function getProviderOptions(
 	modelId: string,
 	settings: SettingsState,
 ): ProviderOptionsResult {
+	const { supportsReasoning } = getModelCapabilities(modelId)
 	const result: ProviderOptionsResult = {
 		temperature: settings.temperature,
 		topP: settings.topP,
@@ -52,7 +54,7 @@ export function getProviderOptions(
 
 	// ── Model generation parameters from user settings ──
 	// ── Per-provider reasoning configuration ──
-	if (!settings.enableReasoning) {
+	if (!settings.enableReasoning || !supportsReasoning) {
 		return result
 	}
 

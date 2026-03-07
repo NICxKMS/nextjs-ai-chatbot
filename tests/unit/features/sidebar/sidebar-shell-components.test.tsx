@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -16,8 +16,11 @@ const {
 	mockSetOpenMobile,
 	mockRemovePending,
 	mockMarkPendingConfirmed,
+	mockPatchPendingChat,
 	mockDeleteAllChats,
 	mockDeleteChat,
+	mockPatchSidebarChat,
+	mockRetrySidebarHistory,
 	mockRenameChat,
 	mockUpdateChatVisibility,
 	mockGetAppSession,
@@ -29,8 +32,11 @@ const {
 	mockSetOpenMobile: vi.fn(),
 	mockRemovePending: vi.fn(),
 	mockMarkPendingConfirmed: vi.fn(),
+	mockPatchPendingChat: vi.fn(),
 	mockDeleteAllChats: vi.fn(),
 	mockDeleteChat: vi.fn(),
+	mockPatchSidebarChat: vi.fn(),
+	mockRetrySidebarHistory: vi.fn(),
 	mockRenameChat: vi.fn(),
 	mockUpdateChatVisibility: vi.fn(),
 	mockGetAppSession: vi.fn(),
@@ -46,6 +52,8 @@ let sidebarHistoryState: {
 	hasMore: boolean
 	loadMore: () => void
 	isLoading: boolean
+	error?: Error
+	retry: () => void
 }
 
 let pendingEntries: PendingChat[]
@@ -121,10 +129,20 @@ vi.mock("@/components/ui/tooltip", () => ({
 }))
 
 vi.mock("@/components/ui/alert-dialog", () => ({
-	AlertDialog: ({ open, children }: { open?: boolean; children?: React.ReactNode }) =>
-		open === false
+	AlertDialog: ({
+		children,
+		onOpenChange,
+		open,
+	}: {
+		children?: React.ReactNode
+		onOpenChange?: (open: boolean) => void
+		open?: boolean
+	}) => {
+		void onOpenChange
+		return open === false
 			? null
-			: React.createElement("div", { "data-testid": "alert-dialog" }, children),
+			: React.createElement("div", { "data-testid": "alert-dialog" }, children)
+	},
 	AlertDialogContent: ({
 		children,
 		...props
@@ -183,11 +201,22 @@ vi.mock("@/components/ui/alert-dialog", () => ({
 vi.mock("@/components/ui/dropdown-menu", () => ({
 	DropdownMenu: ({
 		children,
+		modal,
+		onOpenChange,
+		open,
 		...props
 	}: {
 		children?: React.ReactNode
+		modal?: boolean
+		onOpenChange?: (open: boolean) => void
+		open?: boolean
 		[key: string]: unknown
-	}) => React.createElement("div", props, children),
+	}) => {
+		void modal
+		void onOpenChange
+		void open
+		return React.createElement("div", props, children)
+	},
 	DropdownMenuTrigger: ({
 		asChild,
 		children,
@@ -271,7 +300,6 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
 }))
 
 vi.mock("@/components/ui/sidebar", () => ({
-	useSidebar: () => ({ setOpenMobile: mockSetOpenMobile }),
 	Sidebar: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) =>
 		React.createElement("div", props, children),
 	SidebarHeader: ({
@@ -367,22 +395,37 @@ vi.mock("@/components/ui/sidebar", () => ({
 		),
 }))
 
+vi.mock("@/components/ui/sidebar-provider", () => ({
+	useSidebar: () => ({ setOpenMobile: mockSetOpenMobile }),
+}))
+
 vi.mock("@/lib/providers/pending-chats-provider", () => ({
 	usePendingChats: () => ({
 		entries: pendingEntries,
+		patch: mockPatchPendingChat,
 		remove: mockRemovePending,
 		markConfirmed: mockMarkPendingConfirmed,
 		add: vi.fn(),
-		updateTitle: vi.fn(),
 	}),
 }))
 
 vi.mock("@/features/sidebar/hooks/use-sidebar-history", () => ({
-	useSidebarHistory: () => ({
-		chats: sidebarHistoryState.chats,
-		hasMore: sidebarHistoryState.hasMore,
+	useSidebarHistory: (options?: {
+		initialData?: {
+			chats: ReturnType<typeof createMockChat>[]
+			hasMore: boolean
+		}
+	}) => ({
+		chats:
+			sidebarHistoryState.chats.length > 0
+				? sidebarHistoryState.chats
+				: (options?.initialData?.chats ?? []),
+		hasMore: sidebarHistoryState.hasMore || (options?.initialData?.hasMore ?? false),
+		error: sidebarHistoryState.error,
 		loadMore: sidebarHistoryState.loadMore,
 		isLoading: sidebarHistoryState.isLoading,
+		patchChat: mockPatchSidebarChat,
+		retry: sidebarHistoryState.retry,
 	}),
 }))
 
@@ -431,13 +474,18 @@ beforeEach(() => {
 		hasMore: false,
 		loadMore: vi.fn(),
 		isLoading: false,
+		error: undefined,
+		retry: mockRetrySidebarHistory,
 	}
 
 	pendingEntries = []
 
 	mockDeleteAllChats.mockResolvedValue({ success: true, data: undefined })
 	mockDeleteChat.mockResolvedValue({ success: true, data: undefined })
+	mockPatchPendingChat.mockReset()
 	mockRenameChat.mockResolvedValue({ success: true, data: undefined })
+	mockPatchSidebarChat.mockReset()
+	mockRetrySidebarHistory.mockReset()
 	mockUpdateChatVisibility.mockResolvedValue({ success: true, data: undefined })
 	mockGetAppSession.mockResolvedValue({
 		user: {
@@ -485,7 +533,7 @@ describe("sidebar-history-client", () => {
 		expect(screen.getByText("History Chat")).toBeInTheDocument()
 	})
 
-	it("marks matching pending entries confirmed when server history contains them", async () => {
+	it("marks matching pending entries confirmed while keeping pending metadata visible until server data catches up", async () => {
 		pendingEntries = [
 			{
 				id: "history-chat-pending",
@@ -508,8 +556,8 @@ describe("sidebar-history-client", () => {
 			expect(mockMarkPendingConfirmed).toHaveBeenCalledWith("history-chat-pending")
 		})
 
-		expect(screen.getByText("Persisted Title")).toBeInTheDocument()
-		expect(screen.queryByText("Pending Title")).not.toBeInTheDocument()
+		expect(screen.getByText("Pending Title")).toBeInTheDocument()
+		expect(screen.queryByText("Persisted Title")).not.toBeInTheDocument()
 	})
 
 	it("renders loading indicator when paginated history is loading", () => {
@@ -518,6 +566,8 @@ describe("sidebar-history-client", () => {
 			hasMore: false,
 			loadMore: vi.fn(),
 			isLoading: true,
+			error: undefined,
+			retry: mockRetrySidebarHistory,
 		}
 
 		render(
@@ -530,9 +580,85 @@ describe("sidebar-history-client", () => {
 		expect(screen.getByLabelText("Loading more chats")).toBeInTheDocument()
 		expect(screen.getByText("Loading more chats…")).toBeInTheDocument()
 	})
+
+	it("applies pending overlay metadata onto matching server rows", () => {
+		const createdAt = new Date()
+		pendingEntries = [
+			{
+				id: "history-chat-overlay",
+				title: "Streamed Title",
+				visibility: "public",
+				createdAt,
+				isOptimistic: false,
+			},
+		]
+
+		const chat = createMockChat({
+			id: "history-chat-overlay",
+			title: "New Chat",
+			visibility: "private",
+			createdAt,
+		})
+
+		render(<SidebarHistoryClient initialChats={[chat]} initialHasMore={false} />)
+
+		expect(screen.getByText("Streamed Title")).toBeInTheDocument()
+		expect(screen.queryByText("New Chat")).not.toBeInTheDocument()
+	})
+
+	it("renders retry affordance when history pagination fails", () => {
+		sidebarHistoryState = {
+			chats: [createMockChat({ id: "history-chat-1", title: "History Chat" })],
+			hasMore: true,
+			loadMore: vi.fn(),
+			isLoading: false,
+			error: new Error("network failed"),
+			retry: mockRetrySidebarHistory,
+		}
+
+		render(<SidebarHistoryClient initialChats={[]} initialHasMore={false} />)
+
+		fireEvent.click(screen.getByRole("button", { name: "Retry" }))
+
+		expect(screen.getByText("Couldn't load more conversations.")).toBeInTheDocument()
+		expect(mockRetrySidebarHistory).toHaveBeenCalledTimes(1)
+	})
 })
 
 describe("sidebar-history-item", () => {
+	it("notifies the local rename callback after a successful rename", async () => {
+		const mockChat = createMockChat({
+			id: "chat-history-item-rename",
+			title: "Old Title",
+		})
+		const onRename = vi.fn()
+
+		render(
+			<SidebarHistoryItem
+				chat={mockChat}
+				isActive={false}
+				onDelete={vi.fn()}
+				onRename={onRename}
+				onVisibilityChange={vi.fn()}
+				setOpenMobile={vi.fn()}
+			/>,
+		)
+
+		fireEvent.click(screen.getByText("Rename"))
+
+		const input = screen.getByLabelText("Rename chat")
+		fireEvent.change(input, { target: { value: "Renamed Title" } })
+		fireEvent.keyDown(input, { key: "Enter" })
+
+		await waitFor(() => {
+			expect(mockRenameChat).toHaveBeenCalledWith({
+				chatId: "chat-history-item-rename",
+				title: "Renamed Title",
+			})
+			expect(onRename).toHaveBeenCalledWith("chat-history-item-rename", "Renamed Title")
+		})
+	})
+
 	it("renders title and dropdown actions including visibility controls", () => {
 		const mockChat = createMockChat({
 			id: "chat-history-item-1",
@@ -578,6 +704,114 @@ describe("sidebar-history-item", () => {
 		)
 
 		expect(screen.queryByText("Share")).not.toBeInTheDocument()
+	})
+})
+
+it("patches local visibility after a successful visibility update", async () => {
+	const chat = createMockChat({
+		id: "history-chat-visibility",
+		title: "Visibility Chat",
+		visibility: "private",
+		createdAt: new Date(),
+	})
+
+	render(<SidebarHistoryClient initialChats={[chat]} initialHasMore={false} />)
+
+	fireEvent.click(screen.getByText("Public"))
+
+	await waitFor(() => {
+		expect(mockUpdateChatVisibility).toHaveBeenCalledWith({
+			chatId: "history-chat-visibility",
+			visibility: "public",
+		})
+		expect(mockPatchSidebarChat).toHaveBeenCalledWith("history-chat-visibility", {
+			visibility: "public",
+		})
+		expect(mockPatchPendingChat).toHaveBeenCalledWith("history-chat-visibility", {
+			visibility: "public",
+		})
+	})
+})
+
+it("ignores stale visibility successes when newer requests resolve first", async () => {
+	let resolveFirst: ((value: { success: true; data: undefined }) => void) | undefined
+	let resolveSecond: ((value: { success: true; data: undefined }) => void) | undefined
+
+	mockUpdateChatVisibility
+		.mockImplementationOnce(
+			() =>
+				new Promise<{ success: true; data: undefined }>((resolve) => {
+					resolveFirst = resolve
+				}),
+		)
+		.mockImplementationOnce(
+			() =>
+				new Promise<{ success: true; data: undefined }>((resolve) => {
+					resolveSecond = resolve
+				}),
+		)
+
+	const chat = createMockChat({
+		id: "history-chat-overlap",
+		title: "Visibility Race",
+		visibility: "private",
+		createdAt: new Date(),
+	})
+
+	render(<SidebarHistoryClient initialChats={[chat]} initialHasMore={false} />)
+
+	fireEvent.click(screen.getByText("Public"))
+	fireEvent.click(screen.getByText("Private"))
+
+	resolveSecond?.({ success: true, data: undefined })
+	await waitFor(() => {
+		expect(mockPatchSidebarChat).toHaveBeenCalledWith("history-chat-overlap", {
+			visibility: "private",
+		})
+	})
+
+	resolveFirst?.({ success: true, data: undefined })
+
+	await waitFor(() => {
+		expect(mockPatchSidebarChat).toHaveBeenCalledTimes(1)
+	})
+})
+
+it("retries history sync when the latest visibility request fails", async () => {
+	let resolveFirst: ((value: { success: true; data: undefined }) => void) | undefined
+	let resolveSecond: ((value: { success: false; error: { message: string } }) => void) | undefined
+
+	mockUpdateChatVisibility
+		.mockImplementationOnce(
+			() =>
+				new Promise<{ success: true; data: undefined }>((resolve) => {
+					resolveFirst = resolve
+				}),
+		)
+		.mockImplementationOnce(
+			() =>
+				new Promise<{ success: false; error: { message: string } }>((resolve) => {
+					resolveSecond = resolve
+				}),
+		)
+
+	const chat = createMockChat({
+		id: "history-chat-overlap-failure",
+		title: "Visibility Failure",
+		visibility: "private",
+		createdAt: new Date(),
+	})
+
+	render(<SidebarHistoryClient initialChats={[chat]} initialHasMore={false} />)
+
+	fireEvent.click(screen.getByText("Public"))
+	fireEvent.click(screen.getByText("Private"))
+
+	resolveFirst?.({ success: true, data: undefined })
+	resolveSecond?.({ success: false, error: { message: "failed" } })
+
+	await waitFor(() => {
+		expect(mockRetrySidebarHistory).toHaveBeenCalledTimes(1)
 	})
 })
 

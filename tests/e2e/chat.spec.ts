@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test"
+import { gotoIsolatedGuestHome } from "./session-helpers"
 
 // ── Chat E2E Tests ────────────────────────────────────────────
 // Covers: send message, streaming response, weather tool invocation,
@@ -7,8 +8,7 @@ import { expect, test } from "@playwright/test"
 
 test.describe("Chat", () => {
 	test.beforeEach(async ({ page }) => {
-		// Navigate to home page — guest session is auto-bootstrapped
-		await page.goto("/", { waitUntil: "domcontentloaded" })
+		await gotoIsolatedGuestHome(page)
 		await expect(page.getByTestId("multimodal-input")).toBeVisible({ timeout: 15000 })
 	})
 

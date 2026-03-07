@@ -44,7 +44,7 @@ vi.mock("@/lib/cache/revalidate", () => ({
 
 // ── Tests ───────────────────────────────────────────────────
 
-describe("Artifact Flow — Integration Tests", () => {
+describe("Artifact Flow — Contract Tests", () => {
 	beforeEach(() => {
 		vi.resetAllMocks()
 	})
@@ -101,6 +101,7 @@ describe("Artifact Flow — Integration Tests", () => {
 	describe("GET /api/artifact — not found", () => {
 		it("returns 404 when artifact does not exist", async () => {
 			mockGetAppSession.mockResolvedValue(createMockSession())
+			mockGetArtifactVersions.mockResolvedValue([])
 			mockGetArtifactById.mockResolvedValue(null)
 
 			const artifactId = crypto.randomUUID()
@@ -124,7 +125,7 @@ describe("Artifact Flow — Integration Tests", () => {
 
 			// Artifact belongs to the owner
 			const artifact = createMockArtifact({ userId: TEST_USER_ID })
-			mockGetArtifactById.mockResolvedValue(artifact)
+			mockGetArtifactVersions.mockResolvedValue([artifact])
 
 			const { GET } = await import("@/app/api/artifact/route")
 			const request = new Request(`http://localhost/api/artifact?id=${artifact.id}`)
@@ -136,12 +137,35 @@ describe("Artifact Flow — Integration Tests", () => {
 			expect(json.code).toBe("forbidden:chat:owner_mismatch")
 		})
 
+		it("returns only the latest version for latest preview reads", async () => {
+			const { ownerSession } = createMockUserPair()
+			mockGetAppSession.mockResolvedValue(ownerSession)
+
+			const latest = createMockArtifact({ userId: TEST_USER_ID })
+			mockGetArtifactById.mockResolvedValue(latest)
+
+			const { GET } = await import("@/app/api/artifact/route")
+			const request = new Request(`http://localhost/api/artifact?id=${latest.id}&view=latest`)
+
+			const response = await GET(request)
+			expect(response.status).toBe(200)
+
+			const json = await response.json()
+			expect(json).toEqual([
+				expect.objectContaining({
+					...latest,
+					createdAt: latest.createdAt.toISOString(),
+					updatedAt: latest.updatedAt.toISOString(),
+				}),
+			])
+			expect(mockGetArtifactVersions).not.toHaveBeenCalled()
+		})
+
 		it("allows owner to fetch their artifact versions", async () => {
 			const { ownerSession } = createMockUserPair()
 			mockGetAppSession.mockResolvedValue(ownerSession)
 
 			const artifact = createMockArtifact({ userId: TEST_USER_ID })
-			mockGetArtifactById.mockResolvedValue(artifact)
 
 			const versions = [
 				artifact,
@@ -166,7 +190,7 @@ describe("Artifact Flow — Integration Tests", () => {
 
 		it("returns data-layer AppError responses as-is", async () => {
 			mockGetAppSession.mockResolvedValue(createMockSession())
-			mockGetArtifactById.mockRejectedValue(
+			mockGetArtifactVersions.mockRejectedValue(
 				AppError.forbidden("forbidden:chat:owner_mismatch", "Access denied"),
 			)
 
@@ -607,7 +631,7 @@ describe("Artifact Flow — Integration Tests", () => {
 			const ownerArtifact = createMockArtifact({ userId: TEST_USER_ID })
 
 			// GET — blocked
-			mockGetArtifactById.mockResolvedValueOnce(ownerArtifact)
+			mockGetArtifactVersions.mockResolvedValueOnce([ownerArtifact])
 			const { GET, POST } = await import("@/app/api/artifact/route")
 
 			const getResponse = await GET(

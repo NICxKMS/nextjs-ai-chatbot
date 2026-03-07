@@ -1,4 +1,7 @@
 import { defineConfig, devices } from "@playwright/test"
+import { ensureTestAuthEnvironment } from "./tests/test-env"
+
+ensureTestAuthEnvironment()
 
 const PORT = process.env.PORT || 3000
 const baseURL = `http://localhost:${PORT}`
@@ -6,9 +9,10 @@ const baseURL = `http://localhost:${PORT}`
 export default defineConfig({
 	testDir: "./tests/e2e",
 	fullyParallel: true,
+	outputDir: "test-results/playwright",
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,
-	workers: process.env.CI ? 2 : 2,
+	workers: 2,
 	reporter: "html",
 	use: {
 		baseURL,

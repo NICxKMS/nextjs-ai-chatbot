@@ -1,7 +1,11 @@
+import "react-data-grid/lib/styles.css"
+
 import type { Metadata } from "next"
 import { cookies } from "next/headers"
 import { Suspense } from "react"
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { SidebarInset } from "@/components/ui/sidebar"
+import { SidebarProvider } from "@/components/ui/sidebar-provider"
+import { SessionProvider } from "@/features/auth/components/session-provider"
 import { NoticeHandler } from "@/features/chat/components/notice-handler"
 import { SidebarShell } from "@/features/sidebar/components/sidebar-shell"
 import { SidebarSkeleton } from "@/features/sidebar/components/sidebar-skeleton"
@@ -38,13 +42,10 @@ async function getSidebarDefaultOpen() {
 }
 
 // ── Chat layout shell (async runtime APIs) ───────────────────
-// With cacheComponents enabled, cookies/session access must remain
-// inside a Suspense boundary.
+// Keep sidebar cookie reads behind the chat-local Suspense boundary while the
+// session promise is started above and shared with the provider and pages.
 
 async function ChatLayoutShell({ children }: { children: React.ReactNode }) {
-	// Pre-warm request-scoped session cache for child server components.
-	await getAppSession()
-
 	return (
 		<ChatLayoutFrame
 			defaultOpen={await getSidebarDefaultOpen()}
@@ -72,18 +73,25 @@ function ChatLayoutFallback({ children }: { children: React.ReactNode }) {
 }
 
 // ── Chat layout ────────────────────────────────────────────────
-// NoticeHandler and PendingChatsProvider are client components without
-// server runtime API reads, so they remain outside the Suspense boundary.
+// NoticeHandler and the session provider stay outside the sidebar Suspense
+// boundary so the existing chat layout fallback remains intact while auth
+// resolution and downstream page reads reuse the same request-cached promise.
 
 export default function ChatLayout({ children }: { children: React.ReactNode }) {
+	const sessionPromise = getAppSession()
+
 	return (
 		<>
-			<NoticeHandler />
-			<PendingChatsProvider>
-				<Suspense fallback={<ChatLayoutFallback>{children}</ChatLayoutFallback>}>
-					<ChatLayoutShell>{children}</ChatLayoutShell>
-				</Suspense>
-			</PendingChatsProvider>
+			<Suspense fallback={null}>
+				<NoticeHandler />
+			</Suspense>
+			<SessionProvider session={sessionPromise}>
+				<PendingChatsProvider>
+					<Suspense fallback={<ChatLayoutFallback>{children}</ChatLayoutFallback>}>
+						<ChatLayoutShell>{children}</ChatLayoutShell>
+					</Suspense>
+				</PendingChatsProvider>
+			</SessionProvider>
 		</>
 	)
 }

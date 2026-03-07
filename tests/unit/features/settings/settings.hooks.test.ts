@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest"
 import {
 	settingsStore,
 	useSettings,
+	useSettingsSelector,
 	useSettingsSetter,
 } from "@/features/settings/hooks/use-settings"
 import { DEFAULT_SETTINGS } from "@/features/settings/types/settings.types"
@@ -116,5 +117,33 @@ describe("settings hooks", () => {
 		})
 
 		expect(result.current).toEqual(DEFAULT_SETTINGS)
+	})
+
+	it("selector subscribers ignore unrelated setting updates", () => {
+		let renderCount = 0
+
+		const { result } = renderHook(() => {
+			renderCount += 1
+			return useSettingsSelector((settings) => settings.temperature)
+		})
+
+		expect(result.current).toBe(DEFAULT_SETTINGS.temperature)
+		expect(renderCount).toBe(1)
+
+		act(() => {
+			const success = settingsStore.updateSettings({ topP: 0.4 })
+			expect(success).toBe(true)
+		})
+
+		expect(result.current).toBe(DEFAULT_SETTINGS.temperature)
+		expect(renderCount).toBe(1)
+
+		act(() => {
+			const success = settingsStore.updateSettings({ temperature: 1.25 })
+			expect(success).toBe(true)
+		})
+
+		expect(result.current).toBe(1.25)
+		expect(renderCount).toBe(2)
 	})
 })

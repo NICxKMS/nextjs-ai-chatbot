@@ -15,7 +15,7 @@ import {
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { useSettings, useSettingsSetter } from "@/features/settings/hooks/use-settings"
+import { useSettingsSelector, useSettingsSetter } from "@/features/settings/hooks/use-settings"
 
 // ── Props ───────────────────────────────────────────────────
 
@@ -28,18 +28,188 @@ function clampOutputTokens(value: number): number {
 	return Math.max(256, Math.min(1_000_000, value))
 }
 
+function TemperatureField() {
+	const temperature = useSettingsSelector((settings) => settings.temperature)
+	const { updateSettings } = useSettingsSetter()
+	const temperatureId = useId()
+
+	return (
+		<div className="space-y-2">
+			<Label className="flex items-center justify-between" htmlFor={temperatureId}>
+				<span>Temperature</span>
+				<span className="font-normal text-muted-foreground text-xs tabular-nums">
+					{temperature.toFixed(2)}
+				</span>
+			</Label>
+			<Slider
+				aria-label="Temperature"
+				id={temperatureId}
+				max={2}
+				min={0}
+				onChange={(event) => {
+					updateSettings({
+						temperature: Number.parseFloat(event.target.value),
+					})
+				}}
+				step={0.01}
+				value={temperature}
+			/>
+			<p className="text-muted-foreground text-xs">
+				Higher values produce more creative responses.
+			</p>
+		</div>
+	)
+}
+
+function TopPField() {
+	const topP = useSettingsSelector((settings) => settings.topP)
+	const { updateSettings } = useSettingsSetter()
+	const topPId = useId()
+
+	return (
+		<div className="space-y-2">
+			<Label className="flex items-center justify-between" htmlFor={topPId}>
+				<span>Top P</span>
+				<span className="font-normal text-muted-foreground text-xs tabular-nums">
+					{topP.toFixed(2)}
+				</span>
+			</Label>
+			<Slider
+				aria-label="Top P"
+				id={topPId}
+				max={1}
+				min={0}
+				onChange={(event) => {
+					updateSettings({ topP: Number.parseFloat(event.target.value) })
+				}}
+				step={0.01}
+				value={topP}
+			/>
+			<p className="text-muted-foreground text-xs">
+				Controls diversity via nucleus sampling.
+			</p>
+		</div>
+	)
+}
+
+function MaxOutputTokensField() {
+	const maxOutputTokens = useSettingsSelector((settings) => settings.maxOutputTokens)
+	const { updateSettings } = useSettingsSetter()
+	const maxTokensId = useId()
+
+	return (
+		<div className="space-y-2">
+			<Label className="flex items-center justify-between" htmlFor={maxTokensId}>
+				<span>Max Output Tokens</span>
+				<span className="font-normal text-muted-foreground text-xs tabular-nums">
+					{maxOutputTokens.toLocaleString()}
+				</span>
+			</Label>
+			<Input
+				aria-label="Max output tokens"
+				id={maxTokensId}
+				max={1_000_000}
+				min={256}
+				onChange={(event) => {
+					const value = Number.parseInt(event.target.value, 10)
+
+					if (!Number.isNaN(value)) {
+						updateSettings({
+							maxOutputTokens: clampOutputTokens(value),
+						})
+					}
+				}}
+				step={64}
+				type="number"
+				value={maxOutputTokens}
+			/>
+			<p className="text-muted-foreground text-xs">
+				Maximum number of tokens in the response (256–1,000,000).
+			</p>
+		</div>
+	)
+}
+
+function SystemPromptField() {
+	const systemPrompt = useSettingsSelector((settings) => settings.systemPrompt)
+	const { updateSettings } = useSettingsSetter()
+	const systemPromptId = useId()
+
+	return (
+		<Textarea
+			aria-label="System prompt"
+			id={systemPromptId}
+			maxLength={8192}
+			onChange={(event) => {
+				updateSettings({ systemPrompt: event.target.value })
+			}}
+			placeholder="You are a helpful assistant..."
+			rows={4}
+			value={systemPrompt}
+		/>
+	)
+}
+
+function EnableReasoningField() {
+	const enableReasoning = useSettingsSelector((settings) => settings.enableReasoning)
+	const { updateSettings } = useSettingsSetter()
+	const reasoningId = useId()
+
+	return (
+		<div className="flex items-center justify-between gap-4 rounded-md border px-3 py-3">
+			<div className="space-y-0.5">
+				<Label className="cursor-pointer" htmlFor={reasoningId}>
+					Enable reasoning
+				</Label>
+				<p className="text-muted-foreground text-xs">
+					Allow reasoning models to stream their thoughts.
+				</p>
+			</div>
+			<Switch
+				aria-label="Enable reasoning"
+				checked={enableReasoning}
+				id={reasoningId}
+				onCheckedChange={(checked) => {
+					updateSettings({ enableReasoning: checked })
+				}}
+			/>
+		</div>
+	)
+}
+
+function ContextDisplayModeField() {
+	const isDetailed = useSettingsSelector((settings) => settings.contextDisplayMode === "detailed")
+	const { updateSettings } = useSettingsSetter()
+	const contextDisplayId = useId()
+
+	return (
+		<div className="flex items-center justify-between gap-4 rounded-md border px-3 py-3">
+			<div className="space-y-0.5">
+				<Label className="cursor-pointer" htmlFor={contextDisplayId}>
+					Detailed token usage
+				</Label>
+				<p className="text-muted-foreground text-xs">
+					Show token usage inline instead of on hover.
+				</p>
+			</div>
+			<Switch
+				aria-label="Detailed token usage"
+				checked={isDetailed}
+				id={contextDisplayId}
+				onCheckedChange={(checked) => {
+					updateSettings({
+						contextDisplayMode: checked ? "detailed" : "compact",
+					})
+				}}
+			/>
+		</div>
+	)
+}
+
 // ── Main Component ──────────────────────────────────────────
 
 export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
-	const settings = useSettings()
-	const { updateSettings, resetSettings } = useSettingsSetter()
-
-	const temperatureId = useId()
-	const topPId = useId()
-	const maxTokensId = useId()
-	const systemPromptId = useId()
-	const reasoningId = useId()
-	const contextDisplayId = useId()
+	const { resetSettings } = useSettingsSetter()
 
 	return (
 		<Sheet onOpenChange={onOpenChange} open={open}>
@@ -65,92 +235,9 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 							</p>
 						</div>
 
-						{/* Temperature */}
-						<div className="space-y-2">
-							<Label
-								className="flex items-center justify-between"
-								htmlFor={temperatureId}
-							>
-								<span>Temperature</span>
-								<span className="font-normal text-muted-foreground text-xs tabular-nums">
-									{settings.temperature.toFixed(2)}
-								</span>
-							</Label>
-							<Slider
-								aria-label="Temperature"
-								id={temperatureId}
-								max={2}
-								min={0}
-								onChange={(event) => {
-									updateSettings({
-										temperature: Number.parseFloat(event.target.value),
-									})
-								}}
-								step={0.01}
-								value={settings.temperature}
-							/>
-							<p className="text-muted-foreground text-xs">
-								Higher values produce more creative responses.
-							</p>
-						</div>
-
-						{/* Top P */}
-						<div className="space-y-2">
-							<Label className="flex items-center justify-between" htmlFor={topPId}>
-								<span>Top P</span>
-								<span className="font-normal text-muted-foreground text-xs tabular-nums">
-									{settings.topP.toFixed(2)}
-								</span>
-							</Label>
-							<Slider
-								aria-label="Top P"
-								id={topPId}
-								max={1}
-								min={0}
-								onChange={(event) => {
-									updateSettings({ topP: Number.parseFloat(event.target.value) })
-								}}
-								step={0.01}
-								value={settings.topP}
-							/>
-							<p className="text-muted-foreground text-xs">
-								Controls diversity via nucleus sampling.
-							</p>
-						</div>
-
-						{/* Max Output Tokens */}
-						<div className="space-y-2">
-							<Label
-								className="flex items-center justify-between"
-								htmlFor={maxTokensId}
-							>
-								<span>Max Output Tokens</span>
-								<span className="font-normal text-muted-foreground text-xs tabular-nums">
-									{settings.maxOutputTokens.toLocaleString()}
-								</span>
-							</Label>
-							<Input
-								aria-label="Max output tokens"
-								id={maxTokensId}
-								max={1_000_000}
-								min={256}
-								onChange={(event) => {
-									const value = Number.parseInt(event.target.value, 10)
-
-									if (!Number.isNaN(value)) {
-										updateSettings({
-											maxOutputTokens: clampOutputTokens(value),
-										})
-									}
-								}}
-								step={64}
-								type="number"
-								value={settings.maxOutputTokens}
-							/>
-							<p className="text-muted-foreground text-xs">
-								Maximum number of tokens in the response (256–1,000,000).
-							</p>
-						</div>
+						<TemperatureField />
+						<TopPField />
+						<MaxOutputTokensField />
 					</section>
 
 					{/* ── System Prompt ───────────────────────── */}
@@ -161,17 +248,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 								Provide instructions that apply to every conversation.
 							</p>
 						</div>
-						<Textarea
-							aria-label="System prompt"
-							id={systemPromptId}
-							maxLength={8192}
-							onChange={(event) => {
-								updateSettings({ systemPrompt: event.target.value })
-							}}
-							placeholder="You are a helpful assistant..."
-							rows={4}
-							value={settings.systemPrompt}
-						/>
+						<SystemPromptField />
 					</section>
 
 					{/* ── Behavior ────────────────────────────── */}
@@ -183,45 +260,8 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 							</p>
 						</div>
 
-						<div className="flex items-center justify-between gap-4 rounded-md border px-3 py-3">
-							<div className="space-y-0.5">
-								<Label className="cursor-pointer" htmlFor={reasoningId}>
-									Enable reasoning
-								</Label>
-								<p className="text-muted-foreground text-xs">
-									Allow reasoning models to stream their thoughts.
-								</p>
-							</div>
-							<Switch
-								aria-label="Enable reasoning"
-								checked={settings.enableReasoning}
-								id={reasoningId}
-								onCheckedChange={(checked) => {
-									updateSettings({ enableReasoning: checked })
-								}}
-							/>
-						</div>
-
-						<div className="flex items-center justify-between gap-4 rounded-md border px-3 py-3">
-							<div className="space-y-0.5">
-								<Label className="cursor-pointer" htmlFor={contextDisplayId}>
-									Detailed token usage
-								</Label>
-								<p className="text-muted-foreground text-xs">
-									Show token usage inline instead of on hover.
-								</p>
-							</div>
-							<Switch
-								aria-label="Detailed token usage"
-								checked={settings.contextDisplayMode === "detailed"}
-								id={contextDisplayId}
-								onCheckedChange={(checked) => {
-									updateSettings({
-										contextDisplayMode: checked ? "detailed" : "compact",
-									})
-								}}
-							/>
-						</div>
+						<EnableReasoningField />
+						<ContextDisplayModeField />
 					</section>
 				</div>
 

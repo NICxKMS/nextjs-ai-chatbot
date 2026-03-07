@@ -14,6 +14,7 @@
  *
  * Usage: node scripts/check-imports.mjs
  * Exit: 0 if clean, 1 if violations found
+ * Note: keep this as an explicit audit command while the allowlist remains curated by hand; weakening the rules here would only hide architecture drift.
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs"
@@ -32,9 +33,11 @@ const ALLOWLIST = new Set([
 	"features/chat/components/stream-bridge.tsx -> features/artifacts/lib/artifact-store.ts",
 	"features/chat/components/chat-shell.tsx -> features/artifacts/lib/artifact-store.ts",
 	"features/chat/components/chat-shell.tsx -> features/artifacts/components/artifact-panel.tsx",
+	"features/chat/components/message.tsx -> features/artifacts/components/artifact-preview.tsx",
 	// chat → settings: header opens settings panel
 	"features/chat/hooks/use-chat-session.ts -> features/settings/hooks/use-settings.ts",
 	"features/chat/components/chat-header.tsx -> features/settings/components/settings-panel.tsx",
+	"features/chat/components/context-display.tsx -> features/settings/hooks/use-settings.ts",
 	// chat → voting: messages render vote buttons & resolver
 	"features/chat/components/message.tsx -> features/voting/components/vote-buttons.tsx",
 	"features/chat/components/message-actions.tsx -> features/voting/components/vote-buttons.tsx",
@@ -42,10 +45,13 @@ const ALLOWLIST = new Set([
 	// chat → visibility/models: header renders selectors
 	"features/chat/components/chat-header.tsx -> features/visibility/components/visibility-selector.tsx",
 	"features/chat/components/chat-header.tsx -> features/models/components/model-selector.tsx",
+	"features/chat/components/multimodal-input.tsx -> features/models/components/model-selector.tsx",
+	"features/chat/lib/chat-route.ts -> features/models/lib/models.ts",
 	// sidebar → chat: history triggers chat deletion
 	"features/sidebar/components/sidebar-history-item.tsx -> features/chat/actions/delete-chat.ts",
 	"features/sidebar/components/sidebar-history-client.tsx -> features/chat/actions/delete-chat.ts",
 	"features/sidebar/components/sidebar-history-client.tsx -> features/chat/actions/delete-all-chats.ts",
+	"features/sidebar/components/sidebar-header-actions.tsx -> features/chat/actions/delete-all-chats.ts",
 	// sidebar → visibility: history manages chat visibility
 	"features/sidebar/components/sidebar-history-item.tsx -> features/visibility/actions/update-visibility.ts",
 	"features/sidebar/components/sidebar-history-client.tsx -> features/visibility/actions/update-visibility.ts",

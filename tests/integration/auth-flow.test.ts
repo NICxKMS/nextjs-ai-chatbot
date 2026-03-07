@@ -28,7 +28,7 @@ vi.mock("@/lib/cache/revalidate", () => ({
 
 // ── Tests ───────────────────────────────────────────────────
 
-describe("Auth Flow — Integration Tests", () => {
+describe("Auth Flow — Contract Tests", () => {
 	beforeEach(() => {
 		vi.resetAllMocks()
 	})

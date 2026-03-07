@@ -9,14 +9,16 @@ import {
 	type SetStateAction,
 	useCallback,
 	useEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react"
+import { toast } from "sonner"
 import useSWR from "swr"
 
 import { LoaderIcon } from "@/components/icons"
+import { MotionProvider } from "@/components/motion-provider"
 import { Badge } from "@/components/ui/badge"
-import { useChatSessionContext } from "@/features/chat/hooks/use-chat-session-context"
 import type { Artifact } from "@/lib/types/models.types"
 import { cn } from "@/lib/utils/cn"
 
@@ -72,6 +74,39 @@ async function artifactVersionFetcher(url: string): Promise<Artifact[]> {
 	return res.json()
 }
 
+function mergeArtifactVersion(versions: Artifact[] | undefined, nextVersion: Artifact): Artifact[] {
+	const remainingVersions =
+		versions?.filter((version) => version.createdAt !== nextVersion.createdAt) ?? []
+
+	return [nextVersion, ...remainingVersions]
+}
+
+type SaveState = "idle" | "pending" | "error"
+
+const DEFAULT_SAVE_ERROR_MESSAGE = "Failed to save changes. Please try again."
+
+async function readSaveErrorMessage(response: Response): Promise<string> {
+	if (typeof response.json === "function") {
+		try {
+			const body = (await response.json()) as {
+				message?: string
+				error?: string
+				errorMessage?: string
+			}
+
+			for (const candidate of [body.message, body.error, body.errorMessage]) {
+				if (typeof candidate === "string" && candidate.trim().length > 0) {
+					return candidate
+				}
+			}
+		} catch {
+			// Fall back to the generic save error below.
+		}
+	}
+
+	return DEFAULT_SAVE_ERROR_MESSAGE
+}
+
 // ── Constants ───────────────────────────────────────────────
 
 const SAVE_DEBOUNCE_MS = 2000
@@ -107,8 +142,11 @@ const SPRING_TRANSITION = { type: "spring" as const, stiffness: 300, damping: 30
 
 // ── Main component ──────────────────────────────────────────
 
-function PureArtifactPanel() {
-	const { chatId } = useChatSessionContext()
+interface ArtifactPanelProps {
+	chatId: string
+}
+
+function PureArtifactPanel({ chatId }: ArtifactPanelProps) {
 	const { artifact, setArtifact } = useArtifact()
 	const isVisible = useArtifactSelector((s) => s.isVisible)
 
@@ -150,13 +188,19 @@ function PureArtifactPanel() {
 		},
 	)
 
-	const panelVersions = versions ? [...versions].reverse() : undefined
+	const panelVersions = useMemo(
+		() => (versions ? [...versions].reverse() : undefined),
+		[versions],
+	)
 
 	// ── Local state ───────────────────────────────────────────
 
 	const [currentVersionIndex, setCurrentVersionIndex] = useState(-1)
 	const [isContentDirty, setIsContentDirty] = useState(false)
+	const [saveState, setSaveState] = useState<SaveState>("idle")
+	const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null)
 	const [metadata, setMetadata] = useState<unknown>(null)
+	const lastEditedContentRef = useRef(artifact.content)
 
 	// ── Sync version index when versions load ────────────────
 
@@ -164,21 +208,33 @@ function PureArtifactPanel() {
 		if (!isContentDirty && panelVersions && panelVersions.length > 0) {
 			const latest = panelVersions.at(-1)
 			if (latest) {
-				setCurrentVersionIndex(panelVersions.length - 1)
-				setArtifact((prev) => ({
-					...prev,
-					content: latest.content ?? "",
-				}))
+				const latestContent = latest.content ?? ""
+				const latestIndex = panelVersions.length - 1
+
+				if (currentVersionIndex !== latestIndex) {
+					setCurrentVersionIndex(latestIndex)
+				}
+
+				lastEditedContentRef.current = latestContent
+				if (artifact.content !== latestContent) {
+					setArtifact((prev) => ({
+						...prev,
+						content: latestContent,
+					}))
+				}
 			}
 		}
-	}, [isContentDirty, panelVersions, setArtifact])
+	}, [artifact.content, currentVersionIndex, isContentDirty, panelVersions, setArtifact])
 
 	// Reset mode to edit when streaming starts
 	useEffect(() => {
 		if (artifact.status === "streaming") {
 			setIsContentDirty(false)
+			setSaveState("idle")
+			setSaveErrorMessage(null)
+			lastEditedContentRef.current = artifact.content
 		}
-	}, [artifact.status])
+	}, [artifact.content, artifact.status])
 
 	// ── Derived state ─────────────────────────────────────────
 
@@ -225,12 +281,16 @@ function PureArtifactPanel() {
 		async (updatedContent: string) => {
 			if (artifact.artifactId === "init") return
 
+			lastEditedContentRef.current = updatedContent
+
 			// Cancel any pending save to prevent race conditions
 			if (pendingSaveRef.current) {
 				pendingSaveRef.current.abort()
 			}
 			const controller = new AbortController()
 			pendingSaveRef.current = controller
+			setSaveState("pending")
+			setSaveErrorMessage(null)
 
 			try {
 				const res = await fetch("/api/artifact", {
@@ -249,13 +309,42 @@ function PureArtifactPanel() {
 
 				pendingSaveRef.current = null
 
-				if (res.ok) {
-					setIsContentDirty(false)
-					await mutateVersions()
+				if (!res.ok) {
+					const message = await readSaveErrorMessage(res)
+					setSaveState("error")
+					setSaveErrorMessage(message)
+					toast.error(message)
+					return
 				}
+
+				setIsContentDirty(false)
+				setSaveState("idle")
+				setSaveErrorMessage(null)
+
+				if (typeof res.json !== "function") {
+					await mutateVersions()
+					return
+				}
+
+				const responseBody = (await res.json()) as { artifact?: Artifact }
+				if (!responseBody.artifact) {
+					await mutateVersions()
+					return
+				}
+
+				const savedArtifact = responseBody.artifact
+				lastEditedContentRef.current = savedArtifact.content ?? updatedContent
+
+				await mutateVersions(
+					(currentVersions) => mergeArtifactVersion(currentVersions, savedArtifact),
+					{ revalidate: false },
+				)
 			} catch (error) {
 				if (error instanceof Error && error.name === "AbortError") return
 				pendingSaveRef.current = null
+				setSaveState("error")
+				setSaveErrorMessage(DEFAULT_SAVE_ERROR_MESSAGE)
+				toast.error(DEFAULT_SAVE_ERROR_MESSAGE)
 			}
 		},
 		[artifact.artifactId, artifact.title, artifact.kind, chatId, mutateVersions],
@@ -273,19 +362,39 @@ function PureArtifactPanel() {
 			const latestDoc = panelVersions.at(-1)
 			if (!latestDoc) return
 
-			if (updatedContent !== (latestDoc.content ?? "")) {
-				setIsContentDirty(true)
+			lastEditedContentRef.current = updatedContent
+			const latestContent = latestDoc.content ?? ""
 
-				const shouldDebounce = options?.debounce ?? true
-
-				if (shouldDebounce) {
-					if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
-					debounceTimerRef.current = setTimeout(() => {
-						handleSave(updatedContent)
-					}, SAVE_DEBOUNCE_MS)
-				} else {
-					handleSave(updatedContent)
+			if (updatedContent === latestContent) {
+				if (debounceTimerRef.current) {
+					clearTimeout(debounceTimerRef.current)
+					debounceTimerRef.current = null
 				}
+
+				if (pendingSaveRef.current) {
+					pendingSaveRef.current.abort()
+					pendingSaveRef.current = null
+				}
+
+				setIsContentDirty(false)
+				setSaveState("idle")
+				setSaveErrorMessage(null)
+				return
+			}
+
+			setIsContentDirty(true)
+			setSaveState("idle")
+			setSaveErrorMessage(null)
+
+			const shouldDebounce = options?.debounce ?? true
+
+			if (shouldDebounce) {
+				if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+				debounceTimerRef.current = setTimeout(() => {
+					handleSave(updatedContent)
+				}, SAVE_DEBOUNCE_MS)
+			} else {
+				handleSave(updatedContent)
 			}
 		},
 		[panelVersions, handleSave],
@@ -296,6 +405,7 @@ function PureArtifactPanel() {
 	useEffect(() => {
 		return () => {
 			if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+			pendingSaveRef.current?.abort()
 		}
 	}, [])
 
@@ -323,13 +433,7 @@ function PureArtifactPanel() {
 					/>
 				)
 			case "code":
-				return (
-					<CodeEditor
-						{...commonProps}
-						onSaveContent={saveContent}
-						suggestions={artifact.suggestions ?? []}
-					/>
-				)
+				return <CodeEditor {...commonProps} onSaveContent={saveContent} />
 			case "sheet":
 				return <SheetEditor {...commonProps} onSaveContent={saveContent} />
 			case "image":
@@ -357,8 +461,31 @@ function PureArtifactPanel() {
 			)
 		}
 
-		if (isContentDirty) {
+		if (saveState === "pending") {
 			return <div className="text-muted-foreground text-sm">Saving changes…</div>
+		}
+
+		if (saveState === "error") {
+			return (
+				<div className="flex items-center gap-2 text-sm">
+					<div className="text-destructive">
+						{saveErrorMessage ?? DEFAULT_SAVE_ERROR_MESSAGE}
+					</div>
+					<button
+						className="cursor-pointer font-medium text-foreground underline underline-offset-4"
+						onClick={() => {
+							void handleSave(lastEditedContentRef.current)
+						}}
+						type="button"
+					>
+						Retry save
+					</button>
+				</div>
+			)
+		}
+
+		if (isContentDirty) {
+			return <div className="text-muted-foreground text-sm">Unsaved changes</div>
 		}
 
 		if (currentVersion) {
@@ -375,97 +502,99 @@ function PureArtifactPanel() {
 	// ── Render ────────────────────────────────────────────────
 
 	return (
-		<AnimatePresence>
-			{isVisible && (
-				<motion.div
-					animate={{
-						opacity: 1,
-						y: 0,
-						x: 0,
-						width: "100dvw",
-						height: "100dvh",
-						borderRadius: 0,
-						transition: { ...SPRING_TRANSITION, duration: 0.5 },
-					}}
-					aria-label={`Artifact: ${artifact.title}`}
-					className="fixed top-0 left-0 z-50 flex h-dvh w-dvw flex-col overflow-hidden border-zinc-200 bg-background dark:border-zinc-700 dark:bg-muted"
-					data-testid="artifact-panel"
-					ref={panelRef}
-					role="dialog"
-					tabIndex={-1}
-					exit={{
-						opacity: 0,
-						scale: 0.5,
-						transition: {
-							delay: 0.1,
-							type: "spring",
-							stiffness: 600,
-							damping: 30,
-						},
-					}}
-					initial={
-						artifact.boundingBox
-							? {
-									opacity: 1,
-									x: artifact.boundingBox.left,
-									y: artifact.boundingBox.top,
-									width: artifact.boundingBox.width,
-									height: artifact.boundingBox.height,
-									borderRadius: 50,
-								}
-							: { opacity: 0, scale: 0.95 }
-					}
-				>
-					{/* ── Header ─────────────────────────────── */}
-					<div className="flex flex-row items-start justify-between border-b p-2">
-						<div className="flex flex-row items-start gap-4">
-							<ArtifactCloseButton />
-							<div className="flex flex-col gap-0.5">
-								<div className="flex items-center gap-2">
-									<span className="font-medium">{artifact.title}</span>
-									<Badge variant="secondary" className="text-xs capitalize">
-										{kindLabel(artifact.kind)}
-									</Badge>
+		<MotionProvider>
+			<AnimatePresence>
+				{isVisible && (
+					<motion.div
+						animate={{
+							opacity: 1,
+							y: 0,
+							x: 0,
+							width: "100dvw",
+							height: "100dvh",
+							borderRadius: 0,
+							transition: { ...SPRING_TRANSITION, duration: 0.5 },
+						}}
+						aria-label={`Artifact: ${artifact.title}`}
+						className="fixed top-0 left-0 z-50 flex h-dvh w-dvw flex-col overflow-hidden border-zinc-200 bg-background dark:border-zinc-700 dark:bg-muted"
+						data-testid="artifact-panel"
+						ref={panelRef}
+						role="dialog"
+						tabIndex={-1}
+						exit={{
+							opacity: 0,
+							scale: 0.5,
+							transition: {
+								delay: 0.1,
+								type: "spring",
+								stiffness: 600,
+								damping: 30,
+							},
+						}}
+						initial={
+							artifact.boundingBox
+								? {
+										opacity: 1,
+										x: artifact.boundingBox.left,
+										y: artifact.boundingBox.top,
+										width: artifact.boundingBox.width,
+										height: artifact.boundingBox.height,
+										borderRadius: 50,
+									}
+								: { opacity: 0, scale: 0.95 }
+						}
+					>
+						{/* ── Header ─────────────────────────────── */}
+						<div className="flex flex-row items-start justify-between border-b p-2">
+							<div className="flex flex-row items-start gap-4">
+								<ArtifactCloseButton />
+								<div className="flex flex-col gap-0.5">
+									<div className="flex items-center gap-2">
+										<span className="font-medium">{artifact.title}</span>
+										<Badge variant="secondary" className="text-xs capitalize">
+											{kindLabel(artifact.kind)}
+										</Badge>
+									</div>
+									{renderStatus()}
 								</div>
-								{renderStatus()}
 							</div>
+
+							<ArtifactActions
+								actions={actions}
+								currentVersionIndex={currentVersionIndex}
+								handleVersionChange={handleVersionChange}
+								isCurrentVersion={isCurrentVersion}
+								metadata={metadata}
+								mode="edit"
+								setMetadata={setMetadata as Dispatch<SetStateAction<unknown>>}
+							/>
 						</div>
 
-						<ArtifactActions
-							actions={actions}
-							currentVersionIndex={currentVersionIndex}
-							handleVersionChange={handleVersionChange}
-							isCurrentVersion={isCurrentVersion}
-							metadata={metadata}
-							mode="edit"
-							setMetadata={setMetadata as Dispatch<SetStateAction<unknown>>}
-						/>
-					</div>
+						{/* ── Editor area ────────────────────────── */}
+						<div
+							className={cn(
+								"relative flex-1 overflow-y-auto bg-background dark:bg-muted",
+								{ "p-4 sm:px-14 sm:py-8": artifact.kind === "text" },
+							)}
+						>
+							<ArtifactErrorBoundary>{renderEditor()}</ArtifactErrorBoundary>
+						</div>
 
-					{/* ── Editor area ────────────────────────── */}
-					<div
-						className={cn(
-							"relative flex-1 overflow-y-auto bg-background dark:bg-muted",
-							{ "p-4 sm:px-14 sm:py-8": artifact.kind === "text" },
-						)}
-					>
-						<ArtifactErrorBoundary>{renderEditor()}</ArtifactErrorBoundary>
-					</div>
-
-					{/* ── Version footer ─────────────────────── */}
-					<AnimatePresence>
-						{!isCurrentVersion && (
-							<VersionFooter
-								currentVersionIndex={currentVersionIndex}
-								versions={panelVersions}
-								handleVersionChange={handleVersionChange}
-								onVersionRestore={mutateVersions}
-							/>
-						)}
-					</AnimatePresence>
-				</motion.div>
-			)}
-		</AnimatePresence>
+						{/* ── Version footer ─────────────────────── */}
+						<AnimatePresence>
+							{!isCurrentVersion && (
+								<VersionFooter
+									currentVersionIndex={currentVersionIndex}
+									versions={panelVersions}
+									handleVersionChange={handleVersionChange}
+									onVersionRestore={mutateVersions}
+								/>
+							)}
+						</AnimatePresence>
+					</motion.div>
+				)}
+			</AnimatePresence>
+		</MotionProvider>
 	)
 }
 

@@ -56,12 +56,6 @@ export function AuthForm({ mode, action }: AuthFormProps) {
 			email: formData.get("email"),
 			password: formData.get("password"),
 		}
-		if (!isLogin) {
-			const name = formData.get("name")
-			if (name) {
-				raw.name = name
-			}
-		}
 
 		const parsed = schema.safeParse(raw)
 		if (!parsed.success) {
@@ -116,29 +110,6 @@ export function AuthForm({ mode, action }: AuthFormProps) {
 					role="alert"
 				>
 					{state.serverError}
-				</div>
-			)}
-
-			{/* Name field — register only */}
-			{!isLogin && (
-				<div className="flex flex-col gap-2">
-					<Label className="font-normal text-zinc-600 dark:text-zinc-400" htmlFor="name">
-						Name <span className="text-muted-foreground">(optional)</span>
-					</Label>
-					<Input
-						autoComplete="name"
-						className="bg-muted text-md md:text-sm"
-						disabled={isPending}
-						id="name"
-						name="name"
-						placeholder="Your name"
-						type="text"
-					/>
-					{state?.fieldErrors?.name?.[0] && (
-						<p className="text-destructive text-sm" role="alert">
-							{state.fieldErrors.name[0]}
-						</p>
-					)}
 				</div>
 			)}
 

@@ -3,8 +3,7 @@ import { createOpenAI } from "@ai-sdk/openai"
 import type { ProviderV3 } from "@ai-sdk/provider"
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { createProviderRegistry } from "ai"
-
-type ProviderId = "google" | "openai" | "openrouter"
+import type { ProviderId } from "@/lib/types/model.types"
 
 type ProviderDefinition = {
 	envKey: string
@@ -41,6 +40,10 @@ function hasConfiguredProvider({ envKey }: ProviderDefinition): boolean {
 	return Boolean(process.env[envKey])
 }
 
+function getProviderDefinition(providerId: ProviderId): ProviderDefinition {
+	return PROVIDER_DEFINITIONS[providerId]
+}
+
 function getProviderEntries(): Array<[ProviderId, ProviderDefinition]> {
 	return Object.entries(PROVIDER_DEFINITIONS) as Array<[ProviderId, ProviderDefinition]>
 }
@@ -72,6 +75,14 @@ function buildRegistry() {
 /** Single entry point for AI model resolution across the app. */
 export const registry = buildRegistry()
 
+export function isProviderConfigured(providerId: ProviderId): boolean {
+	return hasConfiguredProvider(getProviderDefinition(providerId))
+}
+
+export function getRequiredProviderEnvKey(providerId: ProviderId): string {
+	return getProviderDefinition(providerId).envKey
+}
+
 /**
  * Returns the set of provider IDs that have their required API key configured.
  *
@@ -81,7 +92,7 @@ export const registry = buildRegistry()
 export function getAvailableProviderIds(): Set<string> {
 	return new Set(
 		getProviderEntries()
-			.filter(([, definition]) => hasConfiguredProvider(definition))
+			.filter(([providerId]) => isProviderConfigured(providerId))
 			.map(([providerId]) => providerId),
 	)
 }

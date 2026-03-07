@@ -69,9 +69,11 @@ const initialCacheToken = process.env.CACHE_KV_REST_API_TOKEN
 function clearRedisSingleton(): void {
 	const redisGlobal = globalThis as typeof globalThis & {
 		__upstashRedis?: unknown
+		__upstashRedisInitFailed?: boolean
 	}
 
 	delete redisGlobal.__upstashRedis
+	delete redisGlobal.__upstashRedisInitFailed
 }
 
 async function importCacheClientModule(): Promise<typeof import("@/lib/cache/client")> {
@@ -264,7 +266,7 @@ describe("lib/cache/client", () => {
 		expect(instance.expire).toHaveBeenNthCalledWith(2, "rate-limit:user-1", 20)
 	})
 
-	it("returns null when redis initialization fails", async () => {
+	it("returns null and memoizes redis initialization failure", async () => {
 		upstashState.shouldThrowOnInit = true
 
 		const cacheClientModule = await importCacheClientModule()
@@ -272,7 +274,7 @@ describe("lib/cache/client", () => {
 		expect(await cacheClientModule.incr("rate-limit:user-1")).toBeNull()
 		expect(await cacheClientModule.expire("rate-limit:user-1", 60)).toBeNull()
 		expect(await cacheClientModule.ping()).toBeNull()
-		expect(upstashState.constructorSpy).toHaveBeenCalledTimes(3)
+		expect(upstashState.constructorSpy).toHaveBeenCalledTimes(1)
 		expect(upstashState.instances).toHaveLength(0)
 	})
 

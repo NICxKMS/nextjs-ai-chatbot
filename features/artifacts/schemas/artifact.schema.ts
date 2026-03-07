@@ -7,6 +7,7 @@ import { z } from "zod"
 const artifactIdSchema = z.string().uuid()
 const artifactTimestampSchema = z.string().datetime()
 const artifactTitleSchema = z.string().min(1).max(200)
+const artifactViewSchema = z.enum(["latest", "versions"])
 const createArtifactKindSchema = z.enum(["text", "code", "sheet"])
 const saveArtifactKindSchema = z.enum(["text", "code", "image", "sheet"])
 
@@ -36,6 +37,7 @@ export type UpdateArtifactInput = z.infer<typeof updateArtifactSchema>
  */
 export const getArtifactSchema = z.object({
 	id: artifactIdSchema,
+	view: artifactViewSchema.optional(),
 })
 
 export type GetArtifactInput = z.infer<typeof getArtifactSchema>
@@ -83,17 +85,3 @@ export const artifactPostBodySchema = z.discriminatedUnion("mode", [
 ])
 
 export type ArtifactPostBodyInput = z.infer<typeof artifactPostBodySchema>
-
-// ── Suggestion response schema ──────────────────────────────
-// Validates AI-generated suggestions for text artifacts (P4-T16).
-// Max 5 suggestions per response to keep UI manageable.
-
-const suggestionItemSchema = z.object({
-	originalText: z.string(),
-	suggestedText: z.string(),
-	description: z.string(),
-})
-
-export const suggestionResponseSchema = z.array(suggestionItemSchema).max(5)
-
-export type SuggestionResponse = z.infer<typeof suggestionResponseSchema>

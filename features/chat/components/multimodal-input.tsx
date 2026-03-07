@@ -1,6 +1,8 @@
 "use client"
 
+import type { FileUIPart } from "ai"
 import { useCallback, useMemo } from "react"
+import { toast } from "sonner"
 
 import {
 	PromptInput,
@@ -21,12 +23,61 @@ import { useChatSessionContext } from "@/features/chat/hooks/use-chat-session-co
 import { ModelSelector } from "@/features/models/components/model-selector"
 import { cn } from "@/lib/utils/cn"
 
+interface UploadedFilePayload {
+	url: string
+	pathname: string
+	contentType?: string
+}
+
+async function uploadFile(file: FileUIPart): Promise<FileUIPart> {
+	if (!file.url.startsWith("data:")) {
+		return file
+	}
+
+	const sourceResponse = await fetch(file.url)
+	const sourceBlob = await sourceResponse.blob()
+	const uploadFormData = new FormData()
+	uploadFormData.append("file", sourceBlob, file.filename ?? `upload-${Date.now()}`)
+
+	const uploadResponse = await fetch("/api/files/upload", {
+		method: "POST",
+		body: uploadFormData,
+	})
+
+	if (!uploadResponse.ok) {
+		let message = "File upload failed"
+
+		try {
+			const payload = (await uploadResponse.json()) as { message?: string }
+			if (payload.message) {
+				message = payload.message
+			}
+		} catch {
+			// Fall back to the generic upload failure message.
+		}
+
+		throw new Error(message)
+	}
+
+	const payload = (await uploadResponse.json()) as UploadedFilePayload
+
+	return {
+		...file,
+		url: payload.url,
+		mediaType: payload.contentType ?? file.mediaType,
+	}
+}
+
+async function uploadFiles(files: FileUIPart[]): Promise<FileUIPart[]> {
+	return Promise.all(files.map(uploadFile))
+}
+
 // ── Component ────────────────────────────────────────────────
 // Thin wrapper that bridges the ai-element PromptInput compound
 // components to the ChatSessionContext. The ai-element manages
-// text input, file attachments (blob → data URL), drag-drop,
-// paste, and submit UX internally. This wrapper only wires the
-// submit handler and status/stop to the chat session.
+// text input, file attachments, drag-drop, paste, and submit UX.
+// This wrapper uploads inline attachment payloads through the
+// app route before sending the final message to the chat session.
 
 function ControlledMultimodalInput({ className }: { className?: string }) {
 	const {
@@ -43,8 +94,14 @@ function ControlledMultimodalInput({ className }: { className?: string }) {
 	const controller = usePromptInputController()
 
 	const handleSubmit = useCallback(
-		(message: PromptInputMessage) => {
-			sendMessage(message.text, message.files)
+		async (message: PromptInputMessage) => {
+			try {
+				const files = await uploadFiles(message.files)
+				sendMessage(message.text, files)
+			} catch (error) {
+				toast.error(error instanceof Error ? error.message : "File upload failed")
+				throw error
+			}
 		},
 		[sendMessage],
 	)

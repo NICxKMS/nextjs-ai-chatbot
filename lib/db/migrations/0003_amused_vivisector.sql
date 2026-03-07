@@ -1,0 +1,1 @@
+CREATE INDEX "chat_user_updated_idx" ON "Chat" USING btree ("user_id","updated_at" DESC NULLS LAST,"id" DESC NULLS LAST);

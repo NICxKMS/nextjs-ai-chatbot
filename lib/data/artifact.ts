@@ -24,6 +24,29 @@ export async function getArtifactById(artifactId: string): Promise<Artifact | nu
 }
 
 /**
+ * Get a specific artifact version by its composite key.
+ */
+export async function getArtifactByIdAndCreatedAt(
+	artifactId: string,
+	createdAt: Date,
+): Promise<Artifact | null> {
+	try {
+		const result = await db
+			.select()
+			.from(artifacts)
+			.where(and(eq(artifacts.id, artifactId), eq(artifacts.createdAt, createdAt)))
+			.limit(1)
+
+		return result[0] ?? null
+	} catch (error) {
+		throwDatabaseError(error, "Failed to get artifact version", {
+			artifactId,
+			artifactCreatedAt: createdAt.toISOString(),
+		})
+	}
+}
+
+/**
  * Get all versions of an artifact, ordered by createdAt descending (newest first).
  */
 export async function getArtifactVersions(artifactId: string): Promise<Artifact[]> {

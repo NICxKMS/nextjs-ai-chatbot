@@ -27,16 +27,16 @@ import {
 	CarouselPrevious,
 } from "@/components/ui/carousel"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { CommandDialog } from "@/components/ui/command"
 import {
 	Command,
-	CommandDialog,
 	CommandGroup,
 	CommandInput,
 	CommandItem,
 	CommandList,
 	CommandSeparator,
 	CommandShortcut,
-} from "@/components/ui/command"
+} from "@/components/ui/command-primitives"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Label } from "@/components/ui/label"
 import {
@@ -57,13 +57,8 @@ import {
 	SheetTitle,
 	SheetTrigger,
 } from "@/components/ui/sheet"
-import {
-	Sidebar,
-	SidebarContent,
-	SidebarHeader,
-	SidebarProvider,
-	SidebarTrigger,
-} from "@/components/ui/sidebar"
+import { Sidebar, SidebarContent, SidebarHeader, SidebarTrigger } from "@/components/ui/sidebar"
+import { SidebarProvider } from "@/components/ui/sidebar-provider"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 
@@ -179,6 +174,9 @@ describe("AlertDialog", () => {
 				<AlertDialogTrigger>Open alert</AlertDialogTrigger>
 				<AlertDialogContent>
 					<AlertDialogTitle>Delete item</AlertDialogTitle>
+					<AlertDialogDescription className="sr-only">
+						This alert can be dismissed with the cancel action.
+					</AlertDialogDescription>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 					</AlertDialogFooter>
@@ -307,7 +305,7 @@ describe("Popover", () => {
 		)
 
 		expect(screen.getByText("Open popover")).toBeInTheDocument()
-		expect(screen.getByText("Notifications")).toBeInTheDocument()
+		expect(screen.getByRole("heading", { level: 2, name: "Notifications" })).toBeInTheDocument()
 		expect(screen.getByText("No new messages")).toBeInTheDocument()
 	})
 })
@@ -369,6 +367,9 @@ describe("Sheet", () => {
 				<SheetTrigger>Open details sheet</SheetTrigger>
 				<SheetContent>
 					<SheetTitle>Sheet title</SheetTitle>
+					<SheetDescription className="sr-only">
+						Sheet details are available in the opened panel.
+					</SheetDescription>
 				</SheetContent>
 			</Sheet>,
 		)
@@ -495,5 +496,41 @@ describe("Carousel", () => {
 
 		expect(emblaApiMock.scrollPrev).toHaveBeenCalledTimes(1)
 		expect(emblaApiMock.scrollNext).toHaveBeenCalledTimes(1)
+	})
+
+	it("handles ArrowUp and ArrowDown keyboard navigation for vertical carousels", () => {
+		const { container } = render(
+			<Carousel orientation="vertical">
+				<CarouselContent>
+					<CarouselItem>Slide 1</CarouselItem>
+				</CarouselContent>
+			</Carousel>,
+		)
+		const carousel = container.querySelector('[data-slot="carousel"]')
+
+		if (!carousel) {
+			throw new Error("Expected carousel root element")
+		}
+
+		fireEvent.keyDown(carousel, { key: "ArrowUp" })
+		fireEvent.keyDown(carousel, { key: "ArrowDown" })
+
+		expect(emblaApiMock.scrollPrev).toHaveBeenCalledTimes(1)
+		expect(emblaApiMock.scrollNext).toHaveBeenCalledTimes(1)
+	})
+
+	it("cleans up Embla listeners on unmount", () => {
+		const { unmount } = render(
+			<Carousel>
+				<CarouselContent>
+					<CarouselItem>Slide 1</CarouselItem>
+				</CarouselContent>
+			</Carousel>,
+		)
+
+		unmount()
+
+		expect(emblaApiMock.off).toHaveBeenCalledWith("reInit", expect.any(Function))
+		expect(emblaApiMock.off).toHaveBeenCalledWith("select", expect.any(Function))
 	})
 })

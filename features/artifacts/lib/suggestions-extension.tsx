@@ -20,28 +20,96 @@ export interface UISuggestion extends ArtifactSuggestion {
 
 type Position = { start: number; end: number }
 
+function resolveProducerPosition(
+	suggestion: ArtifactSuggestion,
+	positions: Position[],
+): Position | null {
+	if (
+		typeof suggestion.selectionStart === "number" &&
+		typeof suggestion.selectionEnd === "number"
+	) {
+		const explicitPosition = positions.find(
+			(position) =>
+				position.start === suggestion.selectionStart &&
+				position.end === suggestion.selectionEnd,
+		)
+
+		if (explicitPosition) {
+			return explicitPosition
+		}
+	}
+
+	if (typeof suggestion.occurrenceIndex === "number") {
+		return positions[suggestion.occurrenceIndex] ?? null
+	}
+
+	return null
+}
+
 // ── Helpers ──────────────────────────────────────────────────
 
-function findPositionInDoc(doc: Node, searchText: string): Position | null {
-	let result: Position | null = null
+function findPositionsInDoc(doc: Node, searchText: string): Position[] {
+	if (searchText.length === 0) {
+		return []
+	}
+
+	const positions: Position[] = []
 
 	doc.nodesBetween(0, doc.content.size, (node, pos) => {
 		if (node.isText && node.text) {
-			const index = node.text.indexOf(searchText)
-			if (index !== -1) {
-				result = { start: pos + index, end: pos + index + searchText.length }
-				return false
+			let searchStart = 0
+
+			while (searchStart <= node.text.length - searchText.length) {
+				const index = node.text.indexOf(searchText, searchStart)
+				if (index === -1) {
+					break
+				}
+
+				positions.push({
+					start: pos + index,
+					end: pos + index + searchText.length,
+				})
+				searchStart = index + searchText.length
 			}
 		}
 		return true
 	})
 
-	return result
+	return positions
 }
 
 export function projectWithPositions(doc: Node, suggestions: ArtifactSuggestion[]): UISuggestion[] {
+	const suggestionCounts = new Map<string, number>()
+	const positionCache = new Map<string, Position[]>()
+	const resolvedCounts = new Map<string, number>()
+
+	for (const suggestion of suggestions) {
+		suggestionCounts.set(
+			suggestion.originalText,
+			(suggestionCounts.get(suggestion.originalText) ?? 0) + 1,
+		)
+
+		if (!positionCache.has(suggestion.originalText)) {
+			positionCache.set(
+				suggestion.originalText,
+				findPositionsInDoc(doc, suggestion.originalText),
+			)
+		}
+	}
+
 	return suggestions.map((suggestion, index) => {
-		const position = findPositionInDoc(doc, suggestion.originalText)
+		const totalSuggestions = suggestionCounts.get(suggestion.originalText) ?? 0
+		const positions = positionCache.get(suggestion.originalText) ?? []
+		const occurrenceIndex = resolvedCounts.get(suggestion.originalText) ?? 0
+		resolvedCounts.set(suggestion.originalText, occurrenceIndex + 1)
+
+		let position = resolveProducerPosition(suggestion, positions)
+		if (!position && positions.length === 1 && totalSuggestions === 1) {
+			position = positions[0] ?? null
+		} else if (!position && totalSuggestions > 1 && positions.length >= totalSuggestions) {
+			position = positions[occurrenceIndex] ?? null
+		}
+
 		return {
 			...suggestion,
 			id: `suggestion-${index}`,
@@ -167,7 +235,7 @@ export function createDecorations(suggestions: UISuggestion[], view: EditorView)
 	const decorations: Decoration[] = []
 
 	for (const suggestion of suggestions) {
-		if (!suggestion.selectionStart && !suggestion.selectionEnd) continue
+		if (suggestion.selectionEnd <= suggestion.selectionStart) continue
 
 		decorations.push(
 			Decoration.inline(

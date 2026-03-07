@@ -18,11 +18,9 @@ export const loginSchema = z.object({
 
 /**
  * Register form validation.
- * Extends login schema with an optional name field.
+ * Register currently uses the same credentials-only contract as login.
  */
-export const registerSchema = loginSchema.extend({
-	name: z.string().max(100, "Name must be at most 100 characters").optional(),
-})
+export const registerSchema = loginSchema
 
 // ── Inferred types ──────────────────────────────────────────
 

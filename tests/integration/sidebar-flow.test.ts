@@ -56,7 +56,7 @@ vi.mock("@vercel/blob", () => ({
 
 // ── Tests ───────────────────────────────────────────────────
 
-describe("Sidebar Flow — Integration Tests", () => {
+describe("Sidebar Flow — Contract Tests", () => {
 	beforeEach(() => {
 		vi.resetAllMocks()
 		mockUploadIncr.mockResolvedValue(1)
@@ -182,6 +182,23 @@ describe("Sidebar Flow — Integration Tests", () => {
 
 			// NaN → default 20
 			await GET(new Request("http://localhost/api/history?limit=abc"))
+			expect(mockGetChatsByUserId).toHaveBeenLastCalledWith(TEST_USER_ID, {
+				limit: 20,
+				cursor: undefined,
+			})
+		})
+
+		it("normalizes blank cursor values to undefined", async () => {
+			mockGetAppSession.mockResolvedValue(createMockSession())
+			mockGetChatsByUserId.mockResolvedValue({
+				chats: [],
+				hasMore: false,
+				nextCursor: undefined,
+			})
+
+			const { GET } = await import("@/app/api/history/route")
+			await GET(new Request("http://localhost/api/history?cursor=%20%20%20"))
+
 			expect(mockGetChatsByUserId).toHaveBeenLastCalledWith(TEST_USER_ID, {
 				limit: 20,
 				cursor: undefined,
@@ -493,10 +510,10 @@ describe("Sidebar Flow — Integration Tests", () => {
 			})
 
 			const response = await POST(request)
-			expect(response.status).toBe(400)
+			expect(response.status).toBe(503)
 
 			const json = await response.json()
-			expect(json.code).toBe("bad_request:api:invalid_request_body")
+			expect(json.code).toBe("offline:upload:storage_unavailable")
 		})
 
 		it("allows upload when rate-limit storage is unavailable", async () => {

@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
+import { getInternalLanguageModel } from "@/lib/ai/internal-models"
 import { discoverModels, getModelById, STATIC_MODELS } from "@/lib/ai/models"
 import { composeSystemPrompt, getUpdateArtifactPrompt } from "@/lib/ai/prompts"
 import { getProviderOptions } from "@/lib/ai/provider-options"
 import { generateTitle } from "@/lib/ai/title"
 import { getEnabledTools, TOOL_IDS } from "@/lib/ai/tools"
+import { AppError } from "@/lib/errors/app-error"
 import type { ModelMetadata } from "@/lib/types/model.types"
 import type { SettingsState } from "@/lib/types/settings.types"
 
@@ -208,6 +210,32 @@ describe("lib/ai/models", () => {
 		})
 	})
 
+	it("infers reasoning support for dynamic OpenRouter models with known reasoning IDs", async () => {
+		process.env.OPENROUTER_API_KEY = "openrouter-test-key"
+
+		const fetchMock = vi.fn().mockResolvedValue(
+			createFetchResponse(true, {
+				data: [
+					{
+						id: "deepseek/deepseek-r1",
+						name: "DeepSeek R1",
+					},
+				],
+			}),
+		)
+		globalThis.fetch = fetchMock as unknown as typeof fetch
+
+		const result = await discoverModels()
+
+		expect(result).toEqual([
+			expect.objectContaining({
+				id: "openrouter:deepseek/deepseek-r1",
+				supportsReasoning: true,
+				supportsToolCalling: false,
+			}),
+		])
+	})
+
 	it("uses localhost referer when NEXT_PUBLIC_APP_URL is not set", async () => {
 		process.env.OPENROUTER_API_KEY = "openrouter-test-key"
 		delete process.env.NEXT_PUBLIC_APP_URL
@@ -362,7 +390,18 @@ describe("lib/ai/registry", () => {
 })
 
 describe("lib/ai/title", () => {
+	it("falls back immediately when the internal title provider is not configured", async () => {
+		process.env.GEMINI_API_KEY = ""
+
+		const result = await generateTitle("First message title fallback")
+
+		expect(result).toBe("First message title fallback")
+		expect(mockLanguageModel).not.toHaveBeenCalled()
+		expect(mockGenerateText).not.toHaveBeenCalled()
+	})
+
 	it("returns the generated title, trimmed, and resolves model from provider", async () => {
+		process.env.GEMINI_API_KEY = "gemini-key"
 		const selectedModel = { modelId: "title-model" }
 		mockLanguageModel.mockReturnValue(selectedModel)
 		mockGenerateText.mockResolvedValue({ text: "   Title for this chat   " })
@@ -381,6 +420,7 @@ describe("lib/ai/title", () => {
 	})
 
 	it("truncates generated titles to 80 characters", async () => {
+		process.env.GEMINI_API_KEY = "gemini-key"
 		mockGenerateText.mockResolvedValue({ text: "x".repeat(120) })
 
 		const result = await generateTitle("Prompt")
@@ -390,6 +430,7 @@ describe("lib/ai/title", () => {
 	})
 
 	it("falls back to a trimmed message excerpt when title generation fails", async () => {
+		process.env.GEMINI_API_KEY = "gemini-key"
 		mockGenerateText.mockRejectedValue(new Error("provider timeout"))
 		const message = `  ${"a".repeat(120)}  `
 
@@ -399,11 +440,38 @@ describe("lib/ai/title", () => {
 	})
 
 	it("falls back to 'New Chat' when both generation and message content are empty", async () => {
+		process.env.GEMINI_API_KEY = "gemini-key"
 		mockGenerateText.mockResolvedValue({ text: "   " })
 
 		const result = await generateTitle("   ")
 
 		expect(result).toBe("New Chat")
+	})
+})
+
+describe("lib/ai/internal-models", () => {
+	it("throws a clear provider error when an internal model provider is not configured", () => {
+		process.env.GEMINI_API_KEY = ""
+
+		expect(() => getInternalLanguageModel("artifact")).toThrowError(
+			expect.objectContaining({
+				name: AppError.name,
+				code: "ai_error:provider:failed",
+				message: expect.stringContaining("GEMINI_API_KEY is not configured"),
+			}),
+		)
+		expect(mockLanguageModel).not.toHaveBeenCalled()
+	})
+
+	it("resolves configured internal models through myProvider", () => {
+		process.env.GEMINI_API_KEY = "gemini-key"
+		const selectedModel = { modelId: "artifact-model" }
+		mockLanguageModel.mockReturnValue(selectedModel)
+
+		const result = getInternalLanguageModel("artifact")
+
+		expect(result).toBe(selectedModel)
+		expect(mockLanguageModel).toHaveBeenCalledWith("google:gemini-2.5-flash-lite")
 	})
 })
 
@@ -514,6 +582,32 @@ describe("lib/ai/provider-options", () => {
 			openai: {
 				reasoningEffort: "medium",
 			},
+		})
+	})
+
+	it("adds OpenAI reasoning options for uncataloged reasoning model IDs", () => {
+		const result = getProviderOptions("openai:o3-mini", {
+			...BASE_SETTINGS,
+			enableReasoning: true,
+		})
+
+		expect(result.providerOptions).toEqual({
+			openai: {
+				reasoningEffort: "medium",
+			},
+		})
+	})
+
+	it("does not add reasoning options for static models marked without reasoning", () => {
+		const result = getProviderOptions("openai:gpt-4o", {
+			...BASE_SETTINGS,
+			enableReasoning: true,
+		})
+
+		expect(result).toEqual({
+			temperature: 0.5,
+			topP: 0.9,
+			maxOutputTokens: 512,
 		})
 	})
 

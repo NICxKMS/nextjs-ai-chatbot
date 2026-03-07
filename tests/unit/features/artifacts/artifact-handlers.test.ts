@@ -5,39 +5,50 @@ import type { CreateArtifactParams, UpdateArtifactParams } from "@/lib/types/art
 const {
 	mockGetUpdateArtifactPrompt,
 	mockLanguageModel,
+	mockCreateProviderRegistry,
 	mockRegisterArtifactHandler,
 	mockSmoothStream,
 	mockStreamObject,
 	mockStreamText,
-} = vi.hoisted(() => ({
-	mockGetUpdateArtifactPrompt: vi.fn(),
-	mockLanguageModel: vi.fn(),
-	mockRegisterArtifactHandler: vi.fn(),
-	mockSmoothStream: vi.fn(),
-	mockStreamObject: vi.fn(),
-	mockStreamText: vi.fn(),
-}))
+} = vi.hoisted(() => {
+	process.env.GEMINI_API_KEY ??= "test-gemini-key"
+
+	return {
+		mockGetUpdateArtifactPrompt: vi.fn(),
+		mockLanguageModel: vi.fn(),
+		mockCreateProviderRegistry: vi.fn(() => ({
+			languageModel: vi.fn(),
+			embeddingModel: vi.fn(),
+			imageModel: vi.fn(),
+		})),
+		mockRegisterArtifactHandler: vi.fn(),
+		mockSmoothStream: vi.fn(),
+		mockStreamObject: vi.fn(),
+		mockStreamText: vi.fn(),
+	}
+})
 
 vi.mock("ai", () => ({
-	smoothStream: (...args: unknown[]) => mockSmoothStream(...args),
-	streamObject: (...args: unknown[]) => mockStreamObject(...args),
-	streamText: (...args: unknown[]) => mockStreamText(...args),
+	createProviderRegistry: mockCreateProviderRegistry,
+	smoothStream: mockSmoothStream,
+	streamObject: mockStreamObject,
+	streamText: mockStreamText,
 }))
 
 vi.mock("@/lib/ai/prompts", () => ({
 	CODE_PROMPT: "CODE_PROMPT_MOCK",
 	SHEET_PROMPT: "SHEET_PROMPT_MOCK",
-	getUpdateArtifactPrompt: (...args: unknown[]) => mockGetUpdateArtifactPrompt(...args),
+	getUpdateArtifactPrompt: mockGetUpdateArtifactPrompt,
 }))
 
 vi.mock("@/lib/ai/provider", () => ({
 	myProvider: {
-		languageModel: (...args: unknown[]) => mockLanguageModel(...args),
+		languageModel: mockLanguageModel,
 	},
 }))
 
 vi.mock("@/lib/ai/artifact-handlers", () => ({
-	registerArtifactHandler: (...args: unknown[]) => mockRegisterArtifactHandler(...args),
+	registerArtifactHandler: mockRegisterArtifactHandler,
 }))
 
 import { codeHandler } from "@/features/artifacts/handlers/code-handler"

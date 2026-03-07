@@ -132,15 +132,20 @@ export function Weather({ weatherAtLocation }: WeatherProps) {
 	const currentTimeIndex = weatherAtLocation.hourly.time.findIndex(
 		(time) => new Date(time) >= new Date(weatherAtLocation.current.time),
 	)
+	const hasCurrentForecast = currentTimeIndex !== -1
+	const forecastStartIndex = hasCurrentForecast
+		? currentTimeIndex
+		: Math.max(weatherAtLocation.hourly.time.length - hoursToShow, 0)
 
 	const displayTimes = weatherAtLocation.hourly.time.slice(
-		currentTimeIndex,
-		currentTimeIndex + hoursToShow,
+		forecastStartIndex,
+		forecastStartIndex + hoursToShow,
 	)
 	const displayTemperatures = weatherAtLocation.hourly.temperature_2m.slice(
-		currentTimeIndex,
-		currentTimeIndex + hoursToShow,
+		forecastStartIndex,
+		forecastStartIndex + hoursToShow,
 	)
+	// TODO: Remove or re-home this component if it remains test-only; the current app tree does not appear to import it outside its unit test.
 
 	const location =
 		weatherAtLocation.cityName ||
@@ -212,7 +217,9 @@ export function Weather({ weatherAtLocation }: WeatherProps) {
 									key={time}
 								>
 									<div className="font-medium text-white/70 text-xs">
-										{index === 0 ? "Now" : format(hourTime, "ha")}
+										{index === 0 && hasCurrentForecast
+											? "Now"
+											: format(hourTime, "ha")}
 									</div>
 
 									<div

@@ -2,7 +2,9 @@ import { NextRequest } from "next/server"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { GUEST_COOKIE_NAME } from "@/lib/auth/constants"
-import { proxy } from "@/proxy"
+import { config, proxy } from "@/proxy"
+
+const SUPABASE_AUTH_COOKIE_NAME = "sb-localhost-auth-token"
 
 const mockMintGuestToken = vi.fn()
 const mockRotateGuestToken = vi.fn()
@@ -58,6 +60,37 @@ describe("proxy", () => {
 		expect(response.headers.get("location")).toBeNull()
 	})
 
+	it("allows auth-required routes when an exact Supabase auth cookie is present", async () => {
+		const response = await proxy(
+			createRequest("/settings", `${SUPABASE_AUTH_COOKIE_NAME}=session`),
+		)
+
+		expect(mockVerifyGuestToken).not.toHaveBeenCalled()
+		expect(response.status).toBe(200)
+		expect(response.headers.get("location")).toBeNull()
+	})
+
+	it("allows auth-required routes when a chunked Supabase auth cookie is present", async () => {
+		const response = await proxy(
+			createRequest("/settings", `${SUPABASE_AUTH_COOKIE_NAME}.0=session-part`),
+		)
+
+		expect(mockVerifyGuestToken).not.toHaveBeenCalled()
+		expect(response.status).toBe(200)
+		expect(response.headers.get("location")).toBeNull()
+	})
+
+	it("does not treat non-session Supabase cookies as authenticated", async () => {
+		mockVerifyGuestToken.mockResolvedValue(null)
+
+		const response = await proxy(
+			createRequest("/settings", "sb-localhost-code-verifier=pkce-token"),
+		)
+
+		expect(response.status).toBe(307)
+		expect(response.headers.get("location")).toBe("http://localhost/login")
+	})
+
 	it("replaces an invalid guest token on guest-eligible routes", async () => {
 		mockVerifyGuestToken.mockResolvedValue(null)
 
@@ -78,5 +111,9 @@ describe("proxy", () => {
 		expect(mockRotateGuestToken).toHaveBeenCalledWith("expiring-token")
 		expect(response.status).toBe(200)
 		expect(response.cookies.get(GUEST_COOKIE_NAME)?.value).toBe("rotated-token")
+	})
+
+	it("limits the runtime matcher to current chat and auth entry points", () => {
+		expect(config.matcher).toEqual(["/", "/chat/:path*", "/login", "/register", "/api/chat"])
 	})
 })

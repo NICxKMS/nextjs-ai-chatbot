@@ -7,7 +7,7 @@ const PAGE_STYLE: CSSProperties = {
 	flexDirection: "column",
 	alignItems: "center",
 	justifyContent: "center",
-	minHeight: "100vh",
+	minHeight: "100dvh",
 	fontFamily: "system-ui, -apple-system, sans-serif",
 	gap: "0.75rem",
 	padding: "1rem",
@@ -100,7 +100,7 @@ export default function GlobalError({
 						<a href="/" style={LINK_STYLE}>
 							Go Home
 						</a>
-						<button type="button" onClick={() => reset()} style={BUTTON_STYLE}>
+						<button type="button" onClick={reset} style={BUTTON_STYLE}>
 							Try Again
 						</button>
 					</div>

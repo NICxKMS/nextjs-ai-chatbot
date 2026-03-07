@@ -5,6 +5,27 @@ import { db } from "@/lib/db/client"
 import { messages } from "@/lib/db/schema"
 import type { Message, NewMessage } from "@/lib/types/models.types"
 
+type ChatRenderMessage = Pick<Message, "id" | "role" | "parts">
+
+/**
+ * Get the reduced message shape used to render chat history.
+ */
+export async function getMessagesForChatRender(chatId: string): Promise<ChatRenderMessage[]> {
+	try {
+		return await db
+			.select({
+				id: messages.id,
+				role: messages.role,
+				parts: messages.parts,
+			})
+			.from(messages)
+			.where(eq(messages.chatId, chatId))
+			.orderBy(asc(messages.createdAt))
+	} catch (error) {
+		throwDatabaseError(error, "Failed to get messages for chat render", { chatId })
+	}
+}
+
 /**
  * Get all messages for a chat, ordered by createdAt ascending.
  */

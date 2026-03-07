@@ -143,4 +143,18 @@ describe("features/models/lib/models", () => {
 
 		expect(modelId).toBe(DEFAULT_CHAT_MODEL)
 	})
+
+	it("reuses a provided catalog when validating the preferred model", async () => {
+		const { getDefaultModel } = await import("@/features/models/lib/models")
+
+		mockCookies.mockResolvedValue({
+			get: vi.fn().mockReturnValue({ name: MODEL_COOKIE_NAME, value: "openai:gpt-4o" }),
+		})
+
+		const modelId = await getDefaultModel(null, STATIC_MODELS_MOCK)
+
+		expect(modelId).toBe("openai:gpt-4o")
+		expect(mockDiscoverModels).not.toHaveBeenCalled()
+		expect(mockGetAvailableProviderIds).not.toHaveBeenCalled()
+	})
 })

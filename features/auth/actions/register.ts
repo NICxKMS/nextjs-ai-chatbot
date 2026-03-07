@@ -26,8 +26,10 @@ const REGISTER_RATE_WINDOW_SECONDS = 60
  *
  * Compatible with `useActionState` — accepts `(prevState, formData)`.
  * Creates both a Supabase auth user and a local DB user record.
- * On success: clears guest token, redirects to "/" (or "/login" if email
- * confirmation is required by the Supabase project).
+ * On immediate-session success: migrates guest data, clears the guest token,
+ * and redirects to "/".
+ * On confirmation-required success: returns structured success and preserves
+ * guest continuity until the user completes an authenticated login.
  * On failure: returns structured error (never throws).
  */
 export async function register(
@@ -38,7 +40,6 @@ export async function register(
 	const parsed = registerSchema.safeParse({
 		email: formData.get("email"),
 		password: formData.get("password"),
-		name: formData.get("name") || undefined,
 	})
 
 	if (!parsed.success) {
@@ -104,10 +105,7 @@ export async function register(
 		}
 	}
 
-	// 6. Migrate guest data + clear stale guest token
-	await migrateGuestChatsAndClearToken(data.user?.id, "register")
-
-	// 7. Handle email confirmation requirement
+	// 6. Handle email confirmation requirement
 	// When email confirmation is required, Supabase returns user but no session.
 	if (!data.session) {
 		return {
@@ -115,6 +113,9 @@ export async function register(
 			data: { confirmationRequired: true },
 		}
 	}
+
+	// 7. Migrate guest data + clear stale guest token once auth is real
+	await migrateGuestChatsAndClearToken(data.user.id, "register")
 
 	// 8. Redirect to home (throws NEXT_REDIRECT — must be outside try/catch)
 	redirect("/")

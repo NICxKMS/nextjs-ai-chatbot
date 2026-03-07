@@ -33,6 +33,7 @@ interface SidebarHistoryItemProps {
 	chat: Chat
 	isActive: boolean
 	onDelete: (chatId: string) => void
+	onRename?: (chatId: string, title: string) => void
 	onVisibilityChange?: (chatId: string, visibility: Visibility) => void
 	setOpenMobile: (open: boolean) => void
 }
@@ -54,6 +55,7 @@ function PureSidebarHistoryItem({
 	chat,
 	isActive,
 	onDelete,
+	onRename,
 	onVisibilityChange,
 	setOpenMobile,
 }: SidebarHistoryItemProps) {
@@ -79,6 +81,7 @@ function PureSidebarHistoryItem({
 
 		const result = await renameChat({ chatId: chat.id, title: trimmed })
 		if (result.success) {
+			onRename?.(chat.id, trimmed)
 			setIsRenaming(false)
 		} else {
 			toast.error(result.error.message)

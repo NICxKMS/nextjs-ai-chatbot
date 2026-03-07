@@ -1,3 +1,4 @@
+import { getReasoningTag } from "@/lib/ai/model-capability-inference"
 import type { ModelMetadata } from "@/lib/types/model.types"
 
 // ── Static model catalog ────────────────────────────────────────────────────
@@ -145,11 +146,13 @@ export const STATIC_MODELS: ModelMetadata[] = [
 	},
 ]
 
+const STATIC_MODEL_LOOKUP = new Map(STATIC_MODELS.map((model) => [model.id, model]))
+
 // ── Model lookup ────────────────────────────────────────────────────────────
 
 /** Look up a static model by its full ID (e.g. "google:gemma-3-4b-it"). */
 export function getModelById(id: string): ModelMetadata | undefined {
-	return STATIC_MODELS.find((model) => model.id === id)
+	return STATIC_MODEL_LOOKUP.get(id)
 }
 
 // ── OpenRouter dynamic discovery ────────────────────────────────────────────
@@ -178,17 +181,22 @@ const DEFAULT_CONTEXT_WINDOW = 4_096
 const DEFAULT_MAX_OUTPUT_TOKENS = 4_096
 
 function mapOpenRouterModel(model: OpenRouterModel): ModelMetadata {
+	const modelId = `openrouter:${model.id}`
 	const inputModalities = model.architecture?.input_modalities ?? ["text"]
 	const outputModalities = model.architecture?.output_modalities ?? ["text"]
+	const supportsReasoning = getReasoningTag(modelId) !== null
 
 	return {
-		id: `openrouter:${model.id}`,
+		id: modelId,
 		provider: "openrouter",
 		providerModelId: model.id,
 		name: model.name ?? model.id,
 		description: model.description,
+		// TODO(ai-services): Keep dynamic OpenRouter tool-calling conservative
+		// until discovery derives trustworthy capability metadata or the runtime
+		// narrows to a curated subset of explicitly supported models.
 		supportsToolCalling: false,
-		supportsReasoning: false,
+		supportsReasoning,
 		modalities: {
 			input: inputModalities,
 			output: outputModalities,

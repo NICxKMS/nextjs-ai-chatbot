@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { Suspense } from "react"
+import { AuthLoadingState } from "@/features/auth/components/auth-loading-state"
 import { getAppSession } from "@/lib/auth/session"
 
 export const metadata: Metadata = {
@@ -30,7 +31,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 	return (
 		<div className="flex min-h-svh items-center justify-center bg-background p-4">
 			<div className="w-full max-w-md">
-				<Suspense fallback={null}>
+				<Suspense fallback={<AuthLoadingState />}>
 					<AuthGuard>{children}</AuthGuard>
 				</Suspense>
 			</div>

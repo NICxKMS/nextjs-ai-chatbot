@@ -1,5 +1,3 @@
-"use client"
-
 import { type ComponentPropsWithoutRef, forwardRef } from "react"
 import { cn } from "@/lib/utils/cn"
 

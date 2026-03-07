@@ -1,6 +1,6 @@
 "use client"
 
-import { useOptimistic, useTransition } from "react"
+import { useCallback, useOptimistic, useTransition } from "react"
 import { toast } from "sonner"
 
 import { voteOnMessage } from "@/features/voting/actions/vote"
@@ -37,21 +37,24 @@ export function useVotes(chatId: string, initialVotes: Vote[]) {
 		]
 	})
 
-	const [isPending, startTransition] = useTransition()
+	const [, startTransition] = useTransition()
 
-	const submitVote = (messageId: string, type: "up" | "down") => {
-		startTransition(async () => {
-			// Optimistic update — shown immediately
-			addOptimisticVote({ messageId, type })
+	const submitVote = useCallback(
+		(messageId: string, type: "up" | "down") => {
+			startTransition(async () => {
+				// Optimistic update — shown immediately
+				addOptimisticVote({ messageId, type })
 
-			const result = await voteOnMessage({ chatId, messageId, type })
+				const result = await voteOnMessage({ chatId, messageId, type })
 
-			if (!result.success) {
-				// useOptimistic automatically reverts when the transition settles
-				toast.error(result.error.message)
-			}
-		})
-	}
+				if (!result.success) {
+					// useOptimistic automatically reverts when the transition settles
+					toast.error(result.error.message)
+				}
+			})
+		},
+		[addOptimisticVote, chatId],
+	)
 
-	return { votes: optimisticVotes, submitVote, isPending }
+	return { votes: optimisticVotes, submitVote }
 }

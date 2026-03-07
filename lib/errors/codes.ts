@@ -35,6 +35,7 @@ export type ErrorCode =
 	| "ai_error:artifact:empty_output"
 	| "ai_error:provider:failed"
 	| "offline:api:service_unavailable"
+	| "offline:upload:storage_unavailable"
 	| "internal_error:database:query_failed"
 
 /** Maps each ErrorCode to its HTTP status number. */
@@ -63,5 +64,6 @@ export const ERROR_STATUS_MAP: Record<ErrorCode, number> = {
 	"ai_error:artifact:empty_output": 502,
 	"ai_error:provider:failed": 502,
 	"offline:api:service_unavailable": 503,
+	"offline:upload:storage_unavailable": 503,
 	"internal_error:database:query_failed": 500,
 }

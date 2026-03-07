@@ -6,13 +6,9 @@ import { useCallback, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { deleteTrailingMessages } from "@/features/chat/actions/delete-trailing-messages"
 import { useChatStreamDispatch } from "@/features/chat/components/chat-stream-provider"
-import type {
-	Attachment,
-	ChatSessionValue,
-	DataPart,
-	VisibilityType,
-} from "@/features/chat/types/chat.types"
-import { useSettings } from "@/features/settings/hooks/use-settings"
+import type { ChatSessionValue, DataPart, VisibilityType } from "@/features/chat/types/chat.types"
+import { useSettingsSelector } from "@/features/settings/hooks/use-settings"
+import type { SettingsState } from "@/features/settings/types/settings.types"
 import type { ModelMetadata } from "@/lib/types/model.types"
 import { generateUUID } from "@/lib/utils/generate-uuid"
 
@@ -63,12 +59,27 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 	// ── Local state ──────────────────────────────────────────
 	const [input, setInput] = useState("")
 	const [chatModel, setChatModel] = useState(initialChatModel)
-	const [attachments, setAttachments] = useState<Attachment[]>([])
 	const [visibility, setVisibility] = useState<VisibilityType>(initialVisibility)
 	const [usage, setUsage] = useState<LanguageModelUsage | undefined>(undefined)
 
 	// ── External hooks ───────────────────────────────────────
-	const settings = useSettings()
+	const temperature = useSettingsSelector((settings) => settings.temperature)
+	const topP = useSettingsSelector((settings) => settings.topP)
+	const maxOutputTokens = useSettingsSelector((settings) => settings.maxOutputTokens)
+	const systemPrompt = useSettingsSelector((settings) => settings.systemPrompt)
+	const enableReasoning = useSettingsSelector((settings) => settings.enableReasoning)
+	const contextDisplayMode = useSettingsSelector((settings) => settings.contextDisplayMode)
+	const settings = useMemo<SettingsState>(
+		() => ({
+			temperature,
+			topP,
+			maxOutputTokens,
+			systemPrompt,
+			enableReasoning,
+			contextDisplayMode,
+		}),
+		[contextDisplayMode, enableReasoning, maxOutputTokens, systemPrompt, temperature, topP],
+	)
 	const { setChatStream } = useChatStreamDispatch()
 
 	// ── Refs for stale-closure safety in transport + callbacks ─
@@ -147,6 +158,9 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 					// Ignore malformed usage data
 				}
 			}
+			if (sdkType === "data-error" && typeof dataPart.data === "string") {
+				toast.error(dataPart.data)
+			}
 		},
 		onFinish() {
 			setChatStream(() => [])
@@ -178,22 +192,13 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 				})
 			}
 
-			// Use externally-provided files (e.g. from ai-element) or convert from attachments state
-			const files =
-				externalFiles ??
-				attachments.map((a) => ({
-					type: "file" as const,
-					mediaType: a.contentType,
-					url: a.url,
-					filename: a.name,
-				}))
+			const files = externalFiles ?? []
 
 			void sdkSendMessage(files.length > 0 ? { text, files } : { text })
 			setInput("")
-			setAttachments([])
 			setUsage(undefined)
 		},
-		[id, input, isReadonly, messages.length, attachments, sdkSendMessage],
+		[id, input, isReadonly, messages.length, sdkSendMessage],
 	)
 
 	// ── appendMessage ────────────────────────────────────────
@@ -226,7 +231,7 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 		[id, sdkSendMessage, setMessages],
 	)
 
-	// ── Compose ChatSessionValue (19 canonical fields) ───────
+	// ── Compose ChatSessionValue ─────────────────────────────
 	return {
 		chatId: id,
 		chatModel,
@@ -236,8 +241,6 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 		status,
 		input,
 		setInput,
-		attachments,
-		setAttachments,
 		sendMessage,
 		stop,
 		appendMessage,

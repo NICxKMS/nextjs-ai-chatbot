@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("server-only", () => ({}))
 
@@ -15,10 +15,17 @@ vi.mock("@/lib/db/client", () => ({
 }))
 
 describe("GET /api/health", () => {
+	let consoleErrorSpy: ReturnType<typeof vi.spyOn>
+
 	beforeEach(() => {
 		vi.resetAllMocks()
+		consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined)
 		mockDbExecute.mockResolvedValue([{ ok: 1 }])
 		mockPing.mockResolvedValue("PONG")
+	})
+
+	afterEach(() => {
+		consoleErrorSpy.mockRestore()
 	})
 
 	it("returns 200 with healthy status when dependencies are healthy", async () => {
@@ -57,5 +64,30 @@ describe("GET /api/health", () => {
 		const body = await response.json()
 		expect(body.status).toBe("unhealthy")
 		expect(body.checks.database.status).toBe("unhealthy")
+		expect(body.checks.database.error).toBe("Database check failed")
+		expect(body.checks.database.error).not.toContain("db down")
+		expect(consoleErrorSpy).toHaveBeenCalledWith(
+			"[health] database check failed",
+			expect.any(Error),
+		)
+	})
+
+	it("returns 503 with the hardened public cache failure message when cache check fails", async () => {
+		mockPing.mockRejectedValue(new Error("cache down"))
+
+		const { GET } = await import("@/app/api/health/route")
+		const response = await GET()
+
+		expect(response.status).toBe(503)
+
+		const body = await response.json()
+		expect(body.status).toBe("unhealthy")
+		expect(body.checks.cache.status).toBe("unhealthy")
+		expect(body.checks.cache.error).toBe("Cache check failed")
+		expect(body.checks.cache.error).not.toContain("cache down")
+		expect(consoleErrorSpy).toHaveBeenCalledWith(
+			"[health] cache check failed",
+			expect.any(Error),
+		)
 	})
 })

@@ -3,6 +3,8 @@ import { fileURLToPath } from "node:url"
 import { defineConfig } from "vitest/config"
 
 const root = resolve(fileURLToPath(import.meta.url), "..")
+const testExclude = ["node_modules", ".next", ".opencode", "oldapp", "plan", "tests/e2e/**"]
+const contractTestExclude = [...testExclude, "tests/integration/**/*.db.test.ts"]
 
 export default defineConfig({
 	resolve: {
@@ -12,11 +14,55 @@ export default defineConfig({
 	},
 	test: {
 		setupFiles: ["./tests/setup.ts"],
-		include: ["**/*.test.ts", "**/*.test.tsx"],
-		exclude: ["node_modules", ".next", ".opencode", "oldapp", "plan", "tests/e2e/**"],
-		environmentMatchGlobs: [
-			["**/*.test.tsx", "jsdom"],
-			["tests/unit/app/**", "jsdom"],
+		projects: [
+			{
+				extends: true,
+				test: {
+					name: "unit-node",
+					include: ["tests/**/*.test.ts"],
+					exclude: [...testExclude, "tests/integration/**", "tests/unit/app/**"],
+					environment: "node",
+				},
+			},
+			{
+				extends: true,
+				test: {
+					name: "unit-jsdom",
+					include: ["tests/**/*.test.tsx", "tests/unit/app/**/*.test.ts"],
+					exclude: [...testExclude, "tests/unit/**/*deep.test.tsx"],
+					environment: "jsdom",
+				},
+			},
+			{
+				extends: true,
+				test: {
+					name: "contract-node",
+					include: ["tests/integration/**/*.test.ts"],
+					exclude: contractTestExclude,
+					environment: "node",
+					testTimeout: 15_000,
+				},
+			},
+			{
+				extends: true,
+				test: {
+					name: "integration-db-node",
+					include: ["tests/integration/**/*.db.test.ts"],
+					exclude: testExclude,
+					environment: "node",
+					testTimeout: 30_000,
+				},
+			},
+			{
+				extends: true,
+				test: {
+					name: "deep-jsdom",
+					include: ["tests/unit/**/*deep.test.tsx"],
+					exclude: testExclude,
+					environment: "jsdom",
+					testTimeout: 15_000,
+				},
+			},
 		],
 		coverage: {
 			provider: "v8",

@@ -48,11 +48,21 @@ vi.mock("framer-motion", () => ({
 			get: (_target, tag) => {
 				const element = typeof tag === "string" ? tag : "div"
 				return ({
+					animate,
 					children,
+					exit,
+					initial,
+					layout,
+					layoutId,
 					...props
 				}: {
+					animate?: unknown
 					children?: React.ReactNode
+					exit?: unknown
+					initial?: unknown
 					[key: string]: unknown
+					layout?: unknown
+					layoutId?: unknown
 				}) => React.createElement(element, props, children)
 			},
 		},
@@ -61,8 +71,18 @@ vi.mock("framer-motion", () => ({
 }))
 
 vi.mock("media-chrome/react", () => {
-	const Mock = ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) =>
-		React.createElement("div", props, children)
+	const Mock = ({
+		audio,
+		children,
+		...props
+	}: {
+		audio?: boolean
+		children?: React.ReactNode
+		[key: string]: unknown
+	}) => {
+		void audio
+		return React.createElement("div", props, children)
+	}
 
 	return {
 		MediaController: Mock,
@@ -152,11 +172,19 @@ vi.mock("@xyflow/react/dist/style.css", () => ({}))
 vi.mock("use-stick-to-bottom", () => {
 	const StickToBottom = ({
 		children,
+		initial,
+		resize,
 		...props
 	}: {
 		children?: React.ReactNode
+		initial?: string
 		[key: string]: unknown
-	}) => React.createElement("div", props, children)
+		resize?: string
+	}) => {
+		void initial
+		void resize
+		return React.createElement("div", props, children)
+	}
 
 	StickToBottom.Content = ({
 		children,

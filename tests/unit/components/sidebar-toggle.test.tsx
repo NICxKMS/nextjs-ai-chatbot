@@ -9,7 +9,7 @@ const { mockToggleSidebar } = vi.hoisted(() => ({
 	mockToggleSidebar: vi.fn(),
 }))
 
-vi.mock("@/components/ui/sidebar", () => ({
+vi.mock("@/components/ui/sidebar-provider", () => ({
 	useSidebar: () => ({ toggleSidebar: mockToggleSidebar }),
 }))
 
@@ -50,6 +50,19 @@ describe("SidebarToggle", () => {
 		fireEvent.click(toggleButton)
 
 		expect(toggleButton).toHaveClass("custom-class")
+		expect(mockToggleSidebar).toHaveBeenCalledTimes(1)
+	})
+
+	it("forwards button props and preserves caller onClick handlers", () => {
+		const onClick = vi.fn()
+
+		const toggleButton = render(
+			<SidebarToggle aria-label="Open navigation" disabled={false} onClick={onClick} />,
+		).getByRole("button", { name: "Open navigation" })
+
+		fireEvent.click(toggleButton)
+
+		expect(onClick).toHaveBeenCalledTimes(1)
 		expect(mockToggleSidebar).toHaveBeenCalledTimes(1)
 	})
 })

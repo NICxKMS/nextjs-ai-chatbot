@@ -111,10 +111,10 @@ describe("AuthForm", () => {
 		expect(screen.getByTestId("login-button")).toBeInTheDocument()
 	})
 
-	it("renders register variant with optional name field", () => {
+	it("renders register variant with the credentials-only contract", () => {
 		render(<AuthForm mode="register" action={register} />)
 
-		expect(screen.getByLabelText(/name/i)).toBeInTheDocument()
+		expect(screen.queryByLabelText(/name/i)).not.toBeInTheDocument()
 		expect(screen.getByRole("textbox", { name: /email address/i })).toBeInTheDocument()
 		expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
 		expect(screen.getByTestId("register-button")).toBeInTheDocument()
@@ -149,9 +149,9 @@ describe("SessionProvider", () => {
 
 		expect(screen.getByTestId("session-id")).toHaveTextContent("user-1")
 		expect(screen.getByTestId("guest-state")).toHaveTextContent("false")
+		expect(screen.getByTestId("loading-state")).toHaveTextContent("false")
 
 		await waitFor(() => {
-			expect(screen.getByTestId("loading-state")).toHaveTextContent("false")
 			expect(capturedAuthStateHandler).not.toBeNull()
 		})
 
@@ -175,6 +175,50 @@ describe("SessionProvider", () => {
 
 		unmount()
 		expect(mockSubscriptionUnsubscribe).toHaveBeenCalled()
+	})
+
+	it("treats a server-resolved null session as settled", async () => {
+		render(
+			<SessionProvider session={null}>
+				<SessionContextProbe />
+			</SessionProvider>,
+		)
+
+		expect(screen.getByTestId("session-id")).toHaveTextContent("none")
+		expect(screen.getByTestId("guest-state")).toHaveTextContent("false")
+		expect(screen.getByTestId("loading-state")).toHaveTextContent("false")
+
+		await waitFor(() => {
+			expect(capturedAuthStateHandler).not.toBeNull()
+		})
+	})
+
+	it("keeps the provider mounted while a server-started session promise resolves", async () => {
+		let resolveSession: ((value: AppSession | null) => void) | undefined
+		const sessionPromise = new Promise<AppSession | null>((resolve) => {
+			resolveSession = resolve
+		})
+
+		render(
+			<SessionProvider session={sessionPromise}>
+				<SessionContextProbe />
+			</SessionProvider>,
+		)
+
+		expect(screen.getByTestId("session-id")).toHaveTextContent("none")
+		expect(screen.getByTestId("loading-state")).toHaveTextContent("true")
+
+		if (!resolveSession) {
+			throw new Error("Expected session promise resolver")
+		}
+
+		resolveSession(authenticatedSession)
+
+		await waitFor(() => {
+			expect(screen.getByTestId("session-id")).toHaveTextContent("user-1")
+			expect(screen.getByTestId("guest-state")).toHaveTextContent("false")
+			expect(screen.getByTestId("loading-state")).toHaveTextContent("false")
+		})
 	})
 
 	it("degrades gracefully when browser Supabase config is missing", async () => {

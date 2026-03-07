@@ -13,6 +13,7 @@ const STORAGE_KEY = "chat-settings"
 let state: SettingsState = DEFAULT_SETTINGS
 const listeners = new Set<() => void>()
 const partialSettingsSchema = settingsSchema.partial()
+let hasStorageListener = false
 
 function parseStoredSettings(value: string): SettingsState | null {
 	try {
@@ -27,6 +28,35 @@ function parseStoredSettings(value: string): SettingsState | null {
 function setState(nextState: SettingsState): void {
 	state = nextState
 	emitChange()
+}
+
+function syncStoredSettings(value: string | null): void {
+	if (value === null) {
+		setState(DEFAULT_SETTINGS)
+		return
+	}
+
+	const nextState = parseStoredSettings(value)
+	if (nextState) {
+		setState(nextState)
+	}
+}
+
+function handleStorageEvent(event: StorageEvent): void {
+	if (event.key !== STORAGE_KEY) return
+	syncStoredSettings(event.newValue)
+}
+
+function ensureStorageListener(): void {
+	if (hasStorageListener || typeof window === "undefined") return
+	window.addEventListener("storage", handleStorageEvent)
+	hasStorageListener = true
+}
+
+function cleanupStorageListener(): void {
+	if (!hasStorageListener || listeners.size > 0 || typeof window === "undefined") return
+	window.removeEventListener("storage", handleStorageEvent)
+	hasStorageListener = false
 }
 
 // Initialize from localStorage (client-only, runs once at module load)
@@ -71,26 +101,11 @@ export const settingsStore = {
 
 	subscribe(listener: () => void): () => void {
 		listeners.add(listener)
-
-		// Cross-tab sync via StorageEvent
-		const handler = (e: StorageEvent) => {
-			if (e.key !== STORAGE_KEY) return
-			if (e.newValue === null) {
-				// Key was removed in another tab
-				setState(DEFAULT_SETTINGS)
-				return
-			}
-
-			const nextState = parseStoredSettings(e.newValue)
-			if (nextState) {
-				setState(nextState)
-			}
-		}
-		window.addEventListener("storage", handler)
+		ensureStorageListener()
 
 		return () => {
 			listeners.delete(listener)
-			window.removeEventListener("storage", handler)
+			cleanupStorageListener()
 		}
 	},
 
@@ -103,16 +118,22 @@ export const settingsStore = {
 // Stable actions object — returned directly by useSettingsSetter (no subscription needed).
 const actions = { updateSettings, resetSettings } as const
 
+export function useSettingsSelector<Selected>(
+	selector: (settings: SettingsState) => Selected,
+): Selected {
+	return useSyncExternalStore(
+		settingsStore.subscribe,
+		() => selector(settingsStore.getSnapshot()),
+		() => selector(settingsStore.getServerSnapshot()),
+	)
+}
+
 /**
  * Read-only hook — returns the current settings snapshot.
  * Re-renders when any setting changes (including cross-tab sync).
  */
 export function useSettings(): SettingsState {
-	return useSyncExternalStore(
-		settingsStore.subscribe,
-		settingsStore.getSnapshot,
-		settingsStore.getServerSnapshot,
-	)
+	return useSettingsSelector((settings) => settings)
 }
 
 /**

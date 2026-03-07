@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 
 import {
@@ -222,5 +222,21 @@ describe("InputGroup", () => {
 		expect(screen.getByPlaceholderText("Username")).toBeInTheDocument()
 		expect(screen.getByPlaceholderText("Message")).toBeInTheDocument()
 		expect(screen.getByRole("button", { name: "Go" })).toBeInTheDocument()
+	})
+
+	it("focuses textarea controls when an addon is clicked", () => {
+		render(
+			<InputGroup>
+				<InputGroupAddon>
+					<InputGroupText>Message</InputGroupText>
+				</InputGroupAddon>
+				<InputGroupTextarea placeholder="Message" />
+			</InputGroup>,
+		)
+
+		const textarea = screen.getByPlaceholderText("Message")
+		fireEvent.click(screen.getByText("Message"))
+
+		expect(textarea).toHaveFocus()
 	})
 })

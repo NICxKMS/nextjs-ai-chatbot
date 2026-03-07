@@ -4,7 +4,7 @@ import { requireDatabaseRow, throwDatabaseError } from "@/lib/data/database-erro
 import { db } from "@/lib/db/client"
 import { chats, messages } from "@/lib/db/schema"
 import type { HistoryResponse, PaginationParams } from "@/lib/types/api.types"
-import type { Chat, Message, Visibility } from "@/lib/types/models.types"
+import type { Chat, Message, NewMessage, Visibility } from "@/lib/types/models.types"
 
 const DEFAULT_PAGE_SIZE = 20
 
@@ -39,7 +39,7 @@ export async function getChatsByUserId(
 
 		if (cursor) {
 			const cursorChat = await db.query.chats.findFirst({
-				where: eq(chats.id, cursor),
+				where: and(eq(chats.id, cursor), eq(chats.userId, userId)),
 				columns: { updatedAt: true },
 			})
 			if (cursorChat) {
@@ -136,6 +136,44 @@ export async function createChat(data: {
 }
 
 /**
+ * Create a new chat and persist its first user message atomically.
+ */
+export async function createChatWithInitialMessage(data: {
+	id: string
+	userId: string
+	title: string
+	model?: string
+	visibility?: Visibility
+	message: NewMessage
+}): Promise<Chat> {
+	try {
+		return await db.transaction(async (tx) => {
+			const [created] = await tx
+				.insert(chats)
+				.values({
+					id: data.id,
+					userId: data.userId,
+					title: data.title,
+					model: data.model,
+					visibility: data.visibility ?? "private",
+				})
+				.returning()
+
+			await tx.insert(messages).values(data.message)
+
+			return requireDatabaseRow(created, "Chat insert returned no rows", {
+				id: data.id,
+			})
+		})
+	} catch (error) {
+		throwDatabaseError(error, "Failed to create chat with initial message", {
+			id: data.id,
+			messageId: data.message.id,
+		})
+	}
+}
+
+/**
  * Update the title of a chat.
  */
 export async function updateChatTitle(chatId: string, title: string): Promise<void> {
@@ -143,6 +181,36 @@ export async function updateChatTitle(chatId: string, title: string): Promise<vo
 		await db.update(chats).set({ title, updatedAt: new Date() }).where(eq(chats.id, chatId))
 	} catch (error) {
 		throwDatabaseError(error, "Failed to update chat title", { chatId })
+	}
+}
+
+/**
+ * Persist assistant messages and update chat metadata atomically.
+ */
+export async function saveMessagesAndTouchChat(data: {
+	chatId: string
+	messages: NewMessage[]
+	title?: string
+}): Promise<void> {
+	const updatedAt = new Date()
+
+	try {
+		await db.transaction(async (tx) => {
+			if (data.messages.length > 0) {
+				await tx.insert(messages).values(data.messages)
+			}
+
+			await tx
+				.update(chats)
+				.set(data.title ? { title: data.title, updatedAt } : { updatedAt })
+				.where(eq(chats.id, data.chatId))
+		})
+	} catch (error) {
+		throwDatabaseError(error, "Failed to save messages and update chat", {
+			chatId: data.chatId,
+			count: data.messages.length,
+			updatedTitle: data.title,
+		})
 	}
 }
 

@@ -80,11 +80,22 @@ vi.mock("@/components/ui/button", () => ({
 vi.mock("@/components/ui/dropdown-menu", () => ({
 	DropdownMenu: ({
 		children,
+		modal,
+		onOpenChange,
+		open,
 		...props
 	}: {
 		children?: React.ReactNode
+		modal?: boolean
+		onOpenChange?: (open: boolean) => void
+		open?: boolean
 		[key: string]: unknown
-	}) => React.createElement("div", props, children),
+	}) => {
+		void modal
+		void onOpenChange
+		void open
+		return React.createElement("div", props, children)
+	},
 	DropdownMenuTrigger: ({
 		asChild,
 		children,
@@ -159,14 +170,34 @@ beforeEach(() => {
 	}
 
 	mockUpdateChatVisibility.mockResolvedValue({ success: true, data: undefined })
-	mockUseVotes.mockImplementation((_chatId: string, initialVotes: Vote[]) => ({
-		votes: initialVotes,
-		submitVote: mockSubmitVote,
-		isPending: false,
-		vote: null,
-		voteUp: vi.fn(),
-		voteDown: vi.fn(),
-	}))
+	mockUseVotes.mockImplementation((chatId: string, initialVotes: Vote[]) => {
+		const [votes, setVotes] = React.useState(initialVotes)
+
+		React.useEffect(() => {
+			setVotes(initialVotes)
+		}, [initialVotes])
+
+		const submitVote = React.useCallback(
+			(messageId: string, type: "up" | "down") => {
+				mockSubmitVote(messageId, type)
+				setVotes((currentVotes) => [
+					...currentVotes.filter((vote) => vote.messageId !== messageId),
+					{
+						chatId,
+						messageId,
+						userId: "user-1",
+						isUpvoted: type === "up",
+					},
+				])
+			},
+			[chatId],
+		)
+
+		return {
+			votes,
+			submitVote,
+		}
+	})
 })
 
 describe("vote-buttons", () => {
@@ -299,6 +330,51 @@ describe("vote-resolver", () => {
 		fireEvent.click(screen.getByTestId("vote-submit-message-vote-2"))
 		expect(mockSubmitVote).toHaveBeenCalledWith("message-vote-2", "up")
 	})
+
+	it("only re-renders the message whose vote changed", async () => {
+		function RenderCountProbe({ messageId }: { messageId: string }) {
+			const renderCount = React.useRef(0)
+			renderCount.current += 1
+
+			const { vote, submitVote } = useVoteForMessage(messageId)
+
+			return (
+				<div>
+					<output data-testid={`vote-state-${messageId}`}>{vote ? "up" : "none"}</output>
+					<output data-testid={`render-count-${messageId}`}>{renderCount.current}</output>
+					<button onClick={() => submitVote(messageId, "up")} type="button">
+						vote
+					</button>
+				</div>
+			)
+		}
+
+		render(
+			<VotesProvider chatId="chat-rerender-test">
+				<RenderCountProbe messageId="message-a" />
+				<RenderCountProbe messageId="message-b" />
+			</VotesProvider>,
+		)
+
+		const initialTargetCount = screen.getByTestId("render-count-message-a").textContent
+		const initialOtherCount = screen.getByTestId("render-count-message-b").textContent
+		const [targetVoteButton] = screen.getAllByRole("button", { name: "vote" })
+
+		if (!targetVoteButton) {
+			throw new Error("Expected a vote button for message-a")
+		}
+
+		fireEvent.click(targetVoteButton)
+
+		await waitFor(() => {
+			expect(screen.getByTestId("vote-state-message-a")).toHaveTextContent("up")
+		})
+
+		expect(screen.getByTestId("render-count-message-a").textContent).not.toBe(
+			initialTargetCount,
+		)
+		expect(screen.getByTestId("render-count-message-b").textContent).toBe(initialOtherCount)
+	})
 })
 
 describe("visibility-selector", () => {
@@ -328,6 +404,42 @@ describe("visibility-selector", () => {
 				chatId: "visibility-chat-1",
 				visibility: "public",
 			})
+		})
+	})
+
+	it("does not submit a visibility update when selecting the current value", () => {
+		render(<VisibilitySelector />)
+
+		fireEvent.click(screen.getByTestId("visibility-selector-item-private"))
+
+		expect(mockSetVisibility).not.toHaveBeenCalled()
+		expect(mockUpdateChatVisibility).not.toHaveBeenCalled()
+	})
+
+	it("disables the selector while a visibility update is pending", async () => {
+		let resolveVisibility: ((value: { success: true; data: undefined }) => void) | undefined
+
+		mockUpdateChatVisibility.mockImplementationOnce(
+			() =>
+				new Promise<{ success: true; data: undefined }>((resolve) => {
+					resolveVisibility = resolve
+				}),
+		)
+
+		render(<VisibilitySelector />)
+
+		fireEvent.click(screen.getByTestId("visibility-selector-item-public"))
+
+		await waitFor(() => {
+			expect(screen.getByTestId("visibility-selector")).toBeDisabled()
+			expect(screen.getByTestId("visibility-selector-item-private")).toBeDisabled()
+			expect(screen.getByTestId("visibility-selector-item-public")).toBeDisabled()
+		})
+
+		resolveVisibility?.({ success: true, data: undefined })
+
+		await waitFor(() => {
+			expect(screen.getByTestId("visibility-selector")).not.toBeDisabled()
 		})
 	})
 

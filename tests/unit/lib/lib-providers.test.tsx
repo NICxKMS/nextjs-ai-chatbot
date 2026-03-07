@@ -99,12 +99,13 @@ describe("lib/providers/pending-chats-provider", () => {
 		})
 
 		act(() => {
-			result.current.updateTitle("chat-1", "Updated title")
+			result.current.patch("chat-1", { title: "Updated title", visibility: "public" })
 		})
 
 		expect(result.current.entries[0]).toMatchObject({
 			id: "chat-1",
 			title: "Updated title",
+			visibility: "public",
 			isOptimistic: true,
 		})
 
@@ -112,18 +113,48 @@ describe("lib/providers/pending-chats-provider", () => {
 			result.current.markConfirmed("chat-1")
 		})
 
-		expect(result.current.entries).toEqual([])
+		expect(result.current.entries).toEqual([
+			expect.objectContaining({
+				id: "chat-1",
+				title: "Updated title",
+				visibility: "public",
+				isOptimistic: false,
+			}),
+		])
 
 		act(() => {
 			result.current.add({
 				id: "chat-1",
-				title: "Should stay confirmed",
+				title: "Should stay reserved",
 				visibility: "private",
 				createdAt,
 			})
 		})
 
+		expect(result.current.entries).toHaveLength(1)
+
+		act(() => {
+			result.current.remove("chat-1")
+		})
+
 		expect(result.current.entries).toEqual([])
+
+		act(() => {
+			result.current.add({
+				id: "chat-1",
+				title: "Can be reserved again",
+				visibility: "private",
+				createdAt,
+			})
+		})
+
+		expect(result.current.entries).toEqual([
+			expect.objectContaining({
+				id: "chat-1",
+				title: "Can be reserved again",
+				isOptimistic: true,
+			}),
+		])
 
 		act(() => {
 			result.current.add({
@@ -135,7 +166,13 @@ describe("lib/providers/pending-chats-provider", () => {
 			result.current.remove("chat-2")
 		})
 
-		expect(result.current.entries).toEqual([])
+		expect(result.current.entries).toEqual([
+			expect.objectContaining({
+				id: "chat-1",
+				title: "Can be reserved again",
+				isOptimistic: true,
+			}),
+		])
 	})
 
 	it("throws when usePendingChats is called outside the provider", () => {

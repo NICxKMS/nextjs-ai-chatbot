@@ -45,6 +45,11 @@ export const chats = pgTable(
 	},
 	(t) => ({
 		userCreatedIdx: index("chat_user_created_idx").on(t.userId, t.createdAt),
+		userUpdatedIdx: index("chat_user_updated_idx").on(
+			t.userId,
+			t.updatedAt.desc(),
+			t.id.desc(),
+		),
 	}),
 )
 

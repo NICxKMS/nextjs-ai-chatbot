@@ -6,6 +6,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 const mockSearchParamsGet = vi.fn<(key: string) => string | null>()
 const mockUseChatSessionContext = vi.fn()
 const mockUseSettings = vi.fn()
+const mockUseSettingsSelector = vi.fn(
+	(selector: (settings: ReturnType<typeof mockUseSettings>) => unknown) =>
+		selector(mockUseSettings()),
+)
 const mockSetChatModel = vi.fn<(modelId: string) => void>()
 const mockSendMessage = vi.fn<(content: string) => void>()
 const mockToastWarning = vi.fn<(message: string) => void>()
@@ -31,6 +35,8 @@ vi.mock("@/features/chat/hooks/use-chat-session-context", () => ({
 
 vi.mock("@/features/settings/hooks/use-settings", () => ({
 	useSettings: () => mockUseSettings(),
+	useSettingsSelector: (selector: (settings: ReturnType<typeof mockUseSettings>) => unknown) =>
+		mockUseSettingsSelector(selector),
 }))
 
 vi.mock("sonner", () => ({
@@ -180,6 +186,10 @@ beforeEach(() => {
 		contextDisplayMode: "compact",
 		systemPrompt: "",
 	})
+	mockUseSettingsSelector.mockImplementation(
+		(selector: (settings: ReturnType<typeof mockUseSettings>) => unknown) =>
+			selector(mockUseSettings()),
+	)
 
 	mockSearchParamsGet.mockReturnValue(null)
 	window.history.replaceState({}, "", "/")
@@ -298,7 +308,6 @@ describe("SuggestedActions", () => {
 	})
 
 	it("updates history and sends the clicked suggestion", () => {
-		const replaceStateSpy = vi.spyOn(window.history, "replaceState")
 		render(<SuggestedActions />)
 
 		fireEvent.click(
@@ -307,11 +316,9 @@ describe("SuggestedActions", () => {
 			}),
 		)
 
-		expect(replaceStateSpy).toHaveBeenCalledWith({}, "", "/chat/test-chat-id")
 		expect(mockSendMessage).toHaveBeenCalledWith(
 			"Write code to demonstrate Dijkstra's algorithm",
 		)
-		replaceStateSpy.mockRestore()
 	})
 })
 

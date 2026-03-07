@@ -10,7 +10,7 @@ import { getAppSession } from "@/lib/auth/session"
 import { cacheKeys } from "@/lib/cache/keys"
 import { withCache } from "@/lib/cache/with-cache"
 import { getChatById } from "@/lib/data/chat"
-import { getMessagesByChatId } from "@/lib/data/message"
+import { getMessagesForChatRender } from "@/lib/data/message"
 import { getVotesByChatId } from "@/lib/data/vote"
 import { DEFAULT_CHAT_MODEL } from "@/lib/types/model.types"
 
@@ -89,7 +89,7 @@ export default async function ExistingChatPage({ params }: { params: Promise<{ i
 
 	// Fetch messages + models in parallel after access control passes
 	const [dbMessages, availableModels] = await Promise.all([
-		getMessagesByChatId(chatId),
+		getMessagesForChatRender(chatId),
 		availableModelsPromise,
 	])
 

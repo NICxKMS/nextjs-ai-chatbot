@@ -161,9 +161,9 @@ export async function POST(request: Request) {
 			contentType,
 		})
 	} catch {
-		return AppError.badRequest(
-			"bad_request:api:invalid_request_body",
-			"File upload failed",
+		return AppError.serviceUnavailable(
+			"offline:upload:storage_unavailable",
+			"File upload service unavailable",
 		).toResponse()
 	}
 }

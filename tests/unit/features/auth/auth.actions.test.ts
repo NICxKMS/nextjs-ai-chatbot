@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { AuthActionData } from "@/features/auth/types/auth.types"
 import { GUEST_COOKIE_NAME } from "@/lib/auth/constants"
@@ -78,6 +78,8 @@ type CookieStoreMock = {
 }
 
 let cookieStore: CookieStoreMock
+let consoleInfoSpy: ReturnType<typeof vi.spyOn>
+let consoleLogSpy: ReturnType<typeof vi.spyOn>
 
 function setEnvValue(
 	name: "NEXT_PUBLIC_SUPABASE_URL" | "NEXT_PUBLIC_SUPABASE_ANON_KEY",
@@ -120,6 +122,8 @@ function createRegisterFormData(overrides?: {
 beforeEach(() => {
 	vi.resetAllMocks()
 	restoreSupabaseEnv()
+	consoleInfoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined)
+	consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => undefined)
 
 	cookieStore = {
 		get: vi.fn().mockReturnValue(undefined),
@@ -155,6 +159,11 @@ beforeEach(() => {
 	mockTransferGuestChats.mockResolvedValue(0)
 	mockGetUserById.mockResolvedValue({ id: TEST_USER_ID })
 	mockCreateUser.mockResolvedValue(undefined)
+})
+
+afterEach(() => {
+	consoleInfoSpy.mockRestore()
+	consoleLogSpy.mockRestore()
 })
 
 afterAll(() => {
@@ -306,6 +315,7 @@ describe("register action", () => {
 
 	it("returns confirmationRequired when signup creates a user without session", async () => {
 		const { register } = await import("@/features/auth/actions/register")
+		cookieStore.get.mockReturnValue({ name: GUEST_COOKIE_NAME, value: "guest-token" })
 		mockSignUp.mockResolvedValue({
 			data: {
 				user: { id: TEST_USER_ID, email: "test@example.com" },
@@ -321,6 +331,9 @@ describe("register action", () => {
 			data: { confirmationRequired: true },
 		})
 		expect(mockRedirect).not.toHaveBeenCalled()
+		expect(mockVerifyGuestToken).not.toHaveBeenCalled()
+		expect(mockTransferGuestChats).not.toHaveBeenCalled()
+		expect(cookieStore.delete).not.toHaveBeenCalledWith(GUEST_COOKIE_NAME)
 	})
 
 	it("redirects on successful signup with session", async () => {
@@ -395,11 +408,26 @@ describe("register action", () => {
 		}
 	})
 
-	it("migrates guest chats and clears guest cookie when token is valid", async () => {
+	it("migrates guest chats and clears guest cookie when signup returns a session", async () => {
 		const { register } = await import("@/features/auth/actions/register")
 		cookieStore.get.mockReturnValue({ name: GUEST_COOKIE_NAME, value: "guest-token" })
 		mockVerifyGuestToken.mockResolvedValue({ userId: "guest:user" })
 		mockTransferGuestChats.mockResolvedValue(2)
+
+		await expect(register(PREV_STATE, createRegisterFormData())).rejects.toThrow(
+			REDIRECT_ERROR_MESSAGE,
+		)
+
+		expect(mockVerifyGuestToken).toHaveBeenCalledWith("guest-token")
+		expect(mockTransferGuestChats).toHaveBeenCalledWith("guest:user", TEST_USER_ID)
+		expect(cookieStore.delete).toHaveBeenCalledWith(GUEST_COOKIE_NAME)
+		expect(mockRedirect).toHaveBeenCalledWith("/")
+	})
+
+	it("preserves guest token continuity when signup requires confirmation", async () => {
+		const { register } = await import("@/features/auth/actions/register")
+
+		cookieStore.get.mockReturnValue({ name: GUEST_COOKIE_NAME, value: "guest-token" })
 		mockSignUp.mockResolvedValue({
 			data: {
 				user: { id: TEST_USER_ID, email: "test@example.com" },
@@ -414,34 +442,27 @@ describe("register action", () => {
 			success: true,
 			data: { confirmationRequired: true },
 		})
-		expect(mockVerifyGuestToken).toHaveBeenCalledWith("guest-token")
-		expect(mockTransferGuestChats).toHaveBeenCalledWith("guest:user", TEST_USER_ID)
-		expect(cookieStore.delete).toHaveBeenCalledWith(GUEST_COOKIE_NAME)
+		expect(mockVerifyGuestToken).not.toHaveBeenCalled()
+		expect(mockTransferGuestChats).not.toHaveBeenCalled()
+		expect(cookieStore.delete).not.toHaveBeenCalledWith(GUEST_COOKIE_NAME)
+		expect(mockRedirect).not.toHaveBeenCalled()
 	})
 
-	it("continues successfully when guest migration throws", async () => {
+	it("continues with immediate-session signup when guest migration throws", async () => {
 		const { register } = await import("@/features/auth/actions/register")
 		const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined)
 
 		cookieStore.get.mockReturnValue({ name: GUEST_COOKIE_NAME, value: "guest-token" })
 		mockVerifyGuestToken.mockRejectedValueOnce(new Error("migration failed"))
-		mockSignUp.mockResolvedValue({
-			data: {
-				user: { id: TEST_USER_ID, email: "test@example.com" },
-				session: null,
-			},
-			error: null,
-		})
 
 		try {
-			const result = await register(PREV_STATE, createRegisterFormData())
+			await expect(register(PREV_STATE, createRegisterFormData())).rejects.toThrow(
+				REDIRECT_ERROR_MESSAGE,
+			)
 
-			expect(result).toEqual({
-				success: true,
-				data: { confirmationRequired: true },
-			})
 			expect(cookieStore.delete).toHaveBeenCalledWith(GUEST_COOKIE_NAME)
 			expect(consoleErrorSpy).toHaveBeenCalled()
+			expect(mockRedirect).toHaveBeenCalledWith("/")
 		} finally {
 			consoleErrorSpy.mockRestore()
 		}

@@ -13,6 +13,7 @@ const mockDb = {
 	},
 	select: vi.fn(),
 	insert: vi.fn(),
+	transaction: vi.fn(),
 	update: vi.fn(),
 	delete: vi.fn(),
 }
@@ -373,6 +374,82 @@ describe("lib/data/chat", () => {
 		)
 	})
 
+	it("createChatWithInitialMessage inserts chat and first message in one transaction", async () => {
+		const created = createMockChat({ id: "99999999-9999-4999-8999-999999999999" })
+		const firstMessage: NewMessage = {
+			id: "message-1",
+			chatId: created.id,
+			role: "user",
+			parts: [{ type: "text", text: "Hello" }],
+			attachments: [],
+		}
+
+		const chatInsertChain = {
+			values: vi.fn(),
+			returning: vi.fn(),
+		}
+		chatInsertChain.values.mockReturnValue(chatInsertChain)
+		chatInsertChain.returning.mockResolvedValue([created])
+
+		const messageInsertChain = {
+			values: vi.fn(),
+		}
+		messageInsertChain.values.mockResolvedValue(undefined)
+
+		const tx = {
+			insert: vi
+				.fn()
+				.mockReturnValueOnce(chatInsertChain)
+				.mockReturnValueOnce(messageInsertChain),
+		}
+
+		mockDb.transaction.mockImplementation(
+			async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+				callback(tx),
+		)
+
+		const result = await chatData.createChatWithInitialMessage({
+			id: created.id,
+			userId: created.userId,
+			title: created.title,
+			model: created.model ?? undefined,
+			message: firstMessage,
+		})
+
+		expect(result).toEqual(created)
+		expect(mockDb.transaction).toHaveBeenCalledTimes(1)
+		expect(tx.insert).toHaveBeenCalledTimes(2)
+		expect(chatInsertChain.values).toHaveBeenCalledWith(
+			expect.objectContaining({
+				id: created.id,
+				userId: created.userId,
+				title: created.title,
+				visibility: "private",
+			}),
+		)
+		expect(messageInsertChain.values).toHaveBeenCalledWith(firstMessage)
+	})
+
+	it("createChatWithInitialMessage wraps transaction failures", async () => {
+		mockDb.transaction.mockRejectedValueOnce(new Error("transaction failed"))
+
+		await expectInternalError(
+			chatData.createChatWithInitialMessage({
+				id: "00000000-0000-4000-8000-000000000113",
+				userId: TEST_USER_ID,
+				title: "Failure",
+				message: {
+					id: "message-2",
+					chatId: "00000000-0000-4000-8000-000000000113",
+					role: "user",
+					parts: [{ type: "text", text: "Hello" }],
+					attachments: [],
+				},
+			}),
+			"Failed to create chat with initial message",
+		)
+	})
+
 	it("updateChatTitle updates title and timestamp", async () => {
 		const chain = mockUpdateWhere()
 
@@ -402,6 +479,54 @@ describe("lib/data/chat", () => {
 			chatData.updateChatVisibility("chat-1", "private"),
 			"Failed to update chat visibility",
 		)
+	})
+
+	it("saveMessagesAndTouchChat inserts assistant messages and updates chat metadata in one transaction", async () => {
+		const assistantMessage: NewMessage = {
+			id: "assistant-1",
+			chatId: "chat-1",
+			role: "assistant",
+			parts: [{ type: "text", text: "Hi there" }],
+			attachments: [],
+		}
+
+		const messageInsertChain = {
+			values: vi.fn(),
+		}
+		messageInsertChain.values.mockResolvedValue(undefined)
+
+		const updateChain = {
+			set: vi.fn(),
+			where: vi.fn(),
+		}
+		updateChain.set.mockReturnValue(updateChain)
+		updateChain.where.mockResolvedValue(undefined)
+
+		const tx = {
+			insert: vi.fn().mockReturnValue(messageInsertChain),
+			update: vi.fn().mockReturnValue(updateChain),
+		}
+
+		mockDb.transaction.mockImplementation(
+			async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+				callback(tx),
+		)
+
+		await chatData.saveMessagesAndTouchChat({
+			chatId: "chat-1",
+			messages: [assistantMessage],
+			title: "Generated Title",
+		})
+
+		expect(mockDb.transaction).toHaveBeenCalledTimes(1)
+		expect(messageInsertChain.values).toHaveBeenCalledWith([assistantMessage])
+		expect(updateChain.set).toHaveBeenCalledWith(
+			expect.objectContaining({
+				title: "Generated Title",
+				updatedAt: expect.any(Date),
+			}),
+		)
+		expect(updateChain.where).toHaveBeenCalledTimes(1)
 	})
 
 	it("deleteChat executes a delete by chat id", async () => {
@@ -454,6 +579,38 @@ describe("lib/data/chat", () => {
 })
 
 describe("lib/data/message", () => {
+	it("getMessagesForChatRender returns the reduced chat render shape", async () => {
+		const chatId = "11111111-1111-4111-8111-111111111112"
+		const message = createMockMessage({ chatId })
+		mockSelectOrderByResult([
+			{
+				id: message.id,
+				role: message.role,
+				parts: message.parts,
+			},
+		])
+
+		const result = await messageData.getMessagesForChatRender(chatId)
+
+		expect(result).toEqual([
+			{
+				id: message.id,
+				role: message.role,
+				parts: message.parts,
+			},
+		])
+	})
+
+	it("getMessagesForChatRender wraps DB errors", async () => {
+		const chain = mockSelectOrderByResult([])
+		chain.orderBy.mockRejectedValueOnce(new Error("select failed"))
+
+		await expectInternalError(
+			messageData.getMessagesForChatRender("chat-1"),
+			"Failed to get messages for chat render",
+		)
+	})
+
 	it("getMessagesByChatId returns messages ordered by createdAt", async () => {
 		const chatId = "11111111-1111-4111-8111-111111111112"
 		const message = createMockMessage({ chatId })
@@ -612,6 +769,31 @@ describe("lib/data/artifact", () => {
 		expect(result).toBeNull()
 	})
 
+	it("getArtifactByIdAndCreatedAt returns the requested artifact version", async () => {
+		const createdAt = new Date("2026-01-03T00:00:00Z")
+		const artifact = createMockArtifact({
+			id: "55555555-5555-4555-8555-555555555556",
+			createdAt,
+			updatedAt: createdAt,
+		})
+		mockSelectLimitResult([artifact])
+
+		const result = await artifactData.getArtifactByIdAndCreatedAt(artifact.id, createdAt)
+
+		expect(result).toEqual(artifact)
+	})
+
+	it("getArtifactByIdAndCreatedAt returns null when the version does not exist", async () => {
+		mockSelectLimitResult([])
+
+		const result = await artifactData.getArtifactByIdAndCreatedAt(
+			"missing-artifact",
+			new Date("2026-01-03T00:00:00Z"),
+		)
+
+		expect(result).toBeNull()
+	})
+
 	it("getArtifactById wraps DB errors", async () => {
 		const chain = mockSelectLimitResult([])
 		chain.limit.mockRejectedValueOnce(new Error("artifact lookup failed"))
@@ -619,6 +801,19 @@ describe("lib/data/artifact", () => {
 		await expectInternalError(
 			artifactData.getArtifactById("artifact-1"),
 			"Failed to get artifact",
+		)
+	})
+
+	it("getArtifactByIdAndCreatedAt wraps DB errors", async () => {
+		const chain = mockSelectLimitResult([])
+		chain.limit.mockRejectedValueOnce(new Error("artifact version lookup failed"))
+
+		await expectInternalError(
+			artifactData.getArtifactByIdAndCreatedAt(
+				"artifact-1",
+				new Date("2026-01-03T00:00:00Z"),
+			),
+			"Failed to get artifact version",
 		)
 	})
 
@@ -933,7 +1128,7 @@ describe("lib/data/vote", () => {
 })
 
 describe("lib/data/suggestion", () => {
-	it("getSuggestionsByArtifactId returns suggestions", async () => {
+	it("getSuggestionsByArtifactVersion returns suggestions for the requested version", async () => {
 		const suggestion = {
 			id: "bbbbbbbb-0000-4000-8000-000000000001",
 			artifactId: "artifact-1",
@@ -947,26 +1142,35 @@ describe("lib/data/suggestion", () => {
 		}
 		mockSelectWhereResult([suggestion])
 
-		const result = await suggestionData.getSuggestionsByArtifactId("artifact-1")
+		const result = await suggestionData.getSuggestionsByArtifactVersion(
+			"artifact-1",
+			suggestion.artifactCreatedAt,
+		)
 
 		expect(result).toEqual([suggestion])
 	})
 
-	it("getSuggestionsByArtifactId returns empty array when nothing is found", async () => {
+	it("getSuggestionsByArtifactVersion returns empty array when nothing is found", async () => {
 		mockSelectWhereResult([])
 
-		const result = await suggestionData.getSuggestionsByArtifactId("artifact-1")
+		const result = await suggestionData.getSuggestionsByArtifactVersion(
+			"artifact-1",
+			new Date("2026-01-01T00:00:00Z"),
+		)
 
 		expect(result).toEqual([])
 	})
 
-	it("getSuggestionsByArtifactId wraps DB errors", async () => {
+	it("getSuggestionsByArtifactVersion wraps DB errors", async () => {
 		const chain = mockSelectWhereResult([])
 		chain.where.mockRejectedValueOnce(new Error("suggestion query failed"))
 
 		await expectInternalError(
-			suggestionData.getSuggestionsByArtifactId("artifact-1"),
-			"Failed to get suggestions for artifact",
+			suggestionData.getSuggestionsByArtifactVersion(
+				"artifact-1",
+				new Date("2026-01-01T00:00:00Z"),
+			),
+			"Failed to get suggestions for artifact version",
 		)
 	})
 
@@ -1022,21 +1226,27 @@ describe("lib/data/suggestion", () => {
 		)
 	})
 
-	it("deleteSuggestionsByArtifactId deletes rows", async () => {
+	it("deleteSuggestionsByArtifactVersion deletes rows", async () => {
 		const chain = mockDeleteWhere()
 
-		await suggestionData.deleteSuggestionsByArtifactId("artifact-1")
+		await suggestionData.deleteSuggestionsByArtifactVersion(
+			"artifact-1",
+			new Date("2026-01-01T00:00:00Z"),
+		)
 
 		expect(chain.where).toHaveBeenCalledTimes(1)
 	})
 
-	it("deleteSuggestionsByArtifactId wraps DB errors", async () => {
+	it("deleteSuggestionsByArtifactVersion wraps DB errors", async () => {
 		const chain = mockDeleteWhere()
 		chain.where.mockRejectedValueOnce(new Error("suggestion delete failed"))
 
 		await expectInternalError(
-			suggestionData.deleteSuggestionsByArtifactId("artifact-1"),
-			"Failed to delete suggestions for artifact",
+			suggestionData.deleteSuggestionsByArtifactVersion(
+				"artifact-1",
+				new Date("2026-01-01T00:00:00Z"),
+			),
+			"Failed to delete suggestions for artifact version",
 		)
 	})
 })

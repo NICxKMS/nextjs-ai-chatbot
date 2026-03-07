@@ -1,7 +1,11 @@
 "use client"
 
 import { createContext, type ReactNode, useCallback, useContext, useRef, useState } from "react"
-import type { PendingChat, PendingChatsState } from "@/lib/types/pending-chats.types"
+import type {
+	PendingChat,
+	PendingChatPatch,
+	PendingChatsState,
+} from "@/lib/types/pending-chats.types"
 
 // ── Context ──────────────────────────────────────────────────
 
@@ -31,6 +35,12 @@ export function PendingChatsProvider({ children }: { children: ReactNode }) {
 		setEntries((prev) => [{ ...chat, isOptimistic: true }, ...prev])
 	}, [])
 
+	const patch = useCallback((id: string, patch: PendingChatPatch) => {
+		setEntries((prev) =>
+			prev.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry)),
+		)
+	}, [])
+
 	// Remove a pending chat by ID (e.g. on delete).
 	const remove = useCallback(
 		(id: string) => {
@@ -39,22 +49,16 @@ export function PendingChatsProvider({ children }: { children: ReactNode }) {
 		[dropEntry],
 	)
 
-	// Update the title in-place — single-channel title delivery
-	// from `chat-title` stream events.
-	const updateTitle = useCallback((id: string, title: string) => {
-		setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, title } : e)))
+	// Once server history contains the row, keep the entry as a hidden overlay
+	// until the server copy catches up with the streamed title/visibility.
+	const markConfirmed = useCallback((id: string) => {
+		setEntries((prev) =>
+			prev.map((entry) => (entry.id === id ? { ...entry, isOptimistic: false } : entry)),
+		)
 	}, [])
 
-	// Drop the optimistic entry once the server confirms persistence.
-	const markConfirmed = useCallback(
-		(id: string) => {
-			dropEntry(id)
-		},
-		[dropEntry],
-	)
-
 	return (
-		<PendingChatsContext value={{ entries, add, remove, updateTitle, markConfirmed }}>
+		<PendingChatsContext value={{ entries, add, patch, remove, markConfirmed }}>
 			{children}
 		</PendingChatsContext>
 	)

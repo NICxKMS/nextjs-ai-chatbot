@@ -8,7 +8,8 @@ import { type CellMouseArgs, DataGrid, renderTextEditor } from "react-data-grid"
 import type { EditorSaveCallback } from "@/features/artifacts/types/artifact.types"
 import { cn } from "@/lib/utils/cn"
 
-// NOTE: react-data-grid CSS is imported in app/globals.css for proper bundling
+// NOTE: react-data-grid CSS is imported by the chat route layout so non-chat
+// routes no longer pay the editor stylesheet cost.
 
 // ── Constants ────────────────────────────────────────────────
 

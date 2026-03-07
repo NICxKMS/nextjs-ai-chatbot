@@ -95,7 +95,7 @@ function PureTextEditor({
 
 	// Update content when streaming or content changes externally
 	useEffect(() => {
-		if (!editor || !content) return
+		if (!editor) return
 
 		const currentMarkdown = editor.getMarkdown()
 
@@ -119,17 +119,17 @@ function PureTextEditor({
 
 	// Update suggestion decorations
 	useEffect(() => {
-		if (!editor?.state.doc || !content) return
+		if (!editor?.state.doc) return
 
 		const projected = projectWithPositions(editor.state.doc, suggestions).filter(
-			(s) => s.selectionStart && s.selectionEnd,
+			(s) => s.selectionEnd > s.selectionStart,
 		)
 
 		const decorations = createDecorations(projected, editor.view)
 		const tr = editor.state.tr
 		tr.setMeta(suggestionsPluginKey, { decorations })
 		editor.view.dispatch(tr)
-	}, [suggestions, content, editor])
+	}, [suggestions, editor])
 
 	return <EditorContent editor={editor} />
 }

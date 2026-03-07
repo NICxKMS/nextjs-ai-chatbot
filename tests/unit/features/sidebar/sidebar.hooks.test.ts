@@ -27,7 +27,10 @@ describe("useSidebarHistory", () => {
 
 		mockUseSWRInfinite.mockReturnValue({
 			data: undefined,
+			error: undefined,
+			mutate: vi.fn(),
 			setSize: vi.fn(),
+			size: 1,
 			isLoading: false,
 			isValidating: false,
 		})
@@ -55,6 +58,8 @@ describe("useSidebarHistory", () => {
 				fallbackData?: Array<{ nextCursor?: string }>
 				revalidateOnMount?: boolean
 				revalidateFirstPage?: boolean
+				revalidateOnFocus?: boolean
+				revalidateOnReconnect?: boolean
 			},
 		]
 
@@ -66,6 +71,8 @@ describe("useSidebarHistory", () => {
 		expect(options.fallbackData?.[0]?.nextCursor).toBe("chat-2")
 		expect(options.revalidateOnMount).toBe(false)
 		expect(options.revalidateFirstPage).toBe(false)
+		expect(options.revalidateOnFocus).toBe(true)
+		expect(options.revalidateOnReconnect).toBe(true)
 	})
 
 	it("skips fetching when there is no authenticated session", () => {
@@ -84,7 +91,7 @@ describe("useSidebarHistory", () => {
 		expect(result.current.hasMore).toBe(false)
 	})
 
-	it("flattens chats, derives hasMore from the last page, and combines loading states", () => {
+	it("flattens chats, derives hasMore from the last page, and treats in-flight pagination as loading", () => {
 		const setSize = vi.fn()
 
 		mockUseSWRInfinite.mockReturnValue({
@@ -99,7 +106,10 @@ describe("useSidebarHistory", () => {
 					hasMore: false,
 				},
 			],
+			error: undefined,
+			mutate: vi.fn(),
 			setSize,
+			size: 3,
 			isLoading: false,
 			isValidating: true,
 		})
@@ -109,6 +119,28 @@ describe("useSidebarHistory", () => {
 		expect(result.current.chats.map((chat) => chat.id)).toEqual(["chat-1", "chat-2"])
 		expect(result.current.hasMore).toBe(false)
 		expect(result.current.isLoading).toBe(true)
+	})
+
+	it("does not expose background revalidation as pagination loading", () => {
+		mockUseSWRInfinite.mockReturnValue({
+			data: [
+				{
+					chats: [createMockChat({ id: "chat-1" })],
+					hasMore: true,
+					nextCursor: "chat-1",
+				},
+			],
+			error: undefined,
+			mutate: vi.fn(),
+			setSize: vi.fn(),
+			size: 1,
+			isLoading: false,
+			isValidating: true,
+		})
+
+		const { result } = renderHook(() => useSidebarHistory())
+
+		expect(result.current.isLoading).toBe(false)
 	})
 
 	it("increments page size when loadMore is called and more pages are available", () => {
@@ -122,7 +154,10 @@ describe("useSidebarHistory", () => {
 					nextCursor: "chat-1",
 				},
 			],
+			error: undefined,
+			mutate: vi.fn(),
 			setSize,
+			size: 1,
 			isLoading: false,
 			isValidating: false,
 		})
@@ -148,7 +183,10 @@ describe("useSidebarHistory", () => {
 					hasMore: false,
 				},
 			],
+			error: undefined,
+			mutate: vi.fn(),
 			setSize,
+			size: 1,
 			isLoading: false,
 			isValidating: false,
 		})
@@ -166,7 +204,10 @@ describe("useSidebarHistory", () => {
 					nextCursor: "chat-1",
 				},
 			],
+			error: undefined,
+			mutate: vi.fn(),
 			setSize,
+			size: 1,
 			isLoading: false,
 			isValidating: true,
 		})
@@ -177,5 +218,91 @@ describe("useSidebarHistory", () => {
 		})
 
 		expect(setSize).not.toHaveBeenCalled()
+	})
+
+	it("does not load more while a pagination error is present and exposes retry", () => {
+		const mutate = vi.fn()
+		const setSize = vi.fn()
+
+		mockUseSWRInfinite.mockReturnValue({
+			data: [
+				{
+					chats: [createMockChat({ id: "chat-1" })],
+					hasMore: true,
+					nextCursor: "chat-1",
+				},
+			],
+			error: new Error("network failed"),
+			mutate,
+			setSize,
+			size: 1,
+			isLoading: false,
+			isValidating: false,
+		})
+
+		const { result } = renderHook(() => useSidebarHistory())
+
+		act(() => {
+			result.current.loadMore()
+			result.current.retry()
+		})
+
+		expect(result.current.error?.message).toBe("network failed")
+		expect(setSize).not.toHaveBeenCalled()
+		expect(mutate).toHaveBeenCalledTimes(1)
+	})
+
+	it("patches a loaded chat locally without revalidation", () => {
+		const mutate = vi.fn()
+
+		mockUseSWRInfinite.mockReturnValue({
+			data: [
+				{
+					chats: [
+						createMockChat({ id: "chat-1", title: "Old Title", visibility: "private" }),
+					],
+					hasMore: false,
+				},
+			],
+			error: undefined,
+			mutate,
+			setSize: vi.fn(),
+			size: 1,
+			isLoading: false,
+			isValidating: false,
+		})
+
+		const { result } = renderHook(() => useSidebarHistory())
+
+		act(() => {
+			result.current.patchChat("chat-1", { title: "Renamed", visibility: "public" })
+		})
+
+		expect(mutate).toHaveBeenCalledTimes(1)
+		const [updater, options] = mutate.mock.calls[0] as [
+			(
+				currentPages: Array<{
+					chats: ReturnType<typeof createMockChat>[]
+					hasMore: boolean
+				}>,
+			) => Array<{
+				chats: ReturnType<typeof createMockChat>[]
+				hasMore: boolean
+			}>,
+			{ revalidate: boolean },
+		]
+
+		const nextPages = updater([
+			{
+				chats: [
+					createMockChat({ id: "chat-1", title: "Old Title", visibility: "private" }),
+				],
+				hasMore: false,
+			},
+		])
+
+		expect(nextPages[0]?.chats[0]?.title).toBe("Renamed")
+		expect(nextPages[0]?.chats[0]?.visibility).toBe("public")
+		expect(options).toEqual({ revalidate: false })
 	})
 })

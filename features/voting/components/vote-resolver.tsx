@@ -1,6 +1,17 @@
 "use client"
 
-import { createContext, type ReactNode, use, useContext, useEffect, useMemo, useState } from "react"
+import {
+	createContext,
+	type ReactNode,
+	use,
+	useContext,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+	useSyncExternalStore,
+} from "react"
 
 import { useVotes } from "@/features/voting/hooks/use-votes"
 import type { Vote } from "@/lib/types/models.types"
@@ -9,15 +20,65 @@ import type { Vote } from "@/lib/types/models.types"
 
 type VotesSetter = (votes: Vote[]) => void
 
+type SubmitVote = (messageId: string, type: "up" | "down") => void
+
 const VotesSetterContext = createContext<VotesSetter | null>(null)
+
+interface VotesStore {
+	subscribe: (listener: () => void) => () => void
+	getVote: (messageId: string) => Vote | undefined
+	setVotes: (votes: Vote[]) => void
+}
+
+const EMPTY_VOTE_MAP = new Map<string, Vote>()
+
+function hasVoteMapChanged(current: ReadonlyMap<string, Vote>, next: ReadonlyMap<string, Vote>) {
+	if (current.size !== next.size) {
+		return true
+	}
+
+	for (const [messageId, vote] of next) {
+		if (!Object.is(current.get(messageId), vote)) {
+			return true
+		}
+	}
+
+	return false
+}
+
+function createVotesStore(): VotesStore {
+	const listeners = new Set<() => void>()
+	let voteByMessageId: ReadonlyMap<string, Vote> = EMPTY_VOTE_MAP
+
+	return {
+		subscribe(listener) {
+			listeners.add(listener)
+			return () => listeners.delete(listener)
+		},
+		getVote(messageId) {
+			return voteByMessageId.get(messageId)
+		},
+		setVotes(votes) {
+			const nextVoteMap = new Map(votes.map((vote) => [vote.messageId, vote]))
+
+			if (!hasVoteMapChanged(voteByMessageId, nextVoteMap)) {
+				return
+			}
+
+			voteByMessageId = nextVoteMap
+			for (const listener of listeners) {
+				listener()
+			}
+		},
+	}
+}
 
 // ── Public context ───────────────────────────────────────────
 
 interface VotesContextValue {
-	/** Current votes array (includes optimistic updates) */
-	votes: Vote[]
+	store: VotesStore
 	/** Submit a vote — triggers optimistic update + Server Action persistence */
-	submitVote: (messageId: string, type: "up" | "down") => void
+	submitVote: SubmitVote
 }
 
 const VotesContext = createContext<VotesContextValue | null>(null)
@@ -41,10 +102,24 @@ interface VotesProviderProps {
 export function VotesProvider({ chatId, children }: VotesProviderProps) {
 	const [serverVotes, setServerVotes] = useState<Vote[]>([])
 	const { votes, submitVote } = useVotes(chatId, serverVotes)
+	const storeRef = useRef<VotesStore | null>(null)
+
+	if (storeRef.current === null) {
+		storeRef.current = createVotesStore()
+	}
+
+	useLayoutEffect(() => {
+		storeRef.current?.setVotes(votes)
+	}, [votes])
+
+	const contextValue = useMemo(
+		() => ({ store: storeRef.current as VotesStore, submitVote }),
+		[submitVote],
+	)
 
 	return (
 		<VotesSetterContext.Provider value={setServerVotes}>
-			<VotesContext.Provider value={{ votes, submitVote }}>{children}</VotesContext.Provider>
+			<VotesContext.Provider value={contextValue}>{children}</VotesContext.Provider>
 		</VotesSetterContext.Provider>
 	)
 }
@@ -80,12 +155,15 @@ export function VoteResolver({ votesPromise }: VoteResolverProps) {
 
 // ── useVoteForMessage ────────────────────────────────────────
 
-/** Stable empty array to avoid re-renders when outside VotesProvider */
-const EMPTY_VOTES: Vote[] = []
+const EMPTY_VOTES_STORE: VotesStore = {
+	subscribe: () => () => undefined,
+	getVote: () => undefined,
+	setVotes: () => undefined,
+}
 
 /** No-op submit for components outside VotesProvider (e.g., new chat page) */
 // biome-ignore lint/suspicious/noEmptyBlockStatements: Intentional no-op callback
-const NOOP_SUBMIT: VotesContextValue["submitVote"] = () => {}
+const NOOP_SUBMIT: SubmitVote = () => {}
 
 /**
  * Read vote data from VotesProvider context for a specific message.
@@ -96,13 +174,16 @@ const NOOP_SUBMIT: VotesContextValue["submitVote"] = () => {}
  */
 export function useVoteForMessage(messageId: string): {
 	vote: Vote | undefined
-	submitVote: (messageId: string, type: "up" | "down") => void
+	submitVote: SubmitVote
 } {
 	const context = useContext(VotesContext)
-	const votes = context?.votes ?? EMPTY_VOTES
+	const store = context?.store ?? EMPTY_VOTES_STORE
 	const submitVote = context?.submitVote ?? NOOP_SUBMIT
-
-	const vote = useMemo(() => votes.find((v) => v.messageId === messageId), [votes, messageId])
+	const vote = useSyncExternalStore(
+		store.subscribe,
+		() => store.getVote(messageId),
+		() => undefined,
+	)
 
 	return { vote, submitVote }
 }

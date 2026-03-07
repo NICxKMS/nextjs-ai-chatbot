@@ -9,18 +9,27 @@ import {
 import "@/features/artifacts/handlers"
 import {
 	buildChatTools,
+	CHAT_PERSISTENCE_FAILURE_SIGNAL,
 	enforceChatRateLimit,
 	logChatPersistenceFailure,
 	persistChatResponse,
 	readChatRequest,
+	recoverChatPersistenceFailure,
 	requireChatSession,
 	resolveChatRouteContext,
 	serializeUsage,
 } from "@/features/chat/lib/chat-route"
+import {
+	buildArtifactFixtureTools,
+	createArtifactFixtureModel,
+	toPersistedArtifactFixtureMessages,
+} from "@/features/chat/lib/e2e-artifact-fixture"
+import { ARTIFACT_E2E_COOKIE_NAME } from "@/features/chat/lib/e2e-artifact-fixture-cookie"
 import { composeSystemPrompt } from "@/lib/ai/prompts"
 import { myProvider } from "@/lib/ai/provider"
 import { getProviderOptions } from "@/lib/ai/provider-options"
 import { generateTitle } from "@/lib/ai/title"
+import { getLatestArtifactByChatId } from "@/lib/data/artifact-chat"
 import { AppError } from "@/lib/errors/app-error"
 import type { ArtifactStreamWriter } from "@/lib/types/artifact-handler.types"
 import { generateUUID } from "@/lib/utils/generate-uuid"
@@ -64,7 +73,6 @@ export async function POST(request: Request) {
 
 	const {
 		chatId,
-		message,
 		selectedChatModel,
 		effectiveSettings,
 		allMessages,
@@ -74,11 +82,42 @@ export async function POST(request: Request) {
 	} = chatContext
 
 	let generatedTitle: string | undefined
+	let titleEmitted = false
+	const useArtifactE2EFixture =
+		hasTools &&
+		request.headers.get("cookie")?.includes(`${ARTIFACT_E2E_COOKIE_NAME}=1`) === true
 
 	try {
 		const stream = createUIMessageStream({
 			execute: async ({ writer }) => {
-				const titlePromise = isNewChat ? generateTitle(messageText) : null
+				let canEmitGeneratedTitle = false
+				const emitGeneratedTitle = () => {
+					if (!canEmitGeneratedTitle || titleEmitted || !generatedTitle) {
+						return
+					}
+
+					titleEmitted = true
+
+					try {
+						writer.write({
+							type: "data-chat-title",
+							data: generatedTitle,
+						} as Parameters<typeof writer.write>[0])
+					} catch {
+						// The stream may already be closed; title generation is best-effort only.
+					}
+				}
+
+				if (isNewChat) {
+					void generateTitle(messageText)
+						.then((title) => {
+							generatedTitle = title
+							emitGeneratedTitle()
+						})
+						.catch(() => {
+							// Title generation is optional metadata.
+						})
+				}
 
 				const chatStream: ArtifactStreamWriter = {
 					writeData({ type, content }) {
@@ -95,39 +134,92 @@ export async function POST(request: Request) {
 				})
 
 				const providerOpts = getProviderOptions(selectedChatModel, effectiveSettings)
-				const tools = buildChatTools({
-					hasTools,
-					chatId,
-					chatStream,
-					session: session.user,
-				})
+				const tools = useArtifactE2EFixture
+					? buildArtifactFixtureTools({
+							chatId,
+							chatStream,
+							session: {
+								userId: session.user.id,
+								isGuest: session.user.type === "guest",
+							},
+						})
+					: buildChatTools({
+							hasTools,
+							chatId,
+							chatStream,
+							session: session.user,
+						})
+				const model = useArtifactE2EFixture
+					? await createArtifactFixtureModel({
+							prompt: messageText,
+							artifactId: (await getLatestArtifactByChatId(chatId, session.user.id))
+								?.id,
+						})
+					: myProvider.languageModel(selectedChatModel)
 
 				const result = streamText({
-					model: myProvider.languageModel(selectedChatModel),
+					model,
 					system: systemPrompt,
 					messages: await convertToModelMessages(allMessages),
 					tools,
-					...providerOpts,
+					...(useArtifactE2EFixture ? {} : providerOpts),
 					experimental_transform: smoothStream(),
 					stopWhen: stepCountIs(5),
 					abortSignal: request.signal,
 				})
 
-				result.consumeStream()
 				writer.merge(
 					result.toUIMessageStream({
 						sendReasoning: true,
 						generateMessageId: generateUUID,
+						onFinish: async ({ messages: responseMessages }) => {
+							try {
+								const persistedResponseMessages = useArtifactE2EFixture
+									? toPersistedArtifactFixtureMessages(responseMessages)
+									: responseMessages
+
+								await persistChatResponse({
+									chatId,
+									userId: session.user.id,
+									responseMessages: persistedResponseMessages,
+									isNewChat,
+									generatedTitle,
+								})
+							} catch (error) {
+								const recovered = await recoverChatPersistenceFailure({
+									chatId,
+									userId: session.user.id,
+									isNewChat,
+									generatedTitle,
+								})
+
+								if (recovered) {
+									return
+								}
+
+								try {
+									writer.write({
+										type: "data-error",
+										data: CHAT_PERSISTENCE_FAILURE_SIGNAL,
+									} as Parameters<typeof writer.write>[0])
+								} catch {
+									// If the client already disconnected, keep the server-side log only.
+								}
+
+								logChatPersistenceFailure({
+									chatId,
+									userId: session.user.id,
+									isNewChat,
+									responseMessages,
+									error,
+								})
+							}
+						},
 					}),
 				)
 
-				if (titlePromise) {
-					generatedTitle = await titlePromise
-					writer.write({
-						type: `data-chat-title`,
-						data: generatedTitle,
-					} as Parameters<typeof writer.write>[0])
-				}
+				canEmitGeneratedTitle = true
+				emitGeneratedTitle()
 
 				writer.write({
 					type: "data-usage",
@@ -135,26 +227,6 @@ export async function POST(request: Request) {
 				} as Parameters<typeof writer.write>[0])
 			},
 			generateId: generateUUID,
-			onFinish: async ({ messages: responseMessages }) => {
-				try {
-					await persistChatResponse({
-						chatId,
-						userId: session.user.id,
-						userMessage: message,
-						responseMessages,
-						isNewChat,
-						generatedTitle,
-					})
-				} catch (error) {
-					logChatPersistenceFailure({
-						chatId,
-						userId: session.user.id,
-						isNewChat,
-						responseMessages,
-						error,
-					})
-				}
-			},
 			onError: () => {
 				return "An error occurred while processing your request."
 			},

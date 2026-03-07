@@ -16,7 +16,7 @@ import {
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { useSidebar } from "@/components/ui/sidebar"
+import { useSidebar } from "@/components/ui/sidebar-provider"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { deleteAllChats } from "@/features/chat/actions/delete-all-chats"
 import { usePendingChats } from "@/lib/providers/pending-chats-provider"

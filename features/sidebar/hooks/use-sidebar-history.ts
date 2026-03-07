@@ -14,16 +14,24 @@ interface HistoryPage {
 	nextCursor?: string
 }
 
+type SidebarHistoryPatch = Partial<Pick<Chat, "title" | "visibility">>
+
 /** Return value of useSidebarHistory */
 export interface UseSidebarHistoryReturn {
 	/** Flat array of chats across all loaded pages */
 	chats: Chat[]
 	/** Whether more pages are available beyond what's loaded */
 	hasMore: boolean
+	/** Last pagination or revalidation error */
+	error: Error | undefined
 	/** Load the next page of history */
 	loadMore: () => void
+	/** Retry the current history request set after a failed page load */
+	retry: () => void
 	/** True during initial load or when loading the next page */
 	isLoading: boolean
+	/** Patch a loaded chat locally without forcing a revalidation */
+	patchChat: (chatId: string, patch: SidebarHistoryPatch) => void
 }
 
 // ── Constants ────────────────────────────────────────────────
@@ -101,14 +109,17 @@ export function useSidebarHistory(options?: UseSidebarHistoryOptions): UseSideba
 			]
 		: undefined
 
-	const { data, setSize, isLoading, isValidating } = useSWRInfinite<HistoryPage>(
+	const { data, error, mutate, setSize, size, isLoading, isValidating } = useSWRInfinite<
+		HistoryPage,
+		Error
+	>(
 		// Null key when no authenticated user — skips all requests
 		session?.user ? getKey : () => null,
 		historyFetcher,
 		{
 			revalidateFirstPage: false,
-			revalidateOnFocus: false,
-			revalidateOnReconnect: false,
+			revalidateOnFocus: true,
+			revalidateOnReconnect: true,
 			fallbackData,
 			// Skip mount revalidation when server data is available
 			revalidateOnMount: !fallbackData,
@@ -119,16 +130,41 @@ export function useSidebarHistory(options?: UseSidebarHistoryOptions): UseSideba
 
 	const hasMore = data ? (data[data.length - 1]?.hasMore ?? false) : false
 
+	const isLoadingMore = isLoading || (isValidating && size > (data?.length ?? 0))
+
 	const loadMore = useCallback(() => {
-		if (!isValidating && hasMore) {
+		if (!isValidating && !error && hasMore) {
 			setSize((prev) => prev + 1)
 		}
-	}, [isValidating, hasMore, setSize])
+	}, [error, hasMore, isValidating, setSize])
+
+	const retry = useCallback(() => {
+		void mutate()
+	}, [mutate])
+
+	const patchChat = useCallback(
+		(chatId: string, patch: SidebarHistoryPatch) => {
+			void mutate(
+				(currentPages) =>
+					currentPages?.map((page) => ({
+						...page,
+						chats: page.chats.map((chat) =>
+							chat.id === chatId ? { ...chat, ...patch } : chat,
+						),
+					})),
+				{ revalidate: false },
+			)
+		},
+		[mutate],
+	)
 
 	return {
 		chats,
 		hasMore,
+		error,
 		loadMore,
-		isLoading: isLoading || isValidating,
+		retry,
+		isLoading: isLoadingMore,
+		patchChat,
 	}
 }

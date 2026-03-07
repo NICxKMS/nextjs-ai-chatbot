@@ -4,7 +4,8 @@ import { MotionConfig } from "framer-motion"
 import type { ReactNode } from "react"
 
 /**
- * Wraps the app in framer-motion's MotionConfig with `reducedMotion="user"`.
+ * Wraps a motion-heavy subtree in framer-motion's MotionConfig with
+ * `reducedMotion="user"`.
  *
  * This respects the user's `prefers-reduced-motion` OS-level setting for all
  * framer-motion JS-driven spring animations (which CSS media queries cannot reach).

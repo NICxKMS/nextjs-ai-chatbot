@@ -22,6 +22,13 @@
 			"when": 1772773370911,
 			"tag": "0002_common_skin",
 			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "7",
+			"when": 1772858929847,
+			"tag": "0003_amused_vivisector",
+			"breakpoints": true
 		}
 	]
 }

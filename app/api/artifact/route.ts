@@ -24,6 +24,7 @@ export async function GET(request: Request) {
 
 	const url = new URL(request.url)
 	const artifactId = url.searchParams.get("id")
+	const view = url.searchParams.get("view") ?? undefined
 
 	if (!artifactId) {
 		return AppError.badRequest(
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
 		).toResponse()
 	}
 
-	const parsed = getArtifactSchema.safeParse({ id: artifactId })
+	const parsed = getArtifactSchema.safeParse({ id: artifactId, view })
 	if (!parsed.success) {
 		return AppError.badRequest(
 			"bad_request:validation:invalid_input",
@@ -40,10 +41,30 @@ export async function GET(request: Request) {
 		).toResponse()
 	}
 
-	const { id } = parsed.data
+	const { id, view: requestedView = "versions" } = parsed.data
 
 	try {
-		const latest = await getArtifactById(id)
+		if (requestedView === "latest") {
+			const latest = await getArtifactById(id)
+			if (!latest) {
+				return AppError.notFound(
+					"not_found:artifact:artifact_not_found",
+					"Artifact not found",
+				).toResponse()
+			}
+
+			if (latest.userId !== session.user.id) {
+				return AppError.forbidden(
+					"forbidden:chat:owner_mismatch",
+					"Access denied",
+				).toResponse()
+			}
+
+			return Response.json([latest], { status: 200 })
+		}
+
+		const versions = await getArtifactVersions(id)
+		const latest = versions[0] ?? (await getArtifactById(id))
 		if (!latest) {
 			return AppError.notFound(
 				"not_found:artifact:artifact_not_found",
@@ -55,9 +76,7 @@ export async function GET(request: Request) {
 			return AppError.forbidden("forbidden:chat:owner_mismatch", "Access denied").toResponse()
 		}
 
-		const versions = await getArtifactVersions(id)
-
-		return Response.json(versions, { status: 200 })
+		return Response.json(versions.length > 0 ? versions : [latest], { status: 200 })
 	} catch (error) {
 		if (error instanceof AppError) {
 			return error.toResponse()

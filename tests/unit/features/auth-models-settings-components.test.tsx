@@ -17,6 +17,9 @@ const mockRouter = {
 }
 
 const mockUseSettings = vi.fn()
+const mockUseSettingsSelector = vi.fn((selector: (settings: SettingsState) => unknown) =>
+	selector(mockUseSettings()),
+)
 const mockUpdateSettings = vi.fn()
 const mockResetSettings = vi.fn()
 
@@ -159,6 +162,8 @@ vi.mock("@/components/ui/switch", () => ({
 
 vi.mock("@/features/settings/hooks/use-settings", () => ({
 	useSettings: () => mockUseSettings(),
+	useSettingsSelector: (selector: (settings: SettingsState) => unknown) =>
+		mockUseSettingsSelector(selector),
 	useSettingsSetter: () => ({
 		updateSettings: mockUpdateSettings,
 		resetSettings: mockResetSettings,
@@ -185,6 +190,9 @@ function createModel(overrides: Partial<ModelMetadata>): ModelMetadata {
 beforeEach(() => {
 	vi.clearAllMocks()
 	mockUseSettings.mockReturnValue(defaultSettings)
+	mockUseSettingsSelector.mockImplementation((selector: (settings: SettingsState) => unknown) =>
+		selector(mockUseSettings()),
+	)
 	// biome-ignore lint/suspicious/noDocumentCookie: test setup needs deterministic cookie reset
 	document.cookie = `${MODEL_COOKIE_NAME}=;max-age=0;path=/`
 	localStorage.removeItem(MODEL_COOKIE_NAME)

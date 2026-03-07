@@ -6,9 +6,12 @@ import { describe, expect, it, vi } from "vitest"
 
 vi.mock("react-jsx-parser", () => ({
 	default: ({ jsx, onError }: { jsx: string; onError?: (error: Error) => void }) => {
-		if (jsx.includes("THROW")) {
-			onError?.(new Error(`JSX parse failed: ${jsx}`))
-		}
+		React.useEffect(() => {
+			if (jsx.includes("THROW")) {
+				onError?.(new Error(`JSX parse failed: ${jsx}`))
+			}
+		}, [jsx, onError])
+
 		return React.createElement("div", { "data-testid": "jsx-parser-output" }, jsx)
 	},
 }))

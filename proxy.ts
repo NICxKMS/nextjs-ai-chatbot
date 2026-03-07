@@ -5,8 +5,12 @@ import { mintGuestToken, rotateGuestToken, verifyGuestToken } from "@/lib/auth/g
 
 // ── Constants ──────────────────────────────────────────────────
 
-/** Prefix used by @supabase/ssr for auth cookies (pattern: sb-<project-ref>-auth-token). */
-const SUPABASE_COOKIE_PREFIX = "sb-"
+/**
+ * Optional exact auth-cookie override.
+ * Falls back to the @supabase/ssr default pattern: sb-<project-ref>-auth-token
+ */
+const SUPABASE_AUTH_COOKIE_NAME_OVERRIDE =
+	process.env.SUPABASE_ACCESS_TOKEN_COOKIE_NAME?.trim() || null
 
 /** Guest token cookie max age: 7 days (in seconds). */
 const GUEST_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -24,10 +28,49 @@ const MOBILE_UA_PATTERN = /mobile|android|iphone|ipad|ipod|blackberry|iemobile|o
 /** Public routes: skip auth redirects and skip guest bootstrap. */
 const PUBLIC_ROUTES = new Set(["/login", "/register", "/api/health"])
 
+/** Guest-eligible exact routes: allow guest bootstrap without auth redirect. */
+const GUEST_ELIGIBLE_ROUTES = new Set(["/", "/api/chat"])
+
+/** Guest-eligible prefixes: allow guest bootstrap without auth redirect. */
+const GUEST_ELIGIBLE_PREFIXES = ["/chat/"]
+
 /** Rate-limit-exempt routes: skip edge-level throttling checks. */
 const RATE_LIMIT_EXEMPT_PREFIXES = ["/_next/", "/favicon.ico", "/images/", "/api/health"]
 
 type RouteClass = "public" | "guest-eligible" | "auth-required"
+
+function getSupabaseAuthCookieBaseName(): string | null {
+	if (SUPABASE_AUTH_COOKIE_NAME_OVERRIDE) {
+		return SUPABASE_AUTH_COOKIE_NAME_OVERRIDE
+	}
+
+	const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+	if (!supabaseUrl) {
+		return null
+	}
+
+	try {
+		const hostname = new URL(supabaseUrl).hostname
+		const projectRef = hostname.split(".")[0]
+
+		if (!projectRef) {
+			return null
+		}
+
+		return `sb-${projectRef}-auth-token`
+	} catch {
+		return null
+	}
+}
+
+function isSupabaseAuthCookieName(name: string): boolean {
+	const baseName = getSupabaseAuthCookieBaseName()
+	if (!baseName) {
+		return false
+	}
+
+	return name === baseName || name.startsWith(`${baseName}.`)
+}
 
 /**
  * Classify a pathname into a route category.
@@ -37,13 +80,11 @@ function classifyRoute(pathname: string): RouteClass {
 		return "public"
 	}
 
-	// Guest-eligible: root, chat routes, API routes (for chat streaming)
-	if (
-		pathname === "/" ||
-		pathname === "/chat" ||
-		pathname.startsWith("/chat/") ||
-		pathname.startsWith("/api/")
-	) {
+	if (GUEST_ELIGIBLE_ROUTES.has(pathname)) {
+		return "guest-eligible"
+	}
+
+	if (GUEST_ELIGIBLE_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
 		return "guest-eligible"
 	}
 
@@ -145,11 +186,11 @@ export async function proxy(request: NextRequest) {
 	}
 
 	// ── Session detection ──────────────────────────────────────
-	const hasSupabaseToken = request.cookies
+	const cookies = request.cookies
+	const hasSupabaseToken = cookies
 		.getAll()
-		.some((c) => c.name.startsWith(SUPABASE_COOKIE_PREFIX))
-	const guestTokenCookie = request.cookies.get(GUEST_COOKIE_NAME)
-	const guestToken = guestTokenCookie?.value
+		.some((cookie) => isSupabaseAuthCookieName(cookie.name))
+	const guestToken = cookies.get(GUEST_COOKIE_NAME)?.value
 
 	// ── Auth-required routes: redirect if no valid session ─────
 	if (routeClass === "auth-required") {
@@ -198,11 +239,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-	matcher: [
-		/*
-		 * Match all paths except static assets and metadata files.
-		 * Excludes: _next/static, _next/image, favicon.ico, images/
-		 */
-		"/((?!_next/static|_next/image|favicon.ico|images/).*)",
-	],
+	matcher: ["/", "/chat/:path*", "/login", "/register", "/api/chat"],
 }

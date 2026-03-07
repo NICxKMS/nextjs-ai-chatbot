@@ -192,4 +192,3 @@ P0 (scaffold) → P1 (data) → P2 (auth) → P3 (chat core) → P4 (artifacts) 
 | Cleanup inventory | `../../plan-archives/redesign/cleanup-inventory.md` |
 | Principles | `../../plan-archives/redesign/principles.md` |
 | Redesign index | `../../plan-archives/redesign/index.md` |
-| Redesign audit | `../../plan-archives/plan_review/redesign-reaudit.md` |

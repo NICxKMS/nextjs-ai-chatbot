@@ -14,7 +14,7 @@ import {
 	ContextReasoningUsage,
 	ContextTrigger,
 } from "@/components/ai-elements/context"
-import { useSettings } from "@/features/settings/hooks/use-settings"
+import { useSettingsSelector } from "@/features/settings/hooks/use-settings"
 
 interface ContextDisplayProps {
 	usedTokens: number
@@ -24,9 +24,11 @@ interface ContextDisplayProps {
 }
 
 export function ContextDisplay({ usedTokens, maxTokens, usage, modelId }: ContextDisplayProps) {
-	const { contextDisplayMode, temperature, topP, maxOutputTokens, enableReasoning } =
-		useSettings()
-	const isDetailed = contextDisplayMode === "detailed"
+	const isDetailed = useSettingsSelector((settings) => settings.contextDisplayMode === "detailed")
+	const temperature = useSettingsSelector((settings) => settings.temperature)
+	const topP = useSettingsSelector((settings) => settings.topP)
+	const maxOutputTokens = useSettingsSelector((settings) => settings.maxOutputTokens)
+	const enableReasoning = useSettingsSelector((settings) => settings.enableReasoning)
 
 	return (
 		<Context usedTokens={usedTokens} maxTokens={maxTokens} usage={usage} modelId={modelId}>

@@ -7,7 +7,6 @@ import {
 	getArtifactSchema,
 	restoreArtifactSchema,
 	saveArtifactSchema,
-	suggestionResponseSchema,
 	updateArtifactSchema,
 } from "@/features/artifacts/schemas/artifact.schema"
 
@@ -205,41 +204,6 @@ describe("artifactPostBodySchema", () => {
 				mode: "delete",
 				id: ARTIFACT_ID,
 			}),
-		).toThrow()
-	})
-})
-
-describe("suggestionResponseSchema", () => {
-	it("accepts up to five suggestion items", () => {
-		const parsed = suggestionResponseSchema.parse([
-			{ originalText: "a", suggestedText: "b", description: "1" },
-			{ originalText: "c", suggestedText: "d", description: "2" },
-			{ originalText: "e", suggestedText: "f", description: "3" },
-			{ originalText: "g", suggestedText: "h", description: "4" },
-			{ originalText: "i", suggestedText: "j", description: "5" },
-		])
-
-		expect(parsed).toHaveLength(5)
-	})
-
-	it("rejects more than five suggestion items", () => {
-		expect(() =>
-			suggestionResponseSchema.parse([
-				{ originalText: "a", suggestedText: "b", description: "1" },
-				{ originalText: "c", suggestedText: "d", description: "2" },
-				{ originalText: "e", suggestedText: "f", description: "3" },
-				{ originalText: "g", suggestedText: "h", description: "4" },
-				{ originalText: "i", suggestedText: "j", description: "5" },
-				{ originalText: "k", suggestedText: "l", description: "6" },
-			]),
-		).toThrow()
-	})
-
-	it("rejects items missing required string fields", () => {
-		expect(() =>
-			suggestionResponseSchema.parse([
-				{ originalText: "a", suggestedText: "b", description: 123 },
-			]),
 		).toThrow()
 	})
 })

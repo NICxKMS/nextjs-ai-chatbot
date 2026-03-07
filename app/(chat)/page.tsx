@@ -14,12 +14,13 @@ export default async function NewChatPage({
 }: {
 	searchParams: Promise<{ q?: string; query?: string }>
 }) {
+	const availableModelsPromise = getAvailableModels()
 	const [session, params] = await Promise.all([getAppSession(), searchParams])
 	const initialQuery = params.q || params.query || undefined
 
 	const [availableModels, defaultModel] = await Promise.all([
-		getAvailableModels(),
-		getDefaultModel(session),
+		availableModelsPromise,
+		getDefaultModel(session, availableModelsPromise),
 	])
 
 	const id = generateUUID()

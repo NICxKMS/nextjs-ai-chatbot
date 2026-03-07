@@ -23,8 +23,8 @@ interface HealthResponse {
 /** High-latency threshold in milliseconds. */
 const LATENCY_THRESHOLD_MS = 1000
 
-function toErrorMessage(error: unknown, fallbackMessage: string) {
-	return error instanceof Error ? error.message : fallbackMessage
+function logDependencyFailure(checkName: "database" | "cache", error: unknown) {
+	console.error(`[health] ${checkName} check failed`, error)
 }
 
 function createLatencyResult(latency: number, highLatencyMessage: string): CheckResult {
@@ -35,10 +35,10 @@ function createLatencyResult(latency: number, highLatencyMessage: string): Check
 	return { status: "healthy", latency }
 }
 
-function createFailureResult(error: unknown, fallbackMessage: string): CheckResult {
+function createFailureResult(fallbackMessage: string): CheckResult {
 	return {
 		status: "unhealthy",
-		error: toErrorMessage(error, fallbackMessage),
+		error: fallbackMessage,
 	}
 }
 
@@ -48,7 +48,8 @@ async function checkDatabase(): Promise<CheckResult> {
 		await db.execute(sql`SELECT 1`)
 		return createLatencyResult(Date.now() - start, "High database latency")
 	} catch (error) {
-		return createFailureResult(error, "Database check failed")
+		logDependencyFailure("database", error)
+		return createFailureResult("Database check failed")
 	}
 }
 
@@ -64,7 +65,8 @@ async function checkCache(): Promise<CheckResult> {
 
 		return createLatencyResult(latency, "High cache latency")
 	} catch (error) {
-		return createFailureResult(error, "Cache check failed")
+		logDependencyFailure("cache", error)
+		return createFailureResult("Cache check failed")
 	}
 }
 

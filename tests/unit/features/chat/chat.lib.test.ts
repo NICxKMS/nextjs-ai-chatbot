@@ -39,47 +39,58 @@ function createFetchResponse(ok: boolean, body: unknown): Response {
 
 const {
 	mockStreamObject,
+	mockCreateProviderRegistry,
 	mockGetArtifactHandler,
 	mockSaveArtifactVersion,
 	mockGetArtifactById,
 	mockSaveSuggestions,
 	mockGenerateUUID,
 	mockLanguageModel,
-} = vi.hoisted(() => ({
-	mockStreamObject: vi.fn(),
-	mockGetArtifactHandler: vi.fn(),
-	mockSaveArtifactVersion: vi.fn(),
-	mockGetArtifactById: vi.fn(),
-	mockSaveSuggestions: vi.fn(),
-	mockGenerateUUID: vi.fn(),
-	mockLanguageModel: vi.fn(),
-}))
+} = vi.hoisted(() => {
+	process.env.GEMINI_API_KEY ??= "test-gemini-key"
+
+	return {
+		mockStreamObject: vi.fn(),
+		mockCreateProviderRegistry: vi.fn(() => ({
+			languageModel: vi.fn(),
+			embeddingModel: vi.fn(),
+			imageModel: vi.fn(),
+		})),
+		mockGetArtifactHandler: vi.fn(),
+		mockSaveArtifactVersion: vi.fn(),
+		mockGetArtifactById: vi.fn(),
+		mockSaveSuggestions: vi.fn(),
+		mockGenerateUUID: vi.fn(),
+		mockLanguageModel: vi.fn(),
+	}
+})
 
 vi.mock("ai", () => ({
+	createProviderRegistry: mockCreateProviderRegistry,
 	tool: (config: unknown) => config,
-	streamObject: (...args: unknown[]) => mockStreamObject(...args),
+	streamObject: mockStreamObject,
 }))
 
 vi.mock("@/lib/ai/artifact-handlers", () => ({
-	getArtifactHandler: (...args: unknown[]) => mockGetArtifactHandler(...args),
+	getArtifactHandler: mockGetArtifactHandler,
 }))
 
 vi.mock("@/lib/data/artifact", () => ({
-	saveArtifactVersion: (...args: unknown[]) => mockSaveArtifactVersion(...args),
-	getArtifactById: (...args: unknown[]) => mockGetArtifactById(...args),
+	saveArtifactVersion: mockSaveArtifactVersion,
+	getArtifactById: mockGetArtifactById,
 }))
 
 vi.mock("@/lib/data/suggestion", () => ({
-	saveSuggestions: (...args: unknown[]) => mockSaveSuggestions(...args),
+	saveSuggestions: mockSaveSuggestions,
 }))
 
 vi.mock("@/lib/utils/generate-uuid", () => ({
-	generateUUID: (...args: unknown[]) => mockGenerateUUID(...args),
+	generateUUID: mockGenerateUUID,
 }))
 
 vi.mock("@/lib/ai/provider", () => ({
 	myProvider: {
-		languageModel: (...args: unknown[]) => mockLanguageModel(...args),
+		languageModel: mockLanguageModel,
 	},
 }))
 
@@ -235,6 +246,9 @@ describe("chat library utilities", () => {
 						originalText: "before",
 						suggestedText: "after",
 						description: "improve wording",
+						occurrenceIndex: 0,
+						selectionStart: 0,
+						selectionEnd: 6,
 					},
 				},
 				current,
@@ -245,6 +259,9 @@ describe("chat library utilities", () => {
 				originalText: "before",
 				suggestedText: "after",
 				description: "improve wording",
+				occurrenceIndex: 0,
+				selectionStart: 0,
+				selectionEnd: 6,
 			})
 		})
 
@@ -738,6 +755,51 @@ describe("chat library utilities", () => {
 			})
 		})
 
+		it("enriches repeated-text suggestions with producer-supplied position metadata", async () => {
+			const chatStream = { writeData: vi.fn() }
+			mockGetArtifactById.mockResolvedValue({
+				id: "artifact-1",
+				title: "Doc",
+				kind: "text",
+				content: "repeat once repeat",
+				userId: TEST_USER_ID,
+				chatId: "chat-1",
+				createdAt: new Date("2026-01-01T00:00:00Z"),
+			})
+			mockLanguageModel.mockReturnValue("artifact-model")
+			mockStreamObject.mockReturnValue({
+				elementStream: toAsyncIterable([
+					{
+						originalText: "repeat",
+						suggestedText: "updated",
+						description: "Target the second repeated match",
+						occurrenceIndex: 1,
+					},
+				]),
+			})
+
+			const toolConfig = asTool<{ artifactId: string }, unknown>(
+				requestSuggestionsTool({
+					session: { userId: TEST_USER_ID, isGuest: false },
+					chatStream,
+				}),
+			)
+
+			await toolConfig.execute({ artifactId: "artifact-1" })
+
+			expect(chatStream.writeData).toHaveBeenCalledWith({
+				type: "artifact-suggestion",
+				content: {
+					originalText: "repeat",
+					suggestedText: "updated",
+					description: "Target the second repeated match",
+					occurrenceIndex: 1,
+					selectionStart: 12,
+					selectionEnd: 18,
+				},
+			})
+		})
+
 		it("streams suggestions but does not persist for guest sessions", async () => {
 			const chatStream = { writeData: vi.fn() }
 			mockGetArtifactById.mockResolvedValue({
@@ -790,6 +852,7 @@ describe("chat library utilities", () => {
 		it("fetches weather directly for coordinate input", async () => {
 			const weatherTool = asTool<{ latitude: number; longitude: number }, unknown>(getWeather)
 			const fetchMock = vi.fn()
+			const timeoutSpy = vi.spyOn(AbortSignal, "timeout")
 			globalThis.fetch = fetchMock as unknown as typeof fetch
 			fetchMock.mockResolvedValue(
 				createFetchResponse(true, {
@@ -802,8 +865,10 @@ describe("chat library utilities", () => {
 			const result = await weatherTool.execute({ latitude: 10, longitude: 20 })
 
 			expect(fetchMock).toHaveBeenCalledTimes(1)
+			expect(timeoutSpy).toHaveBeenCalledWith(10_000)
 			expect(fetchMock).toHaveBeenCalledWith(
 				expect.stringContaining("api.open-meteo.com/v1/forecast?latitude=10&longitude=20"),
+				expect.objectContaining({ signal: expect.any(AbortSignal) }),
 			)
 			expect(result).toEqual({ current: { temperature_2m: 24 }, hourly: {}, daily: {} })
 		})
@@ -811,6 +876,7 @@ describe("chat library utilities", () => {
 		it("geocodes a city name before fetching weather and returns cityName", async () => {
 			const weatherTool = asTool<{ city: string }, unknown>(getWeather)
 			const fetchMock = vi.fn()
+			const timeoutSpy = vi.spyOn(AbortSignal, "timeout")
 			globalThis.fetch = fetchMock as unknown as typeof fetch
 			fetchMock
 				.mockResolvedValueOnce(
@@ -829,15 +895,20 @@ describe("chat library utilities", () => {
 			const result = await weatherTool.execute({ city: "New York" })
 
 			expect(fetchMock).toHaveBeenCalledTimes(2)
+			expect(timeoutSpy).toHaveBeenCalledTimes(2)
+			expect(timeoutSpy).toHaveBeenNthCalledWith(1, 10_000)
+			expect(timeoutSpy).toHaveBeenNthCalledWith(2, 10_000)
 			expect(fetchMock).toHaveBeenNthCalledWith(
 				1,
 				expect.stringContaining("geocoding-api.open-meteo.com/v1/search?name=New%20York"),
+				expect.objectContaining({ signal: expect.any(AbortSignal) }),
 			)
 			expect(fetchMock).toHaveBeenNthCalledWith(
 				2,
 				expect.stringContaining(
 					"api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.006",
 				),
+				expect.objectContaining({ signal: expect.any(AbortSignal) }),
 			)
 			expect(result).toEqual({
 				current: { temperature_2m: 18 },
@@ -845,6 +916,31 @@ describe("chat library utilities", () => {
 				daily: {},
 				cityName: "New York",
 			})
+		})
+
+		it("memoizes repeated city lookups for a short window", async () => {
+			const weatherTool = asTool<{ city: string }, unknown>(getWeather)
+			const fetchMock = vi.fn()
+			globalThis.fetch = fetchMock as unknown as typeof fetch
+			fetchMock
+				.mockResolvedValueOnce(
+					createFetchResponse(true, {
+						results: [{ latitude: 48.8566, longitude: 2.3522 }],
+					}),
+				)
+				.mockResolvedValueOnce(
+					createFetchResponse(true, {
+						current: { temperature_2m: 21 },
+						hourly: {},
+						daily: {},
+					}),
+				)
+
+			const firstResult = await weatherTool.execute({ city: "Paris Memo" })
+			const secondResult = await weatherTool.execute({ city: "  paris memo  " })
+
+			expect(fetchMock).toHaveBeenCalledTimes(2)
+			expect(secondResult).toEqual(firstResult)
 		})
 
 		it("returns a city lookup error when geocoding fails", async () => {

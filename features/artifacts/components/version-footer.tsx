@@ -113,8 +113,7 @@ export function VersionFooter({
 
 							// After restore, go to latest version (which is now the restored one)
 							handleVersionChange("latest")
-						} catch (error) {
-							console.error("Failed to restore artifact version:", error)
+						} catch {
 							toast.error("Failed to restore version. Please try again.")
 						} finally {
 							setIsMutating(false)

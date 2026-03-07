@@ -1,12 +1,13 @@
 import { z } from "zod"
 
 import { getAppSession } from "@/lib/auth/session"
-import { getArtifactById } from "@/lib/data/artifact"
-import { getSuggestionsByArtifactId } from "@/lib/data/suggestion"
+import { getArtifactById, getArtifactByIdAndCreatedAt } from "@/lib/data/artifact"
+import { getSuggestionsByArtifactVersion } from "@/lib/data/suggestion"
 import { AppError } from "@/lib/errors/app-error"
 
 const querySchema = z.object({
 	artifactId: z.string().uuid(),
+	artifactCreatedAt: z.string().datetime().optional(),
 })
 
 export async function GET(request: Request) {
@@ -23,18 +24,25 @@ export async function GET(request: Request) {
 	const url = new URL(request.url)
 	const parsed = querySchema.safeParse({
 		artifactId: url.searchParams.get("artifactId"),
+		artifactCreatedAt: url.searchParams.get("artifactCreatedAt") ?? undefined,
 	})
 
 	if (!parsed.success) {
 		return AppError.badRequest(
 			"bad_request:validation:invalid_input",
-			"Invalid or missing artifactId query parameter",
+			"Invalid suggestion query parameters",
 		).toResponse()
 	}
 
 	try {
+		const artifactCreatedAt = parsed.data.artifactCreatedAt
+			? new Date(parsed.data.artifactCreatedAt)
+			: undefined
+
 		// IDOR check: verify the requesting user owns the artifact
-		const artifact = await getArtifactById(parsed.data.artifactId)
+		const artifact = artifactCreatedAt
+			? await getArtifactByIdAndCreatedAt(parsed.data.artifactId, artifactCreatedAt)
+			: await getArtifactById(parsed.data.artifactId)
 		if (!artifact) {
 			return AppError.notFound(
 				"not_found:artifact:artifact_not_found",
@@ -45,7 +53,7 @@ export async function GET(request: Request) {
 			return AppError.forbidden("forbidden:chat:owner_mismatch", "Access denied").toResponse()
 		}
 
-		const suggestions = await getSuggestionsByArtifactId(parsed.data.artifactId)
+		const suggestions = await getSuggestionsByArtifactVersion(artifact.id, artifact.createdAt)
 		return Response.json({ suggestions })
 	} catch (error) {
 		if (error instanceof AppError) {
