@@ -8,14 +8,27 @@ import {
 
 // ── Secret resolution ──────────────────────────────────────────
 
+let cachedSecretRaw: string | undefined
+let cachedSecretEncoded: Uint8Array | null | undefined
+
 /**
  * Lazily resolve and encode the GUEST_JWT_SECRET.
+ * Caches the encoded result to avoid re-encoding on every JWT operation.
+ * Invalidates automatically when the env var value changes.
  * Returns null if the env var is missing.
  */
 function getSecret(): Uint8Array | null {
-	const raw = process.env.GUEST_JWT_SECRET
-	if (!raw) return null
-	return new TextEncoder().encode(raw)
+	const raw = process.env.GUEST_JWT_SECRET ?? ""
+	if (raw === cachedSecretRaw && cachedSecretEncoded !== undefined) return cachedSecretEncoded
+	cachedSecretRaw = raw
+	cachedSecretEncoded = raw ? new TextEncoder().encode(raw) : null
+	return cachedSecretEncoded
+}
+
+/** @internal Reset cached secret — test-only. */
+export function _resetSecretCache(): void {
+	cachedSecretRaw = undefined
+	cachedSecretEncoded = undefined
 }
 
 // ── Public API ─────────────────────────────────────────────────

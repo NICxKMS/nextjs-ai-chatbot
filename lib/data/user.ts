@@ -14,7 +14,11 @@ import type { NewUser, User } from "@/lib/types/models.types"
  */
 export async function getUserByEmail(email: string): Promise<User | null> {
 	try {
-		const result = await db.select().from(users).where(eq(users.email, email.toLowerCase()))
+		const result = await db
+			.select()
+			.from(users)
+			.where(eq(users.email, email.toLowerCase()))
+			.limit(1)
 		return result[0] ?? null
 	} catch (error) {
 		throwDatabaseError(error, "Failed to get user by email")
@@ -27,7 +31,7 @@ export async function getUserByEmail(email: string): Promise<User | null> {
  */
 export async function getUserById(id: string): Promise<User | null> {
 	try {
-		const result = await db.select().from(users).where(eq(users.id, id))
+		const result = await db.select().from(users).where(eq(users.id, id)).limit(1)
 		return result[0] ?? null
 	} catch (error) {
 		throwDatabaseError(error, "Failed to get user by id")

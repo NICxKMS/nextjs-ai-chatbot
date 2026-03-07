@@ -3,9 +3,9 @@
 // P0-T07 owns the definition — this file NEVER redefines it.
 // Model selection is handled separately (cookie/model selector), not here.
 
-export type { SettingsState } from "@/lib/types/settings.types"
-
 import type { SettingsState } from "@/lib/types/settings.types"
+
+export type { SettingsState }
 
 /**
  * Default settings for chat parameters.

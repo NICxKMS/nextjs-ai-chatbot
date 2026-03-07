@@ -18,7 +18,12 @@ export async function GET(request: Request) {
 
 	// Guest users: suggestions are not persisted, return empty array
 	if (session.user.type === "guest") {
-		return Response.json({ suggestions: [] })
+		return Response.json(
+			{ suggestions: [] },
+			{
+				headers: { "Cache-Control": "private, max-age=30" },
+			},
+		)
 	}
 
 	const url = new URL(request.url)
@@ -54,7 +59,12 @@ export async function GET(request: Request) {
 		}
 
 		const suggestions = await getSuggestionsByArtifactVersion(artifact.id, artifact.createdAt)
-		return Response.json({ suggestions })
+		return Response.json(
+			{ suggestions },
+			{
+				headers: { "Cache-Control": "private, max-age=30" },
+			},
+		)
 	} catch (error) {
 		if (error instanceof AppError) {
 			return error.toResponse()

@@ -232,7 +232,9 @@ export async function POST(request: Request) {
 			},
 		})
 
-		return new Response(stream.pipeThrough(new JsonToSseTransformStream()))
+		return new Response(stream.pipeThrough(new JsonToSseTransformStream()), {
+			headers: { "Cache-Control": "no-store" },
+		})
 	} catch (error) {
 		if (error instanceof AppError) {
 			return error.toResponse()

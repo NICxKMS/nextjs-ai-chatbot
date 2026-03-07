@@ -36,16 +36,16 @@ const PROVIDER_DEFINITIONS: Record<ProviderId, ProviderDefinition> = {
 	},
 }
 
+const PROVIDER_ENTRIES = Object.entries(PROVIDER_DEFINITIONS) as Array<
+	[ProviderId, ProviderDefinition]
+>
+
 function hasConfiguredProvider({ envKey }: ProviderDefinition): boolean {
 	return Boolean(process.env[envKey])
 }
 
 function getProviderDefinition(providerId: ProviderId): ProviderDefinition {
 	return PROVIDER_DEFINITIONS[providerId]
-}
-
-function getProviderEntries(): Array<[ProviderId, ProviderDefinition]> {
-	return Object.entries(PROVIDER_DEFINITIONS) as Array<[ProviderId, ProviderDefinition]>
 }
 
 /**
@@ -61,7 +61,7 @@ function getProviderEntries(): Array<[ProviderId, ProviderDefinition]> {
 function buildRegistry() {
 	const providers: Record<string, ProviderV3> = {}
 
-	for (const [providerId, definition] of getProviderEntries()) {
+	for (const [providerId, definition] of PROVIDER_ENTRIES) {
 		if (!definition.registerWithoutEnv && !hasConfiguredProvider(definition)) {
 			continue
 		}
@@ -88,11 +88,18 @@ export function getRequiredProviderEnvKey(providerId: ProviderId): string {
  *
  * Used by `getAvailableModels()` to filter the model catalog to only include
  * models whose provider is actually usable.
+ *
+ * Cached at module level since env vars don't change at runtime.
  */
+let cachedAvailableProviderIds: Set<string> | null = null
+
 export function getAvailableProviderIds(): Set<string> {
-	return new Set(
-		getProviderEntries()
-			.filter(([providerId]) => isProviderConfigured(providerId))
-			.map(([providerId]) => providerId),
-	)
+	if (!cachedAvailableProviderIds) {
+		cachedAvailableProviderIds = new Set(
+			PROVIDER_ENTRIES.filter(([providerId]) => isProviderConfigured(providerId)).map(
+				([providerId]) => providerId,
+			),
+		)
+	}
+	return cachedAvailableProviderIds
 }

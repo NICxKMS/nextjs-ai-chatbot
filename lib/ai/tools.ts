@@ -1,4 +1,3 @@
-import { getModelCapabilities } from "@/lib/ai/model-capabilities"
 import type { ModelMetadata } from "@/lib/types/model.types"
 
 // ── Tool identifiers ─────────────────────────────────────────
@@ -25,7 +24,7 @@ export type ToolId = (typeof TOOL_IDS)[number]
  * @returns Array of enabled tool IDs, empty if the model cannot use tools.
  */
 export function getEnabledTools(model: ModelMetadata): readonly ToolId[] {
-	if (!getModelCapabilities(model.id, model).supportsToolCalling) {
+	if (!model.supportsToolCalling) {
 		return []
 	}
 

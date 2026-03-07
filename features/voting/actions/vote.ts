@@ -2,8 +2,8 @@
 
 import { voteSchema } from "@/features/voting/types/vote.types"
 import { getAppSession } from "@/lib/auth/session"
-import { expire, incr } from "@/lib/cache/client"
 import { rateLimitKeys } from "@/lib/cache/keys"
+import { checkRateLimit } from "@/lib/cache/rate-limit"
 import { invalidateVotes } from "@/lib/cache/revalidate"
 import { getChatById } from "@/lib/data/chat"
 import { getMessageById } from "@/lib/data/message"
@@ -87,20 +87,18 @@ export async function voteOnMessage(
 	}
 
 	// 6. Rate limit — 20 votes/min per user (graceful: skip if Redis unavailable)
-	const rateLimitKey = rateLimitKeys.rateLimitVote(session.user.id)
-	const count = await incr(rateLimitKey)
-	if (count !== null) {
-		if (count === 1) {
-			await expire(rateLimitKey, VOTE_RATE_WINDOW_SECONDS)
-		}
-		if (count > VOTE_RATE_LIMIT) {
-			return {
-				success: false,
-				error: {
-					code: "rate_limit:vote:too_many_requests",
-					message: "Too many votes. Please try again later.",
-				},
-			}
+	const withinLimit = await checkRateLimit(
+		rateLimitKeys.rateLimitVote(session.user.id),
+		VOTE_RATE_LIMIT,
+		VOTE_RATE_WINDOW_SECONDS,
+	)
+	if (!withinLimit) {
+		return {
+			success: false,
+			error: {
+				code: "rate_limit:vote:too_many_requests",
+				message: "Too many votes. Please try again later.",
+			},
 		}
 	}
 

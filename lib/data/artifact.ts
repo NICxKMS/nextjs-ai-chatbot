@@ -48,14 +48,16 @@ export async function getArtifactByIdAndCreatedAt(
 
 /**
  * Get all versions of an artifact, ordered by createdAt descending (newest first).
+ * Capped at `limit` rows (default 100) to prevent unbounded result sets.
  */
-export async function getArtifactVersions(artifactId: string): Promise<Artifact[]> {
+export async function getArtifactVersions(artifactId: string, limit = 100): Promise<Artifact[]> {
 	try {
 		return await db
 			.select()
 			.from(artifacts)
 			.where(eq(artifacts.id, artifactId))
 			.orderBy(desc(artifacts.createdAt))
+			.limit(limit)
 	} catch (error) {
 		throwDatabaseError(error, "Failed to get artifact versions", { artifactId })
 	}

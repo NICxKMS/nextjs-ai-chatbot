@@ -49,8 +49,8 @@ function getRequestOrigin(request: Request): string | null {
  * Adapted from the old app's `lib/api/utils.ts`.
  */
 export function validateOrigin(request: Request): boolean {
-	const requestUrl = new URL(request.url)
 	const requestOrigin = getRequestOrigin(request)
+	if (!requestOrigin) return false
 
-	return requestOrigin ? getAllowedOrigins(requestUrl).has(requestOrigin) : false
+	return getAllowedOrigins(new URL(request.url)).has(requestOrigin)
 }

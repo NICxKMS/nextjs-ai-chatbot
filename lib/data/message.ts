@@ -7,10 +7,16 @@ import type { Message, NewMessage } from "@/lib/types/models.types"
 
 type ChatRenderMessage = Pick<Message, "id" | "role" | "parts">
 
+/** Safety cap for message queries — prevents unbounded result sets. */
+const DEFAULT_MESSAGE_LIMIT = 500
+
 /**
  * Get the reduced message shape used to render chat history.
  */
-export async function getMessagesForChatRender(chatId: string): Promise<ChatRenderMessage[]> {
+export async function getMessagesForChatRender(
+	chatId: string,
+	limit = DEFAULT_MESSAGE_LIMIT,
+): Promise<ChatRenderMessage[]> {
 	try {
 		return await db
 			.select({
@@ -21,6 +27,7 @@ export async function getMessagesForChatRender(chatId: string): Promise<ChatRend
 			.from(messages)
 			.where(eq(messages.chatId, chatId))
 			.orderBy(asc(messages.createdAt))
+			.limit(limit)
 	} catch (error) {
 		throwDatabaseError(error, "Failed to get messages for chat render", { chatId })
 	}
@@ -29,13 +36,17 @@ export async function getMessagesForChatRender(chatId: string): Promise<ChatRend
 /**
  * Get all messages for a chat, ordered by createdAt ascending.
  */
-export async function getMessagesByChatId(chatId: string): Promise<Message[]> {
+export async function getMessagesByChatId(
+	chatId: string,
+	limit = DEFAULT_MESSAGE_LIMIT,
+): Promise<Message[]> {
 	try {
 		return await db
 			.select()
 			.from(messages)
 			.where(eq(messages.chatId, chatId))
 			.orderBy(asc(messages.createdAt))
+			.limit(limit)
 	} catch (error) {
 		throwDatabaseError(error, "Failed to get messages for chat", { chatId })
 	}

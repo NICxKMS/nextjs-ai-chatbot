@@ -8,6 +8,9 @@ import type { Chat, Message, NewMessage, Visibility } from "@/lib/types/models.t
 
 const DEFAULT_PAGE_SIZE = 20
 
+/** Safety cap for message queries — prevents unbounded result sets. */
+const DEFAULT_MESSAGE_LIMIT = 500
+
 /**
  * Get a chat by its ID.
  * Pure DB lookup — no auth, no caching.
@@ -96,7 +99,8 @@ export async function getChatWithMessages(
 				.select()
 				.from(messages)
 				.where(eq(messages.chatId, chatId))
-				.orderBy(asc(messages.createdAt)),
+				.orderBy(asc(messages.createdAt))
+				.limit(DEFAULT_MESSAGE_LIMIT),
 		])
 
 		if (!chatResult) return null

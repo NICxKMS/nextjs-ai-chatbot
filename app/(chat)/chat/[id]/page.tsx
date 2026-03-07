@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { Suspense } from "react"
+import { cache, Suspense } from "react"
 import { ChatShell } from "@/features/chat/components/chat-shell"
 import { ChatStreamProvider } from "@/features/chat/components/chat-stream-provider"
 import { convertToUIMessages } from "@/features/chat/lib/message-utils"
@@ -43,14 +43,14 @@ function getVisibleChat(
 	return chat
 }
 
-async function getChatPageState(chatId: string) {
+const getChatPageState = cache(async (chatId: string) => {
 	const [session, chat] = await Promise.all([getAppSession(), getCachedChat(chatId)])
 
 	return {
 		session,
 		chat: getVisibleChat(chat, session),
 	}
-}
+})
 
 function getVotesPromise(chatId: string, session: Awaited<ReturnType<typeof getAppSession>>) {
 	if (!session?.user || session.user.type === "guest") {

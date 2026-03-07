@@ -3,7 +3,7 @@
 import type { UIMessage } from "ai"
 import equal from "fast-deep-equal"
 import { ArrowDownIcon } from "lucide-react"
-import { memo, useCallback, useState } from "react"
+import { memo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { useChatSessionContext } from "@/features/chat/hooks/use-chat-session-context"
@@ -66,10 +66,6 @@ function PureMessages() {
 	const { messages, status, isReadonly } = useChatSessionContext()
 	const { containerRef, endRef, isAtBottom, scrollToBottom } = useScrollToBottom()
 
-	const handleScrollToBottom = useCallback(() => {
-		scrollToBottom()
-	}, [scrollToBottom])
-
 	// ── Empty state ──────────────────────────────────────────
 	if (messages.length === 0) {
 		return (
@@ -120,7 +116,7 @@ function PureMessages() {
 				<Button
 					aria-label="Scroll to bottom"
 					className="-translate-x-1/2 absolute bottom-4 left-1/2 z-10 rounded-full shadow-lg after:absolute after:-inset-0.5 after:md:hidden"
-					onClick={handleScrollToBottom}
+					onClick={scrollToBottom}
 					size="icon"
 					type="button"
 					variant="outline"

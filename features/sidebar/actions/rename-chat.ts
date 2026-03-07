@@ -39,8 +39,10 @@ export async function renameChat(
 		}
 	}
 
+	const { chatId, title } = parsed.data
+
 	// 3. Authorize — ownership check
-	const chat = await getChatById(parsed.data.chatId)
+	const chat = await getChatById(chatId)
 	if (!chat) {
 		return {
 			success: false,
@@ -60,7 +62,7 @@ export async function renameChat(
 
 	// 4. Execute
 	try {
-		await updateChatTitle(parsed.data.chatId, parsed.data.title)
+		await updateChatTitle(chatId, title)
 	} catch {
 		return {
 			success: false,
@@ -72,7 +74,7 @@ export async function renameChat(
 	}
 
 	// 5. Invalidate cache — both individual chat and user's chat list
-	invalidateChat(parsed.data.chatId)
+	invalidateChat(chatId)
 	invalidateChatList(session.user.id)
 
 	return { success: true, data: undefined }

@@ -1,5 +1,10 @@
 "use client"
 
+// NOTE: This component is part of the planned AI tool system (P6-T12 — weather
+// tool result renderer) but is NOT yet wired into the production component
+// tree.  It exists as a ready-to-integrate UI for the `getWeather` tool.
+// Do NOT delete — it will be connected when the tool rendering pipeline lands.
+
 import { format, isWithinInterval } from "date-fns"
 import { useIsMobile } from "@/lib/hooks/use-mobile"
 import { cn } from "@/lib/utils/cn"

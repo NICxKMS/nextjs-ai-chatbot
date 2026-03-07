@@ -31,7 +31,7 @@ export function StreamBridge({ chatId, onArtifactDelta }: StreamBridgeProps) {
 		const newDeltas = chatStream.slice(lastProcessedRef.current + 1)
 		lastProcessedRef.current = chatStream.length - 1
 		for (const delta of newDeltas) {
-			const { artifact } = processStreamDelta(delta, artifactRef.current)
+			const artifact = processStreamDelta(delta, artifactRef.current)
 			artifactRef.current = artifact
 			onArtifactDelta(artifact)
 		}

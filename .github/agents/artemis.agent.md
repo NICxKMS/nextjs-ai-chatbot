@@ -1,6 +1,7 @@
 ---
 name: artemis
 description: "The Huntress — Session controller for isolated debugging. Spawns @orion subagents to hunt down problems, keeping her own context clean and stateless."
+disable-model-invocation: true
 tools: [agent/runSubagent, jraylan.seamless-agent/askUser, todo]
 ---
 

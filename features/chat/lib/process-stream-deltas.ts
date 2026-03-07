@@ -38,58 +38,46 @@ export const DEFAULT_ARTIFACT: UIArtifact = {
 //   chat-title:          No artifact change (handled by chat layer)
 //   error:               No artifact change (handled by chat layer)
 
-export function processStreamDelta(delta: DataPart, current: UIArtifact): { artifact: UIArtifact } {
+export function processStreamDelta(delta: DataPart, current: UIArtifact): UIArtifact {
 	switch (delta.type) {
 		case "artifact-id":
 			return {
-				artifact: {
-					...current,
-					artifactId: delta.content,
-					status: "streaming",
-					isVisible: true,
-				},
+				...current,
+				artifactId: delta.content,
+				status: "streaming",
+				isVisible: true,
 			}
 
 		case "artifact-title":
 			return {
-				artifact: {
-					...current,
-					title: delta.content,
-				},
+				...current,
+				title: delta.content,
 			}
 
 		case "artifact-kind":
 			return {
-				artifact: {
-					...current,
-					kind: delta.content,
-				},
+				...current,
+				kind: delta.content,
 			}
 
 		case "artifact-clear":
 			return {
-				artifact: {
-					...current,
-					content: "",
-					suggestions: [],
-				},
+				...current,
+				content: "",
+				suggestions: [],
 			}
 
 		case "artifact-finish":
 			return {
-				artifact: {
-					...current,
-					status: "idle",
-				},
+				...current,
+				status: "idle",
 			}
 
 		// APPEND: concatenate delta to existing content
 		case "artifact-textDelta":
 			return {
-				artifact: {
-					...current,
-					content: current.content + delta.content,
-				},
+				...current,
+				content: current.content + delta.content,
 			}
 
 		// REPLACE: overwrite content entirely
@@ -97,32 +85,28 @@ export function processStreamDelta(delta: DataPart, current: UIArtifact): { arti
 		case "artifact-sheetDelta":
 		case "artifact-imageDelta":
 			return {
-				artifact: {
-					...current,
-					content: delta.content,
-				},
+				...current,
+				content: delta.content,
 			}
 
 		// APPEND: accumulate suggestions
 		case "artifact-suggestion":
 			return {
-				artifact: {
-					...current,
-					suggestions: [...(current.suggestions ?? []), delta.content],
-				},
+				...current,
+				suggestions: [...(current.suggestions ?? []), delta.content],
 			}
 
 		// Non-artifact data parts: no artifact state change
 		case "chat-title":
 		case "usage":
 		case "error":
-			return { artifact: current }
+			return current
 
 		default: {
 			// Exhaustiveness guard — if new DataPart types are added,
 			// TypeScript will flag this as an error at compile time.
 			const _exhaustive: never = delta
-			return { artifact: current }
+			return current
 		}
 	}
 }

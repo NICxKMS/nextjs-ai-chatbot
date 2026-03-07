@@ -23,28 +23,21 @@ export async function GET(request: Request) {
 	}
 
 	const url = new URL(request.url)
-	const artifactId = url.searchParams.get("id")
-	const view = url.searchParams.get("view") ?? undefined
-
-	if (!artifactId) {
-		return AppError.badRequest(
-			"bad_request:validation:invalid_input",
-			"Missing required query parameter: id",
-		).toResponse()
-	}
-
-	const parsed = getArtifactSchema.safeParse({ id: artifactId, view })
+	const parsed = getArtifactSchema.safeParse({
+		id: url.searchParams.get("id"),
+		view: url.searchParams.get("view") ?? undefined,
+	})
 	if (!parsed.success) {
 		return AppError.badRequest(
 			"bad_request:validation:invalid_input",
-			"Invalid artifact id format",
+			"Invalid or missing artifact query parameters",
 		).toResponse()
 	}
 
-	const { id, view: requestedView = "versions" } = parsed.data
+	const { id, view = "versions" } = parsed.data
 
 	try {
-		if (requestedView === "latest") {
+		if (view === "latest") {
 			const latest = await getArtifactById(id)
 			if (!latest) {
 				return AppError.notFound(
@@ -60,7 +53,9 @@ export async function GET(request: Request) {
 				).toResponse()
 			}
 
-			return Response.json([latest], { status: 200 })
+			return Response.json([latest], {
+				headers: { "Cache-Control": "private, max-age=10" },
+			})
 		}
 
 		const versions = await getArtifactVersions(id)
@@ -76,7 +71,9 @@ export async function GET(request: Request) {
 			return AppError.forbidden("forbidden:chat:owner_mismatch", "Access denied").toResponse()
 		}
 
-		return Response.json(versions.length > 0 ? versions : [latest], { status: 200 })
+		return Response.json(versions.length > 0 ? versions : [latest], {
+			headers: { "Cache-Control": "private, max-age=10" },
+		})
 	} catch (error) {
 		if (error instanceof AppError) {
 			return error.toResponse()
@@ -156,7 +153,12 @@ async function handleSave(data: SaveArtifactInput, userId: string): Promise<Resp
 		chatId: data.chatId,
 	})
 
-	return Response.json({ artifact }, { status: 200 })
+	return Response.json(
+		{ artifact },
+		{
+			headers: { "Cache-Control": "no-store" },
+		},
+	)
 }
 
 // ── Restore mode ────────────────────────────────────────────
@@ -175,5 +177,10 @@ async function handleRestore(data: RestoreArtifactInput, userId: string): Promis
 	const afterRestore = new Date(restorePoint.getTime() + 1)
 	await deleteArtifactVersion(data.id, afterRestore)
 
-	return Response.json({ success: true }, { status: 200 })
+	return Response.json(
+		{ success: true },
+		{
+			headers: { "Cache-Control": "no-store" },
+		},
+	)
 }

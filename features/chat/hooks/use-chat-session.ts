@@ -8,7 +8,6 @@ import { deleteTrailingMessages } from "@/features/chat/actions/delete-trailing-
 import { useChatStreamDispatch } from "@/features/chat/components/chat-stream-provider"
 import type { ChatSessionValue, DataPart, VisibilityType } from "@/features/chat/types/chat.types"
 import { useSettingsSelector } from "@/features/settings/hooks/use-settings"
-import type { SettingsState } from "@/features/settings/types/settings.types"
 import type { ModelMetadata } from "@/lib/types/model.types"
 import { generateUUID } from "@/lib/utils/generate-uuid"
 
@@ -63,23 +62,9 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 	const [usage, setUsage] = useState<LanguageModelUsage | undefined>(undefined)
 
 	// ── External hooks ───────────────────────────────────────
-	const temperature = useSettingsSelector((settings) => settings.temperature)
-	const topP = useSettingsSelector((settings) => settings.topP)
-	const maxOutputTokens = useSettingsSelector((settings) => settings.maxOutputTokens)
-	const systemPrompt = useSettingsSelector((settings) => settings.systemPrompt)
-	const enableReasoning = useSettingsSelector((settings) => settings.enableReasoning)
-	const contextDisplayMode = useSettingsSelector((settings) => settings.contextDisplayMode)
-	const settings = useMemo<SettingsState>(
-		() => ({
-			temperature,
-			topP,
-			maxOutputTokens,
-			systemPrompt,
-			enableReasoning,
-			contextDisplayMode,
-		}),
-		[contextDisplayMode, enableReasoning, maxOutputTokens, systemPrompt, temperature, topP],
-	)
+	// Single selector returning the store snapshot directly. Stable reference
+	// (Object.is) — only triggers re-render when setState assigns a new object.
+	const settings = useSettingsSelector((s) => s)
 	const { setChatStream } = useChatStreamDispatch()
 
 	// ── Refs for stale-closure safety in transport + callbacks ─

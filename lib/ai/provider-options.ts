@@ -1,4 +1,5 @@
 import type { JSONValue } from "ai"
+import type { ModelCapabilities } from "@/lib/ai/model-capabilities"
 import { getModelCapabilities } from "@/lib/ai/model-capabilities"
 import type { SettingsState } from "@/lib/types/settings.types"
 
@@ -40,12 +41,14 @@ export interface ProviderOptionsResult {
  *
  * @param modelId - Full model ID (e.g. "google:gemini-2.5-flash")
  * @param settings - Current user settings state
+ * @param capabilities - Pre-computed model capabilities to avoid redundant lookup
  */
 export function getProviderOptions(
 	modelId: string,
 	settings: SettingsState,
+	capabilities?: Pick<ModelCapabilities, "supportsReasoning">,
 ): ProviderOptionsResult {
-	const { supportsReasoning } = getModelCapabilities(modelId)
+	const { supportsReasoning } = capabilities ?? getModelCapabilities(modelId)
 	const result: ProviderOptionsResult = {
 		temperature: settings.temperature,
 		topP: settings.topP,

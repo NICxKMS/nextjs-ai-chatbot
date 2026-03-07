@@ -1,8 +1,6 @@
 "use client"
 
-import { formatDistance } from "date-fns"
 import { AnimatePresence, motion } from "framer-motion"
-import dynamic from "next/dynamic"
 import {
 	type Dispatch,
 	memo,
@@ -16,100 +14,25 @@ import {
 import { toast } from "sonner"
 import useSWR from "swr"
 
-import { LoaderIcon } from "@/components/icons"
 import { MotionProvider } from "@/components/motion-provider"
-import { Badge } from "@/components/ui/badge"
 import type { Artifact } from "@/lib/types/models.types"
 import { cn } from "@/lib/utils/cn"
 
 import { useArtifact } from "../hooks/use-artifact"
-import { useArtifactSelector } from "../hooks/use-artifact-selector"
 import type { ArtifactAction } from "../types/artifact.types"
-import { ArtifactActions } from "./artifact-actions"
-import { ArtifactCloseButton } from "./artifact-close-button"
-import { ArtifactErrorBoundary } from "./artifact-error-boundary"
+import { ArtifactPanelEditor } from "./artifact-panel-editor"
+import { ArtifactPanelHeader } from "./artifact-panel-header"
+import {
+	artifactVersionFetcher,
+	DEFAULT_SAVE_ERROR_MESSAGE,
+	mergeArtifactVersion,
+	readSaveErrorMessage,
+	SAVE_DEBOUNCE_MS,
+	type SaveState,
+} from "./artifact-save-utils"
 import { VersionFooter } from "./version-footer"
 
-// ── Lazy-loaded editors ─────────────────────────────────────
-// Editors are heavy (TipTap, CodeMirror, react-data-grid) — only
-// load when the artifact panel is actually rendered.
-
-const TextEditor = dynamic(
-	() =>
-		import("@/features/artifacts/components/editors/text-editor").then((m) => ({
-			default: m.TextEditor,
-		})),
-	{ ssr: false },
-)
-
-const CodeEditor = dynamic(
-	() =>
-		import("@/features/artifacts/components/editors/code-editor").then((m) => ({
-			default: m.CodeEditor,
-		})),
-	{ ssr: false },
-)
-
-const SheetEditor = dynamic(
-	() =>
-		import("@/features/artifacts/components/editors/sheet-editor").then((m) => ({
-			default: m.SheetEditor,
-		})),
-	{ ssr: false },
-)
-
-const ImageEditor = dynamic(
-	() =>
-		import("@/features/artifacts/components/editors/image-editor").then((m) => ({
-			default: m.ImageEditor,
-		})),
-	{ ssr: false },
-)
-
-// ── SWR fetcher ─────────────────────────────────────────────
-
-async function artifactVersionFetcher(url: string): Promise<Artifact[]> {
-	const res = await fetch(url)
-	if (!res.ok) throw new Error(`Artifact fetch failed: ${res.status}`)
-	return res.json()
-}
-
-function mergeArtifactVersion(versions: Artifact[] | undefined, nextVersion: Artifact): Artifact[] {
-	const remainingVersions =
-		versions?.filter((version) => version.createdAt !== nextVersion.createdAt) ?? []
-
-	return [nextVersion, ...remainingVersions]
-}
-
-type SaveState = "idle" | "pending" | "error"
-
-const DEFAULT_SAVE_ERROR_MESSAGE = "Failed to save changes. Please try again."
-
-async function readSaveErrorMessage(response: Response): Promise<string> {
-	if (typeof response.json === "function") {
-		try {
-			const body = (await response.json()) as {
-				message?: string
-				error?: string
-				errorMessage?: string
-			}
-
-			for (const candidate of [body.message, body.error, body.errorMessage]) {
-				if (typeof candidate === "string" && candidate.trim().length > 0) {
-					return candidate
-				}
-			}
-		} catch {
-			// Fall back to the generic save error below.
-		}
-	}
-
-	return DEFAULT_SAVE_ERROR_MESSAGE
-}
-
 // ── Constants ───────────────────────────────────────────────
-
-const SAVE_DEBOUNCE_MS = 2000
 
 /** Kind-specific actions. Empty for now — wired per handler in future tasks. */
 const KIND_ACTIONS: Record<string, ArtifactAction[]> = {
@@ -117,23 +40,6 @@ const KIND_ACTIONS: Record<string, ArtifactAction[]> = {
 	code: [],
 	sheet: [],
 	image: [],
-}
-
-// ── Kind badge label ────────────────────────────────────────
-
-function kindLabel(kind: string): string {
-	switch (kind) {
-		case "text":
-			return "Text"
-		case "code":
-			return "Code"
-		case "sheet":
-			return "Sheet"
-		case "image":
-			return "Image"
-		default:
-			return kind
-	}
 }
 
 // ── Panel animation config ──────────────────────────────────
@@ -148,7 +54,6 @@ interface ArtifactPanelProps {
 
 function PureArtifactPanel({ chatId }: ArtifactPanelProps) {
 	const { artifact, setArtifact } = useArtifact()
-	const isVisible = useArtifactSelector((s) => s.isVisible)
 
 	// ── Focus management ──────────────────────────────────────
 	// Save the element that was focused before the panel opened,
@@ -158,7 +63,7 @@ function PureArtifactPanel({ chatId }: ArtifactPanelProps) {
 	const previousFocusRef = useRef<HTMLElement | null>(null)
 
 	useEffect(() => {
-		if (isVisible) {
+		if (artifact.isVisible) {
 			// Save the currently focused element before the panel opens
 			previousFocusRef.current = document.activeElement as HTMLElement | null
 			// Focus the panel container after animation frame to ensure it's mounted
@@ -170,7 +75,7 @@ function PureArtifactPanel({ chatId }: ArtifactPanelProps) {
 			previousFocusRef.current.focus()
 			previousFocusRef.current = null
 		}
-	}, [isVisible])
+	}, [artifact.isVisible])
 
 	// ── Version data via SWR ──────────────────────────────────
 
@@ -413,98 +318,12 @@ function PureArtifactPanel({ chatId }: ArtifactPanelProps) {
 
 	const actions = KIND_ACTIONS[artifact.kind] ?? []
 
-	// ── Editor rendering ──────────────────────────────────────
-
-	function renderEditor() {
-		const commonProps = {
-			content: displayContent,
-			status: artifact.status,
-			isCurrentVersion,
-			currentVersionIndex,
-		}
-
-		switch (artifact.kind) {
-			case "text":
-				return (
-					<TextEditor
-						{...commonProps}
-						onSaveContent={saveContent}
-						suggestions={artifact.suggestions ?? []}
-					/>
-				)
-			case "code":
-				return <CodeEditor {...commonProps} onSaveContent={saveContent} />
-			case "sheet":
-				return <SheetEditor {...commonProps} onSaveContent={saveContent} />
-			case "image":
-				return <ImageEditor {...commonProps} title={artifact.title} />
-			default:
-				return (
-					<div className="flex h-full items-center justify-center text-muted-foreground">
-						Unsupported artifact kind: {artifact.kind}
-					</div>
-				)
-		}
-	}
-
-	// ── Status subtitle ───────────────────────────────────────
-
-	function renderStatus() {
-		if (artifact.status === "streaming") {
-			return (
-				<div className="flex items-center gap-1.5 text-muted-foreground text-sm">
-					<div className="animate-spin">
-						<LoaderIcon size={12} />
-					</div>
-					Generating…
-				</div>
-			)
-		}
-
-		if (saveState === "pending") {
-			return <div className="text-muted-foreground text-sm">Saving changes…</div>
-		}
-
-		if (saveState === "error") {
-			return (
-				<div className="flex items-center gap-2 text-sm">
-					<div className="text-destructive">
-						{saveErrorMessage ?? DEFAULT_SAVE_ERROR_MESSAGE}
-					</div>
-					<button
-						className="cursor-pointer font-medium text-foreground underline underline-offset-4"
-						onClick={() => {
-							void handleSave(lastEditedContentRef.current)
-						}}
-						type="button"
-					>
-						Retry save
-					</button>
-				</div>
-			)
-		}
-
-		if (isContentDirty) {
-			return <div className="text-muted-foreground text-sm">Unsaved changes</div>
-		}
-
-		if (currentVersion) {
-			return (
-				<div className="text-muted-foreground text-sm">
-					{`Updated ${formatDistance(new Date(currentVersion.createdAt), new Date(), { addSuffix: true })}`}
-				</div>
-			)
-		}
-
-		return <div className="mt-1 h-3 w-32 animate-pulse rounded-md bg-muted-foreground/20" />
-	}
-
 	// ── Render ────────────────────────────────────────────────
 
 	return (
 		<MotionProvider>
 			<AnimatePresence>
-				{isVisible && (
+				{artifact.isVisible && (
 					<motion.div
 						animate={{
 							opacity: 1,
@@ -545,30 +364,24 @@ function PureArtifactPanel({ chatId }: ArtifactPanelProps) {
 						}
 					>
 						{/* ── Header ─────────────────────────────── */}
-						<div className="flex flex-row items-start justify-between border-b p-2">
-							<div className="flex flex-row items-start gap-4">
-								<ArtifactCloseButton />
-								<div className="flex flex-col gap-0.5">
-									<div className="flex items-center gap-2">
-										<span className="font-medium">{artifact.title}</span>
-										<Badge variant="secondary" className="text-xs capitalize">
-											{kindLabel(artifact.kind)}
-										</Badge>
-									</div>
-									{renderStatus()}
-								</div>
-							</div>
-
-							<ArtifactActions
-								actions={actions}
-								currentVersionIndex={currentVersionIndex}
-								handleVersionChange={handleVersionChange}
-								isCurrentVersion={isCurrentVersion}
-								metadata={metadata}
-								mode="edit"
-								setMetadata={setMetadata as Dispatch<SetStateAction<unknown>>}
-							/>
-						</div>
+						<ArtifactPanelHeader
+							artifactTitle={artifact.title}
+							artifactKind={artifact.kind}
+							artifactStatus={artifact.status}
+							saveState={saveState}
+							saveErrorMessage={saveErrorMessage}
+							isContentDirty={isContentDirty}
+							currentVersion={currentVersion}
+							onRetrySave={() => {
+								void handleSave(lastEditedContentRef.current)
+							}}
+							actions={actions}
+							currentVersionIndex={currentVersionIndex}
+							handleVersionChange={handleVersionChange}
+							isCurrentVersion={isCurrentVersion}
+							metadata={metadata}
+							setMetadata={setMetadata as Dispatch<SetStateAction<unknown>>}
+						/>
 
 						{/* ── Editor area ────────────────────────── */}
 						<div
@@ -577,7 +390,16 @@ function PureArtifactPanel({ chatId }: ArtifactPanelProps) {
 								{ "p-4 sm:px-14 sm:py-8": artifact.kind === "text" },
 							)}
 						>
-							<ArtifactErrorBoundary>{renderEditor()}</ArtifactErrorBoundary>
+							<ArtifactPanelEditor
+								kind={artifact.kind}
+								content={displayContent}
+								status={artifact.status}
+								isCurrentVersion={isCurrentVersion}
+								currentVersionIndex={currentVersionIndex}
+								onSaveContent={saveContent}
+								suggestions={artifact.suggestions ?? []}
+								title={artifact.title}
+							/>
 						</div>
 
 						{/* ── Version footer ─────────────────────── */}

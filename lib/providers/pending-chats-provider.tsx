@@ -1,6 +1,14 @@
 "use client"
 
-import { createContext, type ReactNode, useCallback, useContext, useRef, useState } from "react"
+import {
+	createContext,
+	type ReactNode,
+	useCallback,
+	useContext,
+	useMemo,
+	useRef,
+	useState,
+} from "react"
 import type {
 	PendingChat,
 	PendingChatPatch,
@@ -57,11 +65,12 @@ export function PendingChatsProvider({ children }: { children: ReactNode }) {
 		)
 	}, [])
 
-	return (
-		<PendingChatsContext value={{ entries, add, patch, remove, markConfirmed }}>
-			{children}
-		</PendingChatsContext>
+	const value = useMemo<PendingChatsState>(
+		() => ({ entries, add, patch, remove, markConfirmed }),
+		[entries, add, patch, remove, markConfirmed],
 	)
+
+	return <PendingChatsContext value={value}>{children}</PendingChatsContext>
 }
 
 // ── Hook ─────────────────────────────────────────────────────

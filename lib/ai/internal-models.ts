@@ -10,13 +10,8 @@ const internalLanguageModels = {
 
 export type InternalLanguageModel = keyof typeof internalLanguageModels
 
-function getInternalModelProviderId(kind: InternalLanguageModel): ProviderId {
-	return internalLanguageModels[kind].providerId
-}
-
-function getInternalLanguageModelId(kind: InternalLanguageModel): string {
-	const providerId = getInternalModelProviderId(kind)
-	const modelId = internalLanguageModels[kind].modelId
+export function getInternalLanguageModel(kind: InternalLanguageModel) {
+	const { providerId, modelId } = internalLanguageModels[kind]
 
 	if (!isProviderConfigured(providerId)) {
 		throw AppError.aiError(
@@ -25,9 +20,5 @@ function getInternalLanguageModelId(kind: InternalLanguageModel): string {
 		)
 	}
 
-	return modelId
-}
-
-export function getInternalLanguageModel(kind: InternalLanguageModel) {
-	return myProvider.languageModel(getInternalLanguageModelId(kind))
+	return myProvider.languageModel(modelId)
 }

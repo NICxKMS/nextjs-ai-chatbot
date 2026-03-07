@@ -64,11 +64,7 @@ function GenericToolResult({ part }: { part: ToolPartLike }) {
 
 	return (
 		<Tool defaultOpen key={toolCallId}>
-			<ToolHeader
-				state={state as ToolUIPart["state"]}
-				title={toolName}
-				type={type as `tool-${string}`}
-			/>
+			<ToolHeader state={state} title={toolName} type={type} />
 			<ToolContent>
 				{(state === "input-available" || state === "input-streaming") &&
 					part.input !== undefined && <ToolInput input={part.input} />}
@@ -85,10 +81,11 @@ function GenericToolResult({ part }: { part: ToolPartLike }) {
 
 // Loose tool part shape — actual type from AI SDK is generic,
 // so we use a structural type for part matching.
+// `type` and `state` are tightened to avoid `as` casts in consumers.
 interface ToolPartLike {
-	type: string
+	type: `tool-${string}`
 	toolCallId: string
-	state: string
+	state: ToolUIPart["state"]
 	input?: unknown
 	output?: unknown
 	errorText?: string
@@ -102,9 +99,13 @@ function isToolPart(part: { type: string }): part is ToolPartLike {
 
 const PureChatMessage = ({ message, isLoading }: ChatMessageProps) => {
 	const { role, parts } = message
+	const messageParts = parts ?? []
 
 	// Extract file attachments from message parts
-	const attachments = (parts ?? []).filter((part): part is FilePart => part.type === "file")
+	const attachments = messageParts.filter((part): part is FilePart => part.type === "file")
+	const hasTextContent = messageParts.some(
+		(p) => p.type === "text" && "text" in p && (p.text as string)?.trim(),
+	)
 
 	return (
 		<div className="group/message w-full" data-role={role} data-testid={`message-${role}`}>
@@ -123,15 +124,8 @@ const PureChatMessage = ({ message, isLoading }: ChatMessageProps) => {
 
 				<div
 					className={cn("flex flex-col", {
-						"gap-2 md:gap-4": (parts ?? []).some(
-							(p) => p.type === "text" && "text" in p && (p.text as string)?.trim(),
-						),
-						"w-full":
-							role === "assistant" &&
-							(parts ?? []).some(
-								(p) =>
-									p.type === "text" && "text" in p && (p.text as string)?.trim(),
-							),
+						"gap-2 md:gap-4": hasTextContent,
+						"w-full": role === "assistant" && hasTextContent,
 						"max-w-[calc(100%-2.5rem)] sm:max-w-[min(fit-content,80%)]":
 							role === "user",
 					})}
@@ -160,7 +154,7 @@ const PureChatMessage = ({ message, isLoading }: ChatMessageProps) => {
 					)}
 
 					{/* Render message parts */}
-					{(parts ?? []).map((part, index) => {
+					{messageParts.map((part, index) => {
 						const key = `message-${message.id}-part-${index}`
 
 						// ── Reasoning parts ──────────────────────
@@ -228,7 +222,7 @@ const PureChatMessage = ({ message, isLoading }: ChatMessageProps) => {
 										(part.output &&
 										typeof part.output === "object" &&
 										"error" in part.output
-											? String((part.output as Record<string, unknown>).error)
+											? String(part.output.error)
 											: "Unknown error")
 									return (
 										<ArtifactToolError

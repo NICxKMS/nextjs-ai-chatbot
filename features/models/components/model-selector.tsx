@@ -1,7 +1,7 @@
 "use client"
 
 import { Check, ChevronDown } from "lucide-react"
-import type React from "react"
+import type { CSSProperties } from "react"
 import { memo, startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import {
@@ -27,7 +27,7 @@ const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365 // 1 year
 const DYNAMIC_CHUNK_SIZE = 25
 
 /** CSS containment for model items — browser skips painting off-screen items. */
-const ITEM_CONTAIN_STYLE: React.CSSProperties = {
+const ITEM_CONTAIN_STYLE: CSSProperties = {
 	contentVisibility: "auto",
 	containIntrinsicSize: "0 64px",
 }

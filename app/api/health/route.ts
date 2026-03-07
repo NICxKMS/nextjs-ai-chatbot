@@ -92,5 +92,6 @@ export async function GET() {
 
 	return Response.json(body, {
 		status: status === "unhealthy" ? 503 : 200,
+		headers: { "Cache-Control": "public, max-age=60, s-maxage=60" },
 	})
 }

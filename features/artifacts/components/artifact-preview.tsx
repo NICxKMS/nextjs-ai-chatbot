@@ -10,52 +10,21 @@
  */
 "use client"
 
-import dynamic from "next/dynamic"
 import { memo, useCallback, useEffect, useMemo, useRef } from "react"
 import useSWR from "swr"
 
 import { CodeIcon, FileIcon, FullscreenIcon, ImageIcon, LoaderIcon } from "@/components/icons"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+	CodeEditor,
+	ImageEditor,
+	SheetEditor,
+	TextEditor,
+} from "@/features/artifacts/components/editors/lazy"
 import { useArtifact } from "@/features/artifacts/hooks/use-artifact"
 import { useArtifactSelector } from "@/features/artifacts/hooks/use-artifact-selector"
 import type { ArtifactKind, ArtifactStatus } from "@/features/artifacts/types/artifact.types"
 import { cn } from "@/lib/utils/cn"
-
-// ── Lazy-loaded editors ─────────────────────────────────────
-// Editors are heavy (TipTap, CodeMirror, react-data-grid) — only
-// load when an artifact preview is actually rendered.
-
-const TextEditor = dynamic(
-	() =>
-		import("@/features/artifacts/components/editors/text-editor").then((m) => ({
-			default: m.TextEditor,
-		})),
-	{ ssr: false },
-)
-
-const CodeEditor = dynamic(
-	() =>
-		import("@/features/artifacts/components/editors/code-editor").then((m) => ({
-			default: m.CodeEditor,
-		})),
-	{ ssr: false },
-)
-
-const SheetEditor = dynamic(
-	() =>
-		import("@/features/artifacts/components/editors/sheet-editor").then((m) => ({
-			default: m.SheetEditor,
-		})),
-	{ ssr: false },
-)
-
-const ImageEditor = dynamic(
-	() =>
-		import("@/features/artifacts/components/editors/image-editor").then((m) => ({
-			default: m.ImageEditor,
-		})),
-	{ ssr: false },
-)
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -330,19 +299,33 @@ function PureArtifactPreview({ result, args }: ArtifactPreviewProps) {
 
 	const latestVersion = useMemo(() => versions?.[0], [versions])
 
-	// Update bounding box reference when the store's artifactId matches
+	// Update bounding box reference when the store's artifactId matches.
+	// Shallow-compare before writing to avoid unnecessary store emissions
+	// (the spread always creates a new object, defeating setState's same-ref check).
 	useEffect(() => {
-		const boundingBox = hitboxRef.current?.getBoundingClientRect()
-		if (artifactId && boundingBox) {
-			setArtifact((current) => ({
-				...current,
-				boundingBox: {
-					left: boundingBox.x,
-					top: boundingBox.y,
-					width: boundingBox.width,
-					height: boundingBox.height,
-				},
-			}))
+		const rect = hitboxRef.current?.getBoundingClientRect()
+		if (artifactId && rect) {
+			setArtifact((current) => {
+				const bb = current.boundingBox
+				if (
+					bb &&
+					bb.left === rect.x &&
+					bb.top === rect.y &&
+					bb.width === rect.width &&
+					bb.height === rect.height
+				) {
+					return current
+				}
+				return {
+					...current,
+					boundingBox: {
+						left: rect.x,
+						top: rect.y,
+						width: rect.width,
+						height: rect.height,
+					},
+				}
+			})
 		}
 	}, [artifactId, setArtifact])
 

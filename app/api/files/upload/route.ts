@@ -1,10 +1,8 @@
 import { put } from "@vercel/blob"
-import { NextResponse } from "next/server"
-import { z } from "zod"
 
 import { getAppSession } from "@/lib/auth/session"
-import { expire, incr } from "@/lib/cache/client"
 import { rateLimitKeys } from "@/lib/cache/keys"
+import { checkRateLimit } from "@/lib/cache/rate-limit"
 import { AppError } from "@/lib/errors/app-error"
 import { validateOrigin } from "@/lib/utils/validate-origin"
 
@@ -21,20 +19,6 @@ const UPLOAD_RATE_WINDOW_SECONDS = 3600
 
 /** Allowed image MIME type prefix. */
 const ALLOWED_MIME_PREFIX = "image/"
-
-// ── Validation ─────────────────────────────────────────────────
-
-const fileUploadSchema = z.object({
-	file: z
-		.instanceof(Blob)
-		.refine((file) => file.size > 0, { message: "File is empty" })
-		.refine((file) => file.size <= MAX_FILE_SIZE, {
-			message: `File size must be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB`,
-		})
-		.refine((file) => file.type.startsWith(ALLOWED_MIME_PREFIX), {
-			message: "Only image files are accepted",
-		}),
-})
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -61,24 +45,12 @@ function sanitizeFilename(name: string): string {
 }
 
 /**
- * Check upload rate limit using Redis. Returns true if allowed, false if exceeded.
- * Gracefully degrades (allows upload) if Redis is unavailable.
+ * Check upload rate limit using shared utility.
+ * Returns true if allowed, false if exceeded.
  */
 async function checkUploadRateLimit(userId: string): Promise<boolean> {
 	const key = rateLimitKeys.rateLimitUpload(userId)
-	const count = await incr(key)
-
-	if (count === null) {
-		// Redis unavailable — allow upload (graceful degradation)
-		return true
-	}
-
-	// Set TTL on first increment
-	if (count === 1) {
-		await expire(key, UPLOAD_RATE_WINDOW_SECONDS)
-	}
-
-	return count <= UPLOAD_RATE_LIMIT
+	return checkRateLimit(key, UPLOAD_RATE_LIMIT, UPLOAD_RATE_WINDOW_SECONDS)
 }
 
 // ── Route Handler ──────────────────────────────────────────────
@@ -126,18 +98,20 @@ export async function POST(request: Request) {
 		).toResponse()
 	}
 
-	// 4. Validate file (size + type)
-	const validation = fileUploadSchema.safeParse({ file })
-	if (!validation.success) {
-		const errorMessage = validation.error.errors.map((e) => e.message).join(", ")
-
-		if (errorMessage.includes("size") || errorMessage.includes("less than")) {
-			return AppError.badRequest("bad_request:api:file_too_large", errorMessage).toResponse()
-		}
-
+	// 4. Validate file (size + type) — explicit checks for precise error codes
+	if (file.size === 0) {
+		return AppError.badRequest("bad_request:api:no_file_uploaded", "File is empty").toResponse()
+	}
+	if (file.size > MAX_FILE_SIZE) {
+		return AppError.badRequest(
+			"bad_request:api:file_too_large",
+			`File size must be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB`,
+		).toResponse()
+	}
+	if (!file.type.startsWith(ALLOWED_MIME_PREFIX)) {
 		return AppError.badRequest(
 			"bad_request:api:file_type_unsupported",
-			errorMessage,
+			"Only image files are accepted",
 		).toResponse()
 	}
 
@@ -155,11 +129,10 @@ export async function POST(request: Request) {
 		})
 
 		// 6. Return result
-		return NextResponse.json({
-			url: blob.url,
-			pathname: blob.pathname,
-			contentType,
-		})
+		return Response.json(
+			{ url: blob.url, pathname: blob.pathname, contentType },
+			{ headers: { "Cache-Control": "no-store" } },
+		)
 	} catch {
 		return AppError.serviceUnavailable(
 			"offline:upload:storage_unavailable",

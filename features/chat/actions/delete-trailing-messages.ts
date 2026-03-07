@@ -20,16 +20,7 @@ import type { ActionResult } from "@/lib/types/result.types"
 export async function deleteTrailingMessages(
 	input: DeleteMessagesInput,
 ): Promise<ActionResult<void>> {
-	// 1. Auth
-	const session = await getAppSession()
-	if (!session) {
-		return {
-			success: false,
-			error: { code: "unauthorized:chat:auth_required", message: "Authentication required" },
-		}
-	}
-
-	// 2. Validate
+	// 1. Validate (sync — fail fast before any async work)
 	const parsed = deleteMessagesSchema.safeParse(input)
 	if (!parsed.success) {
 		return {
@@ -38,8 +29,17 @@ export async function deleteTrailingMessages(
 		}
 	}
 
+	// 2. Auth + Fetch (parallel — both independent)
+	const [session, chat] = await Promise.all([getAppSession(), getChatById(parsed.data.chatId)])
+
+	if (!session) {
+		return {
+			success: false,
+			error: { code: "unauthorized:chat:auth_required", message: "Authentication required" },
+		}
+	}
+
 	// 3. Authorize — ownership check
-	const chat = await getChatById(parsed.data.chatId)
 	if (!chat) {
 		return {
 			success: false,

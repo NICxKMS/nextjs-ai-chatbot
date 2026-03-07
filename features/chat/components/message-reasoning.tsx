@@ -23,26 +23,22 @@ export function MessageReasoning({ isLoading, reasoning }: MessageReasoningProps
 	const [isReasoningStreaming, setIsReasoningStreaming] = useState(false)
 	const prevReasoningRef = useRef(reasoning)
 
+	// Track streaming state: latch hasBeenStreaming once loading is detected,
+	// and detect active reasoning streaming by comparing content changes.
 	useEffect(() => {
 		if (isLoading) {
 			setHasBeenStreaming(true)
 		}
-	}, [isLoading])
 
-	// Track when reasoning content is actually changing (streaming)
-	useEffect(() => {
-		if (isLoading && reasoning !== prevReasoningRef.current) {
-			// Reasoning content is changing while loading — it's streaming
+		const reasoningChanged = reasoning !== prevReasoningRef.current
+
+		if (isLoading && reasoningChanged) {
 			setIsReasoningStreaming(true)
-			prevReasoningRef.current = reasoning
-		} else if (isReasoningStreaming && (!isLoading || reasoning === prevReasoningRef.current)) {
-			// Content stopped changing or loading ended — reasoning is done
+		} else if (isReasoningStreaming && (!isLoading || !reasoningChanged)) {
 			setIsReasoningStreaming(false)
 		}
 
-		if (!isLoading) {
-			prevReasoningRef.current = reasoning
-		}
+		prevReasoningRef.current = reasoning
 	}, [isLoading, reasoning, isReasoningStreaming])
 
 	return (

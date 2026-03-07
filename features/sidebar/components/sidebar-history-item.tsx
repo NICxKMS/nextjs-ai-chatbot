@@ -79,14 +79,16 @@ function PureSidebarHistoryItem({
 			return
 		}
 
+		// Optimistic update — show new title immediately
+		onRename?.(chat.id, trimmed)
+		setIsRenaming(false)
+
 		const result = await renameChat({ chatId: chat.id, title: trimmed })
-		if (result.success) {
-			onRename?.(chat.id, trimmed)
-			setIsRenaming(false)
-		} else {
-			toast.error(result.error.message)
+		if (!result.success) {
+			// Revert on failure
+			onRename?.(chat.id, chat.title)
 			setRenameValue(chat.title)
-			setIsRenaming(false)
+			toast.error(result.error.message)
 		}
 	}
 

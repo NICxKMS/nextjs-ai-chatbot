@@ -1,5 +1,3 @@
-import "react-data-grid/lib/styles.css"
-
 import type { Metadata } from "next"
 import { cookies } from "next/headers"
 import { Suspense } from "react"

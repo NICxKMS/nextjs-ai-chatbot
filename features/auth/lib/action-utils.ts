@@ -5,7 +5,7 @@ import { cookies, headers } from "next/headers"
 import type { AuthActionData } from "@/features/auth/types/auth.types"
 import { GUEST_COOKIE_NAME } from "@/lib/auth/constants"
 import { verifyGuestToken } from "@/lib/auth/guest"
-import { expire, incr } from "@/lib/cache/client"
+import { checkRateLimit } from "@/lib/cache/rate-limit"
 import { transferGuestChats } from "@/lib/data/chat"
 import type { ErrorCode } from "@/lib/errors/codes"
 import type { ActionResult } from "@/lib/types/result.types"
@@ -37,20 +37,13 @@ export function authServiceUnavailableResult(): ActionResult<AuthActionData> {
 export async function enforceAuthRateLimit(
 	config: AuthRateLimitConfig,
 ): Promise<ActionResult<AuthActionData> | null> {
-	const rateLimitKey = config.createKey(await getClientIp())
-	const attemptCount = await incr(rateLimitKey)
+	const allowed = await checkRateLimit(
+		config.createKey(await getClientIp()),
+		config.limit,
+		config.windowSeconds,
+	)
 
-	if (attemptCount === null) {
-		return null
-	}
-
-	if (attemptCount === 1) {
-		await expire(rateLimitKey, config.windowSeconds)
-	}
-
-	if (attemptCount <= config.limit) {
-		return null
-	}
+	if (allowed) return null
 
 	return createActionErrorResult(config.errorCode, config.errorMessage)
 }

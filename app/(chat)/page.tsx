@@ -2,7 +2,6 @@ import type { Metadata } from "next"
 import { ChatShell } from "@/features/chat/components/chat-shell"
 import { ChatStreamProvider } from "@/features/chat/components/chat-stream-provider"
 import { getAvailableModels, getDefaultModel } from "@/features/models/lib/models"
-import { getAppSession } from "@/lib/auth/session"
 import { generateUUID } from "@/lib/utils/generate-uuid"
 
 export const metadata: Metadata = {
@@ -15,13 +14,13 @@ export default async function NewChatPage({
 	searchParams: Promise<{ q?: string; query?: string }>
 }) {
 	const availableModelsPromise = getAvailableModels()
-	const [session, params] = await Promise.all([getAppSession(), searchParams])
-	const initialQuery = params.q || params.query || undefined
 
-	const [availableModels, defaultModel] = await Promise.all([
+	const [params, availableModels, defaultModel] = await Promise.all([
+		searchParams,
 		availableModelsPromise,
-		getDefaultModel(session, availableModelsPromise),
+		getDefaultModel(null, availableModelsPromise),
 	])
+	const initialQuery = params.q || params.query || undefined
 
 	const id = generateUUID()
 

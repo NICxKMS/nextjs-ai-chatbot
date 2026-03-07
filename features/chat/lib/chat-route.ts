@@ -12,8 +12,8 @@ import { getAvailableModels } from "@/features/models/lib/models"
 import { DEFAULT_SETTINGS } from "@/features/settings/types/settings.types"
 import { getEnabledTools } from "@/lib/ai/tools"
 import { type AppSession, getAppSession } from "@/lib/auth/session"
-import { expire, incr } from "@/lib/cache/client"
 import { rateLimitKeys } from "@/lib/cache/keys"
+import { checkRateLimit } from "@/lib/cache/rate-limit"
 import { refreshChat, refreshChatList } from "@/lib/cache/revalidate"
 import {
 	createChatWithInitialMessage,
@@ -46,7 +46,7 @@ type ChatRouteContext = {
 	messageText: string
 }
 
-function getMessageText(message: ChatRequest["message"]): string {
+function getRequestMessageText(message: ChatRequest["message"]): string {
 	const firstTextPart = message.parts.find((part) => part.type === "text")
 	return firstTextPart?.text ?? ""
 }
@@ -89,23 +89,20 @@ function createPersistenceRecoveryMessage(chatId: string): NewMessage {
 	}
 }
 
-async function waitForDelay(delayMs: number): Promise<void> {
-	await new Promise((resolve) => setTimeout(resolve, delayMs))
-}
-
 async function runWithPersistenceRetries(operation: () => Promise<void>): Promise<void> {
+	const maxAttempts = CHAT_PERSISTENCE_RETRY_DELAYS_MS.length + 1
 	let lastError: unknown
 
-	for (const delayMs of [...CHAT_PERSISTENCE_RETRY_DELAYS_MS, -1]) {
+	for (let attempt = 0; attempt < maxAttempts; attempt++) {
 		try {
 			await operation()
 			return
 		} catch (error) {
 			lastError = error
-			if (delayMs === -1) {
-				break
+			const delay = CHAT_PERSISTENCE_RETRY_DELAYS_MS[attempt]
+			if (delay !== undefined) {
+				await new Promise((resolve) => setTimeout(resolve, delay))
 			}
-			await waitForDelay(delayMs)
 		}
 	}
 
@@ -123,20 +120,13 @@ export async function requireChatSession(): Promise<AppSession | Response> {
 }
 
 export async function enforceChatRateLimit(userId: string): Promise<Response | null> {
-	const rateLimitKey = rateLimitKeys.rateLimitChat(userId)
-	const count = await incr(rateLimitKey)
+	const allowed = await checkRateLimit(
+		rateLimitKeys.rateLimitChat(userId),
+		CHAT_RATE_LIMIT,
+		CHAT_RATE_WINDOW_SECONDS,
+	)
 
-	if (count === null) {
-		return null
-	}
-
-	if (count === 1) {
-		await expire(rateLimitKey, CHAT_RATE_WINDOW_SECONDS)
-	}
-
-	if (count <= CHAT_RATE_LIMIT) {
-		return null
-	}
+	if (allowed) return null
 
 	return AppError.rateLimited(
 		"rate_limit:chat:too_many_requests",
@@ -222,7 +212,7 @@ export async function resolveChatRouteContext({
 		allMessages: [...convertToUIMessages(dbMessages), toUserMessage(message)],
 		hasTools: getEnabledTools(modelMetadata).length > 0,
 		isNewChat,
-		messageText: getMessageText(message),
+		messageText: getRequestMessageText(message),
 	}
 }
 

@@ -209,7 +209,7 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 
 		const observer = new IntersectionObserver(
 			([entry]) => {
-				if (entry?.isIntersecting && !isLoading) {
+				if (entry?.isIntersecting) {
 					loadMore()
 				}
 			},
@@ -218,7 +218,7 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 
 		observer.observe(sentinel)
 		return () => observer.disconnect()
-	}, [error, hasMore, isLoading, loadMore])
+	}, [error, hasMore, loadMore])
 
 	// ── Delete handlers ─────────────────────────────────────────
 
@@ -256,6 +256,14 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 			const requestId = (visibilityRequestIdsRef.current.get(chatId) ?? 0) + 1
 			visibilityRequestIdsRef.current.set(chatId, requestId)
 
+			// Find previous visibility for rollback
+			const previousVisibility =
+				historyChats.find((c) => c.id === chatId)?.visibility ?? "private"
+
+			// Optimistic update — reflect change immediately in the sidebar
+			patchChat(chatId, { visibility: newVisibility })
+			patchPendingChat(chatId, { visibility: newVisibility })
+
 			const result = await updateChatVisibility({
 				chatId,
 				visibility: newVisibility,
@@ -267,15 +275,14 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 
 			visibilityRequestIdsRef.current.delete(chatId)
 
-			if (result.success) {
-				patchChat(chatId, { visibility: newVisibility })
-				patchPendingChat(chatId, { visibility: newVisibility })
-			} else {
+			if (!result.success) {
+				// Revert on failure
+				patchChat(chatId, { visibility: previousVisibility })
+				patchPendingChat(chatId, { visibility: previousVisibility })
 				toast.error("Failed to update visibility")
-				retry()
 			}
 		},
-		[patchChat, patchPendingChat, retry],
+		[historyChats, patchChat, patchPendingChat],
 	)
 
 	// ── Empty state ─────────────────────────────────────────────

@@ -5,11 +5,10 @@ import { parse, unparse } from "papaparse"
 import { memo, useEffect, useMemo, useState } from "react"
 import { type CellMouseArgs, DataGrid, renderTextEditor } from "react-data-grid"
 
+import "react-data-grid/lib/styles.css"
+
 import type { EditorSaveCallback } from "@/features/artifacts/types/artifact.types"
 import { cn } from "@/lib/utils/cn"
-
-// NOTE: react-data-grid CSS is imported by the chat route layout so non-chat
-// routes no longer pay the editor stylesheet cost.
 
 // ── Constants ────────────────────────────────────────────────
 

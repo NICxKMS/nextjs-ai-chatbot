@@ -1,6 +1,6 @@
 "use client"
 
-import { type ReactNode, useMemo, useState, useTransition } from "react"
+import { type ReactNode, useState, useTransition } from "react"
 import { toast } from "sonner"
 import { CheckCircleFillIcon, ChevronDownIcon, GlobeIcon, LockIcon } from "@/components/icons"
 import { Button } from "@/components/ui/button"
@@ -53,10 +53,7 @@ export function VisibilitySelector({ className }: { className?: string }) {
 	const [open, setOpen] = useState(false)
 	const [isPending, startTransition] = useTransition()
 
-	const selectedVisibility = useMemo(
-		() => visibilities.find((v) => v.id === visibility),
-		[visibility],
-	)
+	const selectedVisibility = visibilities.find((v) => v.id === visibility)
 
 	// Don't render for readonly chats (shared/public viewed by non-owner)
 	if (isReadonly) return null

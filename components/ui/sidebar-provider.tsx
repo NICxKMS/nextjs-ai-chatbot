@@ -1,17 +1,7 @@
 "use client"
 
-import {
-	type ComponentProps,
-	type CSSProperties,
-	createContext,
-	forwardRef,
-	useCallback,
-	useContext,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from "react"
+import type * as React from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useIsMobile } from "@/lib/hooks/use-mobile"
 import { cn } from "@/lib/utils/cn"
 
@@ -57,123 +47,117 @@ function useSidebar() {
 	return context
 }
 
-export type SidebarProviderProps = ComponentProps<"div"> & {
+export type SidebarProviderProps = React.ComponentProps<"div"> & {
 	defaultOpen?: boolean
 	open?: boolean
 	onOpenChange?: (open: boolean) => void
 	initialIsMobile?: boolean
 }
 
-const SidebarProvider = forwardRef<HTMLDivElement, SidebarProviderProps>(
-	(
-		{
-			defaultOpen = true,
-			open: openProp,
-			onOpenChange: setOpenProp,
-			initialIsMobile,
-			className,
-			style,
-			children,
-			...props
+function SidebarProvider({
+	defaultOpen = true,
+	open: openProp,
+	onOpenChange: setOpenProp,
+	initialIsMobile,
+	className,
+	style,
+	children,
+	ref,
+	...props
+}: SidebarProviderProps) {
+	const isMobile = useIsMobile({ initialIsMobile })
+	const [openMobile, setOpenMobile] = useState(false)
+	const hasHydratedFromCookieRef = useRef(false)
+	const hasSkippedInitialPersistRef = useRef(false)
+
+	const [_open, _setOpen] = useState(defaultOpen)
+	const open = openProp ?? _open
+
+	useEffect(() => {
+		if (openProp !== undefined || hasHydratedFromCookieRef.current) return
+		hasHydratedFromCookieRef.current = true
+
+		const persistedOpen = readSidebarCookie(document.cookie)
+		if (persistedOpen !== null) {
+			_setOpen(persistedOpen)
+		}
+	}, [openProp])
+
+	useEffect(() => {
+		if (!hasSkippedInitialPersistRef.current) {
+			hasSkippedInitialPersistRef.current = true
+			return
+		}
+
+		// biome-ignore lint/suspicious/noDocumentCookie: Synchronous cookie write needed inside useEffect; Cookie Store API is async with limited browser support
+		document.cookie = `${SIDEBAR_COOKIE_NAME}=${open}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
+	}, [open])
+
+	const setOpen = useCallback(
+		(newValue: boolean | ((value: boolean) => boolean)) => {
+			const openState = typeof newValue === "function" ? newValue(open) : newValue
+			if (setOpenProp) {
+				setOpenProp(openState)
+			} else {
+				_setOpen(openState)
+			}
 		},
-		ref,
-	) => {
-		const isMobile = useIsMobile({ initialIsMobile })
-		const [openMobile, setOpenMobile] = useState(false)
-		const hasHydratedFromCookieRef = useRef(false)
-		const hasSkippedInitialPersistRef = useRef(false)
+		[setOpenProp, open],
+	)
 
-		const [_open, _setOpen] = useState(defaultOpen)
-		const open = openProp ?? _open
+	const toggleSidebar = useCallback(() => {
+		return isMobile ? setOpenMobile((prevOpen) => !prevOpen) : setOpen((prevOpen) => !prevOpen)
+	}, [isMobile, setOpen])
 
-		useEffect(() => {
-			if (openProp !== undefined || hasHydratedFromCookieRef.current) return
-			hasHydratedFromCookieRef.current = true
-
-			const persistedOpen = readSidebarCookie(document.cookie)
-			if (persistedOpen !== null) {
-				_setOpen(persistedOpen)
+	useEffect(() => {
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key === SIDEBAR_KEYBOARD_SHORTCUT && (event.metaKey || event.ctrlKey)) {
+				event.preventDefault()
+				toggleSidebar()
 			}
-		}, [openProp])
+		}
 
-		useEffect(() => {
-			if (!hasSkippedInitialPersistRef.current) {
-				hasSkippedInitialPersistRef.current = true
-				return
-			}
+		window.addEventListener("keydown", handleKeyDown)
+		return () => window.removeEventListener("keydown", handleKeyDown)
+	}, [toggleSidebar])
 
-			// biome-ignore lint/suspicious/noDocumentCookie: Synchronous cookie write needed inside useEffect; Cookie Store API is async with limited browser support
-			document.cookie = `${SIDEBAR_COOKIE_NAME}=${open}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
-		}, [open])
+	const state = open ? "expanded" : "collapsed"
 
-		const setOpen = useCallback(
-			(newValue: boolean | ((value: boolean) => boolean)) => {
-				const openState = typeof newValue === "function" ? newValue(open) : newValue
-				if (setOpenProp) {
-					setOpenProp(openState)
-				} else {
-					_setOpen(openState)
+	const contextValue = useMemo<SidebarContextProps>(
+		() => ({
+			state,
+			open,
+			setOpen,
+			isMobile,
+			openMobile,
+			setOpenMobile,
+			toggleSidebar,
+		}),
+		[state, open, setOpen, isMobile, openMobile, toggleSidebar],
+	)
+
+	return (
+		<SidebarContext.Provider value={contextValue}>
+			<div
+				data-slot="sidebar-provider"
+				className={cn(
+					"group/sidebar-wrapper flex min-h-svh w-full has-[[data-variant=inset]]:bg-sidebar",
+					className,
+				)}
+				ref={ref}
+				style={
+					{
+						"--sidebar-width": SIDEBAR_WIDTH,
+						"--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
+						...style,
+					} as React.CSSProperties
 				}
-			},
-			[setOpenProp, open],
-		)
-
-		const toggleSidebar = useCallback(() => {
-			return isMobile
-				? setOpenMobile((prevOpen) => !prevOpen)
-				: setOpen((prevOpen) => !prevOpen)
-		}, [isMobile, setOpen])
-
-		useEffect(() => {
-			const handleKeyDown = (event: KeyboardEvent) => {
-				if (event.key === SIDEBAR_KEYBOARD_SHORTCUT && (event.metaKey || event.ctrlKey)) {
-					event.preventDefault()
-					toggleSidebar()
-				}
-			}
-
-			window.addEventListener("keydown", handleKeyDown)
-			return () => window.removeEventListener("keydown", handleKeyDown)
-		}, [toggleSidebar])
-
-		const state = open ? "expanded" : "collapsed"
-
-		const contextValue = useMemo<SidebarContextProps>(
-			() => ({
-				state,
-				open,
-				setOpen,
-				isMobile,
-				openMobile,
-				setOpenMobile,
-				toggleSidebar,
-			}),
-			[state, open, setOpen, isMobile, openMobile, toggleSidebar],
-		)
-
-		return (
-			<SidebarContext.Provider value={contextValue}>
-				<div
-					className={cn(
-						"group/sidebar-wrapper flex min-h-svh w-full has-[[data-variant=inset]]:bg-sidebar",
-						className,
-					)}
-					ref={ref}
-					style={
-						{
-							"--sidebar-width": SIDEBAR_WIDTH,
-							"--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
-							...style,
-						} as CSSProperties
-					}
-					{...props}
-				>
-					{children}
-				</div>
-			</SidebarContext.Provider>
-		)
-	},
-)
-SidebarProvider.displayName = "SidebarProvider"
+				{...props}
+			>
+				{children}
+			</div>
+		</SidebarContext.Provider>
+	)
+}
 
 export { SidebarProvider, useSidebar }

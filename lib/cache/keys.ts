@@ -22,7 +22,9 @@ export const cacheKeys = {
 // ── Rate-limit Redis key builders ──
 
 export const rateLimitKeys = {
+	/** Reserved for future global per-user rate limiting. Currently test-only. */
 	rateLimit: (userId: string) => `rate-limit:${userId}`,
+	/** Reserved for future daily per-user rate limiting. Currently test-only. */
 	rateLimitDaily: (userId: string) => `rate-limit-daily:${userId}`,
 	rateLimitChat: (userId: string) => `rate-limit-chat:${userId}`,
 	rateLimitVote: (userId: string) => `rate-limit-vote:${userId}`,

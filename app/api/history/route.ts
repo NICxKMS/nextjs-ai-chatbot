@@ -55,11 +55,14 @@ export async function GET(request: Request) {
 	try {
 		const result = await getChatsByUserId(session.user.id, { limit, cursor })
 
-		return Response.json({
-			chats: result.chats,
-			hasMore: result.hasMore,
-			nextCursor: result.nextCursor,
-		})
+		return Response.json(
+			{
+				chats: result.chats,
+				hasMore: result.hasMore,
+				nextCursor: result.nextCursor,
+			},
+			{ headers: { "Cache-Control": "private, no-cache" } },
+		)
 	} catch (error) {
 		if (error instanceof AppError) {
 			return error.toResponse()
