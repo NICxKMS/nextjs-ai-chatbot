@@ -140,7 +140,6 @@ function areEqual(prevProps: TextEditorProps, nextProps: TextEditorProps): boole
 	if (prevProps.suggestions !== nextProps.suggestions) return false
 	if (prevProps.currentVersionIndex !== nextProps.currentVersionIndex) return false
 	if (prevProps.isCurrentVersion !== nextProps.isCurrentVersion) return false
-	if (prevProps.status === "streaming" && nextProps.status === "streaming") return false
 	if (prevProps.content !== nextProps.content) return false
 	if (prevProps.onSaveContent !== nextProps.onSaveContent) return false
 	return true

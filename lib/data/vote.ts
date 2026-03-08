@@ -1,9 +1,11 @@
+import "server-only"
+
 import { and, eq } from "drizzle-orm"
 
 import { requireDatabaseRow, throwDatabaseError } from "@/lib/data/database-error"
 import { db } from "@/lib/db/client"
 import { votes } from "@/lib/db/schema"
-import type { Vote } from "@/lib/types/models.types"
+import type { Vote } from "@/lib/types/entity.types"
 
 /**
  * Get all votes for a chat by a specific user.
@@ -46,19 +48,5 @@ export async function upsertVote(data: {
 			chatId: data.chatId,
 			messageId: data.messageId,
 		})
-	}
-}
-
-/**
- * Delete all votes for a chat by a specific user.
- *
- * @unused FK cascade on `chats.id → votes.chatId` handles
- * cleanup during chat deletion. Retained for selective vote removal.
- */
-export async function deleteVotesByChatId(chatId: string, userId: string): Promise<void> {
-	try {
-		await db.delete(votes).where(and(eq(votes.chatId, chatId), eq(votes.userId, userId)))
-	} catch (error) {
-		throwDatabaseError(error, "Failed to delete votes for chat", { chatId })
 	}
 }

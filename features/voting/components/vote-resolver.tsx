@@ -14,7 +14,7 @@ import {
 } from "react"
 
 import { useVotes } from "@/features/voting/hooks/use-votes"
-import type { Vote } from "@/lib/types/models.types"
+import type { Vote } from "@/lib/types/entity.types"
 
 // ── Internal context (VoteResolver → VotesProvider communication) ─
 

@@ -6,6 +6,8 @@ import { checkRateLimit } from "@/lib/cache/rate-limit"
 import { AppError } from "@/lib/errors/app-error"
 import { validateOrigin } from "@/lib/utils/validate-origin"
 
+export const maxDuration = 30
+
 // ── Constants ──────────────────────────────────────────────────
 
 /** Maximum file size: 5 MB. */

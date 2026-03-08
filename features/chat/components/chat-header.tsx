@@ -2,7 +2,7 @@
 
 import { Settings2Icon } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { memo, useState } from "react"
 import { PlusIcon } from "@/components/icons"
 import { SidebarToggle } from "@/components/sidebar-toggle"
 import { Button } from "@/components/ui/button"
@@ -12,12 +12,15 @@ import { ModelSelector } from "@/features/models/components/model-selector"
 import { SettingsPanel } from "@/features/settings/components/settings-panel"
 import { VisibilitySelector } from "@/features/visibility/components/visibility-selector"
 
-export function ChatHeader() {
+export const ChatHeader = memo(function ChatHeader() {
 	const { chatModel, setChatModel, availableModels } = useChatSessionContext()
 	const [settingsOpen, setSettingsOpen] = useState(false)
 
 	return (
-		<header className="sticky top-0 flex items-center gap-2 bg-background px-2 py-1.5 md:px-2">
+		<header
+			className="sticky top-0 flex items-center gap-2 bg-background px-2 py-1.5 md:px-2"
+			data-testid="chat-header"
+		>
 			<SidebarToggle />
 			<ModelSelector
 				className="relative min-w-0 after:absolute after:-inset-1 after:md:hidden"
@@ -35,7 +38,7 @@ export function ChatHeader() {
 							className="relative h-8 px-2 after:absolute after:-inset-1.5 after:md:hidden md:h-fit md:px-2"
 							variant="outline"
 						>
-							<Link href="/">
+							<Link href="/" data-testid="new-chat-button">
 								<PlusIcon size={16} />
 								<span className="md:sr-only">New Chat</span>
 							</Link>
@@ -60,4 +63,4 @@ export function ChatHeader() {
 			<SettingsPanel onOpenChange={setSettingsOpen} open={settingsOpen} />
 		</header>
 	)
-}
+})

@@ -1,8 +1,8 @@
 import type { ChatStatus, FileUIPart, LanguageModelUsage, UIMessage } from "ai"
 
 import type { ArtifactKind, ArtifactSuggestion } from "@/lib/types/artifact.types"
+import type { Visibility } from "@/lib/types/entity.types"
 import type { ModelMetadata } from "@/lib/types/model.types"
-import type { Visibility } from "@/lib/types/models.types"
 
 export type { ChatStatus } from "ai"
 // ── Re-exports ───────────────────────────────────────────────
@@ -11,7 +11,7 @@ export type { ChatStatus } from "ai"
 export type { ArtifactSuggestion } from "@/lib/types/artifact.types"
 
 // ── Visibility alias for chat domain ─────────────────────────
-// Canonical definition: Visibility in lib/types/models.types (P0-T05).
+// Canonical definition: Visibility in lib/types/entity.types (P0-T05).
 // Aliased as VisibilityType for domain clarity in chat contexts.
 export type VisibilityType = Visibility
 

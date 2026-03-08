@@ -4,7 +4,7 @@ import { z } from "zod"
 
 import { getAppSession } from "@/lib/auth/session"
 import { invalidateChat, invalidateChatList } from "@/lib/cache/revalidate"
-import { getChatById, updateChatTitle } from "@/lib/data/chat"
+import { getChatOwnerId, updateChatTitle } from "@/lib/data/chat"
 import type { ActionResult } from "@/lib/types/result.types"
 
 const renameChatSchema = z.object({
@@ -42,15 +42,15 @@ export async function renameChat(
 	const { chatId, title } = parsed.data
 
 	// 3. Authorize — ownership check
-	const chat = await getChatById(chatId)
-	if (!chat) {
+	const ownerId = await getChatOwnerId(chatId)
+	if (!ownerId) {
 		return {
 			success: false,
 			error: { code: "not_found:chat:chat_not_found", message: "Chat not found" },
 		}
 	}
 
-	if (chat.userId !== session.user.id) {
+	if (ownerId !== session.user.id) {
 		return {
 			success: false,
 			error: {

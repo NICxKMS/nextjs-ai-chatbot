@@ -50,7 +50,7 @@ function Sidebar({
 		)
 	}
 
-	// Treat undefined (SSR / initial hydration) as desktop.
+	// On mobile, render the sidebar as an overlay Sheet.
 	// The desktop layout uses `hidden md:block`, so it's invisible on
 	// mobile and matches the SidebarSkeleton, preventing layout flash.
 	if (isMobile) {

@@ -1,6 +1,6 @@
 "use client"
 
-import { AnimatePresence, motion } from "framer-motion"
+import { AnimatePresence, motion } from "motion/react"
 import {
 	type Dispatch,
 	memo,
@@ -14,11 +14,12 @@ import {
 import { toast } from "sonner"
 import useSWR from "swr"
 
-import { MotionProvider } from "@/components/motion-provider"
-import type { Artifact } from "@/lib/types/models.types"
+import type { Artifact } from "@/lib/types/entity.types"
 import { cn } from "@/lib/utils/cn"
 
 import { useArtifact } from "../hooks/use-artifact"
+import { useArtifactSelector } from "../hooks/use-artifact-selector"
+import { artifactStore } from "../lib/artifact-store"
 import type { ArtifactAction } from "../types/artifact.types"
 import { ArtifactPanelEditor } from "./artifact-panel-editor"
 import { ArtifactPanelHeader } from "./artifact-panel-header"
@@ -46,36 +47,92 @@ const KIND_ACTIONS: Record<string, ArtifactAction[]> = {
 
 const SPRING_TRANSITION = { type: "spring" as const, stiffness: 300, damping: 30 }
 
-// ── Main component ──────────────────────────────────────────
+// ── Focusable element selector ──────────────────────────────
+
+const FOCUSABLE_SELECTOR =
+	'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+// ── Types ───────────────────────────────────────────────────
 
 interface ArtifactPanelProps {
 	chatId: string
 }
 
-function PureArtifactPanel({ chatId }: ArtifactPanelProps) {
+// ── Gate component ──────────────────────────────────────────
+// Subscribes ONLY to isVisible via granular selector — prevents
+// re-renders from content/title/status changes when the panel is closed.
+// Expensive state (SWR, effects) lives in InnerArtifactPanel and is
+// only mounted when the panel is visible.
+
+function ArtifactPanelGate({ chatId }: ArtifactPanelProps) {
+	const isVisible = useArtifactSelector((s) => s.isVisible)
+
+	return <AnimatePresence>{isVisible && <InnerArtifactPanel chatId={chatId} />}</AnimatePresence>
+}
+
+// ── Inner panel (mounted only when visible) ─────────────────
+
+function InnerArtifactPanel({ chatId }: ArtifactPanelProps) {
 	const { artifact, setArtifact } = useArtifact()
 
 	// ── Focus management ──────────────────────────────────────
-	// Save the element that was focused before the panel opened,
-	// move focus into the panel on open, restore on close.
+	// Capture focus before panel opens → focus the panel → restore on unmount.
+	// Since InnerArtifactPanel is only mounted when visible, we use
+	// mount/cleanup lifecycle instead of watching isVisible.
 
 	const panelRef = useRef<HTMLDivElement>(null)
 	const previousFocusRef = useRef<HTMLElement | null>(null)
 
 	useEffect(() => {
-		if (artifact.isVisible) {
-			// Save the currently focused element before the panel opens
-			previousFocusRef.current = document.activeElement as HTMLElement | null
-			// Focus the panel container after animation frame to ensure it's mounted
-			requestAnimationFrame(() => {
-				panelRef.current?.focus()
-			})
-		} else if (previousFocusRef.current) {
-			// Restore focus to the element that was focused before the panel opened
-			previousFocusRef.current.focus()
+		// Capture the element focused before the panel
+		previousFocusRef.current = document.activeElement as HTMLElement | null
+
+		// Focus the panel container after animation frame to ensure it's mounted
+		requestAnimationFrame(() => {
+			panelRef.current?.focus()
+		})
+
+		// Restore focus to the element that was focused before the panel opened
+		return () => {
+			previousFocusRef.current?.focus()
 			previousFocusRef.current = null
 		}
-	}, [artifact.isVisible])
+	}, [])
+
+	// ── Focus trap + Escape key ───────────────────────────────
+	// Traps Tab/Shift+Tab within the panel for WCAG 2.1 compliance.
+	// Escape key dismisses the panel and returns focus to the trigger.
+
+	useEffect(() => {
+		const panel = panelRef.current
+		if (!panel) return
+
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") {
+				artifactStore.setState((prev) => ({ ...prev, isVisible: false }))
+				return
+			}
+
+			if (e.key !== "Tab") return
+
+			const focusable = panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+			if (focusable.length === 0) return
+
+			const first = focusable[0]
+			const last = focusable[focusable.length - 1]
+
+			if (e.shiftKey && document.activeElement === first) {
+				e.preventDefault()
+				last?.focus()
+			} else if (!e.shiftKey && document.activeElement === last) {
+				e.preventDefault()
+				first?.focus()
+			}
+		}
+
+		panel.addEventListener("keydown", handleKeyDown)
+		return () => panel.removeEventListener("keydown", handleKeyDown)
+	}, [])
 
 	// ── Version data via SWR ──────────────────────────────────
 
@@ -100,7 +157,7 @@ function PureArtifactPanel({ chatId }: ArtifactPanelProps) {
 
 	// ── Local state ───────────────────────────────────────────
 
-	const [currentVersionIndex, setCurrentVersionIndex] = useState(-1)
+	const [currentVersionIndex, setCurrentVersionIndex] = useState(0)
 	const [isContentDirty, setIsContentDirty] = useState(false)
 	const [saveState, setSaveState] = useState<SaveState>("idle")
 	const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null)
@@ -110,6 +167,7 @@ function PureArtifactPanel({ chatId }: ArtifactPanelProps) {
 	// ── Sync version index when versions load ────────────────
 
 	useEffect(() => {
+		if (artifact.status === "streaming") return
 		if (!isContentDirty && panelVersions && panelVersions.length > 0) {
 			const latest = panelVersions.at(-1)
 			if (latest) {
@@ -129,7 +187,14 @@ function PureArtifactPanel({ chatId }: ArtifactPanelProps) {
 				}
 			}
 		}
-	}, [artifact.content, currentVersionIndex, isContentDirty, panelVersions, setArtifact])
+	}, [
+		artifact.content,
+		artifact.status,
+		currentVersionIndex,
+		isContentDirty,
+		panelVersions,
+		setArtifact,
+	])
 
 	// Reset mode to edit when streaming starts
 	useEffect(() => {
@@ -165,12 +230,14 @@ function PureArtifactPanel({ chatId }: ArtifactPanelProps) {
 		(type: "next" | "prev" | "toggle" | "latest") => {
 			if (!panelVersions) return
 
+			const clamp = (index: number) => Math.max(0, Math.min(index, panelVersions.length - 1))
+
 			if (type === "latest") {
-				setCurrentVersionIndex(panelVersions.length - 1)
+				setCurrentVersionIndex(clamp(panelVersions.length - 1))
 			} else if (type === "prev") {
-				setCurrentVersionIndex((i) => Math.max(0, i - 1))
+				setCurrentVersionIndex((i) => clamp(i - 1))
 			} else if (type === "next") {
-				setCurrentVersionIndex((i) => Math.min(panelVersions.length - 1, i + 1))
+				setCurrentVersionIndex((i) => clamp(i + 1))
 			}
 			// "toggle" is a no-op — diff mode deferred to post-MVP (Wave 4: AR-8)
 		},
@@ -321,103 +388,96 @@ function PureArtifactPanel({ chatId }: ArtifactPanelProps) {
 	// ── Render ────────────────────────────────────────────────
 
 	return (
-		<MotionProvider>
-			<AnimatePresence>
-				{artifact.isVisible && (
-					<motion.div
-						animate={{
+		<motion.div
+			animate={{
+				opacity: 1,
+				y: 0,
+				x: 0,
+				width: "100dvw",
+				height: "100dvh",
+				borderRadius: 0,
+				transition: { ...SPRING_TRANSITION, duration: 0.5 },
+			}}
+			aria-label={`Artifact: ${artifact.title}`}
+			className="fixed top-0 left-0 z-50 flex h-dvh w-dvw flex-col overflow-hidden border-zinc-200 bg-background dark:border-zinc-700 dark:bg-muted"
+			data-testid="artifact-panel"
+			ref={panelRef}
+			role="dialog"
+			tabIndex={-1}
+			exit={{
+				opacity: 0,
+				scale: 0.5,
+				transition: {
+					delay: 0.1,
+					type: "spring",
+					stiffness: 600,
+					damping: 30,
+				},
+			}}
+			initial={
+				artifact.boundingBox
+					? {
 							opacity: 1,
-							y: 0,
-							x: 0,
-							width: "100dvw",
-							height: "100dvh",
-							borderRadius: 0,
-							transition: { ...SPRING_TRANSITION, duration: 0.5 },
-						}}
-						aria-label={`Artifact: ${artifact.title}`}
-						className="fixed top-0 left-0 z-50 flex h-dvh w-dvw flex-col overflow-hidden border-zinc-200 bg-background dark:border-zinc-700 dark:bg-muted"
-						data-testid="artifact-panel"
-						ref={panelRef}
-						role="dialog"
-						tabIndex={-1}
-						exit={{
-							opacity: 0,
-							scale: 0.5,
-							transition: {
-								delay: 0.1,
-								type: "spring",
-								stiffness: 600,
-								damping: 30,
-							},
-						}}
-						initial={
-							artifact.boundingBox
-								? {
-										opacity: 1,
-										x: artifact.boundingBox.left,
-										y: artifact.boundingBox.top,
-										width: artifact.boundingBox.width,
-										height: artifact.boundingBox.height,
-										borderRadius: 50,
-									}
-								: { opacity: 0, scale: 0.95 }
+							x: artifact.boundingBox.left,
+							y: artifact.boundingBox.top,
+							width: artifact.boundingBox.width,
+							height: artifact.boundingBox.height,
+							borderRadius: 50,
 						}
-					>
-						{/* ── Header ─────────────────────────────── */}
-						<ArtifactPanelHeader
-							artifactTitle={artifact.title}
-							artifactKind={artifact.kind}
-							artifactStatus={artifact.status}
-							saveState={saveState}
-							saveErrorMessage={saveErrorMessage}
-							isContentDirty={isContentDirty}
-							currentVersion={currentVersion}
-							onRetrySave={() => {
-								void handleSave(lastEditedContentRef.current)
-							}}
-							actions={actions}
-							currentVersionIndex={currentVersionIndex}
-							handleVersionChange={handleVersionChange}
-							isCurrentVersion={isCurrentVersion}
-							metadata={metadata}
-							setMetadata={setMetadata as Dispatch<SetStateAction<unknown>>}
-						/>
+					: { opacity: 0, scale: 0.95 }
+			}
+		>
+			{/* ── Header ─────────────────────────────── */}
+			<ArtifactPanelHeader
+				artifactTitle={artifact.title}
+				artifactKind={artifact.kind}
+				artifactStatus={artifact.status}
+				saveState={saveState}
+				saveErrorMessage={saveErrorMessage}
+				isContentDirty={isContentDirty}
+				currentVersion={currentVersion}
+				onRetrySave={() => {
+					void handleSave(lastEditedContentRef.current)
+				}}
+				actions={actions}
+				currentVersionIndex={currentVersionIndex}
+				handleVersionChange={handleVersionChange}
+				isCurrentVersion={isCurrentVersion}
+				metadata={metadata}
+				setMetadata={setMetadata as Dispatch<SetStateAction<unknown>>}
+			/>
 
-						{/* ── Editor area ────────────────────────── */}
-						<div
-							className={cn(
-								"relative flex-1 overflow-y-auto bg-background dark:bg-muted",
-								{ "p-4 sm:px-14 sm:py-8": artifact.kind === "text" },
-							)}
-						>
-							<ArtifactPanelEditor
-								kind={artifact.kind}
-								content={displayContent}
-								status={artifact.status}
-								isCurrentVersion={isCurrentVersion}
-								currentVersionIndex={currentVersionIndex}
-								onSaveContent={saveContent}
-								suggestions={artifact.suggestions ?? []}
-								title={artifact.title}
-							/>
-						</div>
+			{/* ── Editor area ────────────────────────── */}
+			<div
+				className={cn("relative flex-1 overflow-y-auto bg-background dark:bg-muted", {
+					"p-4 sm:px-14 sm:py-8": artifact.kind === "text",
+				})}
+			>
+				<ArtifactPanelEditor
+					kind={artifact.kind}
+					content={displayContent}
+					status={artifact.status}
+					isCurrentVersion={isCurrentVersion}
+					currentVersionIndex={currentVersionIndex}
+					onSaveContent={saveContent}
+					suggestions={artifact.suggestions ?? []}
+					title={artifact.title}
+				/>
+			</div>
 
-						{/* ── Version footer ─────────────────────── */}
-						<AnimatePresence>
-							{!isCurrentVersion && (
-								<VersionFooter
-									currentVersionIndex={currentVersionIndex}
-									versions={panelVersions}
-									handleVersionChange={handleVersionChange}
-									onVersionRestore={mutateVersions}
-								/>
-							)}
-						</AnimatePresence>
-					</motion.div>
+			{/* ── Version footer ─────────────────────── */}
+			<AnimatePresence>
+				{!isCurrentVersion && (
+					<VersionFooter
+						currentVersionIndex={currentVersionIndex}
+						versions={panelVersions}
+						handleVersionChange={handleVersionChange}
+						onVersionRestore={mutateVersions}
+					/>
 				)}
 			</AnimatePresence>
-		</MotionProvider>
+		</motion.div>
 	)
 }
 
-export const ArtifactPanel = memo(PureArtifactPanel)
+export const ArtifactPanel = memo(ArtifactPanelGate)

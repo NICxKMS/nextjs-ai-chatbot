@@ -4,7 +4,7 @@ import { useCallback, useOptimistic, useTransition } from "react"
 import { toast } from "sonner"
 
 import { voteOnMessage } from "@/features/voting/actions/vote"
-import type { Vote } from "@/lib/types/models.types"
+import type { Vote } from "@/lib/types/entity.types"
 
 /**
  * Hook for managing optimistic vote state for a chat.

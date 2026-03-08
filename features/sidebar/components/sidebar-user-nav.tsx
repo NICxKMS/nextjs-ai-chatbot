@@ -5,7 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { unstable_rethrow } from "next/navigation"
 import { useTheme } from "next-themes"
-import { useEffect, useState, useTransition } from "react"
+import { useSyncExternalStore, useTransition } from "react"
 import { toast } from "sonner"
 import { LoaderIcon } from "@/components/icons"
 import {
@@ -37,12 +37,16 @@ interface SidebarUserNavProps {
 export function SidebarUserNav({ user }: SidebarUserNavProps) {
 	const { session, isLoading, isGuest } = useSession()
 	const { setTheme, resolvedTheme } = useTheme()
-	const [mounted, setMounted] = useState(false)
+	const mounted = useSyncExternalStore(
+		() => {
+			return () => {
+				/* no-op unsubscribe */
+			}
+		},
+		() => true,
+		() => false,
+	)
 	const [isPending, startTransition] = useTransition()
-
-	useEffect(() => {
-		setMounted(true)
-	}, [])
 
 	const isAuthenticated = session !== null && !isGuest
 	const avatarSeed = user.email ?? "guest"

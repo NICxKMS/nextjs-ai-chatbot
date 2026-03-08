@@ -7,8 +7,10 @@ import { GUEST_COOKIE_NAME } from "@/lib/auth/constants"
 import { verifyGuestToken } from "@/lib/auth/guest"
 import { checkRateLimit } from "@/lib/cache/rate-limit"
 import { transferGuestChats } from "@/lib/data/chat"
+import { deleteGuestUser } from "@/lib/data/user"
 import type { ErrorCode } from "@/lib/errors/codes"
 import type { ActionResult } from "@/lib/types/result.types"
+import { logger } from "@/lib/utils/logger"
 
 type AuthRateLimitConfig = {
 	createKey(ip: string): string
@@ -65,14 +67,26 @@ export async function migrateGuestChatsAndClearToken(
 			if (guest) {
 				const migratedChatCount = await transferGuestChats(guest.userId, userId)
 				if (migratedChatCount > 0) {
-					console.info(
+					logger.info(
 						`[${logPrefix}] Migrated ${migratedChatCount} guest chat(s) to user ${userId}`,
 					)
+				}
+
+				// Clean up the orphaned guest user row after successful migration.
+				// Non-critical: if this fails, the guest row is harmless dead data.
+				try {
+					await deleteGuestUser(guest.userId)
+				} catch {
+					logger.warn(`[${logPrefix}] Failed to delete orphaned guest user`, {
+						guestUserId: guest.userId,
+					})
 				}
 			}
 		}
 	} catch (migrationError) {
-		console.error(`[${logPrefix}] Guest data migration failed:`, migrationError)
+		logger.error(`[${logPrefix}] Guest data migration failed`, {
+			error: String(migrationError),
+		})
 	} finally {
 		cookieStore.delete(GUEST_COOKIE_NAME)
 	}

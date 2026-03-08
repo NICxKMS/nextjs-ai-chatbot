@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from "react"
 
 import { LoaderIcon } from "@/components/icons"
 import { Badge } from "@/components/ui/badge"
-import type { Artifact } from "@/lib/types/models.types"
+import type { Artifact } from "@/lib/types/entity.types"
 
 import type { ArtifactAction, ArtifactKind, ArtifactStatus } from "../types/artifact.types"
 import { ArtifactActions } from "./artifact-actions"

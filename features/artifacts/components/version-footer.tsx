@@ -1,12 +1,12 @@
 "use client"
 
-import { motion } from "framer-motion"
+import { motion } from "motion/react"
 import { useState } from "react"
 import { toast } from "sonner"
 
 import { LoaderIcon } from "@/components/icons"
 import { Button } from "@/components/ui/button"
-import type { Artifact } from "@/lib/types/models.types"
+import type { Artifact } from "@/lib/types/entity.types"
 
 import { useArtifactSelector } from "../hooks/use-artifact-selector"
 

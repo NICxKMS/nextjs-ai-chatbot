@@ -1,7 +1,6 @@
 "use client"
 
 import type { UIMessage } from "ai"
-import equal from "fast-deep-equal"
 import { memo, useMemo } from "react"
 import { toast } from "sonner"
 
@@ -11,7 +10,7 @@ import {
 } from "@/components/ai-elements/message"
 import { CopyIcon, PencilEditIcon } from "@/components/icons"
 import { useChatSessionContext } from "@/features/chat/hooks/use-chat-session-context"
-import { getMessageText } from "@/features/chat/lib/message-utils"
+import { getCopyableMessageText } from "@/features/chat/lib/message-utils"
 import { VoteButtons } from "@/features/voting/components/vote-buttons"
 import { useVoteForMessage } from "@/features/voting/components/vote-resolver"
 
@@ -32,7 +31,7 @@ function PureMessageActions({ message, setMode }: MessageActionsToolbarProps) {
 
 	const isLoading = status === "streaming" || status === "submitted"
 
-	const textContent = useMemo(() => getMessageText(message), [message])
+	const textContent = useMemo(() => getCopyableMessageText(message), [message])
 
 	// Don't show actions while streaming / loading
 	if (isLoading) return null
@@ -94,9 +93,16 @@ function PureMessageActions({ message, setMode }: MessageActionsToolbarProps) {
 
 // ── Memoized export ──────────────────────────────────────────
 
+/** Shallow parts comparison: length + last-element identity check. */
+function arePartsEqual(prev: UIMessage["parts"], next: UIMessage["parts"]): boolean {
+	if (prev.length !== next.length) return false
+	if (prev.length === 0) return true
+	return prev[prev.length - 1] === next[next.length - 1]
+}
+
 export const MessageActions = memo(PureMessageActions, (prev, next) => {
 	if (prev.message.id !== next.message.id) return false
-	if (!equal(prev.message.parts, next.message.parts)) return false
+	if (!arePartsEqual(prev.message.parts, next.message.parts)) return false
 	if (prev.setMode !== next.setMode) return false
 	return true
 })

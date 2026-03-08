@@ -4,7 +4,7 @@ import type { DeleteMessagesInput } from "@/features/chat/schemas/chat.schema"
 import { deleteMessagesSchema } from "@/features/chat/schemas/chat.schema"
 import { getAppSession } from "@/lib/auth/session"
 import { invalidateChat } from "@/lib/cache/revalidate"
-import { getChatById } from "@/lib/data/chat"
+import { getChatOwnerId } from "@/lib/data/chat"
 import { deleteMessagesByIdAfter } from "@/lib/data/message"
 import type { ActionResult } from "@/lib/types/result.types"
 
@@ -30,7 +30,10 @@ export async function deleteTrailingMessages(
 	}
 
 	// 2. Auth + Fetch (parallel — both independent)
-	const [session, chat] = await Promise.all([getAppSession(), getChatById(parsed.data.chatId)])
+	const [session, ownerId] = await Promise.all([
+		getAppSession(),
+		getChatOwnerId(parsed.data.chatId),
+	])
 
 	if (!session) {
 		return {
@@ -40,14 +43,14 @@ export async function deleteTrailingMessages(
 	}
 
 	// 3. Authorize — ownership check
-	if (!chat) {
+	if (!ownerId) {
 		return {
 			success: false,
 			error: { code: "not_found:chat:chat_not_found", message: "Chat not found" },
 		}
 	}
 
-	if (chat.userId !== session.user.id) {
+	if (ownerId !== session.user.id) {
 		return {
 			success: false,
 			error: {

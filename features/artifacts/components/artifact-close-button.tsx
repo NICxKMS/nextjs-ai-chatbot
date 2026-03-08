@@ -19,6 +19,7 @@ import { artifactStore } from "../lib/artifact-store"
 function PureArtifactCloseButton() {
 	return (
 		<Button
+			aria-label="Close artifact panel"
 			className="relative h-fit p-2 after:absolute after:-inset-1.5 after:md:hidden dark:hover:bg-zinc-700"
 			data-testid="artifact-close-button"
 			onClick={() => {

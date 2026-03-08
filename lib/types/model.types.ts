@@ -18,6 +18,8 @@ export interface ModelMetadata {
 	supportsToolCalling: boolean
 	/** Whether the model supports extended reasoning */
 	supportsReasoning: boolean
+	/** Tag name for reasoning extraction middleware (e.g. "thinking", "think"). Catalog is source of truth. */
+	reasoningTagName?: string
 	/** Input/output modality lists (e.g. ["text", "image"]) */
 	modalities: { input: string[]; output: string[] }
 	/** Maximum context window size in tokens */

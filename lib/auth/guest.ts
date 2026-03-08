@@ -6,6 +6,14 @@ import {
 	GUEST_TOKEN_TTL_SECONDS,
 } from "@/lib/auth/constants"
 
+// ── Types ──────────────────────────────────────────────────────
+
+/** Verified guest token payload returned by `verifyGuestToken`. */
+export type GuestTokenPayload = {
+	userId: string
+	exp: number
+}
+
 // ── Secret resolution ──────────────────────────────────────────
 
 let cachedSecretRaw: string | undefined
@@ -23,12 +31,6 @@ function getSecret(): Uint8Array | null {
 	cachedSecretRaw = raw
 	cachedSecretEncoded = raw ? new TextEncoder().encode(raw) : null
 	return cachedSecretEncoded
-}
-
-/** @internal Reset cached secret — test-only. */
-export function _resetSecretCache(): void {
-	cachedSecretRaw = undefined
-	cachedSecretEncoded = undefined
 }
 
 // ── Public API ─────────────────────────────────────────────────
@@ -64,7 +66,7 @@ export async function mintGuestToken(userId: string): Promise<string> {
  * @param token - Raw JWT string from the `guest_token` cookie
  * @returns `{ userId }` on success, `null` on any failure
  */
-export async function verifyGuestToken(token: string): Promise<{ userId: string } | null> {
+export async function verifyGuestToken(token: string): Promise<GuestTokenPayload | null> {
 	try {
 		const secret = getSecret()
 		if (!secret) return null
@@ -75,7 +77,10 @@ export async function verifyGuestToken(token: string): Promise<{ userId: string 
 			return null
 		}
 
-		return { userId: payload.sub }
+		return {
+			userId: payload.sub,
+			exp: typeof payload.exp === "number" ? payload.exp : 0,
+		}
 	} catch {
 		return null
 	}
@@ -94,21 +99,37 @@ export async function verifyGuestToken(token: string): Promise<{ userId: string 
  * @param token - The current guest JWT
  * @returns A (possibly new) JWT string
  */
-export async function rotateGuestToken(token: string): Promise<string> {
+export async function rotateGuestToken(
+	token: string,
+	preVerified?: GuestTokenPayload,
+): Promise<string> {
 	try {
-		const secret = getSecret()
-		if (!secret) return token
+		let userId: string
+		let exp: number | undefined
 
-		const { payload } = await jwtVerify(token, secret)
+		if (preVerified) {
+			// Use pre-verified payload — skip redundant JWT verification
+			userId = preVerified.userId
+			exp = preVerified.exp
+		} else {
+			// Backward compatibility: verify the token ourselves
+			const secret = getSecret()
+			if (!secret) return token
 
-		if (payload.type !== "guest" || typeof payload.sub !== "string") {
-			return token
+			const { payload } = await jwtVerify(token, secret)
+
+			if (payload.type !== "guest" || typeof payload.sub !== "string") {
+				return token
+			}
+
+			userId = payload.sub
+			exp = typeof payload.exp === "number" ? payload.exp : undefined
 		}
 
 		// Check if rotation is needed
-		if (typeof payload.exp === "number") {
+		if (typeof exp === "number") {
 			const nowSeconds = Math.floor(Date.now() / 1000)
-			const timeRemaining = payload.exp - nowSeconds
+			const timeRemaining = exp - nowSeconds
 
 			if (timeRemaining >= GUEST_TOKEN_ROTATION_THRESHOLD_SECONDS) {
 				return token // Still far from expiry — no rotation needed
@@ -116,7 +137,7 @@ export async function rotateGuestToken(token: string): Promise<string> {
 		}
 
 		// Mint a fresh token with the same userId
-		return await mintGuestToken(payload.sub)
+		return await mintGuestToken(userId)
 	} catch {
 		return token
 	}

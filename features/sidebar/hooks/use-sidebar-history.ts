@@ -3,23 +3,23 @@
 import { useCallback } from "react"
 import useSWRInfinite from "swr/infinite"
 import { useSession } from "@/features/auth/components/session-provider"
-import type { Chat } from "@/lib/types/models.types"
+import type { ChatSummary } from "@/lib/types/entity.types"
 
 // ── Types ────────────────────────────────────────────────────
 
 /** Shape returned by GET /api/history */
 interface HistoryPage {
-	chats: Chat[]
+	chats: ChatSummary[]
 	hasMore: boolean
 	nextCursor?: string
 }
 
-type SidebarHistoryPatch = Partial<Pick<Chat, "title" | "visibility">>
+type SidebarHistoryPatch = Partial<Pick<ChatSummary, "title" | "visibility">>
 
 /** Return value of useSidebarHistory */
 export interface UseSidebarHistoryReturn {
 	/** Flat array of chats across all loaded pages */
-	chats: Chat[]
+	chats: ChatSummary[]
 	/** Whether more pages are available beyond what's loaded */
 	hasMore: boolean
 	/** Last pagination or revalidation error */
@@ -37,6 +37,10 @@ export interface UseSidebarHistoryReturn {
 // ── Constants ────────────────────────────────────────────────
 
 const PAGE_SIZE = 20
+
+/** Base path prefix for history SWR keys — shared with other components
+ *  that need to revalidate or clear the history cache (e.g. delete-all). */
+export const HISTORY_KEY_PREFIX = "/api/history"
 
 // ── Fetcher ──────────────────────────────────────────────────
 
@@ -77,9 +81,12 @@ interface UseSidebarHistoryOptions {
 	/** Server-provided initial data for page 0. When supplied, SWR uses it
 	 *  as `fallbackData` and skips the redundant first-page fetch. */
 	initialData?: {
-		chats: Chat[]
+		chats: ChatSummary[]
 		hasMore: boolean
 	}
+	/** Called when SWR successfully completes a revalidation. Useful for
+	 *  clearing optimistic state that is now reflected in server data. */
+	onSuccess?: () => void
 }
 
 /**
@@ -96,6 +103,14 @@ export function useSidebarHistory(options?: UseSidebarHistoryOptions): UseSideba
 
 	// Build fallbackData from server-provided initial chats so SWR
 	// doesn't re-fetch page 0 on mount.
+	/**
+	 * Build fallbackData for SWR page 0 from server-provided initial chats.
+	 *
+	 * The `nextCursor` is derived from the last chat's ID because the server
+	 * API uses the ID of the last returned item as the pagination cursor.
+	 * This matches the contract of `GET /api/history?cursor=<id>`, which
+	 * returns chats created before the chat with the given ID.
+	 */
 	const fallbackData = options?.initialData
 		? [
 				{
@@ -123,6 +138,7 @@ export function useSidebarHistory(options?: UseSidebarHistoryOptions): UseSideba
 			fallbackData,
 			// Skip mount revalidation when server data is available
 			revalidateOnMount: !fallbackData,
+			onSuccess: options?.onSuccess,
 		},
 	)
 

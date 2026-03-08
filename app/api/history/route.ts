@@ -1,12 +1,18 @@
 import { z } from "zod"
 
 import { getAppSession } from "@/lib/auth/session"
+import { rateLimitKeys } from "@/lib/cache/keys"
+import { checkRateLimitWithInfo } from "@/lib/cache/rate-limit"
 import { getChatsByUserId } from "@/lib/data/chat"
 import { AppError } from "@/lib/errors/app-error"
 
 const DEFAULT_LIMIT = 20
 const MIN_LIMIT = 1
 const MAX_LIMIT = 100
+
+/** Rate limit: 30 GET requests per minute per user. */
+const HISTORY_RATE_LIMIT = 30
+const HISTORY_RATE_WINDOW_SECONDS = 60
 
 const historyQuerySchema = z.object({
 	limit: z.preprocess((value) => {
@@ -35,6 +41,20 @@ export async function GET(request: Request) {
 	const session = await getAppSession()
 	if (!session?.user) {
 		return AppError.unauthorized("unauthorized:chat:auth_required").toResponse()
+	}
+
+	// Rate limit: 30 GET/min per user
+	const rateLimit = await checkRateLimitWithInfo(
+		rateLimitKeys.rateLimitHistory(session.user.id),
+		HISTORY_RATE_LIMIT,
+		HISTORY_RATE_WINDOW_SECONDS,
+	)
+	if (!rateLimit.allowed) {
+		return AppError.rateLimited(
+			"rate_limit:history:too_many_requests",
+			"Too many history requests. Please try again later.",
+			rateLimit.retryAfter,
+		).toResponse()
 	}
 
 	const url = new URL(request.url)

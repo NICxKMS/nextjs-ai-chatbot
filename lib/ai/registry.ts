@@ -51,6 +51,10 @@ function getProviderDefinition(providerId: ProviderId): ProviderDefinition {
 /**
  * Builds the AI provider registry with conditional provider inclusion.
  *
+ * Eagerly evaluated at module load — all consumers that import from this
+ * module are guaranteed the registry is initialized before any access.
+ * No side-effect imports or explicit initialization calls are needed.
+ *
  * - `google` — Always registered. Reads `GEMINI_API_KEY` env var.
  * - `openai` — Registered if `OPENAI_API_KEY` env var exists.
  * - `openrouter` — Registered if `OPENROUTER_API_KEY` env var exists.
@@ -89,13 +93,14 @@ export function getRequiredProviderEnvKey(providerId: ProviderId): string {
  * Used by `getAvailableModels()` to filter the model catalog to only include
  * models whose provider is actually usable.
  *
+ * Returns `Set<ProviderId>` for type-safe `.has()` checks against model metadata.
  * Cached at module level since env vars don't change at runtime.
  */
-let cachedAvailableProviderIds: Set<string> | null = null
+let cachedAvailableProviderIds: Set<ProviderId> | null = null
 
-export function getAvailableProviderIds(): Set<string> {
+export function getAvailableProviderIds(): Set<ProviderId> {
 	if (!cachedAvailableProviderIds) {
-		cachedAvailableProviderIds = new Set(
+		cachedAvailableProviderIds = new Set<ProviderId>(
 			PROVIDER_ENTRIES.filter(([providerId]) => isProviderConfigured(providerId)).map(
 				([providerId]) => providerId,
 			),

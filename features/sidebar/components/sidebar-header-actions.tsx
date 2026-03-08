@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useCallback, useState } from "react"
 import { toast } from "sonner"
+import { useSWRConfig } from "swr"
 import { PlusIcon, TrashIcon } from "@/components/icons"
 import {
 	AlertDialog,
@@ -19,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import { useSidebar } from "@/components/ui/sidebar-provider"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { deleteAllChats } from "@/features/chat/actions/delete-all-chats"
+import { HISTORY_KEY_PREFIX } from "@/features/sidebar/hooks/use-sidebar-history"
 import { usePendingChats } from "@/lib/providers/pending-chats-provider"
 
 // ── Props ──────────────────────────────────────────────────────
@@ -42,6 +44,7 @@ interface SidebarHeaderActionsProps {
 export function SidebarHeaderActions({ hasUser }: SidebarHeaderActionsProps) {
 	const router = useRouter()
 	const { setOpenMobile } = useSidebar()
+	const { mutate } = useSWRConfig()
 	const { entries: pendingEntries, remove: removePending } = usePendingChats()
 	const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false)
 
@@ -52,12 +55,14 @@ export function SidebarHeaderActions({ hasUser }: SidebarHeaderActionsProps) {
 			for (const entry of pendingEntries) {
 				removePending(entry.id)
 			}
+			// Clear SWR cache for all history pages so the sidebar reflects deletion
+			await mutate((key) => typeof key === "string" && key.includes(HISTORY_KEY_PREFIX))
 			router.push("/")
 			toast.success("All chats deleted")
 		} else {
 			toast.error(result.error.message)
 		}
-	}, [pendingEntries, removePending, router])
+	}, [mutate, pendingEntries, removePending, router])
 
 	return (
 		<>
@@ -78,6 +83,7 @@ export function SidebarHeaderActions({ hasUser }: SidebarHeaderActionsProps) {
 								<Button
 									aria-label="Delete all chats"
 									className="h-8 p-1 md:h-fit md:p-2"
+									data-testid="delete-all-chats-button"
 									onClick={() => setShowDeleteAllDialog(true)}
 									type="button"
 									variant="ghost"
@@ -97,7 +103,11 @@ export function SidebarHeaderActions({ hasUser }: SidebarHeaderActionsProps) {
 								className="relative h-8 p-1 after:absolute after:-inset-1.5 after:md:hidden md:h-fit md:p-2"
 								variant="ghost"
 							>
-								<Link href="/" onClick={() => setOpenMobile(false)}>
+								<Link
+									href="/"
+									data-testid="new-chat-button-sidebar"
+									onClick={() => setOpenMobile(false)}
+								>
 									<PlusIcon />
 								</Link>
 							</Button>

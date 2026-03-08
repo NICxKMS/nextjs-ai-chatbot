@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm"
 
 import { ping } from "@/lib/cache/client"
 import { db } from "@/lib/db/client"
+import { logger } from "@/lib/utils/logger"
 
 type HealthStatus = "healthy" | "degraded" | "unhealthy"
 
@@ -24,7 +25,7 @@ interface HealthResponse {
 const LATENCY_THRESHOLD_MS = 1000
 
 function logDependencyFailure(checkName: "database" | "cache", error: unknown) {
-	console.error(`[health] ${checkName} check failed`, error)
+	logger.error(`[health] ${checkName} check failed`, { error: String(error) })
 }
 
 function createLatencyResult(latency: number, highLatencyMessage: string): CheckResult {

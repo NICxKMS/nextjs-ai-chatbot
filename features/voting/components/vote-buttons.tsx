@@ -5,7 +5,7 @@ import { memo } from "react"
 import { MessageAction } from "@/components/ai-elements/message"
 import { ThumbDownIcon, ThumbUpIcon } from "@/components/icons"
 import { useSession } from "@/features/auth/components/session-provider"
-import type { Vote } from "@/lib/types/models.types"
+import type { Vote } from "@/lib/types/entity.types"
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -29,12 +29,13 @@ interface VoteButtonsProps {
  *
  * - Only rendered for assistant messages (`isAssistant` must be true)
  * - Hidden while streaming/loading
+ * - Hidden while session is still resolving (prevents flash)
  * - Hidden for guest users (guests cannot vote)
  * - Active vote shows a highlighted/filled icon with full opacity
  * - Already-voted button is disabled (no-op) with `aria-pressed` true
  */
 function PureVoteButtons({ messageId, isAssistant, isLoading, vote, onVote }: VoteButtonsProps) {
-	const { isGuest } = useSession()
+	const { isGuest, isLoading: isSessionLoading } = useSession()
 
 	// Only show for assistant messages
 	if (!isAssistant) return null
@@ -42,8 +43,8 @@ function PureVoteButtons({ messageId, isAssistant, isLoading, vote, onVote }: Vo
 	// Hide while loading/streaming
 	if (isLoading) return null
 
-	// Guest users cannot vote — hide buttons entirely
-	if (isGuest) return null
+	// Hide while session is resolving or for guest users (prevents flash)
+	if (isSessionLoading || isGuest) return null
 
 	const isUpvoted = vote?.isUpvoted === true
 	const isDownvoted = vote !== undefined && vote.isUpvoted === false

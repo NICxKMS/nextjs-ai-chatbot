@@ -2,10 +2,10 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 /** Staggered widths for message skeletons to create visual variety. */
 const MESSAGE_SKELETONS = [
-	{ role: "user" as const, widths: ["75%"] },
-	{ role: "assistant" as const, widths: ["90%", "60%", "45%"] },
-	{ role: "user" as const, widths: ["50%"] },
-	{ role: "assistant" as const, widths: ["85%", "70%"] },
+	{ id: "u1", role: "user" as const, widths: ["75%"] },
+	{ id: "a1", role: "assistant" as const, widths: ["90%", "60%", "45%"] },
+	{ id: "u2", role: "user" as const, widths: ["50%"] },
+	{ id: "a2", role: "assistant" as const, widths: ["85%", "70%"] },
 ] as const
 
 /**
@@ -31,9 +31,9 @@ export default function Loading() {
 
 			{/* Message list skeletons */}
 			<div className="flex flex-1 flex-col gap-6 overflow-hidden px-4 pt-4 md:mx-auto md:max-w-3xl md:px-0">
-				{MESSAGE_SKELETONS.map((msg, i) => (
+				{MESSAGE_SKELETONS.map((msg) => (
 					<div
-						key={`skeleton-${msg.role}-${i}`}
+						key={msg.id}
 						className={`flex flex-col gap-2 ${
 							msg.role === "user" ? "items-end" : "items-start"
 						}`}
@@ -41,9 +41,9 @@ export default function Loading() {
 						{msg.role === "assistant" && <Skeleton className="size-6 rounded-full" />}
 						{msg.widths.map((w) => (
 							<Skeleton
-								key={`${msg.role}-${i}-${w}`}
+								key={`${msg.id}-${w}`}
 								className="h-4 rounded-md"
-								style={{ width: w, animationDelay: `${i * 75}ms` }}
+								style={{ width: w }}
 							/>
 						))}
 					</div>

@@ -1,7 +1,6 @@
 "use client"
 
 import type { UIMessage } from "ai"
-import equal from "fast-deep-equal"
 import { ArrowDownIcon } from "lucide-react"
 import { memo, useState } from "react"
 
@@ -50,11 +49,18 @@ function PureMessageItem({ message, isLoading, isReadonly }: MessageItemProps) {
 	)
 }
 
+/** Shallow parts comparison: length + last-element identity check. */
+function arePartsEqual(prev: UIMessage["parts"], next: UIMessage["parts"]): boolean {
+	if (prev.length !== next.length) return false
+	if (prev.length === 0) return true
+	return prev[prev.length - 1] === next[next.length - 1]
+}
+
 const MessageItem = memo(PureMessageItem, (prev, next) => {
 	if (prev.isLoading || next.isLoading) return false
 	if (prev.isReadonly !== next.isReadonly) return false
 	if (prev.message.id !== next.message.id) return false
-	if (!equal(prev.message.parts, next.message.parts)) return false
+	if (!arePartsEqual(prev.message.parts, next.message.parts)) return false
 	return true
 })
 
@@ -85,8 +91,13 @@ function PureMessages() {
 
 	// ── Message list ─────────────────────────────────────────
 	return (
-		<div className="relative flex-1 overflow-hidden">
-			<div className="h-full overflow-y-auto" data-testid="messages-list" ref={containerRef}>
+		<section aria-label="Chat messages" className="relative flex-1 overflow-hidden">
+			<div
+				aria-live="polite"
+				className="h-full overflow-y-auto"
+				data-testid="messages-list"
+				ref={containerRef}
+			>
 				<div className="mx-auto flex min-w-0 max-w-4xl flex-col gap-4 py-4 md:gap-6">
 					{messages.map((message, index) => (
 						<MessageItem
@@ -116,6 +127,7 @@ function PureMessages() {
 				<Button
 					aria-label="Scroll to bottom"
 					className="-translate-x-1/2 absolute bottom-4 left-1/2 z-10 rounded-full shadow-lg after:absolute after:-inset-0.5 after:md:hidden"
+					data-testid="scroll-to-bottom"
 					onClick={scrollToBottom}
 					size="icon"
 					type="button"
@@ -124,7 +136,7 @@ function PureMessages() {
 					<ArrowDownIcon className="size-4" />
 				</Button>
 			)}
-		</div>
+		</section>
 	)
 }
 

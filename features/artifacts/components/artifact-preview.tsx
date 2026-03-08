@@ -21,8 +21,8 @@ import {
 	SheetEditor,
 	TextEditor,
 } from "@/features/artifacts/components/editors/lazy"
-import { useArtifact } from "@/features/artifacts/hooks/use-artifact"
 import { useArtifactSelector } from "@/features/artifacts/hooks/use-artifact-selector"
+import { artifactStore } from "@/features/artifacts/lib/artifact-store"
 import type { ArtifactKind, ArtifactStatus } from "@/features/artifacts/types/artifact.types"
 import { cn } from "@/lib/utils/cn"
 
@@ -137,13 +137,11 @@ const PureHitboxLayer = ({
 	title: string
 	kind: ArtifactKind
 }) => {
-	const { setArtifact } = useArtifact()
-
 	const handleClick = useCallback(
 		(event: React.MouseEvent<HTMLElement>) => {
 			const boundingBox = event.currentTarget.getBoundingClientRect()
 
-			setArtifact((prev) =>
+			artifactStore.setState((prev) =>
 				prev.status === "streaming"
 					? { ...prev, isVisible: true }
 					: {
@@ -161,7 +159,7 @@ const PureHitboxLayer = ({
 						},
 			)
 		},
-		[setArtifact, artifactId, title, kind],
+		[artifactId, title, kind],
 	)
 
 	return (
@@ -286,7 +284,6 @@ function PureArtifactPreview({ result, args }: ArtifactPreviewProps) {
 	const artifactKind = useArtifactSelector((s) => s.kind)
 
 	const hitboxRef = useRef<HTMLButtonElement>(null)
-	const { setArtifact } = useArtifact()
 
 	const artifactId = result?.id ?? args?.id
 	const kind = (result?.kind ?? args?.kind ?? "text") as ArtifactKind
@@ -305,7 +302,7 @@ function PureArtifactPreview({ result, args }: ArtifactPreviewProps) {
 	useEffect(() => {
 		const rect = hitboxRef.current?.getBoundingClientRect()
 		if (artifactId && rect) {
-			setArtifact((current) => {
+			artifactStore.setState((current) => {
 				const bb = current.boundingBox
 				if (
 					bb &&
@@ -327,7 +324,7 @@ function PureArtifactPreview({ result, args }: ArtifactPreviewProps) {
 				}
 			})
 		}
-	}, [artifactId, setArtifact])
+	}, [artifactId])
 
 	// If the artifact panel is already visible, show a compact result card
 	if (artifactIsVisible) {
@@ -407,8 +404,6 @@ function CompactToolResult({
 	kind: ArtifactKind
 	type: "call" | "result"
 }) {
-	const { setArtifact } = useArtifact()
-
 	const actionLabel = type === "result" ? "Created" : "Creating"
 	const icon = kind === "image" ? <ImageIcon /> : kind === "code" ? <CodeIcon /> : <FileIcon />
 
@@ -418,7 +413,7 @@ function CompactToolResult({
 			onClick={(event) => {
 				if (!artifactId) return
 				const rect = event.currentTarget.getBoundingClientRect()
-				setArtifact((prev) =>
+				artifactStore.setState((prev) =>
 					prev.status === "streaming"
 						? { ...prev, isVisible: true }
 						: {

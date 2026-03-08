@@ -29,31 +29,31 @@ import { useSidebarHistory } from "@/features/sidebar/hooks/use-sidebar-history"
 import type { SidebarHistoryGroup } from "@/features/sidebar/types/sidebar.types"
 import { updateChatVisibility } from "@/features/visibility/actions/update-visibility"
 import { usePendingChats } from "@/lib/providers/pending-chats-provider"
-import type { Chat, Visibility } from "@/lib/types/models.types"
+import type { ChatSummary, Visibility } from "@/lib/types/entity.types"
 import type { PendingChat } from "@/lib/types/pending-chats.types"
 
 // ── Props ──────────────────────────────────────────────────────
 
 interface SidebarHistoryClientProps {
-	initialChats: Chat[]
+	initialChats: ChatSummary[]
 	initialHasMore: boolean
 }
 
 // ── Date grouping ──────────────────────────────────────────────
 
-function groupChatsByDate(chats: Chat[]): SidebarHistoryGroup[] {
+function groupChatsByDate(chats: ChatSummary[]): SidebarHistoryGroup[] {
 	const now = new Date()
 	const sevenDaysAgo = subDays(now, 7)
 	const thirtyDaysAgo = subDays(now, 30)
 
-	const today: Chat[] = []
-	const yesterday: Chat[] = []
-	const lastWeek: Chat[] = []
-	const lastMonth: Chat[] = []
-	const older: Chat[] = []
+	const today: ChatSummary[] = []
+	const yesterday: ChatSummary[] = []
+	const lastWeek: ChatSummary[] = []
+	const lastMonth: ChatSummary[] = []
+	const older: ChatSummary[] = []
 
 	for (const chat of chats) {
-		const date = new Date(chat.createdAt)
+		const date = new Date(chat.updatedAt)
 		if (isToday(date)) {
 			today.push(chat)
 		} else if (isYesterday(date)) {
@@ -82,15 +82,13 @@ function groupChatsByDate(chats: Chat[]): SidebarHistoryGroup[] {
 // missing userId/updatedAt/model — provide safe defaults for fields
 // the item component never reads.
 
-function pendingToChat(pending: PendingChat): Chat {
+function pendingToChat(pending: PendingChat): ChatSummary {
 	return {
 		id: pending.id,
 		title: pending.title,
 		visibility: pending.visibility,
 		createdAt: pending.createdAt,
 		updatedAt: pending.createdAt,
-		userId: "",
-		model: null,
 	}
 }
 
@@ -117,6 +115,9 @@ export function SidebarHistoryClient({ initialChats, initialHasMore }: SidebarHi
 		retry,
 	} = useSidebarHistory({
 		initialData: { chats: initialChats, hasMore: initialHasMore },
+		onSuccess: () => {
+			setDeletedIds(new Set())
+		},
 	})
 
 	const [deleteId, setDeleteId] = useState<string | null>(null)

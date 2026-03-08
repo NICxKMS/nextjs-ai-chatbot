@@ -13,7 +13,7 @@ import { SidebarUserNav } from "@/features/sidebar/components/sidebar-user-nav"
 import { getAppSession } from "@/lib/auth/session"
 import { cacheKeys } from "@/lib/cache/keys"
 import { getChatsByUserId } from "@/lib/data/chat"
-import type { Chat } from "@/lib/types/models.types"
+import type { ChatSummary } from "@/lib/types/entity.types"
 
 // ── Cached data fetcher ────────────────────────────────────────
 
@@ -25,7 +25,7 @@ import type { Chat } from "@/lib/types/models.types"
  * per-user cache entries. `cacheTag` enables on-demand invalidation
  * when chats are created, renamed, or deleted.
  */
-async function getCachedChats(userId: string): Promise<{ chats: Chat[]; hasMore: boolean }> {
+async function getCachedChats(userId: string): Promise<{ chats: ChatSummary[]; hasMore: boolean }> {
 	"use cache"
 	cacheLife("seconds")
 	cacheTag(cacheKeys.chats(userId))
@@ -48,7 +48,7 @@ export async function SidebarShell() {
 	const session = await getAppSession()
 	const user = session?.user ?? null
 
-	let initialChats: Chat[] = []
+	let initialChats: ChatSummary[] = []
 	let initialHasMore = false
 
 	if (user) {
@@ -65,7 +65,12 @@ export async function SidebarShell() {
 				</SidebarMenu>
 			</SidebarHeader>
 			<SidebarContent>
-				<SidebarHistoryClient initialChats={initialChats} initialHasMore={initialHasMore} />
+				<nav aria-label="Chat history">
+					<SidebarHistoryClient
+						initialChats={initialChats}
+						initialHasMore={initialHasMore}
+					/>
+				</nav>
 			</SidebarContent>
 			<SidebarFooter>
 				<SidebarUserNav user={{ email: user?.email ?? null }} />

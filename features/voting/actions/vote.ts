@@ -5,7 +5,7 @@ import { getAppSession } from "@/lib/auth/session"
 import { rateLimitKeys } from "@/lib/cache/keys"
 import { checkRateLimit } from "@/lib/cache/rate-limit"
 import { invalidateVotes } from "@/lib/cache/revalidate"
-import { getChatById } from "@/lib/data/chat"
+import { getChatOwnerId } from "@/lib/data/chat"
 import { getMessageById } from "@/lib/data/message"
 import { upsertVote } from "@/lib/data/vote"
 import type { ActionResult } from "@/lib/types/result.types"
@@ -55,16 +55,20 @@ export async function voteOnMessage(
 
 	const { chatId, messageId, type } = parsed.data
 
-	// 4. Authorize — verify chat ownership
-	const chat = await getChatById(chatId)
-	if (!chat) {
+	// 4+5. Authorize — verify chat ownership + message existence (parallel)
+	const [chatOwnerId, message] = await Promise.all([
+		getChatOwnerId(chatId),
+		getMessageById(messageId),
+	])
+
+	if (!chatOwnerId) {
 		return {
 			success: false,
 			error: { code: "not_found:chat:chat_not_found", message: "Chat not found" },
 		}
 	}
 
-	if (chat.userId !== session.user.id) {
+	if (chatOwnerId !== session.user.id) {
 		return {
 			success: false,
 			error: {
@@ -74,8 +78,6 @@ export async function voteOnMessage(
 		}
 	}
 
-	// 5. Authorize — verify message belongs to this chat (IDOR protection)
-	const message = await getMessageById(messageId)
 	if (!message || message.chatId !== chatId) {
 		return {
 			success: false,

@@ -24,8 +24,10 @@ import { getMessagesForChatRender, saveMessages } from "@/lib/data/message"
 import { ensureGuestUser } from "@/lib/data/user"
 import { AppError } from "@/lib/errors/app-error"
 import type { ArtifactStreamWriter } from "@/lib/types/artifact-handler.types"
-import type { NewMessage } from "@/lib/types/models.types"
+import type { NewMessage } from "@/lib/types/entity.types"
+import type { ModelMetadata } from "@/lib/types/model.types"
 import { generateUUID } from "@/lib/utils/generate-uuid"
+import { logger } from "@/lib/utils/logger"
 
 const CHAT_RATE_LIMIT = 20
 const CHAT_RATE_WINDOW_SECONDS = 60
@@ -39,6 +41,7 @@ type ChatRouteContext = {
 	chatId: string
 	message: ChatRequest["message"]
 	selectedChatModel: string
+	modelMetadata: ModelMetadata
 	effectiveSettings: typeof DEFAULT_SETTINGS
 	allMessages: UIMessage[]
 	hasTools: boolean
@@ -51,11 +54,25 @@ function getRequestMessageText(message: ChatRequest["message"]): string {
 	return firstTextPart?.text ?? ""
 }
 
+// ── Centralized role/parts type conversion ───────────────────────────────────
+// DB role enum and UIMessage role are string-compatible but TS needs guidance.
+// These helpers provide a single validation point for the casts.
+
+const VALID_DB_ROLES = new Set<NewMessage["role"]>(["user", "assistant", "system"])
+
+/** Convert a UIMessage role to a DB role with validation. */
+function toDbRole(role: string): NewMessage["role"] {
+	if (!VALID_DB_ROLES.has(role as NewMessage["role"])) {
+		throw new Error(`Invalid role for DB persistence: "${role}"`)
+	}
+	return role as NewMessage["role"]
+}
+
 function toUserMessage(message: ChatRequest["message"]): UIMessage {
 	return {
 		id: message.id,
 		role: "user",
-		parts: message.parts as UIMessage["parts"],
+		parts: (Array.isArray(message.parts) ? message.parts : []) as UIMessage["parts"],
 	}
 }
 
@@ -73,7 +90,7 @@ function toAssistantDbMessages(chatId: string, messages: UIMessage[]): NewMessag
 	return messages.map((message) => ({
 		id: message.id,
 		chatId,
-		role: message.role as NewMessage["role"],
+		role: toDbRole(message.role),
 		parts: message.parts,
 		attachments: [],
 	}))
@@ -167,9 +184,13 @@ export async function resolveChatRouteContext({
 	const { id: chatId, message, selectedChatModel, selectedVisibilityType, settings } = requestData
 	const effectiveSettings = settings ?? DEFAULT_SETTINGS
 
-	const [availableModels, existingChat] = await Promise.all([
+	// Parallelize: model validation, chat ownership check, and messages fetch all start together.
+	// Messages are fetched speculatively — if the chat doesn't exist or the user doesn't own it,
+	// the messages result is simply discarded.
+	const [availableModels, existingChat, dbMessages] = await Promise.all([
 		getAvailableModels(),
 		getChatById(chatId),
+		getMessagesForChatRender(chatId),
 	])
 	const modelMetadata = availableModels.find((model) => model.id === selectedChatModel)
 	if (!modelMetadata) {
@@ -183,12 +204,13 @@ export async function resolveChatRouteContext({
 		return AppError.forbidden("forbidden:chat:owner_mismatch").toResponse()
 	}
 
-	const dbMessages = existingChat ? await getMessagesForChatRender(chatId) : []
 	const userDbMessage = toUserDbMessage(chatId, message)
 
 	const isNewChat = !existingChat
 	if (isNewChat) {
 		if (session.user.type === "guest") {
+			// Idempotent: INSERT ON CONFLICT DO NOTHING (~0.5ms) handles
+			// guests creating multiple chats without extra round-trips.
 			await ensureGuestUser(session.user.id)
 		}
 
@@ -204,10 +226,12 @@ export async function resolveChatRouteContext({
 		await saveMessages([userDbMessage])
 	}
 
+	// For new chats, dbMessages will be empty (no messages exist yet) which is correct.
 	return {
 		chatId,
 		message,
 		selectedChatModel,
+		modelMetadata,
 		effectiveSettings,
 		allMessages: [...convertToUIMessages(dbMessages), toUserMessage(message)],
 		hasTools: getEnabledTools(modelMetadata).length > 0,
@@ -333,14 +357,11 @@ export function logChatPersistenceFailure({
 	responseMessages: UIMessage[]
 	error: unknown
 }) {
-	console.error(
-		"[onFinish] Failed to persist chat data:",
-		JSON.stringify({
-			chatId,
-			userId,
-			isNewChat,
-			messageCount: responseMessages.length,
-			error: error instanceof Error ? error.message : String(error),
-		}),
-	)
+	logger.error("[onFinish] Failed to persist chat data", {
+		chatId,
+		userId,
+		isNewChat,
+		messageCount: responseMessages.length,
+		error: error instanceof Error ? error.message : String(error),
+	})
 }

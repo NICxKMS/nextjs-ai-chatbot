@@ -2,7 +2,7 @@
 
 import type { EditorState, Transaction } from "@codemirror/state"
 import type { EditorView } from "@codemirror/view"
-import { memo, useCallback, useEffect, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { CrossSmallIcon, LoaderIcon, PlayIcon, TerminalWindowIcon } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import type { ArtifactStatus, EditorSaveCallback } from "@/features/artifacts/types/artifact.types"
@@ -182,21 +182,27 @@ function Console({ outputs, onClear }: { outputs: ConsoleOutput[]; onClear: () =
 	const [isResizing, setIsResizing] = useState(false)
 	const consoleEndRef = useRef<HTMLDivElement>(null)
 
+	const rafIdRef = useRef(0)
+
 	const startResizing = useCallback(() => {
 		setIsResizing(true)
 	}, [])
 
 	const stopResizing = useCallback(() => {
 		setIsResizing(false)
+		cancelAnimationFrame(rafIdRef.current)
 	}, [])
 
 	const resize = useCallback(
 		(e: MouseEvent) => {
 			if (isResizing) {
-				const newHeight = window.innerHeight - e.clientY
-				if (newHeight >= CONSOLE_MIN_HEIGHT && newHeight <= CONSOLE_MAX_HEIGHT) {
-					setHeight(newHeight)
-				}
+				cancelAnimationFrame(rafIdRef.current)
+				rafIdRef.current = requestAnimationFrame(() => {
+					const newHeight = window.innerHeight - e.clientY
+					if (newHeight >= CONSOLE_MIN_HEIGHT && newHeight <= CONSOLE_MAX_HEIGHT) {
+						setHeight(newHeight)
+					}
+				})
 			}
 		},
 		[isResizing],
@@ -208,6 +214,7 @@ function Console({ outputs, onClear }: { outputs: ConsoleOutput[]; onClear: () =
 		return () => {
 			window.removeEventListener("mousemove", resize)
 			window.removeEventListener("mouseup", stopResizing)
+			cancelAnimationFrame(rafIdRef.current)
 		}
 	}, [resize, stopResizing])
 
@@ -337,6 +344,13 @@ function PureCodeEditor({ content, onSaveContent, status, isCurrentVersion }: Co
 	const [consoleOutputs, setConsoleOutputs] = useState<ConsoleOutput[]>([])
 	const [isRunning, setIsRunning] = useState(false)
 
+	// Stable ref for onSaveContent — prevents full CodeMirror state rebuild
+	// (which destroys undo history) when the callback reference changes.
+	const onSaveContentRef = useRef(onSaveContent)
+	useLayoutEffect(() => {
+		onSaveContentRef.current = onSaveContent
+	})
+
 	// Load CodeMirror modules on mount
 	useEffect(() => {
 		loadCodeMirrorModules().then(setModules)
@@ -374,7 +388,9 @@ function PureCodeEditor({ content, onSaveContent, status, isCurrentVersion }: Co
 		}
 	}, [modules])
 
-	// Reconfigure update listener when onSaveContent changes
+	// Reconfigure editor extensions when version changes — uses ref for
+	// onSaveContent so the listener always calls the latest callback without
+	// triggering a full CodeMirror state rebuild (which destroys undo history).
 	useEffect(() => {
 		if (!modules || !editorRef.current) return
 
@@ -400,7 +416,7 @@ function PureCodeEditor({ content, onSaveContent, status, isCurrentVersion }: Co
 					)
 					if (userTransaction) {
 						const newContent = update.state.doc.toString()
-						onSaveContent(newContent, { debounce: true })
+						onSaveContentRef.current(newContent, { debounce: true })
 					}
 				}
 			})
@@ -416,7 +432,7 @@ function PureCodeEditor({ content, onSaveContent, status, isCurrentVersion }: Co
 		})
 
 		editorRef.current.setState(newState)
-	}, [modules, onSaveContent, isCurrentVersion])
+	}, [modules, isCurrentVersion])
 
 	// Sync streaming content via EditorView.dispatch
 	useEffect(() => {

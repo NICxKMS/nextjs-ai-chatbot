@@ -7,7 +7,7 @@ import { saveSuggestions } from "@/lib/data/suggestion"
 import { AppError } from "@/lib/errors/app-error"
 import type { ArtifactSuggestion } from "@/lib/types/artifact.types"
 import type { ArtifactStreamWriter } from "@/lib/types/artifact-handler.types"
-import type { NewSuggestion } from "@/lib/types/models.types"
+import type { NewSuggestion } from "@/lib/types/entity.types"
 import { generateUUID } from "@/lib/utils/generate-uuid"
 
 // ── Types ────────────────────────────────────────────────────

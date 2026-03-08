@@ -4,6 +4,11 @@ import { AuthForm } from "@/features/auth/components/auth-form"
 
 export const metadata: Metadata = {
 	title: "Sign In",
+	description: "Sign in to your AI assistant account.",
+	openGraph: {
+		title: "Sign In",
+		description: "Sign in to your AI assistant account.",
+	},
 }
 
 export default function LoginPage() {

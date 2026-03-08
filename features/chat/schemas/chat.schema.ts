@@ -41,29 +41,6 @@ export const chatRequestSchema = z.object({
 
 export type ChatRequest = z.infer<typeof chatRequestSchema>
 
-// ── Message schema ──────────────────────────────────────────
-// Validates a single message input (general-purpose).
-
-export const messageSchema = z.object({
-	id: z.string().uuid(),
-	role: z.enum(["user", "assistant", "system"]),
-	parts: z.array(partSchema),
-})
-
-export type MessageInput = z.infer<typeof messageSchema>
-
-// ── Edit message schema ─────────────────────────────────────
-// Validates input for editing an existing message's content.
-// Used by the editMessage action to replace message text and re-submit.
-
-export const editMessageSchema = z.object({
-	chatId: z.string().uuid(),
-	messageId: z.string().uuid(),
-	content: z.string().min(1).max(10_000),
-})
-
-export type EditMessageInput = z.infer<typeof editMessageSchema>
-
 // ── Delete messages schema ──────────────────────────────────
 // Validates input for deleting trailing messages.
 // Deletes the target message and all messages after it in the conversation.

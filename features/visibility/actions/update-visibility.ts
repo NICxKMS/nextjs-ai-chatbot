@@ -3,7 +3,7 @@
 import { updateVisibilitySchema } from "@/features/visibility/types/visibility.types"
 import { getAppSession } from "@/lib/auth/session"
 import { invalidateChat, invalidateChatList } from "@/lib/cache/revalidate"
-import { getChatById, updateChatVisibility as updateVisibilityInDb } from "@/lib/data/chat"
+import { getChatOwnerId, updateChatVisibility as updateVisibilityInDb } from "@/lib/data/chat"
 import type { ActionResult } from "@/lib/types/result.types"
 
 /**
@@ -39,15 +39,15 @@ export async function updateChatVisibility(input: unknown): Promise<ActionResult
 	const { chatId, visibility } = parsed.data
 
 	// 3. Authorize — verify chat ownership
-	const chat = await getChatById(chatId)
-	if (!chat) {
+	const ownerId = await getChatOwnerId(chatId)
+	if (!ownerId) {
 		return {
 			success: false,
 			error: { code: "not_found:chat:chat_not_found", message: "Chat not found" },
 		}
 	}
 
-	if (chat.userId !== session.user.id) {
+	if (ownerId !== session.user.id) {
 		return {
 			success: false,
 			error: {

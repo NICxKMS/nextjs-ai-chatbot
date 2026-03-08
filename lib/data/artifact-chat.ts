@@ -1,3 +1,5 @@
+import "server-only"
+
 import { and, desc, eq } from "drizzle-orm"
 
 import { throwDatabaseError } from "@/lib/data/database-error"

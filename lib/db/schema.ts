@@ -44,7 +44,6 @@ export const chats = pgTable(
 		model: text("model"),
 	},
 	(t) => ({
-		userCreatedIdx: index("chat_user_created_idx").on(t.userId, t.createdAt),
 		userUpdatedIdx: index("chat_user_updated_idx").on(
 			t.userId,
 			t.updatedAt.desc(),
@@ -69,11 +68,6 @@ export const messages = pgTable(
 	},
 	(t) => ({
 		chatCreatedIdx: index("message_chat_created_idx").on(t.chatId, t.createdAt),
-		chatCreatedRoleIdx: index("message_chat_created_role_idx").on(
-			t.chatId,
-			t.createdAt,
-			t.role,
-		),
 	}),
 )
 
@@ -147,7 +141,7 @@ export const suggestions = pgTable(
 		artifactRef: foreignKey({
 			columns: [t.artifactId, t.artifactCreatedAt],
 			foreignColumns: [artifacts.id, artifacts.createdAt],
-		}),
+		}).onDelete("cascade"),
 		artifactIdx: index("suggestion_artifact_idx").on(t.artifactId),
 	}),
 )

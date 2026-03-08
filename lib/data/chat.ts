@@ -1,15 +1,14 @@
-import { and, asc, desc, eq, lt, or } from "drizzle-orm"
+import "server-only"
+
+import { and, desc, eq, lt, or } from "drizzle-orm"
 
 import { requireDatabaseRow, throwDatabaseError } from "@/lib/data/database-error"
 import { db } from "@/lib/db/client"
-import { chats, messages } from "@/lib/db/schema"
+import { artifacts, chats, messages, suggestions } from "@/lib/db/schema"
 import type { HistoryResponse, PaginationParams } from "@/lib/types/api.types"
-import type { Chat, Message, NewMessage, Visibility } from "@/lib/types/models.types"
+import type { Chat, ChatSummary, NewMessage, Visibility } from "@/lib/types/entity.types"
 
 const DEFAULT_PAGE_SIZE = 20
-
-/** Safety cap for message queries — prevents unbounded result sets. */
-const DEFAULT_MESSAGE_LIMIT = 500
 
 /**
  * Get a chat by its ID.
@@ -33,7 +32,7 @@ export async function getChatById(chatId: string): Promise<Chat | null> {
 export async function getChatsByUserId(
 	userId: string,
 	params?: PaginationParams,
-): Promise<HistoryResponse<Chat>> {
+): Promise<HistoryResponse<ChatSummary>> {
 	const limit = params?.limit ?? DEFAULT_PAGE_SIZE
 	const cursor = params?.cursor
 
@@ -61,7 +60,13 @@ export async function getChatsByUserId(
 				: undefined
 
 		const results = await db
-			.select()
+			.select({
+				id: chats.id,
+				title: chats.title,
+				createdAt: chats.createdAt,
+				updatedAt: chats.updatedAt,
+				visibility: chats.visibility,
+			})
 			.from(chats)
 			.where(and(eq(chats.userId, userId), cursorCondition))
 			.orderBy(desc(chats.updatedAt), desc(chats.id))
@@ -83,31 +88,20 @@ export async function getChatsByUserId(
 }
 
 /**
- * Co-fetch a chat and its messages in parallel.
- * Messages are ordered by createdAt ASC.
- *
- * @unused Chat page fetches chat and messages separately
- * with individual cache tags. Retained as a convenience for non-cached contexts.
+ * Get the owner userId of a chat by its ID.
+ * Lightweight query — selects only userId. Not cached (used for authorization).
  */
-export async function getChatWithMessages(
-	chatId: string,
-): Promise<{ chat: Chat; messages: Message[] } | null> {
+export async function getChatOwnerId(chatId: string): Promise<string | null> {
 	try {
-		const [chatResult, chatMessages] = await Promise.all([
-			db.query.chats.findFirst({ where: eq(chats.id, chatId) }),
-			db
-				.select()
-				.from(messages)
-				.where(eq(messages.chatId, chatId))
-				.orderBy(asc(messages.createdAt))
-				.limit(DEFAULT_MESSAGE_LIMIT),
-		])
+		const result = await db
+			.select({ userId: chats.userId })
+			.from(chats)
+			.where(eq(chats.id, chatId))
+			.limit(1)
 
-		if (!chatResult) return null
-
-		return { chat: chatResult, messages: chatMessages }
+		return result[0]?.userId ?? null
 	} catch (error) {
-		throwDatabaseError(error, "Failed to get chat with messages", { chatId })
+		throwDatabaseError(error, "Failed to get chat owner", { chatId })
 	}
 }
 
@@ -260,23 +254,40 @@ export async function deleteAllChats(userId: string): Promise<void> {
 }
 
 /**
- * Transfer all chats from one user to another.
+ * Transfer all guest-owned data from one user to another atomically.
  *
  * Used during guest-to-authenticated user migration: reassigns
- * ownership of all chats created under the guest user ID to the
- * newly authenticated user. Returns the number of transferred chats.
+ * ownership of chats, artifacts, and suggestions created under the
+ * guest user ID to the newly authenticated user. All updates happen
+ * within a single transaction to prevent orphaned data.
+ *
+ * Returns the number of transferred chats.
  *
  * **Best-effort** — callers should catch errors and not fail auth flows.
  */
 export async function transferGuestChats(fromUserId: string, toUserId: string): Promise<number> {
 	try {
-		const result = await db
-			.update(chats)
-			.set({ userId: toUserId, updatedAt: new Date() })
-			.where(eq(chats.userId, fromUserId))
-			.returning({ id: chats.id })
+		return await db.transaction(async (tx) => {
+			const updatedAt = new Date()
 
-		return result.length
+			const transferredChats = await tx
+				.update(chats)
+				.set({ userId: toUserId, updatedAt })
+				.where(eq(chats.userId, fromUserId))
+				.returning({ id: chats.id })
+
+			await tx
+				.update(artifacts)
+				.set({ userId: toUserId, updatedAt })
+				.where(eq(artifacts.userId, fromUserId))
+
+			await tx
+				.update(suggestions)
+				.set({ userId: toUserId })
+				.where(eq(suggestions.userId, fromUserId))
+
+			return transferredChats.length
+		})
 	} catch (error) {
 		throwDatabaseError(error, "Failed to transfer guest chats", {
 			fromUserId,

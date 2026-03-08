@@ -1,24 +1,35 @@
-import { and, asc, eq, gte } from "drizzle-orm"
+import "server-only"
+
+import { and, desc, eq, gte } from "drizzle-orm"
 
 import { throwDatabaseError } from "@/lib/data/database-error"
 import { db } from "@/lib/db/client"
 import { messages } from "@/lib/db/schema"
-import type { Message, NewMessage } from "@/lib/types/models.types"
+import type { Message, NewMessage } from "@/lib/types/entity.types"
 
 type ChatRenderMessage = Pick<Message, "id" | "role" | "parts">
 
-/** Safety cap for message queries — prevents unbounded result sets. */
+/**
+ * Safety cap for message queries — prevents unbounded result sets.
+ * The chat route handler uses this default for AI context (needs full history).
+ * Pages that only need recent messages should pass a lower explicit limit.
+ */
 const DEFAULT_MESSAGE_LIMIT = 500
 
 /**
- * Get the reduced message shape used to render chat history.
+ * Get the most recent messages for rendering chat history.
+ *
+ * Fetches the last `limit` messages by selecting in reverse chronological
+ * order, then reverses the result to chronological (oldest-first) for display.
+ * This ensures that when a chat exceeds the limit, the most recent messages
+ * are preserved rather than the oldest.
  */
 export async function getMessagesForChatRender(
 	chatId: string,
 	limit = DEFAULT_MESSAGE_LIMIT,
 ): Promise<ChatRenderMessage[]> {
 	try {
-		return await db
+		const rows = await db
 			.select({
 				id: messages.id,
 				role: messages.role,
@@ -26,29 +37,13 @@ export async function getMessagesForChatRender(
 			})
 			.from(messages)
 			.where(eq(messages.chatId, chatId))
-			.orderBy(asc(messages.createdAt))
+			.orderBy(desc(messages.createdAt))
 			.limit(limit)
+
+		// Reverse to chronological order (oldest-first) for display
+		return rows.reverse()
 	} catch (error) {
 		throwDatabaseError(error, "Failed to get messages for chat render", { chatId })
-	}
-}
-
-/**
- * Get all messages for a chat, ordered by createdAt ascending.
- */
-export async function getMessagesByChatId(
-	chatId: string,
-	limit = DEFAULT_MESSAGE_LIMIT,
-): Promise<Message[]> {
-	try {
-		return await db
-			.select()
-			.from(messages)
-			.where(eq(messages.chatId, chatId))
-			.orderBy(asc(messages.createdAt))
-			.limit(limit)
-	} catch (error) {
-		throwDatabaseError(error, "Failed to get messages for chat", { chatId })
 	}
 }
 
@@ -78,46 +73,38 @@ export async function saveMessages(newMessages: NewMessage[]): Promise<Message[]
 
 /**
  * Delete a message and all messages after it (by createdAt) within the same chat.
- * First looks up the target message's createdAt, then deletes all messages
- * in the chat with createdAt >= that timestamp.
+ * Uses a transaction to atomically look up the target timestamp and delete,
+ * preventing race conditions with concurrent message inserts.
+ *
+ * NOTE: Uses createdAt >= for deletion. If two messages share the exact same
+ * timestamp, both will be deleted. Acceptable for branch-from-message but
+ * worth noting as a known limitation.
  */
 export async function deleteMessagesByIdAfter(chatId: string, messageId: string): Promise<void> {
 	try {
-		const target = await db
-			.select({ createdAt: messages.createdAt })
-			.from(messages)
-			.where(and(eq(messages.id, messageId), eq(messages.chatId, chatId)))
-			.limit(1)
+		await db.transaction(async (tx) => {
+			const target = await tx
+				.select({ createdAt: messages.createdAt })
+				.from(messages)
+				.where(and(eq(messages.id, messageId), eq(messages.chatId, chatId)))
+				.limit(1)
 
-		const targetMessage = target[0]
-		if (!targetMessage) return
+			const targetMessage = target[0]
+			if (!targetMessage) return
 
-		// NOTE: Uses createdAt >= for deletion. If two messages share the exact same
-		// timestamp, both will be deleted. Acceptable for branch-from-message but
-		// worth noting as a known limitation.
-		await db
-			.delete(messages)
-			.where(
-				and(eq(messages.chatId, chatId), gte(messages.createdAt, targetMessage.createdAt)),
-			)
+			await tx
+				.delete(messages)
+				.where(
+					and(
+						eq(messages.chatId, chatId),
+						gte(messages.createdAt, targetMessage.createdAt),
+					),
+				)
+		})
 	} catch (error) {
 		throwDatabaseError(error, "Failed to delete messages after target", {
 			chatId,
 			messageId,
 		})
-	}
-}
-
-/**
- * Delete all messages for a chat.
- *
- * @unused FK cascade on `chats.id → messages.chatId` handles
- * cleanup during chat deletion. Retained for explicit bulk-delete scenarios.
- */
-export async function deleteMessagesByChatId(chatId: string): Promise<void> {
-	try {
-		await db.delete(messages).where(eq(messages.chatId, chatId))
-	} catch (error) {
-		throwDatabaseError(error, "Failed to delete messages for chat", { chatId })
 	}
 }

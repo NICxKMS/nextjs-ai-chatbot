@@ -1,4 +1,4 @@
-import type { Artifact } from "@/lib/types/models.types"
+import type { Artifact } from "@/lib/types/entity.types"
 
 // ── Types ────────────────────────────────────────────────────
 

@@ -4,10 +4,16 @@ import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, type FileUIPart, type LanguageModelUsage, type UIMessage } from "ai"
 import { useCallback, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
+import { artifactStore } from "@/features/artifacts/lib/artifact-store"
 import { deleteTrailingMessages } from "@/features/chat/actions/delete-trailing-messages"
-import { useChatStreamDispatch } from "@/features/chat/components/chat-stream-provider"
+import {
+	collapseReplaceDeltas,
+	DEFAULT_ARTIFACT,
+	processStreamDelta,
+} from "@/features/chat/lib/process-stream-deltas"
 import type { ChatSessionValue, DataPart, VisibilityType } from "@/features/chat/types/chat.types"
-import { useSettingsSelector } from "@/features/settings/hooks/use-settings"
+import { settingsStore } from "@/features/settings/hooks/use-settings"
+import type { UIArtifact } from "@/lib/types/artifact.types"
 import type { ModelMetadata } from "@/lib/types/model.types"
 import { generateUUID } from "@/lib/utils/generate-uuid"
 
@@ -62,14 +68,24 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 	const [usage, setUsage] = useState<LanguageModelUsage | undefined>(undefined)
 
 	// ── External hooks ───────────────────────────────────────
-	// Single selector returning the store snapshot directly. Stable reference
-	// (Object.is) — only triggers re-render when setState assigns a new object.
-	const settings = useSettingsSelector((s) => s)
-	const { setChatStream } = useChatStreamDispatch()
+
+	// ── Artifact delta processing (moved from StreamBridge) ──
+	// Deltas are collected per-microtask, collapsed (REPLACE optimization),
+	// then flushed to artifactStore in a single batch emission.
+	const artifactRef = useRef<UIArtifact>(DEFAULT_ARTIFACT)
+	const pendingDeltasRef = useRef<DataPart[]>([])
+	const flushScheduledRef = useRef(false)
+	const chatIdRef = useRef(id)
+
+	// Reset artifact accumulator on chat ID change
+	if (chatIdRef.current !== id) {
+		chatIdRef.current = id
+		artifactRef.current = DEFAULT_ARTIFACT
+		pendingDeltasRef.current = []
+		flushScheduledRef.current = false
+	}
 
 	// ── Refs for stale-closure safety in transport + callbacks ─
-	const settingsRef = useRef(settings)
-	settingsRef.current = settings
 	const chatModelRef = useRef(chatModel)
 	chatModelRef.current = chatModel
 	const visibilityRef = useRef(visibility)
@@ -95,7 +111,7 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 							message: request.messages.at(-1),
 							selectedChatModel: chatModelRef.current,
 							selectedVisibilityType: visibilityRef.current,
-							settings: settingsRef.current,
+							settings: settingsStore.getSnapshot(),
 							...request.body,
 						},
 					}
@@ -130,7 +146,32 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 					typeof content === "string" ||
 					(typeof content === "object" && content !== null)
 				) {
-					setChatStream([{ type: sdkType.slice(5), content } as DataPart])
+					const delta = { type: sdkType.slice(5), content } as DataPart
+
+					// Collect deltas and schedule a microtask flush.
+					// Multiple onData calls within the same microtask (e.g., from a single
+					// SSE chunk) are coalesced into one artifactStore batch emission.
+					pendingDeltasRef.current.push(delta)
+					if (!flushScheduledRef.current) {
+						flushScheduledRef.current = true
+						queueMicrotask(() => {
+							const raw = pendingDeltasRef.current
+							pendingDeltasRef.current = []
+							flushScheduledRef.current = false
+
+							// Collapse REPLACE-semantic deltas: only keep the last per kind
+							const deltas = collapseReplaceDeltas(raw)
+
+							// Process all deltas and emit a single store notification
+							artifactStore.batchUpdate(() => {
+								for (const d of deltas) {
+									const next = processStreamDelta(d, artifactRef.current)
+									artifactRef.current = next
+									artifactStore.setState(() => next)
+								}
+							})
+						})
+					}
 				}
 			}
 			if (sdkType === "data-chat-title" && typeof dataPart.data === "string") {
@@ -148,7 +189,8 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 			}
 		},
 		onFinish() {
-			setChatStream(() => [])
+			// Stream complete — no cleanup needed. Artifact state persists
+			// in artifactStore until the next chat or explicit reset.
 		},
 		onError(err: Error) {
 			toast.error(err.message || "An error occurred while generating a response.")
@@ -217,24 +259,43 @@ export function useChatSession(params: UseChatSessionParams): ChatSessionValue {
 	)
 
 	// ── Compose ChatSessionValue ─────────────────────────────
-	return {
-		chatId: id,
-		chatModel,
-		setChatModel,
-		isReadonly,
-		messages,
-		status,
-		input,
-		setInput,
-		sendMessage,
-		stop,
-		appendMessage,
-		editMessage,
-		error,
-		clearError,
-		visibility,
-		setVisibility,
-		availableModels,
-		usage,
-	}
+	return useMemo<ChatSessionValue>(
+		() => ({
+			chatId: id,
+			chatModel,
+			setChatModel,
+			isReadonly,
+			messages,
+			status,
+			input,
+			setInput,
+			sendMessage,
+			stop,
+			appendMessage,
+			editMessage,
+			error,
+			clearError,
+			visibility,
+			setVisibility,
+			availableModels,
+			usage,
+		}),
+		[
+			id,
+			chatModel,
+			isReadonly,
+			messages,
+			status,
+			input,
+			sendMessage,
+			stop,
+			appendMessage,
+			editMessage,
+			error,
+			clearError,
+			visibility,
+			availableModels,
+			usage,
+		],
+	)
 }

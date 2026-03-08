@@ -11,8 +11,9 @@ import { createSupabaseActionClient } from "@/features/auth/lib/supabase-action"
 import { loginSchema } from "@/features/auth/schemas/auth.schema"
 import type { AuthActionData } from "@/features/auth/types/auth.types"
 import { rateLimitKeys } from "@/lib/cache/keys"
-import { createUser, getUserById } from "@/lib/data/user"
+import { createUser, getUserById, updateUserLastLogin } from "@/lib/data/user"
 import type { ActionResult } from "@/lib/types/result.types"
+import { logger } from "@/lib/utils/logger"
 
 /** Maximum login attempts per IP per minute. */
 const LOGIN_RATE_LIMIT = 5
@@ -83,7 +84,7 @@ export async function login(
 		}
 	}
 
-	// 5. Reconcile partial registration failure (D012)
+	// 5. Reconcile partial registration failure (D012) + track last login
 	// If Supabase signUp succeeded but createUser failed during registration,
 	// the user exists in Supabase but has no local DB record. Fix it here.
 	if (data.user) {
@@ -98,13 +99,20 @@ export async function login(
 		} catch (reconciliationError) {
 			// Best-effort: don't block login if DB reconciliation fails.
 			// The user is authenticated via Supabase regardless.
-			console.error("[login] D012 reconciliation failed:", reconciliationError)
+			logger.error("[login] D012 reconciliation failed", {
+				error: String(reconciliationError),
+			})
 		}
+
+		// Track last login (fire-and-forget — non-critical, don't block response)
+		updateUserLastLogin(data.user.id).catch((e) =>
+			logger.error("[login] Failed to update last login", { error: String(e) }),
+		)
 	}
 
-	// 6. Migrate guest data + clear stale guest token
+	// 7. Migrate guest data + clear stale guest token
 	await migrateGuestChatsAndClearToken(data.user?.id, "login")
 
-	// 7. Redirect to home (throws NEXT_REDIRECT — must be outside try/catch)
+	// 8. Redirect to home (throws NEXT_REDIRECT — must be outside try/catch)
 	redirect("/")
 }

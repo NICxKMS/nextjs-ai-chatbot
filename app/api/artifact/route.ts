@@ -5,6 +5,8 @@ import {
 	type SaveArtifactInput,
 } from "@/features/artifacts/schemas/artifact.schema"
 import { getAppSession } from "@/lib/auth/session"
+import { rateLimitKeys } from "@/lib/cache/keys"
+import { checkRateLimitWithInfo } from "@/lib/cache/rate-limit"
 import {
 	deleteArtifactVersion,
 	getArtifactById,
@@ -14,12 +16,35 @@ import {
 import { AppError } from "@/lib/errors/app-error"
 import { validateOrigin } from "@/lib/utils/validate-origin"
 
+export const maxDuration = 10
+
+// ── Rate limit constants ────────────────────────────────────
+
+const ARTIFACT_GET_RATE_LIMIT = 60
+const ARTIFACT_GET_RATE_WINDOW_SECONDS = 60
+const ARTIFACT_POST_RATE_LIMIT = 30
+const ARTIFACT_POST_RATE_WINDOW_SECONDS = 60
+
 // ── GET /api/artifact?id= — Fetch all versions ─────────────
 
 export async function GET(request: Request) {
 	const session = await getAppSession()
 	if (!session?.user) {
 		return AppError.unauthorized("unauthorized:chat:auth_required").toResponse()
+	}
+
+	// Rate limit: 60 GET requests per minute per user
+	const rateLimit = await checkRateLimitWithInfo(
+		rateLimitKeys.rateLimitArtifact(session.user.id),
+		ARTIFACT_GET_RATE_LIMIT,
+		ARTIFACT_GET_RATE_WINDOW_SECONDS,
+	)
+	if (!rateLimit.allowed) {
+		return AppError.rateLimited(
+			"rate_limit:artifact:too_many_requests",
+			"Too many artifact requests. Please try again later.",
+			rateLimit.retryAfter,
+		).toResponse()
 	}
 
 	const url = new URL(request.url)
@@ -101,6 +126,20 @@ export async function POST(request: Request) {
 		return AppError.unauthorized("unauthorized:chat:auth_required").toResponse()
 	}
 
+	// Rate limit: 30 POST requests per minute per user
+	const rateLimit = await checkRateLimitWithInfo(
+		rateLimitKeys.rateLimitArtifact(session.user.id),
+		ARTIFACT_POST_RATE_LIMIT,
+		ARTIFACT_POST_RATE_WINDOW_SECONDS,
+	)
+	if (!rateLimit.allowed) {
+		return AppError.rateLimited(
+			"rate_limit:artifact:too_many_requests",
+			"Too many artifact requests. Please try again later.",
+			rateLimit.retryAfter,
+		).toResponse()
+	}
+
 	let body: unknown
 	try {
 		body = await request.json()
@@ -172,10 +211,9 @@ async function handleRestore(data: RestoreArtifactInput, userId: string): Promis
 		throw AppError.forbidden("forbidden:chat:owner_mismatch", "Access denied")
 	}
 
-	// Delete all versions strictly AFTER the restore point
+	// Delete all versions strictly AFTER the restore point (gt, not gte)
 	const restorePoint = new Date(data.timestamp)
-	const afterRestore = new Date(restorePoint.getTime() + 1)
-	await deleteArtifactVersion(data.id, afterRestore)
+	await deleteArtifactVersion(data.id, restorePoint)
 
 	return Response.json(
 		{ success: true },

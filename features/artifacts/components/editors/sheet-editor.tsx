@@ -2,7 +2,7 @@
 
 import { useTheme } from "next-themes"
 import { parse, unparse } from "papaparse"
-import { memo, useEffect, useMemo, useState } from "react"
+import { memo, useEffect, useMemo, useRef, useState } from "react"
 import { type CellMouseArgs, DataGrid, renderTextEditor } from "react-data-grid"
 
 import "react-data-grid/lib/styles.css"
@@ -14,6 +14,9 @@ import { cn } from "@/lib/utils/cn"
 
 const MIN_ROWS = 50
 const MIN_COLS = 26
+
+/** Local debounce for cell edits — batches rapid changes before forwarding to save handler. */
+const CELL_CHANGE_DEBOUNCE_MS = 300
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -107,6 +110,12 @@ function PureSheetEditor({ content, onSaveContent, isCurrentVersion }: SheetEdit
 	const { resolvedTheme } = useTheme()
 	const [mounted, setMounted] = useState(false)
 
+	// Stable ref for onSaveContent — prevents stale closure in debounced callback
+	const onSaveContentRef = useRef(onSaveContent)
+	onSaveContentRef.current = onSaveContent
+
+	const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
 	useEffect(() => {
 		setMounted(true)
 	}, [])
@@ -129,11 +138,21 @@ function PureSheetEditor({ content, onSaveContent, isCurrentVersion }: SheetEdit
 	const handleRowsChange = (newRows: RowData[]) => {
 		setLocalRows(newRows)
 
-		const updatedData = newRows.map((row) => dataColumns.map((col) => row[col.key] || ""))
-
-		const csv = unparse(updatedData)
-		onSaveContent(csv, { debounce: false })
+		// Debounce to batch rapid cell edits instead of firing per-keystroke
+		if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+		saveTimerRef.current = setTimeout(() => {
+			const updatedData = newRows.map((row) => dataColumns.map((col) => row[col.key] || ""))
+			const csv = unparse(updatedData)
+			onSaveContentRef.current(csv, { debounce: true })
+		}, CELL_CHANGE_DEBOUNCE_MS)
 	}
+
+	// Cleanup debounce timer on unmount
+	useEffect(() => {
+		return () => {
+			if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+		}
+	}, [])
 
 	// Prevent hydration mismatch — resolve theme only after mount
 	const themeClass = mounted && resolvedTheme === "dark" ? "rdg-dark" : "rdg-light"
@@ -160,13 +179,13 @@ function PureSheetEditor({ content, onSaveContent, isCurrentVersion }: SheetEdit
 }
 
 // ── Memo comparison ──────────────────────────────────────────
-// Skip re-render during streaming unless content or version changed.
+// Skip re-render when props are structurally equal.
+// Content comparison handles streaming changes — no streaming bypass needed.
 
 function arePropsEqual(prev: SheetEditorProps, next: SheetEditorProps): boolean {
 	return (
 		prev.currentVersionIndex === next.currentVersionIndex &&
 		prev.isCurrentVersion === next.isCurrentVersion &&
-		!(prev.status === "streaming" && next.status === "streaming") &&
 		prev.content === next.content &&
 		prev.onSaveContent === next.onSaveContent
 	)

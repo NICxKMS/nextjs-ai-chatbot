@@ -43,7 +43,7 @@ function filterDiagnostics(raw) {
 }
 
 try {
-	execSync("tsc --noEmit", { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] })
+	execSync("tsgo --noEmit", { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] })
 	process.exit(0)
 } catch (error) {
 	const raw = (error.stdout || "") + (error.stderr || "")

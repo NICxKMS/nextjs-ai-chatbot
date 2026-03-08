@@ -18,7 +18,7 @@ import {
 } from "@/components/ai-elements/model-selector"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MODEL_COOKIE_NAME, type ModelMetadata } from "@/features/models/types/model.types"
+import { MODEL_COOKIE_NAME, type ModelMetadata } from "@/lib/types/model.types"
 import { cn } from "@/lib/utils/cn"
 
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365 // 1 year
@@ -277,6 +277,7 @@ const StaticModelItem = memo(function StaticModelItem({
 		<ModelSelectorItem
 			value={`${model.provider} ${model.providerModelId} ${model.name} ${model.description ?? ""}`}
 			onSelect={() => onSelect(model.id)}
+			data-testid={`model-selector-item-${model.id}`}
 		>
 			<div className="flex flex-1 flex-col gap-1">
 				<div className="flex items-center gap-2">
@@ -305,6 +306,7 @@ const DynamicModelItem = memo(function DynamicModelItem({
 		<ModelSelectorItem
 			value={`${model.provider} ${model.providerModelId} ${model.name} ${model.description ?? ""}`}
 			onSelect={() => onSelect(model.id)}
+			data-testid={`model-selector-item-${model.id}`}
 			style={ITEM_CONTAIN_STYLE}
 		>
 			<div className="flex items-center gap-2">

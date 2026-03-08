@@ -1,9 +1,17 @@
 import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
-import { GUEST_COOKIE_NAME } from "@/lib/auth/constants"
+import { GUEST_COOKIE_NAME, GUEST_TOKEN_TTL_SECONDS } from "@/lib/auth/constants"
 import { mintGuestToken, rotateGuestToken, verifyGuestToken } from "@/lib/auth/guest"
+import { logger } from "@/lib/utils/logger"
 
 // ── Constants ──────────────────────────────────────────────────
+
+/**
+ * Mobile device User-Agent pattern for `x-device-type` header.
+ * Covers major mobile platforms; intentionally broad to minimise CLS
+ * (the client `useIsMobile` hook corrects on hydration if needed).
+ */
+const MOBILE_UA_PATTERN = /mobile|android|iphone|ipad|ipod|blackberry|windows phone/i
 
 /**
  * Optional exact auth-cookie override.
@@ -12,11 +20,15 @@ import { mintGuestToken, rotateGuestToken, verifyGuestToken } from "@/lib/auth/g
 const SUPABASE_AUTH_COOKIE_NAME_OVERRIDE =
 	process.env.SUPABASE_ACCESS_TOKEN_COOKIE_NAME?.trim() || null
 
-/** Guest token cookie max age: 7 days (in seconds). */
-const GUEST_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-
-// Mobile device detection pattern (covers common mobile user agents)
-const MOBILE_UA_PATTERN = /mobile|android|iphone|ipad|ipod|blackberry|iemobile|opera mini|webos/i
+/**
+ * Guest token cookie max age — aligned with JWT TTL.
+ *
+ * The cookie is the browser-side container for the guest JWT. Its maxAge should
+ * match the JWT lifetime so the cookie self-cleans when the token expires.
+ * Every successful rotation refreshes this maxAge, so active users always
+ * have a valid cookie. Inactive users' cookies expire alongside the JWT.
+ */
+const GUEST_COOKIE_MAX_AGE = GUEST_TOKEN_TTL_SECONDS
 
 // ── Route Classification ───────────────────────────────────────
 // Per auth-system.md §Route Classification Matrix (canonical):
@@ -99,18 +111,6 @@ function isRateLimitExempt(pathname: string): boolean {
 	return RATE_LIMIT_EXEMPT_PREFIXES.some((prefix) => pathname.startsWith(prefix))
 }
 
-async function hasVerifiedGuestToken(token: string | undefined): Promise<boolean> {
-	if (!token) {
-		return false
-	}
-
-	try {
-		return !!(await verifyGuestToken(token))
-	} catch {
-		return false
-	}
-}
-
 // ── Guest Token Helpers ────────────────────────────────────────
 
 /** Cookie options for the guest token (browser persistence). */
@@ -148,6 +148,7 @@ function forwardRequestWithGuestToken(
 async function mintGuestTokenResponse(request: NextRequest, requestHeaders: Headers) {
 	const guestId = crypto.randomUUID()
 	const token = await mintGuestToken(guestId)
+	requestHeaders.set("x-session-type", "guest")
 	return forwardRequestWithGuestToken(request, requestHeaders, token)
 }
 
@@ -155,7 +156,6 @@ async function mintGuestTokenResponse(request: NextRequest, requestHeaders: Head
  * Next.js 16 proxy interceptor.
  *
  * Handles:
- *  - Device detection (x-device-type header)
  *  - Route classification (public / guest-eligible / auth-required)
  *  - Guest token lifecycle (dual-write pattern: mint, verify, rotate)
  *  - Auth redirect for protected routes
@@ -172,16 +172,32 @@ export async function proxy(request: NextRequest) {
 	// --- Clone request headers so downstream route handlers receive mutations ---
 	const requestHeaders = new Headers(request.headers)
 
-	// --- Device detection via User-Agent header ---
+	// ── Strip internal headers that must only be set by the proxy ──
+	// These headers control session resolution in getAppSession(). If not
+	// stripped, a client can spoof them on routes that match the proxy, or
+	// exploit the catch-block fallthrough. Defense-in-depth: session.ts
+	// also validates independently, but the proxy is the first line.
+	requestHeaders.delete("x-session-type")
+
+	// ── Device detection ──────────────────────────────────────────
+	// Parse User-Agent and set x-device-type so server components can read it
+	// via headers() and pass initialIsMobile to useIsMobile, avoiding CLS.
 	const userAgent = request.headers.get("user-agent") ?? ""
-	const isMobile = MOBILE_UA_PATTERN.test(userAgent)
-	requestHeaders.set("x-device-type", isMobile ? "mobile" : "desktop")
+	requestHeaders.set("x-device-type", MOBILE_UA_PATTERN.test(userAgent) ? "mobile" : "desktop")
 
 	// ── Route classification ───────────────────────────────────
 	const routeClass = classifyRoute(pathname)
 
-	// Public routes: skip all auth handling
+	// Public routes: skip auth lifecycle but hint session type for downstream optimization.
+	// The auth layout reads x-session-type to avoid a wasted Supabase getUser() call
+	// for unauthenticated visitors on /login and /register.
 	if (routeClass === "public") {
+		const hasAuthCookie = request.cookies
+			.getAll()
+			.some((cookie) => isSupabaseAuthCookieName(cookie.name))
+		if (!hasAuthCookie) {
+			requestHeaders.set("x-session-type", "none")
+		}
 		return forwardRequest(requestHeaders)
 	}
 
@@ -192,13 +208,22 @@ export async function proxy(request: NextRequest) {
 		.some((cookie) => isSupabaseAuthCookieName(cookie.name))
 	const guestToken = cookies.get(GUEST_COOKIE_NAME)?.value
 
+	// Hint downstream session resolver to skip unnecessary Supabase round-trips
+	if (hasSupabaseToken) {
+		requestHeaders.set("x-session-type", "authenticated")
+	}
+
 	// ── Auth-required routes: redirect if no valid session ─────
 	if (routeClass === "auth-required") {
-		const hasValidGuestToken = await hasVerifiedGuestToken(guestToken)
+		if (!hasSupabaseToken) {
+			const verified = guestToken ? await verifyGuestToken(guestToken) : null
 
-		if (!hasSupabaseToken && !hasValidGuestToken) {
-			const loginUrl = new URL("/login", request.url)
-			return NextResponse.redirect(loginUrl)
+			if (!verified) {
+				const loginUrl = new URL("/login", request.url)
+				return NextResponse.redirect(loginUrl)
+			}
+
+			requestHeaders.set("x-session-type", "guest")
 		}
 	}
 
@@ -213,7 +238,9 @@ export async function proxy(request: NextRequest) {
 			// Existing guest token → verify, rotate if near expiry
 			const verified = await verifyGuestToken(guestToken)
 			if (verified) {
-				const rotated = await rotateGuestToken(guestToken)
+				requestHeaders.set("x-session-type", "guest")
+
+				const rotated = await rotateGuestToken(guestToken, verified)
 
 				// Token was rotated (different from original) → dual-write the new token
 				if (rotated !== guestToken) {
@@ -226,7 +253,9 @@ export async function proxy(request: NextRequest) {
 		} catch (error) {
 			// Guest token operations can fail if GUEST_JWT_SECRET is missing.
 			// Continue without guest token — degraded experience is better than crash.
-			console.error("[proxy] Guest token lifecycle error:", error)
+			// Ensure internal headers are clean so downstream doesn't see stale/partial state.
+			requestHeaders.set("x-session-type", "none")
+			logger.error("[proxy] Guest token lifecycle error", { error: String(error) })
 		}
 	}
 
@@ -239,5 +268,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-	matcher: ["/", "/chat/:path*", "/login", "/register", "/api/chat"],
+	matcher: ["/", "/chat/:path*", "/login", "/register", "/api/:path*"],
 }

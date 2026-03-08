@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-import type { Visibility } from "@/lib/types/models.types"
+import type { Visibility } from "@/lib/types/entity.types"
 
 /** Chat visibility — aliased from the canonical Visibility type. */
 export type VisibilityType = Visibility

@@ -29,6 +29,7 @@ export const STATIC_MODELS: ModelMetadata[] = [
 		description: "Ultra-fast and cost-efficient model for high-volume tasks",
 		supportsToolCalling: true,
 		supportsReasoning: true,
+		reasoningTagName: "thinking",
 		modalities: { input: ["text"], output: ["text"] },
 		contextWindow: 1_000_000,
 		maxOutputTokens: 65_536,
@@ -42,6 +43,7 @@ export const STATIC_MODELS: ModelMetadata[] = [
 		description: "Fast model with reasoning and multimodal support",
 		supportsToolCalling: true,
 		supportsReasoning: true,
+		reasoningTagName: "thinking",
 		modalities: { input: ["text", "image", "audio"], output: ["text"] },
 		contextWindow: 1_000_000,
 		maxOutputTokens: 65_536,
@@ -55,6 +57,35 @@ export const STATIC_MODELS: ModelMetadata[] = [
 		description: "Advanced model with strong reasoning and coding capabilities",
 		supportsToolCalling: true,
 		supportsReasoning: true,
+		reasoningTagName: "thinking",
+		modalities: { input: ["text", "image"], output: ["text"] },
+		contextWindow: 1_000_000,
+		maxOutputTokens: 65_536,
+		source: "static",
+	},
+	{
+		id: "google:gemini-3-flash-preview",
+		provider: "google",
+		providerModelId: "gemini-3-flash-preview",
+		name: "Gemini 3 Flash",
+		description: "Pro-level intelligence at Flash speed and pricing",
+		supportsToolCalling: true,
+		supportsReasoning: true,
+		reasoningTagName: "thinking",
+		modalities: { input: ["text", "image"], output: ["text"] },
+		contextWindow: 1_000_000,
+		maxOutputTokens: 65_536,
+		source: "static",
+	},
+	{
+		id: "google:gemini-3.1-flash-lite-preview",
+		provider: "google",
+		providerModelId: "gemini-3.1-flash-lite-preview",
+		name: "Gemini 3.1 Flash Lite",
+		description: "Fastest cost-efficient model for high-volume agentic tasks",
+		supportsToolCalling: true,
+		supportsReasoning: true,
+		reasoningTagName: "thinking",
 		modalities: { input: ["text", "image"], output: ["text"] },
 		contextWindow: 1_000_000,
 		maxOutputTokens: 65_536,
@@ -84,6 +115,7 @@ export const STATIC_MODELS: ModelMetadata[] = [
 		description: "Reasoning model with tool and vision support",
 		supportsToolCalling: true,
 		supportsReasoning: true,
+		reasoningTagName: "thinking",
 		modalities: { input: ["text", "image"], output: ["text"] },
 		contextWindow: 128_000,
 		maxOutputTokens: 32_768,
@@ -100,6 +132,7 @@ export const STATIC_MODELS: ModelMetadata[] = [
 		description: "Latest Claude with extended thinking for deep reasoning",
 		supportsToolCalling: true,
 		supportsReasoning: true,
+		reasoningTagName: "thinking",
 		modalities: { input: ["text", "image"], output: ["text"] },
 		contextWindow: 200_000,
 		maxOutputTokens: 8_192,
@@ -126,6 +159,7 @@ export const STATIC_MODELS: ModelMetadata[] = [
 		description: "Open-source reasoning model with native chain-of-thought",
 		supportsToolCalling: true,
 		supportsReasoning: true,
+		reasoningTagName: "think",
 		modalities: { input: ["text"], output: ["text"] },
 		contextWindow: 128_000,
 		maxOutputTokens: 8_192,
@@ -139,6 +173,7 @@ export const STATIC_MODELS: ModelMetadata[] = [
 		description: "Flagship chat model with strong reasoning and coding performance",
 		supportsToolCalling: true,
 		supportsReasoning: true,
+		reasoningTagName: "think",
 		modalities: { input: ["text"], output: ["text"] },
 		contextWindow: 128_000,
 		maxOutputTokens: 8_192,
@@ -170,6 +205,7 @@ type OpenRouterModel = {
 		input_modalities?: string[]
 		output_modalities?: string[]
 	}
+	supported_parameters?: string[]
 }
 
 type OpenRouterResponse = {
@@ -184,7 +220,7 @@ function mapOpenRouterModel(model: OpenRouterModel): ModelMetadata {
 	const modelId = `openrouter:${model.id}`
 	const inputModalities = model.architecture?.input_modalities ?? ["text"]
 	const outputModalities = model.architecture?.output_modalities ?? ["text"]
-	const supportsReasoning = getReasoningTag(modelId) !== null
+	const reasoningTag = getReasoningTag(modelId)
 
 	return {
 		id: modelId,
@@ -192,11 +228,9 @@ function mapOpenRouterModel(model: OpenRouterModel): ModelMetadata {
 		providerModelId: model.id,
 		name: model.name ?? model.id,
 		description: model.description,
-		// TODO(ai-services): Keep dynamic OpenRouter tool-calling conservative
-		// until discovery derives trustworthy capability metadata or the runtime
-		// narrows to a curated subset of explicitly supported models.
-		supportsToolCalling: false,
-		supportsReasoning,
+		supportsToolCalling: model.supported_parameters?.includes("tools") ?? false,
+		supportsReasoning: reasoningTag !== null,
+		reasoningTagName: reasoningTag?.tagName,
 		modalities: {
 			input: inputModalities,
 			output: outputModalities,

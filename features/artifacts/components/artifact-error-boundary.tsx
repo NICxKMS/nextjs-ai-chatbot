@@ -3,6 +3,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
+import { logger } from "@/lib/utils/logger"
 
 interface ArtifactErrorBoundaryProps {
 	children: ReactNode
@@ -34,7 +35,11 @@ export class ArtifactErrorBoundary extends Component<
 	}
 
 	override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-		console.error("[ArtifactErrorBoundary]", error, errorInfo)
+		logger.error("[ArtifactErrorBoundary] Editor crashed", {
+			error: error.message,
+			stack: error.stack,
+			componentStack: errorInfo.componentStack ?? undefined,
+		})
 	}
 
 	private handleRetry = () => {

@@ -78,7 +78,21 @@ function findPositionsInDoc(doc: Node, searchText: string): Position[] {
 	return positions
 }
 
+// Memoization cache — avoids full recomputation when inputs haven't changed.
+let cachedProjectionDoc: Node | null = null
+let cachedProjectionSuggestions: ArtifactSuggestion[] | null = null
+let cachedProjectionResult: UISuggestion[] | null = null
+
 export function projectWithPositions(doc: Node, suggestions: ArtifactSuggestion[]): UISuggestion[] {
+	// Return cached result if inputs are referentially identical
+	if (
+		cachedProjectionDoc === doc &&
+		cachedProjectionSuggestions === suggestions &&
+		cachedProjectionResult
+	) {
+		return cachedProjectionResult
+	}
+
 	const suggestionCounts = new Map<string, number>()
 	const positionCache = new Map<string, Position[]>()
 	const resolvedCounts = new Map<string, number>()
@@ -97,7 +111,7 @@ export function projectWithPositions(doc: Node, suggestions: ArtifactSuggestion[
 		}
 	}
 
-	return suggestions.map((suggestion, index) => {
+	const result = suggestions.map((suggestion, index) => {
 		const totalSuggestions = suggestionCounts.get(suggestion.originalText) ?? 0
 		const positions = positionCache.get(suggestion.originalText) ?? []
 		const occurrenceIndex = resolvedCounts.get(suggestion.originalText) ?? 0
@@ -117,9 +131,18 @@ export function projectWithPositions(doc: Node, suggestions: ArtifactSuggestion[
 			selectionEnd: position?.end ?? 0,
 		}
 	})
+
+	// Store in cache for subsequent calls with identical inputs
+	cachedProjectionDoc = doc
+	cachedProjectionSuggestions = suggestions
+	cachedProjectionResult = result
+	return result
 }
 
-// ── Suggestion widget ────────────────────────────────────────
+// ── Suggestion widget ──────────────────────────────────────
+
+/** Stores cleanup callbacks keyed by widget DOM nodes — avoids monkey-patching nodes. */
+const widgetCleanupMap = new WeakMap<globalThis.Node, () => void>()
 
 function SuggestionWidget({
 	suggestion,
@@ -250,14 +273,15 @@ export function createDecorations(suggestions: UISuggestion[], view: EditorView)
 				suggestion.selectionStart,
 				(currentView) => {
 					const { dom, destroy } = createSuggestionWidget(suggestion, currentView)
-					;(dom as HTMLElement & { __destroy?: () => void }).__destroy = destroy
+					widgetCleanupMap.set(dom, destroy)
 					return dom
 				},
 				{
 					suggestionId: suggestion.id,
 					type: "widget",
 					destroy: (node: globalThis.Node) => {
-						;(node as unknown as { __destroy?: () => void }).__destroy?.()
+						widgetCleanupMap.get(node)?.()
+						widgetCleanupMap.delete(node)
 					},
 				},
 			),

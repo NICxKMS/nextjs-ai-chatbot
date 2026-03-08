@@ -1,6 +1,46 @@
 import type { DataPart } from "@/features/chat/types/chat.types"
 import type { UIArtifact } from "@/lib/types/artifact.types"
 
+// ── REPLACE-semantic delta types ─────────────────────────────
+// These delta types overwrite content entirely — earlier values within
+// the same batch are superseded by the last one.
+const REPLACE_DELTA_TYPES: ReadonlySet<DataPart["type"]> = new Set([
+	"artifact-codeDelta",
+	"artifact-sheetDelta",
+	"artifact-imageDelta",
+])
+
+/**
+ * Collapses a batch of deltas by keeping only the LAST replace-semantic
+ * delta per type. Earlier replaces are fully superseded by the last one.
+ * Non-replace deltas (APPEND, SET, etc.) are preserved in order.
+ *
+ * @example
+ *   // 5 codeDelta parts → collapsed to 1
+ *   collapseReplaceDeltas([codeDelta1, textDelta, codeDelta2, codeDelta3])
+ *   // → [textDelta, codeDelta3]
+ */
+export function collapseReplaceDeltas(deltas: readonly DataPart[]): DataPart[] {
+	if (deltas.length <= 1) return deltas as DataPart[]
+
+	// Find the last index of each REPLACE delta type
+	const lastReplaceIdx = new Map<string, number>()
+	for (let i = 0; i < deltas.length; i++) {
+		const delta = deltas[i]
+		if (delta && REPLACE_DELTA_TYPES.has(delta.type)) {
+			lastReplaceIdx.set(delta.type, i)
+		}
+	}
+
+	// No REPLACE deltas — return as-is (no allocation)
+	if (lastReplaceIdx.size === 0) return deltas as DataPart[]
+
+	return deltas.filter((delta, i) => {
+		if (!REPLACE_DELTA_TYPES.has(delta.type)) return true
+		return i === lastReplaceIdx.get(delta.type)
+	})
+}
+
 // ── Default artifact state ───────────────────────────────────
 // Used when processStreamDelta needs a baseline. Consumers should
 // pass their actual current state; this is only for reference.

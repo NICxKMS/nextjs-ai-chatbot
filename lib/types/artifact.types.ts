@@ -1,6 +1,7 @@
-import type { ArtifactKind } from "./models.types"
+import type { ArtifactKind } from "./entity.types"
 
-export type { ArtifactKind } from "./models.types"
+// Re-export so artifact-context consumers import from one place.
+export type { ArtifactKind }
 
 // ── Artifact status ──────────────────────────────────────────
 // Per redesign, only two states needed — artifact errors are handled

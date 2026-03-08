@@ -8,6 +8,7 @@ import { Attachment, AttachmentPreview } from "@/components/ai-elements/attachme
 import { MessageContent, MessageResponse } from "@/components/ai-elements/message"
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "@/components/ai-elements/tool"
 import { SparklesIcon } from "@/components/icons"
+import { Weather, type WeatherAtLocation } from "@/components/weather"
 import { ArtifactPreview } from "@/features/artifacts/components/artifact-preview"
 import { cn } from "@/lib/utils/cn"
 
@@ -256,6 +257,27 @@ const PureChatMessage = ({ message, isLoading }: ChatMessageProps) => {
 										}
 									/>
 								)
+							}
+
+							// Weather tool — rich UI
+							if (toolName === "getWeather") {
+								if (
+									part.state === "output-available" &&
+									part.output &&
+									typeof part.output === "object" &&
+									!("error" in part.output)
+								) {
+									return (
+										<Weather
+											key={part.toolCallId}
+											weatherAtLocation={
+												part.output as unknown as WeatherAtLocation
+											}
+										/>
+									)
+								}
+								// Fallback to generic for loading/error states
+								return <GenericToolResult key={part.toolCallId} part={part} />
 							}
 
 							// All other tools — generic rendering

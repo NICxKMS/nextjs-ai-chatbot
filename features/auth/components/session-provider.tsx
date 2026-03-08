@@ -130,7 +130,7 @@ export function SessionProvider({ session: sessionSource, children }: SessionPro
 		}
 	}, [router])
 
-	const isGuest = session?.user.type === "guest" || isLoading
+	const isGuest = session?.user.type === "guest"
 
 	const value = useMemo<SessionContextValue>(
 		() => ({ session, isLoading, isGuest }),

@@ -7,12 +7,19 @@ const TITLE_TIMEOUT_MS = 5_000
 /** Maximum character length for generated titles. */
 const MAX_TITLE_LENGTH = 80
 
+/** System prompt for the title generation model. */
+const TITLE_SYSTEM_PROMPT = `\
+- you will generate a short title based on the first message a user begins a conversation with
+- ensure it is not more than 80 characters long
+- the title should be a summary of the user's message
+- do not use quotes or colons`
+
 /**
  * Generate a short chat title from the user's first message.
  *
- * Uses the current internal title model to keep latency and cost low.
- * Wrapped with `AbortSignal.timeout()` to prevent indefinite hangs that
- * would block stream close and message persistence.
+ * Uses a lightweight internal model via the provider registry to keep
+ * latency and cost low. Wrapped with `AbortSignal.timeout()` to prevent
+ * indefinite hangs that would block stream close and message persistence.
  *
  * Called server-side — the title is awaited before the stream finishes.
  *
@@ -23,11 +30,7 @@ export async function generateTitle(message: string): Promise<string> {
 	try {
 		const { text: title } = await generateText({
 			model: getInternalLanguageModel("title"),
-			system: `\
-- you will generate a short title based on the first message a user begins a conversation with
-- ensure it is not more than 80 characters long
-- the title should be a summary of the user's message
-- do not use quotes or colons`,
+			system: TITLE_SYSTEM_PROMPT,
 			prompt: message,
 			abortSignal: AbortSignal.timeout(TITLE_TIMEOUT_MS),
 		})

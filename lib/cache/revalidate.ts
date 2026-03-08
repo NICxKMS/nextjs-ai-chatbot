@@ -34,8 +34,3 @@ export function refreshChat(chatId: string): void {
 export function refreshChatList(userId: string): void {
 	revalidateTag(cacheKeys.chats(userId), "max")
 }
-
-/** Revalidate cached votes for a chat (Route Handler). */
-export function refreshVotes(chatId: string): void {
-	revalidateTag(cacheKeys.votes(chatId), "max")
-}

@@ -1,12 +1,10 @@
 "use client"
 
-// NOTE: This component is part of the planned AI tool system (P6-T12 — weather
-// tool result renderer) but is NOT yet wired into the production component
-// tree.  It exists as a ready-to-integrate UI for the `getWeather` tool.
-// Do NOT delete — it will be connected when the tool rendering pipeline lands.
+// Weather component for rendering rich tool results from the getWeather tool.
+// Used by the message renderer to display weather data in a visual card
+// instead of the generic JSON-dump tool result.
 
 import { format, isWithinInterval } from "date-fns"
-import { useIsMobile } from "@/lib/hooks/use-mobile"
 import { cn } from "@/lib/utils/cn"
 
 // ── Inline SVG icons ─────────────────────────────────────────
@@ -129,10 +127,9 @@ export function Weather({ weatherAtLocation }: WeatherProps) {
 				})
 			: true
 
-	const isMobile = useIsMobile()
-
-	// Default to 6 hours while isMobile is undefined (during hydration)
-	const hoursToShow = isMobile === undefined ? 6 : isMobile ? 5 : 6
+	// Always render 6 forecast slots; the last is hidden on mobile via CSS
+	// to avoid CLS from JS-based viewport detection.
+	const hoursToShow = 6
 
 	const currentTimeIndex = weatherAtLocation.hourly.time.findIndex(
 		(time) => new Date(time) >= new Date(weatherAtLocation.current.time),
@@ -150,7 +147,6 @@ export function Weather({ weatherAtLocation }: WeatherProps) {
 		forecastStartIndex,
 		forecastStartIndex + hoursToShow,
 	)
-	// TODO: Remove or re-home this component if it remains test-only; the current app tree does not appear to import it outside its unit test.
 
 	const location =
 		weatherAtLocation.cityName ||
@@ -218,6 +214,7 @@ export function Weather({ weatherAtLocation }: WeatherProps) {
 									className={cn(
 										"flex min-w-0 flex-1 flex-col items-center gap-2 rounded-lg px-1 py-2",
 										isCurrentHour && "bg-white/20",
+										index === hoursToShow - 1 && "hidden md:flex",
 									)}
 									key={time}
 								>

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { memo, useEffect, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import {
 	CheckCircleFillIcon,
@@ -25,12 +25,12 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { SidebarMenuAction, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { renameChat } from "@/features/sidebar/actions/rename-chat"
-import type { Chat, Visibility } from "@/lib/types/models.types"
+import type { ChatSummary, Visibility } from "@/lib/types/entity.types"
 
 // ── Types ──────────────────────────────────────────────────────
 
 interface SidebarHistoryItemProps {
-	chat: Chat
+	chat: ChatSummary
 	isActive: boolean
 	onDelete: (chatId: string) => void
 	onRename?: (chatId: string, title: string) => void
@@ -62,6 +62,7 @@ function PureSidebarHistoryItem({
 	const [isRenaming, setIsRenaming] = useState(false)
 	const [renameValue, setRenameValue] = useState(chat.title)
 	const inputRef = useRef<HTMLInputElement>(null)
+	const isSubmittingRef = useRef(false)
 
 	// Focus the rename input when entering rename mode
 	useEffect(() => {
@@ -71,7 +72,9 @@ function PureSidebarHistoryItem({
 		}
 	}, [isRenaming])
 
-	const handleRenameSubmit = async () => {
+	const handleRenameSubmit = useCallback(async () => {
+		if (isSubmittingRef.current) return
+
 		const trimmed = renameValue.trim()
 		if (!trimmed || trimmed === chat.title) {
 			setIsRenaming(false)
@@ -79,18 +82,23 @@ function PureSidebarHistoryItem({
 			return
 		}
 
-		// Optimistic update — show new title immediately
-		onRename?.(chat.id, trimmed)
-		setIsRenaming(false)
+		isSubmittingRef.current = true
+		try {
+			// Optimistic update — show new title immediately
+			onRename?.(chat.id, trimmed)
+			setIsRenaming(false)
 
-		const result = await renameChat({ chatId: chat.id, title: trimmed })
-		if (!result.success) {
-			// Revert on failure
-			onRename?.(chat.id, chat.title)
-			setRenameValue(chat.title)
-			toast.error(result.error.message)
+			const result = await renameChat({ chatId: chat.id, title: trimmed })
+			if (!result.success) {
+				// Revert on failure
+				onRename?.(chat.id, chat.title)
+				setRenameValue(chat.title)
+				toast.error(result.error.message)
+			}
+		} finally {
+			isSubmittingRef.current = false
 		}
-	}
+	}, [chat.id, chat.title, onRename, renameValue])
 
 	const handleRenameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
 		if (e.key === "Enter") {
@@ -103,9 +111,15 @@ function PureSidebarHistoryItem({
 	}
 
 	return (
-		<SidebarMenuItem>
+		<SidebarMenuItem data-testid="sidebar-history-item">
 			{isRenaming ? (
-				<div className="flex h-8 items-center px-2">
+				<form
+					className="flex h-8 items-center px-2"
+					onSubmit={(e) => {
+						e.preventDefault()
+						handleRenameSubmit()
+					}}
+				>
 					<input
 						ref={inputRef}
 						aria-label="Rename chat"
@@ -115,7 +129,7 @@ function PureSidebarHistoryItem({
 						onKeyDown={handleRenameKeyDown}
 						onBlur={() => handleRenameSubmit()}
 					/>
-				</div>
+				</form>
 			) : (
 				<SidebarMenuButton asChild isActive={isActive}>
 					<Link href={`/chat/${chat.id}`} onClick={() => setOpenMobile(false)}>
@@ -138,6 +152,7 @@ function PureSidebarHistoryItem({
 				<DropdownMenuContent align="end" side="bottom">
 					<DropdownMenuItem
 						className="cursor-pointer"
+						data-testid="rename-chat-button"
 						onSelect={() => {
 							setIsRenaming(true)
 							setRenameValue(chat.title)
@@ -184,6 +199,7 @@ function PureSidebarHistoryItem({
 
 					<DropdownMenuItem
 						className="cursor-pointer text-destructive focus:bg-destructive/15 focus:text-destructive dark:text-red-500"
+						data-testid="delete-chat-button"
 						onSelect={() => onDelete(chat.id)}
 					>
 						<TrashIcon />

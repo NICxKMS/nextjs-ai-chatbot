@@ -1,3 +1,4 @@
+import type { UIMessageStreamWriter } from "ai"
 import {
 	convertToModelMessages,
 	createUIMessageStream,
@@ -19,12 +20,6 @@ import {
 	resolveChatRouteContext,
 	serializeUsage,
 } from "@/features/chat/lib/chat-route"
-import {
-	buildArtifactFixtureTools,
-	createArtifactFixtureModel,
-	toPersistedArtifactFixtureMessages,
-} from "@/features/chat/lib/e2e-artifact-fixture"
-import { ARTIFACT_E2E_COOKIE_NAME } from "@/features/chat/lib/e2e-artifact-fixture-cookie"
 import { composeSystemPrompt } from "@/lib/ai/prompts"
 import { myProvider } from "@/lib/ai/provider"
 import { getProviderOptions } from "@/lib/ai/provider-options"
@@ -36,6 +31,23 @@ import { generateUUID } from "@/lib/utils/generate-uuid"
 import { validateOrigin } from "@/lib/utils/validate-origin"
 
 export const maxDuration = 60
+
+// ── Typed stream data helper ─────────────────────────────────
+// Replaces 4 scattered `as Parameters<typeof writer.write>[0]` casts.
+// The AI SDK's UIMessageStreamWriter<UIMessage> accepts `data-${string}` parts
+// but TypeScript can't resolve the deeply nested InferUIMessageChunk conditional.
+// This single cast point is type-safe: all callers pass known string data.
+
+type ChatStreamDataPart =
+	| { type: "data-chat-title"; data: string }
+	| { type: "data-error"; data: string }
+	| { type: "data-usage"; data: string }
+
+function writeStreamData(writer: UIMessageStreamWriter, part: ChatStreamDataPart): void {
+	// UIMessageChunk union includes { type: `data-${string}`; data: unknown }
+	// but TS struggles to resolve the mapped-type ValueOf with string index keys.
+	writer.write(part as Parameters<typeof writer.write>[0])
+}
 
 // ── POST /api/chat — Streaming chat completion ──────────────
 
@@ -74,6 +86,7 @@ export async function POST(request: Request) {
 	const {
 		chatId,
 		selectedChatModel,
+		modelMetadata,
 		effectiveSettings,
 		allMessages,
 		hasTools,
@@ -83,9 +96,15 @@ export async function POST(request: Request) {
 
 	let generatedTitle: string | undefined
 	let titleEmitted = false
+	// The fixture provides its own mock model + tools, so `hasTools` is not required.
+	// The cookie is only set in E2E tests; it never appears in production traffic.
 	const useArtifactE2EFixture =
-		hasTools &&
-		request.headers.get("cookie")?.includes(`${ARTIFACT_E2E_COOKIE_NAME}=1`) === true
+		request.headers.get("cookie")?.includes("e2e-artifact-fixture=1") === true
+
+	// Dynamic import: keeps ~280-line E2E fixture out of the production bundle
+	const e2eFixture = useArtifactE2EFixture
+		? await import("@/features/chat/lib/e2e-artifact-fixture")
+		: null
 
 	try {
 		const stream = createUIMessageStream({
@@ -99,10 +118,10 @@ export async function POST(request: Request) {
 					titleEmitted = true
 
 					try {
-						writer.write({
+						writeStreamData(writer, {
 							type: "data-chat-title",
 							data: generatedTitle,
-						} as Parameters<typeof writer.write>[0])
+						})
 					} catch {
 						// The stream may already be closed; title generation is best-effort only.
 					}
@@ -121,10 +140,10 @@ export async function POST(request: Request) {
 
 				const chatStream: ArtifactStreamWriter = {
 					writeData({ type, content }) {
-						writer.write({
+						writeStreamData(writer, {
 							type: `data-${type}`,
 							data: content,
-						} as Parameters<typeof writer.write>[0])
+						} as ChatStreamDataPart)
 					},
 				}
 
@@ -133,9 +152,13 @@ export async function POST(request: Request) {
 					hasTools,
 				})
 
-				const providerOpts = getProviderOptions(selectedChatModel, effectiveSettings)
-				const tools = useArtifactE2EFixture
-					? buildArtifactFixtureTools({
+				const providerOpts = getProviderOptions(
+					selectedChatModel,
+					effectiveSettings,
+					modelMetadata,
+				)
+				const tools = e2eFixture
+					? e2eFixture.buildArtifactFixtureTools({
 							chatId,
 							chatStream,
 							session: {
@@ -149,8 +172,8 @@ export async function POST(request: Request) {
 							chatStream,
 							session: session.user,
 						})
-				const model = useArtifactE2EFixture
-					? await createArtifactFixtureModel({
+				const model = e2eFixture
+					? await e2eFixture.createArtifactFixtureModel({
 							prompt: messageText,
 							artifactId: (await getLatestArtifactByChatId(chatId, session.user.id))
 								?.id,
@@ -162,7 +185,7 @@ export async function POST(request: Request) {
 					system: systemPrompt,
 					messages: await convertToModelMessages(allMessages),
 					tools,
-					...(useArtifactE2EFixture ? {} : providerOpts),
+					...(e2eFixture ? {} : providerOpts),
 					experimental_transform: smoothStream(),
 					stopWhen: stepCountIs(5),
 					abortSignal: request.signal,
@@ -174,8 +197,10 @@ export async function POST(request: Request) {
 						generateMessageId: generateUUID,
 						onFinish: async ({ messages: responseMessages }) => {
 							try {
-								const persistedResponseMessages = useArtifactE2EFixture
-									? toPersistedArtifactFixtureMessages(responseMessages)
+								const persistedResponseMessages = e2eFixture
+									? e2eFixture.toPersistedArtifactFixtureMessages(
+											responseMessages,
+										)
 									: responseMessages
 
 								await persistChatResponse({
@@ -198,10 +223,10 @@ export async function POST(request: Request) {
 								}
 
 								try {
-									writer.write({
+									writeStreamData(writer, {
 										type: "data-error",
 										data: CHAT_PERSISTENCE_FAILURE_SIGNAL,
-									} as Parameters<typeof writer.write>[0])
+									})
 								} catch {
 									// If the client already disconnected, keep the server-side log only.
 								}
@@ -221,10 +246,10 @@ export async function POST(request: Request) {
 				canEmitGeneratedTitle = true
 				emitGeneratedTitle()
 
-				writer.write({
+				writeStreamData(writer, {
 					type: "data-usage",
 					data: serializeUsage(await result.usage),
-				} as Parameters<typeof writer.write>[0])
+				})
 			},
 			generateId: generateUUID,
 			onError: () => {

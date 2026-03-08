@@ -1,9 +1,11 @@
+import "server-only"
+
 import { and, eq } from "drizzle-orm"
 
 import { throwDatabaseError } from "@/lib/data/database-error"
 import { db } from "@/lib/db/client"
 import { suggestions } from "@/lib/db/schema"
-import type { NewSuggestion, Suggestion } from "@/lib/types/models.types"
+import type { NewSuggestion, Suggestion } from "@/lib/types/entity.types"
 
 /**
  * Get all suggestions for a specific artifact version.
@@ -39,31 +41,5 @@ export async function saveSuggestions(data: NewSuggestion[]): Promise<Suggestion
 		return await db.insert(suggestions).values(data).returning()
 	} catch (error) {
 		throwDatabaseError(error, "Failed to save suggestions", { count: data.length })
-	}
-}
-/**
- * Delete all suggestions for a specific artifact version.
- *
- * @unused Retained for targeted suggestion cleanup without
- * removing the parent artifact.
- */
-export async function deleteSuggestionsByArtifactVersion(
-	artifactId: string,
-	artifactCreatedAt: Date,
-): Promise<void> {
-	try {
-		await db
-			.delete(suggestions)
-			.where(
-				and(
-					eq(suggestions.artifactId, artifactId),
-					eq(suggestions.artifactCreatedAt, artifactCreatedAt),
-				),
-			)
-	} catch (error) {
-		throwDatabaseError(error, "Failed to delete suggestions for artifact version", {
-			artifactId,
-			artifactCreatedAt: artifactCreatedAt.toISOString(),
-		})
 	}
 }

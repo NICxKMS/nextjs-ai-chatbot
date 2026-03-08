@@ -1,4 +1,4 @@
-import type { Visibility } from "./models.types"
+import type { Visibility } from "./entity.types"
 
 // ── Optimistic chat entry ────────────────────────────────────
 // Represents a chat in the pending/optimistic state, used by

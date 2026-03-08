@@ -30,9 +30,24 @@ export class AppError extends Error {
 
 	/** Convert to a JSON NextResponse for Route Handlers. */
 	toResponse(): NextResponse {
+		const headers: Record<string, string> = {}
+
+		// Attach Retry-After header for rate-limited responses
+		if (
+			this.statusCode === 429 &&
+			this.details != null &&
+			typeof this.details === "object" &&
+			"retryAfter" in this.details
+		) {
+			const ra = (this.details as { retryAfter: number }).retryAfter
+			if (typeof ra === "number" && ra > 0) {
+				headers["Retry-After"] = String(ra)
+			}
+		}
+
 		return NextResponse.json(
 			{ code: this.code, message: this.message },
-			{ status: this.statusCode },
+			{ status: this.statusCode, headers },
 		)
 	}
 
@@ -74,8 +89,9 @@ export class AppError extends Error {
 	static rateLimited(
 		code: Extract<ErrorCode, `rate_limit:${string}`>,
 		message?: string,
-		details?: unknown,
+		retryAfter?: number,
 	): AppError {
+		const details = retryAfter != null ? { retryAfter } : undefined
 		return new AppError(code, message ?? "Too many requests", details)
 	}
 

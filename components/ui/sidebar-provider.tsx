@@ -32,7 +32,7 @@ export type SidebarContextProps = {
 	setOpen: (open: boolean | ((open: boolean) => boolean)) => void
 	openMobile: boolean
 	setOpenMobile: (open: boolean | ((open: boolean) => boolean)) => void
-	isMobile: boolean | undefined
+	isMobile: boolean
 	toggleSidebar: () => void
 }
 
@@ -69,10 +69,15 @@ function SidebarProvider({
 	const [openMobile, setOpenMobile] = useState(false)
 	const hasHydratedFromCookieRef = useRef(false)
 	const hasSkippedInitialPersistRef = useRef(false)
+	const lastPersistedValueRef = useRef(defaultOpen)
 
 	const [_open, _setOpen] = useState(defaultOpen)
 	const open = openProp ?? _open
 
+	// Safety-net: re-read the cookie on the client after hydration to handle
+	// cross-tab changes that occurred between SSR and client mount. During
+	// normal operation the server-provided `defaultOpen` already matches the
+	// cookie, so this effect is a no-op and produces no visible flash.
 	useEffect(() => {
 		if (openProp !== undefined || hasHydratedFromCookieRef.current) return
 		hasHydratedFromCookieRef.current = true
@@ -88,6 +93,9 @@ function SidebarProvider({
 			hasSkippedInitialPersistRef.current = true
 			return
 		}
+
+		if (lastPersistedValueRef.current === open) return
+		lastPersistedValueRef.current = open
 
 		// biome-ignore lint/suspicious/noDocumentCookie: Synchronous cookie write needed inside useEffect; Cookie Store API is async with limited browser support
 		document.cookie = `${SIDEBAR_COOKIE_NAME}=${open}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`

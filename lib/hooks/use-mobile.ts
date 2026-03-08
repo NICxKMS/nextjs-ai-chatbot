@@ -24,9 +24,9 @@ export type UseMobileOptions = {
  * // In client component:
  * const isMobile = useIsMobile({ initialIsMobile });
  */
-export function useIsMobile(options?: UseMobileOptions) {
-	const { initialIsMobile } = options ?? {}
-	const [isMobile, setIsMobile] = useState<boolean | undefined>(initialIsMobile)
+export function useIsMobile(options?: UseMobileOptions): boolean {
+	const { initialIsMobile = false } = options ?? {}
+	const [isMobile, setIsMobile] = useState<boolean>(initialIsMobile)
 
 	useEffect(() => {
 		const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)

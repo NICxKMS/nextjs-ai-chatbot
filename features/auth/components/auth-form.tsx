@@ -119,6 +119,7 @@ export function AuthForm({ mode, action }: AuthFormProps) {
 					Email Address
 				</Label>
 				<Input
+					aria-describedby={state?.fieldErrors?.email?.[0] ? "email-error" : undefined}
 					autoComplete="email"
 					autoFocus
 					className="bg-muted text-md md:text-sm"
@@ -130,7 +131,7 @@ export function AuthForm({ mode, action }: AuthFormProps) {
 					type="email"
 				/>
 				{state?.fieldErrors?.email?.[0] && (
-					<p className="text-destructive text-sm" role="alert">
+					<p className="text-destructive text-sm" id="email-error" role="alert">
 						{state.fieldErrors.email[0]}
 					</p>
 				)}
@@ -142,6 +143,9 @@ export function AuthForm({ mode, action }: AuthFormProps) {
 					Password
 				</Label>
 				<Input
+					aria-describedby={
+						state?.fieldErrors?.password?.[0] ? "password-error" : undefined
+					}
 					autoComplete={isLogin ? "current-password" : "new-password"}
 					className="bg-muted text-md md:text-sm"
 					disabled={isPending}
@@ -151,7 +155,7 @@ export function AuthForm({ mode, action }: AuthFormProps) {
 					type="password"
 				/>
 				{state?.fieldErrors?.password?.[0] && (
-					<p className="text-destructive text-sm" role="alert">
+					<p className="text-destructive text-sm" id="password-error" role="alert">
 						{state.fieldErrors.password[0]}
 					</p>
 				)}

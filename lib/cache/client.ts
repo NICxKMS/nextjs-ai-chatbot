@@ -8,13 +8,19 @@ import { Redis } from "@upstash/redis"
  * NOT used for data caching — all data reads use `'use cache'` + `cacheTag`
  * at the page/feature layer. Redis is scoped to rate limiting only.
  *
- * Graceful degradation: all operations return null on failure or missing env vars.
+ * Environment guard:
+ * - Production: throws if CACHE_KV_REST_API_URL / CACHE_KV_REST_API_TOKEN are missing
+ *   (rate limiting is a security control and must not silently degrade in prod).
+ * - Development: logs a warning once and returns null (local dev without Redis is fine).
  */
+
+const IS_PRODUCTION = process.env.NODE_ENV === "production"
 
 // Singleton across HMR / warm container reuse
 const globalForRedis = globalThis as unknown as {
 	__upstashRedis?: Redis
 	__upstashRedisInitFailed?: boolean
+	__upstashRedisMissingEnvWarned?: boolean
 }
 
 async function withRedisClient<T>(operation: (client: Redis) => Promise<T>): Promise<T | null> {
@@ -28,18 +34,32 @@ async function withRedisClient<T>(operation: (client: Redis) => Promise<T>): Pro
 }
 
 function getClient(): Redis | null {
-	const url = process.env.CACHE_KV_REST_API_URL
-	const token = process.env.CACHE_KV_REST_API_TOKEN
-
-	if (!url || !token) {
-		return null
-	}
-
 	if (globalForRedis.__upstashRedis) {
 		return globalForRedis.__upstashRedis
 	}
 
 	if (globalForRedis.__upstashRedisInitFailed) {
+		return null
+	}
+
+	const url = process.env.CACHE_KV_REST_API_URL
+	const token = process.env.CACHE_KV_REST_API_TOKEN
+
+	if (!url || !token) {
+		if (IS_PRODUCTION) {
+			throw new Error(
+				"[Redis] Missing required environment variables: " +
+					`${!url ? "CACHE_KV_REST_API_URL " : ""}${!token ? "CACHE_KV_REST_API_TOKEN" : ""}`.trim() +
+					". Rate limiting requires Redis in production.",
+			)
+		}
+		if (!globalForRedis.__upstashRedisMissingEnvWarned) {
+			globalForRedis.__upstashRedisMissingEnvWarned = true
+			console.warn(
+				"[Redis] CACHE_KV_REST_API_URL and/or CACHE_KV_REST_API_TOKEN not set. " +
+					"Rate limiting is disabled. Set these env vars to enable Redis.",
+			)
+		}
 		return null
 	}
 

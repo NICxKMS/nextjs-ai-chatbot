@@ -4,7 +4,7 @@ import { z } from "zod"
 
 import { getAppSession } from "@/lib/auth/session"
 import { invalidateChatList } from "@/lib/cache/revalidate"
-import { deleteChat as deleteChatData, getChatById } from "@/lib/data/chat"
+import { deleteChat as deleteChatData, getChatOwnerId } from "@/lib/data/chat"
 import type { ActionResult } from "@/lib/types/result.types"
 
 const deleteChatSchema = z.object({
@@ -29,7 +29,10 @@ export async function deleteChat(
 	}
 
 	// 2. Auth + Fetch (parallel — both independent)
-	const [session, chat] = await Promise.all([getAppSession(), getChatById(parsed.data.chatId)])
+	const [session, ownerId] = await Promise.all([
+		getAppSession(),
+		getChatOwnerId(parsed.data.chatId),
+	])
 
 	if (!session) {
 		return {
@@ -39,14 +42,14 @@ export async function deleteChat(
 	}
 
 	// 3. Authorize — ownership check
-	if (!chat) {
+	if (!ownerId) {
 		return {
 			success: false,
 			error: { code: "not_found:chat:chat_not_found", message: "Chat not found" },
 		}
 	}
 
-	if (chat.userId !== session.user.id) {
+	if (ownerId !== session.user.id) {
 		return {
 			success: false,
 			error: {

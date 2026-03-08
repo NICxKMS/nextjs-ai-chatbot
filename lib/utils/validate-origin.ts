@@ -2,24 +2,35 @@ import "server-only"
 
 const DEVELOPMENT_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"] as const
 
-function getAllowedOrigins(requestUrl: URL): Set<string> {
-	const allowedOrigins = new Set<string>([requestUrl.origin])
+// ── Module-level cache for allowed origins ─────────────────────
+
+let _staticOrigins: Set<string> | null = null
+
+/**
+ * Lazily build and cache the set of allowed origins from environment variables.
+ * The request URL's own origin is checked separately in `validateOrigin`.
+ */
+function getStaticAllowedOrigins(): Set<string> {
+	if (_staticOrigins) return _staticOrigins
+
+	const origins = new Set<string>()
 
 	if (process.env.VERCEL_URL) {
-		allowedOrigins.add(`https://${process.env.VERCEL_URL}`)
+		origins.add(`https://${process.env.VERCEL_URL}`)
 	}
 
 	if (process.env.NEXT_PUBLIC_APP_URL) {
-		allowedOrigins.add(process.env.NEXT_PUBLIC_APP_URL)
+		origins.add(process.env.NEXT_PUBLIC_APP_URL)
 	}
 
 	if (process.env.NODE_ENV === "development") {
 		for (const origin of DEVELOPMENT_ORIGINS) {
-			allowedOrigins.add(origin)
+			origins.add(origin)
 		}
 	}
 
-	return allowedOrigins
+	_staticOrigins = origins
+	return origins
 }
 
 function getRequestOrigin(request: Request): string | null {
@@ -52,5 +63,8 @@ export function validateOrigin(request: Request): boolean {
 	const requestOrigin = getRequestOrigin(request)
 	if (!requestOrigin) return false
 
-	return getAllowedOrigins(new URL(request.url)).has(requestOrigin)
+	// Self-origin is always trusted (same-origin request)
+	if (requestOrigin === new URL(request.url).origin) return true
+
+	return getStaticAllowedOrigins().has(requestOrigin)
 }

@@ -1,11 +1,15 @@
 import type { Metadata } from "next"
 import { ChatShell } from "@/features/chat/components/chat-shell"
-import { ChatStreamProvider } from "@/features/chat/components/chat-stream-provider"
 import { getAvailableModels, getDefaultModel } from "@/features/models/lib/models"
 import { generateUUID } from "@/lib/utils/generate-uuid"
 
 export const metadata: Metadata = {
 	title: "New Chat",
+	description: "Start a new conversation with the AI assistant.",
+	openGraph: {
+		title: "New Chat",
+		description: "Start a new conversation with the AI assistant.",
+	},
 }
 
 export default async function NewChatPage({
@@ -25,16 +29,15 @@ export default async function NewChatPage({
 	const id = generateUUID()
 
 	return (
-		<ChatStreamProvider>
-			<ChatShell
-				id={id}
-				initialMessages={[]}
-				initialChatModel={defaultModel}
-				isReadonly={false}
-				initialVisibility="private"
-				availableModels={availableModels}
-				initialQuery={initialQuery}
-			/>
-		</ChatStreamProvider>
+		<ChatShell
+			key={id}
+			id={id}
+			initialMessages={[]}
+			initialChatModel={defaultModel}
+			isReadonly={false}
+			initialVisibility="private"
+			availableModels={availableModels}
+			initialQuery={initialQuery}
+		/>
 	)
 }

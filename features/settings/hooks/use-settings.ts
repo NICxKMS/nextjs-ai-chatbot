@@ -131,6 +131,10 @@ export function useSettingsSelector<Selected>(
 /**
  * Read-only hook — returns the current settings snapshot.
  * Re-renders when any setting changes (including cross-tab sync).
+ *
+ * @deprecated Prefer `useSettingsSelector` with a specific selector to avoid
+ * unnecessary re-renders. This hook subscribes to the entire settings object,
+ * causing re-renders on any setting change.
  */
 export function useSettings(): SettingsState {
 	return useSettingsSelector((settings) => settings)

@@ -1,24 +1,30 @@
 import "server-only"
 
 import { createServerClient } from "@supabase/ssr"
-import { cookies } from "next/headers"
+import { cookies, headers } from "next/headers"
 import { cache } from "react"
 import { GUEST_COOKIE_NAME } from "@/lib/auth/constants"
 import { verifyGuestToken } from "@/lib/auth/guest"
 
 // ── Session types ──────────────────────────────────────────────
-// Canonical session shape used across all features.
-// P2-T02 (features/auth/types/auth.types.ts) will re-export these types.
+// Canonical definitions live in lib/types/session.types.ts.
+// Re-exported here for backward compatibility.
+export type { AppSession, UserType } from "@/lib/types/session.types"
 
-/** User classification for session resolution. */
-export type UserType = "authenticated" | "guest"
+import type { AppSession } from "@/lib/types/session.types"
 
-export type AppSession = {
-	user: {
-		id: string
-		type: UserType
-		email?: string
-	}
+// ── Module-level env cache ─────────────────────────────────────
+
+let _supabaseConfig: { url: string; anonKey: string } | null | undefined
+
+function getSupabaseConfig(): { url: string; anonKey: string } | null {
+	if (_supabaseConfig !== undefined) return _supabaseConfig
+
+	const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+	const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+	_supabaseConfig = url && anonKey ? { url, anonKey } : null
+	return _supabaseConfig
 }
 
 // ── Supabase server client ─────────────────────────────────────
@@ -29,16 +35,12 @@ export type AppSession = {
  * setAll is a no-op in read-only contexts (Server Components).
  */
 async function createSupabaseServerClient() {
-	const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-	const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-	if (!supabaseUrl || !supabaseAnonKey) {
-		return null
-	}
+	const config = getSupabaseConfig()
+	if (!config) return null
 
 	const cookieStore = await cookies()
 
-	return createServerClient(supabaseUrl, supabaseAnonKey, {
+	return createServerClient(config.url, config.anonKey, {
 		cookies: {
 			getAll() {
 				return cookieStore.getAll()
@@ -89,11 +91,16 @@ async function resolveSupabaseSession(): Promise<AppSession | null> {
 }
 
 /**
- * Resolve guest session from cookies.
+ * Resolve guest session from the guest_token cookie.
  *
- * Reads the `guest_token` cookie and verifies the JWT via
- * `verifyGuestToken`. Returns a guest AppSession on success,
- * or null for missing/expired/invalid tokens.
+ * Always verifies the guest JWT from the cookie — never trusts proxy headers
+ * for the actual userId. The proxy's `x-session-type: "guest"` hint is consumed
+ * by `getAppSession()` to skip the Supabase round-trip (the major perf win),
+ * but the guest identity is always verified here via JWT signature check.
+ *
+ * Cost: ~0.5ms HMAC-SHA256 verification per guest request.
+ * Benefit: complete defense-in-depth — even if proxy headers are spoofed or
+ * a route bypasses the proxy, the session identity is cryptographically verified.
  */
 async function resolveGuestSession(): Promise<AppSession | null> {
 	try {
@@ -128,6 +135,24 @@ async function resolveGuestSession(): Promise<AppSession | null> {
  * **Never throws.** Returns null on any error or invalid token.
  */
 export const getAppSession = cache(async (): Promise<AppSession | null> => {
+	// Fast path: proxy-provided session type hint skips unnecessary lookups.
+	// The proxy classifies the session during request interception:
+	//   "none"          — no session cookies present → return null immediately
+	//   "guest"         — guest JWT already verified → skip Supabase round-trip
+	//   "authenticated" — Supabase cookie found → resolve via Supabase only
+	//   (missing)       — non-proxied request → fallback to full resolution
+	const headerStore = await headers()
+	const sessionType = headerStore.get("x-session-type")
+
+	if (sessionType === "none") {
+		return null
+	}
+
+	if (sessionType === "guest") {
+		return resolveGuestSession()
+	}
+
+	// "authenticated" or no hint: try Supabase first, then guest fallback
 	const supabaseSession = await resolveSupabaseSession()
 	if (supabaseSession) return supabaseSession
 

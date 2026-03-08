@@ -1,3 +1,5 @@
+import "server-only"
+
 import { AppError } from "@/lib/errors/app-error"
 
 type DatabaseErrorDetails = Record<string, unknown>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { cookies } from "next/headers"
+import { cookies, headers } from "next/headers"
 import { Suspense } from "react"
 import { SidebarInset } from "@/components/ui/sidebar"
 import { SidebarProvider } from "@/components/ui/sidebar-provider"
@@ -17,66 +17,25 @@ export const metadata: Metadata = {
 	},
 }
 
-function ChatLayoutFrame({
-	children,
-	defaultOpen,
-	sidebar,
-}: {
-	children: React.ReactNode
-	defaultOpen: boolean
-	sidebar: React.ReactNode
-}) {
-	return (
-		<SidebarProvider defaultOpen={defaultOpen}>
-			{sidebar}
-			<SidebarInset>{children}</SidebarInset>
-		</SidebarProvider>
-	)
-}
-
 async function getSidebarDefaultOpen() {
 	const cookieStore = await cookies()
 	return cookieStore.get("sidebar_state")?.value !== "false"
 }
 
-// ── Chat layout shell (async runtime APIs) ───────────────────
-// Keep sidebar cookie reads behind the chat-local Suspense boundary while the
-// session promise is started above and shared with the provider and pages.
-
-async function ChatLayoutShell({ children }: { children: React.ReactNode }) {
-	return (
-		<ChatLayoutFrame
-			defaultOpen={await getSidebarDefaultOpen()}
-			sidebar={
-				<Suspense fallback={<SidebarSkeleton />}>
-					<SidebarShell />
-				</Suspense>
-			}
-		>
-			{children}
-		</ChatLayoutFrame>
-	)
-}
-
-// ── Fallback shell ───────────────────────────────────────────
-// Preserve the chat pane while the async layout shell resolves so
-// sidebar loading does not blank already-visible page content.
-
-function ChatLayoutFallback({ children }: { children: React.ReactNode }) {
-	return (
-		<ChatLayoutFrame defaultOpen={true} sidebar={<SidebarSkeleton />}>
-			{children}
-		</ChatLayoutFrame>
-	)
-}
-
 // ── Chat layout ────────────────────────────────────────────────
-// NoticeHandler and the session provider stay outside the sidebar Suspense
-// boundary so the existing chat layout fallback remains intact while auth
-// resolution and downstream page reads reuse the same request-cached promise.
+// The layout reads the sidebar cookie directly (essentially free — cookies are
+// request-local data in Next.js). This avoids nesting an async component inside
+// a Suspense boundary that would show a redundant skeleton before the real
+// SidebarShell Suspense even triggers — eliminating the double-skeleton flash.
+//
+// Only SidebarShell (which fetches session + cached chat history) is wrapped in
+// Suspense. Children render immediately alongside the skeleton fallback so page
+// content is never blanked during sidebar loading.
 
-export default function ChatLayout({ children }: { children: React.ReactNode }) {
+export default async function ChatLayout({ children }: { children: React.ReactNode }) {
 	const sessionPromise = getAppSession()
+	const [defaultOpen, headersList] = await Promise.all([getSidebarDefaultOpen(), headers()])
+	const initialIsMobile = headersList.get("x-device-type") === "mobile"
 
 	return (
 		<>
@@ -85,9 +44,12 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
 			</Suspense>
 			<SessionProvider session={sessionPromise}>
 				<PendingChatsProvider>
-					<Suspense fallback={<ChatLayoutFallback>{children}</ChatLayoutFallback>}>
-						<ChatLayoutShell>{children}</ChatLayoutShell>
-					</Suspense>
+					<SidebarProvider defaultOpen={defaultOpen} initialIsMobile={initialIsMobile}>
+						<Suspense fallback={<SidebarSkeleton />}>
+							<SidebarShell />
+						</Suspense>
+						<SidebarInset id="main-content">{children}</SidebarInset>
+					</SidebarProvider>
 				</PendingChatsProvider>
 			</SessionProvider>
 		</>
