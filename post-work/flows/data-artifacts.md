@@ -46,14 +46,14 @@ STEPS:
   ## RESTORE — Via API POST
   1. `POST /api/artifact` with `{ mode: 'restore', id, timestamp }`
   2. CSRF check → auth → Zod validation
-  3. `handleRestore()`: ownership check → `deleteArtifactVersion(id, afterRestore)`
+  3. `handleRestore()`: ownership check → `deleteArtifactVersionsAfter(id, afterRestore)`
   4. Deletes all versions with `createdAt >= restorePoint + 1ms`:
      - `db.delete(artifacts).where(eq(id) AND gte(createdAt, afterRestore))`
      - This preserves the restore target version and all prior versions
   5. Response: `{ success: true }` with `Cache-Control: no-store`
 
   ## DELETE — Version cleanup (restore flow)
-  1. `deleteArtifactVersion(artifactId, createdAt)` in `lib/data/artifact.ts`
+  1. `deleteArtifactVersionsAfter(artifactId, createdAt)` in `lib/data/artifact.ts`
   2. Uses `gte(createdAt)` — deletes the target AND all subsequent versions
   3. **NOTE**: This makes "restore" destructive — versions after the restore point are permanently deleted
 

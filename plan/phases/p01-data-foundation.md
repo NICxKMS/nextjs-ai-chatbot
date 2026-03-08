@@ -291,7 +291,7 @@ Type: IMPL
 Behavior ref: data-flows.md (artifact versioning via composite PK); features.md (artifact CRUD)
 Architecture ref: ../../plan-archives/redesign/architecture.md (artifact naming); SEAM-025 (artifact data + versioning)
 
-Action: Create **lib/data/artifact.ts** (NOT lib/data/document.ts) — Export functions: getArtifactById(artifactId): Artifact | null (latest version — highest createdAt for given id), getArtifactVersions(artifactId): Artifact[] (all versions ordered by createdAt DESC), saveArtifactVersion(data: {id, title, content, kind: ArtifactKind, userId, chatId}): Artifact (insert new version row), deleteArtifactVersion(artifactId, createdAt): void (delete a specific version or versions after restore timestamp, per caller mode). All functions use bare-ID signatures — no userId parameter for reads. Auth/ownership checks happen at the caller (page/action). Artifacts use composite PK (id + createdAt) for versioning. Revalidation via `invalidateArtifact(artifactId)`/`refreshArtifact(artifactId)` at the caller level. <!-- wave4: XDL-02 — bare-ID signatures -->
+Action: Create **lib/data/artifact.ts** (NOT lib/data/document.ts) — Export functions: getArtifactById(artifactId): Artifact | null (latest version — highest createdAt for given id), getArtifactVersions(artifactId): Artifact[] (all versions ordered by createdAt DESC), saveArtifactVersion(data: {id, title, content, kind: ArtifactKind, userId, chatId}): Artifact (insert new version row), deleteArtifactVersionsAfter(artifactId, createdAt): void (delete a specific version or versions after restore timestamp, per caller mode). All functions use bare-ID signatures — no userId parameter for reads. Auth/ownership checks happen at the caller (page/action). Artifacts use composite PK (id + createdAt) for versioning. Revalidation via `invalidateArtifact(artifactId)`/`refreshArtifact(artifactId)` at the caller level. <!-- wave4: XDL-02 — bare-ID signatures -->
 
 Output files:
 - lib/data/artifact.ts
@@ -308,7 +308,7 @@ Success criteria:
 - **File is lib/data/artifact.ts** (NOT document.ts)
 - getArtifactById returns latest version (MAX createdAt for id)
 - saveArtifactVersion inserts new row (versioning via new rows)
-- deleteArtifactVersion supports version-targeted deletion by timestamp
+- deleteArtifactVersionsAfter supports version-targeted deletion by timestamp
 - Uses **ArtifactKind** type (NOT DocumentKind)
 - Cache tags use **artifact-*** pattern (NOT document-*)
 - Composite PK (id + createdAt) maintained correctly

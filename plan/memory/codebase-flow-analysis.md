@@ -1325,7 +1325,7 @@ ROUTE: app/api/artifact/route.ts → POST → handleRestore()
     │ 2. restorePoint = new Date(data.timestamp)
     │    afterRestore = new Date(restorePoint.getTime() + 1)
     │
-    │ 3. deleteArtifactVersion(data.id, afterRestore)
+    │ 3. deleteArtifactVersionsAfter(data.id, afterRestore)
     │    [lib/data/artifact.ts]
     │    → DELETE FROM artifacts WHERE id = ? AND createdAt > afterRestore
     │    → All versions AFTER restore point are deleted

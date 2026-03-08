@@ -282,7 +282,7 @@ SidebarShell (SERVER component)
 | `POST /api/chat` | Route Handler | auth, rate limit | `createChat`, `saveMessages`, `updateChatTitle` | `revalidateTag('chat:{id}', 'max')`, `revalidateTag('chats:{userId}', 'max')` | `ReadableStream` (SSE) |
 | `GET /api/history` | Route Handler | auth, rate limit | `getChatsByUserId` | — | `HistoryResponse<Chat>` |
 | `GET /api/artifact` | Route Handler | auth, ownership | `getArtifactVersions` | — | `Artifact[]` |
-| `POST /api/artifact` | Route Handler | auth, rate limit | `saveArtifactVersion` (`mode: "save"`), `deleteArtifactVersion` (`mode: "restore"`) | `revalidateTag('artifact:{id}', 'max')` | mode-dependent: `{ artifact: Artifact }` (save) / `{ success: true }` (restore) | <!-- C2-W4: C2X-003 + C2-A4 fix -->
+| `POST /api/artifact` | Route Handler | auth, rate limit | `saveArtifactVersion` (`mode: "save"`), `deleteArtifactVersionsAfter` (`mode: "restore"`) | `revalidateTag('artifact:{id}', 'max')` | mode-dependent: `{ artifact: Artifact }` (save) / `{ success: true }` (restore) | <!-- C2-W4: C2X-003 + C2-A4 fix -->
 | `GET /api/suggestions` | Route Handler | auth | `getSuggestionsByArtifactId` | — | `{ suggestions: ArtifactSuggestion[] }` |
 | `POST /api/files/upload` | Route Handler | auth, upload rate limit | Vercel Blob `put()` | — | `{ url: string, pathname: string }` |
 | `GET /api/health` | Route Handler | none | DB + Redis ping | — | `HealthResponse` |

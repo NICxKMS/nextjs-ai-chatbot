@@ -8,7 +8,7 @@ import { getAppSession } from "@/lib/auth/session"
 import { rateLimitKeys } from "@/lib/cache/keys"
 import { checkRateLimitWithInfo } from "@/lib/cache/rate-limit"
 import {
-	deleteArtifactVersion,
+	deleteArtifactVersionsAfter,
 	getArtifactById,
 	getArtifactVersions,
 	saveArtifactVersion,
@@ -213,7 +213,7 @@ async function handleRestore(data: RestoreArtifactInput, userId: string): Promis
 
 	// Delete all versions strictly AFTER the restore point (gt, not gte)
 	const restorePoint = new Date(data.timestamp)
-	await deleteArtifactVersion(data.id, restorePoint)
+	await deleteArtifactVersionsAfter(data.id, restorePoint)
 
 	return Response.json(
 		{ success: true },

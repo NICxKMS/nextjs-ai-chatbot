@@ -96,7 +96,7 @@
 | 7 | `getDocumentById()` | `getArtifactById()` | `lib/data/artifact.ts` |
 | 8 | `saveDocumentVersion()` | `saveArtifactVersion()` | `lib/data/artifact.ts` |
 | 9 | `getDocumentVersions()` | `getArtifactVersions()` | `lib/data/artifact.ts` |
-| 10 | `deleteDocumentVersion()` | `deleteArtifactVersion()` | `lib/data/artifact.ts` |
+| 10 | `deleteDocumentVersion()` | `deleteArtifactVersionsAfter()` | `lib/data/artifact.ts` |
 | 11 | `appendDocumentVersionToCache()` | `appendArtifactVersionToCache()` | `lib/data/artifact.ts` (if cache-through pattern) |
 | 12 | `documentData.get()` / `documentData.save()` | Direct function calls: `getArtifactById()` / `saveArtifactVersion()` | Simplify accessor pattern |
 

@@ -331,7 +331,7 @@ export async function loginAction(prevState: FormState, formData: FormData) {
 | File | Functions | Entity |
 |------|-----------|--------|
 | `chat.ts` | `getChatById`, `getChatWithMessages`, `getChatsByUserId`, `createChat`, `updateChatTitle`, `deleteChat`, `deleteAllChats` | Chat |
-| `artifact.ts` | `getArtifactById`, `getArtifactVersions`, `saveArtifactVersion`, `deleteArtifactVersion` | Artifact (NOT "document") |
+| `artifact.ts` | `getArtifactById`, `getArtifactVersions`, `saveArtifactVersion`, `deleteArtifactVersionsAfter` | Artifact (NOT "document") |
 | `message.ts` | `getMessagesByChatId`, `saveMessages`, `deleteTrailingMessages` | Message |
 | `vote.ts` | `getVotesByChatId`, `upsertVote` | Vote |
 | `suggestion.ts` | `getSuggestionsByArtifactId`, `saveSuggestions` | Suggestion |

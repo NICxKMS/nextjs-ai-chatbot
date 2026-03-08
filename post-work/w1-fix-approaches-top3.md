@@ -19,7 +19,7 @@ artifactRef: foreignKey({
 ```
 
 ### Impact
-- `handleRestore()` in `app/api/artifact/route.ts` calls `deleteArtifactVersion(id, afterRestore)`
+- `handleRestore()` in `app/api/artifact/route.ts` calls `deleteArtifactVersionsAfter(id, afterRestore)`
 - If ANY deleted artifact version has suggestions → Postgres FK violation → 500 error
 - Affects every artifact that receives AI suggestions and later has a version restore
 
@@ -77,7 +77,7 @@ async function handleRestore(data: RestoreArtifactInput, userId: string): Promis
             gte(suggestions.artifactCreatedAt, afterRestore)
         ))
     
-    await deleteArtifactVersion(data.id, afterRestore)
+    await deleteArtifactVersionsAfter(data.id, afterRestore)
     // ...
 }
 ```

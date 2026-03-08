@@ -302,7 +302,7 @@ RECOMMENDATION: No action. Config is well-documented and appropriate.
 ```
 SEVERITY: [LOW]
 FILE: lib/data/artifact.ts:93-101
-FINDING: `deleteArtifactVersion` uses `gte(artifacts.createdAt, createdAt)` which deletes
+FINDING: `deleteArtifactVersionsAfter` uses `gte(artifacts.createdAt, createdAt)` which deletes
   the target version AND all versions after it. The function name says "Version" (singular)
   but deletes multiple versions. The `handleRestore` caller in `route.ts:174` works around
   this by adding +1ms to the timestamp: `new Date(restorePoint.getTime() + 1)`.
@@ -335,7 +335,7 @@ FINDING: The composite FK from `Suggestion` → `Artifact` (on `artifactId + art
   
   IMPACT: Deleting artifact versions that have suggestions will FAIL with a Postgres FK
   constraint violation. This directly affects the artifact RESTORE flow:
-    - `POST /api/artifact { mode: "restore" }` → `handleRestore()` → `deleteArtifactVersion(id, afterRestore)`
+    - `POST /api/artifact { mode: "restore" }` → `handleRestore()` → `deleteArtifactVersionsAfter(id, afterRestore)`
     - If ANY deleted version has suggestions, the DELETE will throw a Postgres error
     - The error propagates as a 500 to the client
   
@@ -513,7 +513,7 @@ POST /api/artifact { mode: "restore", id, timestamp }
     → getArtifactById(data.id) — ownership check (returns latest version)
     → restorePoint = new Date(data.timestamp)
     → afterRestore = new Date(restorePoint.getTime() + 1)  // +1ms
-    → deleteArtifactVersion(data.id, afterRestore)
+    → deleteArtifactVersionsAfter(data.id, afterRestore)
       → DELETE FROM "Artifact" WHERE id = $1 AND created_at >= $2
       → ❌ FK VIOLATION if any deleted version has suggestions
 ```
@@ -523,7 +523,7 @@ POST /api/artifact { mode: "restore", id, timestamp }
 2. User updates artifact (creating version 2, 3, etc.)
 3. AI generates suggestions for newer versions
 4. User restores to version 1
-5. `deleteArtifactVersion` tries to delete versions 2+ → **FK violation** because suggestions reference those versions
+5. `deleteArtifactVersionsAfter` tries to delete versions 2+ → **FK violation** because suggestions reference those versions
 
 **Error propagation:**
 ```

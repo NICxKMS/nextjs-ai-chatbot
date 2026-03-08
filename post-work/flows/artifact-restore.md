@@ -18,7 +18,7 @@ STEPS:
      - Ownership check: `existing.userId !== userId` → throws `AppError.forbidden`
      - `restorePoint = new Date(data.timestamp)` — the version to keep
      - `afterRestore = new Date(restorePoint.getTime() + 1)` — 1ms after restore point
-     - `deleteArtifactVersion(data.id, afterRestore)` → DELETE WHERE `id = ? AND createdAt >= afterRestore`
+     - `deleteArtifactVersionsAfter(data.id, afterRestore)` → DELETE WHERE `id = ? AND createdAt >= afterRestore`
 
   6. DB operation (lib/data/artifact.ts:103): `db.delete(artifacts).where(and(eq(id, artifactId), gte(createdAt, afterRestore)))`
      - Deletes ALL versions strictly AFTER the restore point timestamp

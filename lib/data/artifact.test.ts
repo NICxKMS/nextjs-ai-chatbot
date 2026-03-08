@@ -37,7 +37,7 @@ const mockDb = db as unknown as {
 }
 
 import {
-	deleteArtifactVersion,
+	deleteArtifactVersionsAfter,
 	getArtifactById,
 	getArtifactByIdAndCreatedAt,
 	getArtifactOwnerId,
@@ -70,7 +70,7 @@ function resetChainMocks() {
 	for (const key of Object.keys(mockDb)) {
 		const fn = mockDb[key as keyof typeof mockDb]
 		if (typeof fn === "function" && "mockClear" in fn) {
-			;(fn as ReturnType<typeof vi.fn>).mockClear().mockReturnThis()
+			; (fn as ReturnType<typeof vi.fn>).mockClear().mockReturnThis()
 		}
 	}
 	mockDb.returning.mockResolvedValue([])
@@ -281,11 +281,11 @@ describe("saveArtifactVersion", () => {
 	})
 })
 
-describe("deleteArtifactVersion", () => {
+describe("deleteArtifactVersionsAfter", () => {
 	it("deletes versions after the given timestamp", async () => {
 		mockDb.where.mockResolvedValue(undefined)
 
-		await deleteArtifactVersion(ARTIFACT_ID, NOW)
+		await deleteArtifactVersionsAfter(ARTIFACT_ID, NOW)
 
 		expect(mockDb.delete).toHaveBeenCalledOnce()
 	})
@@ -293,6 +293,6 @@ describe("deleteArtifactVersion", () => {
 	it("throws AppError on database failure", async () => {
 		mockDb.where.mockRejectedValue(new Error("constraint violation"))
 
-		await expect(deleteArtifactVersion(ARTIFACT_ID, NOW)).rejects.toThrow(AppError)
+		await expect(deleteArtifactVersionsAfter(ARTIFACT_ID, NOW)).rejects.toThrow(AppError)
 	})
 })

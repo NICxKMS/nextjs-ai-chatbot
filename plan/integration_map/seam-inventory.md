@@ -299,7 +299,7 @@
 | **Description** | Artifact CRUD with composite PK versioning |
 | **Components** | `lib/data/artifact.ts` → `lib/db/` |
 | **Data Exchanged** | `Artifact` (with versions array). PK: (id, createdAt). Each save creates new row. |
-| **Task Needed** | Build artifact data functions: getArtifactById (with all versions), saveArtifactVersion (append new version), deleteArtifactVersion. revalidateTag('artifact:{id}', 'max') on saves. |
+| **Task Needed** | Build artifact data functions: getArtifactById (with all versions), saveArtifactVersion (append new version), deleteArtifactVersionsAfter. revalidateTag('artifact:{id}', 'max') on saves. |
 
 ### SEAM-026: Message Persistence
 

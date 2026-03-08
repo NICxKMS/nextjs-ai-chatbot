@@ -51,12 +51,12 @@ Added:
 
 - **GET:** Rate limited at 60 req/min per user via `checkRateLimitWithInfo`.
 - **POST:** Rate limited at 30 req/min per user via `checkRateLimitWithInfo`.
-- **Restore fix:** Removed fragile `+1ms` timestamp offset (`new Date(restorePoint.getTime() + 1)`). Now passes `restorePoint` directly to `deleteArtifactVersion`, which uses `gt()` (strictly greater than).
+- **Restore fix:** Removed fragile `+1ms` timestamp offset (`new Date(restorePoint.getTime() + 1)`). Now passes `restorePoint` directly to `deleteArtifactVersionsAfter`, which uses `gt()` (strictly greater than).
 - **Added:** `export const maxDuration = 10`.
 
 ### 6. `lib/data/artifact.ts` — gt() instead of gte()
 
-Changed `deleteArtifactVersion` query from `gte(artifacts.createdAt, createdAt)` to `gt(artifacts.createdAt, createdAt)`. This means "delete versions created strictly after the restore point" — correct semantics without needing the +1ms caller hack.
+Changed `deleteArtifactVersionsAfter` query from `gte(artifacts.createdAt, createdAt)` to `gt(artifacts.createdAt, createdAt)`. This means "delete versions created strictly after the restore point" — correct semantics without needing the +1ms caller hack.
 
 ### 7. `app/api/history/route.ts` — Rate limiting added
 

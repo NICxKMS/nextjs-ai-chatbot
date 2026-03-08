@@ -57,7 +57,7 @@ Before creating any new symbol:
 | `getDocumentById()` | `getArtifactById()` | Function |
 | `saveDocumentVersion()` | `saveArtifactVersion()` | Function |
 | `getDocumentVersions()` | `getArtifactVersions()` | Function |
-| `deleteDocumentVersion()` | `deleteArtifactVersion()` | Function |
+| `deleteDocumentVersion()` | `deleteArtifactVersionsAfter()` | Function |
 | `documentData.get()` | N/A — use plain functions | Pattern simplified |
 | `documentData.save()` | N/A — use plain functions | Pattern simplified |
 
