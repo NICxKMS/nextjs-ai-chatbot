@@ -1,32 +1,37 @@
-import { config } from "dotenv";
-import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
-import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js"
+import { migrate } from "drizzle-orm/postgres-js/migrator"
+import postgres from "postgres"
 
-config({
-  path: ".env.local",
-});
+/**
+ * Programmatic migration runner.
+ *
+ * Creates a dedicated single-connection client (max: 1) rather than reusing
+ * the shared pool from client.ts. This ensures sequential migration execution
+ * and clean process exit after completion.
+ *
+ * Usage: `tsx lib/db/migrate.ts`
+ */
+async function runMigrations() {
+	if (!process.env.DATABASE_URL) {
+		throw new Error("DATABASE_URL environment variable is not set")
+	}
 
-const runMigrate = async () => {
-  if (!process.env.POSTGRES_URL) {
-    throw new Error("POSTGRES_URL is not defined");
-  }
+	const connection = postgres(process.env.DATABASE_URL, { max: 1 })
+	const db = drizzle(connection)
 
-  const connection = postgres(process.env.POSTGRES_URL, { max: 1 });
-  const db = drizzle(connection);
+	console.info("[migrate] Running migrations...")
 
-  console.log("⏳ Running migrations...");
+	const start = Date.now()
+	await migrate(db, { migrationsFolder: "./lib/db/migrations" })
+	const elapsed = Date.now() - start
 
-  const start = Date.now();
-  await migrate(db, { migrationsFolder: "./lib/db/migrations" });
-  const end = Date.now();
+	console.info(`[migrate] Migrations completed in ${elapsed}ms`)
 
-  console.log("✅ Migrations completed in", end - start, "ms");
-  process.exit(0);
-};
+	await connection.end()
+	process.exit(0)
+}
 
-runMigrate().catch((err) => {
-  console.error("❌ Migration failed");
-  console.error(err);
-  process.exit(1);
-});
+runMigrations().catch((error: unknown) => {
+	console.error("[migrate] Migration failed:", error)
+	process.exit(1)
+})

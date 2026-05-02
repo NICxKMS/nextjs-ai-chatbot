@@ -1,52 +1,43 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { Chat } from "@/components/chat";
-import { DataStreamHandler } from "@/components/data-stream-handler";
-import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
-import { generateUUID } from "@/lib/utils";
-import { auth } from "../(auth)/auth";
+import type { Metadata } from "next"
+import { ChatShell } from "@/features/chat/components/chat-shell"
+import { getAvailableModels, getDefaultModel } from "@/features/models/lib/models"
+import { generateUUID } from "@/lib/utils/generate-uuid"
 
-export default async function Page() {
-  const session = await auth();
+export const metadata: Metadata = {
+	title: "New Chat",
+	description: "Start a new conversation with the AI assistant.",
+	openGraph: {
+		title: "New Chat",
+		description: "Start a new conversation with the AI assistant.",
+	},
+}
 
-  if (!session) {
-    redirect("/api/auth/guest");
-  }
+export default async function NewChatPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ q?: string; query?: string }>
+}) {
+	const availableModelsPromise = getAvailableModels()
 
-  const id = generateUUID();
+	const [params, availableModels, defaultModel] = await Promise.all([
+		searchParams,
+		availableModelsPromise,
+		getDefaultModel(null, availableModelsPromise),
+	])
+	const initialQuery = params.q || params.query || undefined
 
-  const cookieStore = await cookies();
-  const modelIdFromCookie = cookieStore.get("chat-model");
+	const id = generateUUID()
 
-  if (!modelIdFromCookie) {
-    return (
-      <>
-        <Chat
-          autoResume={false}
-          id={id}
-          initialChatModel={DEFAULT_CHAT_MODEL}
-          initialMessages={[]}
-          initialVisibilityType="private"
-          isReadonly={false}
-          key={id}
-        />
-        <DataStreamHandler />
-      </>
-    );
-  }
-
-  return (
-    <>
-      <Chat
-        autoResume={false}
-        id={id}
-        initialChatModel={modelIdFromCookie.value}
-        initialMessages={[]}
-        initialVisibilityType="private"
-        isReadonly={false}
-        key={id}
-      />
-      <DataStreamHandler />
-    </>
-  );
+	return (
+		<ChatShell
+			key={id}
+			id={id}
+			initialMessages={[]}
+			initialChatModel={defaultModel}
+			isReadonly={false}
+			initialVisibility="private"
+			availableModels={availableModels}
+			initialQuery={initialQuery}
+		/>
+	)
 }

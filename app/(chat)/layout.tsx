@@ -1,32 +1,65 @@
-import { cookies } from "next/headers";
-import Script from "next/script";
-import { AppSidebar } from "@/components/app-sidebar";
-import { DataStreamProvider } from "@/components/data-stream-provider";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { auth } from "../(auth)/auth";
+import type { Metadata } from "next"
+import { cookies, headers } from "next/headers"
+import { type ReactNode, Suspense } from "react"
+import { SidebarInset } from "@/components/ui/sidebar"
+import { SidebarProvider } from "@/components/ui/sidebar-provider"
+import { SessionProvider } from "@/features/auth/components/session-provider"
+import { NoticeHandler } from "@/features/chat/components/notice-handler"
+import { SidebarShell } from "@/features/sidebar/components/sidebar-shell"
+import { SidebarSkeleton } from "@/features/sidebar/components/sidebar-skeleton"
+import { getAppSession } from "@/lib/auth/session"
+import { PendingChatsProvider } from "@/lib/providers/pending-chats-provider"
 
-export const experimental_ppr = true;
+export const metadata: Metadata = {
+	title: {
+		template: "%s | ai-assistant",
+		default: "ai-assistant",
+	},
+}
 
-export default async function Layout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const [session, cookieStore] = await Promise.all([auth(), cookies()]);
-  const isCollapsed = cookieStore.get("sidebar_state")?.value !== "true";
+async function getSidebarDefaultOpen() {
+	const cookieStore = await cookies()
+	return cookieStore.get("sidebar_state")?.value !== "false"
+}
 
-  return (
-    <>
-      <Script
-        src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"
-        strategy="beforeInteractive"
-      />
-      <DataStreamProvider>
-        <SidebarProvider defaultOpen={!isCollapsed}>
-          <AppSidebar user={session?.user} />
-          <SidebarInset>{children}</SidebarInset>
-        </SidebarProvider>
-      </DataStreamProvider>
-    </>
-  );
+// ── Chat layout ────────────────────────────────────────────────
+// The layout reads the sidebar cookie directly (essentially free — cookies are
+// request-local data in Next.js). This avoids nesting an async component inside
+// a Suspense boundary that would show a redundant skeleton before the real
+// SidebarShell Suspense even triggers — eliminating the double-skeleton flash.
+//
+// Only SidebarShell (which fetches session + cached chat history) is wrapped in
+// Suspense. Children render immediately alongside the skeleton fallback so page
+// content is never blanked during sidebar loading.
+
+async function ChatLayoutContent({ children }: { children: ReactNode }) {
+	const sessionPromise = getAppSession()
+	const [defaultOpen, headersList] = await Promise.all([getSidebarDefaultOpen(), headers()])
+	const initialIsMobile = headersList.get("x-device-type") === "mobile"
+
+	return (
+		<SessionProvider session={sessionPromise}>
+			<PendingChatsProvider>
+				<SidebarProvider defaultOpen={defaultOpen} initialIsMobile={initialIsMobile}>
+					<Suspense fallback={<SidebarSkeleton />}>
+						<SidebarShell />
+					</Suspense>
+					<SidebarInset id="main-content">{children}</SidebarInset>
+				</SidebarProvider>
+			</PendingChatsProvider>
+		</SessionProvider>
+	)
+}
+
+export default function ChatLayout({ children }: { children: ReactNode }) {
+	return (
+		<>
+			<Suspense fallback={null}>
+				<NoticeHandler />
+			</Suspense>
+			<Suspense fallback={<SidebarSkeleton />}>
+				<ChatLayoutContent>{children}</ChatLayoutContent>
+			</Suspense>
+		</>
+	)
 }

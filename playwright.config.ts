@@ -1,107 +1,34 @@
-import { defineConfig, devices } from "@playwright/test";
+import { existsSync } from "node:fs"
+import { defineConfig, devices } from "@playwright/test"
 
-/**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-import { config } from "dotenv";
+if (existsSync(".env.local")) {
+	process.loadEnvFile(".env.local")
+}
 
-config({
-  path: ".env.local",
-});
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000"
+const webServerUrl = new URL(baseURL)
+const webServerPort = webServerUrl.port || (webServerUrl.protocol === "https:" ? "443" : "80")
 
-/* Use process.env.PORT by default and fallback to port 3000 */
-const PORT = process.env.PORT || 3000;
-
-/**
- * Set webServer.url and use.baseURL with the location
- * of the WebServer respecting the correct set port
- */
-const baseURL = `http://localhost:${PORT}`;
-
-/**
- * See https://playwright.dev/docs/test-configuration.
- */
 export default defineConfig({
-  testDir: "./tests",
-  /* Run tests in files in parallel */
-  fullyParallel: true,
-  /* Fail the build on CI if you accidentally left test.only in the source code. */
-  forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
-  retries: 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 2 : 8,
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: "html",
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
-  use: {
-    /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL,
-
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-    trace: "retain-on-failure",
-  },
-
-  /* Configure global timeout for each test */
-  timeout: 240 * 1000, // 120 seconds
-  expect: {
-    timeout: 240 * 1000,
-  },
-
-  /* Configure projects */
-  projects: [
-    {
-      name: "e2e",
-      testMatch: /e2e\/.*.test.ts/,
-      use: {
-        ...devices["Desktop Chrome"],
-      },
-    },
-    {
-      name: "routes",
-      testMatch: /routes\/.*.test.ts/,
-      use: {
-        ...devices["Desktop Chrome"],
-      },
-    },
-
-    // {
-    //   name: 'firefox',
-    //   use: { ...devices['Desktop Firefox'] },
-    // },
-
-    // {
-    //   name: 'webkit',
-    //   use: { ...devices['Desktop Safari'] },
-    // },
-
-    /* Test against mobile viewports. */
-    // {
-    //   name: 'Mobile Chrome',
-    //   use: { ...devices['Pixel 5'] },
-    // },
-    // {
-    //   name: 'Mobile Safari',
-    //   use: { ...devices['iPhone 12'] },
-    // },
-
-    /* Test against branded browsers. */
-    // {
-    //   name: 'Microsoft Edge',
-    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
-    // },
-    // {
-    //   name: 'Google Chrome',
-    //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-    // },
-  ],
-
-  /* Run your local dev server before starting the tests */
-  webServer: {
-    command: "pnpm dev",
-    url: `${baseURL}/ping`,
-    timeout: 120 * 1000,
-    reuseExistingServer: !process.env.CI,
-  },
-});
+	testDir: "./e2e",
+	fullyParallel: true,
+	forbidOnly: !!process.env.CI,
+	retries: process.env.CI ? 2 : 0,
+	workers: process.env.CI ? 2 : 1,
+	reporter: "html",
+	timeout: 120_000,
+	expect: { timeout: 10_000 },
+	use: {
+		baseURL,
+		trace: "on-first-retry",
+		screenshot: "only-on-failure",
+	},
+	projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+	webServer: {
+		command: `cmd /c "set ENABLE_E2E_ARTIFACT_FIXTURE=1&& pnpm exec next dev --hostname ${webServerUrl.hostname} --port ${webServerPort}"`,
+		env: { ...process.env, ENABLE_E2E_ARTIFACT_FIXTURE: "1" },
+		url: baseURL,
+		reuseExistingServer: process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === "1",
+		timeout: 120_000,
+	},
+})

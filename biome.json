@@ -1,0 +1,178 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.4.13/schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"files": {
+		"ignoreUnknown": true,
+		"includes": [
+			"**/*.ts",
+			"**/*.tsx",
+			"**/*.js",
+			"**/*.jsx",
+			"**/*.json",
+			"**/*.mjs",
+			"!!**/node_modules",
+			"!!**/.next",
+			"!!**/dist",
+			"!!**/build",
+			"!!**/drizzle",
+			"!!**/*.min.js",
+			"!!**/pnpm-lock.yaml",
+			"!!**/oldapp",
+			"!!**/plan",
+			"!!**/components/ai-elements",
+			"!!**/.agents"
+		]
+	},
+	"assist": { "actions": { "source": { "organizeImports": "on" } } },
+	"formatter": {
+		"enabled": true,
+		"formatWithErrors": false,
+		"indentStyle": "tab",
+		"indentWidth": 4,
+		"lineWidth": 100,
+		"lineEnding": "lf"
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"complexity": {
+				"noExtraBooleanCast": "error",
+				"noUselessCatch": "error",
+				"noUselessThisAlias": "error",
+				"noUselessTypeConstraint": "error"
+			},
+			"correctness": {
+				"noConstAssign": "error",
+				"noConstantCondition": "warn",
+				"noEmptyCharacterClassInRegex": "error",
+				"noEmptyPattern": "error",
+				"noGlobalObjectCalls": "error",
+				"noInvalidConstructorSuper": "error",
+				"noInvalidBuiltinInstantiation": "error",
+				"noNonoctalDecimalEscape": "error",
+				"noPrecisionLoss": "error",
+				"noSelfAssign": "error",
+				"noSetterReturn": "error",
+				"noSwitchDeclarations": "error",
+				"noUndeclaredVariables": "error",
+				"noUnreachable": "error",
+				"noUnreachableSuper": "error",
+				"noUnsafeFinally": "error",
+				"noUnsafeOptionalChaining": "error",
+				"noUnusedLabels": "error",
+				"noUnusedVariables": "error",
+				"useIsNan": "error",
+				"useValidForDirection": "error",
+				"useYield": "error"
+			},
+			"suspicious": {
+				"noAsyncPromiseExecutor": "error",
+				"noCatchAssign": "error",
+				"noClassAssign": "error",
+				"noCompareNegZero": "error",
+				"noControlCharactersInRegex": "error",
+				"noDebugger": "error",
+				"noDuplicateCase": "error",
+				"noDuplicateClassMembers": "error",
+				"noDuplicateObjectKeys": "error",
+				"noDuplicateParameters": "error",
+				"noEmptyBlockStatements": "warn",
+				"noExplicitAny": "error",
+				"noFallthroughSwitchClause": "error",
+				"noFunctionAssign": "error",
+				"noGlobalAssign": "error",
+				"noImportAssign": "error",
+				"noMisleadingCharacterClass": "error",
+				"noPrototypeBuiltins": "error",
+				"noRedeclare": "error",
+				"noShadowRestrictedNames": "error",
+				"noUnsafeDeclarationMerging": "error",
+				"noUnsafeNegation": "error",
+				"useGetterReturn": "error"
+			},
+			"style": {
+				"noDefaultExport": "error",
+				"useConst": "error",
+				"useSingleVarDeclarator": "error"
+			}
+		}
+	},
+	"javascript": {
+		"formatter": {
+			"jsxQuoteStyle": "double",
+			"quoteProperties": "asNeeded",
+			"trailingCommas": "all",
+			"semicolons": "asNeeded",
+			"arrowParentheses": "always",
+			"bracketSpacing": true,
+			"bracketSameLine": false,
+			"quoteStyle": "double",
+			"attributePosition": "auto"
+		},
+		"globals": ["React"]
+	},
+	"overrides": [
+		{
+			"includes": [
+				"proxy.ts",
+				"drizzle.config.ts",
+				"next.config.ts",
+				"vitest.config.ts",
+				"playwright.config.ts",
+				"postcss.config.mjs",
+				"**/page.tsx",
+				"**/layout.tsx",
+				"**/route.ts",
+				"**/error.tsx",
+				"**/global-error.tsx",
+				"**/loading.tsx",
+				"**/not-found.tsx"
+			],
+			"linter": {
+				"rules": {
+					"style": {
+						"noDefaultExport": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["components/ui/**"],
+			"linter": {
+				"rules": {
+					"a11y": {
+						"useSemanticElements": "warn"
+					},
+					"suspicious": {
+						"noDocumentCookie": "warn"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["components/icons.tsx"],
+			"linter": {
+				"rules": {
+					"a11y": {
+						"noSvgWithoutTitle": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noExplicitAny": "off"
+					}
+				}
+			}
+		}
+	]
+}

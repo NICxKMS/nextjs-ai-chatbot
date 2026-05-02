@@ -1,0 +1,326 @@
+"use client"
+
+import { Extension } from "@tiptap/core"
+import type { Node } from "@tiptap/pm/model"
+import { Plugin, PluginKey } from "@tiptap/pm/state"
+import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view"
+import { createRoot } from "react-dom/client"
+
+import { CrossIcon } from "@/components/icons"
+import { Button } from "@/components/ui/button"
+import type { ArtifactSuggestion } from "@/lib/types/artifact.types"
+
+// ── Types ────────────────────────────────────────────────────
+
+export interface UISuggestion extends ArtifactSuggestion {
+	id: string
+	selectionStart: number
+	selectionEnd: number
+}
+
+type Position = { start: number; end: number }
+
+function resolveProducerPosition(
+	suggestion: ArtifactSuggestion,
+	positions: Position[],
+): Position | null {
+	if (
+		typeof suggestion.selectionStart === "number" &&
+		typeof suggestion.selectionEnd === "number"
+	) {
+		const explicitPosition = positions.find(
+			(position) =>
+				position.start === suggestion.selectionStart &&
+				position.end === suggestion.selectionEnd,
+		)
+
+		if (explicitPosition) {
+			return explicitPosition
+		}
+	}
+
+	if (typeof suggestion.occurrenceIndex === "number") {
+		return positions[suggestion.occurrenceIndex] ?? null
+	}
+
+	return null
+}
+
+// ── Helpers ──────────────────────────────────────────────────
+
+function findPositionsInDoc(doc: Node, searchText: string): Position[] {
+	if (searchText.length === 0) {
+		return []
+	}
+
+	const positions: Position[] = []
+
+	doc.nodesBetween(0, doc.content.size, (node, pos) => {
+		if (node.isText && node.text) {
+			let searchStart = 0
+
+			while (searchStart <= node.text.length - searchText.length) {
+				const index = node.text.indexOf(searchText, searchStart)
+				if (index === -1) {
+					break
+				}
+
+				positions.push({
+					start: pos + index,
+					end: pos + index + searchText.length,
+				})
+				searchStart = index + searchText.length
+			}
+		}
+		return true
+	})
+
+	return positions
+}
+
+// Memoization cache — avoids full recomputation when inputs haven't changed.
+let cachedProjectionDoc: Node | null = null
+let cachedProjectionSuggestions: ArtifactSuggestion[] | null = null
+let cachedProjectionResult: UISuggestion[] | null = null
+
+export function projectWithPositions(doc: Node, suggestions: ArtifactSuggestion[]): UISuggestion[] {
+	// Return cached result if inputs are referentially identical
+	if (
+		cachedProjectionDoc === doc &&
+		cachedProjectionSuggestions === suggestions &&
+		cachedProjectionResult
+	) {
+		return cachedProjectionResult
+	}
+
+	const suggestionCounts = new Map<string, number>()
+	const positionCache = new Map<string, Position[]>()
+	const resolvedCounts = new Map<string, number>()
+
+	for (const suggestion of suggestions) {
+		suggestionCounts.set(
+			suggestion.originalText,
+			(suggestionCounts.get(suggestion.originalText) ?? 0) + 1,
+		)
+
+		if (!positionCache.has(suggestion.originalText)) {
+			positionCache.set(
+				suggestion.originalText,
+				findPositionsInDoc(doc, suggestion.originalText),
+			)
+		}
+	}
+
+	const result = suggestions.map((suggestion, index) => {
+		const totalSuggestions = suggestionCounts.get(suggestion.originalText) ?? 0
+		const positions = positionCache.get(suggestion.originalText) ?? []
+		const occurrenceIndex = resolvedCounts.get(suggestion.originalText) ?? 0
+		resolvedCounts.set(suggestion.originalText, occurrenceIndex + 1)
+
+		let position = resolveProducerPosition(suggestion, positions)
+		if (!position && positions.length === 1 && totalSuggestions === 1) {
+			position = positions[0] ?? null
+		} else if (!position && totalSuggestions > 1 && positions.length >= totalSuggestions) {
+			position = positions[occurrenceIndex] ?? null
+		}
+
+		return {
+			...suggestion,
+			id: `suggestion-${index}`,
+			selectionStart: position?.start ?? 0,
+			selectionEnd: position?.end ?? 0,
+		}
+	})
+
+	// Store in cache for subsequent calls with identical inputs
+	cachedProjectionDoc = doc
+	cachedProjectionSuggestions = suggestions
+	cachedProjectionResult = result
+	return result
+}
+
+// ── Suggestion widget ──────────────────────────────────────
+
+/** Stores cleanup callbacks keyed by widget DOM nodes — avoids monkey-patching nodes. */
+const widgetCleanupMap = new WeakMap<globalThis.Node, () => void>()
+
+function SuggestionWidget({
+	suggestion,
+	onApply,
+	onDismiss,
+}: {
+	suggestion: UISuggestion
+	onApply: () => void
+	onDismiss: () => void
+}) {
+	return (
+		<span className="relative inline-block">
+			<span className="absolute -right-12 top-0 z-50 flex w-56 flex-col gap-2 rounded-xl border bg-background p-3 font-sans text-sm shadow-xl md:-right-16">
+				<div className="flex items-center justify-between">
+					<div className="flex items-center gap-2">
+						<div className="size-4 rounded-full bg-muted-foreground/25" />
+						<span className="font-medium">Assistant</span>
+					</div>
+					<button
+						className="cursor-pointer text-muted-foreground"
+						onClick={onDismiss}
+						title="Dismiss suggestion"
+						type="button"
+					>
+						<CrossIcon size={12} />
+					</button>
+				</div>
+				<p className="text-muted-foreground">{suggestion.description}</p>
+				<Button
+					className="w-fit rounded-full px-3 py-1.5"
+					onClick={onApply}
+					size="sm"
+					variant="outline"
+				>
+					Apply
+				</Button>
+			</span>
+		</span>
+	)
+}
+
+function createSuggestionWidget(
+	suggestion: UISuggestion,
+	view: EditorView,
+): { dom: HTMLElement; destroy: () => void } {
+	const dom = document.createElement("span")
+	const root = createRoot(dom)
+
+	const handleMouseDown = (event: MouseEvent) => {
+		event.preventDefault()
+		view.dom.blur()
+	}
+
+	dom.addEventListener("mousedown", handleMouseDown)
+
+	const onApply = () => {
+		const { state, dispatch } = view
+		// Remove decoration for this suggestion
+		const currentState = suggestionsPluginKey.getState(state)
+		if (currentState?.decorations) {
+			const remaining = DecorationSet.create(
+				state.doc,
+				currentState.decorations
+					.find()
+					.filter((d: Decoration) => d.spec.suggestionId !== suggestion.id),
+			)
+			dispatch(
+				state.tr.setMeta(suggestionsPluginKey, { decorations: remaining, selected: null }),
+			)
+		}
+		// Replace text
+		const tr = view.state.tr.replaceWith(
+			suggestion.selectionStart,
+			suggestion.selectionEnd,
+			state.schema.text(suggestion.suggestedText),
+		)
+		tr.setMeta("no-debounce", true)
+		dispatch(tr)
+	}
+
+	const onDismiss = () => {
+		const { state, dispatch } = view
+		const currentState = suggestionsPluginKey.getState(state)
+		if (currentState?.decorations) {
+			const remaining = DecorationSet.create(
+				state.doc,
+				currentState.decorations
+					.find()
+					.filter((d: Decoration) => d.spec.suggestionId !== suggestion.id),
+			)
+			dispatch(
+				state.tr.setMeta(suggestionsPluginKey, { decorations: remaining, selected: null }),
+			)
+		}
+	}
+
+	root.render(
+		<SuggestionWidget suggestion={suggestion} onApply={onApply} onDismiss={onDismiss} />,
+	)
+
+	return {
+		dom,
+		destroy: () => {
+			dom.removeEventListener("mousedown", handleMouseDown)
+			setTimeout(() => root.unmount(), 0)
+		},
+	}
+}
+
+// ── Decorations ──────────────────────────────────────────────
+
+export function createDecorations(suggestions: UISuggestion[], view: EditorView): DecorationSet {
+	const decorations: Decoration[] = []
+
+	for (const suggestion of suggestions) {
+		if (suggestion.selectionEnd <= suggestion.selectionStart) continue
+
+		decorations.push(
+			Decoration.inline(
+				suggestion.selectionStart,
+				suggestion.selectionEnd,
+				{ class: "suggestion-highlight" },
+				{ suggestionId: suggestion.id, type: "highlight" },
+			),
+		)
+		decorations.push(
+			Decoration.widget(
+				suggestion.selectionStart,
+				(currentView) => {
+					const { dom, destroy } = createSuggestionWidget(suggestion, currentView)
+					widgetCleanupMap.set(dom, destroy)
+					return dom
+				},
+				{
+					suggestionId: suggestion.id,
+					type: "widget",
+					destroy: (node: globalThis.Node) => {
+						widgetCleanupMap.get(node)?.()
+						widgetCleanupMap.delete(node)
+					},
+				},
+			),
+		)
+	}
+
+	return DecorationSet.create(view.state.doc, decorations)
+}
+
+// ── Plugin key + Extension ───────────────────────────────────
+
+export const suggestionsPluginKey = new PluginKey("suggestions")
+
+export const SuggestionsExtension = Extension.create({
+	name: "suggestions",
+
+	addProseMirrorPlugins() {
+		return [
+			new Plugin({
+				key: suggestionsPluginKey,
+				state: {
+					init() {
+						return { decorations: DecorationSet.empty, selected: null }
+					},
+					apply(tr, state) {
+						const meta = tr.getMeta(suggestionsPluginKey)
+						if (meta) return meta
+						return {
+							decorations: state.decorations.map(tr.mapping, tr.doc),
+							selected: state.selected,
+						}
+					},
+				},
+				props: {
+					decorations(state) {
+						return this.getState(state)?.decorations ?? DecorationSet.empty
+					},
+				},
+			}),
+		]
+	},
+})

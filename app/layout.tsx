@@ -1,87 +1,74 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { Toaster } from "sonner";
-import { ThemeProvider } from "@/components/theme-provider";
+import { GeistMono } from "geist/font/mono"
+import { GeistSans } from "geist/font/sans"
+import type { Metadata, Viewport } from "next"
+import { MotionProvider } from "@/components/motion-provider"
+import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/toaster"
+import { TooltipProvider } from "@/components/ui/tooltip"
 
-import "./globals.css";
-import { SessionProvider } from "next-auth/react";
+import "@/app/globals.css"
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://chat.vercel.ai"),
-  title: "Next.js Chatbot Template",
-  description: "Next.js chatbot template using the AI SDK.",
-};
+	metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
+	title: "ai-assistant",
+	description: "AI assistant powered by the AI SDK.",
+	openGraph: {
+		title: "ai-assistant",
+		description: "AI assistant powered by the AI SDK.",
+		type: "website",
+	},
+}
 
-export const viewport = {
-  maximumScale: 1, // Disable auto-zoom on mobile Safari
-};
+export const viewport: Viewport = {
+	width: "device-width",
+	initialScale: 1,
+}
 
-const geist = Geist({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-geist",
-});
-
-const geistMono = Geist_Mono({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-geist-mono",
-});
-
-const LIGHT_THEME_COLOR = "hsl(0 0% 100%)";
-const DARK_THEME_COLOR = "hsl(240deg 10% 3.92%)";
-const THEME_COLOR_SCRIPT = `\
-(function() {
-  var html = document.documentElement;
-  var meta = document.querySelector('meta[name="theme-color"]');
-  if (!meta) {
-    meta = document.createElement('meta');
-    meta.setAttribute('name', 'theme-color');
-    document.head.appendChild(meta);
-  }
-  function updateThemeColor() {
-    var isDark = html.classList.contains('dark');
-    meta.setAttribute('content', isDark ? '${DARK_THEME_COLOR}' : '${LIGHT_THEME_COLOR}');
-  }
-  var observer = new MutationObserver(updateThemeColor);
-  observer.observe(html, { attributes: true, attributeFilter: ['class'] });
-  updateThemeColor();
-})();`;
+// ── Root layout ────────────────────────────────────────────────
+// Keep the root shell static so unmatched URLs and non-chat routes are not
+// blocked behind auth-cookie work. Chat routes start session resolution in
+// their own layout and reuse the same request-scoped server cache there.
 
 export default function RootLayout({
-  children,
+	children,
 }: Readonly<{
-  children: React.ReactNode;
+	children: React.ReactNode
 }>) {
-  return (
-    <html
-      className={`${geist.variable} ${geistMono.variable}`}
-      // `next-themes` injects an extra classname to the body element to avoid
-      // visual flicker before hydration. Hence the `suppressHydrationWarning`
-      // prop is necessary to avoid the React hydration mismatch warning.
-      // https://github.com/pacocoursey/next-themes?tab=readme-ov-file#with-app
-      lang="en"
-      suppressHydrationWarning
-    >
-      <head>
-        <script
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: "Required"
-          dangerouslySetInnerHTML={{
-            __html: THEME_COLOR_SCRIPT,
-          }}
-        />
-      </head>
-      <body className="antialiased">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          disableTransitionOnChange
-          enableSystem
-        >
-          <Toaster position="top-center" />
-          <SessionProvider>{children}</SessionProvider>
-        </ThemeProvider>
-      </body>
-    </html>
-  );
+	const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+
+	return (
+		<html
+			lang="en"
+			className={`${GeistSans.variable} ${GeistMono.variable}`}
+			suppressHydrationWarning
+		>
+			<head>
+				{supabaseUrl && (
+					<>
+						<link rel="dns-prefetch" href={supabaseUrl} />
+						<link rel="preconnect" href={supabaseUrl} crossOrigin="anonymous" />
+					</>
+				)}
+			</head>
+			<body className="antialiased">
+				<a
+					href="#main-content"
+					className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-background focus:text-foreground"
+				>
+					Skip to main content
+				</a>
+				<ThemeProvider
+					attribute="class"
+					defaultTheme="system"
+					enableSystem
+					disableTransitionOnChange
+				>
+					<MotionProvider>
+						<TooltipProvider delayDuration={0}>{children}</TooltipProvider>
+						<Toaster />
+					</MotionProvider>
+				</ThemeProvider>
+			</body>
+		</html>
+	)
 }
