@@ -16,7 +16,7 @@ function PureSuggestedActions() {
 	const { sendMessage } = useChatSessionContext()
 
 	return (
-		<div className="grid w-full gap-2 sm:grid-cols-2" data-testid="suggested-actions">
+		<div className="grid w-full min-w-0 gap-2 sm:grid-cols-2" data-testid="suggested-actions">
 			{SUGGESTED_ACTIONS.map((action) => (
 				<Suggestion
 					className="h-auto w-full whitespace-normal p-3 text-left"

@@ -9,14 +9,49 @@ const textPartSchema = z.object({
 	text: z.string().min(1).max(2000),
 })
 
-const filePartSchema = z.object({
-	type: z.literal("file"),
-	mediaType: z.string().min(1),
-	name: z.string().min(1).max(100),
-	url: z.string().url(),
-})
+const allowedFileMediaTypes = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const
+
+function isTrustedUploadUrl(value: string): boolean {
+	try {
+		const url = new URL(value)
+		if (url.protocol !== "https:") return false
+		if (!url.pathname.startsWith("/uploads/")) return false
+
+		const configuredBlobUrl = process.env.BLOB_PUBLIC_BASE_URL
+		if (configuredBlobUrl) {
+			const configuredHostname = new URL(configuredBlobUrl).hostname
+			if (url.hostname === configuredHostname) return true
+		}
+
+		return url.hostname.endsWith(".public.blob.vercel-storage.com")
+	} catch {
+		return false
+	}
+}
+
+const filePartSchema = z
+	.object({
+		type: z.literal("file"),
+		mediaType: z.enum(allowedFileMediaTypes),
+		name: z.string().min(1).max(100).optional(),
+		filename: z.string().min(1).max(100).optional(),
+		url: z.string().url().refine(isTrustedUploadUrl, {
+			message: "File URL must be a trusted uploaded Blob URL",
+		}),
+	})
+	.refine((part) => part.name || part.filename, {
+		message: "File parts must include a name or filename",
+		path: ["name"],
+	})
 
 const partSchema = z.union([textPartSchema, filePartSchema])
+export const messageSchema = z.object({
+	id: z.string().uuid(),
+	role: z.enum(["user", "assistant", "system"]),
+	parts: z.array(partSchema),
+})
+
+export type ChatMessageInput = z.infer<typeof messageSchema>
 
 // ── Chat request schema (POST /api/chat) ─────────────────────
 // Validates the request body for the streaming chat API route.
@@ -52,3 +87,11 @@ export const deleteMessagesSchema = z.object({
 })
 
 export type DeleteMessagesInput = z.infer<typeof deleteMessagesSchema>
+
+export const editMessageSchema = z.object({
+	chatId: z.string().uuid(),
+	messageId: z.string().uuid(),
+	content: z.string().min(1).max(10_000),
+})
+
+export type EditMessageInput = z.infer<typeof editMessageSchema>

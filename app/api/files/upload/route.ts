@@ -19,8 +19,7 @@ const UPLOAD_RATE_LIMIT = 10
 /** Rate limit window: 1 hour in seconds. */
 const UPLOAD_RATE_WINDOW_SECONDS = 3600
 
-/** Allowed image MIME type prefix. */
-const ALLOWED_MIME_PREFIX = "image/"
+const ALLOWED_IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"])
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -53,6 +52,31 @@ function sanitizeFilename(name: string): string {
 async function checkUploadRateLimit(userId: string): Promise<boolean> {
 	const key = rateLimitKeys.rateLimitUpload(userId)
 	return checkRateLimit(key, UPLOAD_RATE_LIMIT, UPLOAD_RATE_WINDOW_SECONDS)
+}
+
+function startsWith(bytes: Uint8Array, signature: number[]): boolean {
+	return signature.every((value, index) => bytes[index] === value)
+}
+
+function isValidImageSignature(bytes: Uint8Array, contentType: string): boolean {
+	switch (contentType) {
+		case "image/png":
+			return startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+		case "image/jpeg":
+			return startsWith(bytes, [0xff, 0xd8, 0xff])
+		case "image/gif":
+			return startsWith(bytes, [0x47, 0x49, 0x46, 0x38])
+		case "image/webp":
+			return (
+				startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) &&
+				bytes[8] === 0x57 &&
+				bytes[9] === 0x45 &&
+				bytes[10] === 0x42 &&
+				bytes[11] === 0x50
+			)
+		default:
+			return false
+	}
 }
 
 // ── Route Handler ──────────────────────────────────────────────
@@ -110,10 +134,19 @@ export async function POST(request: Request) {
 			`File size must be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB`,
 		).toResponse()
 	}
-	if (!file.type.startsWith(ALLOWED_MIME_PREFIX)) {
+	const contentType = file.type
+	if (!ALLOWED_IMAGE_MIME_TYPES.has(contentType)) {
 		return AppError.badRequest(
 			"bad_request:api:file_type_unsupported",
 			"Only image files are accepted",
+		).toResponse()
+	}
+
+	const headerBytes = new Uint8Array(await file.slice(0, 12).arrayBuffer())
+	if (!isValidImageSignature(headerBytes, contentType)) {
+		return AppError.badRequest(
+			"bad_request:api:file_type_unsupported",
+			"File content does not match a supported image type",
 		).toResponse()
 	}
 
@@ -122,10 +155,9 @@ export async function POST(request: Request) {
 	const rawFilename =
 		hasName && (file as File).name ? (file as File).name : `upload-${Date.now()}`
 	const filename = sanitizeFilename(rawFilename)
-	const contentType = file.type || "application/octet-stream"
 
 	try {
-		const blob = await put(filename, file, {
+		const blob = await put(`uploads/${filename}`, file, {
 			access: "public",
 			contentType,
 		})

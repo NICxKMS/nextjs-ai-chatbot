@@ -31,6 +31,8 @@ import { logger } from "@/lib/utils/logger"
 
 const CHAT_RATE_LIMIT = 20
 const CHAT_RATE_WINDOW_SECONDS = 60
+const CHAT_DAILY_RATE_LIMIT = 100
+const CHAT_DAILY_RATE_WINDOW_SECONDS = 86_400
 const CHAT_PERSISTENCE_RETRY_DELAYS_MS = [150, 400] as const
 const CHAT_PERSISTENCE_RECOVERY_MESSAGE =
 	"The last assistant response could not be saved. Please resend your last message or continue the conversation from here."
@@ -137,6 +139,19 @@ export async function requireChatSession(): Promise<AppSession | Response> {
 }
 
 export async function enforceChatRateLimit(userId: string): Promise<Response | null> {
+	const dailyAllowed = await checkRateLimit(
+		rateLimitKeys.rateLimitDaily(userId),
+		CHAT_DAILY_RATE_LIMIT,
+		CHAT_DAILY_RATE_WINDOW_SECONDS,
+	)
+
+	if (!dailyAllowed) {
+		return AppError.rateLimited(
+			"rate_limit:chat:daily_limit_exceeded",
+			"Daily message limit exceeded.",
+		).toResponse()
+	}
+
 	const allowed = await checkRateLimit(
 		rateLimitKeys.rateLimitChat(userId),
 		CHAT_RATE_LIMIT,
@@ -184,13 +199,9 @@ export async function resolveChatRouteContext({
 	const { id: chatId, message, selectedChatModel, selectedVisibilityType, settings } = requestData
 	const effectiveSettings = settings ?? DEFAULT_SETTINGS
 
-	// Parallelize: model validation, chat ownership check, and messages fetch all start together.
-	// Messages are fetched speculatively — if the chat doesn't exist or the user doesn't own it,
-	// the messages result is simply discarded.
-	const [availableModels, existingChat, dbMessages] = await Promise.all([
+	const [availableModels, existingChat] = await Promise.all([
 		getAvailableModels(),
 		getChatById(chatId),
-		getMessagesForChatRender(chatId),
 	])
 	const modelMetadata = availableModels.find((model) => model.id === selectedChatModel)
 	if (!modelMetadata) {
@@ -204,7 +215,10 @@ export async function resolveChatRouteContext({
 		return AppError.forbidden("forbidden:chat:owner_mismatch").toResponse()
 	}
 
+	const dbMessages = existingChat ? await getMessagesForChatRender(chatId) : []
+
 	const userDbMessage = toUserDbMessage(chatId, message)
+	const userMessageAlreadyPersisted = dbMessages.some((dbMessage) => dbMessage.id === message.id)
 
 	const isNewChat = !existingChat
 	if (isNewChat) {
@@ -223,8 +237,12 @@ export async function resolveChatRouteContext({
 			message: userDbMessage,
 		})
 	} else {
-		await saveMessages([userDbMessage])
+		if (!userMessageAlreadyPersisted) {
+			await saveMessages([userDbMessage])
+		}
 	}
+
+	const requestMessages = userMessageAlreadyPersisted ? [] : [toUserMessage(message)]
 
 	// For new chats, dbMessages will be empty (no messages exist yet) which is correct.
 	return {
@@ -233,8 +251,8 @@ export async function resolveChatRouteContext({
 		selectedChatModel,
 		modelMetadata,
 		effectiveSettings,
-		allMessages: [...convertToUIMessages(dbMessages), toUserMessage(message)],
-		hasTools: getEnabledTools(modelMetadata).length > 0,
+		allMessages: [...convertToUIMessages(dbMessages), ...requestMessages],
+		hasTools: (getEnabledTools(modelMetadata)?.length ?? 0) > 0,
 		isNewChat,
 		messageText: getRequestMessageText(message),
 	}

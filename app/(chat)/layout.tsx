@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { cookies, headers } from "next/headers"
-import { Suspense } from "react"
+import { type ReactNode, Suspense } from "react"
 import { SidebarInset } from "@/components/ui/sidebar"
 import { SidebarProvider } from "@/components/ui/sidebar-provider"
 import { SessionProvider } from "@/features/auth/components/session-provider"
@@ -32,26 +32,34 @@ async function getSidebarDefaultOpen() {
 // Suspense. Children render immediately alongside the skeleton fallback so page
 // content is never blanked during sidebar loading.
 
-export default async function ChatLayout({ children }: { children: React.ReactNode }) {
+async function ChatLayoutContent({ children }: { children: ReactNode }) {
 	const sessionPromise = getAppSession()
 	const [defaultOpen, headersList] = await Promise.all([getSidebarDefaultOpen(), headers()])
 	const initialIsMobile = headersList.get("x-device-type") === "mobile"
 
 	return (
+		<SessionProvider session={sessionPromise}>
+			<PendingChatsProvider>
+				<SidebarProvider defaultOpen={defaultOpen} initialIsMobile={initialIsMobile}>
+					<Suspense fallback={<SidebarSkeleton />}>
+						<SidebarShell />
+					</Suspense>
+					<SidebarInset id="main-content">{children}</SidebarInset>
+				</SidebarProvider>
+			</PendingChatsProvider>
+		</SessionProvider>
+	)
+}
+
+export default function ChatLayout({ children }: { children: ReactNode }) {
+	return (
 		<>
 			<Suspense fallback={null}>
 				<NoticeHandler />
 			</Suspense>
-			<SessionProvider session={sessionPromise}>
-				<PendingChatsProvider>
-					<SidebarProvider defaultOpen={defaultOpen} initialIsMobile={initialIsMobile}>
-						<Suspense fallback={<SidebarSkeleton />}>
-							<SidebarShell />
-						</Suspense>
-						<SidebarInset id="main-content">{children}</SidebarInset>
-					</SidebarProvider>
-				</PendingChatsProvider>
-			</SessionProvider>
+			<Suspense fallback={<SidebarSkeleton />}>
+				<ChatLayoutContent>{children}</ChatLayoutContent>
+			</Suspense>
 		</>
 	)
 }

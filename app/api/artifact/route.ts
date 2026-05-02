@@ -10,9 +10,11 @@ import { checkRateLimitWithInfo } from "@/lib/cache/rate-limit"
 import {
 	deleteArtifactVersionsAfter,
 	getArtifactById,
+	getArtifactOwnerId,
 	getArtifactVersions,
 	saveArtifactVersion,
 } from "@/lib/data/artifact"
+import { getChatOwnerId } from "@/lib/data/chat"
 import { AppError } from "@/lib/errors/app-error"
 import { validateOrigin } from "@/lib/utils/validate-origin"
 
@@ -83,20 +85,21 @@ export async function GET(request: Request) {
 			})
 		}
 
-		const versions = await getArtifactVersions(id)
-		const latest = versions[0] ?? (await getArtifactById(id))
-		if (!latest) {
+		const ownerId = await getArtifactOwnerId(id)
+		if (!ownerId) {
 			return AppError.notFound(
 				"not_found:artifact:artifact_not_found",
 				"Artifact not found",
 			).toResponse()
 		}
 
-		if (latest.userId !== session.user.id) {
+		if (ownerId !== session.user.id) {
 			return AppError.forbidden("forbidden:chat:owner_mismatch", "Access denied").toResponse()
 		}
 
-		return Response.json(versions.length > 0 ? versions : [latest], {
+		const versions = await getArtifactVersions(id)
+
+		return Response.json(versions, {
 			headers: { "Cache-Control": "private, max-age=10" },
 		})
 	} catch (error) {
@@ -182,14 +185,26 @@ async function handleSave(data: SaveArtifactInput, userId: string): Promise<Resp
 	if (existing && existing.userId !== userId) {
 		throw AppError.forbidden("forbidden:chat:owner_mismatch", "Access denied")
 	}
+	if (!existing) {
+		const chatOwnerId = await getChatOwnerId(data.chatId)
+		if (!chatOwnerId) {
+			throw AppError.notFound("not_found:chat:chat_not_found", "Chat not found")
+		}
+		if (chatOwnerId !== userId) {
+			throw AppError.forbidden("forbidden:chat:owner_mismatch", "Access denied")
+		}
+	}
+
+	const artifactKind = existing?.kind ?? data.kind
+	const artifactChatId = existing?.chatId ?? data.chatId
 
 	const artifact = await saveArtifactVersion({
 		id: data.id,
 		title: data.title,
 		content: data.content,
-		kind: data.kind,
+		kind: artifactKind,
 		userId,
-		chatId: data.chatId,
+		chatId: artifactChatId,
 	})
 
 	return Response.json(

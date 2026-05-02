@@ -4,13 +4,8 @@
 
 **Stack:** Next.js 16 · React 19 · TypeScript · Drizzle ORM · Supabase · Tailwind v4 · Vercel AI SDK · Biome
 
----
-
-## **Critical** Must read before starting any implementation and review work.
->For Implementing/Implementation Subagent `plan/guides/Implementation_Agent_Guide.md` and `.next-docs/` before starting.**
->For Review Subagent `plan/guides/Review_Agent_Guide.md` before starting.**
-
----
+> Always use a timeout when running tests to prevent infinite loops or hanging processes. A reasonable default is 30 seconds, but adjust as needed based on the test complexity.
+>Also for calling external APIs, set a timeout to avoid hanging requests. A common timeout is 10 seconds, but adjust based on expected response times.
 
 ## Next.js Documentation
 
@@ -153,3 +148,8 @@ Never repeat the same failed approach.
 ## Guiding Principle
 
 > This system is intentionally designed. Extend it safely, consistently, and correctly.
+
+
+This is a greenfield prject so there is no need to maintain backward compatibility. 
+Also no external users are consuming this code, so we can make breaking changes whenever we want.
+Always prefer the simplest solution that works, and do not over-engineer for hypothetical future use cases. We can always refactor later if needed.

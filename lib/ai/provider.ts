@@ -13,11 +13,15 @@ const modelCache = new Map<string, LanguageModelV3>()
 
 type RegistryModelId = `${string}:${string}`
 
-/** Model IDs must be in `provider:model-name` format with non-empty segments. */
-const MODEL_ID_PATTERN = /^[a-z][a-z0-9]*:[a-zA-Z0-9][a-zA-Z0-9_.\-/]*$/
+const PROVIDER_ID_PATTERN = /^[a-z][a-z0-9]*$/
+const PROVIDER_MODEL_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_.\-/:]*$/
 
 function assertValidModelId(modelId: string): asserts modelId is RegistryModelId {
-	if (!MODEL_ID_PATTERN.test(modelId)) {
+	const separatorIndex = modelId.indexOf(":")
+	const provider = separatorIndex > 0 ? modelId.slice(0, separatorIndex) : ""
+	const providerModelId = separatorIndex > 0 ? modelId.slice(separatorIndex + 1) : ""
+
+	if (!PROVIDER_ID_PATTERN.test(provider) || !PROVIDER_MODEL_ID_PATTERN.test(providerModelId)) {
 		throw new Error(
 			`Invalid model ID "${modelId}". Expected format: "provider:model-name" (e.g. "google:gemini-2.5-flash").`,
 		)

@@ -89,7 +89,7 @@ export default function GlobalError({
 	return (
 		<html lang="en">
 			<body>
-				<div style={PAGE_STYLE}>
+				<div role="alert" style={PAGE_STYLE}>
 					<p style={LABEL_STYLE}>ai-assistant</p>
 					<h2 style={TITLE_STYLE}>Something went wrong</h2>
 					<p style={BODY_STYLE}>

@@ -43,3 +43,24 @@ export async function saveSuggestions(data: NewSuggestion[]): Promise<Suggestion
 		throwDatabaseError(error, "Failed to save suggestions", { count: data.length })
 	}
 }
+
+export async function deleteSuggestionsByArtifactVersion(
+	artifactId: string,
+	artifactCreatedAt: Date,
+): Promise<void> {
+	try {
+		await db
+			.delete(suggestions)
+			.where(
+				and(
+					eq(suggestions.artifactId, artifactId),
+					eq(suggestions.artifactCreatedAt, artifactCreatedAt),
+				),
+			)
+	} catch (error) {
+		throwDatabaseError(error, "Failed to delete suggestions for artifact version", {
+			artifactId,
+			artifactCreatedAt: artifactCreatedAt.toISOString(),
+		})
+	}
+}

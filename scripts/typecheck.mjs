@@ -11,45 +11,37 @@
 import { execSync } from "node:child_process"
 
 const EXCLUDED_PREFIX = "components/ai-elements/"
-const DIAGNOSTIC_PATTERN = /\berror TS\d+/
-
-function isDiagnosticStart(line) {
-	return /^\S/.test(line) && DIAGNOSTIC_PATTERN.test(line)
-}
-
-function shouldExcludeDiagnostic(line) {
-	return line.startsWith(EXCLUDED_PREFIX)
-}
-
-function filterDiagnostics(raw) {
-	const filtered = []
-	let skipping = false
-
-	for (const line of raw.split(/\r?\n/)) {
-		if (isDiagnosticStart(line)) {
-			skipping = shouldExcludeDiagnostic(line)
-			if (!skipping) {
-				filtered.push(line)
-			}
-			continue
-		}
-
-		if (!skipping) {
-			filtered.push(line)
-		}
-	}
-
-	return filtered
-}
 
 try {
-	execSync("tsgo --noEmit", { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] })
+	execSync("tsc --noEmit", { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] })
 	process.exit(0)
 } catch (error) {
 	const raw = (error.stdout || "") + (error.stderr || "")
-	const filtered = filterDiagnostics(raw)
+	const lines = raw.split(/\r?\n/)
+
+	const filtered = []
+	let skipping = false
+
+	for (const line of lines) {
+		// New diagnostic line — starts with a file path
+		if (/^\S/.test(line) && line.includes(": error TS")) {
+			if (line.startsWith(EXCLUDED_PREFIX)) {
+				skipping = true
+				continue
+			}
+			skipping = false
+			filtered.push(line)
+			continue
+		}
+
+		// Continuation of a multi-line diagnostic (indented or blank)
+		if (skipping) continue
+
+		filtered.push(line)
+	}
+
 	const output = filtered.join("\n").trimEnd()
-	const remainingErrors = filtered.filter((line) => DIAGNOSTIC_PATTERN.test(line))
+	const remainingErrors = filtered.filter((l) => /\berror TS\d+/.test(l))
 
 	if (output) process.stderr.write(`${output}\n`)
 	process.exit(remainingErrors.length > 0 ? 1 : 0)

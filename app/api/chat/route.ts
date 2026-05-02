@@ -95,10 +95,13 @@ export async function POST(request: Request) {
 	} = chatContext
 
 	let generatedTitle: string | undefined
+	let titlePromise: Promise<string | undefined> | undefined
 	let titleEmitted = false
 	// The fixture provides its own mock model + tools, so `hasTools` is not required.
-	// The cookie is only set in E2E tests; it never appears in production traffic.
+	// Keep this behind a server-controlled flag so a client cookie cannot enable it.
 	const useArtifactE2EFixture =
+		process.env.NODE_ENV !== "production" &&
+		process.env.ENABLE_E2E_ARTIFACT_FIXTURE === "1" &&
 		request.headers.get("cookie")?.includes("e2e-artifact-fixture=1") === true
 
 	// Dynamic import: keeps ~280-line E2E fixture out of the production bundle
@@ -110,6 +113,10 @@ export async function POST(request: Request) {
 		const stream = createUIMessageStream({
 			execute: async ({ writer }) => {
 				let canEmitGeneratedTitle = false
+				const getGeneratedTitle = async () => {
+					if (generatedTitle) return generatedTitle
+					return titlePromise
+				}
 				const emitGeneratedTitle = () => {
 					if (!canEmitGeneratedTitle || titleEmitted || !generatedTitle) {
 						return
@@ -128,13 +135,15 @@ export async function POST(request: Request) {
 				}
 
 				if (isNewChat) {
-					void generateTitle(messageText)
+					titlePromise = generateTitle(messageText)
 						.then((title) => {
 							generatedTitle = title
 							emitGeneratedTitle()
+							return title
 						})
 						.catch(() => {
 							// Title generation is optional metadata.
+							return undefined
 						})
 				}
 
@@ -197,6 +206,9 @@ export async function POST(request: Request) {
 						generateMessageId: generateUUID,
 						onFinish: async ({ messages: responseMessages }) => {
 							try {
+								const finalGeneratedTitle = isNewChat
+									? await getGeneratedTitle()
+									: undefined
 								const persistedResponseMessages = e2eFixture
 									? e2eFixture.toPersistedArtifactFixtureMessages(
 											responseMessages,
@@ -208,14 +220,17 @@ export async function POST(request: Request) {
 									userId: session.user.id,
 									responseMessages: persistedResponseMessages,
 									isNewChat,
-									generatedTitle,
+									generatedTitle: finalGeneratedTitle,
 								})
 							} catch (error) {
+								const finalGeneratedTitle = isNewChat
+									? await getGeneratedTitle()
+									: undefined
 								const recovered = await recoverChatPersistenceFailure({
 									chatId,
 									userId: session.user.id,
 									isNewChat,
-									generatedTitle,
+									generatedTitle: finalGeneratedTitle,
 								})
 
 								if (recovered) {

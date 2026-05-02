@@ -50,3 +50,11 @@ export async function upsertVote(data: {
 		})
 	}
 }
+
+export async function deleteVotesByChatId(chatId: string, userId: string): Promise<void> {
+	try {
+		await db.delete(votes).where(and(eq(votes.chatId, chatId), eq(votes.userId, userId)))
+	} catch (error) {
+		throwDatabaseError(error, "Failed to delete votes for chat", { chatId })
+	}
+}

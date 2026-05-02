@@ -127,7 +127,7 @@ export const requestSuggestionsTool = ({ session, chatStream }: RequestSuggestio
 		execute: async ({ artifactId }) => {
 			const artifact = await getArtifactById(artifactId)
 
-			if (!artifact || !artifact.content) {
+			if (!artifact?.content) {
 				return { error: "Artifact not found or has no content" }
 			}
 

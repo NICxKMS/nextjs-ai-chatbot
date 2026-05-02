@@ -43,6 +43,7 @@ export async function enforceAuthRateLimit(
 		config.createKey(await getClientIp()),
 		config.limit,
 		config.windowSeconds,
+		{ failureMode: "block" },
 	)
 
 	if (allowed) return null

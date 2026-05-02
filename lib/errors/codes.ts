@@ -25,6 +25,7 @@ export type ErrorCode =
 	| "not_found:vote:message_not_in_chat"
 	// ── Rate limiting errors ──
 	| "rate_limit:artifact:too_many_requests"
+	| "rate_limit:chat:daily_limit_exceeded"
 	| "rate_limit:chat:too_many_requests"
 	| "rate_limit:history:too_many_requests"
 	| "rate_limit:suggestions:too_many_requests"
@@ -60,6 +61,7 @@ export const ERROR_STATUS_MAP: Record<ErrorCode, number> = {
 	"not_found:artifact:artifact_not_found": 404,
 	"not_found:vote:message_not_in_chat": 404,
 	"rate_limit:artifact:too_many_requests": 429,
+	"rate_limit:chat:daily_limit_exceeded": 429,
 	"rate_limit:chat:too_many_requests": 429,
 	"rate_limit:history:too_many_requests": 429,
 	"rate_limit:suggestions:too_many_requests": 429,

@@ -1,12 +1,12 @@
 import "server-only"
 
-import { and, desc, eq, lt, or } from "drizzle-orm"
+import { and, asc, desc, eq, lt, or } from "drizzle-orm"
 
 import { requireDatabaseRow, throwDatabaseError } from "@/lib/data/database-error"
 import { db } from "@/lib/db/client"
 import { artifacts, chats, messages, suggestions } from "@/lib/db/schema"
 import type { HistoryResponse, PaginationParams } from "@/lib/types/api.types"
-import type { Chat, ChatSummary, NewMessage, Visibility } from "@/lib/types/entity.types"
+import type { Chat, ChatSummary, Message, NewMessage, Visibility } from "@/lib/types/entity.types"
 
 const DEFAULT_PAGE_SIZE = 20
 
@@ -102,6 +102,28 @@ export async function getChatOwnerId(chatId: string): Promise<string | null> {
 		return result[0]?.userId ?? null
 	} catch (error) {
 		throwDatabaseError(error, "Failed to get chat owner", { chatId })
+	}
+}
+
+export async function getChatWithMessages(
+	chatId: string,
+): Promise<{ chat: Chat; messages: Message[] } | null> {
+	try {
+		const chat = await db.query.chats.findFirst({
+			where: eq(chats.id, chatId),
+		})
+
+		if (!chat) return null
+
+		const chatMessages = await db
+			.select()
+			.from(messages)
+			.where(eq(messages.chatId, chatId))
+			.orderBy(asc(messages.createdAt))
+
+		return { chat, messages: chatMessages }
+	} catch (error) {
+		throwDatabaseError(error, "Failed to get chat with messages", { chatId })
 	}
 }
 

@@ -81,7 +81,7 @@ export async function GET(request: Request) {
 				hasMore: result.hasMore,
 				nextCursor: result.nextCursor,
 			},
-			{ headers: { "Cache-Control": "private, no-cache" } },
+			{ headers: { "Cache-Control": "no-store" } },
 		)
 	} catch (error) {
 		if (error instanceof AppError) {

@@ -48,10 +48,6 @@ export function VersionFooter({
 
 	const isCurrentVersion = currentVersionIndex === versions.length - 1
 
-	if (isCurrentVersion) {
-		return null
-	}
-
 	return (
 		<motion.div
 			animate={{ y: 0 }}
@@ -65,7 +61,9 @@ export function VersionFooter({
 					Version {currentVersionIndex + 1} of {versions.length}
 				</div>
 				<div className="text-muted-foreground text-sm">
-					Restore this version to make edits
+					{isCurrentVersion
+						? "Viewing the latest version"
+						: "Restore this version to make edits"}
 				</div>
 			</div>
 
@@ -87,7 +85,7 @@ export function VersionFooter({
 					Next
 				</Button>
 				<Button
-					disabled={isMutating}
+					disabled={isMutating || isCurrentVersion}
 					onClick={async () => {
 						setIsMutating(true)
 						try {
@@ -127,7 +125,11 @@ export function VersionFooter({
 						</div>
 					)}
 				</Button>
-				<Button onClick={() => handleVersionChange("latest")} variant="outline">
+				<Button
+					disabled={isCurrentVersion}
+					onClick={() => handleVersionChange("latest")}
+					variant="outline"
+				>
 					Back to latest version
 				</Button>
 			</div>

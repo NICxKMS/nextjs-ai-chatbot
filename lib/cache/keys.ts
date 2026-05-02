@@ -22,6 +22,8 @@ export const cacheKeys = {
 // ── Rate-limit Redis key builders ──
 
 export const rateLimitKeys = {
+	rateLimit: (userId: string) => `rate-limit:${userId}`,
+	rateLimitDaily: (userId: string) => `rate-limit-daily:${userId}`,
 	rateLimitArtifact: (userId: string) => `rate-limit-artifact:${userId}`,
 	rateLimitChat: (userId: string) => `rate-limit-chat:${userId}`,
 	rateLimitHistory: (userId: string) => `rate-limit-history:${userId}`,

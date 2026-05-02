@@ -190,8 +190,8 @@ export function ModelSelector({
 			</ModelSelectorTrigger>
 
 			<ModelSelectorContent
-				onOpenAutoFocus={(e) => {
-					e.preventDefault()
+				onOpenAutoFocus={(event: Event) => {
+					event.preventDefault()
 					inputRef.current?.focus()
 				}}
 			>

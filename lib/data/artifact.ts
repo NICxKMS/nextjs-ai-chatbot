@@ -147,7 +147,10 @@ export async function saveArtifactVersion(data: {
  * Delete all artifact versions strictly after the given timestamp.
  * Uses the composite PK (id + createdAt) for targeted deletion.
  */
-export async function deleteArtifactVersionsAfter(artifactId: string, createdAt: Date): Promise<void> {
+export async function deleteArtifactVersionsAfter(
+	artifactId: string,
+	createdAt: Date,
+): Promise<void> {
 	try {
 		await db
 			.delete(artifacts)
@@ -156,3 +159,5 @@ export async function deleteArtifactVersionsAfter(artifactId: string, createdAt:
 		throwDatabaseError(error, "Failed to delete artifact version", { artifactId })
 	}
 }
+
+export const deleteArtifactVersion = deleteArtifactVersionsAfter

@@ -2,7 +2,7 @@
 
 import { Settings2Icon } from "lucide-react"
 import Link from "next/link"
-import { memo, useState } from "react"
+import { memo, useEffect, useRef, useState } from "react"
 import { PlusIcon } from "@/components/icons"
 import { SidebarToggle } from "@/components/sidebar-toggle"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,16 @@ import { VisibilitySelector } from "@/features/visibility/components/visibility-
 export const ChatHeader = memo(function ChatHeader() {
 	const { chatModel, setChatModel, availableModels } = useChatSessionContext()
 	const [settingsOpen, setSettingsOpen] = useState(false)
+	const settingsButtonRef = useRef<HTMLButtonElement>(null)
+	const wasSettingsOpenRef = useRef(false)
+
+	useEffect(() => {
+		if (wasSettingsOpenRef.current && !settingsOpen) {
+			settingsButtonRef.current?.focus()
+		}
+
+		wasSettingsOpenRef.current = settingsOpen
+	}, [settingsOpen])
 
 	return (
 		<header
@@ -40,7 +50,7 @@ export const ChatHeader = memo(function ChatHeader() {
 						>
 							<Link href="/" data-testid="new-chat-button">
 								<PlusIcon size={16} />
-								<span className="md:sr-only">New Chat</span>
+								<span className="sr-only">New Chat</span>
 							</Link>
 						</Button>
 					</TooltipTrigger>
@@ -51,6 +61,7 @@ export const ChatHeader = memo(function ChatHeader() {
 						<Button
 							className="relative h-8 px-2 after:absolute after:-inset-1.5 after:md:hidden md:h-fit md:px-2"
 							onClick={() => setSettingsOpen(true)}
+							ref={settingsButtonRef}
 							variant="outline"
 						>
 							<Settings2Icon className="size-4" />

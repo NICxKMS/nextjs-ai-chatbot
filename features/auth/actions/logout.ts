@@ -21,19 +21,19 @@ import { logger } from "@/lib/utils/logger"
  */
 export async function logout(): Promise<ActionResult<void>> {
 	const cookieStore = await cookies()
-	const isGuestSession = Boolean(cookieStore.get(GUEST_COOKIE_NAME)?.value)
-
-	if (isGuestSession) {
-		// Guest sessions have no Supabase auth — just clear the cookie and redirect
-		logger.info("[logout] Guest session — skipping Supabase signOut")
-		cookieStore.delete(GUEST_COOKIE_NAME)
-		redirect("/login")
-	}
 
 	// 1. Sign out from Supabase (best effort — clears auth cookies via setAll)
 	const supabase = await createSupabaseActionClient()
 	if (supabase) {
-		await supabase.auth.signOut()
+		try {
+			await supabase.auth.signOut()
+		} catch (error) {
+			logger.error("[logout] Supabase signOut failed", {
+				error: error instanceof Error ? error.message : String(error),
+			})
+		}
+	} else {
+		logger.info("[logout] Supabase action client unavailable — clearing local session state")
 	}
 
 	// 2. Clear guest token (belt-and-suspenders for edge cases)

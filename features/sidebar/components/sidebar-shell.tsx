@@ -14,6 +14,7 @@ import { getAppSession } from "@/lib/auth/session"
 import { cacheKeys } from "@/lib/cache/keys"
 import { getChatsByUserId } from "@/lib/data/chat"
 import type { ChatSummary } from "@/lib/types/entity.types"
+import { logger } from "@/lib/utils/logger"
 
 // ── Cached data fetcher ────────────────────────────────────────
 
@@ -52,9 +53,13 @@ export async function SidebarShell() {
 	let initialHasMore = false
 
 	if (user) {
-		const { chats, hasMore } = await getCachedChats(user.id)
-		initialChats = chats
-		initialHasMore = hasMore
+		try {
+			const { chats, hasMore } = await getCachedChats(user.id)
+			initialChats = chats
+			initialHasMore = hasMore
+		} catch (error) {
+			logger.error("[SidebarShell] Failed to load initial chat history", { error })
+		}
 	}
 
 	return (

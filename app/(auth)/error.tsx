@@ -22,7 +22,10 @@ export default function AuthError({
 	}, [error])
 
 	return (
-		<div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 text-center">
+		<div
+			role="alert"
+			className="flex min-h-[50vh] flex-col items-center justify-center gap-4 text-center"
+		>
 			<div className="space-y-2">
 				<h2 className="font-semibold text-2xl tracking-tight">Something went wrong</h2>
 				<p className="text-muted-foreground text-sm">

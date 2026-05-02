@@ -5,12 +5,19 @@ import { useCallback, useMemo } from "react"
 import { toast } from "sonner"
 
 import {
+	Attachment,
+	AttachmentPreview,
+	AttachmentRemove,
+	Attachments,
+} from "@/components/ai-elements/attachments"
+import {
 	PromptInput,
 	PromptInputActionAddAttachments,
 	PromptInputActionMenu,
 	PromptInputActionMenuContent,
 	PromptInputActionMenuTrigger,
 	PromptInputFooter,
+	PromptInputHeader,
 	type PromptInputMessage,
 	PromptInputProvider,
 	PromptInputSubmit,
@@ -127,6 +134,25 @@ function ControlledMultimodalInput({ className }: { className?: string }) {
 			multiple
 			onSubmit={handleSubmit}
 		>
+			{controller.attachments.files.length > 0 && (
+				<PromptInputHeader data-testid="attachment-previews">
+					<Attachments>
+						{controller.attachments.files.map((file) => (
+							<Attachment
+								data={file}
+								key={file.id}
+								onRemove={() => controller.attachments.remove(file.id)}
+							>
+								<AttachmentPreview />
+								<AttachmentRemove
+									className="z-20 opacity-100"
+									label={`Remove ${file.filename ?? "attachment"}`}
+								/>
+							</Attachment>
+						))}
+					</Attachments>
+				</PromptInputHeader>
+			)}
 			<PromptInputTextarea
 				autoFocus
 				className="min-h-11 pr-14"
@@ -147,7 +173,10 @@ function ControlledMultimodalInput({ className }: { className?: string }) {
 			<PromptInputFooter>
 				<PromptInputTools>
 					<PromptInputActionMenu>
-						<PromptInputActionMenuTrigger tooltip="Attach file" />
+						<PromptInputActionMenuTrigger
+							aria-label="Attach file"
+							tooltip="Attach file"
+						/>
 						<PromptInputActionMenuContent>
 							<PromptInputActionAddAttachments />
 						</PromptInputActionMenuContent>

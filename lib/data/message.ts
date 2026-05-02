@@ -1,6 +1,6 @@
 import "server-only"
 
-import { and, desc, eq, gte } from "drizzle-orm"
+import { and, asc, desc, eq, gte } from "drizzle-orm"
 
 import { throwDatabaseError } from "@/lib/data/database-error"
 import { db } from "@/lib/db/client"
@@ -59,6 +59,18 @@ export async function getMessageById(messageId: string): Promise<Message | null>
 	}
 }
 
+export async function getMessagesByChatId(chatId: string): Promise<Message[]> {
+	try {
+		return await db
+			.select()
+			.from(messages)
+			.where(eq(messages.chatId, chatId))
+			.orderBy(asc(messages.createdAt))
+	} catch (error) {
+		throwDatabaseError(error, "Failed to get messages for chat", { chatId })
+	}
+}
+
 /**
  * Batch insert messages. Returns the inserted rows.
  */
@@ -106,5 +118,13 @@ export async function deleteMessagesByIdAfter(chatId: string, messageId: string)
 			chatId,
 			messageId,
 		})
+	}
+}
+
+export async function deleteMessagesByChatId(chatId: string): Promise<void> {
+	try {
+		await db.delete(messages).where(eq(messages.chatId, chatId))
+	} catch (error) {
+		throwDatabaseError(error, "Failed to delete messages for chat", { chatId })
 	}
 }

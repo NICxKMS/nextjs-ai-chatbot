@@ -17,7 +17,12 @@ const MESSAGE_SKELETONS = [
  */
 export default function Loading() {
 	return (
-		<div className="flex h-dvh min-w-0 flex-col bg-background">
+		<div
+			aria-label="Loading conversation"
+			aria-live="polite"
+			className="flex h-dvh min-w-0 flex-col bg-background"
+			role="status"
+		>
 			{/* Header skeleton — matches ChatHeader layout */}
 			<header className="sticky top-0 flex items-center gap-2 bg-background px-2 py-1.5 md:px-2">
 				<Skeleton className="size-8 rounded-md" />

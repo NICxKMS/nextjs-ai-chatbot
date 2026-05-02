@@ -29,6 +29,15 @@ export async function getUserById(id: string): Promise<Omit<User, "passwordHash"
 	}
 }
 
+export async function getUserByEmail(email: string): Promise<User | null> {
+	try {
+		const result = await db.select().from(users).where(eq(users.email, email.toLowerCase()))
+		return result[0] ?? null
+	} catch (error) {
+		throwDatabaseError(error, "Failed to get user by email")
+	}
+}
+
 /**
  * Create a new user in the database.
  * Wraps DB errors in AppError.

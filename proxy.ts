@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
-import { GUEST_COOKIE_NAME, GUEST_TOKEN_TTL_SECONDS } from "@/lib/auth/constants"
+import { GUEST_COOKIE_MAX_AGE_SECONDS, GUEST_COOKIE_NAME } from "@/lib/auth/constants"
 import { mintGuestToken, rotateGuestToken, verifyGuestToken } from "@/lib/auth/guest"
 import { logger } from "@/lib/utils/logger"
 
@@ -21,14 +21,12 @@ const SUPABASE_AUTH_COOKIE_NAME_OVERRIDE =
 	process.env.SUPABASE_ACCESS_TOKEN_COOKIE_NAME?.trim() || null
 
 /**
- * Guest token cookie max age — aligned with JWT TTL.
+ * Guest token cookie max age.
  *
- * The cookie is the browser-side container for the guest JWT. Its maxAge should
- * match the JWT lifetime so the cookie self-cleans when the token expires.
- * Every successful rotation refreshes this maxAge, so active users always
- * have a valid cookie. Inactive users' cookies expire alongside the JWT.
+ * The JWT expires hourly and is rotated while active; the cookie persists the
+ * guest identity across short breaks so the proxy can rotate or replace tokens.
  */
-const GUEST_COOKIE_MAX_AGE = GUEST_TOKEN_TTL_SECONDS
+const GUEST_COOKIE_MAX_AGE = GUEST_COOKIE_MAX_AGE_SECONDS
 
 // ── Route Classification ───────────────────────────────────────
 // Per auth-system.md §Route Classification Matrix (canonical):
@@ -109,6 +107,10 @@ function classifyRoute(pathname: string): RouteClass {
  */
 function isRateLimitExempt(pathname: string): boolean {
 	return RATE_LIMIT_EXEMPT_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+}
+
+function isApiRoute(pathname: string): boolean {
+	return pathname.startsWith("/api/")
 }
 
 // ── Guest Token Helpers ────────────────────────────────────────
@@ -219,6 +221,11 @@ export async function proxy(request: NextRequest) {
 			const verified = guestToken ? await verifyGuestToken(guestToken) : null
 
 			if (!verified) {
+				if (isApiRoute(pathname)) {
+					requestHeaders.set("x-session-type", "none")
+					return forwardRequest(requestHeaders)
+				}
+
 				const loginUrl = new URL("/login", request.url)
 				return NextResponse.redirect(loginUrl)
 			}

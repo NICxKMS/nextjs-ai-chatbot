@@ -52,7 +52,8 @@ export async function getAvailableModels(): Promise<ModelMetadata[]> {
  * Resolution order:
  * 1. Read `chat-model` cookie for persisted model preference
  * 2. Validate cookie value exists in the model catalog
- * 3. Fall back to `DEFAULT_CHAT_MODEL`
+ * 3. Fall back to `DEFAULT_CHAT_MODEL` if configured
+ * 4. Fall back to the first available configured model
  *
  * The `session` parameter is reserved for future user-level model preferences.
  */
@@ -63,10 +64,14 @@ export async function getDefaultModel(
 	const cookieStore = await cookies()
 	const preferred = cookieStore.get(MODEL_COOKIE_NAME)?.value
 
-	if (!preferred) {
+	const models = await (availableModels ?? getAvailableModels())
+	if (preferred && models.some((model) => model.id === preferred)) {
+		return preferred
+	}
+
+	if (models.some((model) => model.id === DEFAULT_CHAT_MODEL)) {
 		return DEFAULT_CHAT_MODEL
 	}
 
-	const models = await (availableModels ?? getAvailableModels())
-	return models.some((model) => model.id === preferred) ? preferred : DEFAULT_CHAT_MODEL
+	return models[0]?.id ?? DEFAULT_CHAT_MODEL
 }

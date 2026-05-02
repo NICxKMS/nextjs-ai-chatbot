@@ -12,6 +12,8 @@ export type RateLimitResult = {
 	retryAfter?: number
 }
 
+type RateLimitFailureMode = "allow" | "block"
+
 // ── Redis singleton for rate limiting ──────────────────────────
 
 const globalForRedis = globalThis as unknown as {
@@ -64,9 +66,10 @@ async function performRateLimit(
 	key: string,
 	limit: number,
 	windowSeconds: number,
+	failureMode: RateLimitFailureMode = "allow",
 ): Promise<RateLimitResult> {
 	const limiter = getRateLimiter(limit, windowSeconds)
-	if (!limiter) return { allowed: true } // Graceful degradation: Redis unavailable
+	if (!limiter) return { allowed: failureMode === "allow" }
 
 	try {
 		const result = await limiter.limit(key)
@@ -78,7 +81,7 @@ async function performRateLimit(
 			retryAfter: retryAfter > 0 ? retryAfter : 1,
 		}
 	} catch {
-		return { allowed: true } // Graceful degradation: SDK error
+		return { allowed: failureMode === "allow" }
 	}
 }
 
@@ -96,8 +99,9 @@ export async function checkRateLimit(
 	key: string,
 	limit: number,
 	windowSeconds: number,
+	options?: { failureMode?: RateLimitFailureMode },
 ): Promise<boolean> {
-	const result = await performRateLimit(key, limit, windowSeconds)
+	const result = await performRateLimit(key, limit, windowSeconds, options?.failureMode)
 	return result.allowed
 }
 
@@ -112,6 +116,7 @@ export async function checkRateLimitWithInfo(
 	key: string,
 	limit: number,
 	windowSeconds: number,
+	options?: { failureMode?: RateLimitFailureMode },
 ): Promise<RateLimitResult> {
-	return performRateLimit(key, limit, windowSeconds)
+	return performRateLimit(key, limit, windowSeconds, options?.failureMode)
 }

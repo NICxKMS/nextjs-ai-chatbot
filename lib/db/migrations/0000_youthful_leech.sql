@@ -67,7 +67,7 @@ ALTER TABLE "Artifact" ADD CONSTRAINT "Artifact_chat_id_Chat_id_fk" FOREIGN KEY 
 ALTER TABLE "Chat" ADD CONSTRAINT "Chat_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "Message_v2" ADD CONSTRAINT "Message_v2_chat_id_Chat_id_fk" FOREIGN KEY ("chat_id") REFERENCES "public"."Chat"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "Suggestion" ADD CONSTRAINT "Suggestion_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "Suggestion" ADD CONSTRAINT "Suggestion_artifact_id_artifact_created_at_Artifact_id_created_at_fk" FOREIGN KEY ("artifact_id","artifact_created_at") REFERENCES "public"."Artifact"("id","created_at") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "Suggestion" ADD CONSTRAINT "Suggestion_artifact_id_artifact_created_at_Artifact_id_created_at_fk" FOREIGN KEY ("artifact_id","artifact_created_at") REFERENCES "public"."Artifact"("id","created_at") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "Vote_v2" ADD CONSTRAINT "Vote_v2_chat_id_Chat_id_fk" FOREIGN KEY ("chat_id") REFERENCES "public"."Chat"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "Vote_v2" ADD CONSTRAINT "Vote_v2_message_id_Message_v2_id_fk" FOREIGN KEY ("message_id") REFERENCES "public"."Message_v2"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "Vote_v2" ADD CONSTRAINT "Vote_v2_user_id_User_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."User"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

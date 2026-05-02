@@ -89,10 +89,10 @@ export class AppError extends Error {
 	static rateLimited(
 		code: Extract<ErrorCode, `rate_limit:${string}`>,
 		message?: string,
-		retryAfter?: number,
+		details?: number | unknown,
 	): AppError {
-		const details = retryAfter != null ? { retryAfter } : undefined
-		return new AppError(code, message ?? "Too many requests", details)
+		const normalizedDetails = typeof details === "number" ? { retryAfter: details } : details
+		return new AppError(code, message ?? "Too many requests", normalizedDetails)
 	}
 
 	static internal(

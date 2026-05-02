@@ -163,6 +163,7 @@ function InnerArtifactPanel({ chatId }: ArtifactPanelProps) {
 	const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null)
 	const [metadata, setMetadata] = useState<unknown>(null)
 	const lastEditedContentRef = useRef(artifact.content)
+	const latestVersionKeyRef = useRef<string | null>(null)
 
 	// ── Sync version index when versions load ────────────────
 
@@ -173,9 +174,16 @@ function InnerArtifactPanel({ chatId }: ArtifactPanelProps) {
 			if (latest) {
 				const latestContent = latest.content ?? ""
 				const latestIndex = panelVersions.length - 1
+				const latestVersionKey = `${latest.id}:${String(latest.createdAt)}`
 
-				if (currentVersionIndex !== latestIndex) {
+				if (
+					latestVersionKeyRef.current !== latestVersionKey &&
+					currentVersionIndex !== latestIndex
+				) {
+					latestVersionKeyRef.current = latestVersionKey
 					setCurrentVersionIndex(latestIndex)
+				} else if (latestVersionKeyRef.current !== latestVersionKey) {
+					latestVersionKeyRef.current = latestVersionKey
 				}
 
 				lastEditedContentRef.current = latestContent
@@ -467,7 +475,7 @@ function InnerArtifactPanel({ chatId }: ArtifactPanelProps) {
 
 			{/* ── Version footer ─────────────────────── */}
 			<AnimatePresence>
-				{!isCurrentVersion && (
+				{panelVersions && panelVersions.length > 1 && (
 					<VersionFooter
 						currentVersionIndex={currentVersionIndex}
 						versions={panelVersions}
